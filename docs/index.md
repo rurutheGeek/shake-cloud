@@ -27,3 +27,7 @@
 - パスワード: Vaultwardenの招待を受け、自分だけが知るマスターパスワードで登録します。
 
 [音楽の取り込み・タグ編集・BCSTM](services/music.md)も参照してください。
+
+## 将来の構成案
+
+[ホームラボ／最小プライベートクラウド構成案](architecture/index.md)では、Proxmox・常用Kubernetes・VM／サーバレス／S3／DBの提供、2人用ゲーム、VPNと公開Web、認証、Git管理を整理しています。稼働中サービスの操作手順とは別の設計資料です。

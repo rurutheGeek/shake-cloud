@@ -1,0 +1,14 @@
+flowchart TB
+  tf["Terraform Provider / CLI"] -->|HTTPS・APIキー| api["自作クラウドAPI<br/>権限・ジョブ・状態照会"]
+  api -.-> pve["Proxmox API"]
+  api -.-> kn["Kubernetes API<br/>Knative Service"]
+  api -.-> garage["Garage 管理API"]
+  api -.-> cnpg["Kubernetes API<br/>CloudNativePG Cluster"]
+  pve -.-> vm["VM"]
+  kn -.-> fn["HTTPコンテナ"]
+  garage -.-> s3["S3バケット"]
+  cnpg -.-> pg["PostgreSQL"]
+  client["アプリ・開発VM"] -->|SSHなど| vm
+  client -->|HTTP| fn
+  client -->|S3署名| s3
+  client -->|SQL・DB資格情報| pg

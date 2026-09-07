@@ -17,3 +17,9 @@ nav:
   - メール設定: operations/smtp.md
   - ハブ運用: operations/hub.md
   - ディスク増設: operations/disk.md
+  - 構成案:
+      - 全体構成と前提: architecture/index.md
+      - 最小クラウドとProvider: architecture/cloud.md
+      - ネットワーク・SSO: architecture/network-auth.md
+      - 2人用ゲーム・開発VM: architecture/gaming.md
+      - 配備・Git・復旧: architecture/operations.md

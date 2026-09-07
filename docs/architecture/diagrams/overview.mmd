@@ -1,0 +1,25 @@
+flowchart TB
+  internet["インターネット"] --> router["既存ルータ・スイッチ"]
+  users["2人の端末 / VPN"] --> pi["既存ラズパイ<br/>Tailscale・DNS・監視"]
+  subgraph host["K11 / Proxmox VE"]
+    edge["公開Caddy VM"]
+    private["VPN側の内部接続"]
+    k8s["常用Kubernetes<br/>CP 1 + worker 2<br/>Web・クラウドAPI<br/>Knative・CloudNativePG"]
+    identity["認証VM<br/>Authentik + 専用DB"]
+    s3["S3 VM<br/>Garage"]
+    game["ゲームVM<br/>Wolf・Azahar×2<br/>780M / 必要時Ollama"]
+    pve["Proxmox API"]
+    dev["開発VM A / B<br/>動的に作成するVM"]
+    edge -->|公開Webのみ| k8s
+    private --> k8s
+    private --> identity
+    private --> s3
+    private --> game
+    k8s -. VM作成 .-> pve
+    pve -.-> dev
+  end
+  router -->|公開443| edge
+  pi --> private
+  git["GitHub / 管理PC"] -. 基盤構築 .-> pve
+  backup["別ディスク・別機器<br/>VM・DB・ファイルのバックアップ"]
+  pve -.-> backup

@@ -1,0 +1,9 @@
+flowchart TB
+  a["プレイヤーA / Moonlight"] --> wolf["Wolf / 1つのゲームVM"]
+  b["プレイヤーB / Moonlight"] --> wolf
+  wolf -->|画面・入力A| ea["Azahar A<br/>個別セーブ・設定"]
+  wolf -->|画面・入力B| eb["Azahar B<br/>個別セーブ・設定"]
+  ea <-->|仮想ローカル通信| room["VM内の非公開ルーム"]
+  eb <--> room
+  ea --> gpu["Radeon 780M<br/>描画・配信エンコード"]
+  eb --> gpu
