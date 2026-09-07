@@ -1,0 +1,23 @@
+---
+# Connection is injected by the AWX credential as NETBOX_API and NETBOX_TOKEN.
+plugin: netbox.netbox.nb_inventory
+token:
+  type: "{{ lookup('env', 'NETBOX_AUTH_TYPE') | default('Bearer', true) }}"
+  value: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+validate_certs: true
+config_context: false
+flatten_custom_fields: false
+plurals: false
+group_by: []
+query_filters:
+  - tag: media-stack
+  - status: active
+device_query_filters:
+  - has_primary_ip: 'true'
+vm_query_filters:
+  - has_primary_ip: 'true'
+groups:
+  media: "'media-stack' in tags or 'media-stack' in (tags | map(attribute='slug', default='') | list)"
+# ansible_host is set to Primary IP by nb_inventory itself.
+strict: true
+cache: false

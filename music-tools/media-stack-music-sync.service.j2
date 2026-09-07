@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh Nextcloud and Navidrome after music changes
+After=docker.service
+Requires=docker.service
+[Service]
+Type=oneshot
+WorkingDirectory={{ project_dir }}
+ExecStart=/usr/bin/python3 {{ project_dir }}/scripts/sync-music.py

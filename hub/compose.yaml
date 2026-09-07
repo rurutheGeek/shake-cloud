@@ -1,0 +1,109 @@
+services:
+  postgresql:
+    environment:
+      POSTGRES_DB: ${PG_DB:-authentik}
+      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+      POSTGRES_USER: ${PG_USER:-authentik}
+    healthcheck:
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      test:
+      - CMD-SHELL
+      - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      timeout: 5s
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+    - ./storage/postgres:/var/lib/postgresql/data
+  server:
+    command: server
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+      AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.1}
+    ports:
+    - 127.0.0.1:9000:9000
+    restart: unless-stopped
+    shm_size: 512mb
+    volumes:
+    - ./storage/authentik:/data
+    - ./templates:/templates
+    networks:
+      default:
+        aliases:
+        - auth.localhost
+  worker:
+    command: worker
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+      AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_BOOTSTRAP_EMAIL: admin@localhost.localdomain
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.1}
+    restart: unless-stopped
+    shm_size: 512mb
+    user: root
+    volumes:
+    - ./storage/authentik:/data
+    - ./templates:/templates
+  homarr:
+    image: ghcr.io/homarr-labs/homarr:latest
+    restart: unless-stopped
+    environment:
+      SECRET_ENCRYPTION_KEY: ${HOMARR_SECRET_ENCRYPTION_KEY}
+      AUTH_PROVIDERS: credentials,oidc
+      AUTH_OIDC_CLIENT_ID: homarr
+      AUTH_OIDC_CLIENT_SECRET: ${HOMARR_OIDC_CLIENT_SECRET}
+      AUTH_OIDC_ISSUER: http://auth.localhost:9000/application/o/homarr/
+      AUTH_OIDC_CLIENT_NAME: Authentik
+      AUTH_OIDC_SCOPE_OVERWRITE: openid email profile
+      NEXTAUTH_URL: http://localhost:7575
+      BASE_URL: http://localhost:7575
+    volumes:
+    - ./storage/homarr:/appdata
+    ports:
+    - 127.0.0.1:7575:7575
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - -e
+      - fetch('http://localhost:7575/api/auth/csrf').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+  docs:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+    - ./site:/usr/share/nginx/html:ro
+    ports:
+    - 127.0.0.1:8090:80
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - -q
+      - --spider
+      - http://localhost/
+      interval: 30s
+      timeout: 5s
+      retries: 3
+name: media-hub

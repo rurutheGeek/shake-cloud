@@ -1,0 +1,19 @@
+{
+  "services": {
+    "netbox": {
+      "image": "netboxcommunity/netbox@sha256:a2cdf00fab61d2ae37e4f987adaa403fad5c4049a63bc960768b7bbf804e2cb6"
+    },
+    "netbox-worker": {
+      "image": "netboxcommunity/netbox@sha256:a2cdf00fab61d2ae37e4f987adaa403fad5c4049a63bc960768b7bbf804e2cb6"
+    },
+    "postgres": {
+      "image": "postgres@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
+    },
+    "redis": {
+      "image": "valkey/valkey@sha256:ccfa19b0d743e48927e1c8c14e39e0acb97b5cea347fef0bfe340247fea920cd"
+    },
+    "redis-cache": {
+      "image": "valkey/valkey@sha256:ccfa19b0d743e48927e1c8c14e39e0acb97b5cea347fef0bfe340247fea920cd"
+    }
+  }
+}

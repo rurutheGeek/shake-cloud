@@ -1,0 +1,11 @@
+---
+awx_organization: Default
+awx_project_name: Portable services
+awx_scm_url: https://github.com/YOUR_ORG/media-stack.git
+awx_scm_branch: main
+# Build and push this image, then use its digest.
+awx_ee_image: ghcr.io/YOUR_ORG/media-stack-ee:1
+# Create this Machine credential in AWX with SSH key and become settings.
+awx_machine_credential: Media hosts SSH
+# Optional AWX Source Control credential for a private Git repository.
+awx_scm_credential: ''

@@ -1,0 +1,146 @@
+name: ${COMPOSE_PROJECT_NAME:-media-stack}
+
+x-nextcloud-env: &nextcloud-env
+  TZ: ${TZ:-Asia/Tokyo}
+  POSTGRES_HOST: postgres
+  POSTGRES_DB: nextcloud
+  POSTGRES_USER: nextcloud
+  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+  REDIS_HOST: redis
+  NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
+  NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_password
+  NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_TRUSTED_DOMAINS:-localhost 127.0.0.1}
+  NEXTCLOUD_DATA_DIR: /var/www/data
+
+x-nextcloud-volumes: &nextcloud-volumes
+  - ${STORAGE_ROOT:-./storage}/nextcloud/html:/var/www/html
+  - ${STORAGE_ROOT:-./storage}/nextcloud/config:/var/www/html/config
+  - ${STORAGE_ROOT:-./storage}/nextcloud/data:/var/www/data
+  - ${LIBRARY_ROOT:-./library}/books:/library/books
+  - ${LIBRARY_ROOT:-./library}/music:/library/music
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/postgres:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U nextcloud -d nextcloud']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+    command: [redis-server, --save, '', --appendonly, 'no']
+    networks: [backend]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  nextcloud:
+    image: ${NEXTCLOUD_IMAGE:-nextcloud:33-apache}
+    restart: unless-stopped
+    environment: *nextcloud-env
+    secrets: [postgres_password, nextcloud_admin_password]
+    volumes: *nextcloud-volumes
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${NEXTCLOUD_PORT:-8080}:80']
+    networks: [backend, nextcloud]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, php, -r, "exit(strpos(file_get_contents('http://127.0.0.1/status.php'), '\"installed\":true') === false ? 1 : 0);"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s
+
+  cron:
+    image: ${NEXTCLOUD_IMAGE:-nextcloud:33-apache}
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    environment: *nextcloud-env
+    secrets: [postgres_password, nextcloud_admin_password]
+    volumes: *nextcloud-volumes
+    networks: [backend, nextcloud]
+    depends_on:
+      nextcloud: {condition: service_healthy}
+
+  kavita:
+    image: ${KAVITA_IMAGE:-ghcr.io/kareadita/kavita:latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/kavita:/kavita/config
+      - ${LIBRARY_ROOT:-./library}/books:/books:ro
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${KAVITA_PORT:-5000}:5000']
+    networks: [kavita]
+
+  navidrome:
+    image: ${NAVIDROME_IMAGE:-deluan/navidrome:latest}
+    restart: unless-stopped
+    user: '${MEDIA_UID:-33}:${MEDIA_GID:-33}'
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      ND_MUSICFOLDER: /music
+      ND_DATAFOLDER: /data
+      ND_SCANSCHEDULE: '@every 1h'
+      ND_DEFAULTLANGUAGE: ja
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/navidrome:/data
+      - ${LIBRARY_ROOT:-./library}/music:/music:ro
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${NAVIDROME_PORT:-4533}:4533']
+    networks: [navidrome]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:4533/ping]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  vaultwarden:
+    image: ${VAULTWARDEN_IMAGE:-vaultwarden/server:latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      DOMAIN: ${VAULTWARDEN_DOMAIN:-http://localhost:8222}
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
+      ADMIN_TOKEN_FILE: /run/secrets/vaultwarden_admin_token
+    secrets: [vaultwarden_admin_token]
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/vaultwarden:/data
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${VAULTWARDEN_PORT:-8222}:80']
+    networks: [vaultwarden]
+    healthcheck:
+      test: [CMD, /healthcheck.sh]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+networks:
+  backend: {internal: true}
+  nextcloud: {}
+  kavita: {}
+  navidrome: {}
+  vaultwarden: {}
+
+secrets:
+  vaultwarden_admin_token:
+    file: ./secrets/vaultwarden_admin_token
+  postgres_password:
+    file: ./secrets/postgres_password
+  nextcloud_admin_password:
+    file: ./secrets/nextcloud_admin_password

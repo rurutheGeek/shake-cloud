@@ -1,0 +1,21 @@
+{
+    email {$ACME_EMAIL}
+}
+{$NEXTCLOUD_HOST} {
+    redir /.well-known/carddav /remote.php/dav/ 301
+    redir /.well-known/caldav /remote.php/dav/ 301
+    reverse_proxy nextcloud:80
+}
+{$KAVITA_HOST} {
+    reverse_proxy kavita:5000
+}
+{$NAVIDROME_HOST} {
+    reverse_proxy navidrome:4533
+}
+{$VAULTWARDEN_HOST} {
+    @admin path /admin /admin/*
+    respond @admin 403
+    reverse_proxy vaultwarden:80 {
+        header_up X-Real-IP {remote_host}
+    }
+}

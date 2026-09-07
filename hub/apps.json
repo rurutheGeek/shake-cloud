@@ -1,0 +1,79 @@
+[
+  {
+    "name": "日本語の手順書",
+    "href": "http://localhost:8090",
+    "description": "利用手順・設定例・運用。Markdownを正本として管理",
+    "iconText": "DOC",
+    "iconColor": "#475569"
+  },
+  {
+    "name": "Nextcloud ファイル",
+    "href": "https://nextcloud.localhost:8443",
+    "description": "ファイルの保存・共有",
+    "iconText": "NC",
+    "iconColor": "#0082c9"
+  },
+  {
+    "name": "Calendar 予定表",
+    "href": "https://nextcloud.localhost:8443/index.php/apps/calendar/",
+    "description": "予定・共有カレンダー・CalDAV同期",
+    "iconText": "CAL",
+    "iconColor": "#0284c7"
+  },
+  {
+    "name": "Tasks TODO",
+    "href": "https://nextcloud.localhost:8443/index.php/apps/tasks/",
+    "description": "個人・共有TODO",
+    "iconText": "TODO",
+    "iconColor": "#0d9488"
+  },
+  {
+    "name": "Kavita 書籍",
+    "href": "https://kavita.localhost:5443",
+    "description": "PDF・電子書籍",
+    "iconText": "BOOK",
+    "iconColor": "#7c3aed"
+  },
+  {
+    "name": "Navidrome 音楽",
+    "href": "http://localhost:4533",
+    "description": "音楽再生。お気に入りの曲はSongsのハートで絞り込み",
+    "iconText": "MUSIC",
+    "iconColor": "#16a34a"
+  },
+  {
+    "name": "お気に入りの曲",
+    "href": "http://localhost:4533/app/#/song?filter=%7B%22starred%22%3Atrue%7D",
+    "description": "曲につけたハートの一覧。AlbumsのFavouritesとは別",
+    "iconText": "LIKE",
+    "iconColor": "#db2777"
+  },
+  {
+    "name": "MeTube 音声取り込み",
+    "href": "http://localhost:8081",
+    "description": "URLを指定してMP3をmusic/YouTubeへ保存",
+    "iconText": "MP3",
+    "iconColor": "#dc2626"
+  },
+  {
+    "name": "Vaultwarden 保管庫",
+    "href": "https://vault.localhost:8243",
+    "description": "パスワード管理",
+    "iconText": "VAULT",
+    "iconColor": "#2563eb"
+  },
+  {
+    "name": "NetBox サーバー台帳",
+    "href": "http://localhost:8000",
+    "description": "Ansible配備対象の管理",
+    "iconText": "NET",
+    "iconColor": "#0891b2"
+  },
+  {
+    "name": "Authentik 共通認証",
+    "href": "https://login.localhost:9443",
+    "description": "共通アカウント・ログイン管理",
+    "iconText": "SSO",
+    "iconColor": "#d97706"
+  }
+]

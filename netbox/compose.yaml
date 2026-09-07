@@ -1,0 +1,95 @@
+name: ${COMPOSE_PROJECT_NAME:-media-netbox}
+x-netbox: &netbox
+  image: ${NETBOX_IMAGE:-netboxcommunity/netbox:v4.7-5.1.0}
+  restart: unless-stopped
+  labels:
+    media-stack.configuration: ${NETBOX_CONFIG_SHA:-unmanaged}
+  user: netbox:root
+  environment: &environment
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost 127.0.0.1}
+    SUPERUSER_NAME: ${SUPERUSER_NAME:-admin}
+    SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-admin@example.com}
+    SKIP_SUPERUSER: 'false'
+    GRANIAN_WORKERS: '2'
+    GRANIAN_BACKPRESSURE: '64'
+  secrets: [db_password, secret_key, api_token_pepper_1, superuser_password]
+  volumes:
+    - ./configuration:/etc/netbox/config:ro
+    - ${STORAGE_ROOT:-./storage}/media:/opt/netbox/netbox/media
+    - ${STORAGE_ROOT:-./storage}/reports:/opt/netbox/netbox/reports
+    - ${STORAGE_ROOT:-./storage}/scripts:/opt/netbox/netbox/scripts
+  networks: [backend, frontend]
+services:
+  netbox:
+    <<: *netbox
+    ports: ['${BIND_ADDRESS:-127.0.0.1}:${NETBOX_PORT:-8000}:8080']
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      redis-cache: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/login/]
+      start_period: 120s
+      interval: 15s
+      timeout: 10s
+      retries: 60
+  netbox-worker:
+    <<: *netbox
+    environment:
+      <<: *environment
+      SKIP_SUPERUSER: 'true'
+    depends_on:
+      netbox: {condition: service_healthy}
+    command: [/opt/netbox/venv/bin/python, /opt/netbox/netbox/manage.py, rqworker]
+    healthcheck:
+      test: [CMD-SHELL, 'ps -aux | grep -v grep | grep -q rqworker']
+      start_period: 30s
+      interval: 15s
+      timeout: 10s
+      retries: 10
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netbox
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/postgres:/var/lib/postgresql
+    networks: [backend]
+    healthcheck:
+      test: [CMD, pg_isready, -U, netbox, -d, netbox]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: ${VALKEY_IMAGE:-valkey/valkey:9.1-alpine}
+    restart: unless-stopped
+    command: [valkey-server, --appendonly, 'yes']
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/queue:/data
+    networks: [backend]
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis-cache:
+    image: ${VALKEY_IMAGE:-valkey/valkey:9.1-alpine}
+    restart: unless-stopped
+    command: [valkey-server, --save, '', --appendonly, 'no']
+    networks: [backend]
+    healthcheck:
+      test: [CMD, valkey-cli, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+networks:
+  backend: {internal: true}
+  frontend: {}
+secrets:
+  db_password: {file: ./secrets/db_password}
+  secret_key: {file: ./secrets/secret_key}
+  api_token_pepper_1: {file: ./secrets/api_token_pepper_1}
+  superuser_password: {file: ./secrets/superuser_password}

@@ -1,0 +1,14 @@
+# Include explicitly after filling the corresponding values in hub/.env.
+x-email: &email
+  AUTHENTIK_EMAIL__HOST: ${SMTP_HOST:?set SMTP_HOST}
+  AUTHENTIK_EMAIL__PORT: ${SMTP_PORT:-587}
+  AUTHENTIK_EMAIL__USERNAME: ${SMTP_USERNAME:?set SMTP_USERNAME}
+  AUTHENTIK_EMAIL__PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD}
+  AUTHENTIK_EMAIL__USE_TLS: 'true'
+  AUTHENTIK_EMAIL__USE_SSL: 'false'
+  AUTHENTIK_EMAIL__FROM: ${SMTP_FROM:?set SMTP_FROM}
+services:
+  server:
+    environment: *email
+  worker:
+    environment: *email

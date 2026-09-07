@@ -1,0 +1,6 @@
+[netbox_bootstrap]
+# The first NetBox host cannot be discovered from an unbuilt NetBox.
+# Local execution:
+localhost ansible_connection=local
+# Remote alternative:
+# inventory1 ansible_host=192.0.2.20 ansible_user=ubuntu

@@ -1,0 +1,86 @@
+---
+- name: Configure new AWX controller
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  # Connection: CONTROLLER_HOST, CONTROLLER_OAUTH_TOKEN, CONTROLLER_VERIFY_SSL.
+  tasks:
+    - name: Require caller-provided NetBox connection
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'NETBOX_API') | length > 0
+          - lookup('env', 'NETBOX_TOKEN') | length > 0
+      no_log: true
+    - name: Register execution environment
+      awx.awx.execution_environment:
+        name: Media stack EE
+        image: '{{ awx_ee_image }}'
+        pull: missing
+    - name: Register Git project
+      awx.awx.project:
+        name: '{{ awx_project_name }}'
+        organization: '{{ awx_organization }}'
+        scm_type: git
+        scm_url: '{{ awx_scm_url }}'
+        scm_branch: '{{ awx_scm_branch }}'
+        credential: '{{ awx_scm_credential | default(omit, true) }}'
+        scm_update_on_launch: true
+        default_environment: Media stack EE
+        wait: true
+    - name: Create NetBox credential type
+      awx.awx.credential_type:
+        name: NetBox inventory API
+        kind: cloud
+        inputs:
+          fields:
+            - {id: netbox_api, type: string, label: NetBox URL}
+            - {id: netbox_token, type: string, label: API token, secret: true}
+          required: [netbox_api, netbox_token]
+        injectors:
+          env:
+            NETBOX_API: "{{ '{{ netbox_api }}' }}"
+            NETBOX_TOKEN: "{{ '{{ netbox_token }}' }}"
+    - name: Store NetBox read credential
+      awx.awx.credential:
+        name: NetBox read only
+        organization: '{{ awx_organization }}'
+        credential_type: NetBox inventory API
+        inputs:
+          netbox_api: "{{ lookup('env', 'NETBOX_API') }}"
+          netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+      no_log: true
+    - name: Create inventory
+      awx.awx.inventory:
+        name: Media hosts from NetBox
+        organization: '{{ awx_organization }}'
+    - name: Add SCM inventory source
+      awx.awx.inventory_source:
+        name: NetBox media-stack
+        inventory: Media hosts from NetBox
+        source: scm
+        source_project: '{{ awx_project_name }}'
+        source_path: ansible/inventory.netbox.yml
+        credential: NetBox read only
+        execution_environment: Media stack EE
+        overwrite: true
+        overwrite_vars: true
+        update_on_launch: true
+        update_cache_timeout: 0
+    - name: Synchronize NetBox inventory
+      awx.awx.inventory_source_update:
+        name: NetBox media-stack
+        inventory: Media hosts from NetBox
+        wait: true
+    - name: Register deployment job
+      awx.awx.job_template:
+        name: Deploy portable services
+        organization: '{{ awx_organization }}'
+        inventory: Media hosts from NetBox
+        project: '{{ awx_project_name }}'
+        playbook: ansible/deploy.yml
+        execution_environment: Media stack EE
+        credentials: ['{{ awx_machine_credential }}']
+        become_enabled: true
+        ask_limit_on_launch: true
+        ask_variables_on_launch: true
+        allow_simultaneous: false

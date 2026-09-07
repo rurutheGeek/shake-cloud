@@ -1,0 +1,42 @@
+name: media-sso
+services:
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - 127.0.0.1:4533:4533
+      - 127.0.0.1:8081:8081
+      - 127.0.0.1:9443:9443
+      - 127.0.0.1:5443:5443
+      - 127.0.0.1:8443:8443
+      - 127.0.0.1:8243:8243
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./storage/data:/data
+      - ./storage/config:/config
+    networks:
+      identity:
+        aliases: [login.localhost]
+      music: {}
+      kavita: {}
+      trusted:
+        ipv4_address: 172.30.80.2
+    healthcheck:
+      test: [CMD, wget, -q, --spider, 'http://127.0.0.1:2019/config/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+networks:
+  identity:
+    external: true
+    name: media-hub_default
+  music:
+    external: true
+    name: media-music-tools_default
+  kavita:
+    external: true
+    name: media-stack_kavita
+  trusted:
+    ipam:
+      config:
+        - subnet: 172.30.80.0/29

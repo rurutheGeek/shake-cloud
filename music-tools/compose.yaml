@@ -1,0 +1,65 @@
+name: media-music-tools
+services:
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    restart: unless-stopped
+    ports:
+    - 127.0.0.1:${METUBE_PORT:-8081}:8081
+    environment:
+      PUID: '33'
+      PGID: '33'
+      UMASK: '0027'
+      CHOWN_DIRS: 'false'
+      DOWNLOAD_DIR: /video
+      AUDIO_DOWNLOAD_DIR: /music/YouTube
+      STATE_DIR: /state
+      TEMP_DIR: /temp
+      DEFAULT_OPTION_PLAYLIST_ITEM_LIMIT: '20'
+      OUTPUT_TEMPLATE: '%(uploader)s/%(title)s [%(id)s].%(ext)s'
+      OUTPUT_TEMPLATE_PLAYLIST: '%(playlist_title)s/%(title)s [%(id)s].%(ext)s'
+      YTDL_OPTIONS: '{"writethumbnail":true,"postprocessors":[{"key":"FFmpegMetadata","add_metadata":true},{"key":"EmbedThumbnail"}]}'
+    volumes:
+    - ${LIBRARY_ROOT:-../library}/music/YouTube:/music/YouTube
+    - ./storage/video:/video
+    - ./storage/state:/state
+    - ./storage/temp:/temp
+  convert:
+    labels:
+      media-stack.converter-code: ${CONVERTER_CODE_SHA:-unmanaged}
+    image: ghcr.io/alexta69/metube:latest
+    restart: unless-stopped
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/convert.py
+    volumes:
+    - ${LIBRARY_ROOT:-../library}/music:/music:ro
+    - ${LIBRARY_ROOT:-../library}/music/Converted:/converted
+    - ./convert.py:/tools/convert.py:ro
+    - ./storage/convert:/state
+    - ./bcstm_pcm.py:/tools/bcstm_pcm.py:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import pathlib,time; p=pathlib.Path("/state/heartbeat"); assert p.exists()
+        and time.time()-p.stat().st_mtime<2100
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+  tagger:
+    image: ghcr.io/alexta69/metube:latest
+    profiles:
+    - tools
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/edit-tags.py
+    volumes:
+    - ${LIBRARY_ROOT:-../library}/music:/music
+    - ./:/tools:ro
+    - ./storage/convert:/state
+    healthcheck:
+      disable: true

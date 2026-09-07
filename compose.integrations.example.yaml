@@ -1,0 +1,27 @@
+# Optional SMTP integration. Copy to compose.integrations.yaml,
+# provide values in .env, then explicitly include this file with -f.
+# Do not commit populated .env or this file with literal credentials.
+services:
+  nextcloud:
+    environment: &smtp
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: tls
+      SMTP_AUTHTYPE: LOGIN
+      SMTP_NAME: ${SMTP_NAME:?set SMTP_NAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?set MAIL_FROM_ADDRESS}
+      MAIL_DOMAIN: ${MAIL_DOMAIN:?set MAIL_DOMAIN}
+  cron:
+    environment: *smtp
+  vaultwarden:
+    environment:
+      # Vaultwarden uses SMTP_* names different from Nextcloud's SMTP_* names.
+      SMTP_HOST: ${VAULTWARDEN_SMTP_HOST:?set VAULTWARDEN_SMTP_HOST}
+      SMTP_FROM: ${VAULTWARDEN_SMTP_FROM:?set VAULTWARDEN_SMTP_FROM}
+      SMTP_FROM_NAME: ${VAULTWARDEN_SMTP_FROM_NAME:-Vaultwarden}
+      SMTP_SECURITY: ${VAULTWARDEN_SMTP_SECURITY:-starttls}
+      SMTP_PORT: ${VAULTWARDEN_SMTP_PORT:-587}
+      # Leave both empty only when the relay permits unauthenticated submission.
+      SMTP_USERNAME: ${VAULTWARDEN_SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${VAULTWARDEN_SMTP_PASSWORD:-}

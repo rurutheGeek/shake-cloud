@@ -1,0 +1,19 @@
+site_name: セルフホスト・ハブの手引き
+docs_dir: docs
+site_dir: hub/site
+use_directory_urls: true
+theme:
+  name: mkdocs
+  locale: ja
+nav:
+  - ホーム: index.md
+  - 運用の基本: overview.md
+  - サービス:
+      - Nextcloud・予定・TODO: services/nextcloud.md
+      - 音楽・取り込み・タグ: services/music.md
+      - Vaultwarden: services/vaultwarden.md
+      - 共通ログイン: services/sso.md
+      - 日本語表示: services/language.md
+  - メール設定: operations/smtp.md
+  - ハブ運用: operations/hub.md
+  - ディスク増設: operations/disk.md

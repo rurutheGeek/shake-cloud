@@ -1,0 +1,34 @@
+services:
+  nextcloud:
+    environment: &proxy
+      TRUSTED_PROXIES: 172.30.90.2
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: ${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST}
+      OVERWRITECLIURL: https://${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST}
+    networks:
+      proxy: {}
+  cron:
+    environment: *proxy
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    restart: unless-stopped
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      NEXTCLOUD_HOST: ${NEXTCLOUD_HOST:?set NEXTCLOUD_HOST}
+      KAVITA_HOST: ${KAVITA_HOST:?set KAVITA_HOST}
+      NAVIDROME_HOST: ${NAVIDROME_HOST:?set NAVIDROME_HOST}
+      VAULTWARDEN_HOST: ${VAULTWARDEN_HOST:?set VAULTWARDEN_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${STORAGE_ROOT:-./storage}/caddy/data:/data
+      - ${STORAGE_ROOT:-./storage}/caddy/config:/config
+    networks:
+      proxy: {ipv4_address: 172.30.90.2}
+      kavita: {}
+      navidrome: {}
+      vaultwarden: {}
+networks:
+  proxy:
+    ipam:
+      config: [{subnet: 172.30.90.0/24}]

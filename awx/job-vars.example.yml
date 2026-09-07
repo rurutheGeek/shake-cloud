@@ -1,0 +1,14 @@
+---
+# AWX Job Template extra variables; these are not secret.
+install_docker: true
+enable_https: true
+stack_env:
+  BIND_ADDRESS: 127.0.0.1
+  NEXTCLOUD_TRUSTED_DOMAINS: cloud.example.com localhost 127.0.0.1
+  NEXTCLOUD_HOST: cloud.example.com
+  KAVITA_HOST: books.example.com
+  NAVIDROME_HOST: music.example.com
+  VAULTWARDEN_HOST: vault.example.com
+  VAULTWARDEN_DOMAIN: https://vault.example.com
+  VAULTWARDEN_SIGNUPS_ALLOWED: 'false'
+  ACME_EMAIL: admin@example.com

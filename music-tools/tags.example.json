@@ -1,0 +1,11 @@
+{
+  "YouTube/投稿者/曲名 [動画ID].mp3": {
+    "title": "曲名",
+    "artist": ["アーティスト名"],
+    "album": "アルバム名",
+    "albumartist": ["アーティスト名"],
+    "tracknumber": "1",
+    "date": "2026",
+    "genre": ["Game"]
+  }
+}

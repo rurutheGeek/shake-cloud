@@ -1,0 +1,15 @@
+---
+ansible_python_interpreter: /usr/bin/python3
+project_dir: /opt/media-stack
+storage_root: /srv/media-stack/storage
+library_root: /srv/media-stack/library
+# Each tagged host runs an independent complete stack; this is not a DB cluster.
+# Override with AWX inventory host variables when needed.
+install_docker: true
+enable_https: false
+stack_env: {}
+# Installed and enabled after the stack is healthy. Override per host if needed.
+nextcloud_apps:
+  - calendar
+  - tasks
+  - user_oidc

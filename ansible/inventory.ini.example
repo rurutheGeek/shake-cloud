@@ -1,0 +1,5 @@
+[media]
+# Local execution (Docker Engine and Compose v2 must already be installed)
+localhost ansible_connection=local
+# Remote alternative:
+# media1 ansible_host=192.0.2.10 ansible_user=ubuntu
