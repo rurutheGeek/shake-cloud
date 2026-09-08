@@ -114,7 +114,8 @@ def backup(destination):
         compose('stop', '--timeout', '120')
         run(['tar', '--numeric-owner', '-cpf', str(target / 'state.tar'), '-C', str(source), '.'])
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
-             'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'configuration', 'secrets', 'manage.py', 'seed_inventory.py'])
+             'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'configuration', 'secrets',
+             'manage.py', 'seed_inventory.py', 'seed_terraform_identity.py'])
     finally:
         if running:
             compose('start', *running)
@@ -145,9 +146,29 @@ def seed(name, address):
     print('API credential is saved under secrets/inventory-token.json')
 
 
+def seed_terraform():
+    """Create the write-enabled identity Terraform uses for the NetBox ledger."""
+    path = ROOT / 'secrets' / 'terraform-token.json'
+    if not path.exists():
+        alphabet = string.ascii_letters + string.digits
+        credential = {'key': ''.join(secrets.choice(alphabet) for _ in range(12)),
+                      'token': ''.join(secrets.choice(alphabet) for _ in range(40))}
+        with path.open('x') as file:
+            json.dump(credential, file)
+        path.chmod(0o600)
+    credential = json.loads(path.read_text())
+    compose('exec', '-T', '-e', 'SEED_CREDENTIAL', 'netbox',
+            '/opt/netbox/venv/bin/python', '/opt/netbox/netbox/manage.py',
+            'shell', '--no-startup', '--no-imports', '--interface', 'python',
+            extra_env={'SEED_CREDENTIAL': json.dumps(credential)},
+            input=(ROOT / 'seed_terraform_identity.py').read_text())
+    print('Write credential is saved under secrets/terraform-token.json')
+    print('NETBOX_API_TOKEN is nbt_<key>.<token> built from that file')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup', 'seed'])
+    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup', 'seed', 'seed-terraform'])
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--host-name')
@@ -155,6 +176,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.action == 'seed':
         seed(args.host_name, args.host_address)
+    elif args.action == 'seed-terraform':
+        seed_terraform()
     elif args.action == 'init':
         init()
     elif args.action == 'lock':

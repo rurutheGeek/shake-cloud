@@ -9,15 +9,30 @@ config_context: false
 flatten_custom_fields: false
 plurals: false
 group_by: []
+# The media-stack tag no longer filters the query: Proxmox now hosts more than
+# the media stack. Roles are expressed as groups below, so `hosts: media` and
+# `--limit` keep their previous meaning.
 query_filters:
-  - tag: media-stack
   - status: active
 device_query_filters:
   - has_primary_ip: 'true'
 vm_query_filters:
   - has_primary_ip: 'true'
+# nb_inventory reports tags either as slugs or as objects depending on version,
+# so every expression checks both shapes. This is the pattern the media group
+# has always used; new groups repeat it rather than relying on `compose`
+# running before `groups`.
 groups:
   media: "'media-stack' in tags or 'media-stack' in (tags | map(attribute='slug', default='') | list)"
+  terraform_managed: "'managed-by-terraform-admin' in tags or 'managed-by-terraform-admin' in (tags | map(attribute='slug', default='') | list)"
+  k8s_cp: "'k8s-cp' in tags or 'k8s-cp' in (tags | map(attribute='slug', default='') | list)"
+  k8s_worker: "'k8s-worker' in tags or 'k8s-worker' in (tags | map(attribute='slug', default='') | list)"
+  identity: "'identity' in tags or 'identity' in (tags | map(attribute='slug', default='') | list)"
+  devbox: "'devbox' in tags or 'devbox' in (tags | map(attribute='slug', default='') | list)"
+  edge: "'edge' in tags or 'edge' in (tags | map(attribute='slug', default='') | list)"
+  storage: "'storage' in tags or 'storage' in (tags | map(attribute='slug', default='') | list)"
+  vpn: "'vpn' in tags or 'vpn' in (tags | map(attribute='slug', default='') | list)"
+  lab: "'lab' in tags or 'lab' in (tags | map(attribute='slug', default='') | list)"
 # ansible_host is set to Primary IP by nb_inventory itself.
 strict: true
 cache: false

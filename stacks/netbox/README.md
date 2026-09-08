@@ -33,6 +33,34 @@ NetBoxでSite、DeviceまたはVirtual Machine、インターフェース、IP�
 
 専用のインベントリ閲覧ユーザーへ必要なモデルのview権限を付与し、そのユーザーのv2 APIトークンを作成します。Write enabledを無効にし、表示された `nbt_<key>.<token>` 全体をplatform/ansible/netbox.envのNETBOX_TOKENへ保存します。NETBOX_AUTH_TYPE=Bearerを使用します。URLはSSH転送ならhttp://localhost:8000です。
 
+## Terraform用の書き込みアイデンティティ
+
+Ansible動的インベントリが使うトークンは読み取り専用です。Terraformは台帳へ書き込むため、**別のユーザーとトークン**を使います。片方の設定ミスがもう片方の範囲を書き換えないようにするためです。
+
+```bash
+sudo python3 stacks/netbox/manage.py seed-terraform
+```
+
+`terraform` ユーザーと書き込み可トークンを作り、`dcim`・`virtualization`・`ipam`・`tenancy`・`extras` に対する view/add/change/delete を与えます。superuserにはしません。再実行しても既存トークンは作り直しません。既存の権限が想定と違う場合はエラーで止まり、権限を広げません。
+
+秘密値は `stacks/netbox/secrets/terraform-token.json` に保存されます。`NETBOX_API_TOKEN` に入れる値は、そのファイルの `key` と `token` から `nbt_<key>.<token>` の形に組み立てます。組み立てた値は[SOPS](../../docs/operations/secrets.md)で暗号化して `platform/sops/netbox.sops.yaml` へ置きます。
+
+## タグの語彙
+
+Ansibleのグループ分けはNetBoxのタグを見ます。`platform/ansible/inventory.netbox.yml` が正本です。
+
+| タグ | Ansibleグループ | 用途 |
+| --- | --- | --- |
+| `media-stack` | `media` | 既存のメディアスタック。**意味を変えない** |
+| `managed-by-terraform-admin` | `terraform_managed` | 管理者Terraformが作ったもの |
+| `k8s-cp` / `k8s-worker` | `k8s_cp` / `k8s_worker` | Kubernetesノード |
+| `identity` | `identity` | Authentikと専用DB |
+| `devbox` | `devbox` | 開発VM |
+| `edge` / `vpn` / `storage` | 同名 | 公開入口、セルフホストVPN、Garage |
+| `lab` | `lab` | 検証・復元ドリル用の使い捨て |
+
+インベントリの絞り込みから `media-stack` タグを外しました。Proxmox上にはメディアスタック以外のホストも載るためです。`hosts: media` と `--limit` の意味は変わりません。
+
 ## 永続化とバックアップ
 
 storage/postgresはNetBox専用PostgreSQL 18、storage/media・reports・scriptsはアプリのファイル、storage/queueは永続キューです。アプリ4サービスのstorageとは別です。秘密値はsecretsに保存し、DBと一緒に移行します。キャッシュは再生成します。
