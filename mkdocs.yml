@@ -18,6 +18,7 @@ nav:
       - Vaultwardenの管理: services/vaultwarden.md
       - 共通ログイン: services/sso.md
       - メール設定: operations/smtp.md
+      - 秘密値の管理: operations/secrets.md
       - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md

@@ -19,7 +19,7 @@ def main():
  if not lock.exists():
   run('docker','pull','caddy:2-alpine')
   digest=json.loads(run('docker','image','inspect','caddy:2-alpine',capture_output=True).stdout)[0]['RepoDigests'][0]
-  lock.write_text(json.dumps({'services':{'gateway':{'image':digest}}},indent=2))
+  lock.write_text(json.dumps({'services':{'gateway':{'image':digest}}},indent=2)+'\n')
  run(sys.executable,'hub/configure-proxy.py')
  run(sys.executable,'hub/invitations.py','configure')
  run(sys.executable,'hub/configure-services.py')

@@ -30,6 +30,6 @@ if a.action in ['lock','up'] and not (ROOT/'compose.lock.yaml').exists():
  c=json.loads(compose('--profile','tools','config','--format','json',locked=False,capture_output=True).stdout);lock={'services':{}}
  for name,s in c['services'].items():
   image=json.loads(subprocess.check_output(['docker','image','inspect',s['image']]))[0]['RepoDigests'][0];lock['services'][name]={'image':image}
- (ROOT/'compose.lock.yaml').write_text(json.dumps(lock,indent=2))
+ (ROOT/'compose.lock.yaml').write_text(json.dumps(lock,indent=2)+'\n')
 if a.action=='up':compose('up','-d','--wait','--wait-timeout','120')
 if a.action=='status':compose('ps')

@@ -60,7 +60,7 @@ def lock():
  for name,s in c['services'].items():
   image=json.loads(run(['docker','image','inspect',s['image']],capture_output=True).stdout)[0]['RepoDigests'][0]
   result['services'][name]={'image':image}
- (ROOT/'compose.lock.yaml').write_text(json.dumps(result,indent=2))
+ (ROOT/'compose.lock.yaml').write_text(json.dumps(result,indent=2)+'\n')
 def build():
  config_path=ROOT.parent/'mkdocs.yml'
  config=yaml.safe_load(config_path.read_text())

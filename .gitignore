@@ -43,10 +43,16 @@ docs/downloads/*.crt
 crash.log
 crash.*.log
 
-# 鍵・資格情報。SOPS で暗号化した *.sops.yaml だけを追跡する。
+# 鍵・資格情報。age の秘密鍵はリポジトリの外 (~/.config/sops/age/) に置く。
 age-key.txt
 *.agekey
-platform/secrets/*.key
 kubeconfig
 *.kubeconfig
 talosconfig
+
+# SOPS。既定では platform/sops/ の全てを除外し、暗号化済みファイルと
+# 設定・例だけを明示的に追跡する。復号した平文を誤って追加できない。
+platform/sops/*
+!platform/sops/.sops.yaml
+!platform/sops/*.sops.yaml
+!platform/sops/*.example

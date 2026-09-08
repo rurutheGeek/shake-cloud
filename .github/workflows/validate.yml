@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install documentation dependencies
-        run: python3 -m pip install -r stacks/hub/requirements.txt
+      - name: Install documentation and lint dependencies
+        run: python3 -m pip install -r stacks/hub/requirements.txt -r tools/requirements.txt
       - name: Run unit tests
         run: python3 -m unittest discover -s tests
       - name: Compile tracked Python and parse YAML
@@ -23,6 +23,8 @@ jobs:
               if name.endswith(('.yaml','.yml')):
                   yaml.safe_load(pathlib.Path(name).read_text())
           PY
+      - name: Lint YAML
+        run: python3 -m yamllint -c .yamllint .
       - name: Check publication contents
         run: python3 tools/check-publication.py
       - name: Build Japanese documentation
