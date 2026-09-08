@@ -1,4 +1,10 @@
-# Proxmox VE への接続情報。実値を入れた版は必ず暗号化してから置きます。
+# Proxmox VE への接続情報（**10-platform 用**。terraform@pve のトークン）。
+# 値は 00-bootstrap の適用後に取り出します。
+#
+#   terraform -chdir=platform/terraform/00-bootstrap output -raw automation_token_value
+#
+# 00-bootstrap 自体は root@pam が要るので proxmox-root.sops.yaml.example を使います。
+# 実値を入れた版は必ず暗号化してから置きます。
 #
 #   cp platform/sops/proxmox.sops.yaml.example platform/sops/proxmox.sops.yaml
 #   # 実値へ編集してから
@@ -7,7 +13,7 @@
 # 利用時は環境変数として渡します。ファイルへ復号しません。
 #
 #   sops exec-env platform/sops/proxmox.sops.yaml \
-#     'terraform -chdir=platform/terraform/00-bootstrap apply'
+#     'terraform -chdir=platform/terraform/10-platform apply'
 #
 # PROXMOX_VE_API_TOKEN の形式は user@realm!tokenid=UUID です。
 # PROXMOX_VE_SSH_* は cloud-init snippet の投入にだけ使います。

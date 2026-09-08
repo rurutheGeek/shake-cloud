@@ -23,6 +23,22 @@ jobs:
               if name.endswith(('.yaml','.yml')):
                   yaml.safe_load(pathlib.Path(name).read_text())
           PY
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive platform/terraform
+      - name: Validate Terraform root modules
+        run: |
+          set -e
+          for file in $(find platform/terraform -name versions.tf | sort); do
+            dir=$(dirname "$file")
+            echo "== $dir"
+            terraform -chdir="$dir" init -backend=false -input=false > /dev/null
+            terraform -chdir="$dir" validate
+          done
       - name: Lint YAML
         run: python3 -m yamllint -c .yamllint .
       - name: Check publication contents

@@ -1,0 +1,19 @@
+# 実値を入れる場合は terraform.tfvars へコピーする。tfvars は .gitignore 対象。
+# ここに秘密値は書かない。接続情報は SOPS 経由の環境変数で渡す。
+#
+# 既定値のままで動く想定なので、通常は tfvars 自体が不要。
+# PVEの版で権限名が違う場合だけ上書きする。`pveum role list` で確認する。
+
+# platform_admin_privileges = [
+#   "VM.Allocate", "VM.Audit", "VM.Clone", "VM.Config.CDROM", "VM.Config.CPU",
+#   "VM.Config.Cloudinit", "VM.Config.Disk", "VM.Config.HWType",
+#   "VM.Config.Memory", "VM.Config.Network", "VM.Config.Options",
+#   "VM.Console", "VM.Migrate", "VM.Monitor", "VM.PowerMgmt", "Pool.Audit",
+#   # PVE 8.2 以降で bridge の割り当てに SDN.Use が要る場合は追加する
+#   # "SDN.Use",
+# ]
+
+# dev_vm_owners = {
+#   "dev-a@pve" = 400
+#   "dev-b@pve" = 401
+# }
