@@ -19,6 +19,7 @@ nav:
       - Vaultwardenの管理: services/vaultwarden.md
       - 共通ログイン: services/sso.md
       - メール設定: operations/smtp.md
+      - 初回セットアップの順番: operations/bootstrap.md
       - 秘密値の管理: operations/secrets.md
       - Terraformの実行: operations/terraform.md
       - ハブ運用: operations/hub.md

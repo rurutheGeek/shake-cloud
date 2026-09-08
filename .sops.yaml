@@ -1,0 +1,12 @@
+# SOPS の暗号化ルール。実際に使うときは .sops.yaml へコピーし、
+# age の公開鍵（age1 で始まる文字列）へ置き換えます。
+# この 1 ファイルだけは公開鍵しか含まないため、Git へコミットします。
+#
+#   age-keygen -o ~/.config/sops/age/keys.txt
+#   grep 'public key' ~/.config/sops/age/keys.txt
+#
+# 秘密鍵 (~/.config/sops/age/keys.txt) はリポジトリの外に置き、
+# 管理PCと外部コピーの2か所だけで保持します。
+creation_rules:
+  - path_regex: platform[\\/]sops[\\/].*\.sops\.yaml$
+    age: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h

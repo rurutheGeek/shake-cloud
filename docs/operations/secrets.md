@@ -20,7 +20,7 @@ Ansible・Terraform・Fluxの3者が同じ鍵で復号できることが採用�
 
 | 対象 | 場所 |
 | --- | --- |
-| 暗号化ルール（公開鍵） | `platform/sops/.sops.yaml`。Gitで管理する |
+| 暗号化ルール（公開鍵） | **リポジトリのルート**の `.sops.yaml`。Gitで管理する |
 | 暗号化済みの値 | `platform/sops/*.sops.yaml`。Gitで管理する |
 | 雛形 | `platform/sops/*.example`。Gitで管理する |
 | **age秘密鍵** | `~/.config/sops/age/keys.txt`。**リポジトリの外**。Gitで管理しない |
@@ -37,9 +37,13 @@ age-keygen -o ~/.config/sops/age/keys.txt
 chmod 600 ~/.config/sops/age/keys.txt
 grep 'public key' ~/.config/sops/age/keys.txt
 
-cp platform/sops/.sops.yaml.example platform/sops/.sops.yaml
+cp .sops.yaml.example .sops.yaml
 # age1... の公開鍵へ置き換える
 ```
+
+**`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントディレクトリから上へ辿って設定を探すため、`platform/sops/` に置くとルートから実行したときに見つかりません。`path_regex` は絶対パスに対して評価されるので、Windowsの `\` も受けるように `platform[\\/]sops[\\/]` と書きます。
+
+Windowsではsopsが既定で `%AppData%\sops\age\keys.txt` を見ます。上の場所に鍵を置いた場合、**暗号化はできるのに復号できない**状態になるので、`SOPS_AGE_KEY_FILE` に鍵のパスを設定してシェルを開き直します。手順は[初回セットアップの順番](bootstrap.md)にあります。
 
 値を入れて暗号化します。**平文のままコミットしないでください。**
 

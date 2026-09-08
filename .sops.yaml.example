@@ -1,4 +1,4 @@
-# SOPS の暗号化ルール。実際に使うときは .sops.yaml へコピーし、
+# SOPS の暗号化ルール。**リポジトリのルート**の .sops.yaml へコピーし、
 # age の公開鍵（age1 で始まる文字列）へ置き換えます。
 # この 1 ファイルだけは公開鍵しか含まないため、Git へコミットします。
 #
@@ -7,6 +7,10 @@
 #
 # 秘密鍵 (~/.config/sops/age/keys.txt) はリポジトリの外に置き、
 # 管理PCと外部コピーの2か所だけで保持します。
+#
+# sops は .sops.yaml をカレントから上へ辿って探すので、ルート以外に置くと
+# 見つかりません。path_regex は絶対パスに対して評価され、Windows では
+# 区切りが \ になるため [\/] で両方を受けます。
 creation_rules:
-  - path_regex: platform/sops/.*\.sops\.yaml$
+  - path_regex: platform[\\/]sops[\\/].*\.sops\.yaml$
     age: age1REPLACE_WITH_YOUR_AGE_PUBLIC_KEY

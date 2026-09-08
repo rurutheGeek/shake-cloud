@@ -38,7 +38,7 @@ for name in files:
  if any(x in ['storage','library','backups','runtime','secrets','trust','.terraform'] for x in parts) or Path(name).name in ['.env','RUNNING.md','oidc-secrets.json','cookies.txt','compose.integrations.yaml','compose.sso.yaml','ports.env','kubeconfig','talosconfig','age-key.txt']:
   failures.append((name,'instance file'))
  elif name.endswith(state_suffix):failures.append((name,'infrastructure state or variables'))
- elif name.endswith('.sops.yaml') and b'ENC[' not in git('show',':'+name):failures.append((name,'sops file committed without encryption'))
+ elif name.endswith('.sops.yaml') and Path(name).name!='.sops.yaml' and b'ENC[' not in git('show',':'+name):failures.append((name,'sops file committed without encryption'))
  blob=git('show',':'+name)
  if any(needle in blob for needle in needles):failures.append((name,'known local secret'))
  if re.search(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|AGE-SECRET-KEY-1[0-9A-Z]{50,}|PVEAPIToken=[^\s]+=[0-9a-f]{8}-[0-9a-f-]{27}',blob):failures.append((name,'credential pattern'))
