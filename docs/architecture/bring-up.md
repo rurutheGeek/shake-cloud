@@ -54,7 +54,41 @@ ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
 4. ファイルが戻ることを確認し、復元VMを片付ける。
 5. 元VMをテンプレート用に整えるか `dev-a` に割り当てる。テンプレートから複製する場合、ホスト名・IP・machine-id・SSH host keyの重複を確認する。
 
-**完了条件:** バックアップファイルが存在するだけでなく復元できる。ここまでを最初の作業日の到達点にしてよい。
+この手順はコード化してあります。VMの作成は宣言（`platform/terraform/hosts.yaml` の `probe-01`、VMID 900）から行い、復元は補助スクリプトで踏みます。
+
+```bash
+# 1. 台帳とVMを作る
+sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/10-platform apply'
+
+# 2. ゲストOSの共通設定
+ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/guests.yml --limit probe-01
+
+# 3. 復元ドリル（Proxmoxホスト上でrootとして実行）
+tools/pve-restore-drill.sh backup  --vmid 900 --storage <別媒体のストレージ>
+tools/pve-restore-drill.sh restore --vmid 900 --target-vmid 901 --archive <出力されたファイル>
+# コンソールから検証用ファイルを確認してから
+tools/pve-restore-drill.sh cleanup --target-vmid 901
+```
+
+`restore` は復元VMの全NICを `link_down=1` にしてから起動します。元VMとIP/MACが衝突しません。復元先VMIDが既に存在する場合は何もせず止まります。`cleanup` だけが破壊的で、確認を求めます。
+
+**完了条件:** バックアップファイルが存在するだけでなく復元できる。ここまでを最初の作業日の到達点にしてよい。あわせて `terraform apply` の2回目が `No changes`、`ansible-playbook --check` の2回目が `changed=0` になることを確認する。
+
+### 開発VMを2台使えるようにする
+
+`dev-a`（VMID 400）と `dev-b`（VMID 401）は `hosts.yaml` に定義済みで、`10-platform` の apply で一緒に作られます。`00-bootstrap` が `dev-a@pve` / `dev-b@pve` と `DevVMOperator` ロールを作るので、あとは各自がパスワードを設定してAPIトークンを作ります。
+
+```bash
+# 管理者: 初回パスワードを設定してもらう（Terraformでは管理しない）
+pveum passwd dev-a@pve
+
+# 利用者: ゲストOSの初期設定
+ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/guests.yml --limit dev-a
+```
+
+`DevVMOperator` に含まれるのは `VM.Audit` / `VM.PowerMgmt` / `VM.Console` だけです。CPU・RAM・ディスク・NICの正本は `hosts.yaml` のままなので、利用者の操作でIaCと実機が乖離しません。使い方は[開発VMの使い方](../services/devvm.md)を利用者へ渡します。
+
+**完了条件:** 2人がそれぞれ `devvm start` → `ssh` → 作業 → `devvm stop` を一周できる。相手のVMが一覧に出ない。`terraform plan` が `No changes` のまま。
 
 ### セルフホストVPN用の枠を確保する
 

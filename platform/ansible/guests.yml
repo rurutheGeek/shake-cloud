@@ -1,0 +1,26 @@
+---
+# Terraform が作ったゲストVMの共通設定と、開発VMの追加設定。
+# 対象は NetBox のタグから決まる（platform/ansible/inventory.netbox.yml）。
+#
+#   ansible-playbook -i platform/ansible/inventory.netbox.yml \
+#     platform/ansible/guests.yml --limit probe-01 --check
+#
+# 既存のメディアスタック（hosts: media）には触れない。
+- name: Apply the shared guest baseline
+  hosts: terraform_managed
+  become: true
+  roles:
+    - common
+
+- name: Prepare the developer VMs
+  hosts: devbox
+  become: true
+  vars:
+    devbox_user: '{{ hostvars[inventory_hostname].ansible_user | default("debian") }}'
+    devbox_user_home: '/home/{{ devbox_user }}'
+  pre_tasks:
+    # 既存の tasks/docker.yml をそのまま使う。deploy.yml と同じ導入経路。
+    - name: Install Docker Engine and Compose
+      ansible.builtin.include_tasks: tasks/docker.yml
+  roles:
+    - devbox

@@ -1,0 +1,55 @@
+---
+- name: Install developer packages
+  ansible.builtin.apt:
+    name: '{{ devbox_packages }}'
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configure the HashiCorp repository and install Terraform
+  when: devbox_install_terraform | bool
+  block:
+    # tasks/docker.yml と同じ形。鍵は keyring へ置き、signed-by で縛る。
+    - name: Create apt keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Fetch the HashiCorp repository signing key
+      ansible.builtin.get_url:
+        url: https://apt.releases.hashicorp.com/gpg
+        dest: /etc/apt/keyrings/hashicorp.asc
+        mode: '0644'
+
+    - name: Configure the signed HashiCorp repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [signed-by=/etc/apt/keyrings/hashicorp.asc]
+          https://apt.releases.hashicorp.com {{ devbox_hashicorp_release }} main
+        filename: hashicorp
+        state: present
+
+    - name: Install Terraform
+      ansible.builtin.apt:
+        name: terraform
+        state: present
+        update_cache: true
+
+# 各自の state とAPIキーは分けて持つ。gaming.md「SSH鍵、ホームディレクトリ、
+# APIキー、Terraform state は個別に保持します」。
+- name: Create the per-user Terraform state directory
+  ansible.builtin.file:
+    path: '{{ devbox_user_home }}/{{ devbox_state_dir }}'
+    state: directory
+    owner: '{{ devbox_user }}'
+    group: '{{ devbox_user }}'
+    mode: '0700'
+  when: devbox_user is defined and devbox_user_home is defined
+
+- name: Allow the developer to use Docker without sudo
+  ansible.builtin.user:
+    name: '{{ devbox_user }}'
+    groups: docker
+    append: true
+  when: devbox_user is defined

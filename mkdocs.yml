@@ -11,6 +11,7 @@ nav:
       - 全サービスの使い方: services/usage.md
       - Homarrハブ: services/homarr.md
       - 音楽・取り込み・タグ: services/music.md
+      - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:
       - 運用の基本: overview.md
