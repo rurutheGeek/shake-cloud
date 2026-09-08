@@ -3,6 +3,7 @@
 将来の構成は[ホームラボ／最小プライベートクラウド構成案](docs/architecture/index.md)にまとめています。VM・サーバレス・S3・DB、2人用ゲーム、VPNと公開Web、SSO、Git管理を整理した設計資料です。[ローカルサイトで読む](http://localhost:8090/architecture/)。
 
 NetBoxで配備先を管理し、AnsibleからDocker Composeを配備する構成です。
+Proxmox VE 上への展開では、TerraformがProxmoxのプール・ロールとVMを作り、IPの採番はNetBoxのIPAMに任せます。誰が何を所有するかは[IaCの所有境界](docs/architecture/iac.md)、実機での進め方は[Proxmox導入後の手順](docs/architecture/bring-up.md)にあります。
 Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組み合わせています。[接続と配備手順](docs/operations/hub.md)、[SSO](docs/services/sso.md)、[音楽の取り込み](docs/services/music.md)を参照してください。
 **AWX本体の構築は今回保留**。将来はkubeadmのKubernetes上に構築し、同じPlaybook・NetBoxインベントリを使います。AWX移行用のEE・登録Playbook例だけを `platform/awx/` に置いています。
 
