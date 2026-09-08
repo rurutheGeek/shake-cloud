@@ -42,9 +42,9 @@ sudo python3 music-tools/manage.py up
 sudo .hub-venv/bin/python sso/manage.py
 ```
 
-AnsibleではNetBoxインベントリを読み込み、`ansible/deploy.yml` → `ansible/hub.yml` → `ansible/music-tools.yml` → `ansible/sso.yml` の順です。Dockerは基本Playbookが導入します。`sso/manage.py` はNetBoxも存在する場合にOIDC設定を適用します。
+AnsibleではNetBoxインベントリを読み込み、`platform/ansible/deploy.yml` → `platform/ansible/hub.yml` → `platform/ansible/music-tools.yml` → `platform/ansible/sso.yml` の順です。Dockerは基本Playbookが導入します。`sso/manage.py` はNetBoxも存在する場合にOIDC設定を適用します。
 
-`hub/apps.json` がサービスリンク、`docs/` が日本語手順の初期テンプレート、`mkdocs.yml` がサイト構成です。配備後の手順書原本は `LIBRARY_ROOT/docs` で、Nextcloudの「docs」から編集します。生成済みサイトを直接編集しません。初回配備時だけ初期テンプレートをコピーし、その後のAnsible再配備ではNextcloud側の追加・変更・削除を保持します。
+リポジトリ側では `stacks/hub/apps.json` がサービスリンク、`docs/` が日本語手順の初期テンプレート、`mkdocs.yml` がサイト構成です。配備後の手順書原本は `LIBRARY_ROOT/docs` で、Nextcloudの「docs」から編集します。生成済みサイトを直接編集しません。初回配備時だけ初期テンプレートをコピーし、その後のAnsible再配備ではNextcloud側の追加・変更・削除を保持します。
 
 ```bash
 sudo .hub-venv/bin/python hub/configure-homarr.py

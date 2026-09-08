@@ -1,6 +1,6 @@
 import importlib.util,struct,tempfile,unittest,wave
 from pathlib import Path
-spec=importlib.util.spec_from_file_location('bcstm_pcm',Path(__file__).resolve().parents[1]/'music-tools/bcstm_pcm.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+spec=importlib.util.spec_from_file_location('bcstm_pcm',Path(__file__).resolve().parents[1]/'stacks/music-tools/bcstm_pcm.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 class BcstmPcmTest(unittest.TestCase):
  def fixture(self,endian,codec):
   width=codec+1;channels=2;counts=[4,3];data=b'';expected=b''

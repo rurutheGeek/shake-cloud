@@ -7,6 +7,7 @@
     netbox_storage_root: /srv/netbox-stack/storage
     netbox_allowed_hosts: localhost 127.0.0.1
     install_docker: true
+    source_dir: '{{ playbook_dir }}/../../stacks'
   pre_tasks:
     - name: Install Docker
       ansible.builtin.include_tasks: tasks/docker.yml
@@ -19,13 +20,13 @@
         mode: '0750'
     - name: Copy NetBox configuration only
       ansible.builtin.copy:
-        src: '{{ playbook_dir }}/../netbox/{{ item }}'
+        src: '{{ source_dir }}/netbox/{{ item }}'
         dest: '{{ netbox_project_dir }}/'
         mode: preserve
       loop: [compose.yaml, configuration, manage.py, seed_inventory.py, .env.example]
     - name: Render initial NetBox environment without replacing existing configuration
       ansible.builtin.copy:
-        content: "{{ lookup('file', playbook_dir + '/../netbox/.env.example') | regex_replace('(?m)^STORAGE_ROOT=.*$', 'STORAGE_ROOT=' + netbox_storage_root) | regex_replace('(?m)^ALLOWED_HOSTS=.*$', 'ALLOWED_HOSTS=' + netbox_allowed_hosts) }}\n"
+        content: "{{ lookup('file', source_dir + '/netbox/.env.example') | regex_replace('(?m)^STORAGE_ROOT=.*$', 'STORAGE_ROOT=' + netbox_storage_root) | regex_replace('(?m)^ALLOWED_HOSTS=.*$', 'ALLOWED_HOSTS=' + netbox_allowed_hosts) }}\n"
         dest: '{{ netbox_project_dir }}/.env'
         mode: '0600'
         force: false

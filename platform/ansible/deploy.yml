@@ -4,7 +4,7 @@
   become: true
   serial: 1
   vars:
-    source_dir: '{{ playbook_dir }}/..'
+    source_dir: '{{ playbook_dir }}/../../stacks'
   pre_tasks:
     - name: Require explicit paths and supported host OS
       ansible.builtin.assert:

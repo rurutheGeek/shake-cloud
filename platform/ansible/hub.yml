@@ -3,7 +3,8 @@
   hosts: media
   become: true
   vars:
-    source_dir: '{{ playbook_dir }}/..'
+    repo_dir: '{{ playbook_dir }}/../..'
+    source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
     - name: Install Python virtual environment support
       ansible.builtin.apt:
@@ -28,7 +29,7 @@
       with_fileglob: ['{{ source_dir }}/hub/compose.lock.yaml']
     - name: Copy documentation configuration
       ansible.builtin.copy:
-        src: '{{ source_dir }}/{{ item }}'
+        src: '{{ repo_dir }}/{{ item }}'
         dest: '{{ project_dir }}/'
         mode: preserve
       loop: [mkdocs.yml]
@@ -45,7 +46,7 @@
       register: docs_seed_marker
     - name: Seed live documentation source without overwriting edits
       ansible.builtin.copy:
-        src: '{{ source_dir }}/docs/'
+        src: '{{ repo_dir }}/docs/'
         dest: '{{ library_root }}/docs/'
         force: false
         mode: preserve

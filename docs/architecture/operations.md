@@ -186,11 +186,11 @@ Git上の設計文書は `docs/architecture/`、図の原稿は `diagrams/*.mmd`
 ```bash
 python3 -m pip install playwright==1.62.0
 python3 -m playwright install chromium --only-shell
-python3 scripts/render-architecture-diagrams.py
+python3 tools/render-architecture-diagrams.py
 ```
 
 Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。既存サイトは配備先の `LIBRARY_ROOT/docs` を入力にするため、今回の `architecture/` をそこへ反映してから `hub/manage.py build` を実行します。入力先は環境によって異なるので、`.env` の保存先を確認し、公開ログへ秘密値を出さないようにします。
 
-Nextcloudで構成案を編集した場合は、その変更をGitの `docs/architecture/` に取り込んでレビューしてから、同じ版をサイトへ反映します。自動双方向同期は設けません。生成された `hub/site/` を編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
+Nextcloudで構成案を編集した場合は、その変更をGitの `docs/architecture/` に取り込んでレビューしてから、同じ版をサイトへ反映します。自動双方向同期は設けません。生成された `stacks/hub/site/` を編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
 
-公開前にステージした差分と `scripts/check-publication.py` を確認します。GitHub公開用の資料には、実際のAPIキー、個人用IP台帳、DB接続文字列、セーブ、Secretを入れません。
+公開前にステージした差分と `tools/check-publication.py` を確認します。GitHub公開用の資料には、実際のAPIキー、個人用IP台帳、DB接続文字列、セーブ、Secretを入れません。

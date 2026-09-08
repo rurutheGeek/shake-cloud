@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install documentation dependencies
-        run: python3 -m pip install -r hub/requirements.txt
+        run: python3 -m pip install -r stacks/hub/requirements.txt
       - name: Run unit tests
         run: python3 -m unittest discover -s tests
       - name: Compile tracked Python and parse YAML
@@ -24,6 +24,6 @@ jobs:
                   yaml.safe_load(pathlib.Path(name).read_text())
           PY
       - name: Check publication contents
-        run: python3 scripts/check-publication.py
+        run: python3 tools/check-publication.py
       - name: Build Japanese documentation
         run: python3 -m mkdocs build --strict

@@ -3,7 +3,7 @@
   hosts: media
   become: true
   vars:
-    source_dir: '{{ playbook_dir }}/..'
+    source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
     - name: Create SSO directory
       ansible.builtin.file:

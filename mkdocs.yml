@@ -1,6 +1,6 @@
 site_name: セルフホスト・ハブの手引き
 docs_dir: docs
-site_dir: hub/site
+site_dir: stacks/hub/site
 use_directory_urls: true
 theme:
   name: mkdocs

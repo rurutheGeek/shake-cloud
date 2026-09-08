@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-SOURCE = Path(__file__).resolve().parents[1] / 'netbox'
+SOURCE = Path(__file__).resolve().parents[1] / 'stacks/netbox'
 SPEC = importlib.util.spec_from_file_location('netbox_manage', SOURCE / 'manage.py')
 netbox = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(netbox)
