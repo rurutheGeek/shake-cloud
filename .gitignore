@@ -8,8 +8,10 @@ __pycache__/
 compose.integrations.yaml
 compose.https.yaml
 runtime/
+.survey/
 
 platform/ansible/inventory.ini
+platform/ansible/pve.ini
 platform/ansible/netbox.env
 platform/ansible/bootstrap.ini
 platform/awx/controller.yml

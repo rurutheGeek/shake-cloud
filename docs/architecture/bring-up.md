@@ -18,6 +18,16 @@ ip route
 lspci -nnk
 ```
 
+同じ内容をAnsibleからまとめて取得できます。読み取りだけを行い、ホストへ書き込みません。出力は管理端末の `.survey/` へ保存され、Gitからは除外されます。ストレージ定義・既存VMID・IOMMUグループも併せて取得するので、後段のTerraformに必要な値がこの1回で揃います。
+
+```bash
+cp platform/ansible/pve.ini.example platform/ansible/pve.ini
+# 接続先を編集し、先に手動SSHでホスト鍵を確認する
+ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
+```
+
+生成された `.survey/<ホスト名>.md` の冒頭に「Terraformへ転記する値」の表があります。ノード名、VMディスク用ストレージ名、cloud image置き場、**cloud-init snippetを置けるストレージ**、bridge名とvlan-awareの有無、既存LANのサブネットとgateway、使用済みVMIDを埋めてから次へ進みます。`snippets` を持つストレージが無い場合、cloud-initの追加設定は投入できないため、先にProxmox側でcontent種別を追加します。このファイル自体は台帳ではありません。必要な値を非公開台帳へ転記し、`.survey/` は作業用の一時出力として扱います。
+
 - BIOSの仮想化／IOMMU、RAM、SSD、冷却とファン動作を確認する。iGPUの固定予約は実測前に16GiBへ増やさない。
 - 管理用IP・ホスト名・gateway・DNS・時刻同期を固定／確認する。既存ネットワークと重複しないIPを使い、bridgeの物理NIC割り当てを確認する。
 - GUIで導入版に対応する公式リポジトリを選び、契約の有無に合った更新元を使う。更新後に再起動し、管理PCから再接続する。異なるDebian／Proxmox版のapt行を混ぜない。
