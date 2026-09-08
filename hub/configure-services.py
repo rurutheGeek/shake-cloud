@@ -24,7 +24,8 @@ def main():
   'SSO_ENABLED':'true','SSO_ONLY':'false','SSO_SIGNUPS_MATCH_EMAIL':'false',
   'SSO_AUTHORITY':authority+'/application/o/vaultwarden/',
   'SSO_CLIENT_ID':vw['client_id'],'SSO_CLIENT_SECRET':vw['client_secret'],
-  'SSO_SCOPES':'email profile','SSO_PKCE':'true'})
+  'SSO_SCOPES':'email profile offline_access','SSO_PKCE':'true',
+  'SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION':'false'})
  fd=os.open(overlay,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
  with os.fdopen(fd,'w') as f:json.dump(data,f,indent=2)
  stack.compose('up','-d','--wait','--wait-timeout','300','nextcloud','vaultwarden','navidrome')

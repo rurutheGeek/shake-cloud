@@ -18,6 +18,7 @@ x-nextcloud-volumes: &nextcloud-volumes
   - ${STORAGE_ROOT:-./storage}/nextcloud/data:/var/www/data
   - ${LIBRARY_ROOT:-./library}/books:/library/books
   - ${LIBRARY_ROOT:-./library}/music:/library/music
+  - ${LIBRARY_ROOT:-./library}/docs:/docs
 
 services:
   postgres:

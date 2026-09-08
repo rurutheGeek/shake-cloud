@@ -10,17 +10,50 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 
 一方、Vaultwarden固有の`/admin`画面はWeb保管庫とは別の画面で、現在は英語のみです。サーバー側で日本語化する場合は、バージョンに対応した管理画面テンプレートを`data/templates/admin`へ配置して上書きします。ただし、アップデート時にテンプレートを更新し直す必要があり、公式が検証した日本語パッケージではありません。[Vaultwarden管理画面の翻訳手順](https://github.com/dani-garcia/vaultwarden/wiki/Translating-admin-page)
 
-## SSO
+<a id="sso-login"></a>
+## Authentikでログインする手順
 
-現在の公式VaultwardenはOpenID ConnectによるSSOに対応しています。`SSO_ENABLED=true`で有効化し、`SSO_AUTHORITY`、`SSO_CLIENT_ID`、`SSO_CLIENT_SECRET`などを環境変数で設定します。コールバックURLは`DOMAIN`から生成されます。[公式SSO設定](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect)
+この環境はVaultwarden 1.37.2 / Web Vault 2026.7.0で、組み込みOIDCを有効化しています。通常の新規アカウント作成は[Authentikからの招待](sso.md)を使います。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
 
-ただし、SSOはVaultwardenのマスターパスワードを不要にする機能ではありません。SSOで利用者を認証した後も、保管庫の復号にマスターパスワードが必要です。したがって、SSOの効果は「誰が使えるかの入口を共通化する」ことであり、パスワード保管庫の暗号鍵をIdPへ預けることではありません。
+1. [接続手順](../operations/hub.md)に従い、SSH転送の8243・9443とローカルCAを準備する。
+2. ブラウザーで `https://vault.localhost:8243/` を開く。8222の直接HTTPポートやBitwardenのクラウドサイトから始めない。
+3. 画面に見えるメール欄へAuthentikに登録したメールを入力し、「シングルサインオンを使用する」を押す。
+4. Authentikの画面で共通アカウントへログインする。
+5. 初回は保管庫用のマスターパスワードを設定する。既存の保管庫ならそのマスターパスワードで解除する。
 
-この構成の`compose.lock.yaml`はイメージをダイジェストで固定しているため、SSOを使う前に、固定中のVaultwardenがSSO対応バージョンかを確認します。更新時はバックアップ、テスト環境でのログイン確認、モバイル・ブラウザー拡張の同期確認を行います。
+### 「SSO識別子」を求められたら
+
+これはAuthentikのユーザー名やパスワード、OIDCのclient secretではありません。現在のサーバーが返す共通の識別子は次です。
+
+```text
+00000000-01DC-01DC-01DC-000000000000
+```
+
+通常のメール入力から進む画面では自動取得されます。`/#/sso`の直接アクセスやクライアントによって手入力を求められた場合に使います。任意の文字列で進める版もありますが、初回保管庫作成時に組織識別子との不一致を起こす可能性があるため、この環境の返す値へ揃えます。これは公開値で、認証用秘密値ではありません。[導入版のSSO識別子実装](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/sso.rs)、[組織識別子応答](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/api/core/organizations.rs)
+
+### 今回確認したエラーと対応
+
+2026-09-08のサーバーログで `You need to verify your email with your provider before you can log in` を確認しました。Authentikの有効なメール付きアカウントが未確認属性になっているため、初回SSOが拒否されます。[メール確認手順](sso.md)を実施してからSSOをやり直します。既存利用者の所有確認は未完了で、今回一括の確認済み変更は行っていません。
+
+| 症状 | 原因・対応 |
+| --- | --- |
+| SSOを押して入力エラー | 先に見えているメール欄へ登録メールを入れる |
+| SSO識別子を要求 | 上記の共通識別子を入力。秘密値は入力しない |
+| メール未確認エラー | Authentikでメール所有確認後、真偽値`email_verified: true`を設定 |
+| 既存non-SSOユーザーと同じメールで失敗 | 既存保管庫との自動紐付けは無効。既存ログインを使い、バックアップと本人確認の上で個別移行を計画 |
+| 証明書／issuer／discoveryエラー | HTTPS入口、CA信頼、9443転送、Vaultwarden内部からのissuer到達を確認 |
+| マスターパスワードを求められる | 通常の復号手順。Authentikのパスワードを入れる場面ではない |
+| 最初は入れるがしばらくすると失敗 | OIDCセッション・refresh token・時刻を確認。今回`offline_access`を追加 |
+
+サーバーは `SSO_ENABLED=true`、`SSO_SCOPES=email profile offline_access`、`SSO_PKCE=true`を使用し、未知のメール確認状態を許可しません。ローカル登録は`SIGNUPS_ALLOWED=false`、既存保管庫へのメール一致だけの紐付けは`SSO_SIGNUPS_MATCH_EMAIL=false`のままです。通常のローカル登録と、認可済みSSOによる初回作成は別経路です。
+
+緊急時・既存アカウント向けのローカルログインを残すため、`SSO_ONLY=false`としています。Web保管庫の「Other／その他」からローカル認証へ切り替えます。全利用者へSSOのみを強制する場合は、既存保管庫・ブラウザー拡張・スマホの移行確認後に別途変更します。[公式SSO設定](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect)
+
+SSOはマスターパスワードや保管庫の暗号鍵を代替しません。Authentikのアカウントを復旧できても、忘れたマスターパスワードだけで保管庫を復号できるようにはなりません。Bitwarden拡張・モバイルでは自己ホストのサーバーURLを設定し、その端末から両HTTPS入口に接続できることも確認します。現在のlocalhost＋SSH転送構成をそのままスマホから使えるとは扱いません。
 
 ## SMTPと招待
 
-SMTPを設定しない場合でも、管理画面から招待URLを作って本人へ手渡す運用はできます。メール招待、メール確認、パスワードヒントの送信、メール2FAなどを使うにはSMTPまたはsendmailが必要です。[SMTP設定](../operations/smtp.md)
+通常の利用開始の招待はAuthentikで発行します。Vaultwarden側の招待は共有保管庫の組織参加など、アプリ固有の用途として区別します。メール招待、メール確認、パスワードヒントの送信、メール2FAなどを使うにはSMTPまたはsendmailが必要です。[SMTP設定](../operations/smtp.md)
 
 Vaultwardenのメール本文を日本語化する場合は、`data/templates/email`へテンプレートを配置できます。テンプレート内の`{{変数}}`を壊さず、アップデート後に最新版との差分を確認してください。[公式メールテンプレート手順](https://github.com/dani-garcia/vaultwarden/wiki/Translating-the-email-templates)
 

@@ -21,6 +21,7 @@ def main():
   digest=json.loads(run('docker','image','inspect','caddy:2-alpine',capture_output=True).stdout)[0]['RepoDigests'][0]
   lock.write_text(json.dumps({'services':{'gateway':{'image':digest}}},indent=2))
  run(sys.executable,'hub/configure-proxy.py')
+ run(sys.executable,'hub/invitations.py','configure')
  run(sys.executable,'hub/configure-services.py')
  compose('create') # Create the dedicated proxy network before connecting Navidrome.
  overlay=ROOT/'compose.integrations.yaml';data=yaml.safe_load(overlay.read_text())

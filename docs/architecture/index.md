@@ -8,7 +8,7 @@
 
 - K11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、RAM 64GB、SSD 1TB）を主ホストとする。
 - 新しいルータ・スイッチは購入しない。既存のルータ、マネージドスイッチ、監視用ラズパイを利用する。
-- サービスは原則VPNからアクセスする。将来統合する既存の公開Webだけを明示的にグローバル公開する。
+- サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
 - Kubernetesはkubeadmで構築し、常用サービス・自作API・サーバレス実行・DBを実際に運用する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
@@ -16,13 +16,17 @@
 - クラウドのユーザー・組織・プロジェクト管理、課金、利用者ポータルは初期範囲に含めない。APIキーの権限と失効を用意する。
 - Authentikは普段使うWebアプリのSSOに使う。クラウドAPIの利用にブラウザSSOを必須としない。
 
+ミニPC到着後は、[Proxmox VE導入後の手順](bring-up.md)から進めてください。家電・ポケモンDBを含む具体的な配置先は[配備台帳](operations.md)を正とします。概要図は全サービスを列挙していません。
+
 ## 読む順序
 
 | 文書 | 内容 |
 | --- | --- |
 | [最小クラウドとTerraform Provider](cloud.md) | 4機能、採用候補、APIキー、リソース設計、実装境界 |
+| [VPNの比較と併用](vpn.md) | NetBird・Headscale・Tailcat、対応OS、復旧経路、認証依存 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマホ、認証の使い分け |
 | [2人用ゲーム・開発VM](gaming.md) | WolfとAzahar、通信プレイ、性能確認、軽量開発環境 |
+| [Proxmox VE導入後の手順](bring-up.md) | ホスト確認、最初のVMと復元、家電・ゲーム・クラスタの構築順 |
 | [配備・Git管理・ストレージ・復旧](operations.md) | VM配分、Kubernetes運用、永続データ、段階的移行 |
 
 ## 採用候補
@@ -39,9 +43,14 @@
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
 | 自作クラウド | 小さなGo API + ジョブ処理、Go製Terraform Provider | APIはKubernetes、Providerは管理端末／開発VM |
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外の認証VM |
-| VPN・宅外からの監視 | Tailscale、既存監視 | ラズパイ。性能が必要なら対象VMへTailscaleを直接導入 |
+| VPN・宅外からの監視 | セルフホストVPN＋Tailscale。NetBird第一検証候補 | vpn-01＋ラズパイの復旧経路。対象VMへagent |
 | DNS | AdGuard Home | ラズパイの余力に応じて配置 |
 | 公開入口 | Caddy | 公開用VM |
+| 家電・自動化 | Home Assistant OS | 専用VM。SwitchBot・Echo・Eufyは機器別検証 |
+| ポケモンRDB・図鑑VDB | 専用PostgreSQL＋pgvector | worker-01。WebUI・agentと段階的移行 |
+| 自動音楽タグ | MusicBrainz Picard | 利用者PC。必要ならgame-01のGUI |
+| LocalSend | 各端末アプリ | 専用VM不要 |
+| OpenHome | 製品・リポジトリ確認待ち | ゲームVMへの同居候補 |
 | ゲーム | Wolf + Azahar×2 + 非公開ルーム | 780Mを割り当てるゲームVM |
 
 KnativeのKourierは、通常アプリ用のCilium Gatewayとは別の役割です。Cilium Gatewayを設定しただけでKnativeのルーティングまで動くとは扱いません。[Knativeのネットワーク構成](https://knative.dev/docs/install/)

@@ -70,6 +70,14 @@ Wolfの仮想画面機能をまず検証し、Sway＋VKMSの追加が必要か�
 
 この結果が出るまで「必ずカクつかない」「780Mのパススルーが確実に動く」とは扱いません。
 
+## MusicBrainz Picard
+
+自動タグ付けはまず利用者PC上のPicardを使います。サーバー側GUIが必要ならgame-01へ同居し、ゲーム利用中の音響指紋スキャンを避けます。専用VMは追加せず、作業コピーとPicard設定をユーザー別に保持します。[音楽の具体的な手順](../services/music.md)を参照してください。
+
+## OpenHomeの同居候補
+
+OpenHomeもgame-01へ入れる希望として管理します。製品／リポジトリが未特定のため、実行方式・Linux対応・音声／GPU要件・常駐要否を確認後に追加します。現時点では動作保証や追加RAMの確定値を置きません。Wolf・Azahar・Ollamaと合計12GiB（増枠時16GiB）の中で収め、設定・データを専用ディレクトリへ分離します。家電自動化とポケモンRDBは別配置です。[全サービス配置](operations.md)
+
 ## 軽量な開発VM
 
 各自にGUIなしのDebian／Ubuntu cloud imageを用意します。初期値は2vCPU、RAM 2GiB、ディスク32〜40GiB。SSHやVS Code Remote SSHで使い、ビルド負荷に応じてRAMを増やします。

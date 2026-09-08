@@ -5,23 +5,29 @@
 <a id="resource-budget"></a>
 ## VM/LXCと初期リソース配分
 
-| 配置 | 形式 | vCPU | RAM目安 | 用途 |
-| --- | --- | --- | --- | --- |
-| Proxmox | ホスト | — | 6GiB枠 | ホスト、キャッシュ等 |
-| public-edge | VM | 1 | 1GiB | 公開用Caddy |
-| identity | VM + Compose | 2 | 4GiB | Authentikと専用DB |
-| storage-s3 | 小型VM | 1〜2 | 1GiBから | Garage。負荷・メタデータ量で再評価 |
-| k8s-cp-01 | VM | 2 | 3GiB | control plane、etcd |
-| k8s-worker-01 | VM | 4 | 10GiB | 常用アプリ・API・DB・Knative |
-| k8s-worker-02 | VM | 4 | 10GiB | 常用アプリ・AWX・NetBox等 |
-| game-01 | VM + Docker | 8 | 12〜16GiB | Wolf、Azahar×2、必要時Ollama |
-| dev-a / dev-b | VM×2 | 各2 | 各2GiB | 個別のインフラ開発 |
-| DNS・VPN・監視 | 既存ラズパイ | — | K11の枠外 | モデルと現状負荷を確認 |
-| **K11合計** | | | **51〜55GiB** | iGPU固定予約・追加消費・動的VMの余裕は別 |
+以下はK11の64GB構成に対する**配置先と初期上限の設計**です。全VMを初日に作る必要はありません。VMIDは未使用であることを確認して採番する候補です。
 
-workerの20GiBにはKnativeの制御コンポーネントやCloudNativePG、API用管理DBも含める想定です。全サービスの高負荷同時実行を保証しません。新規DBアプライアンスや関数を無制限に追加できる枠ではありません。
+| VMID候補 / 配置 | 形式 | vCPU | RAM | 初期ディスク（GiB） | 内容・起動方針 |
+| --- | --- | --- | --- | --- | --- |
+| Proxmox | ホスト | — | 6GiB枠 | OS 64 | ホストとキャッシュの予算。実消費は監視 |
+| 100 / public-edge | VM | 1 | 1GiB | 16 | 公開Caddy。公開Web統合時に作成 |
+| 105 / vpn-01 | VM | 2 | 2GiB | 16 | セルフホストVPN。NetBird第一検証候補、製品選定中。常時 |
+| 110 / identity | VM + Compose | 2 | 4GiB | 32 | Authentikと専用DB。常時 |
+| 120 / home-assistant | HAOS VM | 2 | 4GiB | 32 | 家電連携・自動化・履歴。常時 |
+| 130 / storage-s3 | VM | 2 | 1GiB | OS 16 + データ32 | Garage。利用開始後は常時 |
+| 200 / k8s-cp-01 | VM | 2 | 3GiB | 32 | control plane、etcd。常時 |
+| 210 / k8s-worker-01 | VM | 4 | 8GiB | OS 32 + データ64 | メディア・ポケモンRDB/VDB・AI API。常時 |
+| 211 / k8s-worker-02 | VM | 4 | 8GiB | OS 32 + データ48 | AWX・NetBox・クラウドAPI・Knative。常時 |
+| 300 / game-01 | VM + Docker | 8 | 12GiB（最大16） | OS 48 + データ96 | Wolf、Azahar×2、必要時Ollama、OpenHome候補。利用時 |
+| 400・401 / dev-a・dev-b | VM×2 | 各2 | 各2GiB | 各32 | 個別インフラ開発。利用時 |
+| DNS・VPN・監視 | 既存ラズパイ | — | K11枠外 | 既存容量を確認 | K11停止時も管理経路を維持 |
+| **K11合計** | | **31 vCPU** | **53GiB（ゲーム16時57）** | **計724GiB（ホストOS込み）** | iGPU予約と未配分領域は別 |
 
-例えばiGPU固定予約が4GiBなら残りは概算5〜9GiBですが、実際の利用可能RAM・ハイパーバイザ消費を確認して動的VMの上限を決めます。16GiB固定予約はこの配分では過大です。ゲーム停止時に検証VMへ枠を回す運用が可能です。
+セルフホストVPNの2GiBとHome Assistantの4GiBを追加し、workerを各10→8GiBへ調整しました。workerの16GiBにはDB・Operator・Knative制御部も含みます。従来と同じ全サービス同時負荷を期待せず、AWX実行・関数・一括取り込みは直列から始めます。vCPU合計は物理16スレッドを超えるため、CPUも専有予約ではありません。
+
+64GiB相当を搭載しiGPU固定予約が4GiBなら、概算の余白は7GiB（ゲーム16時3GiB）です。これは動的VMへ全量を配ってよい枠ではありません。Proxmoxで認識されたRAMからホスト枠・稼働ゲストを引き、最低4GiBの運用余白を残す初期方針とします。増設・増枠は実測後に行い、先に開発VM／Ollama／バッチを停止します。ゲームを16GiBへ増やすと全VM稼働時は最低余白を割るため、少なくともdev VMを1台（2GiB）停止してから増枠します。ゲーム・HAOS・DBを載せるworkerは固定RAMから開始し、バルーニングによる回収を余剰として数えません。
+
+ディスク724GiBは論理的な計画値であり、既存パーティションをこの表に合わせて作り直す指示ではありません。1TBは約931GiBなので、差分約207GiBからISO・テンプレート・メタデータ・スナップショットを賄い、実プール使用率80%程度で増設・整理します。メディア原本もworkerデータ枠へ含め、現行データが収まらなければ移行前に別ディスクを確保します。thin provisioningでも物理容量は増えません。カメラ録画領域と別機器バックアップはこの724GiBに含みません。
 
 LXCはDNSなど権限要求の少ない小型サービスをK11へ置く場合に非特権で使用します。Docker基盤、ゲーム、開発用にはVMを優先します。GPUは通常のPCIパススルーで1つのVMへ渡し、別のAI VMと同時共有できる前提にしません。
 
@@ -41,17 +47,71 @@ SQLite等を使うアプリを単に複数レプリカへ変更しません。Ne
 
 ## アプリの配置と維持する機能
 
-| 分類 | 方針 |
-| --- | --- |
-| Nextcloud、Calendar、Tasks | Kubernetesへ段階的移行。Redis・cron・DB整合性を含める |
-| Kavita、Navidrome、MeTube、RomM | Kubernetesへ。原本は取り出せる普通のファイルで保持 |
-| Homarr、MkDocs | ハブと文書を維持。MkDocsの入力と生成物を区別 |
-| Vaultwarden | Kubernetes候補。認証基盤と別に復旧できるデータ・鍵を保存 |
-| Open WebUI、Discord Bot | Kubernetes。Botは実装に応じて常駐Deployment |
-| Ollama | GPU用VM。ゲームと負荷を分ける |
-| PostgreSQL／pgvector | CloudNativePG。アプリ用と管理用の権限を分離 |
-| NetBox | 台帳として維持。クラウドAPIの依存必須にはしない |
-| LocalSend | 端末へ導入。常設サーバー不要 |
+workerの記載は初期の配置方針です。実際にはnamespace・PVC・node affinity等へ反映します。ローカルPVCを持つPodは元のworkerの復旧またはデータ復元が必要です。
+
+| サービス／構成要素 | 配置先 | 永続化・依存／状態 |
+| --- | --- | --- |
+| Nextcloud、Calendar、Tasks | worker-01 / media | ファイル・設定・DB、Redis、cronを一組で移行 |
+| Kavita、Navidrome、MeTube、RomM | worker-01 / media | 原本・アプリDB・設定。RomM等の固有DB要件を保持し、全DBをPostgreSQLへ強制統一しない |
+| Homarr、MkDocs | worker-01 / portal | Homarr設定・鍵、文書原稿とビルド設定 |
+| Vaultwarden | worker-01 / vault | DB・添付・鍵。独立復元を検証して移行 |
+| Open WebUI、pokemon-agent | worker-01 / pokemon-ai | WebUI状態・鍵・接続設定。agentの管理者権限なし |
+| ポケモンRDB、図鑑VDB | worker-01 / pokemon-aiのCloudNativePG | 専用PostgreSQLクラスタ1インスタンスから。次節のDB・ロールを保持 |
+| 汎用RAG・Discord Bot | worker-01 / ai | ポケモン用途と文書権限を分離。Bot Secretと対象チャンネルを管理 |
+| Ollama | game-01 | モデル専用ディレクトリ。ゲーム時は推論停止・モデル解放 |
+| OpenHome（製品未特定） | game-01同居候補 | URL・Linux対応・GPU／音声要件確認まで未導入。必要RAMはゲーム枠内で再見積もり |
+| AWX・NetBoxと各専用DB | worker-02 / automation・inventory | ジョブ並列数を制限。DB・暗号鍵・メディアを保存 |
+| 自作クラウドAPI・ジョブ・管理DB | worker-02 / cloud-system | 利用者作成DBと管理DBを分離 |
+| 利用者向けDBアプライアンス | worker-02 / 動的専用namespace | CloudNativePG。ポケモンDBを削除APIの対象にしない |
+| Knative Serving・Kourier・関数 | worker-02中心 | 関数の同時実行数と合計requestsを制限 |
+| Cilium・MetalLB・cert-manager・Flux・CNPG Operator | Kubernetes共通基盤 | chartが要求するnode配置を尊重。予算はworker枠に含む |
+| Authentik・専用DB | identity | クラスタ外。設定・鍵・DBを保存 |
+| Garage | storage-s3 | メタデータ・オブジェクトを保存 |
+| Home Assistant・家電連携 | home-assistant | HAOS内。構成・自動化・履歴とバックアップ復号情報を保存 |
+| Wolf・Azahar×2・非公開ルーム | game-01 | ユーザー別セーブ・設定・ペアリング |
+| MusicBrainz Picard | 利用者PC。必要ならgame-01のGUI | 自動タグ照合。作業コピー→確認／保存→共有musicへ反映。無人ジョブは未配備 |
+| LocalSend | PC・スマホ。必要ならゲームVMのデスクトップ | 常設サーバー不要。受信先フォルダを端末側で指定 |
+| 公開Caddy | public-edge | 設定・証明書状態。内部アプリへの許可経路のみ |
+| セルフホストVPN | vpn-01 | NetBird／Headscale等から1製品を選定。DB・設定・鍵・端末登録を保存。詳細は[VPN比較](vpn.md) |
+| Tailcat | 管理PC／dev-a | 一時的なファイル・ポート接続。常設VM不要。接続情報は非公開 |
+| AdGuard Home・Tailscale・既存監視 | ラズパイ | DNS設定・VPN復旧情報・監視設定。容量と現状負荷を確認 |
+
+<a id="pokemon-db"></a>
+### ポケモンRDBの配置と移行単位
+
+**最終配置はworker-01上の専用PostgreSQL（CloudNativePG）です。ゲームVMには置きません。** ゲームVMやOllama停止中にもSQL検索・既存のSakura経由の回答を維持する設計です。
+
+現行の `pokemon-ai-lab/compose.yaml` とREADMEでは、同じPostgreSQLに `pokemon_rdb` と `openwebui` があり、図鑑本文・Embeddingは `openwebui.rag.pokedex_documents` にあります。ポケモンのダンプだけでは全体を復元できません。
+
+- `pokemon_rdb`、`openwebui` の両DB、必要なロール・権限・pgvector拡張を移す。`pokemon_reader` と `rag_reader` の読み取り専用権限を維持する。
+- 初期候補はPostgreSQL 17互換のpgvector対応CNPGイメージ。現行実稼働版・拡張版を確認して固定する。既存ComposeのイメージをCNPGでそのまま利用できるとは扱わない。
+- Open WebUIのデータボリューム、`WEBUI_SECRET_KEY`、agent設定・APIキー、migration／provision処理も移行対象。秘密値はGit本文へ保存しない。
+- 保存済みEmbeddingのモデル・次元は現行設定を保持する。下記BGE-M3候補へ移行と同時に切り替えない。既存データは自動再取り込みされない。
+- 初期予算はDB 2GiB、Open WebUI 1.5GiB、agent 0.5GiBの計4GiBをworker-01の8GiB内で見込む。残りで基盤とメディアを賄えるか実測し、重い走査を止める。ディスクはworker-01の64GiB内からDB用32GiBを仮置きし、実データ＋索引＋WAL＋復元作業領域を測って確定する。
+- CNPG未構築の間は現行環境を維持する。先にK11へ移す必要がある場合だけ、一時 `pokemon-ai-01` VM（4vCPU／4GiB、OS32＋データ32GiB、容量実測必須）へComposeを復元する。この間はworker-02を作成しない／停止して枠を使い、最終配分へ追加で積まない。
+
+切替手順は、更新・取り込み停止 → 両DBとWebUI状態の整合バックアップ → 隔離した移行先へ復元 → ロール再設定・agent接続 → 全表件数と `fingerprint_data.py` の比較 → SQL・図鑑検索・WebUI/SSEの確認 → 接続先切替、です。元環境は停止して保持し、合格前にボリュームを消しません。切替後に新規チャット等の書き込みが入った場合は、その差分を保全してから切り戻します。
+
+<a id="home-devices"></a>
+### Home Assistant・SwitchBot・Echo・Eufy
+
+HAOS専用VM（2vCPU／4GiB／32GiB）を選び、Kubernetes更新やゲームVM再起動で家電自動化が止まらない構成にします。ただしK11自体の再起動中は停止します。初期はHAOSの標準履歴DBを使い、PostgreSQLクラスタへの依存を増やしません。[HAOS VM導入](https://www.home-assistant.io/installation/alternative/)
+
+| 対象 | 接続方針 | 導入時の確認・合格条件 |
+| --- | --- | --- |
+| SwitchBot | 対応機器はBluetoothローカル接続。USB BluetoothをHAOSへ渡すか、対応Bluetooth proxyを検討。Cloud連携は型番・Hubに応じて選択 | 機器とHubの型番を記録。1台の操作・状態更新・再起動後再接続を確認。K11内蔵Bluetoothが使える前提にはしない |
+| Echo Gen2 / Alexa | Echoは既存端末。HAの機器をAlexaから操作する入口として扱う。Home Assistant Cloudを簡易な候補とし、料金・アカウント条件を選定時に確認 | 「Echoから家電操作」と「HAからEchoへ音声通知」は別機能。後者は個別検証。Echo Gen2を汎用Bluetooth proxyやThread border routerと見なさない |
+| Anker EufyCam S4 | 当面はEufyアプリ／既存録画先を維持し、HAへのイベント・静止画・ライブ映像を個別検証 | 正確な型番・HomeBase・FW・アプリ内NAS/RTSP項目を確認。S4の直接対応は未確認。NAS対応機種の一般資料をS4対応保証にしない |
+
+SwitchBotはローカルBluetoothとCloudで要件が異なります。[Bluetooth公式](https://www.home-assistant.io/integrations/switchbot/)、[Cloud公式](https://www.home-assistant.io/integrations/switchbot_cloud/)。AlexaのCloud連携と独自Skill方式も異なり、VPNだけでAmazon側から到達できるわけではありません。接続方式の決定前にHAの8123をルータから公開しません。[Alexa公式](https://www.home-assistant.io/integrations/alexa.smart_home/)
+
+Eufyの映像保存・常時録画・映像AIは別の容量／CPU設計です。HAOSの32GiBを録画庫にはしません。RTSPが実機で利用可能な場合に、映像表示とイベント連携を別々に試します。追加の非公式連携や中継サービスが必要なら、その互換性・認証・メモリを確認してから配分表へ追記します。[Eufy NAS/RTSP一般手順](https://service.eufy.com/article-description/Device-NAS-RTSP-Configuration-Guide)
+
+### LocalSendとIoTのネットワーク
+
+LocalSendは端末間転送で、専用VMは不要です。同じLANで送受信し、標準のTCP/UDP 53317を端末FWで必要範囲に許可します。VLANやVPNをまたぐ自動検出は当然には成立しないため、まず同一LANで確認します。[LocalSend公式](https://github.com/localsend/localsend)
+
+HAOSも最初は対象IoT機器へ到達できるLANのbridgeへ接続し、DHCP予約等でIPを安定させます。IoTをVLAN分離する場合は必要な通信とmDNS等の検出経路を設計してから移します。IoT機器からProxmox管理・DBへのアクセスは許可しません。HAの操作はLAN／VPNとHA自身の認証から開始します。
 
 LLMはQwen3 4B／8Bの量子化版、EmbeddingはBGE-M3を初期比較候補にします。まずコンテキスト4K、同時実行1で確認します。Qwen3 8B Q4_K_Mのファイルは約5.2GBですが、実行には追加メモリが必要です。[Qwen3](https://ollama.com/library/qwen3/tags)、[BGE-M3](https://huggingface.co/BAAI/bge-m3)
 
@@ -84,7 +144,9 @@ NASは保存先を提供する機器・システム、NFSは共有プロトコ�
 - etcd: スナップショットと復旧手順。Gitからの再構築ではSecret・PVCデータを別途戻す。
 - Secret: SOPS復号鍵、API資格情報、認証基盤の鍵は管理PCと外部コピーへ保持する。
 
-復旧順序は、ネットワーク／VPN → Proxmox → 必要なストレージ／認証 → Kubernetes → DBとPVC → API・アプリです。管理APIやFlux自身が正常でないと復旧できない循環依存を作りません。隔離VM／namespaceで実際の復元を確認します。[PBS](https://www.proxmox.com/en/products/proxmox-backup-server/features)、[restic](https://restic.readthedocs.io/en/stable/)
+Home AssistantはHAOSのバックアップを別機器へ出し、必要な復号情報も外部へ保管します。USB機器の割り当てはVM復元後に再確認します。
+
+復旧順序は、ネットワーク／K11外Tailscale → Proxmox → Home Assistantと必要なストレージ／認証 → vpn-01 → Kubernetes → DBとPVC → API・アプリです。管理APIやFlux自身が正常でないと復旧できない循環依存を作りません。隔離VM／namespaceで実際の復元を確認します。[PBS](https://www.proxmox.com/en/products/proxmox-backup-server/features)、[restic](https://restic.readthedocs.io/en/stable/)
 
 ## Gitと構成の所有者
 
@@ -103,6 +165,8 @@ NASは保存先を提供する機器・システム、NFSは共有プロトコ�
 IP、ドメイン、ストレージ名、PCIアドレスを環境設定へ分離し、イメージ・Provider・Chart・collectionを固定します。RenovateのPRで更新を確認します。NetBoxを台帳の正本にする場合はGitと二重手更新せず、復旧用エクスポートを保存します。[Renovate Compose](https://docs.renovatebot.com/modules/manager/docker-compose/)
 
 ## 移行順序
+
+到着したK11で最初に進める作業と完了条件は、[Proxmox導入後の手順](bring-up.md)を参照してください。
 
 1. 現行データと構成をバックアップし、ネットワーク・VPN・復旧経路を確認する。
 2. Proxmoxと小型VMを準備し、780Mパススルーと2人ゲームの実測を先に行う。

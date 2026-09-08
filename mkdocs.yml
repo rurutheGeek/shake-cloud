@@ -7,19 +7,25 @@ theme:
   locale: ja
 nav:
   - ホーム: index.md
-  - 運用の基本: overview.md
-  - サービス:
-      - Nextcloud・予定・TODO: services/nextcloud.md
+  - 利用者向け:
+      - 全サービスの使い方: services/usage.md
+      - Homarrハブ: services/homarr.md
       - 音楽・取り込み・タグ: services/music.md
-      - Vaultwarden: services/vaultwarden.md
-      - 共通ログイン: services/sso.md
       - 日本語表示: services/language.md
-  - メール設定: operations/smtp.md
-  - ハブ運用: operations/hub.md
-  - ディスク増設: operations/disk.md
+  - 管理者向け:
+      - 運用の基本: overview.md
+      - Nextcloudと追加アプリ: services/nextcloud.md
+      - Vaultwardenの管理: services/vaultwarden.md
+      - 共通ログイン: services/sso.md
+      - メール設定: operations/smtp.md
+      - ハブ運用: operations/hub.md
+      - Nextcloud権限変更: operations/nextcloud-permissions.md
+      - ディスク増設: operations/disk.md
   - 構成案:
       - 全体構成と前提: architecture/index.md
       - 最小クラウドとProvider: architecture/cloud.md
       - ネットワーク・SSO: architecture/network-auth.md
+      - VPN比較・Tailscale併用: architecture/vpn.md
       - 2人用ゲーム・開発VM: architecture/gaming.md
       - 配備・Git・復旧: architecture/operations.md
+      - Proxmox導入後の手順: architecture/bring-up.md

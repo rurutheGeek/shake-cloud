@@ -14,6 +14,8 @@ ssh -N -o ExitOnForwardFailure=yes \
   ubuntu@SERVER
 ```
 
+`login.localhost:9443`、`nextcloud.localhost:8443`、`kavita.localhost:5443`、`vault.localhost:8243`を使う場合は、それぞれSSHの`9443`、`8443`、`5443`、`8243`を転送します。`9000`、`8080`、`5000`、`8222`は各サービスの直接ポートで、HTTPSのホスト名入口とは別です。SSO利用時は上記のHTTPS入口を使ってください。
+
 ハブは [localhost:7575](http://localhost:7575)、手順書は [localhost:8090](http://localhost:8090) です。Nextcloudは [nextcloud.localhost:8443](https://nextcloud.localhost:8443)、Kavitaは [kavita.localhost:5443](https://kavita.localhost:5443)、Vaultwardenは [vault.localhost:8243](https://vault.localhost:8243)、共通認証は [login.localhost:9443](https://login.localhost:9443) です。
 
 ## ローカルCAの信頼登録（利用端末ごとに初回）
@@ -42,16 +44,27 @@ sudo .hub-venv/bin/python sso/manage.py
 
 AnsibleではNetBoxインベントリを読み込み、`ansible/deploy.yml` → `ansible/hub.yml` → `ansible/music-tools.yml` → `ansible/sso.yml` の順です。Dockerは基本Playbookが導入します。`sso/manage.py` はNetBoxも存在する場合にOIDC設定を適用します。
 
-`hub/apps.json` がサービスリンク、`docs/` が日本語手順の正本です。管理対象の設定は再配備でコードの内容へ戻します。
+`hub/apps.json` がサービスリンク、`docs/` が日本語手順の初期テンプレート、`mkdocs.yml` がサイト構成です。配備後の手順書原本は `LIBRARY_ROOT/docs` で、Nextcloudの「docs」から編集します。生成済みサイトを直接編集しません。初回配備時だけ初期テンプレートをコピーし、その後のAnsible再配備ではNextcloud側の追加・変更・削除を保持します。
 
 ```bash
 sudo .hub-venv/bin/python hub/configure-homarr.py
 sudo .hub-venv/bin/python hub/manage.py build
 ```
 
+## Nextcloudから手順書を更新
+
+Nextcloudのファイル一覧にある「docs」外部ストレージを開き、`.md` ファイルを編集して保存します。Markdown編集アプリとしてTextを有効化しています。保存後は `media-stack-docs-build.timer` がMkDocsを実行し、通常1分以内に [日本語手順書](http://localhost:8090)へ反映します。
+
+編集内容にMarkdownの構文エラーがある場合は、前回正常に生成されたサイトが表示され続けます。反映されないときは次でビルド結果を確認します。
+
+```bash
+systemctl status media-stack-docs-build.timer
+sudo journalctl -u media-stack-docs-build.service -n 50 --no-pager
+```
+
 ## データと移設
 
-原本は `.env` の `LIBRARY_ROOT`、アプリ状態は `STORAGE_ROOT` です。加えて `hub/storage`、`netbox/storage`、`music-tools/storage`、`sso/storage` を保存します。NetBoxの状態パスを変更している場合は `netbox/.env` の設定を使います。
+原本と手順書は `.env` の `LIBRARY_ROOT`、アプリ状態は `STORAGE_ROOT` です。加えて `hub/storage`、`netbox/storage`、`music-tools/storage`、`sso/storage` を保存します。NetBoxの状態パスを変更している場合は `netbox/.env` の設定を使います。`LIBRARY_ROOT/docs` は基本スタックの `library.tar` に含まれます。
 
 移設ではサービスを停止して原本・各状態領域・秘密値を所有者/権限ごと移し、移設先の `.env` でパスを合わせます。CAを維持する場合は `sso/storage` も必要です。再生成した場合は利用端末で新しいCAを信頼し直します。
 

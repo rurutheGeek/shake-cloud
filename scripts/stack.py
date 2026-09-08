@@ -82,7 +82,8 @@ def init():
     directories += [(state / 'nextcloud' / name, (33, 33))
                     for name in ('html', 'config', 'data')]
     directories += [(state / 'navidrome', (uid, gid)),
-                    (library / 'books', (33, 33)), (library / 'music', (33, 33))]
+                    (library / 'books', (33, 33)), (library / 'music', (33, 33)),
+                    (library / 'docs', (33, 33))]
     for path, owner in directories:
         if not path.exists():
             path.mkdir(parents=True, mode=0o750)
@@ -149,16 +150,18 @@ def setup():
     raw = json.loads(occ('files_external:list', '--output=json', capture_output=True).stdout)
     mounts = list(raw.values()) if isinstance(raw, dict) else raw
     admin = settings().get('NEXTCLOUD_ADMIN_USER', 'admin')
-    for name in ('books', 'music'):
+    for name, datadir in (('books', '/library/books'),
+                          ('music', '/library/music'),
+                          ('docs', '/docs')):
         matching = [m for m in mounts if m['mount_point'].strip('/') == name]
         if matching:
-            if len(matching) != 1 or matching[0]['configuration'].get('datadir') != '/library/' + name:
+            if len(matching) != 1 or matching[0]['configuration'].get('datadir') != datadir:
                 raise RuntimeError(f'Conflicting external storage mount: {name}; inspect in Nextcloud')
             # Preserve intentionally edited access rules on subsequent deployments.
             print(f'Existing external storage preserved: {name}')
         else:
             occ('files_external:create', '/' + name, 'local', 'null::null',
-                '--config', 'datadir=/library/' + name, '--applicable-user', admin)
+                '--config', f'datadir={datadir}', '--applicable-user', admin)
 
 
 def apps(names):

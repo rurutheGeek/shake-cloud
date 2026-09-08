@@ -2,7 +2,7 @@
   {
     "name": "日本語の手順書",
     "href": "http://localhost:8090",
-    "description": "利用手順・設定例・運用。Markdownを正本として管理",
+    "description": "Nextcloudから編集できる利用手順・設定例・運用ドキュメント",
     "iconText": "DOC",
     "iconColor": "#475569"
   },

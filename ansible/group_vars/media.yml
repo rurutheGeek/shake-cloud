@@ -12,4 +12,5 @@ stack_env: {}
 nextcloud_apps:
   - calendar
   - tasks
+  - text
   - user_oidc

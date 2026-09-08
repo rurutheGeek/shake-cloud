@@ -11,7 +11,7 @@
 | 対象 | 設定例 | 設定場所 |
 | --- | --- | --- |
 | Kavita | ライブラリ分割、閲覧ユーザー、対象拡張子、除外パターン、フォルダ監視、定期スキャン、PDF描画解像度、OPDS、OIDC | SSOはsso/configure-kavita.py、既存の状態はstorage/kavitaに永続化 |
-| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、メール、追加アプリ | 管理画面・occ。外部ストレージ初期設定はscripts/stack.py |
+| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、Markdown手順書、メール、追加アプリ | 管理画面・occ。外部ストレージ初期設定はscripts/stack.py。手順書はNextcloudのdocsから編集 |
 | Navidrome | スキャン間隔、トランスコード、ユーザー | compose.yamlのND_*環境変数と管理画面 |
 | Vaultwarden | 招待、登録可否、SMTP、公開URL | 環境変数・/admin。保存された/data/config.jsonが環境変数より優先 |
 | ホスト | 保存先、ポート、イメージ、HTTPS | .env.example、compose.yaml、ansible/deploy.ymlとstack_env。変更は再配備で反映 |

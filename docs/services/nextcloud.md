@@ -16,6 +16,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 | Deck | カンバン形式のタスク管理 | 「やること」「作業中」「完了」の管理 | 高機能なプロジェクト管理製品の代替ではない |
 | Tasks | 個人・共有タスク | バックアップや本の整理のTODO | Calendarと連携できる |
 | Notes | Markdownに近い簡易メモ | サーバー運用メモや買い物メモ | 本格的なドキュメント管理は別途検討 |
+| Text | テキスト・Markdownファイルの編集 | docsの手順書をブラウザーから更新 | 保存後のサイト生成は自動処理に任せる |
 | Mail | 外部メールを読む・送る画面 | 既存のIMAPメールをNextcloudで読む | メールサーバーそのものではない |
 | Group folders | グループ専用フォルダ | `family`だけに見える共有領域 | アプリ側の共有設定が別に必要 |
 | Files external storage (`files_external`) | 外部ストレージをFilesに表示 | `/library/books`やNFSを表示 | ホスト側のマウントと権限が必要 |
@@ -27,7 +28,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 
 ## 現在の構成でのインストール例
 
-この構成では、利用者が手動でコンテナへ入るのではなく、`scripts/stack.py apps`をAnsibleから呼び出します。既定ではAnsibleの`nextcloud_apps`に`calendar`と`tasks`を指定しています。
+この構成では、利用者が手動でコンテナへ入るのではなく、`scripts/stack.py apps`をAnsibleから呼び出します。既定ではAnsibleの`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定しています。
 
 Ansible配備時は、サービスが正常起動した後に自動で次を実行します。
 
@@ -35,13 +36,17 @@ Ansible配備時は、サービスが正常起動した後に自動で次を実�
 nextcloud_apps:
   - calendar
   - tasks
+  - text
+  - user_oidc
 ```
+
+Nextcloudのファイル一覧には、管理者だけが使える`docs`外部ストレージも自動登録されます。ここにあるMarkdownを編集すると、MkDocsが定期的にサイトを再生成し、8090の手順書へ反映します。
 
 ローカルComposeで同じ処理を試す場合も、コンテナへ入らずに次のコマンドを使います。
 
 ```bash
 cd media-stack
-sudo python3 scripts/stack.py apps --apps calendar,tasks
+sudo python3 scripts/stack.py apps --apps calendar,tasks,text
 ```
 
 この処理は現在のアプリ一覧を確認し、未インストールならインストール、無効なら有効化します。既に有効なら何もしません。

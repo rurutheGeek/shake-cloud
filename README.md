@@ -17,7 +17,7 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 - **再実行と再現性**：初期化では既存の秘密値・アカウント・データを保護します。コードで管理する設定は再配備で反映します。イメージは各 `compose.lock.yaml` のdigestで固定し、更新は明示的に行います。冪等性は全設定について保証済みではないため、変更箇所の再実行確認も必要です。
 - **認証と権限の分離**：Authentikを共通認証基盤にし、対応アプリはOIDC、MeTube・Navidromeは認証プロキシで接続します。SSOは各サービスの閲覧権限や既存データの自動統合を意味しません。既存のローカル管理者を残し、移行は別工程にします。VaultwardenにはSSO後も保管庫の暗号化用マスターパスワードが必要です。
 - **秘密値と状態の分離**：Gitにはコード・設定例・Markdown・ロックファイルを置きます。実際の認証情報、Cookie、CA秘密鍵、ホスト台帳、原本、DB、ログは非公開領域へ分離します。Gitだけでは環境のデータ復元はできません。
-- **利用の入口と日本語化**：リンクの正本は `hub/apps.json`、利用・運用ドキュメントの正本は `docs/` のMarkdownです。生成済みサイトを直接編集しません。日本語化は各アプリの対応範囲で設定し、ブラウザー・利用者設定に依存する部分は手順で補います。
+- **利用の入口と日本語化**：リンクの正本は `hub/apps.json`、手順書の初期テンプレートとサイト構成は `docs/`・`mkdocs.yml` です。配備後の手順書原本は `${LIBRARY_ROOT}/docs` とし、Nextcloudの「docs」から編集します。生成済みサイトを直接編集しません。日本語化は各アプリの対応範囲で設定し、ブラウザー・利用者設定に依存する部分は手順で補います。
 - **派生ファイルの管理**：BCSTM原本を残して再生用MP3を生成します。原本削除は確認を挟んで管理対象の派生ファイルへ反映し、一時退避を経て削除します。既存の無関係なMP3を巻き込まないことを優先します。MeTubeは共有Cookie方式で、一般利用者はURL入力だけで使います。Cookieの更新は運用作業です。
 
 ### コードの担当範囲
@@ -71,6 +71,7 @@ Ansibleを変更した場合は `ansible/requirements.txt` と `ansible/requirem
 | --- | --- | --- |
 | 書籍原本 | library/books | Nextcloud: /library/books、Kavita: /books:ro |
 | 音楽原本 | library/music | Nextcloud: /library/music、Navidrome: /music:ro |
+| 手順書原本 | library/docs | Nextcloud: /docs、MkDocsの入力 |
 | Nextcloudアプリ・追加アプリ | storage/nextcloud/html | /var/www/html |
 | Nextcloud設定 | storage/nextcloud/config | /var/www/html/config |
 | Nextcloud私有データ | storage/nextcloud/data | /var/www/data |
@@ -176,7 +177,7 @@ sudo docker compose -f compose.yaml -f compose.lock.yaml exec -T -u 33:33 \
   nextcloud php occ files:scan --all
 ```
 
-NFSは事前にホストへマウントしLIBRARY_ROOT/library_rootで指定します。root_squashがある場合はNFSサーバー側でbooks/musicをUID/GID 33用に作成してください。NFS未マウントのまま空ディレクトリへ書かないよう、ホスト側で起動順序・mountpointチェックを設定します。PostgreSQL・SQLiteを含むstorageは各ホストのローカルディスクに保持してください。
+NFSは事前にホストへマウントし、`LIBRARY_ROOT` で指定します。books/music/docsをNextcloudへ見せるため、NFSサーバー側でUID/GID 33が読み書きできるようにします。NFS未マウントのまま空ディレクトリへ書かないよう、ホスト側で起動順序・mountpointチェックを設定します。PostgreSQL・SQLiteを含むstorageは各ホストのローカルディスクに保持してください。
 
 ## バックアップ・復元・移行
 
@@ -224,14 +225,14 @@ PDFは `library/books/作品名/作品名.pdf` のように作品別フォルダ
 
 設定範囲と拡張時の制約は[CONFIGURATION.md](CONFIGURATION.md)を参照してください。
 
-利用者向けの目的別手順、SSO、SMTP、Nextcloud追加アプリの説明は[docs/overview.md](docs/overview.md)から参照できます。
+利用者は[全サービスの使い方](docs/services/usage.md)から始めてください。[Homarrの編集方法](docs/services/homarr.md)や[日本語表示](docs/services/language.md)も利用者向けにまとめています。SSO、SMTP、Nextcloud追加アプリ、配備などの管理作業は[運用ドキュメント](docs/overview.md)から参照できます。
 
 ## ハブ・SSO・音楽取り込み
 
 基本配備後、同じNetBoxインベントリで `ansible/hub.yml`、`ansible/music-tools.yml`、`ansible/sso.yml` を順に実行します。[CAとSSH転送の設定](docs/operations/hub.md)を先に確認してください。上記の基本Compose用URLと、SSO有効時の入口は異なります。
 
 - Homarr: http://localhost:7575。`hub/apps.json` からサービス一覧を反映。
-- 日本語手順書: http://localhost:8090。正本は `docs/` 内のMarkdown。
+- 日本語手順書: http://localhost:8090。Nextcloudの「docs」で編集し、正本は配備先の `LIBRARY_ROOT/docs`。Gitの `docs/` は初期テンプレート。
 - Authentik: https://login.localhost:9443。各サービスの認証連携は[SSO手順](docs/services/sso.md)を参照。
 - MeTube: http://localhost:8081。音声を `music/YouTube` へ保存。共有Cookieは画面から登録し、期限切れ時に更新。
 - BCSTM: `music` 内の原本を保持し、`music/Converted` へMP3を生成して原本削除も同期。
@@ -242,6 +243,6 @@ PDFは `library/books/作品名/作品名.pdf` のように作品別フォルダ
 
 ## GitHubへ置くもの
 
-コード、Markdown、Ansible、設定例、イメージdigestのロックファイルを管理します。`.env`、秘密値、Cookie、実データ、状態、CA、実ホスト台帳、実行ログは `.gitignore` で除外します。公開前に `git diff --cached --stat` と `git diff --cached` で対象を確認してください。
+コード、初期Markdownテンプレート、Ansible、設定例、イメージdigestのロックファイルを管理します。Nextcloudで編集した配備先のMarkdownはアプリ状態・原本と同様にバックアップ対象です。`.env`、秘密値、Cookie、実データ、状態、CA、実ホスト台帳、実行ログは `.gitignore` で除外します。公開前に `git diff --cached --stat` と `git diff --cached` で対象を確認してください。
 
 検証は `python3 -m unittest discover -s tests`、ドキュメントは `python -m mkdocs build --strict` です。GitHubへのpushは配備とは別の操作です。

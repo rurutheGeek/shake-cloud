@@ -27,7 +27,7 @@
         src: '{{ source_dir }}/hub/{{ item }}'
         dest: '{{ project_dir }}/hub/{{ item }}'
         mode: '0644'
-      loop: [configure-oidc.py, configure-proxy.py, configure-services.py, configure-homarr.py, users.py, users.example.json, manage.py, apps.json]
+      loop: [configure-oidc.py, configure-proxy.py, configure-services.py, configure-homarr.py, users.py, identity_attributes.py, invitations.py, users.example.json, manage.py, apps.json]
     - name: Check for a local NetBox deployment
       ansible.builtin.stat:
         path: '{{ project_dir }}/netbox/.env'

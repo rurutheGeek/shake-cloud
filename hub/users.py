@@ -3,6 +3,7 @@
 import argparse,json,os,secrets
 from pathlib import Path
 import requests
+from identity_attributes import attributes_for
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('manifest',type=Path);args=p.parse_args()
 entries=json.loads(args.manifest.read_text());allowed={'media-users','homarr-admins'}
@@ -23,7 +24,7 @@ for entry in entries:
  desired=[groups[name] for name in entry.get('groups',['media-users'])]
  if user:desired=sorted(set(desired+[g for g in user['groups'] if g not in [groups[n] for n in allowed]]))
  data={'username':entry['username'],'name':entry.get('name',entry['username']),'email':entry['email'],
-  'is_active':entry.get('active',True),'groups':desired,'attributes':{**(user.get('attributes',{}) if user else {}),'settings':{**(user.get('attributes',{}).get('settings',{}) if user else {}),'locale':'ja'},'email_verified':entry.get('email_verified',False) is True}}
+  'is_active':entry.get('active',True),'groups':desired,'attributes':attributes_for(entry,user)}
  updated=api('PATCH' if user else 'POST',f"core/users/{user['pk']}/" if user else 'core/users/',json=data)
  if not user:
   password=secrets.token_urlsafe(32)

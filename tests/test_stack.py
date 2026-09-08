@@ -42,8 +42,10 @@ class StackTests(unittest.TestCase):
             stack.paths()
 
     def test_existing_mount_access_is_preserved(self):
-        mounts = [{'mount_point': '/' + n, 'configuration': {'datadir': '/library/' + n}}
-                  for n in ('books', 'music')]
+        mounts = [{'mount_point': '/' + n, 'configuration': {'datadir': path}}
+                  for n, path in (('books', '/library/books'),
+                                  ('music', '/library/music'),
+                                  ('docs', '/docs'))]
         with patch.object(stack, 'occ', return_value=SimpleNamespace(stdout=json.dumps(mounts))) as occ:
             stack.setup()
         self.assertFalse(any(c.args[0] == 'files_external:create' for c in occ.call_args_list))
@@ -52,7 +54,7 @@ class StackTests(unittest.TestCase):
         with patch.object(stack, 'occ', return_value=SimpleNamespace(stdout='[]')) as occ:
             stack.setup()
         creates = [c for c in occ.call_args_list if c.args[0] == 'files_external:create']
-        self.assertEqual(len(creates), 2)
+        self.assertEqual(len(creates), 3)
         for call in creates:
             self.assertIn('--applicable-user', call.args)
             self.assertEqual(call.args[-1], 'admin')
