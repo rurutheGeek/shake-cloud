@@ -1,0 +1,40 @@
+# terraform.tfvars へコピーして実値を入れる。tfvars は .gitignore 対象。
+# **すべて棚卸し（platform/ansible/survey-pve.yml）の出力から転記する。**
+# 秘密値はここに書かない。接続情報は SOPS 経由の環境変数で渡す。
+
+proxmox_node_name  = "pve"
+vm_datastore_id    = "local-lvm"
+image_datastore_id = "local"
+
+# PVE 8.4 以降なら import。使えない版では "iso" にしてファイル名を .img にする。
+image_content_type = "import"
+
+# latest ではなく日付入りのビルドを指定する。チェックサムは同じディレクトリの
+# SHA512SUMS から転記する。ここの値は例であり、実在するビルドとは限らない。
+cloud_image_url       = "https://cloud.debian.org/images/cloud/trixie/20260101-0000/debian-13-genericcloud-amd64.qcow2"
+cloud_image_file_name = "debian-13-genericcloud-amd64.qcow2"
+cloud_image_checksum  = "REPLACE_WITH_THE_SHA512_FROM_THE_MIRROR"
+
+network_bridge = "vmbr0"
+# VLAN を使わないなら指定しない
+# network_vlan_id = 20
+
+# 既存LANと重複しない範囲を経路表から決める。動的用（cloud_prefix）とは分ける。
+management_prefix = "192.0.2.0/24"
+# cloud_prefix    = "198.51.100.0/24"
+
+gateway     = "192.0.2.1"
+dns_servers = ["192.0.2.1"]
+# dns_domain = "home.arpa"
+
+vm_username = "debian"
+
+admin_ssh_public_keys = [
+  "ssh-ed25519 AAAA...REPLACE admin@management-pc",
+]
+
+# 開発VMには本人の鍵だけを足す。鍵は共有しない。
+host_ssh_public_keys = {
+  "dev-a" = ["ssh-ed25519 AAAA...REPLACE user-a@laptop"]
+  "dev-b" = ["ssh-ed25519 AAAA...REPLACE user-b@laptop"]
+}

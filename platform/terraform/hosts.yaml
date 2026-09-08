@@ -1,0 +1,39 @@
+---
+# 宣言的なホスト定義。**このファイルが正本**。
+#
+# vm_id は pools.yaml の範囲に収める。範囲外なら plan の precondition と
+# tests/test_platform_inventory.py の両方で落ちる。
+#   platform 100-399 / dev 400-499 / lab 900-999 / cloud 5000-5999
+#
+# started はVMの作成時にだけ使う。作成後の電源状態はTerraformが追跡しない
+# （lifecycle.ignore_changes）。利用者の devvm start/stop と衝突しないため。
+hosts:
+  probe-01:
+    vm_id: 900
+    pool: lab
+    flavor: small
+    disk_gib: 32
+    on_boot: false
+    started: true
+    tags: [lab, managed-by-terraform-admin]
+    description: 復元ドリル用の検証VM。使い捨て。
+
+  dev-a:
+    vm_id: 400
+    pool: dev
+    flavor: small
+    disk_gib: 40
+    on_boot: false
+    started: true
+    tags: [devbox, managed-by-terraform-admin]
+    description: 開発VM（利用者A）。利用時のみ起動する。
+
+  dev-b:
+    vm_id: 401
+    pool: dev
+    flavor: small
+    disk_gib: 40
+    on_boot: false
+    started: true
+    tags: [devbox, managed-by-terraform-admin]
+    description: 開発VM（利用者B）。利用時のみ起動する。

@@ -33,7 +33,7 @@ jobs:
       - name: Validate Terraform root modules
         run: |
           set -e
-          for file in $(find platform/terraform -name versions.tf | sort); do
+          for file in $(find platform/terraform -name providers.tf | sort); do
             dir=$(dirname "$file")
             echo "== $dir"
             terraform -chdir="$dir" init -backend=false -input=false > /dev/null

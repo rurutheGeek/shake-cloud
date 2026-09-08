@@ -7,7 +7,19 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | ルートモジュール | 役割 | 実行に使う資格情報 | 状態 |
 | --- | --- | --- | --- |
 | `00-bootstrap/` | プール、ロール、自動化ユーザー、ACL | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み |
-| `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve`（`platform/sops/proxmox.sops.yaml`） | 未実装 |
+| `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・実機未適用 |
+| `modules/managed-host/` | NetBoxのVM＋採番とProxmoxのVMを1組で作る | — | 実装済み |
+
+宣言はYAMLに置く。`.tf` は機構だけを持つ。
+
+| ファイル | 内容 |
+| --- | --- |
+| `pools.yaml` | プールとVMID範囲。`00-bootstrap` と `10-platform` の両方が読む |
+| `flavors.yaml` | VMのサイズ。名前は将来のクラウドAPIと共用 |
+| `tags.yaml` | NetBoxタグとAnsibleグループの対応 |
+| `hosts.yaml` | ホストの宣言。**正本** |
+
+整合は `tests/test_platform_inventory.py` が検査する。
 
 秘密値は SOPS 経由の環境変数で渡す。tfvars にも HCL にも書かない。
 

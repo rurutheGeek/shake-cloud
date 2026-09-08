@@ -14,9 +14,22 @@
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
 | 利用者が作る動的リソース | 自作クラウドAPI（未実装） | `cloud` プールのVM、関数、バケット、DB | API自身の永続化 |
 
+## 宣言ファイルと機構の分離
+
+実際の値はYAMLに置き、`.tf` は機構だけを持ちます。Terraform・Ansible・テストが同じファイルを読むので、同じ事実が3か所で食い違いません。
+
+| ファイル | 内容 | 読む側 |
+| --- | --- | --- |
+| `platform/terraform/pools.yaml` | プールとVMID範囲、自動化ユーザーに許すプール | `00-bootstrap`、`10-platform`、テスト |
+| `platform/terraform/flavors.yaml` | VMのサイズ。名前は将来のクラウドAPIと共用 | `10-platform`、テスト |
+| `platform/terraform/tags.yaml` | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
+| `platform/terraform/hosts.yaml` | ホストの宣言。**正本** | `10-platform`、テスト |
+
+`tests/test_platform_inventory.py` が整合を検査します。VMIDが範囲外・重複、未宣言のタグやflavor、`cloud` プールの使用、`automation_pools` への `cloud` の混入、`media` グループ式の変更は、実機へ触る前にここで落ちます。
+
 ## VMIDとプールの分割
 
-`platform/terraform/00-bootstrap/pools.tf` が正本です。
+`platform/terraform/pools.yaml` が正本です。
 
 | VMID | プール | 所有者 | 用途 |
 | --- | --- | --- | --- |
