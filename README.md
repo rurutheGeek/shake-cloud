@@ -7,6 +7,8 @@ Proxmox VE 上への展開では、TerraformがProxmoxのプール・ロール�
 Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組み合わせています。[接続と配備手順](docs/operations/hub.md)、[SSO](docs/services/sso.md)、[音楽の取り込み](docs/services/music.md)を参照してください。
 **AWX本体の構築は今回保留**。将来はkubeadmのKubernetes上に構築し、同じPlaybook・NetBoxインベントリを使います。AWX移行用のEE・登録Playbook例だけを `platform/awx/` に置いています。
 
+新しく開発へ参加する人は[開発参加ガイド](docs/onboarding.md)から読んでください。設計思想・制約・開発VMの使い方をまとめてあります。
+
 ## 開発方針・引き継ぎ
 
 このリポジトリの目的は、複数のセルフホストサービスを一つの入口から使い、別のサーバーへ移しても原本・設定・運用手順を引き継げる環境を作ることです。以下を今後の変更でも維持してください。

@@ -7,6 +7,7 @@ theme:
   locale: ja
 nav:
   - ホーム: index.md
+  - 開発参加ガイド: onboarding.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
       - Homarrハブ: services/homarr.md
