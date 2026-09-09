@@ -22,6 +22,7 @@ Proxmox VE 上への展開は[IaCの所有境界](architecture/iac.md)と[Proxmo
 
 - Composeはサービス本体、管理画面はアプリ内の状態、Ansibleは配備と初期設定を主に管理します。
 - Proxmox上のVMとNetBoxの台帳はTerraformが作ります。ゲストOSの中はAnsibleです。境界は[IaCの所有境界](architecture/iac.md)を正とします。
+- **コードで管理できるものはすべてコードにします。** 手順書に一度きりのGUI操作を書いて済ませません。残っている手作業は[初回セットアップの順番](operations/bootstrap.md)に理由付きで列挙してあります。
 - Nextcloudのユーザー・グループ権限は、KavitaやNavidromeへ自動では伝わりません。
 - 秘密値はこのドキュメントへ書かず、`.env`または`secrets/`などGit管理外へ置きます。
 - 変更前にバックアップを取得し、変更後にログイン・閲覧・再生・同期を確認します。

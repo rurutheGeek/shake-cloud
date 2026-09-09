@@ -25,7 +25,7 @@ RAMは全体で決まった枠を分け合っています。使い終わった�
 
 | 対象 | 場所 |
 | --- | --- |
-| PVEのログイン | Realm は「Proxmox VE authentication server」。パスワードは初回に自分で設定する |
+| PVEのログイン | Realm は「Proxmox VE authentication server」。パスワードは管理者から受け取る（自分で設定しない） |
 | CLIの設定 | `~/.config/devvm/config`（権限 0600） |
 | SSHの別名 | `~/.ssh/config` |
 
@@ -60,7 +60,14 @@ CONF
 chmod 600 ~/.config/devvm/config
 ```
 
-APIトークンはProxmoxの画面（自分のユーザー → APIトークン）で作り、表示された値をここへ入れます。トークンは秘密値です。Gitや共有フォルダへ置かないでください。
+パスワードとトークンは**管理者がコードで発行済み**です。自分で作る必要はありません。管理者から暗号化された経路で受け取ってください。トークンは秘密値です。Gitや共有フォルダへ置かないでください。
+
+管理者側の取り出し方:
+
+```bash
+tools/tf 00-bootstrap output -json dev_credentials   # トークン
+sops --decrypt platform/sops/pve-users.sops.yaml     # GUI用パスワード
+```
 
 ```bash
 devvm status      # 起動しているか

@@ -160,6 +160,24 @@ ansible-playbook -i platform/ansible/seed.ini platform/ansible/guests.yml --limi
 
 NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流れは[Proxmox導入後の手順](../architecture/bring-up.md)へ続きます。
 
+## 残っている手作業
+
+**コードで管理できるものはすべてコードにします。** ここに列挙したものが現時点で残っている手作業のすべてです。この表を増やさないこと、そして「未」を減らしていくことが方針です。
+
+| 手作業 | なぜ残っているか | コード化 |
+| --- | --- | --- |
+| Cloudflare APIトークンの発行 | **APIを叩くためのキーは、APIでは作れません。** どこかで一度だけ人が発行する必要があります。R2バケット自体は `platform/terraform/state-store` が作ります | 原理的に不可 |
+| Proxmoxホストへの初回SSH公開鍵の登録 | 同じ理由。鍵認証を作るために鍵認証は使えません。PVEのWebシェルから1回だけ | 原理的に不可 |
+| SSHホスト鍵の指紋確認 | 中間者攻撃を検知する唯一の機会です。自動承認すると確認の意味がなくなります | **意図的に自動化しません** |
+| age鍵の生成と保管場所の決定 | 生成自体はスクリプト化できますが、秘密鍵をどこに何個置くかは人が決めます | 生成は可・未 |
+| Proxmox `root@pam` トークンの発行 | SSHが通れば `pveum` で作れます | 可・**未** |
+| ~~`dev-a@pve` / `dev-b@pve` のパスワードとAPIトークン~~ | **コード化済み。** トークンは `00-bootstrap`、パスワードは `platform/ansible/pve-users.yml`（Proxmoxが `/access/password` をAPIトークンで受けないため、SSH経由の `pveum`） | 済 |
+| 棚卸し結果を `terraform.tfvars` へ転記 | `.survey/` の出力から生成できます | 可・**未** |
+| NetBoxの読み取り専用アイデンティティ | `manage.py seed` はありますが `media-stack` タグ固定なので小改修が要ります | 可・**未** |
+| NetBoxへのSSHポート転送 | systemdユニットかスクリプトにできます | 可・**未** |
+
+「原理的に不可」と「意図的に自動化しません」以外は、順次コードへ移します。手順書に手作業を書き足して済ませません。
+
 ## つまずいたときの対応表
 
 | 症状 | 原因 | 対応 |

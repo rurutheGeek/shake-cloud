@@ -14,14 +14,20 @@ variable "dev_vm_owners" {
   description = <<-EOT
     開発VMの割り当て。PVEユーザーIDからVMIDへの対応。
     ACLは `/vms/<VMID>` にだけ付くので、相手のVMは一覧にも出ない。
-    ユーザーのパスワードはTerraformで管理しない。作成後に本人が
-    `pveum passwd <user>` またはGUIで設定する。stateへ秘密値を入れないため。
+    GUI用のパスワードと devvm 用のAPIトークンもここから作る。
+    値は output から取り出して SOPS へ入れる（手で発行しない）。
   EOT
   type        = map(number)
   default = {
     "dev-a@pve" = 400
     "dev-b@pve" = 401
   }
+}
+
+variable "dev_token_name" {
+  description = "開発VMの利用者が tools/devvm で使うAPIトークンの名前。"
+  type        = string
+  default     = "devvm"
 }
 
 variable "platform_admin_privileges" {

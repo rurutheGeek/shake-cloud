@@ -1,0 +1,7 @@
+# terraform.tfvars へコピーして実値を入れる。tfvars は .gitignore 対象。
+# アカウントIDは Cloudflare のダッシュボード右側、または R2 のエンドポイント
+# https://<アカウントID>.r2.cloudflarestorage.com から取れます。
+cloudflare_account_id = "REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+# bucket_name = "shake-cloud-state"
+# location    = "apac"

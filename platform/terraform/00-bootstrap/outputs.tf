@@ -33,3 +33,22 @@ output "cloud_image_file_ids" {
   description = "05-seed / 10-platform の image_file_id へ渡す値。"
   value       = { for name, image in proxmox_download_file.cloud_image : name => image.id }
 }
+
+output "dev_credentials" {
+  description = <<-EOT
+    開発VMの利用者へ渡す値。**手で発行しない。** ここから SOPS へ入れて、
+    利用者へは暗号化した経路で渡す。
+
+      terraform -chdir=platform/terraform/00-bootstrap output -json dev_credentials
+
+    token は tools/devvm の PVE_TOKEN に入れる値で、user@realm!name=uuid の完全な形。
+    GUI用のパスワードは platform/ansible/pve-users.yml が別に発行する。
+  EOT
+  value = {
+    for user_id, vm_id in var.dev_vm_owners : user_id => {
+      vm_id = vm_id
+      token = proxmox_user_token.dev[user_id].value
+    }
+  }
+  sensitive = true
+}

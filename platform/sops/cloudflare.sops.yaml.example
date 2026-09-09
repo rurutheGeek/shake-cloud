@@ -1,0 +1,14 @@
+# Cloudflare API トークン。**state 置き場のバケットを作るためだけ**に使います。
+# S3 の読み書きに使う platform/sops/s3.sops.yaml とは別物です。
+#
+#   cp platform/sops/cloudflare.sops.yaml.example platform/sops/cloudflare.sops.yaml
+#   sops --encrypt --in-place platform/sops/cloudflare.sops.yaml
+#
+# 作り方: Cloudflare ダッシュボード → 「マイプロフィール」→「APIトークン」→
+# 「トークンを作成」→ カスタムトークン。権限は
+#   アカウント → Workers R2 ストレージ → 編集
+# だけで足ります。ゾーン(DNS)やアカウント全体の権限は要りません。
+#
+# このトークンはバケットを作るときにしか使いません。ほかのモジュールは
+# S3 互換のアクセスキーだけで動きます。
+CLOUDFLARE_API_TOKEN: REPLACE_WITH_THE_CLOUDFLARE_API_TOKEN

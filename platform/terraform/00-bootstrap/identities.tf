@@ -32,14 +32,35 @@ resource "proxmox_acl" "automation_storage" {
   propagate = true
 }
 
-# 開発VMの利用者。パスワードはTerraformで管理しない（stateへ秘密値を
-# 入れないため）。作成後に本人がGUIまたは `pveum passwd` で設定する。
+# 開発VMの利用者。
+#
+# GUI用のパスワードはここでは設定できない。Proxmox は /access/password を
+# API トークンで叩かせず、ticket（利用者名＋パスワードでのログイン）を要求する。
+# そのため生成と設定は platform/ansible/pve-users.yml が SSH 経由で行う。
+# 手作業へ戻したのではなく、担当をAnsibleへ移しただけ。
 resource "proxmox_virtual_environment_user" "dev" {
   for_each = var.dev_vm_owners
 
   user_id = each.key
-  comment = "Developer VM operator for VMID ${each.value}. Password is set out of band."
+  comment = "Developer VM operator for VMID ${each.value}. Managed by 00-bootstrap."
   enabled = true
+
+  lifecycle {
+    # パスワードの担当は platform/ansible/pve-users.yml。Terraform が
+    # 触ろうとすると /access/password で 403 になるので、差分を見ない。
+    ignore_changes = [password]
+  }
+}
+
+# tools/devvm が使うAPIトークン。privileges_separation = false で
+# ユーザーと同じ権限（＝自分のVMの電源とコンソールだけ）を持つ。
+resource "proxmox_user_token" "dev" {
+  for_each = var.dev_vm_owners
+
+  user_id               = proxmox_virtual_environment_user.dev[each.key].user_id
+  token_name            = var.dev_token_name
+  comment               = "Used by tools/devvm."
+  privileges_separation = false
 }
 
 # ACLは自分のVMだけ。相手のVMは一覧に出ず、操作もできない。

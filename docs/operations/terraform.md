@@ -68,11 +68,28 @@ K11は単一SSDです。そこにstateを置くと、ディスク1枚の故障�
 
 **特定の事業者に縛られない形にしています。** `backend "s3"` に書くのはS3の標準的な設定だけで、`AWS_*` はAWS SDK・Terraform・aws-cli・rclone・mcが共通で読む名前です。現在の実体はCloudflare R2ですが、[cloud.md](../architecture/cloud.md)が計画しているGarageや、MinIO・SeaweedFSへ移すときも、変えるのは `AWS_ENDPOINT_URL_S3` と `TF_STATE_BUCKET` だけです。
 
-権限は**対象バケットのオブジェクト読み書きだけ**に絞ります。アカウント全体の管理権限は要りません。
+**バケットも手で作りません。** `platform/terraform/state-store` が作ります。ここだけは事業者固有（Cloudflare provider）ですが、他のモジュールの `backend "s3"` は素のS3なので、保管先を替えるときはこのモジュールを差し替えるだけです。
+
+このモジュールだけ **state をローカルに置きます**。自分が作るバケットに自分のstateを置くと循環するためです。失っても `terraform import` でバケット1つを取り込めば復旧できます。
+
+必要な資格情報は2種類です。用途が違うので分けます。
+
+| ファイル | 中身 | 使う場所 | 権限 |
+| --- | --- | --- | --- |
+| `platform/sops/cloudflare.sops.yaml` | Cloudflare APIトークン | `state-store` だけ | Workers R2 ストレージ → 編集 |
+| `platform/sops/s3.sops.yaml` | S3のアクセスキー・エンドポイント・バケット名 | それ以外の全モジュール | 対象バケットのオブジェクト読み書き |
 
 ```bash
+cp platform/sops/cloudflare.sops.yaml.example platform/sops/cloudflare.sops.yaml
+# トークンを実値へ
+sops --encrypt --in-place platform/sops/cloudflare.sops.yaml
+
+cp platform/terraform/state-store/terraform.tfvars.example platform/terraform/state-store/terraform.tfvars
+# アカウントIDを実値へ
+tools/tf state-store apply
+
 cp platform/sops/s3.sops.yaml.example platform/sops/s3.sops.yaml
-# バケット名・エンドポイント・鍵を実値へ
+# 上の出力（bucket_name・endpoint）とアクセスキーを実値へ
 sops --encrypt --in-place platform/sops/s3.sops.yaml
 ```
 

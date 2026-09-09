@@ -3,6 +3,7 @@
 #
 #   tools/tf <モジュール> <terraform のサブコマンド...>
 #
+#   tools/tf state-store apply
 #   tools/tf 00-bootstrap plan
 #   tools/tf 10-platform apply
 #   tools/tf 05-seed output
@@ -11,6 +12,7 @@
 # コードに含めず、ここで渡す。
 #
 # モジュールごとに必要な資格情報:
+#   state-store  … Cloudflare API トークンだけ。state はローカル（循環を避けるため）
 #   00-bootstrap … state置き場 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
 #   05-seed      … state置き場 ＋ Proxmox の terraform@pve
 #   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
@@ -37,7 +39,17 @@ require_file() {
   [ -f "platform/sops/$1" ] || die "platform/sops/$1 が無い。docs/operations/bootstrap.md を参照"
 }
 
-# --- state の置き場（S3 互換）。全モジュール共通 ---
+# --- state 置き場そのものを作るモジュールは扱いが違う ---
+# 自分が作るバケットに自分の state は置けないので、backend も S3 の資格情報も
+# 使わない。必要なのは Cloudflare API トークンだけ。
+if [ "$module" = state-store ]; then
+  require_file cloudflare.sops.yaml
+  CLOUDFLARE_API_TOKEN=$(secret cloudflare.sops.yaml CLOUDFLARE_API_TOKEN)
+  export CLOUDFLARE_API_TOKEN
+  exec terraform -chdir="platform/terraform/$module" "$@"
+fi
+
+# --- state の置き場（S3 互換）。以降の全モジュール共通 ---
 # AWS_* は AWS SDK・Terraform・aws-cli・rclone・mc が共通で読む標準の名前。
 # 事業者を変えても endpoint と bucket を差し替えるだけで済む。
 require_file s3.sops.yaml

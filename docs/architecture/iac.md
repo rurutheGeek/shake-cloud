@@ -8,6 +8,7 @@
 
 | 層 | 道具 | 対象 | 状態の置き場 |
 | --- | --- | --- | --- |
+| stateの置き場 | Terraform `state-store` | S3互換バケット | **ローカル**（自分が作る先に自分を置けないため） |
 | Proxmoxの所有境界 | Terraform `00-bootstrap` | プール、ロール、自動化ユーザー、ACL、cloud imageの取得 | S3互換ストレージ |
 | NetBoxの置き場 | Terraform `05-seed` | 最初の1台。NetBoxを使わず静的IP | S3互換ストレージ |
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |

@@ -1,0 +1,53 @@
+---
+# Proxmox 利用者のパスワードを発行して設定する。
+#
+#   ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-users.yml
+#
+# Proxmox は /access/password を API トークンで叩かせず ticket を要求するので、
+# Terraform では設定できない。ホスト上の pveum を SSH 経由で使う。
+# 手作業へ戻したのではなく、担当を Terraform から Ansible へ移しただけ。
+#
+# パスワードは tools/ensure-secrets.py が生成し、SOPS で暗号化したまま持つ。
+# 既存の値は作り直さないので、再実行しても利用者は締め出されない。
+# 毎回同じ値を設定し直すため、ホスト側で手変更されても元へ戻る。
+- name: Issue and apply Proxmox user passwords
+  hosts: pve
+  become: true
+  gather_facts: false
+  vars:
+    pve_password_file: platform/sops/pve-users.sops.yaml
+    pve_users:
+      - dev-a@pve
+      - dev-b@pve
+  tasks:
+    - name: Ensure a generated password exists for every user
+      ansible.builtin.command:
+        argv: >-
+          {{
+            ['python3', 'tools/ensure-secrets.py', '--file', pve_password_file]
+            + (pve_users | map('regex_replace', '^', '--key=') | list)
+          }}
+        chdir: '{{ playbook_dir }}/../..'
+      become: false
+      delegate_to: localhost
+      register: generated
+      changed_when: "'CHANGED' in generated.stdout"
+
+    - name: Read the passwords back
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json, '{{ pve_password_file }}']
+        chdir: '{{ playbook_dir }}/../..'
+      become: false
+      delegate_to: localhost
+      register: decrypted
+      changed_when: false
+      no_log: true
+
+    # stdin で渡すので、パスワードがプロセス一覧やログへ出ない。
+    - name: Apply the password on the Proxmox host
+      ansible.builtin.command:
+        argv: [pveum, passwd, '{{ item }}']
+        stdin: "{{ (decrypted.stdout | from_json)[item] }}\n{{ (decrypted.stdout | from_json)[item] }}\n"
+      loop: '{{ pve_users }}'
+      changed_when: false
+      no_log: true
