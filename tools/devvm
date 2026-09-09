@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# 開発VMの電源操作。Proxmox の REST API を叩くだけの薄いラッパー。
+#
+#   devvm status | start | stop | restart | ssh [--] [ssh args...]
+#
+# 設定は ~/.config/devvm/config （0600）。
+#
+#   PVE_ENDPOINT=https://192.0.2.10:8006
+#   PVE_NODE=pve
+#   PVE_VMID=400
+#   PVE_TOKEN='dev-a@pve!devvm=00000000-0000-0000-0000-000000000000'
+#   SSH_TARGET=debian@192.0.2.40
+#   # 自己署名証明書のままなら 1
+#   PVE_INSECURE=0
+#
+# 与えられている権限は VM.Audit / VM.PowerMgmt / VM.Console だけ。
+# CPU・RAM・ディスク・NIC は変更できない。それらの正本は
+# platform/terraform/hosts.yaml のまま。
+set -euo pipefail
+
+CONFIG="${DEVVM_CONFIG:-$HOME/.config/devvm/config}"
+
+die() { printf 'devvm: %s\n' "$*" >&2; exit 1; }
+
+[ -r "$CONFIG" ] || die "設定が読めない: $CONFIG"
+# shellcheck disable=SC1090
+. "$CONFIG"
+
+for name in PVE_ENDPOINT PVE_NODE PVE_VMID PVE_TOKEN; do
+  [ -n "${!name:-}" ] || die "$name が $CONFIG に無い"
+done
+
+CURL=(curl --silent --show-error --fail-with-body
+      --header "Authorization: PVEAPIToken=${PVE_TOKEN}")
+[ "${PVE_INSECURE:-0}" = "1" ] && CURL+=(--insecure)
+
+API="${PVE_ENDPOINT%/}/api2/json/nodes/${PVE_NODE}/qemu/${PVE_VMID}"
+
+# API 応答は $STATUS_JSON へ入れる。サブシェルの中で die しても
+# スクリプト全体は止まらないため、取得は関数の外側の変数に置く。
+STATUS_JSON=""
+
+fetch_status() {
+  STATUS_JSON="$("${CURL[@]}" "${API}/status/current")" ||
+    die "Proxmox API へ接続できない: ${PVE_ENDPOINT} (エンドポイント・トークン・到達性を確認)"
+}
+
+current_state() {
+  # JSON の空白の有無に依存しない。jq は開発VMに前提として置かない。
+  printf '%s' "$STATUS_JSON" | sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p'
+}
+
+power() {
+  "${CURL[@]}" --request POST "${API}/status/$1" > /dev/null ||
+    die "電源操作を拒否された: $1 (VM.PowerMgmt 権限とVMIDを確認)"
+}
+
+wait_for() {
+  local want="$1" tries="${2:-60}"
+  while [ "$tries" -gt 0 ]; do
+    fetch_status
+    [ "$(current_state)" = "$want" ] && return 0
+    tries=$((tries - 1))
+    sleep 2
+  done
+  return 1
+}
+
+case "${1:-status}" in
+  status)
+    fetch_status
+    printf '%s\n' "$STATUS_JSON"
+    ;;
+  start)
+    fetch_status
+    if [ "$(current_state)" = running ]; then
+      echo "devvm: すでに起動している"
+    else
+      power start
+      wait_for running || die "起動を確認できなかった"
+      echo "devvm: 起動した"
+    fi
+    ;;
+  stop)
+    # ACPI による正常終了。強制停止は Proxmox の GUI から行う。
+    fetch_status
+    if [ "$(current_state)" = stopped ]; then
+      echo "devvm: すでに停止している"
+    else
+      power shutdown
+      wait_for stopped 150 || die "停止を確認できなかった。応答が無ければGUIのStopを使う"
+      echo "devvm: 停止した"
+    fi
+    ;;
+  restart)
+    power reboot
+    echo "devvm: 再起動を要求した"
+    ;;
+  ssh)
+    [ -n "${SSH_TARGET:-}" ] || die "SSH_TARGET が $CONFIG に無い"
+    shift || true
+    [ "${1:-}" = "--" ] && shift
+    fetch_status
+    if [ "$(current_state)" != running ]; then
+      echo "devvm: 停止しているので起動する"
+      power start
+      wait_for running || die "起動を確認できなかった"
+    fi
+    # cloud-init と sshd が上がるまで少し待つ
+    for _ in $(seq 1 30); do
+      ssh -o ConnectTimeout=3 -o BatchMode=yes "$SSH_TARGET" true 2>/dev/null && break
+      sleep 2
+    done
+    exec ssh "$SSH_TARGET" "$@"
+    ;;
+  *)
+    die "使い方: devvm {status|start|stop|restart|ssh}"
+    ;;
+esac

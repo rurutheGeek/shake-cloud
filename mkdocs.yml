@@ -1,16 +1,18 @@
 site_name: セルフホスト・ハブの手引き
 docs_dir: docs
-site_dir: hub/site
+site_dir: stacks/hub/site
 use_directory_urls: true
 theme:
   name: mkdocs
   locale: ja
 nav:
   - ホーム: index.md
+  - 開発参加ガイド: onboarding.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
       - Homarrハブ: services/homarr.md
       - 音楽・取り込み・タグ: services/music.md
+      - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:
       - 運用の基本: overview.md
@@ -18,11 +20,15 @@ nav:
       - Vaultwardenの管理: services/vaultwarden.md
       - 共通ログイン: services/sso.md
       - メール設定: operations/smtp.md
+      - 初回セットアップの順番: operations/bootstrap.md
+      - 秘密値の管理: operations/secrets.md
+      - Terraformの実行: operations/terraform.md
       - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md
   - 構成案:
       - 全体構成と前提: architecture/index.md
+      - IaCの所有境界: architecture/iac.md
       - 最小クラウドとProvider: architecture/cloud.md
       - ネットワーク・SSO: architecture/network-auth.md
       - VPN比較・Tailscale併用: architecture/vpn.md

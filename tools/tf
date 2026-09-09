@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Terraform の実行ラッパー。SOPS から資格情報を環境変数として渡す。
+#
+#   tools/tf <モジュール> <terraform のサブコマンド...>
+#
+#   tools/tf state-store apply
+#   tools/tf 00-bootstrap plan
+#   tools/tf 10-platform apply
+#   tools/tf 05-seed output
+#
+# 復号した値をファイルへ書き出さない。bucket と endpoint も事業者固有なので
+# コードに含めず、ここで渡す。
+#
+# モジュールごとに必要な資格情報:
+#   state-store  … Cloudflare API トークンだけ。state はローカル（循環を避けるため）
+#   00-bootstrap … state置き場 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
+#   05-seed      … state置き場 ＋ Proxmox の terraform@pve
+#   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+die() { printf 'tf: %s\n' "$*" >&2; exit 1; }
+
+module="${1:-}"; shift || true
+[ -n "$module" ] || die "使い方: tools/tf <モジュール> <terraform のサブコマンド...>"
+[ -d "platform/terraform/$module" ] || die "そんなモジュールは無い: $module"
+[ $# -gt 0 ] || die "terraform のサブコマンドが要る"
+
+SOPS="${SOPS:-$(command -v sops || true)}"
+[ -n "$SOPS" ] || die "sops が見つからない。docs/operations/bootstrap.md を参照"
+
+secret() {  # secret <ファイル> <キー>
+  "$SOPS" --decrypt --extract "[\"$2\"]" "platform/sops/$1"
+}
+
+require_file() {
+  [ -f "platform/sops/$1" ] || die "platform/sops/$1 が無い。docs/operations/bootstrap.md を参照"
+}
+
+# --- state 置き場そのものを作るモジュールは扱いが違う ---
+# 自分が作るバケットに自分の state は置けないので、backend も S3 の資格情報も
+# 使わない。必要なのは Cloudflare API トークンだけ。
+if [ "$module" = state-store ]; then
+  require_file cloudflare.sops.yaml
+  CLOUDFLARE_API_TOKEN=$(secret cloudflare.sops.yaml CLOUDFLARE_API_TOKEN)
+  export CLOUDFLARE_API_TOKEN
+  exec terraform -chdir="platform/terraform/$module" "$@"
+fi
+
+# --- state の置き場（S3 互換）。以降の全モジュール共通 ---
+# AWS_* は AWS SDK・Terraform・aws-cli・rclone・mc が共通で読む標準の名前。
+# 事業者を変えても endpoint と bucket を差し替えるだけで済む。
+require_file s3.sops.yaml
+AWS_ACCESS_KEY_ID=$(secret s3.sops.yaml AWS_ACCESS_KEY_ID)
+AWS_SECRET_ACCESS_KEY=$(secret s3.sops.yaml AWS_SECRET_ACCESS_KEY)
+AWS_ENDPOINT_URL_S3=$(secret s3.sops.yaml AWS_ENDPOINT_URL_S3)
+AWS_REGION=$(secret s3.sops.yaml AWS_REGION)
+TF_STATE_BUCKET=$(secret s3.sops.yaml TF_STATE_BUCKET)
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 AWS_REGION
+
+# --- Proxmox。00-bootstrap だけ root@pam を使う ---
+if [ "$module" = 00-bootstrap ]; then
+  pve_file=proxmox-root.sops.yaml
+else
+  pve_file=proxmox.sops.yaml
+fi
+require_file "$pve_file"
+PROXMOX_VE_ENDPOINT=$(secret "$pve_file" PROXMOX_VE_ENDPOINT)
+PROXMOX_VE_API_TOKEN=$(secret "$pve_file" PROXMOX_VE_API_TOKEN)
+PROXMOX_VE_INSECURE=$(secret "$pve_file" PROXMOX_VE_INSECURE)
+export PROXMOX_VE_ENDPOINT PROXMOX_VE_API_TOKEN PROXMOX_VE_INSECURE
+
+# --- NetBox。台帳を触るモジュールだけ ---
+if [ "$module" = 10-platform ]; then
+  require_file netbox.sops.yaml
+  NETBOX_SERVER_URL=$(secret netbox.sops.yaml NETBOX_SERVER_URL)
+  NETBOX_API_TOKEN=$(secret netbox.sops.yaml NETBOX_API_TOKEN)
+  export NETBOX_SERVER_URL NETBOX_API_TOKEN
+fi
+
+# init のときだけ bucket を渡す。他のサブコマンドは受け付けない。
+if [ "$1" = init ]; then
+  exec terraform -chdir="platform/terraform/$module" "$@" \
+    -backend-config="bucket=${TF_STATE_BUCKET}"
+fi
+
+exec terraform -chdir="platform/terraform/$module" "$@"

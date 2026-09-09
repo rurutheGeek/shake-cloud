@@ -1,0 +1,19 @@
+---
+# VMのサイズ。名前は将来の自作クラウドAPI（cloud.md の homelab_instance の
+# flavor）と共用する。ここで名前を決めておけば、APIを載せるときに
+# 利用者向けの語彙を作り直さずに済む。
+# 値は docs/architecture/operations.md の配分表に合わせた設計値であり、
+# 実測保証ではない。
+flavors:
+  small:
+    cpu_cores: 2
+    memory_mib: 2048
+  medium:
+    cpu_cores: 2
+    memory_mib: 4096
+  large:
+    cpu_cores: 4
+    memory_mib: 8192
+  xlarge:
+    cpu_cores: 8
+    memory_mib: 12288

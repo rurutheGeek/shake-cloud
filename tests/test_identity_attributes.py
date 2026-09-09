@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-spec = importlib.util.spec_from_file_location('identity_attributes', Path(__file__).resolve().parents[1] / 'hub/identity_attributes.py')
+spec = importlib.util.spec_from_file_location('identity_attributes', Path(__file__).resolve().parents[1] / 'stacks/hub/identity_attributes.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 

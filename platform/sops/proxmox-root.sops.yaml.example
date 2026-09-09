@@ -1,0 +1,20 @@
+# **00-bootstrap 専用**の資格情報。root@pam のAPIトークンを入れる。
+#
+# 00-bootstrap は terraform@pve 自身を作るため、この1段だけ上位の資格情報が
+# 要る。以降の 10-platform は platform/sops/proxmox.sops.yaml（terraform@pve）
+# を使い、この root トークンは使わない。
+#
+#   cp platform/sops/proxmox-root.sops.yaml.example platform/sops/proxmox-root.sops.yaml
+#   # 実値へ編集してから
+#   sops --encrypt --in-place platform/sops/proxmox-root.sops.yaml
+#
+#   sops exec-env platform/sops/proxmox-root.sops.yaml \
+#     'terraform -chdir=platform/terraform/00-bootstrap apply'
+#
+# トークンは PVE の GUI（データセンター → 権限 → APIトークン）で1回だけ作る。
+# 「特権の分離」のチェックを外すと root@pam と同じ権限になる。
+# 作成後に一度だけ表示される秘密値をここへ入れる。
+PROXMOX_VE_ENDPOINT: https://192.0.2.10:8006/
+PROXMOX_VE_API_TOKEN: root@pam!bootstrap=00000000-0000-0000-0000-000000000000
+# 自己署名証明書のままなら true。CA を信頼させたら false へ戻す。
+PROXMOX_VE_INSECURE: "true"

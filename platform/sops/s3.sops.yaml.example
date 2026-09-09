@@ -1,0 +1,25 @@
+# Terraform の state を置く S3 互換ストレージ。
+#
+#   cp platform/sops/s3.sops.yaml.example platform/sops/s3.sops.yaml
+#   # 実値へ編集してから
+#   sops --encrypt --in-place platform/sops/s3.sops.yaml
+#
+# **特定の事業者に縛られない形にしています。** ここに書くのは S3 の標準的な
+# 設定だけで、AWS_* は AWS SDK・Terraform・aws-cli・rclone・mc が共通で読む
+# 名前です。現在の実体は Cloudflare R2 ですが、cloud.md が計画している
+# Garage や、MinIO・SeaweedFS へ移すときも、変えるのは endpoint と bucket
+# だけで済みます。
+#
+# 権限は**対象バケットのオブジェクト読み書きだけ**に絞ります。
+# アカウント全体の管理権限は要りません。
+#
+# AWS_ENDPOINT_URL_S3 は事業者ごとに形式が違います。
+#   Cloudflare R2 : https://<アカウントID>.r2.cloudflarestorage.com
+#   Garage        : https://<ホスト>:3900
+#   MinIO         : https://<ホスト>:9000
+TF_STATE_BUCKET: shake-cloud-state
+AWS_ENDPOINT_URL_S3: https://REPLACE_WITH_YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+AWS_ACCESS_KEY_ID: REPLACE_WITH_THE_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY: REPLACE_WITH_THE_SECRET_ACCESS_KEY
+# S3 互換の多くは auto でよい。事業者が固有のリージョンを要求する場合だけ変える。
+AWS_REGION: auto

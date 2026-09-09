@@ -1,0 +1,20 @@
+# 既存のCompose・Ansible・GitHub ActionsのYAMLが通る範囲から始める。
+# 目的は整形の統一ではなく、壊れたYAMLと危険な書き方を落とすこと。
+# 改行コードはGitの設定で管理するため new-lines は見ない。
+extends: default
+ignore: |
+  .venv/
+  stacks/hub/site/
+  platform/awx/context/
+  # SOPS が書き出した暗号化済みファイル。整形は sops の出力であって我々のものではない。
+  platform/sops/*.sops.yaml
+rules:
+  new-lines: disable
+  line-length: disable
+  comments-indentation: disable
+  document-start: disable
+  truthy:
+    allowed-values: ['true', 'false', 'on']
+  indentation:
+    spaces: consistent
+    indent-sequences: consistent

@@ -146,6 +146,20 @@ ProviderはCreate/Read/Update/Delete/importを備え、非同期作成が完了�
 
 APIキーの利用量課金は不要ですが、ホストの空きRAM、ディスク上限、関数の最大並列数は保護します。物理容量不足の場合は作成を断ります。DBメジャー変更・ディスク縮小などは通常Updateで自動実行せず、対応範囲を明示します。
 
+## 実装前に確保済みの枠
+
+APIは未実装ですが、後から載せたときにVMIDの再採番や既存VMの移動が起きないよう、Proxmox側の枠だけ先に作ってあります。詳細は[IaCの所有境界](iac.md)を参照してください。
+
+| 予約したもの | 値 | 現状 |
+| --- | --- | --- |
+| Proxmoxプール | `cloud` | 空のまま作成済み |
+| VMID範囲 | 5000–5999 | 未使用 |
+| ロール | `CloudApiOperator` | 作成済み。**未割り当て** |
+| 実行アカウント | `cloudapi@pve` | 未作成 |
+| NetBoxのPrefix | 動的採番用を静的用と分離 | 未作成 |
+
+管理者Terraformが使う `terraform@pve` は `/pool/cloud` に権限を持ちません。逆に将来の `cloudapi@pve` は `/pool/platform` に権限を持ちません。利用者向けの削除APIが基盤VMへ届かないことを、運用規約ではなくACLで保証します。この枠の存在は、APIやProviderが動くことを意味しません。
+
 ## 最初の実装順
 
 1. VMのCreate/Read/Delete/importと、APIキー・処理状態・重複防止。

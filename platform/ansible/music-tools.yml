@@ -1,0 +1,54 @@
+---
+- name: Deploy music ingestion and tagging tools
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Create tool directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/music-tools'
+        state: directory
+        mode: '0750'
+    - name: Copy tool definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/music-tools/{{ item }}'
+        dest: '{{ project_dir }}/music-tools/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json]
+    - name: Copy pinned tool images
+      ansible.builtin.copy:
+        src: '{{ item }}'
+        dest: '{{ project_dir }}/music-tools/compose.lock.yaml'
+        mode: '0644'
+      with_fileglob: ['{{ source_dir }}/music-tools/compose.lock.yaml']
+    - name: Configure original storage path
+      ansible.builtin.copy:
+        content: 'LIBRARY_ROOT={{ library_root }}{{ "\n" }}'
+        dest: '{{ project_dir }}/music-tools/.env'
+        mode: '0600'
+    - name: Deploy ingestion and conversion
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/music-tools/manage.py', up]
+      changed_when: true
+    - name: Copy cache synchronization code
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/scripts/sync-music.py'
+        dest: '{{ project_dir }}/scripts/sync-music.py'
+        mode: '0644'
+    - name: Install music synchronization service
+      ansible.builtin.template:
+        src: '{{ source_dir }}/music-tools/media-stack-music-sync.service.j2'
+        dest: /etc/systemd/system/media-stack-music-sync.service
+        mode: '0644'
+    - name: Install music synchronization timer
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/music-tools/media-stack-music-sync.timer'
+        dest: /etc/systemd/system/media-stack-music-sync.timer
+        mode: '0644'
+    - name: Enable music synchronization
+      ansible.builtin.systemd:
+        name: media-stack-music-sync.timer
+        daemon_reload: true
+        enabled: true
+        state: started

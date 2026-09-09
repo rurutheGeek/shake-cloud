@@ -1,0 +1,9 @@
+# NetBox の書き込み用トークン。Ansible 動的インベントリが使う読み取り専用
+# トークン（platform/ansible/netbox.env）とは別のアイデンティティです。
+#
+#   cp platform/sops/netbox.sops.yaml.example platform/sops/netbox.sops.yaml
+#   sops --encrypt --in-place platform/sops/netbox.sops.yaml
+#
+# 書き込みトークンを Ansible のインベントリへ流用しません。
+NETBOX_SERVER_URL: http://localhost:8000
+NETBOX_API_TOKEN: "0000000000000000000000000000000000000000"

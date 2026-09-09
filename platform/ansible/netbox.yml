@@ -1,0 +1,9 @@
+---
+# NetBox（台帳）を構築する。10-platform が動くための前提。
+#   ansible-playbook -i platform/ansible/seed.ini platform/ansible/netbox.yml
+- name: Deploy the NetBox ledger
+  hosts: netbox_bootstrap
+  become: true
+  roles:
+    - docker
+    - netbox

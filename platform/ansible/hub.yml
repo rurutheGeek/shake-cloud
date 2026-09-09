@@ -1,0 +1,93 @@
+---
+- name: Deploy the hub and shared identity provider
+  hosts: media
+  become: true
+  vars:
+    repo_dir: '{{ playbook_dir }}/../..'
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Install Python virtual environment support
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+    - name: Create hub directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/hub'
+        state: directory
+        mode: '0750'
+    - name: Copy declarative hub files
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/hub/{{ item }}'
+        dest: '{{ project_dir }}/hub/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, .env.example, apps.json, requirements.txt, manage.py, configure-oidc.py, configure-homarr.py, configure-services.py, configure-proxy.py, users.py, identity_attributes.py, invitations.py, users.example.json]
+    - name: Copy reviewed image lock when provided
+      ansible.builtin.copy:
+        src: '{{ item }}'
+        dest: '{{ project_dir }}/hub/compose.lock.yaml'
+        mode: '0644'
+      with_fileglob: ['{{ source_dir }}/hub/compose.lock.yaml']
+    - name: Copy documentation configuration
+      ansible.builtin.copy:
+        src: '{{ repo_dir }}/{{ item }}'
+        dest: '{{ project_dir }}/'
+        mode: preserve
+      loop: [mkdocs.yml]
+    - name: Ensure live documentation source directory
+      ansible.builtin.file:
+        path: '{{ library_root }}/docs'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '2775'
+    - name: Check whether documentation source was seeded
+      ansible.builtin.stat:
+        path: '{{ library_root }}/.media-stack-docs-seeded'
+      register: docs_seed_marker
+    - name: Seed live documentation source without overwriting edits
+      ansible.builtin.copy:
+        src: '{{ repo_dir }}/docs/'
+        dest: '{{ library_root }}/docs/'
+        force: false
+        mode: preserve
+      when: not docs_seed_marker.stat.exists
+    - name: Mark documentation source as seeded
+      ansible.builtin.file:
+        path: '{{ library_root }}/.media-stack-docs-seeded'
+        state: touch
+        owner: '33'
+        group: '33'
+        mode: '0600'
+      when: not docs_seed_marker.stat.exists
+    - name: Make live documentation source editable by Nextcloud
+      ansible.builtin.file:
+        path: '{{ library_root }}/docs'
+        owner: '33'
+        group: '33'
+        mode: 'u=rwX,g=rwX,o=rX'
+        recurse: true
+    - name: Install pinned documentation and API dependencies
+      ansible.builtin.pip:
+        requirements: '{{ project_dir }}/hub/requirements.txt'
+        virtualenv: '{{ project_dir }}/.hub-venv'
+        virtualenv_command: python3 -m venv
+    - name: Deploy and reconcile hub
+      ansible.builtin.command:
+        argv: ['{{ project_dir }}/.hub-venv/bin/python', '{{ project_dir }}/hub/manage.py', up]
+      changed_when: true
+    - name: Install documentation build service
+      ansible.builtin.template:
+        src: '{{ source_dir }}/hub/media-stack-docs-build.service.j2'
+        dest: /etc/systemd/system/media-stack-docs-build.service
+        mode: '0644'
+    - name: Install documentation build timer
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/hub/media-stack-docs-build.timer'
+        dest: /etc/systemd/system/media-stack-docs-build.timer
+        mode: '0644'
+    - name: Enable documentation build timer
+      ansible.builtin.systemd:
+        name: media-stack-docs-build.timer
+        daemon_reload: true
+        enabled: true
+        state: started

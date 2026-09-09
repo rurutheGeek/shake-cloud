@@ -1,0 +1,64 @@
+---
+- name: Require a supported guest OS
+  ansible.builtin.assert:
+    that: ansible_facts['distribution'] in ['Ubuntu', 'Debian']
+    fail_msg: This role targets Debian or Ubuntu guests.
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: '{{ common_packages }}'
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Proxmox はゲストのIPと正常終了をこのエージェント経由で見る。
+# 入っていないと Terraform の作成待ちと GUI の Shutdown が効かない。
+- name: Enable the QEMU guest agent
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+
+# community.general を足さずに済ませる。依存は netbox.netbox と awx.awx の
+# 2つに保つ。
+- name: Read the current timezone
+  ansible.builtin.command: timedatectl show --property=Timezone --value
+  register: common_current_timezone
+  changed_when: false
+  check_mode: false
+
+- name: Set the timezone
+  ansible.builtin.command: timedatectl set-timezone {{ common_timezone }}
+  when:
+    - common_timezone | length > 0
+    - common_current_timezone.stdout | trim != common_timezone
+  changed_when: true
+
+- name: Install unattended upgrades
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+  when: common_unattended_upgrades | bool
+
+- name: Enable unattended upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: '0644'
+  when: common_unattended_upgrades | bool
+
+# 既存の sshd_config を書き換えず drop-in で上書きする。イメージ側の
+# 既定が変わっても差分が読みやすい。
+- name: Harden sshd with a drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-managed.conf
+    content: |
+      # Managed by platform/ansible/roles/common. Do not edit on the host.
+      PasswordAuthentication {{ 'yes' if common_ssh_password_authentication else 'no' }}
+      KbdInteractiveAuthentication no
+      PermitRootLogin {{ common_ssh_permit_root_login }}
+    mode: '0644'
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload sshd

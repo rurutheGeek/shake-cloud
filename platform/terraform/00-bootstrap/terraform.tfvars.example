@@ -1,0 +1,38 @@
+# 実値を入れる場合は terraform.tfvars へコピーする。tfvars は .gitignore 対象。
+# ここに秘密値は書かない。接続情報は SOPS 経由の環境変数で渡す。
+#
+# 既定値のままで動く想定なので、通常は tfvars 自体が不要。
+# PVEの版で権限名が違う場合だけ上書きする。`pveum role list` で確認する。
+
+# 既定値は PVE 9.2 で確認済み。存在しない権限を1つでも含むと、ロールの作成が
+# HTTP 400 で失敗する。実機の権限名は棚卸しの「PVEが認識する権限一覧」を見る。
+# 版による違いの例: VM.Monitor は PVE 9 で廃止された。
+#
+# platform_admin_privileges = [
+#   "VM.Allocate", "VM.Audit", "VM.Clone", "VM.Config.CDROM", "VM.Config.CPU",
+#   "VM.Config.Cloudinit", "VM.Config.Disk", "VM.Config.HWType",
+#   "VM.Config.Memory", "VM.Config.Network", "VM.Config.Options",
+#   "VM.Console", "VM.GuestAgent.Audit", "VM.Migrate", "VM.PowerMgmt",
+#   "Pool.Allocate", "Pool.Audit", "SDN.Use",
+# ]
+
+# dev_vm_owners = {
+#   "dev-a@pve" = 400
+#   "dev-b@pve" = 401
+# }
+
+# cloud image の取得。query-url-metadata API は `/` の Sys.Audit/Sys.Modify を
+# 要求するので、絞った terraform@pve では実行できない。root@pam で動くこの
+# モジュールが担当する。値は棚卸しと配布元の SHA512SUMS から転記する。
+#
+# proxmox_node_name = "pve"
+#
+# cloud_images = {
+#   debian13 = {
+#     datastore_id = "local"
+#     content_type = "import"
+#     url          = "https://cloud.debian.org/images/cloud/trixie/<日付>-<番号>/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
+#     file_name    = "debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
+#     checksum     = "<SHA512SUMS から転記>"
+#   }
+# }

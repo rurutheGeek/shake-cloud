@@ -1,0 +1,5 @@
+---
+# 開発VMはパスワードでもログインできるようにする。
+# 使いたいだけの人に鍵の登録と terraform apply をさせないため。
+# 公開鍵認証も有効のまま（PubkeyAuthentication yes）。
+common_ssh_password_authentication: true

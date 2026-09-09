@@ -1,0 +1,13 @@
+---
+# 全ゲストVMの共通設定。Proxmox の cloud-init が作った状態を土台にする。
+common_timezone: Etc/UTC
+common_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - python3
+  - qemu-guest-agent
+# 鍵認証だけを許す。cloud-init が公開鍵を配った後に閉じる。
+common_ssh_password_authentication: false
+common_ssh_permit_root_login: prohibit-password
+common_unattended_upgrades: true

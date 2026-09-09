@@ -3,31 +3,59 @@ secrets/
 storage/
 library/
 backups/
-ansible/inventory.ini
 __pycache__/
 .venv/
 compose.integrations.yaml
 compose.https.yaml
-ansible/netbox.env
-awx/controller.yml
-awx/context/
-ansible/bootstrap.ini
 runtime/
+.survey/
+# 構成管理者の手元にだけ置く平文。VMのログインパスワードなど。
+.local/
 
-hub/site/
-hub/oidc-secrets.json
+platform/ansible/inventory.ini
+platform/ansible/pve.ini
+platform/ansible/seed.ini
+platform/ansible/netbox.env
+platform/awx/controller.yml
+platform/awx/context/
 
-!hub/compose.lock.yaml
-!music-tools/compose.lock.yaml
-music-tools/tags.local.json
-hub/compose.smtp.yaml
+stacks/hub/site/
+stacks/hub/oidc-secrets.json
+stacks/hub/compose.smtp.yaml
+stacks/hub/users.local.json
+stacks/music-tools/tags.local.json
+stacks/sso/ports.env
+stacks/sso/trust/
+
+!stacks/hub/compose.lock.yaml
+!stacks/music-tools/compose.lock.yaml
+
 .hub-venv/
-
 RUNNING.md
-/library*/
-hub/users.local.json
+library*/
 **/compose.sso.yaml
-sso/ports.env
-sso/trust/
 docs/downloads/*.crt
 *.log
+
+# Terraform / OpenTofu。.terraform.lock.hcl は版を固定するため追跡する。
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+crash.log
+crash.*.log
+
+# 鍵・資格情報。age の秘密鍵はリポジトリの外 (~/.config/sops/age/) に置く。
+age-key.txt
+*.agekey
+kubeconfig
+*.kubeconfig
+talosconfig
+
+# SOPS。既定では platform/sops/ の全てを除外し、暗号化済みファイルと
+# 設定・例だけを明示的に追跡する。復号した平文を誤って追加できない。
+platform/sops/*
+!platform/sops/*.sops.yaml
+!platform/sops/*.example

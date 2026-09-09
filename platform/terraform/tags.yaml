@@ -1,0 +1,39 @@
+---
+# NetBox のタグと Ansible グループの対応。**このファイルが正本**。
+# 10-platform がタグを作り、hosts.yaml がタグを付け、
+# platform/ansible/inventory.netbox.yml がグループへ写す。
+# 整合は tests/test_platform_inventory.py が検証する。
+#
+# media-stack は stacks/netbox/seed_inventory.py が作る既存タグなので
+# ここでは扱わない。意味を変えないため。
+tags:
+  managed-by-terraform-admin:
+    ansible_group: terraform_managed
+    description: 管理者Terraformが作ったもの
+  managed-by-cloud-api:
+    ansible_group: null
+    description: 将来の自作クラウドAPIが作るもの。現時点では未使用
+  lab:
+    ansible_group: lab
+    description: 検証・復元ドリル用の使い捨て
+  devbox:
+    ansible_group: devbox
+    description: 開発VM
+  identity:
+    ansible_group: identity
+    description: Authentikと専用DB。Kubernetes外
+  k8s-cp:
+    ansible_group: k8s_cp
+    description: Kubernetes control plane
+  k8s-worker:
+    ansible_group: k8s_worker
+    description: Kubernetes worker
+  edge:
+    ansible_group: edge
+    description: 公開入口のCaddy
+  vpn:
+    ansible_group: vpn
+    description: セルフホストVPN
+  storage:
+    ansible_group: storage
+    description: Garage

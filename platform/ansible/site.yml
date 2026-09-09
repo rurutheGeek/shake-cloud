@@ -1,0 +1,12 @@
+---
+# 全体をまとめるプレイブック。個々の playbook は用途ごとに独立していて、
+# AWX の Job Template からはそれぞれを直接指定できる。
+# ここは順序だけを持つ。
+#
+#   ansible-playbook -i <インベントリ> platform/ansible/site.yml
+#
+# 対象ホストが揃っていない段階では、個別の playbook を直接実行する。
+- import_playbook: survey-pve.yml
+- import_playbook: pve-users.yml
+- import_playbook: netbox.yml
+- import_playbook: guests.yml

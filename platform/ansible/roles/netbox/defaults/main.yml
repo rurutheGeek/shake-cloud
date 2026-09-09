@@ -1,0 +1,7 @@
+---
+# NetBox 本体。台帳なので、他のサービスとは独立した配備先に置く。
+netbox_project_dir: /opt/netbox-stack
+netbox_storage_root: /srv/netbox-stack/storage
+# localhost バインドのまま。外からは SSH ポート転送で到達する。
+netbox_allowed_hosts: localhost 127.0.0.1
+netbox_source_dir: '{{ playbook_dir }}/../../stacks/netbox'

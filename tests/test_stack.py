@@ -8,7 +8,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-SPEC = importlib.util.spec_from_file_location('stack', Path(__file__).resolve().parents[1] / 'scripts/stack.py')
+SPEC = importlib.util.spec_from_file_location('stack', Path(__file__).resolve().parents[1] / 'stacks/scripts/stack.py')
 stack = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(stack)
 PROJECT = stack.ROOT

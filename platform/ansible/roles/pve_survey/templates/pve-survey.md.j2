@@ -1,0 +1,57 @@
+# {{ inventory_hostname }} のホスト棚卸し
+
+取得日時: {{ ansible_facts['date_time'].iso8601 }}
+取得元: {{ ansible_host | default(inventory_hostname) }}
+
+状態: **読み取りのみ。ホストへの変更は行っていない**。
+
+> このファイルは LAN 構成と識別情報を含むため Git へ入れない。
+> `.survey/` は `.gitignore` で除外している。必要な値は非公開の作業台帳へ転記する。
+
+## 概要
+
+| 項目 | 値 |
+| --- | --- |
+| ディストリビューション | {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }} |
+| カーネル | {{ ansible_facts['kernel'] }} |
+| CPU | {{ ansible_facts['processor'][2] | default('unknown') }} |
+| 物理コア / vCPU | {{ ansible_facts['processor_cores'] | default('?') }} / {{ ansible_facts['processor_vcpus'] | default('?') }} |
+| 搭載RAM | {{ ansible_facts['memtotal_mb'] }} MiB |
+| 既定のIPv4 | {{ ansible_facts['default_ipv4'].address | default('unknown') }} / gateway {{ ansible_facts['default_ipv4'].gateway | default('unknown') }} |
+| 既定のインターフェース | {{ ansible_facts['default_ipv4'].interface | default('unknown') }} |
+
+## Terraform へ転記する値
+
+以下は `platform/terraform/hosts.yaml` を書く前に確定させる項目。
+下の各節の出力から読み取って埋める。
+
+| 用途 | 読み取る節 | 値 |
+| --- | --- | --- |
+| ノード名 | ノード一覧 | |
+| VMディスク用ストレージ名 | ストレージ定義 | |
+| cloud image / ISO 置き場（content に `iso` を含むもの） | ストレージ定義 | |
+| cloud-init snippet 置き場（content に `snippets` を含むもの） | ストレージ定義 | |
+| bridge 名と vlan-aware の有無 | ネットワーク定義 | |
+| 既存 LAN のサブネットと gateway | 経路表 / IPアドレス | |
+| 静的に使える空きIP範囲 | 経路表 / 既存VM | |
+| 使用済みVMID | 既存のVM/LXC | |
+| iGPU の PCI アドレスと IOMMU グループ | IOMMUグループ / PCIデバイス | |
+
+`snippets` を持つストレージが無い場合、cloud-init の追加設定は投入できない。
+その場合は Proxmox 側でストレージの content 種別を追加してから Terraform を書く。
+
+{% for result in survey.results %}
+## {{ result.item.title }}
+
+`{{ result.item.cmd }}`
+
+{% if result.rc | default(1) != 0 %}> 実行できなかった（rc={{ result.rc | default('?') }}）。コマンドの有無と権限を確認する。
+{% endif %}
+```text
+{{ result.stdout | default('') | trim }}
+{%- if result.stderr | default('') | trim %}
+--- stderr ---
+{{ result.stderr | trim }}
+{%- endif %}
+```
+{% endfor %}

@@ -1,0 +1,13 @@
+---
+# Proxmox 利用者のパスワードを発行して設定する。
+#   ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-users.yml
+- name: Issue and apply Proxmox user passwords
+  hosts: pve
+  become: true
+  gather_facts: false
+  vars:
+    pve_users:
+      - dev-a@pve
+      - dev-b@pve
+  roles:
+    - pve_users

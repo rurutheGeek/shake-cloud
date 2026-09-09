@@ -1,0 +1,46 @@
+---
+# ホストへ一切書き込まない。Terraform へ転記する値をまとめて取得する。
+- name: Look for the Proxmox VE configuration filesystem
+  ansible.builtin.stat:
+    path: /etc/pve
+  register: pve_marker
+  check_mode: false
+
+- name: Fail when the target is not Proxmox VE
+  ansible.builtin.assert:
+    that: pve_marker.stat.isdir | default(false)
+    fail_msg: /etc/pve is missing; this role only surveys Proxmox VE hosts.
+
+- name: Read host, storage, network and hardware state
+  ansible.builtin.command: '{{ item.cmd }}'
+  loop: '{{ pve_survey_commands }}'
+  loop_control:
+    label: '{{ item.key }}'
+  register: survey
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  # 出力に LAN 構成と識別情報が含まれるのでコンソールへ出さない。
+  no_log: true
+
+- name: Create the local survey directory
+  ansible.builtin.file:
+    path: '{{ pve_survey_dir }}'
+    state: directory
+    mode: '0700'
+  become: false
+  delegate_to: localhost
+
+- name: Write the baseline report to the control machine
+  ansible.builtin.template:
+    src: pve-survey.md.j2
+    dest: '{{ pve_survey_dir }}/{{ inventory_hostname }}.md'
+    mode: '0600'
+  become: false
+  delegate_to: localhost
+
+- name: Report where the baseline was written
+  ansible.builtin.debug:
+    msg: >-
+      Wrote {{ pve_survey_dir }}/{{ inventory_hostname }}.md on the control machine.
+      Copy the values into the private ledger. Do not commit this file.

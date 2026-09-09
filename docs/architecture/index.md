@@ -22,6 +22,7 @@
 
 | 文書 | 内容 |
 | --- | --- |
+| [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・Fluxと将来のクラウドAPIの担当範囲、VMIDとプールの分割 |
 | [最小クラウドとTerraform Provider](cloud.md) | 4機能、採用候補、APIキー、リソース設計、実装境界 |
 | [VPNの比較と併用](vpn.md) | NetBird・Headscale・Tailcat、対応OS、復旧経路、認証依存 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマホ、認証の使い分け |
@@ -81,7 +82,9 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | --- | --- |
 | メディア・認証・ハブ | 既存Compose構成と運用手順あり。詳細は既存ドキュメントを参照 |
 | localhost:8090 | MkDocsをnginxで配信する既存サイト |
-| Proxmoxへの移行 | この文書では設計のみ |
+| Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。実機への適用は未実施 |
+| ホスト棚卸し | Ansible `site.yml --tags survey` として実装済み。読み取りのみ |
+| ProxmoxへのVM作成・移行 | この文書では設計のみ。`10-platform` は未実装 |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | この文書では採用候補と配置を整理。未構築 |
 | 自作クラウドAPI・Terraform Provider | APIとリソースの提案。サンプルは未実装 |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |

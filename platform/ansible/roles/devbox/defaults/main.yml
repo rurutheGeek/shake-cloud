@@ -1,0 +1,23 @@
+---
+# 開発VM。RAM 2GiB を前提に軽く保つ。重いものは足さない。
+# 想定は gaming.md「軽量な開発VM」: GUIなし、SSHとVS Code Remote SSHで使う。
+devbox_packages:
+  - git
+  - jq
+  - unzip
+  - rsync
+  - age
+  - python3-venv
+  - vim
+# HashiCorp の apt リポジトリから Terraform を入れる。
+devbox_install_terraform: true
+# HashiCorp が新しいコードネームをまだ出していない場合に上書きする。
+# 例: trixie 未提供なら bookworm を指定する。
+devbox_hashicorp_release: "{{ ansible_facts['distribution_release'] }}"
+# 自作クラウドAPIの Provider をここから実行する。state は各自のホーム。
+devbox_state_dir: tf
+
+# ログインパスワード。tools/ensure-secrets.py が生成する。
+# 構成管理者の手元にだけ置く平文で、Git へは入れない（.gitignore の .local/）。
+# 利用者へは口頭など普通の手段で伝える。既存の値は作り直さない。
+devbox_password_file: .local/devvm-passwords.yml

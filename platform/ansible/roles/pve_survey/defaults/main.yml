@@ -1,0 +1,53 @@
+---
+# Proxmox VE ホストから読み取るもの。すべて読み取り専用。
+# 出力は管理端末の survey_dir へ保存し、Git へは入れない。
+pve_survey_dir: '{{ playbook_dir }}/../../.survey'
+pve_survey_commands:
+- key: pveversion
+  title: Proxmox VE と関連パッケージの版
+  cmd: pveversion -v
+- key: memory
+  title: メモリ
+  cmd: free -h
+- key: block_devices
+  title: ブロックデバイス
+  cmd: lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
+- key: storage_status
+  title: ストレージの使用状況
+  cmd: pvesm status
+- key: storage_json
+  title: ストレージ定義（content 種別を含む）
+  cmd: pvesh get /storage --output-format json
+- key: nodes_json
+  title: ノード一覧
+  cmd: pvesh get /nodes --output-format json
+- key: vm_resources_json
+  title: 既存のVM/LXCとVMID
+  cmd: pvesh get /cluster/resources --type vm --output-format json
+- key: addresses
+  title: IPアドレスとリンク状態
+  cmd: ip -br address
+- key: routes
+  title: 経路表
+  cmd: ip route
+- key: interfaces_file
+  title: ネットワーク定義（bridge名・vlan-aware）
+  cmd: cat /etc/network/interfaces
+- key: resolv_conf
+  title: 名前解決
+  cmd: cat /etc/resolv.conf
+- key: time_sync
+  title: 時刻同期
+  cmd: timedatectl status
+- key: kernel_cmdline
+  title: カーネル引数（IOMMU設定の確認）
+  cmd: cat /proc/cmdline
+- key: privileges
+  title: PVEが認識する権限一覧（ロール定義の検証用）
+  cmd: pveum role list --output-format json
+- key: iommu_groups
+  title: IOMMUグループ
+  cmd: find /sys/kernel/iommu_groups/ -type l
+- key: pci_devices
+  title: PCIデバイスとカーネルドライバ
+  cmd: lspci -nnk

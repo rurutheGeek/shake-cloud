@@ -1,0 +1,19 @@
+---
+# Terraform が作ったゲストVMの共通設定と、開発VMの追加設定。
+#   ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml
+# NetBox 稼働前は静的インベントリ（seed.ini）の seed グループを使う。
+- name: Apply the shared guest baseline
+  hosts: terraform_managed:seed
+  become: true
+  roles:
+    - common
+
+- name: Prepare the developer VMs
+  hosts: devbox
+  become: true
+  vars:
+    devbox_user: '{{ hostvars[inventory_hostname].ansible_user | default("debian") }}'
+    devbox_user_home: '/home/{{ devbox_user }}'
+  roles:
+    - docker
+    - devbox

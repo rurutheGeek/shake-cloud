@@ -18,6 +18,16 @@ ip route
 lspci -nnk
 ```
 
+同じ内容をAnsibleからまとめて取得できます。読み取りだけを行い、ホストへ書き込みません。出力は管理端末の `.survey/` へ保存され、Gitからは除外されます。ストレージ定義・既存VMID・IOMMUグループも併せて取得するので、後段のTerraformに必要な値がこの1回で揃います。
+
+```bash
+cp platform/ansible/pve.ini.example platform/ansible/pve.ini
+# 接続先を編集し、先に手動SSHでホスト鍵を確認する
+ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags survey
+```
+
+生成された `.survey/<ホスト名>.md` の冒頭に「Terraformへ転記する値」の表があります。ノード名、VMディスク用ストレージ名、cloud image置き場、**cloud-init snippetを置けるストレージ**、bridge名とvlan-awareの有無、既存LANのサブネットとgateway、使用済みVMIDを埋めてから次へ進みます。`snippets` を持つストレージが無い場合、cloud-initの追加設定は投入できないため、先にProxmox側でcontent種別を追加します。このファイル自体は台帳ではありません。必要な値を非公開台帳へ転記し、`.survey/` は作業用の一時出力として扱います。
+
 - BIOSの仮想化／IOMMU、RAM、SSD、冷却とファン動作を確認する。iGPUの固定予約は実測前に16GiBへ増やさない。
 - 管理用IP・ホスト名・gateway・DNS・時刻同期を固定／確認する。既存ネットワークと重複しないIPを使い、bridgeの物理NIC割り当てを確認する。
 - GUIで導入版に対応する公式リポジトリを選び、契約の有無に合った更新元を使う。更新後に再起動し、管理PCから再接続する。異なるDebian／Proxmox版のapt行を混ぜない。
@@ -44,7 +54,41 @@ lspci -nnk
 4. ファイルが戻ることを確認し、復元VMを片付ける。
 5. 元VMをテンプレート用に整えるか `dev-a` に割り当てる。テンプレートから複製する場合、ホスト名・IP・machine-id・SSH host keyの重複を確認する。
 
-**完了条件:** バックアップファイルが存在するだけでなく復元できる。ここまでを最初の作業日の到達点にしてよい。
+この手順はコード化してあります。VMの作成は宣言（`platform/terraform/hosts.yaml` の `probe-01`、VMID 900）から行い、復元は補助スクリプトで踏みます。
+
+```bash
+# 1. 台帳とVMを作る
+sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/10-platform apply'
+
+# 2. ゲストOSの共通設定
+ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit probe-01
+
+# 3. 復元ドリル（Proxmoxホスト上でrootとして実行）
+tools/pve-restore-drill.sh backup  --vmid 900 --storage <別媒体のストレージ>
+tools/pve-restore-drill.sh restore --vmid 900 --target-vmid 901 --archive <出力されたファイル>
+# コンソールから検証用ファイルを確認してから
+tools/pve-restore-drill.sh cleanup --target-vmid 901
+```
+
+`restore` は復元VMの全NICを `link_down=1` にしてから起動します。元VMとIP/MACが衝突しません。復元先VMIDが既に存在する場合は何もせず止まります。`cleanup` だけが破壊的で、確認を求めます。
+
+**完了条件:** バックアップファイルが存在するだけでなく復元できる。ここまでを最初の作業日の到達点にしてよい。あわせて `terraform apply` の2回目が `No changes`、`ansible-playbook --check` の2回目が `changed=0` になることを確認する。
+
+### 開発VMを2台使えるようにする
+
+`dev-a`（VMID 400）と `dev-b`（VMID 401）は `hosts.yaml` に定義済みで、`10-platform` の apply で一緒に作られます。`00-bootstrap` が `dev-a@pve` / `dev-b@pve` と `DevVMOperator` ロールを作るので、あとは各自がパスワードを設定してAPIトークンを作ります。
+
+```bash
+# 管理者: 初回パスワードを設定してもらう（Terraformでは管理しない）
+pveum passwd dev-a@pve
+
+# 利用者: ゲストOSの初期設定
+ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit dev-a
+```
+
+`DevVMOperator` に含まれるのは `VM.Audit` / `VM.PowerMgmt` / `VM.Console` だけです。CPU・RAM・ディスク・NICの正本は `hosts.yaml` のままなので、利用者の操作でIaCと実機が乖離しません。使い方は[開発VMの使い方](../services/devvm.md)を利用者へ渡します。
+
+**完了条件:** 2人がそれぞれ `devvm start` → `ssh` → 作業 → `devvm stop` を一周できる。相手のVMが一覧に出ない。`terraform plan` が `No changes` のまま。
 
 ### セルフホストVPN用の枠を確保する
 
