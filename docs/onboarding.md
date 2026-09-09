@@ -70,7 +70,7 @@ ansible-galaxy collection install -r platform/ansible/requirements.yml
 | 要るもの | 入手方法 |
 | --- | --- |
 | `192.168.10.126:22` への到達 | 同じLANなら直接。外からは経路が要る（下の「外から入る」） |
-| SSH公開鍵の登録 | 自分の公開鍵を `platform/terraform/10-platform/terraform.tfvars` の `host_ssh_public_keys` へ入れて `tools/tf 10-platform apply` |
+| 開発VMのログインパスワード | `platform/sops/devvm-users.sops.yaml` にある。鍵の登録は不要 |
 | age の秘密鍵 | 暗号化された資格情報を読むのに要る。既存の鍵を受け取るか、自分の公開鍵を `.sops.yaml` の受信者へ足して `sops updatekeys platform/sops/*.sops.yaml` |
 | PVEのパスワードとAPIトークン | 発行済み。下で取り出す |
 
@@ -88,36 +88,29 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 ## 3. 開発VMへ接続する
 
-### 前提: 公開鍵が入っていること
+### パスワードで入る
 
-**パスワードでは入れません。** `common` ロールが sshd を `PasswordAuthentication no` にしていて、`debian` ユーザーのパスワードも設定されていません（ロック状態）。
+開発VMは**パスワードでログインできます**。鍵の登録も `terraform apply` も要りません。
 
-入れるのは、VM作成時に cloud-init が `/home/debian/.ssh/authorized_keys` へ書いた公開鍵の持ち主だけです。中身は `platform/terraform/10-platform/terraform.tfvars` の `admin_ssh_public_keys`（全ホストへ入る）と `host_ssh_public_keys`（ホスト個別）で決まります。
-
-自分の鍵をまだ入れていない場合は、先にそこへ足して適用します。
-
-実行場所: 手元の作業機、リポジトリのルート
+パスワードは `platform/sops/devvm-users.sops.yaml` にホストごとに入っています。取り出し方（実行場所: 手元の作業機、リポジトリのルート）:
 
 ```bash
-ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)"
-cat ~/.ssh/id_ed25519.pub
+sops --decrypt platform/sops/devvm-users.sops.yaml
 ```
-
-出た1行を `host_ssh_public_keys` の自分のホストへ足してから:
 
 ```bash
-tools/tf 10-platform apply
+ssh debian@192.168.10.203
 ```
 
-### 同じLANから
+読むには age の秘密鍵が要ります。持っていない場合は、既に持っている人から**復号した値だけ**を受け取ってください。
 
-実行場所: 手元の作業機
+### 鍵で入る
+
+公開鍵認証も有効です（`PubkeyAuthentication yes`）。自分の鍵を使いたい場合は `~/.ssh/authorized_keys` へ自分で足すか、基盤側で `platform/terraform/10-platform/terraform.tfvars` の `host_ssh_public_keys` へ入れてもらってください。後者は cloud-init 経由なので、反映には基盤側での `tools/tf 10-platform apply` が要ります。
 
 ```bash
 ssh -i ~/.ssh/id_ed25519 debian@192.168.10.203
 ```
-
-鍵が `~/.ssh/id_ed25519` にあるか ssh-agent に入っていれば `-i` は省けます。
 
 ### Proxmoxホストを踏み台にする
 
@@ -176,11 +169,29 @@ Proxmox の画面（`https://192.168.10.126:8006`、Realm は「Proxmox VE authe
 
 `dev-b@pve` のACLは `/vms/401` にだけ付いているので、画面にも `dev-b` だけが出ます。
 
-## 5. VMを払い出す
+## 5. VMを作る
 
-**最終形は、自作クラウドAPIをTerraformの `homelab` Provider から叩く形です**（[最小クラウドとProvider](architecture/cloud.md)）。それが実装できるまでの暫定として、いまは `platform/terraform/hosts.yaml` に書くと作られます。GUIでも他の手段でも構いませんが、**NetBoxに構成が入ることだけは満たしてください**。台帳が実態とずれると、動的インベントリも払い出しも壊れます。
+**CI/CD はありません。** ファイルを編集しただけでは何も起きません。作る方法は2つあります。
 
-現在の書き方 — 実行場所: 手元の作業機、`platform/terraform/hosts.yaml`
+### すぐ1台欲しいとき: Proxmox から作る
+
+Proxmox の Web GUI（`https://192.168.10.126:8006`）か、ホスト上の `qm` で作れます。これが今すぐ使える方法です。
+
+実行場所: Proxmoxホスト
+
+```bash
+qm clone <元VMID> <新VMID> --name <名前>
+```
+
+cloud image から新規に作る場合は Web GUI の「VMを作成」が早いです。既存VMの設定は `qm config <VMID>` で見られます。
+
+作ったVMを NetBox の台帳へ載せるのは基盤側の担当です。台帳と実態がずれると動的インベントリが壊れるので、作ったら基盤側へ伝えてください。
+
+### 基盤として継続管理するとき: Terraform で作る
+
+`platform/terraform/hosts.yaml` に書き、**誰かが `tools/tf 10-platform apply` を実行**すると作られます。編集だけでは反映されません。NetBox への登録とIPの採番もこの経路なら自動です。
+
+実行場所: 手元の作業機、`platform/terraform/hosts.yaml`
 
 ```yaml
   dev-c:
@@ -216,8 +227,6 @@ ssh -N -L 8001:127.0.0.1:8000 debian@192.168.10.200
 tools/tf 10-platform plan
 ```
 
-作られるものを確認してから適用します。
-
 ```bash
 tools/tf 10-platform apply
 ```
@@ -231,7 +240,11 @@ set -a; . platform/ansible/netbox.env; set +a
 ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml
 ```
 
-これで `common` ロール（guest agent、時刻、sshd）と、`devbox` タグが付いていれば開発用の道具（Terraform・Docker・age）が入ります。`platform/ansible/netbox.env` は NetBox の読み取り専用トークンで、雛形は `platform/ansible/netbox.env.example` です。
+これで `common` ロール（guest agent、時刻、sshd）と、`devbox` タグが付いていれば開発用の道具（Terraform・Docker・age）とログインパスワードが入ります。
+
+### 最終形
+
+[最小クラウドとProvider](architecture/cloud.md)にあるとおり、自作クラウドAPIを Terraform の `homelab` Provider から叩く形が目標です。上の2つはそれまでの手段です。
 
 ## 6. 設計思想
 

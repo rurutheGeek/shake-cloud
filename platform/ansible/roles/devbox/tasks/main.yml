@@ -53,3 +53,39 @@
     groups: docker
     append: true
   when: devbox_user is defined
+
+# 鍵を持っていない人でも入れるようにする。鍵の登録と terraform apply を
+# 使う側に要求しないため。値は SOPS で暗号化したまま保持する。
+- name: Ensure a generated login password exists for every developer VM
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['python3', 'tools/ensure-secrets.py', '--file', devbox_password_file]
+        + (ansible_play_hosts | map('regex_replace', '^', '--key=') | list)
+      }}
+    chdir: '{{ playbook_dir }}/../..'
+  become: false
+  delegate_to: localhost
+  run_once: true
+  register: devbox_generated
+  changed_when: "'CHANGED' in devbox_generated.stdout"
+
+- name: Read the login passwords back
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ devbox_password_file }}']
+    chdir: '{{ playbook_dir }}/../..'
+  become: false
+  delegate_to: localhost
+  run_once: true
+  register: devbox_passwords
+  changed_when: false
+  no_log: true
+
+# stdin で渡すので、パスワードがプロセス一覧やログへ出ない。
+# 毎回同じ値を設定し直すため、ホスト側で変えられても元へ戻る。
+- name: Set the login password
+  ansible.builtin.command:
+    argv: [/usr/sbin/chpasswd]
+    stdin: "{{ devbox_user }}:{{ (devbox_passwords.stdout | from_json)[inventory_hostname] }}"
+  changed_when: false
+  no_log: true

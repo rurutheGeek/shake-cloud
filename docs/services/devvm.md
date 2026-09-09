@@ -81,7 +81,11 @@ devvm restart     # 正常な再起動
 
 ### SSHで入る
 
-パスワードでは入れません（`PasswordAuthentication no`）。VM作成時に cloud-init が入れた公開鍵の持ち主だけが接続できます。鍵は `platform/terraform/10-platform/terraform.tfvars` の `admin_ssh_public_keys` と `host_ssh_public_keys` で決まります。
+パスワードでも公開鍵でも入れます。パスワードは `platform/sops/devvm-users.sops.yaml` にホストごとに入っています。
+
+```bash
+sops --decrypt platform/sops/devvm-users.sops.yaml
+```
 
 
 `~/.ssh/config` に別名を書いておくと、VS Code Remote SSH からも同じ設定が使えます。

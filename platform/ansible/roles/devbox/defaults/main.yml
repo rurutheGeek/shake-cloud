@@ -16,3 +16,7 @@ devbox_install_terraform: true
 devbox_hashicorp_release: "{{ ansible_facts['distribution_release'] }}"
 # 自作クラウドAPIの Provider をここから実行する。state は各自のホーム。
 devbox_state_dir: tf
+
+# ログインパスワード。tools/ensure-secrets.py が生成し SOPS で暗号化したまま持つ。
+# 既存の値は作り直さないので、再実行しても締め出されない。
+devbox_password_file: platform/sops/devvm-users.sops.yaml
