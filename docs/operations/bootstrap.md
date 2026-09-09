@@ -143,5 +143,8 @@ NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流
 | `no matching creation rules found` | `path_regex` が区切り文字に一致しない | `platform[\\/]sops[\\/]` を使う |
 | `Failed to get the data key required to decrypt` | sopsが秘密鍵を見つけられない | `SOPS_AGE_KEY_FILE` を設定してシェルを開き直す |
 | `Host key verification failed` | ホスト鍵が未登録 | 指紋を突き合わせてから手動SSHで登録 |
+| `invalid privilege 'VM.Monitor'` | PVEの版で廃止された権限 | 棚卸しの権限一覧を見て `platform_admin_privileges` を直す |
+| APIが `401` を返す | トークン文字列が二重になっている | `output -raw automation_token_value` は完全な形。接頭辞を足さない |
+| 権限があるはずなのに一覧が空 | トークンの「特権の分離」が有効 | `pveum user token modify <user> <id> --privsep 0` |
 | Ansibleが `world writable directory` と言う | リポジトリが `/mnt/c` にある | 動作には影響しない。必要なら `ANSIBLE_CONFIG` を明示 |
 | `UNPROTECTED PRIVATE KEY FILE` | 鍵が `/mnt/c` にある | WSLの `~/.ssh/` へ 0600 でコピー |

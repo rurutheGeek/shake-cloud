@@ -28,7 +28,9 @@ variable "platform_admin_privileges" {
   description = <<-EOT
     TerraformAdmin ロールの権限。VMの作成・構成・電源・cloud-initまで。
     PVEの版によって存在しない権限があると作成に失敗するため変数にしている。
-    `pveum role list` で実機の権限名を確認して調整する。
+    実機の権限名は棚卸し（survey-pve.yml）が取得する `pveum role list` を見る。
+    PVE 9.2 では VM.Monitor が廃止されている。bridge の割り当てには
+    SDN.Use、guest agent 経由のIP取得には VM.GuestAgent.Audit が要る。
   EOT
   type        = set(string)
   default = [
@@ -44,10 +46,12 @@ variable "platform_admin_privileges" {
     "VM.Config.Network",
     "VM.Config.Options",
     "VM.Console",
+    "VM.GuestAgent.Audit",
     "VM.Migrate",
-    "VM.Monitor",
     "VM.PowerMgmt",
+    "Pool.Allocate",
     "Pool.Audit",
+    "SDN.Use",
   ]
 }
 

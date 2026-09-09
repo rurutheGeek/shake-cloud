@@ -53,6 +53,9 @@
       - key: kernel_cmdline
         title: カーネル引数（IOMMU設定の確認）
         cmd: cat /proc/cmdline
+      - key: privileges
+        title: PVEが認識する権限一覧（ロール定義の検証用）
+        cmd: pveum role list --output-format json
       - key: iommu_groups
         title: IOMMUグループ
         cmd: find /sys/kernel/iommu_groups/ -type l

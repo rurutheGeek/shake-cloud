@@ -7,6 +7,9 @@ output "automation_token_value" {
   description = <<-EOT
     自動化トークンの秘密値。**表示は一度だけにして SOPS へ入れる。**
 
+    出力は `user@realm!id=uuid` の**完全な形**なので、PROXMOX_VE_API_TOKEN へは
+    そのまま入れる。`automation_token_id` を接頭辞として足さない。
+
       terraform -chdir=platform/terraform/00-bootstrap output -raw automation_token_value
 
     この値は state にも平文で入る。state は .gitignore 対象・権限0600で保持し、
