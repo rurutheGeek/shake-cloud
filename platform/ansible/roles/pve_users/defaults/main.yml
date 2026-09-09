@@ -1,0 +1,6 @@
+---
+# Proxmox の利用者パスワード。Terraform では設定できない（Proxmox は
+# /access/password を API トークンで受けず ticket を要求する）ため、
+# ホスト上の pveum を SSH 経由で使う。手作業へ戻したのではなく担当の移動。
+pve_users_password_file: platform/sops/pve-users.sops.yaml
+pve_users: []

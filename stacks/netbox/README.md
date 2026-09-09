@@ -20,9 +20,9 @@ NetBoxは http://localhost:8000 です。リモートからは `ssh -N -L 8000:1
 ## Ansibleで別ホストへ構築
 
 ```bash
-cp platform/ansible/bootstrap.ini.example platform/ansible/bootstrap.ini
+cp platform/ansible/seed.ini.example platform/ansible/seed.ini
 # 接続先を編集
-ansible-playbook -i platform/ansible/bootstrap.ini platform/ansible/bootstrap-netbox.yml --ask-become-pass
+ansible-playbook -i platform/ansible/seed.ini platform/ansible/site.yml --tags netbox
 ```
 
 配備先は/opt/netbox-stack、状態は/srv/netbox-stack/storageです。既存Dockerを使う場合は `-e install_docker=false` を指定します。初回以降の.envは既存設定を保持するため、変更は対象ホストで行います。

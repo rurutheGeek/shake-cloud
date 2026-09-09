@@ -1,0 +1,37 @@
+---
+# パスワードは tools/ensure-secrets.py が生成し、SOPS で暗号化したまま持つ。
+# 既存の値は作り直さないので、再実行しても利用者は締め出されない。
+- name: Ensure a generated password exists for every user
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['python3', 'tools/ensure-secrets.py', '--file', pve_users_password_file]
+        + (pve_users | map('regex_replace', '^', '--key=') | list)
+      }}
+    chdir: '{{ playbook_dir }}/../..'
+  become: false
+  delegate_to: localhost
+  run_once: true
+  register: generated
+  changed_when: "'CHANGED' in generated.stdout"
+
+- name: Read the passwords back
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ pve_users_password_file }}']
+    chdir: '{{ playbook_dir }}/../..'
+  become: false
+  delegate_to: localhost
+  run_once: true
+  register: decrypted
+  changed_when: false
+  no_log: true
+
+# stdin で渡すので、パスワードがプロセス一覧やログへ出ない。
+# 毎回同じ値を設定し直すため、ホスト側で手変更されても元へ戻る。
+- name: Apply the password on the Proxmox host
+  ansible.builtin.command:
+    argv: [pveum, passwd, '{{ item }}']
+    stdin: "{{ (decrypted.stdout | from_json)[item] }}\n{{ (decrypted.stdout | from_json)[item] }}\n"
+  loop: '{{ pve_users }}'
+  changed_when: false
+  no_log: true

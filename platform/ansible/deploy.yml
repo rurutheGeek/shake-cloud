@@ -16,7 +16,8 @@
           - storage_root != library_root
         fail_msg: Use Debian or Ubuntu and separate absolute paths.
     - name: Install Docker Engine and Compose
-      ansible.builtin.include_tasks: tasks/docker.yml
+      ansible.builtin.include_role:
+        name: docker
       when: install_docker | bool
   tasks:
     - name: Check Docker Compose

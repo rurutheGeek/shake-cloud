@@ -83,7 +83,7 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | メディア・認証・ハブ | 既存Compose構成と運用手順あり。詳細は既存ドキュメントを参照 |
 | localhost:8090 | MkDocsをnginxで配信する既存サイト |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。実機への適用は未実施 |
-| ホスト棚卸し | Ansible `survey-pve.yml` として実装済み。読み取りのみ |
+| ホスト棚卸し | Ansible `site.yml --tags survey` として実装済み。読み取りのみ |
 | ProxmoxへのVM作成・移行 | この文書では設計のみ。`10-platform` は未実装 |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | この文書では採用候補と配置を整理。未構築 |
 | 自作クラウドAPI・Terraform Provider | APIとリソースの提案。サンプルは未実装 |

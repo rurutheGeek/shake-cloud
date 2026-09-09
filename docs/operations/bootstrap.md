@@ -1,164 +1,111 @@
 # 初回セットアップの順番
 
-更新日: 2026-09-09。状態: **手順1〜4は実機で確認済み。5以降は未実施**。
+更新日: 2026-09-09。状態: **手順1〜7は実機（PVE 9.2.2）で確認済み**。
 
-この文書は「まっさらな管理端末から、Proxmox上に最初のVMが立つまで」を一本道でまとめたものです。個々の詳細は各文書にありますが、**順番と実機で引っかかる点**はここに集約します。
+ゼロから最初のVMまでの**順序と理由**だけを書きます。操作そのものはコードにあります。詳細は[Terraformの実行](terraform.md)、[秘密値の管理](secrets.md)、[IaCの所有境界](../architecture/iac.md)へ。
 
-- 秘密値の扱い → [秘密値の管理](secrets.md)
-- Terraformの詳細 → [Terraformの実行](terraform.md)
-- 誰が何を所有するか → [IaCの所有境界](../architecture/iac.md)
-- 実機側の作業 → [Proxmox導入後の手順](../architecture/bring-up.md)
-
-## 0. 管理端末に入れるもの
+## 0. 管理端末
 
 | 道具 | 用途 | Windowsでの入れ方 |
 | --- | --- | --- |
-| Terraform | Proxmox・NetBoxの宣言。**1.10以降**（stateロックに必要） | `winget install Hashicorp.Terraform` |
+| Terraform 1.10以降 | Proxmox・NetBox・バケットの宣言 | `winget install Hashicorp.Terraform` |
 | SOPS | 資格情報の暗号化 | `winget install SecretsOPerationS.SOPS` |
 | age | SOPSの鍵 | `winget install FiloSottile.age` |
-| Ansible | ゲストOSの構成 | **Windowsでは動きません。**WSLのUbuntuへ `apt install ansible` |
+| Ansible | ゲストOSの構成 | **Windowsでは動きません。**WSLのUbuntuへ |
 
-`ansible-core` はWindowsを制御ノードとしてサポートしません。WSL2のUbuntuを制御ノードにします。リポジトリは `/mnt/c/...` から見えます。
+`ansible-core` はWindowsを制御ノードとしてサポートしません。WSL2のUbuntuを制御ノードにし、リポジトリは `/mnt/c/...` から参照します。WSL側にも `sops` が要ります。
 
-`winget` でパスを追加した直後は、**シェルを開き直さないと `terraform` や `sops` が見つかりません**。
+`winget` でパスを追加した直後は、**シェルを開き直さないとコマンドが見つかりません**。
 
-## 1. age鍵を作り、`.sops.yaml` をルートへ置く
+## 1. 鍵と資格情報
 
 ```bash
 age-keygen -o ~/.config/sops/age/keys.txt
-grep 'public key' ~/.config/sops/age/keys.txt
-cp .sops.yaml.example .sops.yaml
-# age1... の公開鍵へ置き換える
+cp .sops.yaml.example .sops.yaml   # age1... の公開鍵へ置き換える
 ```
 
-**`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントディレクトリから上へ辿って設定を探すので、`platform/sops/` に置くとルートから実行したときに見つかりません。公開鍵しか入らないのでGitへコミットします。
+**`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントから上へ辿って設定を探すので、他の場所では見つかりません。`path_regex` は絶対パスに対して評価されるため、Windowsの `\` も受ける形にしてあります。
 
-`path_regex` は**絶対パス**に対して評価されます。Windowsでは区切りが `\` になるため、雛形は `platform[\\/]sops[\\/]` と書いてあります。片方だけにすると一致しません。
+Windowsではsopsが既定で `%AppData%\sops\age\keys.txt` を見ます。上の場所に鍵を置いた場合は `SOPS_AGE_KEY_FILE` を設定してシェルを開き直します。
 
-### Windowsでは鍵の場所を教える必要があります
+雛形をコピーして実値を入れ、**必ず暗号化してから**次へ進みます。暗号化を忘れてコミットしようとすると `tools/check-publication.py` が止めます。
 
-sopsが既定で見るのは `%AppData%\sops\age\keys.txt` です。上の手順で作った鍵は `~/.config/sops/age/keys.txt` にあるので、そのままでは**暗号化はできるのに復号できません**。環境変数で指定します。
+| ファイル | 中身 | どこで使うか |
+| --- | --- | --- |
+| `platform/sops/cloudflare.sops.yaml` | Cloudflare APIトークン | バケット作成だけ |
+| `platform/sops/s3.sops.yaml` | S3のアクセスキー・エンドポイント・バケット名 | 全モジュールのstate |
+| `platform/sops/proxmox-root.sops.yaml` | `root@pam` のAPIトークン | `00-bootstrap` だけ |
+| `platform/sops/proxmox.sops.yaml` | `terraform@pve` のトークン | それ以外のモジュール |
+| `platform/sops/netbox.sops.yaml` | NetBoxの書き込みトークン | `10-platform` |
 
-```powershell
-[Environment]::SetEnvironmentVariable(
-  'SOPS_AGE_KEY_FILE', "$env:USERPROFILE\.config\sops\age\keys.txt", 'User')
-```
+`proxmox.sops.yaml` と `netbox.sops.yaml` の中身は、後の手順の出力から作ります。最初に用意するのは上2つと `proxmox-root` です。
 
-設定後はシェルを開き直します。WSLから使う場合は `/mnt/c/Users/<名前>/.config/sops/age/keys.txt` を同じ変数に入れます。
+## 2. Proxmox側の最初の資格情報
 
-## 2. ProxmoxのAPIトークンを作る（唯一の手作業）
+PVEの画面（データセンター → 権限 → APIトークン）で `root@pam` のトークンを作り、**「特権の分離」のチェックを外します**。`00-bootstrap` が作る `terraform@pve` は自分自身を作れないため、この1段だけ上位の資格情報が要ります。
 
-Proxmoxの画面で **データセンター → 権限 → APIトークン → 追加**。ユーザーは `root@pam`、トークンIDは任意（例 `bootstrap`）、**「特権の分離」のチェックを外します**。作成直後に一度だけ表示される秘密値を控えます。
+あわせてPVEのWebシェルから、管理端末の公開鍵を `/root/.ssh/authorized_keys` へ登録します。鍵認証を作るために鍵認証は使えないので、ここも1回だけ手作業です。
 
-`00-bootstrap` が作る `terraform@pve` は自分自身を作れないため、この1段だけ上位の資格情報が要ります。以降はこのトークンを使いません。
-
-## 3. トークンをSOPSへ入れる
+## 3. state置き場を作る
 
 ```bash
-cp platform/sops/proxmox-root.sops.yaml.example platform/sops/proxmox-root.sops.yaml
+tools/tf state-store apply
 ```
 
-`platform/sops/proxmox-root.sops.yaml` を開き、次の2つを実値にします。
+バケットを手で作りません。このモジュールだけ **stateがローカル**です（自分が作る先に自分のstateは置けないため）。事業者固有なのもここだけで、他のモジュールの `backend "s3"` は素のS3です。
 
-- `PROXMOX_VE_ENDPOINT` … `https://<ProxmoxのIP>:8006/`
-- `PROXMOX_VE_API_TOKEN` … `root@pam!<トークンID>=<秘密値>` の形
+出力の `bucket_name` と `endpoint` を `s3.sops.yaml` へ入れて暗号化します。
 
-保存したら**必ず暗号化してから**次へ進みます。
+## 4. 実機の棚卸し
 
-```bash
-sops --encrypt --in-place platform/sops/proxmox-root.sops.yaml
-sops --decrypt platform/sops/proxmox-root.sops.yaml   # 読めることの確認
-```
-
-暗号化を忘れてコミットしようとすると `tools/check-publication.py` が止めます。ただしこれは補助であり、`git diff --cached` の目視も行います。平文で一度でもpushしたトークンは**失効・再発行**します。
-
-## 4. Proxmoxホストの棚卸し（読み取りのみ）
-
-先に手動でSSHし、ホスト鍵の指紋を確認します。**表示された指紋をProxmox側の実物と突き合わせてから** `yes` と答えます。
-
-```bash
-# Proxmoxのホスト上（GUIのShell）で
-ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
-
-# 管理端末から
-ssh root@<ProxmoxのIP>
-```
-
-WSLから棚卸しを実行します。
+先に手動でSSHし、**ホスト鍵の指紋をProxmox側の実物と突き合わせてから** `yes` と答えます。中間者攻撃を検知する唯一の機会なので、ここは自動化しません。
 
 ```bash
 cp platform/ansible/pve.ini.example platform/ansible/pve.ini
-# 接続先を編集
-ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
+ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags survey
 ```
 
-出力は管理端末の `.survey/<ホスト名>.md` です。Gitからは除外されています。
+`.survey/<ホスト名>.md` の冒頭にある「Terraformへ転記する値」を埋めてから次へ進みます。`snippets` を持つストレージが無い場合、cloud-initの追加設定は投入できません。
 
-### WSLで出る警告について
-
-`/mnt/c` は誰でも書ける扱いになるため、Ansibleが「world writable directory」として `ansible.cfg` を無視します。ロールは playbook の隣（`platform/ansible/roles/`）から解決されるので動作に影響はありませんが、設定を効かせたい場合は明示します。
+## 5. Proxmoxの所有境界
 
 ```bash
-ANSIBLE_CONFIG=/mnt/c/.../shake-cloud/ansible.cfg ansible-playbook ...
+tools/tf 00-bootstrap apply
 ```
 
-SSH秘密鍵を `/mnt/c` に置いたままだと、パーミッションが緩すぎるとしてsshが拒否します。WSL側の `~/.ssh/` へ 0600 でコピーして使います。
+プール・ロール・ACL・cloud imageの取得・開発VMのAPIトークンを作ります。出力の `automation_token_value` は `user@realm!id=uuid` の**完全な形**なので、そのまま `proxmox.sops.yaml` へ入れます（接頭辞を足すと二重になり401になります）。
 
-## 5. Proxmoxの所有境界を作る
+**完了条件:** 2回目の `plan` が `No changes`。`terraform@pve` から `cloud` プールを操作できないこと。
 
-`.survey/` の「Terraformへ転記する値」を埋めてから進みます。
+## 6. 最初の1台とNetBox
+
+`10-platform` はNetBoxにIPを採番させる設計なので、NetBox自身の置き場はそれでは作れません（鶏と卵）。`05-seed` だけNetBoxを使わず静的IPで1台作ります。
 
 ```bash
-sops exec-env platform/sops/proxmox-root.sops.yaml \
-  'terraform -chdir=platform/terraform/00-bootstrap init'
-sops exec-env platform/sops/proxmox-root.sops.yaml \
-  'terraform -chdir=platform/terraform/00-bootstrap plan'
-sops exec-env platform/sops/proxmox-root.sops.yaml \
-  'terraform -chdir=platform/terraform/00-bootstrap apply'
+tools/tf 05-seed apply
 ```
 
-`sops exec-env` はWindowsでもシェル経由ではなく直接コマンドを起動します。環境変数は子プロセスへ渡りますが、**引用符の中でシェルの展開（`$VAR` など）は効きません**。単純なコマンドだけを書きます。
-
-出てきたトークンをそのまま次の資格情報にします。
-
-```bash
-cp platform/sops/proxmox.sops.yaml.example platform/sops/proxmox.sops.yaml
-terraform -chdir=platform/terraform/00-bootstrap output -raw automation_token_value
-# 表示された値を PROXMOX_VE_API_TOKEN へ入れてから
-sops --encrypt --in-place platform/sops/proxmox.sops.yaml
-```
-
-**完了条件:** 2回目の `apply` が `No changes`。`terraform@pve` から `cloud` プールが操作できないこと。
-
-## 6. 最初の1台を作る（05-seed）
-
-`10-platform` はNetBoxにIPを採番させる設計なので、**NetBox自身の置き場はそれでは作れません**（鶏と卵）。`stacks/netbox/README.md` が「NetBox本体を作る初回だけ静的なSSH指定を使用します」と書いているのと同じ理由で、`platform/terraform/05-seed` だけはNetBoxを使わず静的IPで1台作ります。
-
-cloud imageの取得は `00-bootstrap`（`root@pam`）の担当です。ProxmoxのURLメタデータ取得APIは `/` に対する `Sys.Audit` と `Sys.Modify` を要求するため、プールとストレージに絞った `terraform@pve` では実行できません。特権が要る一度きりの作業を上位の資格情報側へ寄せています。
-
-```bash
-cp platform/terraform/05-seed/terraform.tfvars.example platform/terraform/05-seed/terraform.tfvars
-# 00-bootstrap の cloud_image_file_ids 出力と、棚卸しの値を転記する
-terraform -chdir=platform/terraform/00-bootstrap output cloud_image_file_ids
-
-sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/05-seed apply'
-```
-
-`ipv4_cidr` は**ルータのDHCP配布範囲の外**にします。範囲は外から見えないので、ルータの管理画面で確認してから決めます。
-
-Debianのcloud imageには `qemu-guest-agent` が入っていません。Terraformはエージェントの応答を待つので、**作成直後は `apply` が待ち状態のままになります**。別のシェルからAnsibleを流すと待ちが解けます。
+Debianのcloud imageには `qemu-guest-agent` が無く、Terraformはエージェントの応答を待つので**applyが待ち状態になります**。別のシェルから流すと待ちが解けます。
 
 ```bash
 cp platform/ansible/seed.ini.example platform/ansible/seed.ini
-# 接続先を編集
-ansible-playbook -i platform/ansible/seed.ini platform/ansible/guests.yml --limit seed
+ansible-playbook -i platform/ansible/seed.ini platform/ansible/site.yml --tags guests
+ansible-playbook -i platform/ansible/seed.ini platform/ansible/site.yml --tags netbox
 ```
 
-**完了条件:** 2回目の `terraform plan` が `No changes`、2回目の `ansible-playbook` が `changed=0`。
+## 7. 基盤VMと利用者
 
-## 7. NetBoxとその後
+NetBoxは `services-01` のlocalhostにしか出ていないので、SSHポート転送を張ってから実行します。
 
-NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流れは[Proxmox導入後の手順](../architecture/bring-up.md)へ続きます。
+```bash
+ssh -N -L 8001:127.0.0.1:8000 debian@<services-01のIP>
+tools/tf 10-platform apply
+ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags pve-users
+```
+
+`hosts.yaml` に書いたVMがNetBoxの採番付きで作られ、開発VMのパスワードが設定されます。利用者へ渡す値は `tools/tf 00-bootstrap output -json dev_credentials` と `sops --decrypt platform/sops/pve-users.sops.yaml` から取り出します。
+
+**完了条件:** `plan` が `No changes`、`ansible-playbook` が `changed=0`、利用者が自分のVMだけを見られること。
 
 ## 残っている手作業
 
@@ -171,7 +118,7 @@ NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流
 | SSHホスト鍵の指紋確認 | 中間者攻撃を検知する唯一の機会です。自動承認すると確認の意味がなくなります | **意図的に自動化しません** |
 | age鍵の生成と保管場所の決定 | 生成自体はスクリプト化できますが、秘密鍵をどこに何個置くかは人が決めます | 生成は可・未 |
 | Proxmox `root@pam` トークンの発行 | SSHが通れば `pveum` で作れます | 可・**未** |
-| ~~`dev-a@pve` / `dev-b@pve` のパスワードとAPIトークン~~ | **コード化済み。** トークンは `00-bootstrap`、パスワードは `platform/ansible/pve-users.yml`（Proxmoxが `/access/password` をAPIトークンで受けないため、SSH経由の `pveum`） | 済 |
+| ~~`dev-a@pve` / `dev-b@pve` のパスワードとAPIトークン~~ | **コード化済み。** トークンは `00-bootstrap`、パスワードは `platform/ansible/site.yml --tags pve-users`（Proxmoxが `/access/password` をAPIトークンで受けないため、SSH経由の `pveum`） | 済 |
 | 棚卸し結果を `terraform.tfvars` へ転記 | `.survey/` の出力から生成できます | 可・**未** |
 | NetBoxの読み取り専用アイデンティティ | `manage.py seed` はありますが `media-stack` タグ固定なので小改修が要ります | 可・**未** |
 | NetBoxへのSSHポート転送 | systemdユニットかスクリプトにできます | 可・**未** |
@@ -193,6 +140,6 @@ NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流
 | 権限があるはずなのに一覧が空 | トークンの「特権の分離」が有効 | `pveum user token modify <user> <id> --privsep 0` |
 | `Permission check failed (/sdn/zones/.../vmbr0, SDN.Use)` | PVE 8.2以降はbridge割り当てにSDN.Useが要る | `00-bootstrap` の `sdn_acl_path` を実機のゾーン名に合わせる |
 | イメージ取得が `Permission check failed` | URLメタデータAPIは `/` の権限を要求する | 取得は `00-bootstrap`（root@pam）で行う。`terraform@pve` では実行しない |
-| `terraform apply` がVM作成後に戻ってこない | cloud imageに qemu-guest-agent が無い | 別シェルで `guests.yml` を流す。エージェントが上がれば待ちが解ける |
+| `terraform apply` がVM作成後に戻ってこない | cloud imageに qemu-guest-agent が無い | 別シェルで `site.yml --tags guests` を流す。エージェントが上がれば待ちが解ける |
 | Ansibleが `world writable directory` と言う | リポジトリが `/mnt/c` にある | 動作には影響しない。必要なら `ANSIBLE_CONFIG` を明示 |
 | `UNPROTECTED PRIVATE KEY FILE` | 鍵が `/mnt/c` にある | WSLの `~/.ssh/` へ 0600 でコピー |

@@ -138,6 +138,6 @@ CIでは `terraform fmt -check` と `terraform validate` が走ります。実�
 
 - **stateには秘密値が平文で入ります。** `sensitive` 指定は表示を隠すだけで、暗号化ではありません。バケットを公開せず、アクセスキーを対象バケットの読み書きだけに絞ります。SOPSはstateを守りません。
 - `terraform destroy` はプール・ロール・ユーザーを消します。**VMが所属しているプールを消す前に、VMの所属を確認してください。** プールの削除はVMを消しませんが、ACLが外れて到達できなくなります。
-- **ロールの権限名はPVEの版に依存します。** 存在しない権限を1つでも含むと、ロールの作成が `HTTP 400 invalid privilege '...'` で失敗します。棚卸し（`survey-pve.yml`）が `pveum role list` を取得するので、そこで実機の名前を確認して `platform_admin_privileges` を上書きします。既定値は PVE 9.2 で確認済みです。実例として **`VM.Monitor` は PVE 9 で廃止**されており、bridge の割り当てには `SDN.Use`、guest agent 経由のIP取得には `VM.GuestAgent.Audit` が要ります。
+- **ロールの権限名はPVEの版に依存します。** 存在しない権限を1つでも含むと、ロールの作成が `HTTP 400 invalid privilege '...'` で失敗します。棚卸し（`site.yml --tags survey`）が `pveum role list` を取得するので、そこで実機の名前を確認して `platform_admin_privileges` を上書きします。既定値は PVE 9.2 で確認済みです。実例として **`VM.Monitor` は PVE 9 で廃止**されており、bridge の割り当てには `SDN.Use`、guest agent 経由のIP取得には `VM.GuestAgent.Audit` が要ります。
 - `apply` が権限エラーで止まる場合、必要なACLのパスが実機の版で異なる可能性があります。エラーに出たパスを `identities.tf` へ追加し、**広い範囲へ丸ごと許可しないでください**。
 - stateを失うと、Terraformは既存オブジェクトを「無い」と判断して作り直そうとします。復旧には `terraform import` が要ります。stateもバックアップ対象です。
