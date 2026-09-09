@@ -124,10 +124,17 @@ def backup(destination):
 
 
 def seed(name, address):
-    import ipaddress
-    ipaddress.IPv4Interface(address)
-    if not name:
-        raise ValueError('A host name is required')
+    """Create the read-only inventory identity, optionally registering a host.
+
+    Terraform registers hosts in NetBox now, so the host arguments are optional.
+    """
+    host = None
+    if name or address:
+        import ipaddress
+        if not (name and address):
+            raise ValueError('Pass both --host-name and --host-address, or neither')
+        ipaddress.IPv4Interface(address)
+        host = {'name': name, 'address': address}
     path = ROOT / 'secrets' / 'inventory-token.json'
     if not path.exists():
         alphabet = string.ascii_letters + string.digits
@@ -140,7 +147,7 @@ def seed(name, address):
     compose('exec', '-T', '-e', 'SEED_HOST', '-e', 'SEED_CREDENTIAL', 'netbox',
             '/opt/netbox/venv/bin/python', '/opt/netbox/netbox/manage.py',
             'shell', '--no-startup', '--no-imports', '--interface', 'python',
-            extra_env={'SEED_HOST': json.dumps({'name': name, 'address': address}),
+            extra_env={'SEED_HOST': json.dumps(host),
                        'SEED_CREDENTIAL': json.dumps(credential)},
             input=(ROOT / 'seed_inventory.py').read_text(encoding='utf-8'))
     print('API credential is saved under secrets/inventory-token.json')

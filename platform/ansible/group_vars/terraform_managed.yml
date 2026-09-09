@@ -1,0 +1,6 @@
+---
+# Terraform が cloud image から作ったゲストの共通接続情報。
+# NetBox は名前とIPしか持たないので、ログイン名はここで補う。
+# SSH鍵は各自の ~/.ssh/config で指定する（リポジトリには置かない）。
+ansible_user: debian
+ansible_python_interpreter: /usr/bin/python3

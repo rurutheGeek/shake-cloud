@@ -4,18 +4,9 @@
 
 ゼロから最初のVMまでの**順序と理由**だけを書きます。操作そのものはコードにあります。詳細は[Terraformの実行](terraform.md)、[秘密値の管理](secrets.md)、[IaCの所有境界](../architecture/iac.md)へ。
 
-## 0. 管理端末
+## 0. 作業機
 
-| 道具 | 用途 | Windowsでの入れ方 |
-| --- | --- | --- |
-| Terraform 1.10以降 | Proxmox・NetBox・バケットの宣言 | `winget install Hashicorp.Terraform` |
-| SOPS | 資格情報の暗号化 | `winget install SecretsOPerationS.SOPS` |
-| age | SOPSの鍵 | `winget install FiloSottile.age` |
-| Ansible | ゲストOSの構成 | **Windowsでは動きません。**WSLのUbuntuへ |
-
-`ansible-core` はWindowsを制御ノードとしてサポートしません。WSL2のUbuntuを制御ノードにし、リポジトリは `/mnt/c/...` から参照します。WSL側にも `sops` が要ります。
-
-`winget` でパスを追加した直後は、**シェルを開き直さないとコマンドが見つかりません**。
+**Debian系のLinux**（Debian / Ubuntu）を前提にします。導入は[開発参加ガイド](../onboarding.md)の手順1にまとめてあります。要るのは Terraform 1.10以降、SOPS、age、Ansible、それに NetBox 動的インベントリ用の `pynetbox` と `pytz` です。
 
 ## 1. 鍵と資格情報
 
@@ -24,9 +15,9 @@ age-keygen -o ~/.config/sops/age/keys.txt
 cp .sops.yaml.example .sops.yaml   # age1... の公開鍵へ置き換える
 ```
 
-**`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントから上へ辿って設定を探すので、他の場所では見つかりません。`path_regex` は絶対パスに対して評価されるため、Windowsの `\` も受ける形にしてあります。
+**`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントから上へ辿って設定を探すので、他の場所では見つかりません。`path_regex` は絶対パスに対して評価されます。
 
-Windowsではsopsが既定で `%AppData%\sops\age\keys.txt` を見ます。上の場所に鍵を置いた場合は `SOPS_AGE_KEY_FILE` を設定してシェルを開き直します。
+sopsが鍵を見つけられない場合は、環境変数 `SOPS_AGE_KEY_FILE` で鍵の場所を指定します。
 
 雛形をコピーして実値を入れ、**必ず暗号化してから**次へ進みます。暗号化を忘れてコミットしようとすると `tools/check-publication.py` が止めます。
 
@@ -129,7 +120,6 @@ ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags pv
 
 | 症状 | 原因 | 対応 |
 | --- | --- | --- |
-| `terraform` / `sops` が見つからない | wingetのパス反映前 | シェルを開き直す |
 | stateの移行で `NoSuchBucket` | バケット名かエンドポイントの誤り | `s3.sops.yaml` の `TF_STATE_BUCKET` と `AWS_ENDPOINT_URL_S3` を確認 |
 | `config file not found, or has no creation rules` | `.sops.yaml` がルートに無い | ルートへ置く |
 | `no matching creation rules found` | `path_regex` が区切り文字に一致しない | `platform[\\/]sops[\\/]` を使う |
@@ -141,5 +131,5 @@ ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags pv
 | `Permission check failed (/sdn/zones/.../vmbr0, SDN.Use)` | PVE 8.2以降はbridge割り当てにSDN.Useが要る | `00-bootstrap` の `sdn_acl_path` を実機のゾーン名に合わせる |
 | イメージ取得が `Permission check failed` | URLメタデータAPIは `/` の権限を要求する | 取得は `00-bootstrap`（root@pam）で行う。`terraform@pve` では実行しない |
 | `terraform apply` がVM作成後に戻ってこない | cloud imageに qemu-guest-agent が無い | 別シェルで `site.yml --tags guests` を流す。エージェントが上がれば待ちが解ける |
-| Ansibleが `world writable directory` と言う | リポジトリが `/mnt/c` にある | 動作には影響しない。必要なら `ANSIBLE_CONFIG` を明示 |
-| `UNPROTECTED PRIVATE KEY FILE` | 鍵が `/mnt/c` にある | WSLの `~/.ssh/` へ 0600 でコピー |
+| Ansibleが `world writable directory` と言う | リポジトリが誰でも書ける場所にある | `ansible.cfg` が無視される。`ANSIBLE_CONFIG` を明示するか、パーミッションを直す |
+| `UNPROTECTED PRIVATE KEY FILE` | 秘密鍵のパーミッションが緩い | `chmod 600` する |

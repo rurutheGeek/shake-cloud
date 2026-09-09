@@ -11,11 +11,13 @@
 | 自動起動 | しない。K11を再起動しても止まったまま |
 | 相手のVM | 見えない。操作もできない |
 
-RAMは全体で決まった枠を分け合っています。使い終わったら止めてください。止めれば2GiBが他へ回ります。
+`onboot: false` なのでK11を再起動しても止まったままです。RAMは全体で61GiBを分け合っており、設計上の配分は[配分表](../architecture/operations.md#resource-budget)にあります。
 
 ## 1. 何ができるか
 
-起動・停止・再起動・コンソール接続ができます。**VMの形（CPU・RAM・ディスク・NIC）は変更できません。** それらは `platform/terraform/hosts.yaml` が正本で、変更は管理者へ依頼します。VMの中で何をインストールしても構いません。
+起動・停止・再起動・コンソール接続ができます。
+
+VMの形（CPU・RAM・ディスク・NIC）の正本は `platform/terraform/hosts.yaml` です。ここを直して `tools/tf 10-platform apply` すると反映されます。Proxmoxの画面から直接変えると次の apply で戻ります。`DevVMOperator` ロールには `VM.Config.*` が含まれていないので、画面からは変更できません。
 
 ## 2. どの利用者に影響するか
 
@@ -25,7 +27,7 @@ RAMは全体で決まった枠を分け合っています。使い終わった�
 
 | 対象 | 場所 |
 | --- | --- |
-| PVEのログイン | Realm は「Proxmox VE authentication server」。パスワードは管理者から受け取る（自分で設定しない） |
+| PVEのログイン | Realm は「Proxmox VE authentication server」。パスワードは `platform/sops/pve-users.sops.yaml` にある |
 | CLIの設定 | `~/.config/devvm/config`（権限 0600） |
 | SSHの別名 | `~/.ssh/config` |
 
@@ -60,9 +62,7 @@ CONF
 chmod 600 ~/.config/devvm/config
 ```
 
-パスワードとトークンは**管理者がコードで発行済み**です。自分で作る必要はありません。管理者から暗号化された経路で受け取ってください。トークンは秘密値です。Gitや共有フォルダへ置かないでください。
-
-管理者側の取り出し方:
+パスワードとトークンはコードで発行済みです。手で作る必要はありません。取り出し方（実行場所: 管理PC、リポジトリのルート）:
 
 ```bash
 tools/tf 00-bootstrap output -json dev_credentials   # トークン
@@ -80,6 +80,9 @@ devvm restart     # 正常な再起動
 `start` と `stop` は繰り返し実行しても安全です。すでにその状態なら何もしません。
 
 ### SSHで入る
+
+パスワードでは入れません（`PasswordAuthentication no`）。VM作成時に cloud-init が入れた公開鍵の持ち主だけが接続できます。鍵は `platform/terraform/10-platform/terraform.tfvars` の `admin_ssh_public_keys` と `host_ssh_public_keys` で決まります。
+
 
 `~/.ssh/config` に別名を書いておくと、VS Code Remote SSH からも同じ設定が使えます。
 
@@ -109,7 +112,7 @@ VS Code は「Remote-SSH: Connect to Host」で `dev-a` を選びます。
 ## 6. 元に戻す方法と注意点
 
 - **宅外からは使えません。** VPN（`vpn-01`）が入るまでは宅内LANからだけです。ProxmoxのWeb画面をインターネットへ公開しません。
-- SSH鍵は共有しません。`dev-a` には利用者Aの鍵と管理用の鍵だけが入っています。
-- **VMの中を壊しても作り直せます。** ホームディレクトリの中身は自分でバックアップしてください。VM自体の再作成はTerraformで行いますが、その際ディスクの中身は失われます。
-- Terraform state・APIキー・SSH鍵は各自のVMに置き、共有しません。
+- どの鍵がどのVMに入るかは `platform/terraform/10-platform/terraform.tfvars` の `admin_ssh_public_keys`（全ホスト）と `host_ssh_public_keys`（ホスト個別）で決まります。
+- VM自体はTerraformで作り直せますが、その際ディスクの中身は失われます。
+- `~/tf`（0700）が各VMのTerraform state置き場として用意してあります。
 - 電源の状態をTerraformは追いかけません。止めたVMを勝手に起動し直すことはありません。

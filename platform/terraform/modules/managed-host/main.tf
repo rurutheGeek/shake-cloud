@@ -29,6 +29,13 @@ resource "netbox_available_ip_address" "primary" {
   tags         = var.netbox_tags
 }
 
+# NetBox の primary IP を設定する。これが無いと nb_inventory の
+# has_primary_ip フィルタに掛かって、Ansible の動的インベントリに出てこない。
+resource "netbox_primary_ip" "primary" {
+  virtual_machine_id = tonumber(netbox_virtual_machine.this.id)
+  ip_address_id      = tonumber(netbox_available_ip_address.primary.id)
+}
+
 # 3. 採番された値をそのまま cloud-init へ渡して Proxmox に作る。
 resource "proxmox_virtual_environment_vm" "this" {
   name        = var.name

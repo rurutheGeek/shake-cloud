@@ -43,7 +43,7 @@ cp .sops.yaml.example .sops.yaml
 
 **`.sops.yaml` はリポジトリのルートに置きます。** sopsはカレントディレクトリから上へ辿って設定を探すため、`platform/sops/` に置くとルートから実行したときに見つかりません。`path_regex` は絶対パスに対して評価されるので、Windowsの `\` も受けるように `platform[\\/]sops[\\/]` と書きます。
 
-Windowsではsopsが既定で `%AppData%\sops\age\keys.txt` を見ます。上の場所に鍵を置いた場合、**暗号化はできるのに復号できない**状態になるので、`SOPS_AGE_KEY_FILE` に鍵のパスを設定してシェルを開き直します。手順は[初回セットアップの順番](bootstrap.md)にあります。
+sopsが鍵を見つけられない場合は、環境変数 `SOPS_AGE_KEY_FILE` で鍵の場所を指定します。
 
 値を入れて暗号化します。**平文のままコミットしないでください。**
 

@@ -1,64 +1,12 @@
 ---
-# Proxmox 基盤の Ansible をまとめる唯一のプレイブック。
-# 処理は roles/ にあり、ここは「どの対象へ、どの順で」だけを書く。
+# 全体をまとめるプレイブック。個々の playbook は用途ごとに独立していて、
+# AWX の Job Template からはそれぞれを直接指定できる。
+# ここは順序だけを持つ。
 #
-#   ansible-playbook -i platform/ansible/pve.ini    platform/ansible/site.yml --tags survey
-#   ansible-playbook -i platform/ansible/pve.ini    platform/ansible/site.yml --tags pve-users
-#   ansible-playbook -i platform/ansible/seed.ini   platform/ansible/site.yml --tags netbox
-#   ansible-playbook -i platform/ansible/seed.ini   platform/ansible/site.yml --tags guests
+#   ansible-playbook -i <インベントリ> platform/ansible/site.yml
 #
-# NetBox 稼働後は動的インベントリへ切り替える。
-#   ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/site.yml --tags guests
-#
-# メディアスタックの配備（deploy / hub / sso / music-tools）は別系統のまま。
-
-# 1. Proxmox ホストの棚卸し。読み取りのみ。
-- name: Survey the Proxmox host
-  hosts: pve
-  become: true
-  gather_facts: true
-  tags: [survey]
-  roles:
-    - pve_survey
-
-# 2. Proxmox 利用者のパスワード。Terraform が扱えない部分だけを担当する。
-- name: Issue and apply Proxmox user passwords
-  hosts: pve
-  become: true
-  gather_facts: false
-  tags: [pve-users]
-  vars:
-    pve_users:
-      - dev-a@pve
-      - dev-b@pve
-  roles:
-    - pve_users
-
-# 3. 台帳。10-platform が動くための前提。
-- name: Deploy the NetBox ledger
-  hosts: netbox_bootstrap
-  become: true
-  tags: [netbox]
-  roles:
-    - docker
-    - netbox
-
-# 4. Terraform が作ったゲストの共通設定。seed は NetBox 稼働前の最初の1台。
-- name: Apply the shared guest baseline
-  hosts: terraform_managed:seed
-  become: true
-  tags: [guests]
-  roles:
-    - common
-
-# 5. 開発VM。common に加えて開発用の道具を入れる。
-- name: Prepare the developer VMs
-  hosts: devbox
-  become: true
-  tags: [guests, devbox]
-  vars:
-    devbox_user: '{{ hostvars[inventory_hostname].ansible_user | default("debian") }}'
-    devbox_user_home: '/home/{{ devbox_user }}'
-  roles:
-    - docker
-    - devbox
+# 対象ホストが揃っていない段階では、個別の playbook を直接実行する。
+- import_playbook: survey-pve.yml
+- import_playbook: pve-users.yml
+- import_playbook: netbox.yml
+- import_playbook: guests.yml

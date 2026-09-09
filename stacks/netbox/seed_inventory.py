@@ -9,22 +9,25 @@ from ipam.models import IPAddress
 from users.models import User, ObjectPermission, Token
 from virtualization.models import VirtualMachine, VMInterface
 
-spec = json.loads(os.environ['SEED_HOST'])
+# SEED_HOST is optional: Terraform registers hosts in NetBox now, so the
+# read-only inventory identity is often all that is needed.
+spec = json.loads(os.environ.get('SEED_HOST') or 'null')
 credential = json.loads(os.environ['SEED_CREDENTIAL'])
 with transaction.atomic():
-    site, _ = Site.objects.get_or_create(slug='homelab', defaults={'name': 'Homelab', 'status': 'active'})
-    tag, _ = Tag.objects.get_or_create(slug='media-stack', defaults={'name': 'media-stack'})
-    vm, _ = VirtualMachine.objects.get_or_create(name=spec['name'], defaults={'site': site, 'status': 'active'})
-    interface, _ = VMInterface.objects.get_or_create(virtual_machine=vm, name='primary')
-    ip, created = IPAddress.objects.get_or_create(address=spec['address'], defaults={
-        'status': 'active', 'assigned_object_type': ContentType.objects.get_for_model(VMInterface),
-        'assigned_object_id': interface.pk,
-    })
-    if not created and ip.assigned_object_id != interface.pk:
-        raise RuntimeError('Primary IP already assigned elsewhere; refusing to replace')
-    vm.primary_ip4 = ip
-    vm.save()
-    vm.tags.add(tag)
+    if spec:
+        site, _ = Site.objects.get_or_create(slug='homelab', defaults={'name': 'Homelab', 'status': 'active'})
+        tag, _ = Tag.objects.get_or_create(slug='media-stack', defaults={'name': 'media-stack'})
+        vm, _ = VirtualMachine.objects.get_or_create(name=spec['name'], defaults={'site': site, 'status': 'active'})
+        interface, _ = VMInterface.objects.get_or_create(virtual_machine=vm, name='primary')
+        ip, created = IPAddress.objects.get_or_create(address=spec['address'], defaults={
+            'status': 'active', 'assigned_object_type': ContentType.objects.get_for_model(VMInterface),
+            'assigned_object_id': interface.pk,
+        })
+        if not created and ip.assigned_object_id != interface.pk:
+            raise RuntimeError('Primary IP already assigned elsewhere; refusing to replace')
+        vm.primary_ip4 = ip
+        vm.save()
+        vm.tags.add(tag)
     user, created = User.objects.get_or_create(username='ansible-inventory')
     if created:
         user.set_unusable_password()
@@ -38,4 +41,5 @@ with transaction.atomic():
     })
     if not created and (token.user_id != user.pk or token.write_enabled):
         raise RuntimeError('Existing inventory token does not match expected identity')
-print('Registered inventory host and read-only API identity')
+print('CHANGED: registered read-only API identity'
+      + (' and inventory host' if spec else ''))
