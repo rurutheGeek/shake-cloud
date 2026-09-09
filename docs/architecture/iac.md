@@ -8,8 +8,9 @@
 
 | 層 | 道具 | 対象 | 状態の置き場 |
 | --- | --- | --- | --- |
-| Proxmoxの所有境界 | Terraform `00-bootstrap` | プール、ロール、自動化ユーザー、ACL | ローカルstate |
-| 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | ローカルstate |
+| Proxmoxの所有境界 | Terraform `00-bootstrap` | プール、ロール、自動化ユーザー、ACL、cloud imageの取得 | Cloudflare R2 |
+| NetBoxの置き場 | Terraform `05-seed` | 最初の1台。NetBoxを使わず静的IP | Cloudflare R2 |
+| 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | Cloudflare R2 |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
 | 利用者が作る動的リソース | 自作クラウドAPI（未実装） | `cloud` プールのVM、関数、バケット、DB | API自身の永続化 |
@@ -61,7 +62,8 @@
 
 ## stateの分離
 
-- `00-bootstrap` と `10-platform` は別のstateです。前者は `root@pam`、後者は `terraform@pve` で実行します。
+- **stateはCloudflare R2に置きます。** K11は単一SSDなので、そこにstateを置くとディスク1枚の故障で「Terraformが現状を把握できない」状態になります。またK11が停止していてもstateを読める必要があります（`cloud.md`「クラウド停止中も使える場所へ保持」）。
+- ルートモジュールごとに別のstateです（`shake-cloud/<モジュール>/terraform.tfstate`）。`00-bootstrap` は `root@pam`、それ以外は `terraform@pve` で実行します。
 - 自作APIはTerraform stateを共有しません。APIは自分のジョブ・バックエンドIDを持ちます。
 - 利用者側の `homelab` Provider のstateは各自の開発VM上に置きます。クラウドが停止していても手元に残る場所である必要があります。
 

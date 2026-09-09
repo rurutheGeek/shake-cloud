@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Terraform の実行ラッパー。SOPS から資格情報を環境変数として渡す。
+#
+#   tools/tf <モジュール> <terraform のサブコマンド...>
+#
+#   tools/tf 00-bootstrap plan
+#   tools/tf 10-platform apply
+#   tools/tf 05-seed output
+#
+# 復号した値をファイルへ書き出さない。state は R2 に置くので、bucket と
+# endpoint も口座固有としてコードに含めず、ここで渡す。
+#
+# モジュールごとに必要な資格情報:
+#   00-bootstrap … R2 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
+#   05-seed      … R2 ＋ Proxmox の terraform@pve
+#   10-platform  … R2 ＋ Proxmox の terraform@pve ＋ NetBox
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+die() { printf 'tf: %s\n' "$*" >&2; exit 1; }
+
+module="${1:-}"; shift || true
+[ -n "$module" ] || die "使い方: tools/tf <モジュール> <terraform のサブコマンド...>"
+[ -d "platform/terraform/$module" ] || die "そんなモジュールは無い: $module"
+[ $# -gt 0 ] || die "terraform のサブコマンドが要る"
+
+SOPS="${SOPS:-$(command -v sops || true)}"
+[ -n "$SOPS" ] || die "sops が見つからない。docs/operations/bootstrap.md を参照"
+
+secret() {  # secret <ファイル> <キー>
+  "$SOPS" --decrypt --extract "[\"$2\"]" "platform/sops/$1"
+}
+
+require_file() {
+  [ -f "platform/sops/$1" ] || die "platform/sops/$1 が無い。docs/operations/bootstrap.md を参照"
+}
+
+# --- R2（state の置き場）。全モジュール共通 ---
+require_file r2.sops.yaml
+AWS_ACCESS_KEY_ID=$(secret r2.sops.yaml R2_ACCESS_KEY_ID)
+AWS_SECRET_ACCESS_KEY=$(secret r2.sops.yaml R2_SECRET_ACCESS_KEY)
+AWS_ENDPOINT_URL_S3=$(secret r2.sops.yaml R2_ENDPOINT)
+AWS_REGION=auto
+TF_STATE_BUCKET=$(secret r2.sops.yaml R2_BUCKET)
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 AWS_REGION
+
+# --- Proxmox。00-bootstrap だけ root@pam を使う ---
+if [ "$module" = 00-bootstrap ]; then
+  pve_file=proxmox-root.sops.yaml
+else
+  pve_file=proxmox.sops.yaml
+fi
+require_file "$pve_file"
+PROXMOX_VE_ENDPOINT=$(secret "$pve_file" PROXMOX_VE_ENDPOINT)
+PROXMOX_VE_API_TOKEN=$(secret "$pve_file" PROXMOX_VE_API_TOKEN)
+PROXMOX_VE_INSECURE=$(secret "$pve_file" PROXMOX_VE_INSECURE)
+export PROXMOX_VE_ENDPOINT PROXMOX_VE_API_TOKEN PROXMOX_VE_INSECURE
+
+# --- NetBox。台帳を触るモジュールだけ ---
+if [ "$module" = 10-platform ]; then
+  require_file netbox.sops.yaml
+  NETBOX_SERVER_URL=$(secret netbox.sops.yaml NETBOX_SERVER_URL)
+  NETBOX_API_TOKEN=$(secret netbox.sops.yaml NETBOX_API_TOKEN)
+  export NETBOX_SERVER_URL NETBOX_API_TOKEN
+fi
+
+# init のときだけ bucket を渡す。他のサブコマンドは受け付けない。
+if [ "$1" = init ]; then
+  exec terraform -chdir="platform/terraform/$module" "$@" \
+    -backend-config="bucket=${TF_STATE_BUCKET}"
+fi
+
+exec terraform -chdir="platform/terraform/$module" "$@"

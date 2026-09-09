@@ -13,7 +13,7 @@
 
 | 道具 | 用途 | Windowsでの入れ方 |
 | --- | --- | --- |
-| Terraform | Proxmox・NetBoxの宣言 | `winget install Hashicorp.Terraform` |
+| Terraform | Proxmox・NetBoxの宣言。**1.10以降**（stateロックに必要） | `winget install Hashicorp.Terraform` |
 | SOPS | 資格情報の暗号化 | `winget install SecretsOPerationS.SOPS` |
 | age | SOPSの鍵 | `winget install FiloSottile.age` |
 | Ansible | ゲストOSの構成 | **Windowsでは動きません。**WSLのUbuntuへ `apt install ansible` |
@@ -165,6 +165,7 @@ NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流
 | 症状 | 原因 | 対応 |
 | --- | --- | --- |
 | `terraform` / `sops` が見つからない | wingetのパス反映前 | シェルを開き直す |
+| stateのR2移行で `NoSuchBucket` | バケット名かエンドポイントの誤り | `r2.sops.yaml` の `R2_BUCKET` と `R2_ENDPOINT`（アカウントIDを含む）を確認 |
 | `config file not found, or has no creation rules` | `.sops.yaml` がルートに無い | ルートへ置く |
 | `no matching creation rules found` | `path_regex` が区切り文字に一致しない | `platform[\\/]sops[\\/]` を使う |
 | `Failed to get the data key required to decrypt` | sopsが秘密鍵を見つけられない | `SOPS_AGE_KEY_FILE` を設定してシェルを開き直す |

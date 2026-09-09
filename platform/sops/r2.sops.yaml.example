@@ -1,0 +1,16 @@
+# Cloudflare R2。Terraform の state 置き場と、ミニPCに置けないものの保管先。
+# 単一SSDのK11だけに state とバックアップを置かないための外部保管です。
+#
+#   cp platform/sops/r2.sops.yaml.example platform/sops/r2.sops.yaml
+#   # 実値へ編集してから
+#   sops --encrypt --in-place platform/sops/r2.sops.yaml
+#
+# R2 の API トークンは Cloudflare の R2 → 「APIトークンを管理」から作ります。
+# 権限は対象バケットへの「オブジェクトの読み取りと書き込み」で足ります。
+# アカウント全体の管理権限は要りません。
+#
+# R2_ENDPOINT はアカウントIDを含みます（口座固有なので暗号化して扱います）。
+R2_BUCKET: shake-cloud-state
+R2_ENDPOINT: https://REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID: REPLACE_WITH_THE_R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY: REPLACE_WITH_THE_R2_SECRET_ACCESS_KEY
