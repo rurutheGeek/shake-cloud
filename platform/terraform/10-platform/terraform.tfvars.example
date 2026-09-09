@@ -2,18 +2,14 @@
 # **すべて棚卸し（platform/ansible/survey-pve.yml）の出力から転記する。**
 # 秘密値はここに書かない。接続情報は SOPS 経由の環境変数で渡す。
 
-proxmox_node_name  = "pve"
-vm_datastore_id    = "local-lvm"
-image_datastore_id = "local"
+proxmox_node_name = "pve"
+vm_datastore_id   = "local-lvm"
 
 # PVE 8.4 以降なら import。使えない版では "iso" にしてファイル名を .img にする。
-image_content_type = "import"
 
-# latest ではなく日付入りのビルドを指定する。チェックサムは同じディレクトリの
-# SHA512SUMS から転記する。ここの値は例であり、実在するビルドとは限らない。
-cloud_image_url       = "https://cloud.debian.org/images/cloud/trixie/20260101-0000/debian-13-genericcloud-amd64.qcow2"
-cloud_image_file_name = "debian-13-genericcloud-amd64.qcow2"
-cloud_image_checksum  = "REPLACE_WITH_THE_SHA512_FROM_THE_MIRROR"
+# 00-bootstrap の `cloud_image_file_ids` 出力から転記する。取得そのものは
+# 特権が要るため 00-bootstrap（root@pam）が担当する。
+image_file_id = "local:import/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
 
 network_bridge = "vmbr0"
 # VLAN を使わないなら指定しない

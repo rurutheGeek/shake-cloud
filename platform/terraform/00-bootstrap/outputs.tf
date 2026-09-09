@@ -28,3 +28,8 @@ output "reserved_cloud_pool" {
   description = "自作クラウドAPI用に予約したプール。自動化ユーザーは権限を持たない。"
   value       = proxmox_virtual_environment_pool.this["cloud"].pool_id
 }
+
+output "cloud_image_file_ids" {
+  description = "05-seed / 10-platform の image_file_id へ渡す値。"
+  value       = { for name, image in proxmox_download_file.cloud_image : name => image.id }
+}

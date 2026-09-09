@@ -130,7 +130,33 @@ sops --encrypt --in-place platform/sops/proxmox.sops.yaml
 
 **完了条件:** 2回目の `apply` が `No changes`。`terraform@pve` から `cloud` プールが操作できないこと。
 
-## 6. NetBoxと最初のVM
+## 6. 最初の1台を作る（05-seed）
+
+`10-platform` はNetBoxにIPを採番させる設計なので、**NetBox自身の置き場はそれでは作れません**（鶏と卵）。`stacks/netbox/README.md` が「NetBox本体を作る初回だけ静的なSSH指定を使用します」と書いているのと同じ理由で、`platform/terraform/05-seed` だけはNetBoxを使わず静的IPで1台作ります。
+
+cloud imageの取得は `00-bootstrap`（`root@pam`）の担当です。ProxmoxのURLメタデータ取得APIは `/` に対する `Sys.Audit` と `Sys.Modify` を要求するため、プールとストレージに絞った `terraform@pve` では実行できません。特権が要る一度きりの作業を上位の資格情報側へ寄せています。
+
+```bash
+cp platform/terraform/05-seed/terraform.tfvars.example platform/terraform/05-seed/terraform.tfvars
+# 00-bootstrap の cloud_image_file_ids 出力と、棚卸しの値を転記する
+terraform -chdir=platform/terraform/00-bootstrap output cloud_image_file_ids
+
+sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/05-seed apply'
+```
+
+`ipv4_cidr` は**ルータのDHCP配布範囲の外**にします。範囲は外から見えないので、ルータの管理画面で確認してから決めます。
+
+Debianのcloud imageには `qemu-guest-agent` が入っていません。Terraformはエージェントの応答を待つので、**作成直後は `apply` が待ち状態のままになります**。別のシェルからAnsibleを流すと待ちが解けます。
+
+```bash
+cp platform/ansible/seed.ini.example platform/ansible/seed.ini
+# 接続先を編集
+ansible-playbook -i platform/ansible/seed.ini platform/ansible/guests.yml --limit seed
+```
+
+**完了条件:** 2回目の `terraform plan` が `No changes`、2回目の `ansible-playbook` が `changed=0`。
+
+## 7. NetBoxとその後
 
 NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流れは[Proxmox導入後の手順](../architecture/bring-up.md)へ続きます。
 
@@ -146,5 +172,8 @@ NetBoxの構築はリポジトリの `stacks/netbox/README.md`、その後の流
 | `invalid privilege 'VM.Monitor'` | PVEの版で廃止された権限 | 棚卸しの権限一覧を見て `platform_admin_privileges` を直す |
 | APIが `401` を返す | トークン文字列が二重になっている | `output -raw automation_token_value` は完全な形。接頭辞を足さない |
 | 権限があるはずなのに一覧が空 | トークンの「特権の分離」が有効 | `pveum user token modify <user> <id> --privsep 0` |
+| `Permission check failed (/sdn/zones/.../vmbr0, SDN.Use)` | PVE 8.2以降はbridge割り当てにSDN.Useが要る | `00-bootstrap` の `sdn_acl_path` を実機のゾーン名に合わせる |
+| イメージ取得が `Permission check failed` | URLメタデータAPIは `/` の権限を要求する | 取得は `00-bootstrap`（root@pam）で行う。`terraform@pve` では実行しない |
+| `terraform apply` がVM作成後に戻ってこない | cloud imageに qemu-guest-agent が無い | 別シェルで `guests.yml` を流す。エージェントが上がれば待ちが解ける |
 | Ansibleが `world writable directory` と言う | リポジトリが `/mnt/c` にある | 動作には影響しない。必要なら `ANSIBLE_CONFIG` を明示 |
 | `UNPROTECTED PRIVATE KEY FILE` | 鍵が `/mnt/c` にある | WSLの `~/.ssh/` へ 0600 でコピー |

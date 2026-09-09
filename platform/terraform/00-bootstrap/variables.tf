@@ -29,8 +29,9 @@ variable "platform_admin_privileges" {
     TerraformAdmin ロールの権限。VMの作成・構成・電源・cloud-initまで。
     PVEの版によって存在しない権限があると作成に失敗するため変数にしている。
     実機の権限名は棚卸し（survey-pve.yml）が取得する `pveum role list` を見る。
-    PVE 9.2 では VM.Monitor が廃止されている。bridge の割り当てには
-    SDN.Use、guest agent 経由のIP取得には VM.GuestAgent.Audit が要る。
+    PVE 9.2 では VM.Monitor が廃止されている。guest agent 経由のIP取得には
+    VM.GuestAgent.Audit が要る。bridge の割り当てに要る SDN.Use は
+    パスが違うため sdn_privileges / sdn_acl_path で別に扱う。
   EOT
   type        = set(string)
   default = [
@@ -51,7 +52,6 @@ variable "platform_admin_privileges" {
     "VM.PowerMgmt",
     "Pool.Allocate",
     "Pool.Audit",
-    "SDN.Use",
   ]
 }
 
@@ -72,4 +72,50 @@ variable "dev_operator_privileges" {
   EOT
   type        = set(string)
   default     = ["VM.Audit", "VM.PowerMgmt", "VM.Console"]
+}
+
+variable "proxmox_node_name" {
+  description = "cloud image の取得先ノード。棚卸しの結果から入れる。"
+  type        = string
+  default     = null
+}
+
+variable "cloud_images" {
+  description = <<-EOT
+    取得する cloud image。キーは 05-seed / 10-platform から参照するときの名前。
+    `latest` ではなく日付入りのビルドを指定する。再実行で中身が変わらないため。
+  EOT
+  type = map(object({
+    datastore_id       = string
+    content_type       = optional(string, "import")
+    url                = string
+    file_name          = string
+    checksum           = string
+    checksum_algorithm = optional(string, "sha512")
+  }))
+  default = {}
+
+  validation {
+    condition     = length(var.cloud_images) == 0 || var.proxmox_node_name != null
+    error_message = "proxmox_node_name is required when cloud_images is set."
+  }
+}
+
+variable "sdn_privileges" {
+  description = <<-EOT
+    TerraformNetwork ロールの権限。PVE 8.2 以降、VMへ bridge を割り当てるには
+    `/sdn/zones/<ゾーン>/<bridge>` に対する SDN.Use が要る。プールやストレージ
+    とはパスが異なるので、別のロールとACLにしている。
+  EOT
+  type        = set(string)
+  default     = ["SDN.Use"]
+}
+
+variable "sdn_acl_path" {
+  description = <<-EOT
+    SDN.Use を与えるパス。素の Linux bridge は既定ゾーン localnetwork に入る。
+    実機のゾーン名は `pvesh get /cluster/sdn/zones` で確認する。
+  EOT
+  type        = string
+  default     = "/sdn/zones/localnetwork"
 }

@@ -51,3 +51,12 @@ resource "proxmox_acl" "dev" {
   user_id   = proxmox_virtual_environment_user.dev[each.key].user_id
   propagate = false
 }
+
+# bridge の割り当てに要る SDN.Use。プールやストレージとはパスが違うので
+# 別のACLにする。propagate でゾーン配下の bridge を含める。
+resource "proxmox_acl" "automation_network" {
+  path      = var.sdn_acl_path
+  role_id   = proxmox_virtual_environment_role.network.role_id
+  user_id   = proxmox_virtual_environment_user.automation.user_id
+  propagate = true
+}

@@ -6,7 +6,8 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 
 | ルートモジュール | 役割 | 実行に使う資格情報 | 状態 |
 | --- | --- | --- | --- |
-| `00-bootstrap/` | プール、ロール、自動化ユーザー、ACL | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み |
+| `00-bootstrap/` | プール、ロール、自動化ユーザー、ACL、**cloud imageの取得** | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み |
+| `05-seed/` | NetBoxを載せる最初の1台。**NetBoxを使わず静的IP**で作る | `terraform@pve` | 実装済み・適用済み |
 | `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・実機未適用 |
 | `modules/managed-host/` | NetBoxのVM＋採番とProxmoxのVMを1組で作る | — | 実装済み |
 

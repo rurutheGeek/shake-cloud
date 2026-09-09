@@ -1,0 +1,23 @@
+# terraform.tfvars へコピーして実値を入れる。tfvars は .gitignore 対象。
+# 値は棚卸し（platform/ansible/survey-pve.yml）の出力から転記する。
+
+proxmox_node_name = "pve"
+vm_datastore_id   = "local-lvm"
+
+# 00-bootstrap の `cloud_image_file_ids` 出力から転記する。取得そのものは
+# 特権が要るため 00-bootstrap（root@pam）が担当する。
+image_file_id = "local:import/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
+
+network_bridge = "vmbr0"
+# network_vlan_id = 20
+
+# **ルータのDHCP配布範囲の外**を指定する。
+ipv4_cidr   = "192.0.2.200/24"
+gateway     = "192.0.2.1"
+dns_servers = ["192.0.2.1"]
+
+username = "debian"
+ssh_public_keys = [
+  "ssh-ed25519 AAAA...REPLACE admin@management-pc",
+  "ssh-ed25519 AAAA...REPLACE ansible@wsl",
+]

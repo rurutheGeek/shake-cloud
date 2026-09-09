@@ -6,8 +6,10 @@
 #     platform/ansible/guests.yml --limit probe-01 --check
 #
 # 既存のメディアスタック（hosts: media）には触れない。
+# seed は NetBox 稼働前の最初の1台。動的インベントリにまだ載らないので、
+# 静的な platform/ansible/seed.ini から来る。
 - name: Apply the shared guest baseline
-  hosts: terraform_managed
+  hosts: terraform_managed:seed
   become: true
   roles:
     - common

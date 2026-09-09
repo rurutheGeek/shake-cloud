@@ -11,38 +11,13 @@ variable "vm_datastore_id" {
   type        = string
 }
 
-variable "image_datastore_id" {
-  description = "cloud image を置くストレージ名。content に iso または import を含むもの。"
-  type        = string
-}
-
-variable "image_content_type" {
+variable "image_file_id" {
   description = <<-EOT
-    cloud image の content 種別。PVE 8.4 以降は import が使える。
-    使えない版では iso を指定し、ファイル名を .img にする。
+    cloud image のファイルID。00-bootstrap の `cloud_image_file_ids` 出力から
+    転記する（例 local:import/debian-13-genericcloud-amd64-....qcow2）。
+    取得そのものは特権が要るため 00-bootstrap（root@pam）が担当する。
   EOT
   type        = string
-  default     = "import"
-}
-
-variable "cloud_image_url" {
-  description = "cloud image のURL。**latest ではなく日付入りのビルドを指定する**。"
-  type        = string
-}
-
-variable "cloud_image_file_name" {
-  description = "Proxmox 上でのファイル名。"
-  type        = string
-}
-
-variable "cloud_image_checksum" {
-  description = "cloud image のチェックサム。配布元の SHA512SUMS から転記する。"
-  type        = string
-}
-
-variable "cloud_image_checksum_algorithm" {
-  type    = string
-  default = "sha512"
 }
 
 variable "network_bridge" {

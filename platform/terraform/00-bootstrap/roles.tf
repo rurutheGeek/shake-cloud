@@ -20,3 +20,8 @@ resource "proxmox_virtual_environment_role" "cloud_api_operator" {
   role_id    = "CloudApiOperator"
   privileges = var.platform_admin_privileges
 }
+
+resource "proxmox_virtual_environment_role" "network" {
+  role_id    = "TerraformNetwork"
+  privileges = var.sdn_privileges
+}

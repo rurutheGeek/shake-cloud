@@ -27,7 +27,7 @@ module "host" {
 
   node_name       = var.proxmox_node_name
   vm_datastore_id = var.vm_datastore_id
-  image_file_id   = proxmox_download_file.cloud_image.id
+  image_file_id   = var.image_file_id
   network_bridge  = var.network_bridge
   network_vlan_id = var.network_vlan_id
 

@@ -12,6 +12,7 @@ runtime/
 
 platform/ansible/inventory.ini
 platform/ansible/pve.ini
+platform/ansible/seed.ini
 platform/ansible/netbox.env
 platform/ansible/bootstrap.ini
 platform/awx/controller.yml

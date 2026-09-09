@@ -20,3 +20,19 @@
 #   "dev-a@pve" = 400
 #   "dev-b@pve" = 401
 # }
+
+# cloud image の取得。query-url-metadata API は `/` の Sys.Audit/Sys.Modify を
+# 要求するので、絞った terraform@pve では実行できない。root@pam で動くこの
+# モジュールが担当する。値は棚卸しと配布元の SHA512SUMS から転記する。
+#
+# proxmox_node_name = "pve"
+#
+# cloud_images = {
+#   debian13 = {
+#     datastore_id = "local"
+#     content_type = "import"
+#     url          = "https://cloud.debian.org/images/cloud/trixie/<日付>-<番号>/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
+#     file_name    = "debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
+#     checksum     = "<SHA512SUMS から転記>"
+#   }
+# }
