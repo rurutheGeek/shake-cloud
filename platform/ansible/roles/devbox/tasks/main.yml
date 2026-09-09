@@ -60,7 +60,7 @@
   ansible.builtin.command:
     argv: >-
       {{
-        ['python3', 'tools/ensure-secrets.py', '--file', devbox_password_file]
+        ['python3', 'tools/ensure-secrets.py', '--plaintext', '--file', devbox_password_file]
         + (ansible_play_hosts | map('regex_replace', '^', '--key=') | list)
       }}
     chdir: '{{ playbook_dir }}/../..'
@@ -71,14 +71,12 @@
   changed_when: "'CHANGED' in devbox_generated.stdout"
 
 - name: Read the login passwords back
-  ansible.builtin.command:
-    argv: [sops, --decrypt, --output-type, json, '{{ devbox_password_file }}']
-    chdir: '{{ playbook_dir }}/../..'
+  ansible.builtin.slurp:
+    src: '{{ playbook_dir }}/../../{{ devbox_password_file }}'
   become: false
   delegate_to: localhost
   run_once: true
   register: devbox_passwords
-  changed_when: false
   no_log: true
 
 # stdin で渡すので、パスワードがプロセス一覧やログへ出ない。
@@ -86,6 +84,6 @@
 - name: Set the login password
   ansible.builtin.command:
     argv: [/usr/sbin/chpasswd]
-    stdin: "{{ devbox_user }}:{{ (devbox_passwords.stdout | from_json)[inventory_hostname] }}"
+    stdin: "{{ devbox_user }}:{{ (devbox_passwords.content | b64decode | from_yaml)[inventory_hostname] }}"
   changed_when: false
   no_log: true

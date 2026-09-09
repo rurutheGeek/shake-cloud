@@ -9,6 +9,8 @@ compose.integrations.yaml
 compose.https.yaml
 runtime/
 .survey/
+# 構成管理者の手元にだけ置く平文。VMのログインパスワードなど。
+.local/
 
 platform/ansible/inventory.ini
 platform/ansible/pve.ini
