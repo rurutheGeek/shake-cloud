@@ -19,8 +19,9 @@ resource "netbox_interface" "primary" {
 
 # 2. IPの採番は NetBox にさせる。Git 側では番号を決めない。
 #    一意性の保証を IPAM に任せるのがハイブリッド方式の要点。
+#    採番元は Prefix ではなく IP Range。ゲートウェイやDHCPの帯を避けるため。
 resource "netbox_available_ip_address" "primary" {
-  prefix_id    = var.netbox_prefix_id
+  ip_range_id  = var.netbox_ip_range_id
   status       = "active"
   object_type  = "virtualization.vminterface"
   interface_id = tonumber(netbox_interface.primary.id)

@@ -23,7 +23,7 @@
         src: '{{ source_dir }}/netbox/{{ item }}'
         dest: '{{ netbox_project_dir }}/'
         mode: preserve
-      loop: [compose.yaml, configuration, manage.py, seed_inventory.py, .env.example]
+      loop: [compose.yaml, configuration, manage.py, seed_inventory.py, seed_terraform_identity.py, .env.example]
     - name: Render initial NetBox environment without replacing existing configuration
       ansible.builtin.copy:
         content: "{{ lookup('file', source_dir + '/netbox/.env.example') | regex_replace('(?m)^STORAGE_ROOT=.*$', 'STORAGE_ROOT=' + netbox_storage_root) | regex_replace('(?m)^ALLOWED_HOSTS=.*$', 'ALLOWED_HOSTS=' + netbox_allowed_hosts) }}\n"

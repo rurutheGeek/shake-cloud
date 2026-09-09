@@ -15,8 +15,13 @@ network_bridge = "vmbr0"
 # VLAN を使わないなら指定しない
 # network_vlan_id = 20
 
-# 既存LANと重複しない範囲を経路表から決める。動的用（cloud_prefix）とは分ける。
+# 基盤VMが載るネットワーク。台帳としての登録で、ここからは採番しない。
 management_prefix = "192.0.2.0/24"
+
+# 実際の採番元。**Prefix 全体から採番するとゲートウェイまで対象になる**ので、
+# ルータのDHCP配布範囲・ゲートウェイ・既存の固定機器を避けた範囲で限定する。
+management_range_start = "192.0.2.201/24"
+management_range_end   = "192.0.2.249/24"
 # cloud_prefix    = "198.51.100.0/24"
 
 gateway     = "192.0.2.1"

@@ -142,7 +142,7 @@ def seed(name, address):
             'shell', '--no-startup', '--no-imports', '--interface', 'python',
             extra_env={'SEED_HOST': json.dumps({'name': name, 'address': address}),
                        'SEED_CREDENTIAL': json.dumps(credential)},
-            input=(ROOT / 'seed_inventory.py').read_text())
+            input=(ROOT / 'seed_inventory.py').read_text(encoding='utf-8'))
     print('API credential is saved under secrets/inventory-token.json')
 
 
@@ -161,7 +161,7 @@ def seed_terraform():
             '/opt/netbox/venv/bin/python', '/opt/netbox/netbox/manage.py',
             'shell', '--no-startup', '--no-imports', '--interface', 'python',
             extra_env={'SEED_CREDENTIAL': json.dumps(credential)},
-            input=(ROOT / 'seed_terraform_identity.py').read_text())
+            input=(ROOT / 'seed_terraform_identity.py').read_text(encoding='utf-8'))
     print('Write credential is saved under secrets/terraform-token.json')
     print('NETBOX_API_TOKEN is nbt_<key>.<token> built from that file')
 

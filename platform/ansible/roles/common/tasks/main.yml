@@ -1,7 +1,7 @@
 ---
 - name: Require a supported guest OS
   ansible.builtin.assert:
-    that: ansible_distribution in ['Ubuntu', 'Debian']
+    that: ansible_facts['distribution'] in ['Ubuntu', 'Debian']
     fail_msg: This role targets Debian or Ubuntu guests.
 
 - name: Install base packages

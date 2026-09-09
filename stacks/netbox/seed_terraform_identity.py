@@ -15,8 +15,9 @@ with transaction.atomic():
     if created:
         user.set_unusable_password()
         user.save()
-    if user.is_superuser or user.is_staff:
-        raise RuntimeError('Terraform identity must not be a superuser or staff account')
+    # NetBox 4.7 dropped is_staff from its user model; check is_superuser only.
+    if user.is_superuser:
+        raise RuntimeError('Terraform identity must not be a superuser')
     permission, _ = ObjectPermission.objects.get_or_create(
         name='Terraform platform write', defaults={'actions': ACTIONS})
     if sorted(permission.actions) != sorted(ACTIONS):

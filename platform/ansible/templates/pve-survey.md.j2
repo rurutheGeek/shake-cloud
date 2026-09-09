@@ -1,6 +1,6 @@
 # {{ inventory_hostname }} のホスト棚卸し
 
-取得日時: {{ ansible_date_time.iso8601 }}
+取得日時: {{ ansible_facts['date_time'].iso8601 }}
 取得元: {{ ansible_host | default(inventory_hostname) }}
 
 状態: **読み取りのみ。ホストへの変更は行っていない**。
@@ -12,13 +12,13 @@
 
 | 項目 | 値 |
 | --- | --- |
-| ディストリビューション | {{ ansible_distribution }} {{ ansible_distribution_version }} |
-| カーネル | {{ ansible_kernel }} |
-| CPU | {{ ansible_processor[2] | default('unknown') }} |
-| 物理コア / vCPU | {{ ansible_processor_cores | default('?') }} / {{ ansible_processor_vcpus | default('?') }} |
-| 搭載RAM | {{ ansible_memtotal_mb }} MiB |
-| 既定のIPv4 | {{ ansible_default_ipv4.address | default('unknown') }} / gateway {{ ansible_default_ipv4.gateway | default('unknown') }} |
-| 既定のインターフェース | {{ ansible_default_ipv4.interface | default('unknown') }} |
+| ディストリビューション | {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }} |
+| カーネル | {{ ansible_facts['kernel'] }} |
+| CPU | {{ ansible_facts['processor'][2] | default('unknown') }} |
+| 物理コア / vCPU | {{ ansible_facts['processor_cores'] | default('?') }} / {{ ansible_facts['processor_vcpus'] | default('?') }} |
+| 搭載RAM | {{ ansible_facts['memtotal_mb'] }} MiB |
+| 既定のIPv4 | {{ ansible_facts['default_ipv4'].address | default('unknown') }} / gateway {{ ansible_facts['default_ipv4'].gateway | default('unknown') }} |
+| 既定のインターフェース | {{ ansible_facts['default_ipv4'].interface | default('unknown') }} |
 
 ## Terraform へ転記する値
 

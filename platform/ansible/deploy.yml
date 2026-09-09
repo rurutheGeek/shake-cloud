@@ -9,7 +9,7 @@
     - name: Require explicit paths and supported host OS
       ansible.builtin.assert:
         that:
-          - ansible_distribution in ['Ubuntu', 'Debian']
+          - ansible_facts['distribution'] in ['Ubuntu', 'Debian']
           - project_dir.startswith('/')
           - storage_root.startswith('/')
           - library_root.startswith('/')

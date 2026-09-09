@@ -9,3 +9,12 @@ ansible_user=debian
 ansible_python_interpreter=/usr/bin/python3
 # WSL から実行する場合、/mnt/c 上の鍵は ssh に拒否される。WSL のホーム配下を指す。
 ansible_ssh_private_key_file=~/.ssh/id_ed25519_pve
+
+# NetBox 本体をこのホストへ構築する。動的インベントリはまだ使えない。
+[netbox_bootstrap]
+services-01 ansible_host=192.0.2.200
+
+[netbox_bootstrap:vars]
+ansible_user=debian
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_private_key_file=~/.ssh/id_ed25519_pve

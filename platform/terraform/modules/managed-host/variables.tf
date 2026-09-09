@@ -125,7 +125,11 @@ variable "netbox_cluster_id" {
   type = number
 }
 
-variable "netbox_prefix_id" {
-  description = "IPを採番させるPrefix。採番の一意性はNetBoxが保証する。"
+variable "netbox_ip_range_id" {
+  description = <<-EOT
+    IPを採番させる IP Range。**Prefix ではなく Range を使う。**
+    Prefix 全体から採番すると、ゲートウェイやDHCPが配る帯まで対象になる。
+    採番の一意性は NetBox が保証する。
+  EOT
   type        = number
 }

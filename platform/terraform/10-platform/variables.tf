@@ -33,9 +33,23 @@ variable "network_vlan_id" {
 
 variable "management_prefix" {
   description = <<-EOT
-    基盤VMのIPを採番する Prefix。**動的用（将来のクラウドAPI）とは分ける。**
-    既存LANと重複しない範囲を、棚卸しの経路表から決める。
+    基盤VMが載るネットワーク。台帳として登録するだけで、ここからは採番しない。
+    採番は management_range_start / _end の範囲から行う。
   EOT
+  type        = string
+}
+
+variable "management_range_start" {
+  description = <<-EOT
+    採番に使う範囲の先頭。プレフィックス長を含める（例 192.0.2.200/24）。
+    **ルータのDHCP配布範囲・ゲートウェイ・既存の固定機器と重ならない**こと。
+    Prefix 全体から採番するとゲートウェイまで対象になるので、範囲で限定する。
+  EOT
+  type        = string
+}
+
+variable "management_range_end" {
+  description = "採番に使う範囲の末尾。プレフィックス長を含める。"
   type        = string
 }
 

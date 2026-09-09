@@ -13,6 +13,6 @@ devbox_packages:
 devbox_install_terraform: true
 # HashiCorp が新しいコードネームをまだ出していない場合に上書きする。
 # 例: trixie 未提供なら bookworm を指定する。
-devbox_hashicorp_release: '{{ ansible_distribution_release }}'
+devbox_hashicorp_release: "{{ ansible_facts['distribution_release'] }}"
 # 自作クラウドAPIの Provider をここから実行する。state は各自のホーム。
 devbox_state_dir: tf

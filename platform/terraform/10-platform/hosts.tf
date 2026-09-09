@@ -45,9 +45,9 @@ module "host" {
   proxmox_tags = try(each.value.tags, [])
   netbox_tags  = try(each.value.tags, [])
 
-  netbox_site_id    = tonumber(netbox_site.this.id)
-  netbox_cluster_id = tonumber(netbox_cluster.this.id)
-  netbox_prefix_id  = tonumber(netbox_prefix.management.id)
+  netbox_site_id     = tonumber(netbox_site.this.id)
+  netbox_cluster_id  = tonumber(netbox_cluster.this.id)
+  netbox_ip_range_id = tonumber(netbox_ip_range.management.id)
 
   # タグ名での参照は暗黙の依存にならないので明示する。
   depends_on = [netbox_tag.this]
