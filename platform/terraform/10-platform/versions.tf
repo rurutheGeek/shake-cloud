@@ -1,10 +1,11 @@
 terraform {
   required_version = ">= 1.10.0"
 
-  # state は Cloudflare R2 に置く。ミニPCのSSD1枚に依存させないため。
-  # bucket・endpoint・鍵は口座固有なのでコードに書かない。tools/tf が
-  # platform/sops/r2.sops.yaml から環境変数と -backend-config で渡す。
-  # R2 は S3 互換だがリージョンと認証フローが違うので skip_* で回避する。
+  # state は S3 互換ストレージに置く。ミニPCのSSD1枚に依存させないため。
+  # ここには事業者に依存しない設定だけを書く。bucket・endpoint・鍵は
+  # tools/tf が platform/sops/s3.sops.yaml から渡す。現在の実体は
+  # Cloudflare R2 だが、Garage や MinIO へ移すときも変えるのはその2つだけ。
+  # skip_* は AWS 固有のリージョン・認証チェックを外すためのもの。
   backend "s3" {
     key                         = "shake-cloud/10-platform/terraform.tfstate"
     region                      = "auto"

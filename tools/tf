@@ -7,13 +7,13 @@
 #   tools/tf 10-platform apply
 #   tools/tf 05-seed output
 #
-# 復号した値をファイルへ書き出さない。state は R2 に置くので、bucket と
-# endpoint も口座固有としてコードに含めず、ここで渡す。
+# 復号した値をファイルへ書き出さない。bucket と endpoint も事業者固有なので
+# コードに含めず、ここで渡す。
 #
 # モジュールごとに必要な資格情報:
-#   00-bootstrap … R2 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
-#   05-seed      … R2 ＋ Proxmox の terraform@pve
-#   10-platform  … R2 ＋ Proxmox の terraform@pve ＋ NetBox
+#   00-bootstrap … state置き場 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
+#   05-seed      … state置き場 ＋ Proxmox の terraform@pve
+#   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -37,13 +37,15 @@ require_file() {
   [ -f "platform/sops/$1" ] || die "platform/sops/$1 が無い。docs/operations/bootstrap.md を参照"
 }
 
-# --- R2（state の置き場）。全モジュール共通 ---
-require_file r2.sops.yaml
-AWS_ACCESS_KEY_ID=$(secret r2.sops.yaml R2_ACCESS_KEY_ID)
-AWS_SECRET_ACCESS_KEY=$(secret r2.sops.yaml R2_SECRET_ACCESS_KEY)
-AWS_ENDPOINT_URL_S3=$(secret r2.sops.yaml R2_ENDPOINT)
-AWS_REGION=auto
-TF_STATE_BUCKET=$(secret r2.sops.yaml R2_BUCKET)
+# --- state の置き場（S3 互換）。全モジュール共通 ---
+# AWS_* は AWS SDK・Terraform・aws-cli・rclone・mc が共通で読む標準の名前。
+# 事業者を変えても endpoint と bucket を差し替えるだけで済む。
+require_file s3.sops.yaml
+AWS_ACCESS_KEY_ID=$(secret s3.sops.yaml AWS_ACCESS_KEY_ID)
+AWS_SECRET_ACCESS_KEY=$(secret s3.sops.yaml AWS_SECRET_ACCESS_KEY)
+AWS_ENDPOINT_URL_S3=$(secret s3.sops.yaml AWS_ENDPOINT_URL_S3)
+AWS_REGION=$(secret s3.sops.yaml AWS_REGION)
+TF_STATE_BUCKET=$(secret s3.sops.yaml TF_STATE_BUCKET)
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 AWS_REGION
 
 # --- Proxmox。00-bootstrap だけ root@pam を使う ---

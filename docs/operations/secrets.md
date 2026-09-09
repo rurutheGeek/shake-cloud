@@ -79,4 +79,4 @@ git diff --cached platform/sops/proxmox.sops.yaml
 - 鍵を差し替える場合は、新しい公開鍵を `.sops.yaml` へ足し、`sops updatekeys platform/sops/*.sops.yaml` を実行してから古い鍵を外します。順序を逆にすると復号できなくなります。
 - **age秘密鍵を失うと、暗号化済みファイルは復元できません。** 管理PCと外部コピーの2か所で保持し、[バックアップと復旧](../architecture/operations.md)の対象へ含めます。
 - 暗号化は履歴を遡って適用されません。一度平文でpushした値は、暗号化コミットを重ねても公開済みとして扱い、**該当のトークンを失効・再発行**します。
-- SOPSはファイルの値を守るもので、Terraformのstateは守りません。stateには復号後の値が平文で入り得ます。stateはCloudflare R2に置き、バケットを公開せず、R2のAPIトークンを対象バケットの読み書きだけに絞ります。詳細は[Terraformの実行](terraform.md)を参照してください。
+- SOPSはファイルの値を守るもので、Terraformのstateは守りません。stateには復号後の値が平文で入り得ます。stateはK11の外のS3互換ストレージに置き、バケットを公開せず、アクセスキーを対象バケットの読み書きだけに絞ります。詳細は[Terraformの実行](terraform.md)を参照してください。

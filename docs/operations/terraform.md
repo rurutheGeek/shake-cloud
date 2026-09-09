@@ -22,8 +22,8 @@ Proxmoxのプール・ロール・自動化ユーザー・ACLを宣言的に作�
 | プールとVMID範囲 | `pools.tf` |
 | ロールの権限 | `variables.tf`。PVEの版に合わせて上書きできる |
 | 接続情報 | `platform/sops/proxmox-root.sops.yaml`（暗号化） |
-| state | Cloudflare R2 の `shake-cloud/00-bootstrap/terraform.tfstate` |
-| R2の資格情報 | `platform/sops/r2.sops.yaml`（暗号化） |
+| state | S3互換ストレージの `shake-cloud/00-bootstrap/terraform.tfstate` |
+| stateの保管先と資格情報 | `platform/sops/s3.sops.yaml`（暗号化） |
 
 ## 4. 具体的な入力例
 
@@ -62,16 +62,18 @@ sops --encrypt --in-place platform/sops/proxmox.sops.yaml
 
 以降の `10-platform` は `proxmox.sops.yaml` を使い、rootトークンは使いません。
 
-### stateをR2へ置く（初回のみ）
+### stateを外部のS3互換ストレージへ置く（初回のみ）
 
-K11は単一SSDです。そこにstateを置くと、ディスク1枚の故障で「Terraformが現状を把握できない」状態になり、手で作り直すことになります。K11が停止中でもstateを読めるべきでもあります。K11の外にある S3 互換の保管先として Cloudflare R2 を使います。
+K11は単一SSDです。そこにstateを置くと、ディスク1枚の故障で「Terraformが現状を把握できない」状態になり、手で作り直すことになります。K11が停止中でもstateを読めるべきでもあります。そこでK11の外にあるS3互換ストレージへ置きます。
 
-Cloudflareの R2 → 「APIトークンを管理」でトークンを作ります。権限は**対象バケットのオブジェクト読み書きだけ**にします。アカウント全体の管理権限は要りません。
+**特定の事業者に縛られない形にしています。** `backend "s3"` に書くのはS3の標準的な設定だけで、`AWS_*` はAWS SDK・Terraform・aws-cli・rclone・mcが共通で読む名前です。現在の実体はCloudflare R2ですが、[cloud.md](../architecture/cloud.md)が計画しているGarageや、MinIO・SeaweedFSへ移すときも、変えるのは `AWS_ENDPOINT_URL_S3` と `TF_STATE_BUCKET` だけです。
+
+権限は**対象バケットのオブジェクト読み書きだけ**に絞ります。アカウント全体の管理権限は要りません。
 
 ```bash
-cp platform/sops/r2.sops.yaml.example platform/sops/r2.sops.yaml
-# バケット名・エンドポイント（アカウントIDを含む）・鍵を実値へ
-sops --encrypt --in-place platform/sops/r2.sops.yaml
+cp platform/sops/s3.sops.yaml.example platform/sops/s3.sops.yaml
+# バケット名・エンドポイント・鍵を実値へ
+sops --encrypt --in-place platform/sops/s3.sops.yaml
 ```
 
 すでにローカルのstateがある場合は移行します。`tools/tf` がbucketを渡すので、`-migrate-state` を足すだけです。
@@ -84,15 +86,15 @@ tools/tf 10-platform  init -migrate-state
 
 プロンプトに `yes` と答えると、ローカルの `terraform.tfstate` がR2へコピーされます。以降はR2上のstateが正です。移行後、手元に残った `terraform.tfstate` は削除して構いませんが、**移行が成功したことを `plan` で確かめてから**にします。
 
-`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。R2の条件付き書き込みを使うため、DynamoDBは要りません。R2側が対応していない場合はこの行を外します。
+`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。条件付き書き込み（If-None-Match）を使うため、DynamoDBのような事業者固有の仕組みは要りません。保管先が条件付き書き込みに対応していない場合はこの行を外します。
 
 ### 実行はラッパー経由で
 
 `tools/tf` がSOPSから資格情報を環境変数として渡します。復号した値をファイルへ書き出しません。
 
 ```bash
-tools/tf 00-bootstrap plan     # R2 ＋ Proxmox の root@pam
-tools/tf 05-seed      apply    # R2 ＋ Proxmox の terraform@pve
+tools/tf 00-bootstrap plan     # stateの保管先 ＋ Proxmox の root@pam
+tools/tf 05-seed      apply    # stateの保管先 ＋ Proxmox の terraform@pve
 tools/tf 10-platform  plan     # 上記 ＋ NetBox
 ```
 
@@ -117,7 +119,7 @@ CIでは `terraform fmt -check` と `terraform validate` が走ります。実�
 
 ## 6. 元に戻す方法と注意点
 
-- **stateには秘密値が平文で入ります。** `sensitive` 指定は表示を隠すだけで、暗号化ではありません。R2側でバケットを公開せず、R2のAPIトークンを対象バケットの読み書きだけに絞ります。SOPSはstateを守りません。
+- **stateには秘密値が平文で入ります。** `sensitive` 指定は表示を隠すだけで、暗号化ではありません。バケットを公開せず、アクセスキーを対象バケットの読み書きだけに絞ります。SOPSはstateを守りません。
 - `terraform destroy` はプール・ロール・ユーザーを消します。**VMが所属しているプールを消す前に、VMの所属を確認してください。** プールの削除はVMを消しませんが、ACLが外れて到達できなくなります。
 - **ロールの権限名はPVEの版に依存します。** 存在しない権限を1つでも含むと、ロールの作成が `HTTP 400 invalid privilege '...'` で失敗します。棚卸し（`survey-pve.yml`）が `pveum role list` を取得するので、そこで実機の名前を確認して `platform_admin_privileges` を上書きします。既定値は PVE 9.2 で確認済みです。実例として **`VM.Monitor` は PVE 9 で廃止**されており、bridge の割り当てには `SDN.Use`、guest agent 経由のIP取得には `VM.GuestAgent.Audit` が要ります。
 - `apply` が権限エラーで止まる場合、必要なACLのパスが実機の版で異なる可能性があります。エラーに出たパスを `identities.tf` へ追加し、**広い範囲へ丸ごと許可しないでください**。
