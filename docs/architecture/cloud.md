@@ -1,6 +1,6 @@
 # 最小クラウドとTerraform Provider
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-11。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）まで実装済み・実機検証済み。Phase 6 の CLI（`shakecloud`）も実装済み。Terraform Provider・VLAN分離・利用者招待は未実装**。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-11。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6 の CLI と Terraform Provider まで実装済み・実機検証済み。VLAN分離・利用者招待は未実装**。
 
 実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
 
@@ -157,63 +157,65 @@ Providerの名前は `shakecloud` です。**設計案の `homelab_*` から変�
 | `shakecloud_volume` | `aws_ebs_volume` | Proxmox の追加ディスク | size → volume ID |
 | `shakecloud_volume_attachment` | `aws_volume_attachment` | `qm set` の virtioN | instance、volume、device |
 | `shakecloud_security_group` | `aws_security_group` | VM単位のFWルール | ingress／egress ルール |
+| `shakecloud_security_group_rule` | `aws_security_group_rule` | VM単位のFWルール（1つずつ） | group、direction、protocol、ports、cidr → rule ID |
 | `shakecloud_key_pair` | `aws_key_pair` | 台帳のみ | 公開鍵 → fingerprint |
 | `shakecloud_image` | `aws_ami` | アップロード済みイメージ | ファイル → image_id |
 | `shakecloud_bucket` | `aws_s3_bucket` | Garage bucket | name → bucket名、S3 endpoint |
 | `shakecloud_function` | — | Knative Service | image digest、env、limits、scale → URL、revision |
 | `shakecloud_database` | `aws_db_instance` | CloudNativePG Cluster | version、size、storage → endpoint、資格情報参照 |
 
+**いま実装済みなのは `instance`・`volume`・`volume_attachment`・`security_group`・`security_group_rule`・`key_pair` と、データソース `shakecloud_caller_identity` です。**`image`・`bucket`・`function`・`database` はこれからです（`image` はAPIにアップロード経路があるので Provider からも扱えますが、ローカルファイルを送る形になります）。使い方は[shakecloud Terraform Provider](../operations/terraform-provider.md)にあります。
+
 S3キーやDB資格情報の作成は関連APIとして扱います。Terraformへ秘密値を返す場合はstateに保存され得ます。`sensitive` 指定は暗号化ではありません。可能ならSecret参照を返し、秘密値を取得する経路を分離します。
 
 ```hcl
-# 未実装のProviderに対する利用イメージ
+# 実装済みのProviderの使い方。全文は docs/operations/terraform-provider.md。
 provider "shakecloud" {
-  endpoint = "https://api.cloud.example.net"
-  # アクセスキーは SHAKECLOUD_ACCESS_KEY から取得する設計
+  # endpoint と access_key は SHAKECLOUD_ENDPOINT / SHAKECLOUD_ACCESS_KEY から
 }
 
+data "shakecloud_caller_identity" "me" {}
+
 resource "shakecloud_key_pair" "me" {
-  name       = "me"
+  key_name   = "me"
   public_key = file("~/.ssh/id_ed25519.pub")
 }
 
-resource "shakecloud_instance" "dev" {
-  name              = "dev"
-  image_id          = "img-debian-13"
-  instance_type     = "small"
-  root_disk_gib     = 20
-  key_pair          = shakecloud_key_pair.me.name
-  security_groups   = [shakecloud_security_group.ssh.id]
-  user_data         = file("cloud-init.yaml")
-
-  tags = {
-    Name = "dev"
-  }
+resource "shakecloud_security_group" "ssh" {
+  group_name = "ssh"
 }
 
-resource "shakecloud_security_group" "ssh" {
-  name = "ssh"
+resource "shakecloud_security_group_rule" "ssh" {
+  group_id  = shakecloud_security_group.ssh.id
+  direction = "ingress"
+  protocol  = "tcp"
+  from_port = 22
+  to_port   = 22
+  cidr      = "192.168.10.0/24"
+}
 
-  ingress {
-    protocol    = "tcp"
-    from_port   = 22
-    to_port     = 22
-    cidr_blocks = ["192.168.10.0/24"]
-  }
+resource "shakecloud_instance" "dev" {
+  image_id           = "img-debian13"
+  instance_type      = "small"
+  root_disk_gib      = 20
+  key_name           = shakecloud_key_pair.me.key_name
+  security_group_ids = [shakecloud_security_group.ssh.id]
+  user_data          = file("cloud-init.yaml")
+  tags               = { Name = "dev" }
 }
 
 resource "shakecloud_volume" "data" {
   size_gib = 20
+  tags     = { Name = "data" }
 }
 
 resource "shakecloud_volume_attachment" "data" {
-  instance_id = shakecloud_instance.dev.id
   volume_id   = shakecloud_volume.data.id
-  device      = "virtio1"
+  instance_id = shakecloud_instance.dev.id
 }
 ```
 
-ProviderはCreate/Read/Update/Delete/importを備え、非同期作成が完了するまで待機します。APIは再試行しても重複作成しない識別子を扱い、作成途中の失敗から再照会・回収できるようにします。Readでバックエンドの実状態を取得し、権限エラーを「削除済み」と誤認しないようにします。[Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework/resources/read)
+ProviderはCreate/Read/Update/Delete/importを備え、非同期作成が完了するまで待機します。APIは再試行しても重複作成しない識別子を扱い、作成途中の失敗から再照会・回収できるようにします。Readでバックエンドの実状態を取得し、権限エラーを「削除済み」と誤認しないようにします（403はそのままエラー、404だけ state から外す）。[Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework/resources/read)
 
 APIキーの利用量課金は不要ですが、ホストの空きRAM、ディスク上限、関数の最大並列数は保護します。物理容量不足の場合は作成を断ります。DBメジャー変更・ディスク縮小などは通常Updateで自動実行せず、対応範囲を明示します。
 
@@ -234,6 +236,7 @@ API は Phase 1 から Phase 4 まで実装済み・実機確認済みです（P
 | API（Phase 1〜3） | `https://cloud.apextox.dpdns.org`（cloud-01。API 自身の `:8080` は 127.0.0.1 に閉じた）。管理DBは同居の PostgreSQL 18 | **配備済み**。Authentik ログイン、アクセスキー、監査ログ、**インスタンスの作成・電源操作・削除**（2026-09-10 に実機で確認）。開発用のブートストラップ管理キーは Phase 5 で無効化済み |
 | API（Phase 4） | ボリューム、セキュリティグループ、データセンターFW有効化 | **実機検証済み（2026-09-11）**。ボリュームの作成→アタッチ→ゲスト認識→拡張→デタッチ→削除、SSH のみ許可した SG による遮断/許容、DC FW 適用後も既存VMに影響なしを確認 |
 | API（Phase 5） | 既存VMの引き取り、セルフサービスポータル、ブートストラップ管理キーの無効化 | **完了（2026-09-11）**。`POST /v1/instances/adopt` で **game1（VMID 100）を `shunyazhiyuan97` として引き取り済み**。ポータルはVM・ボリューム・SG・イメージ・鍵・容量・上限・履歴を扱える。管理用ブートストラップキーは無効化し、ポータル発行のアクセスキーへ移行 |
+| CLI・Provider（Phase 6） | `cloud/cli`（`shakecloud`）、`cloud/provider`（Terraform）、共通の `cloud/client` | **実機確認済み（2026-09-11）**。CLIは主要操作を網羅。Providerは6リソース＋1データソースで、apply・再plan‑no‑changes・import・destroyを確認 |
 
 `terraform@pve` は `/pool/cloud` に権限を持たず、`cloudapi@pve` は `/pool/platform` に権限を持ちません。利用者向けの削除APIが基盤VMへ届かないことを、運用規約ではなくACLで保証します。この枠の存在は、APIやProviderが動くことを意味しません。
 
@@ -303,11 +306,11 @@ Kubernetesクラスタが未構築なので、**サーバレスとDBアプライ
 6. イメージ、SSH鍵、Webコンソール。
 7. ボリュームとセキュリティグループ（2026-09-11 に実機検証済み）。
 8. ポータル（最小ページは稼働中。ボリューム・SG 操作は実装済み）。既存VMの引き取り（Phase 5）は 2026-09-11 に実装済み。
-9. Terraform Provider（CLI は 2026-09-11 に実装済み）。
+9. Terraform Provider（2026-09-11 に実装済み）。
 10. Garageのバケットと用途別S3キー。実クライアントでPUT/GET/削除を確認。
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 
-**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6 の CLI は 2026-09-11 に完了しました。**次は Terraform Provider です。
+**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）は 2026-09-11 に完了しました。**次は Phase 7（Garage のバケットとS3キー）です。
 
 VM、通常の関数HTTP呼出し、S3オブジェクト転送、SQL通信は利用先へ直接接続します。自作クラウドAPIにデータ転送を集約せず、APIはリソース管理を担当します。

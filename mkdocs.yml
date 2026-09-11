@@ -26,6 +26,7 @@ nav:
       - クラウド開発の引き継ぎとTODO: operations/handover.md
       - クラウドAPIの構築: operations/cloud.md
       - shakecloud CLI: operations/cli.md
+      - shakecloud Terraform Provider: operations/terraform-provider.md
       - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md

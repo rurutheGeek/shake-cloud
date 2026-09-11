@@ -22,9 +22,9 @@
 | Phase 3（イメージアップロード、SSH鍵、Webコンソール） | `cloud/api/internal/compute/images.go`、keypairs、console、noVNC（3-12・3-13） |
 | Phase 4（追加ボリューム、セキュリティグループ、データセンターFW有効化） | `cloud/api/internal/compute/{volumes,securitygroups,firewall}.go`、`platform/terraform/00-bootstrap/firewall.tf`（3-14） |
 | Phase 5（既存VMの引き取り） | `POST /v1/instances/adopt`、`cloud/api/internal/compute/adopt.go`、DBマイグレーション `0007`（3-15） |
-| Phase 6（CLI） | `cloud/client`（型付きクライアント）と `cloud/cli`（`shakecloud`）。標準ライブラリのみ（[shakecloud CLI](cli.md)） |
+| Phase 6（CLI と Terraform Provider） | `cloud/client`（型付きクライアント）、`cloud/cli`（`shakecloud`）、`cloud/provider`（`shakecloud_*`）。CLI は標準ライブラリのみ（[CLI](cli.md)・[Provider](terraform-provider.md)） |
 
-**まだ無いもの**: Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
+**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）、Garage のバケットとS3キー API。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 

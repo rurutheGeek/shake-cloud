@@ -55,7 +55,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cloud/api/go.mod
-          cache-dependency-path: cloud/api/go.sum
+          cache-dependency-path: |
+            cloud/api/go.sum
+            cloud/provider/go.sum
       - name: Check Go formatting
         run: |
           unformatted=$(gofmt -l cloud)
@@ -73,6 +75,11 @@ jobs:
             echo "== $dir"
             (cd "$dir" && go vet ./... && go test ./...)
           done
+      - name: Vet and test the Terraform provider
+        working-directory: cloud/provider
+        run: |
+          go vet ./...
+          go test ./...
       - name: Lint YAML
         run: python3 -m yamllint -c .yamllint .
       - name: Check publication contents
