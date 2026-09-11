@@ -77,6 +77,10 @@ func run(args []string) error {
 		return g.keyPairs(rest[1:])
 	case "access-key", "access-keys":
 		return g.accessKeys(rest[1:])
+	case "bucket", "buckets":
+		return g.buckets(rest[1:])
+	case "s3-key", "s3-keys":
+		return g.s3Keys(rest[1:])
 	default:
 		return fmt.Errorf("unknown command %q; run shakecloud help", rest[0])
 	}
@@ -128,6 +132,10 @@ Commands:
   key rm NAME
   access-key ls                  API access keys
   access-key rm ID
+  bucket ls | bucket create NAME | bucket show NAME | bucket rm NAME
+  bucket allow [--read] [--write] [--owner] NAME KEY_ID
+  bucket revoke NAME KEY_ID
+  s3-key ls | s3-key create NAME | s3-key rm KEY_ID
 
 Set SHAKECLOUD_ACCESS_KEY to the key issued by the portal. The endpoint defaults
 to %s.
