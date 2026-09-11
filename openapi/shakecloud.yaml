@@ -9,8 +9,11 @@ info:
   title: shake-cloud API
   version: 0.1.0
   description: |
-    Phase 1: login, access keys and the audit log. Instances and the rest
-    arrive in later phases; see docs/operations/handover.md.
+    Login, access keys, the audit log and compute. Instances can be created
+    with free-form cpu, memory and disk; named instance types are only a
+    shorthand starting point, not a fixed catalogue of sizes. Quotas and
+    capacity limits are administrator-settable at runtime through
+    /v1/limits, not baked into the deployment.
 
     Browsers log in through Authentik and hold a session cookie. Terraform
     and the CLI send `Authorization: Bearer sca_<access_key_id>.<secret>`.
@@ -363,6 +366,20 @@ paths:
 
         Repeating a request with the same client_token returns the original
         instance (200) instead of launching another.
+
+        **Sizing is free-form; instance_type is only a starting point.**
+        Either `instance_type`, or both `vcpus` and `memory_mib`, must be
+        given. Explicit `vcpus`, `memory_mib`, `memory_min_mib` or
+        `root_disk_gib` override the preset's values.
+
+        `ballooning` defaults to true. When true and no `memory_min_mib` is
+        given, the floor defaults to a quarter of `memory_mib` (at least 512
+        MiB). When false, the VM gets fixed memory and the balloon driver is
+        disabled.
+
+        vCPUs may not exceed the node's thread count; memory and disk are
+        bounded by the account quota and the cloud's capacity checks, not by
+        a fixed catalogue of sizes.
       requestBody:
         required: true
         content:
@@ -370,10 +387,19 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [image_id, instance_type]
+              required: [image_id]
               properties:
                 image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
-                instance_type: {type: string}
+                instance_type:
+                  type: string
+                  description: A named preset from GET /v1/instance-types, used as a starting point.
+                vcpus: {type: integer, minimum: 1}
+                memory_mib: {type: integer, minimum: 512}
+                memory_min_mib:
+                  type: integer
+                  minimum: 512
+                  description: The balloon floor. Ignored when ballooning is false.
+                ballooning: {type: boolean, default: true}
                 root_disk_gib:
                   type: integer
                   description: Omit for the deployment's default. Never smaller than the image.
@@ -411,12 +437,17 @@ paths:
       tags: [compute]
       summary: List instances, newest first.
       description: |
-        Users see their own; cloud-admins see every account's. Terminated
-        instances stay listed for an hour.
+        Every authenticated caller sees every instance in the cloud, not only
+        their own, so that users can see what the cloud is running and who
+        owns it. client_token is returned only for instances the caller owns.
+        Terminated instances stay listed for an hour.
+
+        Listing does not grant control: acting on an instance (power,
+        terminate) still requires owning it or being a cloud-admin.
       parameters:
         - name: account_id
           in: query
-          description: cloud-admins only.
+          description: Filter by account. Available to everyone, not only cloud-admins.
           schema: {type: string, pattern: '^[0-9]{12}$'}
       responses:
         '200':
@@ -465,6 +496,50 @@ paths:
               schema: {$ref: '#/components/schemas/InstanceEnvelope'}
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: ModifyInstance
+      tags: [compute]
+      summary: Change an instance's cpu, memory, ballooning or disk size. cloud-admins only.
+      description: |
+        cloud-admins only.
+
+        `vcpus`, `memory_mib` and `ballooning` can only be changed while the
+        instance is **stopped**; Proxmox applies them at the next start.
+        `root_disk_gib` may be grown while the instance runs. A disk can only
+        grow, never shrink.
+
+        The new size is re-checked against the account quota and the host's
+        capacity, so a change can be refused for the same reasons a launch
+        can.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              description: At least one property is required.
+              properties:
+                vcpus: {type: integer, minimum: 1}
+                memory_mib: {type: integer, minimum: 512}
+                memory_min_mib: {type: integer, minimum: 512}
+                ballooning: {type: boolean}
+                root_disk_gib: {type: integer}
+      responses:
+        '200':
+          description: The modified instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instances/{instance_id}/start:
     post:
       operationId: StartInstance
@@ -535,9 +610,9 @@ components:
     Error:
       description: |
         Codes: AuthFailure (401), UnauthorizedOperation (403),
-        CrossOriginRequestBlocked (403), NoSuchEntity (404), ValidationError
-        and MalformedRequest (400), LimitExceeded (409), InternalError (500),
-        ServiceUnavailable (503).
+        CrossOriginRequestBlocked (403), NoSuchEntity (404), ValidationError,
+        InvalidParameterValue and MalformedRequest (400), IncorrectInstanceState
+        and LimitExceeded (409), InternalError (500), ServiceUnavailable (503).
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
@@ -569,12 +644,18 @@ components:
         instance: {$ref: '#/components/schemas/Instance'}
     Instance:
       type: object
-      required: [instance_id, account_id, image_id, instance_type, state, mac_address, vcpus, memory_mib, root_disk_gib, launch_time]
+      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, ballooning, launch_time]
       properties:
         instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
         account_id: {type: string}
+        owner_username:
+          type: string
+          description: The account's username, so a viewer can tell whose instance this is.
         image_id: {type: string}
-        instance_type: {type: string}
+        image_name: {type: string, description: The human name of the image.}
+        instance_type:
+          type: string
+          description: Absent when the instance was created with explicit cpu/memory rather than a named preset.
         state:
           type: string
           enum: [pending, running, stopping, stopped, shutting-down, terminated]
@@ -591,7 +672,10 @@ components:
           description: The ceiling. What quota and the memory budget count.
         memory_min_mib:
           type: integer
-          description: The floor the host may balloon this instance down to.
+          description: The floor the host may reclaim this instance's memory down to. 0 when ballooning is off.
+        ballooning:
+          type: boolean
+          description: Whether the memory balloon driver is enabled. When false the instance has fixed memory and memory_min_mib is 0.
         root_disk_gib: {type: integer}
         tags:
           type: object

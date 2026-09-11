@@ -7,6 +7,8 @@
   --muted: #666b73;
   --accent: #2458c6;
   --danger: #b3261e;
+  --good: #1a7f37;
+  --warn: #9a6700;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -17,6 +19,8 @@
     --muted: #9aa0a8;
     --accent: #7ea6ff;
     --danger: #ff8a80;
+    --good: #6fdd8b;
+    --warn: #e3b341;
   }
 }
 [hidden] { display: none !important; }
@@ -30,7 +34,7 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 .muted { color: var(--muted); }
 .badge { font-size: 0.8rem; padding: 0 0.5rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
 form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 0.75rem 0; }
-input, select, button { font: inherit; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+input, select, button, textarea { font: inherit; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
 input { min-width: 16rem; }
 button, .button { cursor: pointer; }
 .button { display: inline-block; padding: 0.4rem 1rem; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; }
@@ -52,3 +56,15 @@ fieldset input { min-width: 7rem; color: var(--fg); }
 .track { height: 8px; margin-top: 0.25rem; border-radius: 999px; background: var(--line); overflow: hidden; }
 .fill { height: 100%; background: var(--accent); border-radius: 999px; }
 .fill.hot { background: var(--danger); }
+
+/* Instances section */
+input[type="checkbox"] { min-width: auto; }
+#create-instance input[type="number"], .edit-instance input[type="number"] { min-width: 6rem; }
+.wide { flex-basis: 100%; }
+.small { display: block; font-size: 0.78rem; }
+.state { display: inline-block; padding: 0.05rem 0.55rem; border-radius: 999px; border: 1px solid currentColor; font-size: 0.85rem; }
+.state-running { color: var(--good); }
+.state-stopped, .state-terminated { color: var(--muted); }
+.state-pending, .state-stopping, .state-shutting-down { color: var(--warn); }
+tr.edit-row td { background: var(--bg); }
+tr.edit-row form { margin: 0.5rem 0; }

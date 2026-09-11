@@ -77,6 +77,7 @@ func routes() []route {
 		{"POST", "/v1/instances", "RunInstances", anyCredential, (*Server).runInstances},
 		{"GET", "/v1/instances", "DescribeInstances", anyCredential, (*Server).describeInstances},
 		{"GET", "/v1/instances/{instance_id}", "DescribeInstance", anyCredential, (*Server).describeInstance},
+		{"PATCH", "/v1/instances/{instance_id}", "ModifyInstance", anyCredential, (*Server).modifyInstance},
 		{"DELETE", "/v1/instances/{instance_id}", "TerminateInstance", anyCredential, instanceAction(db.ActionTerminate)},
 		{"POST", "/v1/instances/{instance_id}/start", "StartInstance", anyCredential, instanceAction(db.ActionStart)},
 		{"POST", "/v1/instances/{instance_id}/stop", "StopInstance", anyCredential, instanceAction(db.ActionStop)},

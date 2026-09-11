@@ -45,7 +45,7 @@ func record(t *testing.T, s *Server, accountID, name string) db.Instance {
 	instance, err := db.InsertInstance(context.Background(), s.pool, db.Instance{
 		ID: fmt.Sprintf("i-%017x", recorded), AccountID: accountID,
 		Name: name, ImageID: "img-debian13", InstanceType: "small",
-		CPUCores: 2, MemoryMiB: 2048, MemoryMinMiB: 512, RootDiskGiB: 20,
+		CPUCores: 2, MemoryMiB: 2048, MemoryMinMiB: 512, Ballooning: true, RootDiskGiB: 20,
 		MACAddress: seed.NewMACAddress(), Tags: map[string]string{"Name": name},
 	})
 	if err != nil {
@@ -74,7 +74,10 @@ func TestInstanceEndpointsAnswer503WhenNotConfigured(t *testing.T) {
 	}
 }
 
-func TestInstancesAreVisibleOnlyToTheirOwnerAndAdmins(t *testing.T) {
+// Visibility and authority are deliberately separate: the people sharing one
+// host can all see what is running on it, but only an owner (or a cloud-admin)
+// may touch it.
+func TestEveryInstanceIsVisibleButOnlyItsOwnerMayActOnIt(t *testing.T) {
 	s := testServer(t, nil)
 	withInstances(t, s)
 	alice, aliceCookie := session(t, s, "alice", false)
@@ -82,25 +85,39 @@ func TestInstancesAreVisibleOnlyToTheirOwnerAndAdmins(t *testing.T) {
 	_, adminCookie := session(t, s, "root", true)
 	instance := record(t, s, alice.ID, "web")
 
-	seen := decode[instanceList](t, do(t, s, req{method: "GET", path: "/v1/instances", cookies: []*http.Cookie{aliceCookie}}))
-	if len(seen.Instances) != 1 || seen.Instances[0].InstanceID != instance.ID || seen.Instances[0].State != db.StatePending {
-		t.Fatalf("alice sees %+v", seen.Instances)
+	for who, cookie := range map[string]*http.Cookie{"alice": aliceCookie, "bob": bobCookie, "root": adminCookie} {
+		seen := decode[instanceList](t, do(t, s, req{method: "GET", path: "/v1/instances", cookies: []*http.Cookie{cookie}}))
+		if len(seen.Instances) != 1 || seen.Instances[0].InstanceID != instance.ID {
+			t.Fatalf("%s sees %+v", who, seen.Instances)
+		}
+		if seen.Instances[0].OwnerUsername != "alice" || seen.Instances[0].ImageName != "debian13" {
+			t.Errorf("%s: owner and image are not named: %+v", who, seen.Instances[0])
+		}
 	}
-	if bob := decode[instanceList](t, do(t, s, req{method: "GET", path: "/v1/instances", cookies: []*http.Cookie{bobCookie}})); len(bob.Instances) != 0 {
-		t.Fatalf("bob sees %+v", bob.Instances)
-	}
-	if admin := decode[instanceList](t, do(t, s, req{method: "GET", path: "/v1/instances", cookies: []*http.Cookie{adminCookie}})); len(admin.Instances) != 1 {
-		t.Fatalf("admin sees %+v", admin.Instances)
-	}
-	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/instances?account_id=" + alice.ID, cookies: []*http.Cookie{bobCookie}}), http.StatusForbidden)
+	// Anyone may narrow the list to one account; it is the same public listing.
+	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/instances?account_id=" + alice.ID, cookies: []*http.Cookie{bobCookie}}), http.StatusOK)
 
-	// Someone else's instance is indistinguishable from one that never existed.
-	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/instances/" + instance.ID, cookies: []*http.Cookie{bobCookie}}), http.StatusNotFound)
-	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/instances/" + instance.ID, cookies: []*http.Cookie{bobCookie}}), http.StatusNotFound)
+	// Bob can read it but not change it, and is told so rather than being lied to.
+	seen := decode[instanceEnvelope](t, do(t, s, req{method: "GET", path: "/v1/instances/" + instance.ID, cookies: []*http.Cookie{bobCookie}}))
+	if seen.Instance.InstanceID != instance.ID || seen.Instance.ClientToken != "" {
+		t.Fatalf("bob's view: %+v", seen.Instance)
+	}
+	for _, r := range []req{
+		{method: "DELETE", path: "/v1/instances/" + instance.ID, cookies: []*http.Cookie{bobCookie}},
+		{method: "POST", path: "/v1/instances/" + instance.ID + "/stop", cookies: []*http.Cookie{bobCookie}},
+	} {
+		recorder := do(t, s, r)
+		expectStatus(t, recorder, http.StatusForbidden)
+		if got := decode[errorBody](t, recorder).Error.Code; got != "UnauthorizedOperation" {
+			t.Errorf("%s %s: code %q", r.method, r.path, got)
+		}
+	}
+	// An instance that really does not exist still answers 404.
 	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/instances/i-00000000000000000", cookies: []*http.Cookie{aliceCookie}}), http.StatusNotFound)
+	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/instances/i-00000000000000000", cookies: []*http.Cookie{aliceCookie}}), http.StatusNotFound)
 
 	mine := decode[instanceEnvelope](t, do(t, s, req{method: "GET", path: "/v1/instances/" + instance.ID, cookies: []*http.Cookie{aliceCookie}}))
-	if mine.Instance.VCPUs != 2 || mine.Instance.MemoryMiB != 2048 || mine.Instance.Tags["Name"] != "web" {
+	if mine.Instance.VCPUs != 2 || mine.Instance.MemoryMiB != 2048 || !mine.Instance.Ballooning || mine.Instance.Tags["Name"] != "web" {
 		t.Fatalf("instance body: %+v", mine.Instance)
 	}
 }
@@ -134,9 +151,13 @@ func TestRunInstancesReportsBadParametersWithAWSCodes(t *testing.T) {
 		body map[string]any
 		code string
 	}{
-		"unknown image": {map[string]any{"image_id": "img-nope", "instance_type": "small"}, "InvalidImageID.NotFound"},
-		"unknown type":  {map[string]any{"image_id": "img-debian13", "instance_type": "huge"}, "InvalidParameterValue"},
-		"disk too big":  {map[string]any{"image_id": "img-debian13", "instance_type": "small", "root_disk_gib": 500}, "InvalidParameterValue"},
+		"unknown image":   {map[string]any{"image_id": "img-nope", "instance_type": "small"}, "InvalidImageID.NotFound"},
+		"unknown type":    {map[string]any{"image_id": "img-debian13", "instance_type": "huge"}, "InvalidParameterValue"},
+		"disk too big":    {map[string]any{"image_id": "img-debian13", "instance_type": "small", "root_disk_gib": 500}, "InvalidParameterValue"},
+		"no size at all":  {map[string]any{"image_id": "img-debian13"}, "InvalidParameterValue"},
+		"memory only":     {map[string]any{"image_id": "img-debian13", "memory_mib": 2048}, "InvalidParameterValue"},
+		"memory too smal": {map[string]any{"image_id": "img-debian13", "vcpus": 1, "memory_mib": 64}, "InvalidParameterValue"},
+		"floor over top":  {map[string]any{"image_id": "img-debian13", "vcpus": 1, "memory_mib": 1024, "memory_min_mib": 2048}, "InvalidParameterValue"},
 	} {
 		recorder := do(t, s, req{method: "POST", path: "/v1/instances", body: tc.body, cookies: []*http.Cookie{cookie}})
 		expectStatus(t, recorder, http.StatusBadRequest)
@@ -147,6 +168,35 @@ func TestRunInstancesReportsBadParametersWithAWSCodes(t *testing.T) {
 	// An unknown field is a typo, not a default.
 	expectStatus(t, do(t, s, req{method: "POST", path: "/v1/instances",
 		body: map[string]any{"image_id": "img-debian13", "instance_type": "small", "root_disk_gb": 20}, cookies: []*http.Cookie{cookie}}), http.StatusBadRequest)
+}
+
+func TestOnlyAdministratorsMayResizeAnInstance(t *testing.T) {
+	s := testServer(t, nil)
+	withInstances(t, s)
+	alice, aliceCookie := session(t, s, "alice", false)
+	_, adminCookie := session(t, s, "root", true)
+	instance := record(t, s, alice.ID, "web")
+	body := map[string]any{"memory_mib": 4096}
+
+	// The owner is not enough: a resize re-checks a quota that is not theirs to spend.
+	recorder := do(t, s, req{method: "PATCH", path: "/v1/instances/" + instance.ID, body: body, cookies: []*http.Cookie{aliceCookie}})
+	expectStatus(t, recorder, http.StatusForbidden)
+	if got := decode[errorBody](t, recorder).Error.Code; got != "UnauthorizedOperation" {
+		t.Fatalf("code %q", got)
+	}
+	// An administrator gets as far as the instance's state: it is still launching.
+	admin := do(t, s, req{method: "PATCH", path: "/v1/instances/" + instance.ID, body: body, cookies: []*http.Cookie{adminCookie}})
+	expectStatus(t, admin, http.StatusConflict)
+	if got := decode[errorBody](t, admin).Error.Code; got != "IncorrectInstanceState" {
+		t.Fatalf("code %q", got)
+	}
+	// An empty body says nothing to do.
+	expectStatus(t, do(t, s, req{method: "PATCH", path: "/v1/instances/" + instance.ID, body: map[string]any{}, cookies: []*http.Cookie{adminCookie}}), http.StatusBadRequest)
+
+	found := events(t, s, req{path: "/v1/audit-events?event_name=ModifyInstance", cookies: []*http.Cookie{adminCookie}})
+	if len(found.Events) == 0 || found.Events[len(found.Events)-1].ErrorCode != "UnauthorizedOperation" {
+		t.Fatalf("the refusal was not audited: %+v", found.Events)
+	}
 }
 
 func TestImagesAndInstanceTypesAreListed(t *testing.T) {
