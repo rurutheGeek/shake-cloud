@@ -13,6 +13,15 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def recipients(rule):
+    """Split a creation rule's age field into individual public keys.
+
+    sops accepts a comma-separated list so that more than one person, plus an
+    unattended runner, can decrypt the same file.
+    """
+    return [key.strip() for key in rule['age'].split(',') if key.strip()]
+
+
 class SopsConfigTests(unittest.TestCase):
     def setUp(self):
         self.path = ROOT / '.sops.yaml'
@@ -36,10 +45,28 @@ class SopsConfigTests(unittest.TestCase):
 
     def test_a_real_age_recipient_is_configured(self):
         for rule in self.config['creation_rules']:
-            recipient = rule['age']
-            self.assertTrue(recipient.startswith('age1'), recipient)
-            self.assertNotIn('REPLACE', recipient)
-            self.assertGreater(len(recipient), 50, 'age public keys are 62 characters')
+            for recipient in recipients(rule):
+                self.assertTrue(recipient.startswith('age1'), recipient)
+                self.assertNotIn('REPLACE', recipient)
+                self.assertGreater(len(recipient), 50, 'age public keys are 62 characters')
+
+    def test_every_encrypted_file_is_readable_by_every_configured_recipient(self):
+        # Adding a recipient to .sops.yaml does NOT re-encrypt what is already
+        # committed; `sops updatekeys` does. Forgetting it leaves someone
+        # listed in the config who still cannot decrypt anything, and that is
+        # only discovered when they try. The recipient list is cleartext
+        # metadata inside each file, so this is checkable without any key.
+        configured = set()
+        for rule in self.config['creation_rules']:
+            configured.update(recipients(rule))
+        encrypted = sorted((ROOT / 'platform/sops').glob('*.sops.yaml'))
+        self.assertTrue(encrypted, 'no encrypted files found')
+        for path in encrypted:
+            document = yaml.safe_load(path.read_text(encoding='utf-8'))
+            actual = {entry['recipient'] for entry in document['sops']['age']}
+            missing = configured - actual
+            self.assertFalse(missing, f'{path.name} is missing {sorted(missing)}; '
+                                      'run: sops updatekeys platform/sops/*.sops.yaml')
 
     def test_the_example_stays_in_sync_with_the_real_pattern(self):
         example = yaml.safe_load((ROOT / '.sops.yaml.example').read_text(encoding='utf-8'))

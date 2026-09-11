@@ -5,5 +5,5 @@
 #   sops --encrypt --in-place platform/sops/netbox.sops.yaml
 #
 # 書き込みトークンを Ansible のインベントリへ流用しません。
-NETBOX_SERVER_URL: http://localhost:8000
+NETBOX_SERVER_URL: http://192.168.10.200:8000
 NETBOX_API_TOKEN: "0000000000000000000000000000000000000000"

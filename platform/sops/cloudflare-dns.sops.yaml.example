@@ -1,0 +1,28 @@
+# platform/sops/cloudflare-dns.sops.yaml の中身の例。
+# Cloudflare の DNS を API で書き換えるトークン。**証明書の発行（DNS-01）にだけ使う。**
+# state 置き場のバケットを作る cloudflare.sops.yaml とは別物で、混ぜない。
+#
+# 対象ゾーン: apextox.dpdns.org
+#   ゾーンID   112734e967c919ddd9ec1fa5c4f2a320
+#   アカウントID 43b2b53511f5cc6221885020999d30e6
+# （IDは秘密値ではない。資格情報はトークンだけ）
+#
+# 作り方: Cloudflare →「プロフィール」→「API トークン」→「トークンを作成」→
+# テンプレート「ゾーン DNS を編集する」。ゾーンは上の1つだけに絞る。
+#
+# 入れ方（dev-b で実行）。値は画面に出ず、平文のファイルも残らない。
+# **チャットやメモにトークンを貼らない。**
+#
+#   read -rsp 'トークン: ' T && printf 'CLOUDFLARE_DNS_API_TOKEN: %s\n' "$T" \
+#     | sops --encrypt --filename-override platform/sops/cloudflare-dns.sops.yaml \
+#         --input-type yaml --output-type yaml /dev/stdin > platform/sops/cloudflare-dns.sops.yaml.tmp \
+#     && mv platform/sops/cloudflare-dns.sops.yaml.tmp platform/sops/cloudflare-dns.sops.yaml; unset T
+#
+# 確認（success が true なら入っている）:
+#
+#   sops exec-env platform/sops/cloudflare-dns.sops.yaml \
+#     'curl -s https://api.cloudflare.com/client/v4/user/tokens/verify -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN"'
+#
+# 漏れたときは Cloudflare の API トークン一覧で「ロール」を押して新しい値にし、
+# 上の「入れ方」をもう一度流す。古い値はその場で使えなくなる。
+CLOUDFLARE_DNS_API_TOKEN: REPLACE_WITH_THE_CLOUDFLARE_DNS_EDIT_TOKEN

@@ -1,0 +1,7 @@
+# Ansible 動的インベントリ（platform/ansible/inventory.netbox.yml）が使う読み取り専用トークン。
+# stacks/netbox/manage.py seed が作る。Write enabled は無効。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
+NETBOX_API: http://192.168.10.200:8000
+NETBOX_TOKEN: nbt_REPLACE_KEY.REPLACE_TOKEN
+NETBOX_AUTH_TYPE: Bearer

@@ -1,0 +1,47 @@
+---
+# 自作クラウドAPI の上限の**既定値**。
+#
+# Ansible（cloud_api ロール）が site.yaml・pools.yaml・network.yaml・images.yaml・
+# flavors.yaml と一緒に1つの JSON にまとめて cloud-01 へ置き、API はそれだけを読む。
+# 値を API 側へ書き写さない。
+#
+# **ここは既定値で、管理者は実行中に変えられる。** `cloud-admins` が
+# `PUT /v1/limits`（ポータルの「上限」）で上書きすると、その値が管理DBに入って
+# 以降はそちらが効く。上書きを消せばこのファイルの値へ戻る。**同じ事実を2か所に
+# 持たないため、管理DBには「管理者が実際に変えた項目」だけが入る。**
+#
+# **0 は「無制限」。** 台数・vCPU・メモリ・ディスク合計と、クラウド全体のメモリ枠に
+# 使える。無制限にしても、下の node_memory_reserve_mib（ノードの実際の空き）と
+# vm_disk_max_used_percent（プールの実使用率）は効いたままで、ここがホストを
+# 守っている。**この2つを 0 にするとホストごと落とせる。**
+
+# 1アカウントあたりの上限。停止中のインスタンスも数える（再起動すれば同じだけ使うため）。
+account_quota:
+  instances: 8
+  vcpus: 32
+  memory_mib: 32768
+  root_disk_gib: 1000
+
+# ルートディスクの大きさ（GiB）。イメージより小さくはできない。
+root_disk_gib:
+  min: 10
+  max: 500
+  default: 20
+
+capacity:
+  # 全アカウントの memory_mib（上限）の合計がこれを超える作成は断る。
+  # バルーニングで回収できる分は数えない。
+  #
+  # **これは方針の枠で、物理の保証ではない。** 上限の合計は物理メモリを超えられる
+  # （バルーニングを使う前提なので、それが狙い）。実際に足りるかを見ているのは
+  # 下の node_memory_reserve_mib。
+  memory_budget_mib: 32768
+  # 作成後もノードの available がこれ以上残ること。**実際の空きを見る唯一の検査。**
+  node_memory_reserve_mib: 4096
+  # 利用者VMのディスク置き場（シンプロビジョニング）の実使用率がこれを超えたら断る。
+  vm_disk_max_used_percent: 85
+  # イメージと seed ISO の置き場に最低限残す空き。
+  image_store_min_free_mib: 4096
+
+# プール内でも API が払い出さない VMID。tools/verify-cloud.py の使い捨てVMが使う。
+probe_vmids: [5998, 5999]

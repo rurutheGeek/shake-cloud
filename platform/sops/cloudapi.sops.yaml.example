@@ -1,0 +1,8 @@
+# platform/sops/cloudapi.sops.yaml の中身の例。実値は 00-bootstrap の出力から入れる。
+#
+#   tools/tf 00-bootstrap output -raw cloudapi_token_value
+#
+# トークンは user@realm!id=uuid の**完全な形**で出る。接頭辞を足さない。
+PROXMOX_VE_ENDPOINT: https://192.0.2.10:8006
+PROXMOX_VE_API_TOKEN: cloudapi@pve!cloudapi=00000000-0000-0000-0000-000000000000
+PROXMOX_VE_INSECURE: "true"

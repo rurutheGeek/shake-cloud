@@ -5,7 +5,7 @@
 # PVEの版で権限名が違う場合だけ上書きする。`pveum role list` で確認する。
 
 # 既定値は PVE 9.2 で確認済み。存在しない権限を1つでも含むと、ロールの作成が
-# HTTP 400 で失敗する。実機の権限名は棚卸しの「PVEが認識する権限一覧」を見る。
+# HTTP 400 で失敗する。実機の権限名は実機の読み取りの「PVEが認識する権限一覧」を見る。
 # 版による違いの例: VM.Monitor は PVE 9 で廃止された。
 #
 # platform_admin_privileges = [
@@ -21,18 +21,6 @@
 #   "dev-b@pve" = 401
 # }
 
-# cloud image の取得。query-url-metadata API は `/` の Sys.Audit/Sys.Modify を
-# 要求するので、絞った terraform@pve では実行できない。root@pam で動くこの
-# モジュールが担当する。値は棚卸しと配布元の SHA512SUMS から転記する。
-#
-# proxmox_node_name = "pve"
-#
-# cloud_images = {
-#   debian13 = {
-#     datastore_id = "local"
-#     content_type = "import"
-#     url          = "https://cloud.debian.org/images/cloud/trixie/<日付>-<番号>/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
-#     file_name    = "debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
-#     checksum     = "<SHA512SUMS から転記>"
-#   }
-# }
+# cloud image の宣言は platform/terraform/images.yaml が正本。tfvars ではない。
+# URL もチェックサムも公開情報なので秘密ではなく、gitignore された tfvars に
+# 置くと、それを持たない作業機で plan がイメージを消しに行く。

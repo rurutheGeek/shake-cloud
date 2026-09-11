@@ -5,7 +5,10 @@ provider "registry.terraform.io/bpg/proxmox" {
   version     = "0.112.0"
   constraints = "~> 0.112"
   hashes = [
+    "h1:K8NuSgN6Yz3bm72phs75M4x46pQru2L+gSUs8mncCxM=",
     "h1:XJ4kyxLVjpIhNfz+U4A/Cw/z6zRkyzOS+QMgwV4Wkm8=",
+    "h1:njvcRZP07VIZLn4sUzVumOrquFuEot+Bv19OBo0iymQ=",
+    "h1:oLIcwXJthWmG62qOBwmwZUjXe6iQ+GwDw+Lke18VJQ4=",
     "zh:0f1a9a1d249e6d9b79d9c279b7abbcb391942e0a1f01aa5bac59867b9dc92d2f",
     "zh:1fa5fb40d2506db678b5f989d4929005680a187f6c91378ca5433fa490d9029b",
     "zh:25fb1b81b30d0255e32776d211d8720c33e06b550ad6952966f5411dbf29fd9c",
@@ -27,6 +30,9 @@ provider "registry.terraform.io/e-breuninger/netbox" {
   version     = "4.3.1"
   constraints = "~> 4.0"
   hashes = [
+    "h1:0i5Zn5l9qWe/wJZpPUlpjN5i2NmDJuuGsHhEoMnXgaw=",
+    "h1:KA5QRxaEk8XwREcZYGVD5qXCbMQFy9+tRaOG08NxfBc=",
+    "h1:SeF+cs7egsGeZIqTpjgm4gevv2E5i3YScECkN2dZe7U=",
     "h1:g2AT2Mzt8e+u7OVKKJ3FY2LNTKsXh6dYPUaFM0OyTNU=",
     "zh:23d246ffd408e417cb94b10800ca0a09567a36898eefaaedccacb2e8844fa34b",
     "zh:2753962846d6cd6d0b63ae62b7fa505f84fe72a86c52a53a1e436ff39ca7c465",

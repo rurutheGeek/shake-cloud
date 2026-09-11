@@ -1,0 +1,27 @@
+---
+# 基盤VMへ入れるSSH公開鍵。**このファイルが正本**。
+#
+# 公開鍵は秘密値ではない（公開してよいから公開鍵という）ので、gitignore された
+# tfvars ではなくここに置く。tfvars に置くと、そのファイルを持たない作業機で
+# plan がすべてのVMから鍵を剥がす差分を出す。images.yaml と同じ理由。
+#
+# **順序を変えない。** Proxmox は鍵を改行で連結した1つの文字列として持つので、
+# 並べ替えるだけで cloud-init ドライブに差分が出る。ここの順序は実機
+# （2026-09-10 の VMID 400 の設定）から回収したもの。
+#
+# 利用者が自分の鍵を足すのは、ログイン後に ssh-copy-id で各自が行う。
+# docs/onboarding.md の手順どおりで、ここには書かない。
+#
+# 05-seed は同じ2鍵を**逆順**で持っており、すでに適用済みなので触らない。
+# 移すときは順序を合わせないと services-01 の cloud-init に差分が出る。
+admin_ssh_public_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAshlf3KGO8Gi+vKYAoymtCmKJtb3tVStqsqAkscCjHT ansible@wsl
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGsdf/2Y8hw7cmyZSetxGdtnsvpGMleP2y6sJsiKt3Kq ruru@ouchithegeek
+
+  # dev-b（自動化の実行ホスト）。新しく作ったVMへ qemu-guest-agent を入れる
+  # ために要る。agent が応答するまで Terraform の作成が待つので、鍵が無いと
+  # 新規VMに入れず、待ちを解けない。詳細は docs/operations/bootstrap.md。
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICTH4vzwMtR18mFWJyQprDla1KiMzqtDiCOIddzMeein shake-cloud automation on dev-b
+
+# 特定のVMにだけ足す鍵。今は誰も使っていない。
+host_ssh_public_keys: {}

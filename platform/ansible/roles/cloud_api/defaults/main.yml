@@ -1,0 +1,25 @@
+---
+# 自作クラウドの API と管理DB。cloud-01 に単独で置く。
+cloud_api_project_dir: /opt/cloud-stack
+cloud_api_storage_root: /srv/cloud-stack/storage
+cloud_api_source_dir: '{{ playbook_dir }}/../../cloud'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://cloud.<ゾーン> で受ける。
+# API 自身のポートは 127.0.0.1 に閉じる。dns.yaml の cloud の upstream と同じポート。
+cloud_api_bind_address: 127.0.0.1
+cloud_api_port: 8080
+cloud_api_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+# identity ロールの identity_cloud_portal_url と同じ値（tests/test_tls_proxy.py が検査）。
+cloud_api_public_url: 'https://cloud.{{ cloud_api_dns.zone }}'
+cloud_api_identity_host: "{{ groups['identity_provider'][0] }}"
+# Authentik は受けた Host から issuer を組み立てるので、ブラウザと API が同じ名前で叩く。
+cloud_api_oidc_issuer: 'https://auth.{{ cloud_api_dns.zone }}/application/o/cloud/'
+# identity VM 上で stacks/identity/configure.py が生成する。Git にも SOPS にも複製せず、
+# 配備のたびにここから写す。正本が1か所なので、作り直しても食い違わない。
+cloud_api_oidc_credentials_path: /opt/identity-stack/secrets/oidc-cloud.json
+
+# インスタンス（Phase 2）。Proxmox と NetBox の資格情報は SOPS が正本で、
+# 配備のたびに復号して cloud-01 の secrets/ へ写す。
+cloud_api_cloudapi_sops_file: '{{ playbook_dir }}/../sops/cloudapi.sops.yaml'
+# API が読む配備先の事実と上限。platform/terraform の宣言から生成する。
+cloud_api_render_site: '{{ playbook_dir }}/../../cloud/render_site.py'
+cloud_api_terraform_dir: '{{ playbook_dir }}/../terraform'

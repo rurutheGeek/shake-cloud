@@ -27,3 +27,17 @@ automation_pools:
   - platform
   - dev
   - lab
+
+# 台帳の外に居るVM。Terraform は作らないし触らないが、**VMIDを取り合わない**
+# ために記録する。tests/test_platform_inventory.py が hosts.yaml との衝突を
+# 検査する。
+reserved_vmids:
+  - vm_id: 100
+    name: game1
+    reason: >-
+      ゲームサーバの開発中VM。手で作られており Terraform 管理外。
+      将来はクラウドAPIの管理下へ移し、ゲームサーバ開発者のアカウントへ
+      紐づける。移すときは cloud プールへ入れる（ACLは /pool/cloud に
+      付いているので、VMIDが5000番台でなくても届く）。
+      docs/architecture/operations.md は VMID 100 を public-edge と
+      計画しているので、**public-edge には別のVMIDを割り当てる**。

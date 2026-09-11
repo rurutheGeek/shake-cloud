@@ -2,6 +2,13 @@
 # NetBox 本体。台帳なので、他のサービスとは独立した配備先に置く。
 netbox_project_dir: /opt/netbox-stack
 netbox_storage_root: /srv/netbox-stack/storage
-# localhost バインドのまま。外からは SSH ポート転送で到達する。
-netbox_allowed_hosts: localhost 127.0.0.1
+# LAN へ公開する。クラウドAPI（cloud-01）や将来の AWX がトンネル無しで台帳へ届くため。
+# 2026-09-10 までは 127.0.0.1 に閉じ、SSH ポート転送で到達していた。
+netbox_bind_address: 0.0.0.0
+netbox_port: 8000
+netbox_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+# Host ヘッダの許可。IP で叩く利用者（Terraform・Ansible・クラウドAPI）がまだいるので、
+# 配備先のアドレスと HTTPS の名前の両方を含める。
+netbox_allowed_hosts: 'localhost 127.0.0.1 {{ ansible_host }} {{ inventory_hostname }} netbox.{{ netbox_dns.zone }}'
+netbox_csrf_trusted_origins: 'https://netbox.{{ netbox_dns.zone }}'
 netbox_source_dir: '{{ playbook_dir }}/../../stacks/netbox'

@@ -25,7 +25,7 @@ output "vmid_ranges" {
 }
 
 output "reserved_cloud_pool" {
-  description = "自作クラウドAPI用に予約したプール。自動化ユーザーは権限を持たない。"
+  description = "クラウドAPIが使うプール。terraform@pve は権限を持たない。"
   value       = proxmox_virtual_environment_pool.this["cloud"].pool_id
 }
 
@@ -51,4 +51,24 @@ output "dev_credentials" {
     }
   }
   sensitive = true
+}
+
+output "cloudapi_token_id" {
+  description = "クラウドAPIが使うトークンのID。秘密値ではない。"
+  value       = "${var.cloudapi_user_id}!${var.cloudapi_token_name}"
+}
+
+output "cloudapi_token_value" {
+  description = <<-EOT
+    クラウドAPIのトークンの秘密値。**表示は一度だけにして SOPS へ入れる。**
+
+    automation_token_value と同じく `user@realm!id=uuid` の**完全な形**で出る。
+    接頭辞を足さない。cloud/api の PROXMOX_API_TOKEN へそのまま入れる。
+
+      terraform -chdir=platform/terraform/00-bootstrap output -raw cloudapi_token_value
+
+    この値も state に平文で入る。取り扱いは docs/operations/terraform.md。
+  EOT
+  value       = proxmox_user_token.cloudapi.value
+  sensitive   = true
 }

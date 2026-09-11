@@ -16,6 +16,7 @@
     - manage.py
     - seed_inventory.py
     - seed_terraform_identity.py
+    - seed_cloudapi_identity.py
     - .env.example
 
 - name: Render initial NetBox environment without replacing existing configuration
@@ -27,6 +28,20 @@
     dest: '{{ netbox_project_dir }}/.env'
     mode: '0600'
     force: false
+
+# 上の雛形は既存の .env を上書きしないので、公開範囲に関わる行だけは毎回揃える。
+# これが無いと、初回に 127.0.0.1 で作ったホストは defaults を変えても閉じたまま。
+- name: Converge the NetBox listen address and allowed hosts
+  ansible.builtin.lineinfile:
+    path: '{{ netbox_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: BIND_ADDRESS, value: '{{ netbox_bind_address }}'}
+    - {key: NETBOX_PORT, value: '{{ netbox_port }}'}
+    - {key: ALLOWED_HOSTS, value: '{{ netbox_allowed_hosts }}'}
+    - {key: CSRF_TRUSTED_ORIGINS, value: '{{ netbox_csrf_trusted_origins }}'}
 
 - name: Initialize NetBox state and secrets
   ansible.builtin.command:
@@ -56,3 +71,12 @@
     chdir: '{{ netbox_project_dir }}'
   register: seeded
   changed_when: "'CHANGED' in seeded.stdout"
+
+# クラウドAPIが利用者VMの台帳とIP採番を書くためのアイデンティティ。
+# Terraform 用よりも狭く、dcim と tenancy へは書けない。
+- name: Register the write identity the cloud API uses
+  ansible.builtin.command:
+    argv: [python3, manage.py, seed-cloudapi]
+    chdir: '{{ netbox_project_dir }}'
+  register: cloud_seeded
+  changed_when: "'CHANGED' in cloud_seeded.stdout"

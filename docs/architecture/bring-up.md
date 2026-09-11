@@ -23,7 +23,7 @@ lspci -nnk
 ```bash
 cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 # 接続先を編集し、先に手動SSHでホスト鍵を確認する
-ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags survey
+.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags survey
 ```
 
 生成された `.survey/<ホスト名>.md` の冒頭に「Terraformへ転記する値」の表があります。ノード名、VMディスク用ストレージ名、cloud image置き場、**cloud-init snippetを置けるストレージ**、bridge名とvlan-awareの有無、既存LANのサブネットとgateway、使用済みVMIDを埋めてから次へ進みます。`snippets` を持つストレージが無い場合、cloud-initの追加設定は投入できないため、先にProxmox側でcontent種別を追加します。このファイル自体は台帳ではありません。必要な値を非公開台帳へ転記し、`.survey/` は作業用の一時出力として扱います。
@@ -61,7 +61,7 @@ ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags su
 sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/10-platform apply'
 
 # 2. ゲストOSの共通設定
-ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit probe-01
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit probe-01
 
 # 3. 復元ドリル（Proxmoxホスト上でrootとして実行）
 tools/pve-restore-drill.sh backup  --vmid 900 --storage <別媒体のストレージ>
@@ -83,7 +83,7 @@ tools/pve-restore-drill.sh cleanup --target-vmid 901
 pveum passwd dev-a@pve
 
 # 利用者: ゲストOSの初期設定
-ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit dev-a
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit dev-a
 ```
 
 `DevVMOperator` に含まれるのは `VM.Audit` / `VM.PowerMgmt` / `VM.Console` だけです。CPU・RAM・ディスク・NICの正本は `hosts.yaml` のままなので、利用者の操作でIaCと実機が乖離しません。使い方は[開発VMの使い方](../services/devvm.md)を利用者へ渡します。

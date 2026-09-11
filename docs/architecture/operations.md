@@ -19,13 +19,37 @@
 | 210 / k8s-worker-01 | VM | 4 | 8GiB | OS 32 + データ64 | メディア・ポケモンRDB/VDB・AI API。常時 |
 | 211 / k8s-worker-02 | VM | 4 | 8GiB | OS 32 + データ48 | AWX・NetBox・クラウドAPI・Knative。常時 |
 | 300 / game-01 | VM + Docker | 8 | 12GiB（最大16） | OS 48 + データ96 | Wolf、Azahar×2、必要時Ollama、OpenHome候補。利用時 |
-| 400・401 / dev-a・dev-b | VM×2 | 各2 | 各2GiB | 各32 | 個別インフラ開発。利用時 |
+| 400・401 / dev-a・dev-b | VM×2 | 各2 | 各8GiB（実機。当初計画は各2GiB） | 各32 | 個別インフラ開発。利用時 |
 | DNS・VPN・監視 | 既存ラズパイ | — | K11枠外 | 既存容量を確認 | K11停止時も管理経路を維持 |
 | **K11合計** | | **31 vCPU** | **53GiB（ゲーム16時57）** | **計724GiB（ホストOS込み）** | iGPU予約と未配分領域は別 |
 
+<a id="measured-budget"></a>
+### 実機の実測（2026-09-10）
+
+**上の表は当初計画で、実機はこうなっています。**（`GET /v1/capacity` と Proxmox の API から取得。ポータルの「容量」で常に最新が見られます。）
+
+| 項目 | 実測 |
+| --- | --- |
+| CPU | Ryzen 9 8945HS、8コア / 16スレッド |
+| Proxmoxが認識したRAM | **59.7GiB**（64GB の公称からファーム・iGPU 予約を引いた値） |
+| 稼働中VMの上限合計 | **40GiB**（game1 12 + dev-a 8 + dev-b 8 + identity 4 + services-01 4 + cloud-01 2 + probe-01 2） |
+| そのときの実使用 | 35.1GiB。空き 23.8GiB |
+| `local-lvm`（VMディスク） | 794GiB のうち使用 99GiB（13%） |
+| `local` / `cloud-images` | 94GiB のうち使用 13GiB（14%） |
+
+当初計画との差は、**開発VMが各2GiB→各8GiB**、そこへ計画に無かった `services-01`（4GiB）と `cloud-01`（2GiB）が加わったことです。表の合計値は当初計画のまま残してあります（何をどう見積もったかの記録なので、実測で上書きしません）。
+
 セルフホストVPNの2GiBとHome Assistantの4GiBを追加し、workerを各10→8GiBへ調整しました。workerの16GiBにはDB・Operator・Knative制御部も含みます。従来と同じ全サービス同時負荷を期待せず、AWX実行・関数・一括取り込みは直列から始めます。vCPU合計は物理16スレッドを超えるため、CPUも専有予約ではありません。
 
-64GiB相当を搭載しiGPU固定予約が4GiBなら、概算の余白は7GiB（ゲーム16時3GiB）です。これは動的VMへ全量を配ってよい枠ではありません。Proxmoxで認識されたRAMからホスト枠・稼働ゲストを引き、最低4GiBの運用余白を残す初期方針とします。増設・増枠は実測後に行い、先に開発VM／Ollama／バッチを停止します。ゲームを16GiBへ増やすと全VM稼働時は最低余白を割るため、少なくともdev VMを1台（2GiB）停止してから増枠します。ゲーム・HAOS・DBを載せるworkerは固定RAMから開始し、バルーニングによる回収を余剰として数えません。
+**メモリの配り方の方針を変更しました。**以前ここには「余白は約7GiB」と書き、クラウドの枠もそれに合わせて 8GiB にしていました。実測の 59.7GiB に対して稼働VMの上限合計が 40GiB、実使用は 35.1GiB です。**上限の合計を物理メモリ以下に収める方針では、16GiB のゲームVMをクラウドの管轄で作れません。**
+
+そこで、**上限の合計が物理メモリを超えることを許し（バルーニングを前提とする）、実際の空きの検査でホストを守る**方針にしました。
+
+- クラウド全体のメモリ枠（`cloud.yaml` の `memory_budget_mib`、既定 32GiB）は**方針の枠**で、物理の保証ではありません。
+- **物理を見ているのは `node_memory_reserve_mib`（既定 4GiB）だけです。**作成のたびにノードの `available` を読み、その分を引いても 4GiB 残らなければ断ります。上限を無制限にしてもこの検査は残ります。
+- したがって「上限の合計」と「実際の空き」は一致しません。ポータルの「容量」は**両方**を並べて出します。
+
+**代償を承知しておく必要があります。**バルーニングで返ってくるのは、ゲストが実際に使っていないぶんだけです。ゲームVMのように実際に16GiB使う相手は返しません。全員が上限まで使えば、足りなくなるのは予約ぶんからで、**先に倒れるのはホストと基盤VM（認証・API・台帳）です**。上限を上げたぶんは、止める順番（開発VM → Ollama → バッチ）を実際に運用で守ることで払います。ゲーム・HAOS・DBを載せるworkerは固定RAMから開始し、バルーニングによる回収を余剰として数えません。
 
 ディスク724GiBは論理的な計画値であり、既存パーティションをこの表に合わせて作り直す指示ではありません。1TBは約931GiBなので、差分約207GiBからISO・テンプレート・メタデータ・スナップショットを賄い、実プール使用率80%程度で増設・整理します。メディア原本もworkerデータ枠へ含め、現行データが収まらなければ移行前に別ディスクを確保します。thin provisioningでも物理容量は増えません。カメラ録画領域と別機器バックアップはこの724GiBに含みません。
 
@@ -53,7 +77,7 @@ workerの記載は初期の配置方針です。実際にはnamespace・PVC・no
 | --- | --- | --- |
 | Nextcloud、Calendar、Tasks | worker-01 / media | ファイル・設定・DB、Redis、cronを一組で移行 |
 | Kavita、Navidrome、MeTube、RomM | worker-01 / media | 原本・アプリDB・設定。RomM等の固有DB要件を保持し、全DBをPostgreSQLへ強制統一しない |
-| Homarr、MkDocs | worker-01 / portal | Homarr設定・鍵、文書原稿とビルド設定 |
+| Homarr、MkDocs | worker-01 / portal | Homarr設定・鍵、文書原稿とビルド設定。**Kubernetes ができるまでMkDocsのサイトは services-01 に仮置き**（`platform/ansible/docs-site.yml`） |
 | Vaultwarden | worker-01 / vault | DB・添付・鍵。独立復元を検証して移行 |
 | Open WebUI、pokemon-agent | worker-01 / pokemon-ai | WebUI状態・鍵・接続設定。agentの管理者権限なし |
 | ポケモンRDB、図鑑VDB | worker-01 / pokemon-aiのCloudNativePG | 専用PostgreSQLクラスタ1インスタンスから。次節のDB・ロールを保持 |

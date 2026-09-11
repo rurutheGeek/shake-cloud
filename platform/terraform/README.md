@@ -9,7 +9,8 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | `state-store/` | 他のモジュールが使う state 置き場（R2バケット）。**stateはローカル**（循環を避けるため） | Cloudflare APIトークン | 実装済み |
 | `00-bootstrap/` | プール、ロール、ユーザー、ACL、cloud imageの取得、開発VMのAPIトークン | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み |
 | `05-seed/` | NetBoxを載せる最初の1台。**NetBoxを使わず静的IP**で作る | `terraform@pve` | 実装済み・適用済み |
-| `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・実機未適用 |
+| `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・適用済み |
+| `20-dns/` | LAN の中の名前（`*.apextox.dpdns.org`）を Cloudflare へ書く。アドレスは 10-platform・05-seed の出力から引く | Cloudflare の DNS 編集トークン（`platform/sops/cloudflare-dns.sops.yaml`）。Proxmox は触らない | 実装済み・適用済み |
 | `modules/managed-host/` | NetBoxのVM＋採番とProxmoxのVMを1組で作る | — | 実装済み |
 
 宣言はYAMLに置く。`.tf` は機構だけを持つ。
@@ -19,6 +20,7 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | `pools.yaml` | プールとVMID範囲。`00-bootstrap` と `10-platform` の両方が読む |
 | `flavors.yaml` | VMのサイズ。名前は将来のクラウドAPIと共用 |
 | `tags.yaml` | NetBoxタグとAnsibleグループの対応 |
+| `dns.yaml` | LAN の中の名前と、各ホストの Caddy が中継する先。`20-dns` と Ansible ロール `tls_proxy` が読む |
 | `hosts.yaml` | ホストの宣言。**正本** |
 
 整合は `tests/test_platform_inventory.py` が検査する。

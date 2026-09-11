@@ -54,7 +54,21 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 ## DNSとHTTPS
 
-所有ドメインが決まったら、例えば `auth.example.net`、`api.cloud.example.net`、`s3.cloud.example.net` のような固定名を割り当てます。これは説明用の名前であり、現在の実値ではありません。
+**2026-09-10 にドメインを `apextox.dpdns.org`（DNS は Cloudflare）に決め、LAN の中の管理画面へ固定名を割り当てました。** 名前の正本は `platform/terraform/dns.yaml` です。
+
+| 名前 | 行き先 |
+| --- | --- |
+| `auth.apextox.dpdns.org` | Authentik |
+| `cloud.apextox.dpdns.org` | クラウドのポータルと API |
+| `netbox.apextox.dpdns.org` | NetBox |
+| `docs.apextox.dpdns.org` | ドキュメントサイト |
+| `pve.apextox.dpdns.org` | Proxmox（ポート 8006。証明書は未設定） |
+
+- **名前の引き方:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。家のルーターも Tailscale の端末も、DNS の設定を足さずに引けます。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。ルーターが内部IPを返す応答を捨てないことは確認済みです。
+- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。サービス自身のポートは 127.0.0.1 に閉じ、入口は HTTPS だけにしました。
+- **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。各ホストに置くので、1台が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
+
+`home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。
 
 内部DNSとTailscaleのsplit DNSで、VPN接続時に内部IPへ解決します。公開Webだけは公開DNSで公開入口へ解決します。証明書をDNS-01で取得すれば、内部サービスをインターネットへ公開せず公開CAの証明書を利用できます。DNSプロバイダの対応モジュールと限定したDNS API資格情報を用意します。[Caddy HTTPS](https://caddyserver.com/docs/automatic-https)
 

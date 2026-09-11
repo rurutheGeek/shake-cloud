@@ -1,0 +1,71 @@
+---
+- name: Create the identity deployment directory
+  ansible.builtin.file:
+    path: '{{ identity_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the identity stack
+  ansible.builtin.copy:
+    src: '{{ identity_source_dir }}/{{ item }}'
+    dest: '{{ identity_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - manage.py
+    - configure.py
+    - .env.example
+
+- name: Copy the reviewed image lock when the repository has one
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '{{ identity_project_dir }}/compose.lock.yaml'
+    mode: '0644'
+  with_fileglob: ['{{ identity_source_dir }}/compose.lock.yaml']
+
+- name: Render the initial environment without replacing an existing one
+  ansible.builtin.copy:
+    src: '{{ identity_source_dir }}/.env.example'
+    dest: '{{ identity_project_dir }}/.env'
+    mode: '0600'
+    force: false
+
+# init は既存の .env を上書きしないので、配備ごとに決まる行だけを揃える。
+- name: Converge deployment-specific settings
+  ansible.builtin.lineinfile:
+    path: '{{ identity_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: STORAGE_ROOT, value: '{{ identity_storage_root }}'}
+    - {key: BIND_ADDRESS, value: '{{ identity_bind_address }}'}
+    - {key: CLOUD_PORTAL_URL, value: '{{ identity_cloud_portal_url | trim }}'}
+
+- name: Initialize storage and generated secrets
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ identity_project_dir }}'
+  register: identity_storage
+  changed_when: "'CHANGED' in identity_storage.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ identity_project_dir }}'
+  register: identity_pinned
+  changed_when: "'CHANGED' in identity_pinned.stdout"
+
+- name: Start Authentik and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ identity_project_dir }}'
+  register: identity_up
+  changed_when: "'Recreate' in identity_up.stderr or 'Created' in identity_up.stderr"
+
+- name: Reconcile groups and the cloud portal OIDC client
+  ansible.builtin.command:
+    argv: [python3, manage.py, configure]
+    chdir: '{{ identity_project_dir }}'
+  register: identity_configured
+  changed_when: "'CHANGED' in identity_configured.stdout"

@@ -39,8 +39,22 @@
   become: false
   delegate_to: localhost
 
+- name: Write the machine-readable facts for tools/site-yaml.py
+  ansible.builtin.copy:
+    content: |
+      {{ dict(survey.results | map(attribute='item.key')
+              | zip(survey.results | map(attribute='stdout'))) | to_nice_json }}
+    dest: '{{ pve_survey_dir }}/{{ inventory_hostname }}.facts.json'
+    mode: '0600'
+  become: false
+  delegate_to: localhost
+  # 中身は .md と同じ情報なのでコンソールへ出さない。
+  no_log: true
+
 - name: Report where the baseline was written
   ansible.builtin.debug:
     msg: >-
-      Wrote {{ pve_survey_dir }}/{{ inventory_hostname }}.md on the control machine.
-      Copy the values into the private ledger. Do not commit this file.
+      Wrote {{ pve_survey_dir }}/{{ inventory_hostname }}.md and .facts.json on
+      the control machine. Do not commit them. Next, generate site.yaml from
+      the facts rather than copying values by hand:
+      python3 tools/site-yaml.py {{ pve_survey_dir }}/{{ inventory_hostname }}.facts.json

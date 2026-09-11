@@ -1,5 +1,5 @@
 ---
-# Proxmox VE ホストの棚卸し。読み取りのみ。
+# Proxmox VE ホストの実機の読み取り。読み取りのみ。
 #   ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
 - name: Survey the Proxmox host
   hosts: pve

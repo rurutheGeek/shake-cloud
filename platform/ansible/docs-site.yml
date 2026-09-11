@@ -1,0 +1,12 @@
+---
+# ドキュメントサイトを LAN に公開する。置き場所は services-01。
+#   ansible-playbook -i platform/ansible/seed.ini platform/ansible/docs-site.yml
+# services-01 は NetBox より前に固定IPで作ったので、NetBox の動的インベントリに
+# 載っていない。NetBox 本体と同じ静的インベントリのグループを使う。
+- name: Publish the documentation site
+  hosts: netbox_bootstrap
+  become: true
+  roles:
+    - docker
+    - docs_site
+    - tls_proxy

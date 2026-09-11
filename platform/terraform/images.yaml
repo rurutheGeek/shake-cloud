@@ -1,0 +1,25 @@
+---
+# 管理者が用意する共有 cloud image。**このファイルが正本**。
+#
+# URL もチェックサムも配布元が公開している値で、秘密値ではない。以前は
+# gitignore された terraform.tfvars にしか無かったため、そのファイルを持たない
+# 作業機で plan を打つと「宣言に無いから消す」という差分が出た（実際に出た）。
+# 基盤VMの image_file_id がこのファイルを指しているので、消えると 05-seed も
+# 10-platform も作り直せなくなる。
+#
+# latest ではなく**日付入りのビルド**を指定する。再実行で中身が変わらないため。
+# チェックサムは配布元の SHA512SUMS から転記する。
+#
+# datastore_id は省略できる。省くと site.yaml の storage.admin_images を使う。
+images:
+  debian13:
+    url: https://cloud.debian.org/images/cloud/trixie/20260831-2587/debian-13-genericcloud-amd64-20260831-2587.qcow2
+    file_name: debian-13-genericcloud-amd64-20260831-2587.qcow2
+    checksum: 8ea9faae810043a0b35b0149f05014f26705c2339ffb11ead308f33e844a87cc3ef46ec81d5262b38817b6a88af404874d48a5857ebe072ef6a31dfb6e371f50
+    checksum_algorithm: sha512
+    content_type: import
+    # クラウドの利用者にも共有イメージとして出す。00-bootstrap が cloud-images にも置く。
+    shared_with_cloud: true
+
+# 基盤VM（05-seed / 10-platform）が既定で使うイメージ。上の key を指す。
+default_image: debian13

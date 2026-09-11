@@ -1,5 +1,5 @@
 # terraform.tfvars へコピーして実値を入れる。tfvars は .gitignore 対象。
-# 値は棚卸し（platform/ansible/survey-pve.yml）の出力から転記する。
+# 値は実機の読み取り（platform/ansible/survey-pve.yml）の出力から転記する。
 
 proxmox_node_name = "pve"
 vm_datastore_id   = "local-lvm"

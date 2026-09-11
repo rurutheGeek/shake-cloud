@@ -20,8 +20,13 @@ tags:
     ansible_group: devbox
     description: 開発VM
   identity:
-    ansible_group: identity
+    # グループ名はホスト名 identity と重ねない。同名だと Ansible が
+    # 「グループを自分自身へ足す」例外でインベントリ全体の読み込みに失敗する。
+    ansible_group: identity_provider
     description: Authentikと専用DB。Kubernetes外
+  cloud-control:
+    ansible_group: cloud_control
+    description: 自作クラウドAPIとその管理DB。Kubernetes外
   k8s-cp:
     ansible_group: k8s_cp
     description: Kubernetes control plane

@@ -14,8 +14,10 @@
 # モジュールごとに必要な資格情報:
 #   state-store  … Cloudflare API トークンだけ。state はローカル（循環を避けるため）
 #   00-bootstrap … state置き場 ＋ Proxmox の root@pam（ロールとユーザーを作るため）
+#                  ＋ Cloudflare の DNS 編集トークン（Proxmox 本体の証明書を ACME で取るため）
 #   05-seed      … state置き場 ＋ Proxmox の terraform@pve
 #   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
+#   20-dns       … state置き場 ＋ Cloudflare の DNS 編集トークン（Proxmox は触らない）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,6 +35,11 @@ SOPS="${SOPS:-$(command -v sops || true)}"
 
 secret() {  # secret <ファイル> <キー>
   "$SOPS" --decrypt --extract "[\"$2\"]" "platform/sops/$1"
+}
+
+# 無いかもしれないキー。無ければ空文字。
+optional() {  # optional <ファイル> <キー>
+  "$SOPS" --decrypt --extract "[\"$2\"]" "platform/sops/$1" 2>/dev/null || true
 }
 
 require_file() {
@@ -60,17 +67,42 @@ AWS_REGION=$(secret s3.sops.yaml AWS_REGION)
 TF_STATE_BUCKET=$(secret s3.sops.yaml TF_STATE_BUCKET)
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 AWS_REGION
 
-# --- Proxmox。00-bootstrap だけ root@pam を使う ---
-if [ "$module" = 00-bootstrap ]; then
-  pve_file=proxmox-root.sops.yaml
+# --- DNS。LAN の名前を Cloudflare へ書くだけで、Proxmox の資格情報は渡さない ---
+if [ "$module" = 20-dns ]; then
+  require_file cloudflare-dns.sops.yaml
+  CLOUDFLARE_API_TOKEN=$(secret cloudflare-dns.sops.yaml CLOUDFLARE_DNS_API_TOKEN)
+  # NetBox が採番したアドレスを 10-platform の state から読むのに bucket 名が要る。
+  TF_VAR_state_bucket=$TF_STATE_BUCKET
+  export CLOUDFLARE_API_TOKEN TF_VAR_state_bucket
 else
-  pve_file=proxmox.sops.yaml
+  # --- Proxmox。00-bootstrap だけ root@pam を使う ---
+  if [ "$module" = 00-bootstrap ]; then
+    pve_file=proxmox-root.sops.yaml
+    # Proxmox の ACME プラグインへ渡す。write-only 属性で渡すので state には残らない。
+    require_file cloudflare-dns.sops.yaml
+    TF_VAR_cloudflare_dns_api_token=$(secret cloudflare-dns.sops.yaml CLOUDFLARE_DNS_API_TOKEN)
+    export TF_VAR_cloudflare_dns_api_token
+  else
+    pve_file=proxmox.sops.yaml
+  fi
+  require_file "$pve_file"
+  PROXMOX_VE_ENDPOINT=$(secret "$pve_file" PROXMOX_VE_ENDPOINT)
+  PROXMOX_VE_INSECURE=$(secret "$pve_file" PROXMOX_VE_INSECURE)
+  export PROXMOX_VE_ENDPOINT PROXMOX_VE_INSECURE
+
+  # **ACME アカウントの作成は API トークンでは通らない。** root@pam のトークンでも
+  # "user != root@pam" で断られる。パスワードがあれば root@pam 本人としてログイン
+  # （ticket 認証）する。両方渡すと provider はトークンを選ぶので、そのときは
+  # トークンを渡さない。パスワードはこのファイルに無くても他のモジュールは動く。
+  PROXMOX_VE_PASSWORD=$(optional "$pve_file" PROXMOX_VE_PASSWORD)
+  if [ -n "$PROXMOX_VE_PASSWORD" ]; then
+    PROXMOX_VE_USERNAME=$(secret "$pve_file" PROXMOX_VE_USERNAME)
+    export PROXMOX_VE_USERNAME PROXMOX_VE_PASSWORD
+  else
+    PROXMOX_VE_API_TOKEN=$(secret "$pve_file" PROXMOX_VE_API_TOKEN)
+    export PROXMOX_VE_API_TOKEN
+  fi
 fi
-require_file "$pve_file"
-PROXMOX_VE_ENDPOINT=$(secret "$pve_file" PROXMOX_VE_ENDPOINT)
-PROXMOX_VE_API_TOKEN=$(secret "$pve_file" PROXMOX_VE_API_TOKEN)
-PROXMOX_VE_INSECURE=$(secret "$pve_file" PROXMOX_VE_INSECURE)
-export PROXMOX_VE_ENDPOINT PROXMOX_VE_API_TOKEN PROXMOX_VE_INSECURE
 
 # --- NetBox。台帳を触るモジュールだけ ---
 if [ "$module" = 10-platform ]; then

@@ -1,0 +1,21 @@
+# platform/ansible/roles/tls_proxy が platform/terraform/dns.yaml から書く。ホスト上で直さない。
+{
+	# 設定は起動時にだけ読む。管理用 API は開けない。
+	admin off
+}
+
+(dns_challenge) {
+	tls {
+		dns cloudflare {file./run/secrets/cloudflare_dns_api_token}
+		# 伝播の確認は、キャッシュを持つルーターではなく公開の DNS に聞く。
+		resolvers 1.1.1.1 1.0.0.1
+	}
+}
+{% for site in tls_proxy_sites %}
+
+# {{ site.value.description }}
+{{ site.key }}.{{ tls_proxy_dns.zone }} {
+	import dns_challenge
+	reverse_proxy {{ site.value.upstream }}
+}
+{% endfor %}

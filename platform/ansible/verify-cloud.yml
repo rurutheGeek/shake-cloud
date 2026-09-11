@@ -1,0 +1,49 @@
+---
+# 実機プローブ。クラウドAPIの設計が、この Proxmox の版で本当に成立するかを
+# 機械判定する。読み取りと、cloud プール内の使い捨てVMの作成・削除だけを行う。
+#
+#   ansible-playbook -i localhost, platform/ansible/verify-cloud.yml
+#
+# AWX からは Job Template として実行し、資格情報は Credential から環境変数で
+# 渡す。**cloudapi@pve のトークンを使う。** root@pam は全部通ってしまい、
+# 絞ったアカウントに何ができるかを何も教えてくれない。
+- name: Verify the Proxmox host supports the cloud API design
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Require the scoped Proxmox credentials
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'PROXMOX_VE_ENDPOINT') | length > 0
+          - lookup('env', 'PROXMOX_VE_API_TOKEN') | length > 0
+        fail_msg: >-
+          Set PROXMOX_VE_ENDPOINT and PROXMOX_VE_API_TOKEN. From a workstation:
+          sops exec-env platform/sops/cloudapi.sops.yaml
+          'ansible-playbook -i localhost, platform/ansible/verify-cloud.yml'
+
+    - name: Run the probes
+      ansible.builtin.command:
+        argv: [python3, tools/verify-cloud.py, --json]
+        chdir: '{{ playbook_dir }}/../..'
+      register: probes
+      changed_when: false
+      # A failing probe is an answer, not a crash: report all four, then fail.
+      failed_when: probes.rc not in [0, 1]
+
+    - name: Report each probe
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.name }}:
+          {{ 'PASS' if item.passed else 'FAIL -- ' ~ item.on_failure }}
+          ({{ item.detail }})
+      loop: '{{ probes.stdout | from_json }}'
+      loop_control:
+        label: '{{ item.name }}'
+
+    - name: Fail if any probe failed
+      ansible.builtin.assert:
+        that: probes.rc == 0
+        fail_msg: >-
+          One or more probes failed. Each failure names the design change it
+          forces; see docs/operations/cloud.md before implementing around it.

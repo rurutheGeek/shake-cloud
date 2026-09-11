@@ -1,0 +1,34 @@
+---
+# 実機の事実。**このファイルが正本**で、Terraform の全モジュールが読む。
+#
+# **手で書かない。** tools/site-yaml.py が実機の読み取りの出力から生成する。
+#
+#   ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
+#   python3 tools/site-yaml.py .survey/<ホスト名>.facts.json
+#
+# 秘密値は含まない。ノード名・ストレージ名・bridge名・ゾーン名はいずれも
+# 資格情報ではなく、資格情報は今まで通り SOPS 経由の環境変数で渡す。
+#
+# 整合は tests/test_platform_inventory.py が検査する。
+node_name: apextox
+
+storage:
+  # 既存のストレージ。Proxmox のインストーラが作るのでコード管理しない。
+  vm_disks: local-lvm
+  # 管理者が cloud image を置く先。00-bootstrap の images.tf が使う。
+  admin_images: local
+  # クラウドAPI専用。00-bootstrap が作る（proxmox_storage_directory）。
+  # 利用者のイメージとインスタンスごとの seed ISO が入る。
+  # 発見ではなくこのリポジトリが決めた名前。
+  cloud_images: cloud-images
+  cloud_images_path: /srv/cloud-images
+
+network:
+  bridge: vmbr0
+  # 素の Linux bridge が入る既定ゾーン。SDN を使っていなければ localnetwork。
+  sdn_zone: localnetwork
+  # ゲストが載るネットワーク。ホストの bridge のアドレスから導出した。
+  prefix: 192.168.10.0/24
+  gateway: 192.168.10.1
+  dns_servers:
+    - 192.168.10.1

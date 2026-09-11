@@ -1,0 +1,14 @@
+---
+# Authentik を identity VM へ新規構築する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
+- name: Deploy the shared identity provider
+  hosts: identity_provider
+  become: true
+  roles:
+    - common
+    - docker
+    # 先に HTTPS の入口を作る。identity ロールが Authentik を 127.0.0.1 に閉じても
+    # 入口が途切れないように。
+    - tls_proxy
+    - identity

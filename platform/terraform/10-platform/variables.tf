@@ -1,74 +1,19 @@
-# 実機依存の値。既定値を置かない。棚卸し（platform/ansible/survey-pve.yml）の
+# 実機依存の値。既定値を置かない。実機の読み取り（platform/ansible/survey-pve.yml）の
 # 出力から転記する。推測で埋めない。
 
-variable "proxmox_node_name" {
-  description = "Proxmox のノード名。"
-  type        = string
-}
-
-variable "vm_datastore_id" {
-  description = "VMディスクと cloud-init ドライブを置くストレージ名。"
-  type        = string
-}
-
-variable "image_file_id" {
+variable "image_name" {
   description = <<-EOT
-    cloud image のファイルID。00-bootstrap の `cloud_image_file_ids` 出力から
-    転記する（例 local:import/debian-13-genericcloud-amd64-....qcow2）。
-    取得そのものは特権が要るため 00-bootstrap（root@pam）が担当する。
+    使う cloud image。../images.yaml の images の key を指す。
+    null なら同ファイルの default_image。volid は名前から組み立てるので、
+    00-bootstrap の出力を手で書き写す必要はない。
   EOT
   type        = string
+  default     = null
 }
-
-variable "network_bridge" {
-  description = "VMを接続する bridge。"
-  type        = string
-}
-
 variable "network_vlan_id" {
   description = "VLAN を使わない場合は null のままにする。"
   type        = number
   default     = null
-}
-
-variable "management_prefix" {
-  description = <<-EOT
-    基盤VMが載るネットワーク。台帳として登録するだけで、ここからは採番しない。
-    採番は management_range_start / _end の範囲から行う。
-  EOT
-  type        = string
-}
-
-variable "management_range_start" {
-  description = <<-EOT
-    採番に使う範囲の先頭。プレフィックス長を含める（例 192.0.2.200/24）。
-    **ルータのDHCP配布範囲・ゲートウェイ・既存の固定機器と重ならない**こと。
-    Prefix 全体から採番するとゲートウェイまで対象になるので、範囲で限定する。
-  EOT
-  type        = string
-}
-
-variable "management_range_end" {
-  description = "採番に使う範囲の末尾。プレフィックス長を含める。"
-  type        = string
-}
-
-variable "cloud_prefix" {
-  description = <<-EOT
-    自作クラウドAPIが採番する Prefix。今は台帳へ登録するだけで誰も使わない。
-    分けておくことで、管理者Terraformとクラウドが同じ範囲を奪い合わない。
-    決まっていなければ null のままでよい。
-  EOT
-  type        = string
-  default     = null
-}
-
-variable "gateway" {
-  type = string
-}
-
-variable "dns_servers" {
-  type = list(string)
 }
 
 variable "dns_domain" {
@@ -80,20 +25,6 @@ variable "vm_username" {
   description = "cloud image が作る管理ユーザー名。Debian の cloud image は debian。"
   type        = string
   default     = "debian"
-}
-
-variable "admin_ssh_public_keys" {
-  description = "全ホストへ配る管理用の公開鍵。Ansible の接続元。"
-  type        = list(string)
-}
-
-variable "host_ssh_public_keys" {
-  description = <<-EOT
-    ホスト固有の公開鍵。開発VMには本人の鍵だけを足す（鍵は共有しない）。
-    キーは hosts.yaml のホスト名。
-  EOT
-  type        = map(list(string))
-  default     = {}
 }
 
 variable "netbox_site_name" {

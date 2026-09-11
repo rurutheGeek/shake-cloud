@@ -1,6 +1,6 @@
 # Terraformの実行手順
 
-更新日: 2026-09-09。状態: **00-bootstrapのみ実装済み。実機での適用は未実施**。
+更新日: 2026-09-10。状態: **00-bootstrap・10-platform は実機へ適用済み**。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
@@ -27,7 +27,7 @@ Proxmoxのプール・ロール・自動化ユーザー・ACLを宣言的に作�
 
 ## 4. 具体的な入力例
 
-準備は3つです。実機の値は[Proxmox導入後の手順](../architecture/bring-up.md)の棚卸しから取ります。
+準備は3つです。実機の値は[Proxmox導入後の手順](../architecture/bring-up.md)で読み取った値から取ります。
 
 **手動で1回だけ**、PVEのGUI（データセンター → 権限 → APIトークン）で `root@pam` のトークンを作ります。「特権の分離」のチェックを外します。これがこの構成で唯一の手作業です。ここで作る `terraform@pve` は自分自身を作れないため、1段だけ上位の資格情報が要ります。
 
@@ -138,6 +138,54 @@ CIでは `terraform fmt -check` と `terraform validate` が走ります。実�
 
 - **stateには秘密値が平文で入ります。** `sensitive` 指定は表示を隠すだけで、暗号化ではありません。バケットを公開せず、アクセスキーを対象バケットの読み書きだけに絞ります。SOPSはstateを守りません。
 - `terraform destroy` はプール・ロール・ユーザーを消します。**VMが所属しているプールを消す前に、VMの所属を確認してください。** プールの削除はVMを消しませんが、ACLが外れて到達できなくなります。
-- **ロールの権限名はPVEの版に依存します。** 存在しない権限を1つでも含むと、ロールの作成が `HTTP 400 invalid privilege '...'` で失敗します。棚卸し（`site.yml --tags survey`）が `pveum role list` を取得するので、そこで実機の名前を確認して `platform_admin_privileges` を上書きします。既定値は PVE 9.2 で確認済みです。実例として **`VM.Monitor` は PVE 9 で廃止**されており、bridge の割り当てには `SDN.Use`、guest agent 経由のIP取得には `VM.GuestAgent.Audit` が要ります。
+- **ロールの権限名はPVEの版に依存します。** 存在しない権限を1つでも含むと、ロールの作成が `HTTP 400 invalid privilege '...'` で失敗します。実機の読み取り（`site.yml --tags survey`）が `pveum role list` を取得するので、そこで実機の名前を確認して `platform_admin_privileges` を上書きします。既定値は PVE 9.2 で確認済みです。実例として **`VM.Monitor` は PVE 9 で廃止**されており、bridge の割り当てには `SDN.Use`、guest agent 経由のIP取得には `VM.GuestAgent.Audit` が要ります。
 - `apply` が権限エラーで止まる場合、必要なACLのパスが実機の版で異なる可能性があります。エラーに出たパスを `identities.tf` へ追加し、**広い範囲へ丸ごと許可しないでください**。
 - stateを失うと、Terraformは既存オブジェクトを「無い」と判断して作り直そうとします。復旧には `terraform import` が要ります。stateもバックアップ対象です。
+
+## provider のロックと実行環境
+
+`.terraform.lock.hcl` は provider の版に加えて、**プラットフォームごとのハッシュ**（`h1:`）を持ちます。1つのOSで `init` して commit すると、別のOSでは
+
+```
+the cached package for registry.terraform.io/bpg/proxmox 0.112.0 does not match
+any of the checksums recorded in the dependency lock file
+```
+
+で止まります。`-upgrade` すると版の固定が崩れるので、逃げ道になりません。**無人の実行環境（CI・ランナー）を足すときに必ず踏みます。**
+
+このリポジトリは linux_amd64 / windows_amd64 / darwin_arm64 / darwin_amd64 の4つを記録しています。provider の版を変えたときは、各モジュールで次を実行してから commit してください。
+
+```bash
+terraform providers lock -platform=linux_amd64 -platform=windows_amd64 -platform=darwin_arm64 -platform=darwin_amd64
+```
+
+`tests/test_platform_inventory.py::ProviderLockTests` が、どれかのプラットフォームが抜けた状態を検出します。
+
+## 作成が途中で止まったときの回収
+
+`10-platform` の VM は `agent { enabled = true }` なので、**作成後に qemu-guest-agent が応答するまで apply が待ちます**。Debian genericcloud には agent が入っていないため、放っておくと待ち続けます。
+
+この待ちの最中に apply が中断されると（セッション切れ、Ctrl+C）、次の状態が残ります。
+
+| 場所 | 状態 |
+| --- | --- |
+| NetBox | VM・インターフェース・IP は**作成済み**で state にもある |
+| Proxmox | VM は**作成済み・停止中**だが state に**無い** |
+| ディスク | cloud image の素のサイズ（例 3GiB）のまま、宣言サイズへ拡張されていない |
+
+このまま apply すると同じ VMID で作ろうとして衝突します。**VM を消して作り直さず、state へ取り込みます。**
+
+```bash
+tools/tf 10-platform import 'module.host["<名前>"].proxmox_virtual_environment_vm.this' <ノード名>/<VMID>
+```
+
+取り込み後の plan は `update in-place` になり、ディスク拡張と `import_from`（import では state に入らない属性）が差分として出ます。これは適用してかまいません。そのあと VM を起動し、agent を入れると待ちが解けます。
+
+```bash
+ssh debian@<IP> 'sudo apt-get install -y qemu-guest-agent && sudo systemctl start qemu-guest-agent'
+```
+
+**agent を入れる前に plan を打つと、起動中の VM の読み取りで同じ待ちに入って終わりません。**2026-09-10 に identity (110) と cloud-01 (140) で実際に起きた手順です。
+
+根本対策は、作成時の cloud-init で agent を入れることです。ただし `managed-host` は Proxmox 内蔵の cloud-init ドライブを使っており、任意の user-data を渡すには snippets 対応ストレージが要ります。クラウドAPI側（seed ISO 方式）ではこの問題は起きません。
+

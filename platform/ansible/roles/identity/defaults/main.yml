@@ -1,0 +1,12 @@
+---
+# Authentik（共通ログイン）。identity VM に単独で置く。
+identity_project_dir: /opt/identity-stack
+identity_storage_root: /srv/identity-stack/storage
+identity_source_dir: '{{ playbook_dir }}/../../stacks/identity'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://auth.<ゾーン> で受ける。
+# Authentik 自身のポートは 127.0.0.1 に閉じ、平文の HTTP を LAN に出さない。
+identity_bind_address: 127.0.0.1
+identity_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+# ポータルの入口。OIDC の戻り先はこれに /auth/callback を足したもの。
+# cloud_api ロールの cloud_api_public_url と同じ値にする（tests/test_tls_proxy.py が検査）。
+identity_cloud_portal_url: 'https://cloud.{{ identity_dns.zone }}'

@@ -1,0 +1,13 @@
+---
+# 自作クラウドの API（Phase 1: ログイン、アクセスキー、監査ログ）を cloud-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/cloud.yml'
+# OIDC クライアントの秘密値を identity VM から読むので、identity.yml の後に流す。
+- name: Deploy the cloud API
+  hosts: cloud_control
+  become: true
+  roles:
+    - common
+    - docker
+    - tls_proxy
+    - cloud_api

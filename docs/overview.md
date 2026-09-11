@@ -36,7 +36,7 @@ Proxmox VE 上への展開は[IaCの所有境界](architecture/iac.md)と[Proxmo
 | PDFを家族・技術書などに分けて公開する | NextcloudのグループとKavitaのライブラリ | 両サービスで個別に権限設定 |
 | 招待・確認メールを送る | 外部SMTPリレーまたはローカルsendmail | SMTPサービスとDNS・送信者設定 |
 | 配備先を増やす | NetBoxの対象追加とAnsible | ホストごとの接続・容量・バックアップ設計 |
-| VMを増やす | `platform/terraform/hosts.yaml` への追記とTerraform | 実機のストレージ名・bridge名・IP枠の確定（棚卸し） |
+| VMを増やす | `platform/terraform/hosts.yaml` への追記とTerraform | 実機のストレージ名・bridge名・IP枠の確定（実機の読み取り） |
 | 開発用のVMを渡す | Proxmoxのプールとロール、[開発VMの使い方](services/devvm.md) | 宅外から使うためのVPN |
 
 ## ドキュメントの書き方

@@ -1,4 +1,4 @@
-# 入力の形は cloud.md の homelab_instance（image・CPU・RAM・disk・network →
+# 入力の形は cloud.md の shakecloud_instance（image・CPU・RAM・disk・network →
 # ID・IP・状態）に合わせている。将来のGo APIはこのモジュールを呼ばず、
 # Proxmox APIを直接叩く。揃えるのは入力の形だけ。
 
@@ -36,7 +36,17 @@ variable "cpu_cores" {
 }
 
 variable "memory_mib" {
-  type = number
+  description = "メモリの上限。バルーニング時の最大。"
+  type        = number
+}
+
+variable "memory_min_mib" {
+  description = <<-EOT
+    バルーニングでホストが回収できる下限。null なら固定割り当て
+    （バルーニングなし）。上限と同じ値でも固定になる。
+  EOT
+  type        = number
+  default     = null
 }
 
 variable "disk_gib" {
@@ -44,7 +54,7 @@ variable "disk_gib" {
 }
 
 variable "node_name" {
-  description = "Proxmox のノード名。棚卸しの結果から入れる。"
+  description = "Proxmox のノード名。実機の読み取りの結果から入れる。"
   type        = string
 }
 

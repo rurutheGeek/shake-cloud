@@ -1,0 +1,210 @@
+---
+# ソースは実行側で固め、cloud-01 で差分だけを反映してからビルドする。
+- name: Pack the API source
+  delegate_to: localhost
+  become: false
+  run_once: true
+  block:
+    - name: Create a temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: cloud-api
+      register: cloud_api_build
+      changed_when: false
+
+    - name: Archive cloud/api
+      ansible.builtin.command:
+        argv: [tar, -czf, '{{ cloud_api_build.path }}/api.tar.gz', -C, '{{ cloud_api_source_dir }}/api', .]
+      changed_when: false
+
+- name: Install rsync for removing deleted source files
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: Create the deployment directories
+  ansible.builtin.file:
+    path: '{{ cloud_api_project_dir }}/{{ item }}'
+    state: directory
+    mode: '0750'
+  loop: ['', api]
+
+- name: Copy the stack files
+  ansible.builtin.copy:
+    src: '{{ cloud_api_source_dir }}/{{ item }}'
+    dest: '{{ cloud_api_project_dir }}/{{ item }}'
+    mode: preserve
+  loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+
+- name: Create staging
+  ansible.builtin.file:
+    path: '{{ cloud_api_project_dir }}/staging'
+    state: directory
+    mode: '0750'
+  changed_when: false
+
+- name: Unpack the source into staging
+  ansible.builtin.unarchive:
+    src: '{{ cloud_api_build.path }}/api.tar.gz'
+    dest: '{{ cloud_api_project_dir }}/staging'
+  changed_when: false
+
+- name: Apply only the changed source files
+  ansible.builtin.command:
+    argv: [rsync, -rl, --delete, --checksum, --itemize-changes, '--chmod=D755,F644',
+           '{{ cloud_api_project_dir }}/staging/', '{{ cloud_api_project_dir }}/api/']
+  register: cloud_api_sync
+  changed_when: cloud_api_sync.stdout | length > 0
+
+- name: Remove staging
+  ansible.builtin.file:
+    path: '{{ cloud_api_project_dir }}/staging'
+    state: absent
+  changed_when: false
+
+- name: Render the initial environment without replacing an existing one
+  ansible.builtin.copy:
+    src: '{{ cloud_api_source_dir }}/.env.example'
+    dest: '{{ cloud_api_project_dir }}/.env'
+    mode: '0600'
+    force: false
+
+- name: Converge deployment-specific settings
+  ansible.builtin.lineinfile:
+    path: '{{ cloud_api_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: STORAGE_ROOT, value: '{{ cloud_api_storage_root }}'}
+    - {key: BIND_ADDRESS, value: '{{ cloud_api_bind_address }}'}
+    - {key: API_PORT, value: '{{ cloud_api_port }}'}
+    - {key: PUBLIC_URL, value: '{{ cloud_api_public_url }}'}
+    - {key: OIDC_ISSUER, value: '{{ cloud_api_oidc_issuer }}'}
+
+- name: Initialize storage and generated secrets
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ cloud_api_project_dir }}'
+  register: cloud_api_init
+  changed_when: "'CHANGED' in cloud_api_init.stdout"
+
+- name: Read the OIDC client credentials on the identity VM
+  ansible.builtin.slurp:
+    src: '{{ cloud_api_oidc_credentials_path }}'
+  delegate_to: '{{ cloud_api_identity_host }}'
+  register: cloud_api_oidc
+  no_log: true
+
+- name: Check the OIDC client credentials
+  ansible.builtin.assert:
+    that:
+      - (cloud_api_oidc.content | b64decode | from_json).client_id | length > 0
+      - (cloud_api_oidc.content | b64decode | from_json).client_secret | length > 0
+    quiet: true
+  no_log: true
+
+- name: Install the OIDC client credentials
+  ansible.builtin.copy:
+    content: '{{ cloud_api_oidc.content | b64decode }}'
+    dest: '{{ cloud_api_project_dir }}/secrets/oidc_credentials'
+    mode: '0444'
+  register: cloud_api_oidc_installed
+  no_log: true
+
+# Proxmox と NetBox の資格情報。正本は SOPS で、実行側で復号して写す。
+- name: Read the cloud API credentials
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ cloud_api_cloudapi_sops_file }}']
+  register: cloud_api_credentials
+  changed_when: false
+  no_log: true
+
+- name: Install the Proxmox and NetBox tokens
+  ansible.builtin.copy:
+    content: '{{ (cloud_api_credentials.stdout | from_json)[item.key] }}'
+    dest: '{{ cloud_api_project_dir }}/secrets/{{ item.file }}'
+    mode: '0444'
+  loop:
+    - {key: PROXMOX_VE_API_TOKEN, file: proxmox_token}
+    - {key: NETBOX_API_TOKEN, file: netbox_token}
+  loop_control:
+    label: '{{ item.file }}'
+  register: cloud_api_tokens
+  no_log: true
+
+# 接続先とプレフィックスは秘密値ではないが、正本は同じ SOPS なので一緒に取る。
+- name: Converge the Proxmox and NetBox endpoints
+  ansible.builtin.lineinfile:
+    path: '{{ cloud_api_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: PROXMOX_URL, value: '{{ (cloud_api_credentials.stdout | from_json).PROXMOX_VE_ENDPOINT }}'}
+    - {key: PROXMOX_INSECURE, value: '{{ (cloud_api_credentials.stdout | from_json).PROXMOX_VE_INSECURE }}'}
+    - {key: NETBOX_URL, value: '{{ (cloud_api_credentials.stdout | from_json).NETBOX_SERVER_URL }}'}
+  loop_control:
+    label: '{{ item.key }}'
+
+# 配備先の事実と上限。platform/terraform の宣言から作るので、API 側に写しを持たない。
+- name: Render the site file
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.command:
+    argv: [python3, '{{ cloud_api_render_site }}', '{{ cloud_api_terraform_dir }}']
+  register: cloud_api_site
+  changed_when: false
+
+- name: Install the site file
+  ansible.builtin.copy:
+    # 単一引用符の中では \n が改行にならず、JSON の末尾にごみが付く。
+    content: "{{ cloud_api_site.stdout }}\n"
+    dest: '{{ cloud_api_project_dir }}/site.json'
+    mode: '0444'
+  register: cloud_api_site_installed
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ cloud_api_project_dir }}'
+  register: cloud_api_pinned
+  changed_when: "'CHANGED' in cloud_api_pinned.stdout"
+
+- name: Build and start the API
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ cloud_api_project_dir }}'
+  register: cloud_api_up
+  changed_when: "'Recreate' in cloud_api_up.stderr or 'Created' in cloud_api_up.stderr"
+
+# 秘密値のファイルは起動時に読まれる。中身が変わっただけではコンテナが作り直されないので、
+# 変わったときだけ API を作り直す。
+- name: Recreate the API after a mounted secret or the site file changed
+  ansible.builtin.command:
+    argv: [docker, compose, --env-file, .env, -f, compose.yaml, -f, compose.lock.yaml,
+           up, -d, --no-deps, --force-recreate, --wait, --wait-timeout, '120', api]
+    chdir: '{{ cloud_api_project_dir }}'
+  when: cloud_api_oidc_installed is changed or cloud_api_tokens is changed or cloud_api_site_installed is changed
+  changed_when: true
+
+- name: Check the API answers
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ cloud_api_port }}/healthz'
+  register: cloud_api_health
+  retries: 10
+  delay: 3
+  until: cloud_api_health.status == 200
+
+- name: Remove the local build directory
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.file:
+    path: '{{ cloud_api_build.path }}'
+    state: absent
+  changed_when: false

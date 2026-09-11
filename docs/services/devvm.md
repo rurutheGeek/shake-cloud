@@ -81,11 +81,7 @@ devvm restart     # 正常な再起動
 
 ### SSHで入る
 
-パスワードでも公開鍵でも入れます。パスワードは `platform/sops/devvm-users.sops.yaml` にホストごとに入っています。
-
-```bash
-sops --decrypt platform/sops/devvm-users.sops.yaml
-```
+パスワードでも公開鍵でも入れます。パスワードは構成管理者から受け取ってください。構成管理者の手元の `.local/devvm-passwords.yml`（Git に入れない平文）にホストごとに入っています。
 
 
 `~/.ssh/config` に別名を書いておくと、VS Code Remote SSH からも同じ設定が使えます。

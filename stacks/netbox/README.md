@@ -15,7 +15,7 @@ sudo python3 stacks/netbox/manage.py lock
 sudo python3 stacks/netbox/manage.py up
 ```
 
-NetBoxは http://localhost:8000 です。リモートからは `ssh -N -L 8000:127.0.0.1:8000 ubuntu@HOST` で接続します。管理者名の既定はadmin、初期パスワードはstacks/netbox/secrets/superuser_passwordに保存します。既存の管理者パスワード・DB・Secret Key・API pepperは再実行で変更しません。
+NetBoxは `http://<ホスト>:8000` です。Ansible の `netbox` ロールで配備すると LAN に公開します（`netbox_bind_address`）。手元だけで試すときは `.env` の `BIND_ADDRESS=127.0.0.1` のまま、`ssh -N -L 8000:127.0.0.1:8000 ubuntu@HOST` で接続します。管理者名の既定はadmin、初期パスワードはstacks/netbox/secrets/superuser_passwordに保存します。既存の管理者パスワード・DB・Secret Key・API pepperは再実行で変更しません。
 
 ## Ansibleで別ホストへ構築
 
@@ -31,7 +31,7 @@ ansible-playbook -i platform/ansible/seed.ini platform/ansible/site.yml --tags n
 
 NetBoxでSite、DeviceまたはVirtual Machine、インターフェース、IPアドレスを作成し、Primary IP・Active・media-stackタグを設定します。DeviceではDevice TypeとRoleも必要です。
 
-専用のインベントリ閲覧ユーザーへ必要なモデルのview権限を付与し、そのユーザーのv2 APIトークンを作成します。Write enabledを無効にし、表示された `nbt_<key>.<token>` 全体をplatform/ansible/netbox.envのNETBOX_TOKENへ保存します。NETBOX_AUTH_TYPE=Bearerを使用します。URLはSSH転送ならhttp://localhost:8000です。
+専用のインベントリ閲覧ユーザーへ必要なモデルのview権限を付与し、そのユーザーのv2 APIトークンを作成します。Write enabledを無効にし、表示された `nbt_<key>.<token>` 全体をplatform/ansible/netbox.envのNETBOX_TOKENへ保存します。NETBOX_AUTH_TYPE=Bearerを使用します。URLは配備先なら `http://<ホスト>:8000`、SSH転送ならhttp://localhost:8000です。
 
 ## Terraform用の書き込みアイデンティティ
 

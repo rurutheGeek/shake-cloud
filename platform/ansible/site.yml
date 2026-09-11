@@ -10,3 +10,6 @@
 - import_playbook: pve-users.yml
 - import_playbook: netbox.yml
 - import_playbook: guests.yml
+- import_playbook: identity.yml
+- import_playbook: cloud.yml
+- import_playbook: docs-site.yml
