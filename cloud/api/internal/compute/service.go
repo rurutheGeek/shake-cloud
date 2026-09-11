@@ -102,6 +102,12 @@ type Service struct {
 	// cannot be WorkDir: that is a tmpfs, and an image does not fit in RAM.
 	// Empty means this deployment refuses uploads rather than filling memory.
 	UploadDir string
+	// Garage is the object store's administration API. Nil when this
+	// deployment has no object storage, and the bucket endpoints answer 503.
+	Garage BucketStore
+	// S3Endpoint and S3Region are what a bucket's owner points a client at.
+	S3Endpoint string
+	S3Region   string
 	// MaxAttempts is how often a launch or power action is tried before it is
 	// abandoned. Terminates are retried until they succeed: giving up would
 	// leak a VM, an address or an ISO.

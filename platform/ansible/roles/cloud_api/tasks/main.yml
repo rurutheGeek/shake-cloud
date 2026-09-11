@@ -123,21 +123,22 @@
   changed_when: false
   no_log: true
 
-- name: Install the Proxmox and NetBox tokens
+- name: Install the Proxmox, NetBox and Garage tokens
   ansible.builtin.copy:
-    content: '{{ (cloud_api_credentials.stdout | from_json)[item.key] }}'
+    content: '{{ (cloud_api_credentials.stdout | from_json)[item.key] | default("") }}'
     dest: '{{ cloud_api_project_dir }}/secrets/{{ item.file }}'
     mode: '0444'
   loop:
     - {key: PROXMOX_VE_API_TOKEN, file: proxmox_token}
     - {key: NETBOX_API_TOKEN, file: netbox_token}
+    - {key: GARAGE_ADMIN_TOKEN, file: garage_admin_token}
   loop_control:
     label: '{{ item.file }}'
   register: cloud_api_tokens
   no_log: true
 
 # 接続先とプレフィックスは秘密値ではないが、正本は同じ SOPS なので一緒に取る。
-- name: Converge the Proxmox and NetBox endpoints
+- name: Converge the Proxmox, NetBox and Garage endpoints
   ansible.builtin.lineinfile:
     path: '{{ cloud_api_project_dir }}/.env'
     regexp: '^{{ item.key }}='
@@ -147,6 +148,9 @@
     - {key: PROXMOX_URL, value: '{{ (cloud_api_credentials.stdout | from_json).PROXMOX_VE_ENDPOINT }}'}
     - {key: PROXMOX_INSECURE, value: '{{ (cloud_api_credentials.stdout | from_json).PROXMOX_VE_INSECURE }}'}
     - {key: NETBOX_URL, value: '{{ (cloud_api_credentials.stdout | from_json).NETBOX_SERVER_URL }}'}
+    - {key: GARAGE_ADMIN_URL, value: '{{ (cloud_api_credentials.stdout | from_json).GARAGE_ADMIN_URL | default("") }}'}
+    - {key: GARAGE_S3_ENDPOINT, value: '{{ (cloud_api_credentials.stdout | from_json).GARAGE_S3_ENDPOINT | default("") }}'}
+    - {key: GARAGE_S3_REGION, value: '{{ (cloud_api_credentials.stdout | from_json).GARAGE_S3_REGION | default("garage") }}'}
   loop_control:
     label: '{{ item.key }}'
 

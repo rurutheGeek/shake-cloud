@@ -56,6 +56,9 @@ shakecloud [--endpoint URL] [--json] <command> [args]
 | `image ls` / `image upload --name NAME FILE` / `image rm ID` | イメージ |
 | `key ls` / `key import --name NAME (--public-key KEY \| FILE)` / `key rm NAME` | SSH鍵 |
 | `access-key ls` / `access-key rm ID` | アクセスキー（発行はポータルだけ） |
+| `bucket ls` / `bucket create NAME` / `bucket show NAME` / `bucket rm NAME` | S3バケット |
+| `bucket allow [--read] [--write] [--owner] NAME KEY_ID` / `bucket revoke NAME KEY_ID` | S3キーの権限 |
+| `s3-key ls` / `s3-key create NAME` / `s3-key rm KEY_ID` | S3アクセスキー（秘密値は作成時だけ） |
 
 例:
 
@@ -67,6 +70,16 @@ shakecloud instance console i-0123456789abcdef0
 shakecloud volume create --size 20 --name data
 shakecloud volume attach vol-0123456789abcdef0 --instance i-0123456789abcdef0
 shakecloud sg add sg-0123456789abcdef0 --direction ingress --protocol tcp --from 443 --to 443 --cidr 192.168.10.0/24
+```
+
+S3バケットとキー:
+
+```bash
+shakecloud bucket create photos
+shakecloud s3-key create laptop          # secret はここで一度だけ表示される
+shakecloud bucket allow --read --write --owner photos <key_id>
+shakecloud bucket show photos
+shakecloud bucket rm photos
 ```
 
 ## 4. 実装の形

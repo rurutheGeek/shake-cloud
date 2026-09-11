@@ -1,6 +1,6 @@
 # Garage（S3互換オブジェクトストア）
 
-更新日: 2026-09-11。状態: **構築済み・実クライアントで確認済み**。バケットとS3キーのAPI（クラウドAPI Phase 7）はこれから。
+更新日: 2026-09-11。状態: **構築済み・実クライアントで確認済み**。バケットとS3キーはクラウドAPI（Phase 7、[cloud.md 3-16](cloud.md#3-16)）が管理します。
 
 S3を自作クラウドの一部にするための土台です。Garageを **storage-s3 VM（VMID 130、192.168.10.206）** に単一ノードで置きます。
 
@@ -59,6 +59,6 @@ aws s3 rm s3://<bucket>/hello.txt
 ## 4. セキュリティとアクセス
 
 - **S3 API は SigV4 署名で認証**します。ブラウザ用の Forward Auth は挟みません。
-- **管理API は Bearer トークン**です。`/etc/garage.toml` の `admin_token` は全権なので、クラウドAPIには**用途別に絞った管理トークン**（`garage admin-token create --scope ...`）を渡す予定です。
+- **管理API は Bearer トークン**です。`/etc/garage.toml` の `admin_token` は全権なので、クラウドAPIには**用途別に絞った管理トークン**（`garage admin-token create --scope ...`）を渡します。正本は `platform/sops/cloudapi.sops.yaml` の `GARAGE_ADMIN_TOKEN` で、`cloud_api` ロールが `cloud-01` の `secrets/garage_admin_token` へ写します。
 - いまは管理系と同じ物理LANに開いています。**VLAN分離が済むまで、利用者VMからも S3 API・管理API に届きます。** 管理APIの到達先をクラウドAPIだけに絞るのは VLAN 切替後です。
 - データのバックアップは Garage 自身を唯一の保存先にせず、別ディスク・別機器へ取ります（[配備・Git管理・ストレージ・復旧](../architecture/operations.md)）。

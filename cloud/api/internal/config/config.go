@@ -54,6 +54,18 @@ type Config struct {
 	// node. It must not be WorkDir, which is a tmpfs: images do not fit in RAM.
 	// Empty means uploads are refused, which is better than filling memory.
 	UploadDir string
+
+	// Object storage (Garage). Optional as a group: without all of them the
+	// bucket endpoints answer 503 and everything else still works.
+	GarageAdminURL   string
+	GarageAdminToken string
+	GarageS3Endpoint string
+	GarageS3Region   string
+}
+
+// StorageConfigured reports whether the bucket endpoints can run.
+func (c Config) StorageConfigured() bool {
+	return c.GarageAdminURL != "" && c.GarageAdminToken != "" && c.GarageS3Endpoint != ""
 }
 
 // ComputeConfigured reports whether the instance endpoints can run.
@@ -137,6 +149,10 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.SiteFile = getenv("SHAKECLOUD_SITE_FILE")
 	cfg.WorkDir = withDefault(getenv("SHAKECLOUD_WORK_DIR"), os.TempDir())
 	cfg.UploadDir = getenv("SHAKECLOUD_UPLOAD_DIR")
+	// Object storage (Garage). Optional: without it the bucket endpoints 503.
+	cfg.GarageAdminURL = strings.TrimRight(getenv("SHAKECLOUD_GARAGE_ADMIN_URL"), "/")
+	cfg.GarageS3Endpoint = strings.TrimRight(getenv("SHAKECLOUD_GARAGE_S3_ENDPOINT"), "/")
+	cfg.GarageS3Region = withDefault(getenv("SHAKECLOUD_GARAGE_S3_REGION"), "garage")
 	if raw := getenv("SHAKECLOUD_PROXMOX_INSECURE"); raw != "" {
 		insecure, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
@@ -145,8 +161,9 @@ func Load(getenv func(string) string) (Config, error) {
 		cfg.ProxmoxInsecure = insecure
 	}
 	for name, target := range map[string]*string{
-		"SHAKECLOUD_PROXMOX_TOKEN_FILE": &cfg.ProxmoxToken,
-		"SHAKECLOUD_NETBOX_TOKEN_FILE":  &cfg.NetBoxToken,
+		"SHAKECLOUD_PROXMOX_TOKEN_FILE":      &cfg.ProxmoxToken,
+		"SHAKECLOUD_NETBOX_TOKEN_FILE":       &cfg.NetBoxToken,
+		"SHAKECLOUD_GARAGE_ADMIN_TOKEN_FILE": &cfg.GarageAdminToken,
 	} {
 		if path := getenv(name); path != "" {
 			value, err := readSecret(path)

@@ -1180,6 +1180,179 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
 
+  /v1/buckets:
+    get:
+      operationId: DescribeBuckets
+      tags: [storage]
+      summary: List buckets. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Buckets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buckets]
+                properties:
+                  buckets:
+                    type: array
+                    items: {$ref: '#/components/schemas/Bucket'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateBucket
+      tags: [storage]
+      summary: Create an S3 bucket.
+      description: |
+        Creates a bucket in Garage, owned by the caller's account. The name is a
+        global alias and is unique across the cloud. Repeating the request for a
+        bucket the caller already owns returns it with 200 rather than making a
+        second one; a name owned by another account is 409 BucketAlreadyExists.
+
+        The response carries the S3 endpoint and region to point a client at.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateBucketRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '200':
+          description: The caller already owns a bucket with this name.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/buckets/{bucket_name}:
+    get:
+      operationId: DescribeBucket
+      tags: [storage]
+      summary: Read one bucket and the keys allowed on it.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+      responses:
+        '200':
+          description: The bucket.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteBucket
+      tags: [storage]
+      summary: Delete an empty bucket.
+      description: Garage refuses a bucket that still holds objects; that refusal is passed through.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/buckets/{bucket_name}/keys/{key_id}:
+    put:
+      operationId: PutBucketKey
+      tags: [storage]
+      summary: Grant an S3 key read, write or owner on a bucket.
+      description: The key must belong to the same account as the bucket.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+        - $ref: '#/components/parameters/KeyID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BucketKeyRequest'}
+      responses:
+        '200':
+          description: The bucket now allowing the key.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteBucketKey
+      tags: [storage]
+      summary: Revoke all of an S3 key's permissions on a bucket.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+        - $ref: '#/components/parameters/KeyID'
+      responses:
+        '200':
+          description: The bucket without the key.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/s3-keys:
+    get:
+      operationId: ListS3Keys
+      tags: [storage]
+      summary: List S3 access keys. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Keys. The secret is never returned here.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [s3_keys]
+                properties:
+                  s3_keys:
+                    type: array
+                    items: {$ref: '#/components/schemas/S3Key'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateS3Key
+      tags: [storage]
+      summary: Create an S3 access key.
+      description: |
+        The secret is returned in this response only; Garage never shows it
+        again, and the cloud API does not store it. Repeating the request with a
+        name the account already has returns the existing key, without a secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateS3KeyRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/S3KeyEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/s3-keys/{key_id}:
+    delete:
+      operationId: DeleteS3Key
+      tags: [storage]
+      summary: Delete an S3 access key.
+      description: Garage removes its permissions on every bucket.
+      parameters:
+        - $ref: '#/components/parameters/KeyID'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
 components:
   parameters:
     InstanceID:
@@ -1207,6 +1380,16 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^sgr-[0-9a-f]{17}$'}
+    BucketName:
+      name: bucket_name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'}
+    KeyID:
+      name: key_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^GK[0-9a-f]{24}$'}
   securitySchemes:
     accessKey:
       type: http
@@ -1769,3 +1952,73 @@ components:
       properties:
         group_id: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
         group_name: {type: string}
+    BucketKey:
+      type: object
+      required: [key_id, key_name, read, write, owner]
+      properties:
+        key_id: {type: string, pattern: '^GK[0-9a-f]{24}$'}
+        key_name: {type: string}
+        read: {type: boolean}
+        write: {type: boolean}
+        owner: {type: boolean}
+    Bucket:
+      type: object
+      required: [bucket_name, account_id, s3_endpoint, s3_region, keys, created_at]
+      properties:
+        bucket_name: {type: string, pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'}
+        account_id: {type: string}
+        owner_username: {type: string}
+        s3_endpoint:
+          type: string
+          description: 'The S3 API URL to point a client at, e.g. http://192.168.10.206:3900. The data does not pass through the cloud API.'
+        s3_region: {type: string}
+        objects: {type: integer, format: int64, description: 'Number of objects, from Garage. Best effort.'}
+        bytes: {type: integer, format: int64, description: 'Bytes stored, from Garage. Best effort.'}
+        keys:
+          type: array
+          items: {$ref: '#/components/schemas/BucketKey'}
+        created_at: {type: string, format: date-time}
+    BucketEnvelope:
+      type: object
+      required: [bucket]
+      properties:
+        bucket: {$ref: '#/components/schemas/Bucket'}
+    CreateBucketRequest:
+      type: object
+      additionalProperties: false
+      required: [bucket_name]
+      properties:
+        bucket_name:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+          description: 'S3 bucket rules: 3-63 characters of lower case letters, digits, dots and hyphens, starting and ending with a letter or digit.'
+    BucketKeyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        read: {type: boolean, default: false}
+        write: {type: boolean, default: false}
+        owner: {type: boolean, default: false}
+    S3Key:
+      type: object
+      required: [key_id, name, account_id, created_at]
+      properties:
+        key_id: {type: string, pattern: '^GK[0-9a-f]{24}$'}
+        name: {type: string}
+        account_id: {type: string}
+        owner_username: {type: string}
+        created_at: {type: string, format: date-time}
+        secret_access_key:
+          type: string
+          description: 'The S3 secret. Returned only by CreateS3Key, and never again; the cloud API does not store it.'
+    S3KeyEnvelope:
+      type: object
+      required: [s3_key]
+      properties:
+        s3_key: {$ref: '#/components/schemas/S3Key'}
+    CreateS3KeyRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$'}

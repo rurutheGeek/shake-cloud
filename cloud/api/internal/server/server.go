@@ -112,6 +112,15 @@ func routes() []route {
 		{"POST", "/v1/security-groups/{group_id}/ingress", "AuthorizeSecurityGroupIngress", anyCredential, authorizeRules(db.DirectionIngress)},
 		{"POST", "/v1/security-groups/{group_id}/egress", "AuthorizeSecurityGroupEgress", anyCredential, authorizeRules(db.DirectionEgress)},
 		{"DELETE", "/v1/security-groups/{group_id}/rules/{rule_id}", "RevokeSecurityGroupRule", anyCredential, (*Server).revokeSecurityGroupRule},
+		{"GET", "/v1/buckets", "DescribeBuckets", anyCredential, (*Server).describeBuckets},
+		{"POST", "/v1/buckets", "CreateBucket", anyCredential, (*Server).createBucket},
+		{"GET", "/v1/buckets/{bucket_name}", "DescribeBucket", anyCredential, (*Server).describeBucket},
+		{"DELETE", "/v1/buckets/{bucket_name}", "DeleteBucket", anyCredential, (*Server).deleteBucket},
+		{"PUT", "/v1/buckets/{bucket_name}/keys/{key_id}", "PutBucketKey", anyCredential, (*Server).setBucketPermission},
+		{"DELETE", "/v1/buckets/{bucket_name}/keys/{key_id}", "DeleteBucketKey", anyCredential, (*Server).revokeBucketPermission},
+		{"GET", "/v1/s3-keys", "ListS3Keys", anyCredential, (*Server).listS3Keys},
+		{"POST", "/v1/s3-keys", "CreateS3Key", anyCredential, (*Server).createS3Key},
+		{"DELETE", "/v1/s3-keys/{key_id}", "DeleteS3Key", anyCredential, (*Server).deleteS3Key},
 	}
 }
 

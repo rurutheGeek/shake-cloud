@@ -1,6 +1,6 @@
 # クラウドAPIの構築
 
-更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）**。
+更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）**。
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -23,8 +23,9 @@
 | Phase 4（追加ボリューム、セキュリティグループ、データセンターFW有効化） | `cloud/api/internal/compute/{volumes,securitygroups,firewall}.go`、`platform/terraform/00-bootstrap/firewall.tf`（3-14） |
 | Phase 5（既存VMの引き取り） | `POST /v1/instances/adopt`、`cloud/api/internal/compute/adopt.go`、DBマイグレーション `0007`（3-15） |
 | Phase 6（CLI と Terraform Provider） | `cloud/client`（型付きクライアント）、`cloud/cli`（`shakecloud`）、`cloud/provider`（`shakecloud_*`）。CLI は標準ライブラリのみ（[CLI](cli.md)・[Provider](terraform-provider.md)） |
+| Phase 7（Garage と バケット・S3キー API） | `platform/ansible/roles/garage`（[Garage](garage.md)）、`cloud/api/internal/garage/`（管理APIクライアント）、`cloud/api/internal/compute/buckets.go`、DBマイグレーション `0008`（3-16） |
 
-**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）、Garage のバケットとS3キー API。
+**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）、Terraform Provider のバケット対応、ポータルのバケット画面。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 
@@ -731,6 +732,44 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 `adopted` のインスタンスは `owns()` が無条件で持ち主とみなします。APIが作ったVMは description に instance ID を書きますが、引き取ったVMにはそれが無いためです。
 
 **2026-09-11 に実機で確認済み**: 使い捨てVM(5900)で、Proxmox で直接作ったVM（ディスク無し・`root_disk_gib` 指定）を adopt → `GET` で `adopted=true`、重複 adopt は 409 `InvalidParameterValue`、terminate でVMが消えて残骸なし、までを確認。さらに **game1（VMID 100）を実際に引き取りました**: プールへ移す操作は API ではなく root トークンで `PUT /pools/cloud`（vms=100）を実行し、所有者 `shunyazhiyuan97`（`account_id` `154909253172`）と `private_ip_address` `192.168.10.127` を指定して adopt。`state=running`・`adopted=true`・既定SGが `in-sync` になり、**game1 は稼働を続け ping も通る**ことを確認しました。`.127` は NetBox に予約登録し、新規VMに払い出されないようにしています。管理DBのアカウントは、Authentik の `sub`（`0a39d4ca-870f-4c52-963b-8ff0c0ec2660`）に合わせて先に作りました（本人が未ログインでも引き取れるように）。
+
+<a id="3-16"></a>
+### 3-16. バケットと S3 キー（Phase 7）
+
+Garage の S3 バケットとアクセスキーを、クラウドAPIがアカウント単位で管理します。**オブジェクトの本体はAPIを通りません。** 署名（SigV4）で利用者と S3 が直接やり取りし、APIは「誰のバケットか」「どの鍵に何を許すか」だけを持ちます。
+
+| 操作 | 呼び方 |
+| --- | --- |
+| バケットの作成・一覧・削除 | `POST`/`GET /v1/buckets`、`GET`/`DELETE /v1/buckets/{name}` |
+| S3キーの作成・一覧・削除 | `POST`/`GET /v1/s3-keys`、`DELETE /v1/s3-keys/{key_id}` |
+| 鍵に権限を付与・剥奪 | `PUT`/`DELETE /v1/buckets/{name}/keys/{key_id}` |
+
+設計上のポイント:
+
+- **Garage の管理API（v2、`:3903`）を叩きます。** クラウドAPIは用途を絞った管理トークンを使います（`CreateBucket`・`CreateKey`・`AllowBucketKey` など10個だけ）。正本は `platform/sops/cloudapi.sops.yaml` の `GARAGE_ADMIN_TOKEN` で、`cloud_api` ロールが `cloud-01` の `secrets/garage_admin_token` へ写します。
+- **鍵の秘密値は保存しません。** Garage が作成時に一度だけ返すもので、APIはその応答で返して捨てます。DBには鍵IDと名前だけを持ちます。
+- **バケット名はクラウド全体で一意**（Garage の global alias）。S3 の規則（3–63文字、小文字・数字・`.`・`-`）で検証します。
+- **応答の `s3_endpoint`・`s3_region`** が、利用者がクライアントへ設定する値です（いまは `http://192.168.10.206:3900`、`garage`）。
+
+```bash
+# バケットと鍵を作り、鍵に権限を付ける
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"bucket_name":"photos"}' https://cloud.apextox.dpdns.org/v1/buckets
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"name":"laptop"}' https://cloud.apextox.dpdns.org/v1/s3-keys   # secret_access_key はここで一度だけ
+curl -X PUT -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"read":true,"write":true,"owner":true}' \
+  https://cloud.apextox.dpdns.org/v1/buckets/photos/keys/<key_id>
+```
+
+CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](cli.md)）。
+
+#### 実機で確認したこと（2026-09-11）
+
+- API でバケット `fixture-test` と鍵を作成 → 権限を付与 → **CLI で発行した鍵**を使い、awscli で `PUT`・`LIST`・`GET`・削除がすべて成功、削除後に一覧が空。テスト用のバケット・鍵は削除済み。
+- `GET /v1/buckets` はアカウントのバケットだけを返し、他アカウントの鍵を付与しようとすると `NoSuchKey` で断る（単体テストで担保）。
+
+**はまりどころ**: 権限付与（`PUT .../keys/{key_id}`）の応答に鍵一覧を含めるため、`SetBucketPermission`／`RevokeBucketPermission` は監査コールバックより**先に**一覧を読んでから返します。順序を逆にすると応答の `keys` が空になります。
 
 ## 4. 実機プローブ
 
