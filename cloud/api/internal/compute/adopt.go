@@ -135,6 +135,16 @@ func (s *Service) Adopt(ctx context.Context, r AdoptRequest, audit func(pgx.Tx, 
 	if err != nil {
 		return db.Instance{}, err
 	}
+	// The name is the Name tag, exactly as for a launched instance, so the
+	// portal and CLI that show a VM by its Name tag show this one too.
+	if name != "" {
+		if r.Tags == nil {
+			r.Tags = map[string]string{}
+		}
+		if _, ok := r.Tags["Name"]; !ok {
+			r.Tags["Name"] = name
+		}
+	}
 
 	var instance db.Instance
 	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {

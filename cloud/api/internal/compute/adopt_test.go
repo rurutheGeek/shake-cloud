@@ -55,8 +55,8 @@ func TestAdoptingAnExistingVMRecordsItsRealSpecAndDefaultGroup(t *testing.T) {
 	if instance.MACAddress != "BC:24:11:AA:BB:CC" {
 		t.Fatalf("mac %q", instance.MACAddress)
 	}
-	if instance.AccountID != ownerID || instance.Name != "game1" {
-		t.Fatalf("owner %q name %q", instance.AccountID, instance.Name)
+	if instance.AccountID != ownerID || instance.Name != "game1" || instance.Tags["Name"] != "game1" {
+		t.Fatalf("owner %q name %q tags %v", instance.AccountID, instance.Name, instance.Tags)
 	}
 	if !audited {
 		t.Fatal("adoption was not audited")

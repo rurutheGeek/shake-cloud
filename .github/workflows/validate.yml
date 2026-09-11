@@ -67,6 +67,12 @@ jobs:
         run: |
           go vet ./...
           go test ./...
+      - name: Vet and test the cloud client and CLI
+        run: |
+          for dir in cloud/client cloud/cli; do
+            echo "== $dir"
+            (cd "$dir" && go vet ./... && go test ./...)
+          done
       - name: Lint YAML
         run: python3 -m yamllint -c .yamllint .
       - name: Check publication contents

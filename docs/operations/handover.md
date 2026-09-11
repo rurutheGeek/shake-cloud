@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。**Phase 6 の CLI（`shakecloud`）を実装し、実機APIで確認した（Terraform Provider は未実装）**。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -25,8 +25,9 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | 3 | [IaCの所有境界](../architecture/iac.md) | 誰が何を作るか、宣言ファイルの置き場所 |
 | 4 | [クラウドAPIの構築](cloud.md) | 実機で行った手順・実測値・確認結果。API の配備と運用は 3-8 |
 | 5 | `cloud/openapi/shakecloud.yaml` | API の正本。エンドポイント・フィールド・エラーコード |
-| 6 | [Terraformの実行](terraform.md) | plan/apply の方法と、中断時の回収 |
-| 7 | [秘密値の管理](secrets.md) | SOPS と age の扱い |
+| 6 | [shakecloud CLI](cli.md) | コマンドからの操作。アクセスキーの使い方とサブコマンド |
+| 7 | [Terraformの実行](terraform.md) | plan/apply の方法と、中断時の回収 |
+| 8 | [秘密値の管理](secrets.md) | SOPS と age の扱い |
 
 ## 3. 確定した決定
 
@@ -202,7 +203,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | 3 | **イメージのアップロード、SSH鍵ペア、Webコンソール。**2026-09-11 に実機で確認。本物の qcow2 が入って消え、フィンガープリントは `ssh-keygen -lf` と一致し、`user_data` なしで SSH ログインできた（`meta-data` の `public-keys`）。コンソールは API を通した WebSocket の最初のフレームが VM の VNC サーバからの `RFB 003.008` だった（noVNC 1.7.0 を同梱、中継は API）。**ブラウザで画面が描かれるところは、人がポータルから開いて確かめる**。[cloud.md 3-12](cloud.md#3-12)・[3-13](cloud.md#3-13) |
 | ✅ | 4 | **ボリュームとセキュリティグループを実装し、2026-09-11 に実機で確認。** `cloud/api/internal/compute/{volumes,volume_worker,securitygroups,firewall}.go`、DBマイグレーション `0006`、API エンドポイント、ポータル画面、Terraform の DC FW 有効化まで含む。実機では `volume_reassign`・`vm_firewall` プローブが PASS、ボリュームの作成→アタッチ→ゲストで `/dev/disk/by-id/virtio-<serial>` 認識→拡張→デタッチ→削除が通り、SSH のみ許可した SG で 8000 番と ICMP が遮断・許可ルール追加で回復した。残骸なし。**検証中に見つけた「ルール変更で Proxmox が live ruleset を再構築しない」バグを修正**（`setFilteredOptions` を毎回書く。§10 参照）。再現は `tools/verify-volumes.py`（`tests/test_verify_volumes.py` が判定を検査） |
 | ✅ | 5 | **セルフサービスポータルを完成させ、ブートストラップ管理キーを無効化（2026-09-11）。** ポータルはVM・ボリューム・SG（受信/送信ルール）・イメージ・SSH鍵・アクセスキー・容量・上限・操作履歴を扱え、古い文言も直した。既存VMの引き取りも実装し、**game1（VMID 100）を `shunyazhiyuan97` として引き取り済み**（`i-bec54e3a0169b3660`、IP `192.168.10.127` を NetBox に予約）。ブートストラップ管理キーは無効化し、以後はポータル発行のアクセスキーを使う（緊急時は `manage.py rotate-bootstrap-key`） |
-| ⬜ | 6 | Terraform Provider（`shakecloud_*`）と CLI |
+| 🟨 | 6 | **CLI を実装（`cloud/client` と `cloud/cli`）。** アクセスキー認証で identity・capacity・limits・events・instance（作成/電源/削除/コンソール/SG/サイズ変更/引き取り）・volume・sg（受信/送信ルール）・image（アップロード含む）・key・access-key を操作。標準ライブラリのみ、外部依存なし。2026-09-11 に実機 API で確認。**残りは Terraform Provider（`shakecloud_*`）**。[CLI の使い方](cli.md) |
 | ⬜ | 7 | Garage（`storage-s3` VM）と、バケット・S3 キーの API |
 | ⬜ | 8 | VLAN への切替 |
 
