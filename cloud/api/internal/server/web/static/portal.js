@@ -1,6 +1,6 @@
 'use strict';
-// Phase 1 portal. Uses the same JSON API as Terraform, authenticated by the
-// session cookie. The self-service portal replaces it in Phase 5.
+// The self-service portal. It uses the same JSON API as Terraform and the CLI,
+// authenticated by the session cookie, and holds no state of its own.
 (() => {
   const $ = (id) => document.getElementById(id);
   if (!$('keys')) return; // logged out
@@ -530,6 +530,12 @@
 
     const nameCell = document.createElement('td');
     nameCell.append((instance.tags && instance.tags.Name) || '—');
+    if (instance.adopted) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = '引き取り';
+      nameCell.append(badge);
+    }
     if (instance.state_reason) {
       const reason = document.createElement('div');
       reason.className = 'muted small';
@@ -574,7 +580,7 @@
       cell(instance.owner_username || instance.account_id),
       stateCell,
       cell(instance.private_ip_address || '—'),
-      cell(instance.image_name || instance.image_id),
+      cell(instance.adopted ? '—（引き取り）' : (instance.image_name || instance.image_id)),
       configCell,
       cell(instance.root_disk_gib + ' GiB'),
       groupsCell,

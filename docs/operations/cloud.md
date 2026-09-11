@@ -1,6 +1,6 @@
 # クラウドAPIの構築
 
-更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5 の既存VMの引き取りを実装（3-15）**。
+更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）**。
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -23,7 +23,7 @@
 | Phase 4（追加ボリューム、セキュリティグループ、データセンターFW有効化） | `cloud/api/internal/compute/{volumes,securitygroups,firewall}.go`、`platform/terraform/00-bootstrap/firewall.tf`（3-14） |
 | Phase 5（既存VMの引き取り） | `POST /v1/instances/adopt`、`cloud/api/internal/compute/adopt.go`、DBマイグレーション `0007`（3-15） |
 
-**まだ無いもの**: セルフサービスポータルの仕上げ、CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
+**まだ無いもの**: CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 
@@ -285,11 +285,20 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 - 削除したキーは行を残して無効にします。監査ログがキーIDを指したままにするためです。
 - 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。cloud-admins は誰のキーでも削除できます。
 
-#### ブートストラップ管理キー
+#### ブートストラップ管理キー（2026-09-11 に無効化済み）
 
-ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。Phase 2 の開発中はこれを使います。持ち主は `bootstrap-admin` という専用アカウントで、cloud-admins と同じく全体が見えます。
+ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。持ち主は `bootstrap-admin` という専用アカウントで、cloud-admins と同じく全体が見えます。
 
-取り出し方（dev-b で実行）:
+**セルフサービスが実利用できるようになったので、2026-09-11 に無効化しました**（ファイルは空、DBのキーは失効）。以後の機械アクセスは、ポータルにログインして発行するアクセスキーを使ってください。`akadmin` は `cloud-admins` に入っているので、`https://cloud.apextox.dpdns.org` からログインしてキーを発行できます。
+
+再び管理用キーが要る場合（ポータルに入れない等の緊急時）:
+
+```bash
+ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205
+sudo sh -c 'cd /opt/cloud-stack && python3 manage.py rotate-bootstrap-key'
+```
+
+取り出し方（無効化前・再有効化後のみ。通常は空）:
 
 ```bash
 ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key
@@ -305,10 +314,10 @@ curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpd
 
 | やりたいこと | cloud-01 の `/opt/cloud-stack` で実行 |
 | --- | --- |
-| 取り替える（古いキーは失効） | `sudo python3 manage.py rotate-bootstrap-key` |
-| 無効にする | `sudo python3 manage.py disable-bootstrap-key` |
+| 取り替える（古いキーは失効） | `sudo sh -c 'cd /opt/cloud-stack && python3 manage.py rotate-bootstrap-key'` |
+| 無効にする | `sudo sh -c 'cd /opt/cloud-stack && python3 manage.py disable-bootstrap-key'` |
 
-ただし、**API から削除したキーはファイルに残っていても復活しません**。緊急の失効を再起動で取り消さないためです。使い直すときは `rotate-bootstrap-key` で新しいキーにします。セルフサービスポータルができたら無効にします。
+ただし、**API から削除したキーはファイルに残っていても復活しません**。緊急の失効を再起動で取り消さないためです。使い直すときは `rotate-bootstrap-key` で新しいキーにします。
 
 #### 監査ログ
 

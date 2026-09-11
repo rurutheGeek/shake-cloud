@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 の既存VMの引き取りは実装済みで、2026-09-11 に **game1（VMID 100）を `shunyazhiyuan97` として実機で引き取り済み**（プール移動・既定SG適用・稼働継続を確認）。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -68,7 +68,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | HTTPS の入口 | 各ホストの Caddy（`stacks/tls-proxy/`）が Let's Encrypt の証明書を DNS-01 で取り、同じホストの 127.0.0.1 のサービスへ中継する。1台に集めず各ホストに置くのは、認証基盤（identity）を他のホストの障害に巻き込まないため。代わりに Cloudflare の DNS トークンが各ホストに載る |
 | ドメイン | **`apextox.dpdns.org`**（DigitalPlat の無料ドメイン。DNS は Cloudflare に委任）。**インターネットには公開しない。** グローバルIPも使わず、HTTPS の証明書を DNS-01 で取るためにだけ使う。`home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるため |
 | OIDC クライアントの秘密値 | **SOPS へ複製しない。** 正本は identity VM の `oidc-cloud.json` で、`cloud.yml` が配備のたびに直接写す。2か所に持つと、作り直したときに食い違うため |
-| ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。セルフサービスポータルができたら無効にする |
+| ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。**2026-09-11 に無効化した**（以後はポータルでログインして発行するアクセスキーを使う。緊急時は `rotate-bootstrap-key` で作り直す） |
 | インスタンスの上限 | **既定値は `platform/terraform/cloud.yaml`、変更は `cloud-admins` が実行中に行う**（`PUT /v1/limits` かポータルの「上限」）。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねる（同じ事実を2か所に持たない）。既定は1アカウント 8台・32vCPU・32GiB・ディスク計 1000GiB、クラウド全体のメモリ枠 32GiB、ノードに 4GiB 残す、ディスク実使用率 85%。**0 は無制限。**停止中も数える |
 | 上限とホストの保護の関係 | **上限の合計が物理メモリを超えることを許す**（バルーニング前提）。物理を見ているのは「ノードの `available` が指定量残るか」と「ディスクの実使用率」の2つだけで、これは上限を無制限にしても残る。この2つを 0 にすると基盤VMごと倒せる。[配備台帳の実測](../architecture/operations.md#measured-budget) |
 | VMID | API が 5000–5999 から採番する。**他が使っていた VMID は隔離し、二度と払い出さない**。プローブ用の 5998・5999 は使わない |
@@ -113,7 +113,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | identity の `/opt/identity-stack/secrets/bootstrap_password` |
 | クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`cloud-users` か `cloud-admins`） | Authentik 側。`akadmin` は `cloud-admins` に入っている |
-| クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用は cloud-01 の `/opt/cloud-stack/secrets/bootstrap_admin_key` |
+| クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用ブートストラップキーは 2026-09-11 に無効化（§6 Phase 5）。緊急時は cloud-01 で `manage.py rotate-bootstrap-key` |
 | 開発VM への SSH | `debian@192.168.10.202` / `.203` | パスワードまたは鍵 | `.local/devvm-passwords.yml`（**devbox の playbook を実行した作業機の手元にだけある平文**。dev-b には無い） |
 | 基盤VM への SSH（services-01、identity、cloud-01、probe-01） | `debian@<IP>` | 鍵のみ | 鍵は `platform/terraform/access.yaml`。dev-b からは `~/.ssh/id_ed25519_pve` |
 | Terraform の state | Cloudflare R2 | アクセスキー | `platform/sops/s3.sops.yaml` |
@@ -201,7 +201,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | 2 の追加 | **大きさを自由に指定できるようにし、GUI に一覧と編集を出した。**`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定（`instance_type` は任意の近道）。`PATCH /v1/instances/{id}`（管理者のみ）。ポータルの「インスタンス」で作成・電源・削除・編集ができ、**クラウドの全VMが所有者名つきで並ぶ**。2026-09-11 に実機で確認（バルーニングなしで `balloon=0`、稼働中のディスク拡大、縮小の拒否、停止後の vCPU・メモリ・バルーニング変更が実物に反映、削除して残骸なし）。[cloud.md 3-10](cloud.md) |
 | ✅ | 3 | **イメージのアップロード、SSH鍵ペア、Webコンソール。**2026-09-11 に実機で確認。本物の qcow2 が入って消え、フィンガープリントは `ssh-keygen -lf` と一致し、`user_data` なしで SSH ログインできた（`meta-data` の `public-keys`）。コンソールは API を通した WebSocket の最初のフレームが VM の VNC サーバからの `RFB 003.008` だった（noVNC 1.7.0 を同梱、中継は API）。**ブラウザで画面が描かれるところは、人がポータルから開いて確かめる**。[cloud.md 3-12](cloud.md#3-12)・[3-13](cloud.md#3-13) |
 | ✅ | 4 | **ボリュームとセキュリティグループを実装し、2026-09-11 に実機で確認。** `cloud/api/internal/compute/{volumes,volume_worker,securitygroups,firewall}.go`、DBマイグレーション `0006`、API エンドポイント、ポータル画面、Terraform の DC FW 有効化まで含む。実機では `volume_reassign`・`vm_firewall` プローブが PASS、ボリュームの作成→アタッチ→ゲストで `/dev/disk/by-id/virtio-<serial>` 認識→拡張→デタッチ→削除が通り、SSH のみ許可した SG で 8000 番と ICMP が遮断・許可ルール追加で回復した。残骸なし。**検証中に見つけた「ルール変更で Proxmox が live ruleset を再構築しない」バグを修正**（`setFilteredOptions` を毎回書く。§10 参照）。再現は `tools/verify-volumes.py`（`tests/test_verify_volumes.py` が判定を検査） |
-| 🟨 | 5 | **既存VMの引き取りを実装し、実機で確認（2026-09-11）。** `POST /v1/instances/adopt`（cloud-admins のみ、DBマイグレーション `0007`）。**game1（VMID 100）を `cloud` プールへ移して `shunyazhiyuan97` のインスタンスとして引き取り済み**（`i-bec54e3a0169b3660`、IP `192.168.10.127` を NetBox に予約）。Mac・スペック読み取り、重複 409、terminate で残骸なしも確認。**残りはポータルの仕上げと、ブートストラップ管理キーの無効化** |
+| ✅ | 5 | **セルフサービスポータルを完成させ、ブートストラップ管理キーを無効化（2026-09-11）。** ポータルはVM・ボリューム・SG（受信/送信ルール）・イメージ・SSH鍵・アクセスキー・容量・上限・操作履歴を扱え、古い文言も直した。既存VMの引き取りも実装し、**game1（VMID 100）を `shunyazhiyuan97` として引き取り済み**（`i-bec54e3a0169b3660`、IP `192.168.10.127` を NetBox に予約）。ブートストラップ管理キーは無効化し、以後はポータル発行のアクセスキーを使う（緊急時は `manage.py rotate-bootstrap-key`） |
 | ⬜ | 6 | Terraform Provider（`shakecloud_*`）と CLI |
 | ⬜ | 7 | Garage（`storage-s3` VM）と、バケット・S3 キーの API |
 | ⬜ | 8 | VLAN への切替 |
@@ -243,7 +243,7 @@ VM の中にある秘密値は、次の場所で自動生成されています�
 | --- | --- |
 | services-01 `/opt/netbox-stack/secrets/` | NetBox の DB・鍵、各トークン（`inventory` / `terraform` / `cloudapi`） |
 | identity `/opt/identity-stack/secrets/` | Authentik の DB・鍵、`akadmin` の初期パスワード、ブートストラップトークン、`oidc-cloud.json` |
-| cloud-01 `/opt/cloud-stack/secrets/` | 管理DBのパスワード、ブートストラップ管理キー、`oidc_credentials`（identity の `oidc-cloud.json` の写し） |
+| cloud-01 `/opt/cloud-stack/secrets/` | 管理DBのパスワード、`oidc_credentials`（identity の `oidc-cloud.json` の写し）。`bootstrap_admin_key` は 2026-09-11 に無効化して空 |
 | identity・cloud-01・services-01 の `/opt/tls-proxy/secrets/` | Cloudflare の DNS 編集トークン（`cloudflare-dns.sops.yaml` の写し）。証明書は `/srv/tls-proxy/storage/data` |
 
 リポジトリ側の暗号化済みファイルは次のとおりです。
@@ -295,8 +295,10 @@ cd cloud/api && go vet ./... && go test ./...
 
 実機で「API から VM が1台できて、片付けまで済む」ことは次で確かめます。作成→SSH→削除まで行い、残骸があれば失敗します。
 
+**アクセスキーはポータルで発行したものを使います**（ブートストラップ管理キーは 2026-09-11 に無効化済み。§5・§6 Phase 5）。ポータルにログイン →「アクセスキー」→ 発行し、表示された一度きりの値を環境変数に入れます。どうしても管理キーが要る場合は `manage.py rotate-bootstrap-key` で作り直します。
+
 ```bash
-export SHAKECLOUD_ACCESS_KEY=$(ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key)
+export SHAKECLOUD_ACCESS_KEY='sca_...'   # ポータルで発行したアクセスキー
 ```
 
 ```bash
