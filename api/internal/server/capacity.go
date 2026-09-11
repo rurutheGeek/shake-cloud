@@ -18,6 +18,13 @@ type quotaBody struct {
 	VCPUs       int `json:"vcpus"`
 	MemoryMiB   int `json:"memory_mib"`
 	RootDiskGiB int `json:"root_disk_gib"`
+	Volumes     int `json:"volumes"`
+	VolumeGiB   int `json:"volume_gib"`
+}
+
+type volumeSizeBody struct {
+	Min int `json:"min"`
+	Max int `json:"max"`
 }
 
 type rootDiskBody struct {
@@ -31,23 +38,28 @@ type capacityLimitsBody struct {
 	NodeMemoryReserveMiB int `json:"node_memory_reserve_mib"`
 	VMDiskMaxUsedPercent int `json:"vm_disk_max_used_percent"`
 	ImageStoreMinFreeMiB int `json:"image_store_min_free_mib"`
+	MaxImageGiB          int `json:"max_image_gib"`
 }
 
 type limitsBody struct {
-	AccountQuota quotaBody          `json:"account_quota"`
-	RootDiskGiB  rootDiskBody       `json:"root_disk_gib"`
-	Capacity     capacityLimitsBody `json:"capacity"`
+	AccountQuota  quotaBody          `json:"account_quota"`
+	RootDiskGiB   rootDiskBody       `json:"root_disk_gib"`
+	VolumeSizeGiB volumeSizeBody     `json:"volume_size_gib"`
+	Capacity      capacityLimitsBody `json:"capacity"`
 }
 
 func limitsJSON(l site.Limits) limitsBody {
 	return limitsBody{
 		AccountQuota: quotaBody{Instances: l.AccountQuota.Instances, VCPUs: l.AccountQuota.VCPUs,
-			MemoryMiB: l.AccountQuota.MemoryMiB, RootDiskGiB: l.AccountQuota.RootDiskGiB},
-		RootDiskGiB: rootDiskBody{Min: l.RootDiskGiB.Min, Default: l.RootDiskGiB.Default, Max: l.RootDiskGiB.Max},
+			MemoryMiB: l.AccountQuota.MemoryMiB, RootDiskGiB: l.AccountQuota.RootDiskGiB,
+			Volumes: l.AccountQuota.Volumes, VolumeGiB: l.AccountQuota.VolumeGiB},
+		VolumeSizeGiB: volumeSizeBody{Min: l.VolumeSizeGiB.Min, Max: l.VolumeSizeGiB.Max},
+		RootDiskGiB:   rootDiskBody{Min: l.RootDiskGiB.Min, Default: l.RootDiskGiB.Default, Max: l.RootDiskGiB.Max},
 		Capacity: capacityLimitsBody{MemoryBudgetMiB: l.Capacity.MemoryBudgetMiB,
 			NodeMemoryReserveMiB: l.Capacity.NodeMemoryReserveMiB,
 			VMDiskMaxUsedPercent: l.Capacity.VMDiskMaxUsedPercent,
-			ImageStoreMinFreeMiB: l.Capacity.ImageStoreMinFreeMiB},
+			ImageStoreMinFreeMiB: l.Capacity.ImageStoreMinFreeMiB,
+			MaxImageGiB:          l.Capacity.MaxImageGiB},
 	}
 }
 
@@ -59,6 +71,13 @@ type quotaPatch struct {
 	VCPUs       *int `json:"vcpus,omitempty"`
 	MemoryMiB   *int `json:"memory_mib,omitempty"`
 	RootDiskGiB *int `json:"root_disk_gib,omitempty"`
+	Volumes     *int `json:"volumes,omitempty"`
+	VolumeGiB   *int `json:"volume_gib,omitempty"`
+}
+
+type volumeSizePatch struct {
+	Min *int `json:"min,omitempty"`
+	Max *int `json:"max,omitempty"`
 }
 
 type rootDiskPatch struct {
@@ -72,12 +91,14 @@ type capacityPatch struct {
 	NodeMemoryReserveMiB *int `json:"node_memory_reserve_mib,omitempty"`
 	VMDiskMaxUsedPercent *int `json:"vm_disk_max_used_percent,omitempty"`
 	ImageStoreMinFreeMiB *int `json:"image_store_min_free_mib,omitempty"`
+	MaxImageGiB          *int `json:"max_image_gib,omitempty"`
 }
 
 type limitsPatch struct {
-	AccountQuota *quotaPatch    `json:"account_quota,omitempty"`
-	RootDiskGiB  *rootDiskPatch `json:"root_disk_gib,omitempty"`
-	Capacity     *capacityPatch `json:"capacity,omitempty"`
+	AccountQuota  *quotaPatch      `json:"account_quota,omitempty"`
+	RootDiskGiB   *rootDiskPatch   `json:"root_disk_gib,omitempty"`
+	VolumeSizeGiB *volumeSizePatch `json:"volume_size_gib,omitempty"`
+	Capacity      *capacityPatch   `json:"capacity,omitempty"`
 }
 
 func (p limitsPatch) overrides() db.LimitOverrides {
@@ -85,6 +106,10 @@ func (p limitsPatch) overrides() db.LimitOverrides {
 	if q := p.AccountQuota; q != nil {
 		o.AccountInstances, o.AccountVCPUs = q.Instances, q.VCPUs
 		o.AccountMemoryMiB, o.AccountRootDiskGiB = q.MemoryMiB, q.RootDiskGiB
+		o.AccountVolumes, o.AccountVolumeGiB = q.Volumes, q.VolumeGiB
+	}
+	if v := p.VolumeSizeGiB; v != nil {
+		o.VolumeMinGiB, o.VolumeMaxGiB = v.Min, v.Max
 	}
 	if d := p.RootDiskGiB; d != nil {
 		o.RootDiskMinGiB, o.RootDiskDefaultGiB, o.RootDiskMaxGiB = d.Min, d.Default, d.Max
@@ -92,22 +117,30 @@ func (p limitsPatch) overrides() db.LimitOverrides {
 	if c := p.Capacity; c != nil {
 		o.MemoryBudgetMiB, o.NodeMemoryReserveMiB = c.MemoryBudgetMiB, c.NodeMemoryReserveMiB
 		o.VMDiskMaxUsedPercent, o.ImageStoreMinFreeMiB = c.VMDiskMaxUsedPercent, c.ImageStoreMinFreeMiB
+		o.MaxImageGiB = c.MaxImageGiB
 	}
 	return o
 }
 
 func overridesJSON(o db.LimitOverrides) limitsPatch {
 	var p limitsPatch
-	if o.AccountInstances != nil || o.AccountVCPUs != nil || o.AccountMemoryMiB != nil || o.AccountRootDiskGiB != nil {
+	if o.AccountInstances != nil || o.AccountVCPUs != nil || o.AccountMemoryMiB != nil || o.AccountRootDiskGiB != nil ||
+		o.AccountVolumes != nil || o.AccountVolumeGiB != nil {
 		p.AccountQuota = &quotaPatch{Instances: o.AccountInstances, VCPUs: o.AccountVCPUs,
-			MemoryMiB: o.AccountMemoryMiB, RootDiskGiB: o.AccountRootDiskGiB}
+			MemoryMiB: o.AccountMemoryMiB, RootDiskGiB: o.AccountRootDiskGiB,
+			Volumes: o.AccountVolumes, VolumeGiB: o.AccountVolumeGiB}
+	}
+	if o.VolumeMinGiB != nil || o.VolumeMaxGiB != nil {
+		p.VolumeSizeGiB = &volumeSizePatch{Min: o.VolumeMinGiB, Max: o.VolumeMaxGiB}
 	}
 	if o.RootDiskMinGiB != nil || o.RootDiskDefaultGiB != nil || o.RootDiskMaxGiB != nil {
 		p.RootDiskGiB = &rootDiskPatch{Min: o.RootDiskMinGiB, Default: o.RootDiskDefaultGiB, Max: o.RootDiskMaxGiB}
 	}
-	if o.MemoryBudgetMiB != nil || o.NodeMemoryReserveMiB != nil || o.VMDiskMaxUsedPercent != nil || o.ImageStoreMinFreeMiB != nil {
+	if o.MemoryBudgetMiB != nil || o.NodeMemoryReserveMiB != nil || o.VMDiskMaxUsedPercent != nil ||
+		o.ImageStoreMinFreeMiB != nil || o.MaxImageGiB != nil {
 		p.Capacity = &capacityPatch{MemoryBudgetMiB: o.MemoryBudgetMiB, NodeMemoryReserveMiB: o.NodeMemoryReserveMiB,
-			VMDiskMaxUsedPercent: o.VMDiskMaxUsedPercent, ImageStoreMinFreeMiB: o.ImageStoreMinFreeMiB}
+			VMDiskMaxUsedPercent: o.VMDiskMaxUsedPercent, ImageStoreMinFreeMiB: o.ImageStoreMinFreeMiB,
+			MaxImageGiB: o.MaxImageGiB}
 	}
 	return p
 }
@@ -197,9 +230,12 @@ func (s *Server) describeCapacity(w http.ResponseWriter, r *http.Request, c *cal
 		VCPUs       int    `json:"vcpus"`
 		MemoryMiB   int    `json:"memory_mib"`
 		RootDiskGiB int    `json:"root_disk_gib"`
+		Volumes     int    `json:"volumes"`
+		VolumeGiB   int    `json:"volume_gib"`
 	}
 	usage := func(u db.Usage) usageBody {
-		return usageBody{Instances: u.Instances, VCPUs: u.VCPUs, MemoryMiB: u.MemoryMiB, RootDiskGiB: u.RootDiskGiB}
+		return usageBody{Instances: u.Instances, VCPUs: u.VCPUs, MemoryMiB: u.MemoryMiB, RootDiskGiB: u.RootDiskGiB,
+			Volumes: u.Volumes, VolumeGiB: u.VolumeGiB}
 	}
 	node := capacity.Node
 	body := map[string]any{

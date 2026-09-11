@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>コンソール — {{if .InstanceName}}{{.InstanceName}} ({{.InstanceID}}){{else}}{{.InstanceID}}{{end}}</title>
+<link rel="stylesheet" href="/static/console.css">
+<script type="module" src="/static/console.js"></script>
+</head>
+<body>
+<div id="console"
+     data-instance-id="{{.InstanceID}}"
+     data-password="{{.Password}}"
+     data-websocket-path="{{.WebSocketPath}}">
+  <header id="bar">
+    <div class="who">
+      <strong>{{if .InstanceName}}{{.InstanceName}}{{else}}—{{end}}</strong>
+      <span class="muted">{{.InstanceID}}</span>
+      <span id="console-status" class="muted">接続中…</span>
+    </div>
+    <div class="actions">
+      <button id="ctrl-alt-del" type="button">Ctrl+Alt+Del</button>
+      <button id="fullscreen" type="button">全画面</button>
+      <button id="scale" type="button" aria-pressed="true">画面に合わせる</button>
+      <button id="disconnect" type="button">切断</button>
+    </div>
+  </header>
+  <div id="screen"></div>
+</div>
+</body>
+</html>

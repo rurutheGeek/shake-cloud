@@ -86,11 +86,24 @@ func (s *Server) observe(next http.Handler) http.Handler {
 			if r.URL.Path == "/healthz" && recorder.status == http.StatusOK {
 				return // the container health check would drown everything else
 			}
-			s.log.Info("request", "request_id", id, "method", r.Method, "path", r.URL.Path,
+			s.log.Info("request", "request_id", id, "method", r.Method, "path", loggedPath(r.URL.Path),
 				"status", recorder.status, "duration_ms", time.Since(start).Milliseconds(), "source_ip", sourceIP(r))
 		}()
 		next.ServeHTTP(recorder, r)
 	})
+}
+
+// loggedPath hides the token in a console URL. The URL only works for the
+// account it was issued to, but a log line is read by more people than that.
+func loggedPath(path string) string {
+	rest, ok := strings.CutPrefix(path, "/console/")
+	if !ok {
+		return path
+	}
+	if strings.HasSuffix(rest, "/ws") {
+		return "/console/{token}/ws"
+	}
+	return "/console/{token}"
 }
 
 type statusRecorder struct {
@@ -110,6 +123,12 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	r.wrote = true
 	return r.ResponseWriter.Write(b)
 }
+
+// Unwrap lets http.ResponseController reach the real writer through this
+// wrapper. Without it, a handler that needs to change a deadline — the image
+// upload, which takes far longer than the server's read timeout — is told the
+// feature is not supported.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 func requestID(r *http.Request) string {
 	id, _ := r.Context().Value(requestIDKey{}).(string)

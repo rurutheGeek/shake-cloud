@@ -50,6 +50,10 @@ type Config struct {
 	SiteFile        string
 	// WorkDir is where seed ISOs are built. It must be writable.
 	WorkDir string
+	// UploadDir is disk-backed space for an uploaded image on its way to the
+	// node. It must not be WorkDir, which is a tmpfs: images do not fit in RAM.
+	// Empty means uploads are refused, which is better than filling memory.
+	UploadDir string
 }
 
 // ComputeConfigured reports whether the instance endpoints can run.
@@ -132,6 +136,7 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.NetBoxURL = strings.TrimRight(getenv("SHAKECLOUD_NETBOX_URL"), "/")
 	cfg.SiteFile = getenv("SHAKECLOUD_SITE_FILE")
 	cfg.WorkDir = withDefault(getenv("SHAKECLOUD_WORK_DIR"), os.TempDir())
+	cfg.UploadDir = getenv("SHAKECLOUD_UPLOAD_DIR")
 	if raw := getenv("SHAKECLOUD_PROXMOX_INSECURE"); raw != "" {
 		insecure, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {

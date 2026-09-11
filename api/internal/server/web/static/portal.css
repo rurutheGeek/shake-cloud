@@ -68,3 +68,31 @@ input[type="checkbox"] { min-width: auto; }
 .state-pending, .state-stopping, .state-shutting-down { color: var(--warn); }
 tr.edit-row td { background: var(--bg); }
 tr.edit-row form { margin: 0.5rem 0; }
+
+/* Images / SSH keys section */
+progress { width: 12rem; height: 8px; border: none; border-radius: 999px; overflow: hidden; vertical-align: middle; }
+progress::-webkit-progress-bar { background: var(--line); border-radius: 999px; }
+progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; }
+progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
+
+/* Volumes section: reuses .state for state badges (creating/deleting are
+   transient like an instance's pending/stopping; deleted is greyed like a
+   terminated instance). */
+.state-creating, .state-deleting { color: var(--warn); }
+.state-deleted { color: var(--muted); }
+.state-error { color: var(--danger); }
+code { padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+
+/* A checkbox list nested in a fieldset (create-instance's security groups,
+   and the instance table's per-row security-groups edit row): overrides the
+   fieldset's own label layout, which is a column meant for a text field's
+   own caption. */
+.checklist { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+.checklist label { flex-direction: row; align-items: center; color: var(--fg); font-size: 0.85rem; }
+
+/* Security groups section: one card per group, each with its own ingress and
+   egress rule tables plus an add-rule form. */
+.group-card { border: 1px solid var(--line); border-radius: 6px; padding: 0.6rem 1rem 1rem; margin: 0.75rem 0; }
+.group-head { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.group-card table { margin-bottom: 0.5rem; }
+.add-rule { margin-top: 0.5rem; }

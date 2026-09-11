@@ -16,6 +16,8 @@ BOOTSTRAP_KEY = 'bootstrap_admin_key'
 OIDC_CREDENTIALS = 'oidc_credentials'
 # The postgres user in the official alpine image.
 POSTGRES_UID = 70
+# The nonroot user in the distroless base image the API runs as (api/Dockerfile).
+API_UID = 65532
 
 
 def run(args, **kwargs):
@@ -76,6 +78,19 @@ def init():
         # must belong to that user; the entrypoint only fixes the leaf.
         os.chown(path, POSTGRES_UID, POSTGRES_UID)
         changed = True
+
+    # Where an uploaded image waits while it is handed to Proxmox. It has to be
+    # real disk: the node refuses a body of unknown length, so the API writes
+    # the upload down to learn its size, and an image does not fit in RAM. The
+    # API runs as the distroless nonroot user, so the mount must belong to it.
+    uploads = storage() / 'uploads'
+    if not uploads.exists():
+        uploads.mkdir(parents=True, mode=0o750)
+        changed = True
+    if uploads.stat().st_uid != API_UID:
+        os.chown(uploads, API_UID, API_UID)
+        changed = True
+
     directory = ROOT / 'secrets'
     directory.mkdir(exist_ok=True, mode=0o700)
     directory.chmod(0o700)

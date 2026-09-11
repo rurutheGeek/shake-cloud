@@ -32,8 +32,14 @@ func (s *Service) RunWorker(ctx context.Context) {
 	}
 }
 
-// WorkOnce claims and processes one instance, reporting whether there was any work.
+// WorkOnce carries out one piece of work, reporting whether there was any:
+// an instance action first, then a volume action, then a firewall to write.
+// One at a time, so two steps never edit the same VM's config at once.
 func (s *Service) WorkOnce(ctx context.Context) bool {
+	return s.workInstanceOnce(ctx) || s.workVolumeOnce(ctx) || s.workFirewallOnce(ctx)
+}
+
+func (s *Service) workInstanceOnce(ctx context.Context) bool {
 	instance, err := db.ClaimWork(ctx, s.Pool, 15*time.Minute)
 	if errors.Is(err, db.ErrNotFound) {
 		return false
@@ -167,6 +173,10 @@ func (s *Service) launch(ctx context.Context, instance db.Instance) error {
 	if err := s.growDisk(ctx, instance, vmid); err != nil {
 		return fmt.Errorf("resize disk: %w", err)
 	}
+	// Before the first boot, so the guest is never reachable beyond its groups.
+	if err := s.writeFirewall(ctx, instance.ID); err != nil {
+		return fmt.Errorf("firewall: %w", err)
+	}
 	status, err := s.PVE.VMStatus(ctx, vmid)
 	if err != nil {
 		return err
@@ -229,6 +239,9 @@ func (s *Service) uploadSeed(ctx context.Context, instance db.Instance, ipAddres
 		InstanceID: instance.ID, Hostname: seed.Hostname(instance.Name, instance.ID), MACAddress: instance.MACAddress,
 		Address: address, Gateway: netip.MustParseAddr(s.Site.Network.Gateway), UserData: instance.UserData,
 	}
+	if instance.KeyPublicKey != "" {
+		config.PublicKeys = []string{instance.KeyPublicKey}
+	}
 	for _, server := range s.Site.Network.DNSServers {
 		config.Nameservers = append(config.Nameservers, netip.MustParseAddr(server))
 	}
@@ -286,8 +299,7 @@ func (s *Service) owns(ctx context.Context, vmid int, instanceID string) (bool, 
 	return strings.Contains(description, instanceID), nil
 }
 
-func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources) url.Values {
-	image := s.Site.Images[instance.ImageID]
+func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume string) url.Values {
 	return url.Values{
 		"vmid":        {strconv.Itoa(vmid)},
 		"name":        {instance.ID},
@@ -298,7 +310,7 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"memory":      {strconv.Itoa(instance.MemoryMiB)},
 		"balloon":     {strconv.Itoa(instance.MemoryMinMiB)},
 		"scsihw":      {"virtio-scsi-single"},
-		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", s.Site.Storage.VMDisks, image.Volume)},
+		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", s.Site.Storage.VMDisks, imageVolume)},
 		"ide2":        {resources.SeedVolume + ",media=cdrom"},
 		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1", instance.MACAddress, s.Site.Network.Bridge)},
 		"boot":        {"order=virtio0"},
@@ -310,6 +322,12 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 
 func (s *Service) createVM(ctx context.Context, instance db.Instance, resources *db.Resources) error {
 	vmid := *resources.VMID
+	// Resolved now rather than at admission: an uploaded image lives in the
+	// ledger, and this is the moment its file is actually needed.
+	image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
+	if err != nil {
+		return err
+	}
 	vms, err := s.PVE.ListVMs(ctx)
 	if err != nil {
 		return err
@@ -322,7 +340,9 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 		}
 		return s.moveVMID(ctx, instance, resources, vms, "occupied by a VM the API did not create")
 	}
-	err = s.task(ctx, func() (string, error) { return s.PVE.CreateVM(ctx, s.vmParams(instance, vmid, *resources)) })
+	err = s.task(ctx, func() (string, error) {
+		return s.PVE.CreateVM(ctx, s.vmParams(instance, vmid, *resources, image.Volume))
+	})
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		// Taken by a VM outside the cloud pool, which the token cannot list.
 		return s.moveVMID(ctx, instance, resources, vms, "Proxmox reports the VMID already exists outside the cloud pool")
@@ -431,6 +451,10 @@ func (s *Service) terminate(ctx context.Context, instance db.Instance) error {
 					if err := s.task(ctx, func() (string, error) { return s.PVE.Power(ctx, vmid, "stop", nil) }); err != nil {
 						return fmt.Errorf("stop: %w", err)
 					}
+				}
+				// Deleting the VM destroys every disk it holds, volumes included.
+				if err := s.returnVolumes(ctx, instance, vmid); err != nil {
+					return fmt.Errorf("return volumes: %w", err)
 				}
 				if err := s.task(ctx, func() (string, error) { return s.PVE.DeleteVM(ctx, vmid) }); err != nil {
 					return fmt.Errorf("delete VM: %w", err)

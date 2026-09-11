@@ -164,13 +164,15 @@ func ValidateLimits(l site.Limits) error {
 	}
 	q, d, c := l.AccountQuota, l.RootDiskGiB, l.Capacity
 	switch {
-	case q.Instances < 0 || q.VCPUs < 0 || q.MemoryMiB < 0 || q.RootDiskGiB < 0:
+	case q.Instances < 0 || q.VCPUs < 0 || q.MemoryMiB < 0 || q.RootDiskGiB < 0 || q.Volumes < 0 || q.VolumeGiB < 0:
 		return bad("account quotas cannot be negative; use 0 for unlimited")
+	case l.VolumeSizeGiB.Min <= 0 || l.VolumeSizeGiB.Max < l.VolumeSizeGiB.Min:
+		return bad("volume sizes must satisfy 1 <= min <= max, got %d <= %d", l.VolumeSizeGiB.Min, l.VolumeSizeGiB.Max)
 	case d.Min <= 0 || d.Default <= 0 || d.Max <= 0:
 		return bad("root disk sizes must be at least 1 GiB")
 	case d.Min > d.Default || d.Default > d.Max:
 		return bad("root disk sizes must satisfy min <= default <= max, got %d <= %d <= %d", d.Min, d.Default, d.Max)
-	case c.MemoryBudgetMiB < 0 || c.NodeMemoryReserveMiB < 0 || c.ImageStoreMinFreeMiB < 0:
+	case c.MemoryBudgetMiB < 0 || c.NodeMemoryReserveMiB < 0 || c.ImageStoreMinFreeMiB < 0 || c.MaxImageGiB < 0:
 		return bad("capacity limits cannot be negative; use 0 to turn one off")
 	case c.VMDiskMaxUsedPercent < 0 || c.VMDiskMaxUsedPercent > 100:
 		return bad("vm_disk_max_used_percent must be between 0 and 100")

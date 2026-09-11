@@ -29,7 +29,7 @@
       <h3>アカウント別</h3>
       <div class="scroll">
         <table>
-          <thead><tr><th>アカウント</th><th>名前</th><th>台数</th><th>vCPU</th><th>メモリ</th><th>ディスク</th></tr></thead>
+          <thead><tr><th>アカウント</th><th>名前</th><th>台数</th><th>vCPU</th><th>メモリ</th><th>ディスク</th><th>ボリューム</th><th>ボリュームGiB</th></tr></thead>
           <tbody id="account-usage"></tbody>
         </table>
       </div>
@@ -49,6 +49,8 @@
         <label>vCPU <input name="account_quota.vcpus" type="number" min="0" step="1"></label>
         <label>メモリ MiB <input name="account_quota.memory_mib" type="number" min="0" step="1"></label>
         <label>ディスク合計 GiB <input name="account_quota.root_disk_gib" type="number" min="0" step="1"></label>
+        <label>ボリューム数 <input name="account_quota.volumes" type="number" min="0" step="1"></label>
+        <label>ボリューム合計 GiB <input name="account_quota.volume_gib" type="number" min="0" step="1"></label>
       </fieldset>
       <fieldset>
         <legend>ルートディスク GiB</legend>
@@ -57,11 +59,17 @@
         <label>最大 <input name="root_disk_gib.max" type="number" min="1" step="1"></label>
       </fieldset>
       <fieldset>
+        <legend>1ボリュームあたりの大きさ GiB</legend>
+        <label>最小 <input name="volume_size_gib.min" type="number" min="1" step="1"></label>
+        <label>最大 <input name="volume_size_gib.max" type="number" min="1" step="1"></label>
+      </fieldset>
+      <fieldset>
         <legend>クラウド全体</legend>
         <label>メモリ枠 MiB <input name="capacity.memory_budget_mib" type="number" min="0" step="1"></label>
         <label>ノードに残す MiB <input name="capacity.node_memory_reserve_mib" type="number" min="0" step="1"></label>
         <label>ディスク使用率の上限 % <input name="capacity.vm_disk_max_used_percent" type="number" min="0" max="100" step="1"></label>
         <label>イメージ置き場の空き MiB <input name="capacity.image_store_min_free_mib" type="number" min="0" step="1"></label>
+        <label>1イメージの上限 GiB <input name="capacity.max_image_gib" type="number" min="0" step="1"></label>
       </fieldset>
       <div class="actions">
         <button type="submit">保存</button>
@@ -93,6 +101,11 @@
         <span class="muted small">ホストが回収できるメモリの下限です</span>
       </label>
       <label>ルートディスク GiB <input name="root_disk_gib" type="number" min="1" step="1"></label>
+      <label>SSH鍵 <select name="key_name"><option value="">使わない</option></select></label>
+      <fieldset>
+        <legend>セキュリティグループ（選ばなければ既定を使います）</legend>
+        <div id="create-instance-groups" class="checklist"></div>
+      </fieldset>
       <label class="wide">user-data
         <textarea name="user_data" rows="4"></textarea>
         <span class="muted small">VMの中から読めるので、秘密情報は書かないでください</span>
@@ -102,10 +115,76 @@
     <div id="instances-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div class="scroll">
         <table>
-          <thead><tr><th>名前</th><th>所有者</th><th>状態</th><th>IP</th><th>イメージ</th><th>構成</th><th>ディスク</th><th>操作</th></tr></thead>
+          <thead><tr><th>名前</th><th>所有者</th><th>状態</th><th>IP</th><th>イメージ</th><th>構成</th><th>ディスク</th><th>セキュリティグループ</th><th>操作</th></tr></thead>
           <tbody id="instances"></tbody>
         </table>
       </div>
+    </div>
+  </section>
+  <section>
+    <h2>ボリューム</h2>
+    <p class="muted">全アカウントのボリュームが並びます。自分のものだけではありません。</p>
+    <form id="create-volume">
+      <label>大きさ GiB <input name="size_gib" type="number" min="1" step="1" required></label>
+      <label>名前 <input name="name" placeholder="例: data"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="volumes-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>ID</th><th>名前</th><th>所有者</th><th>大きさ</th><th>状態</th><th>接続先</th><th>ゲスト内のパス</th><th>操作</th></tr></thead>
+          <tbody id="volumes"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>セキュリティグループ</h2>
+    <p class="muted">既定グループはすべての通信を許可します。絞りたいときは新しいグループを作り、インスタンスに付け替えてください。</p>
+    <form id="create-security-group">
+      <label>名前 <input name="group_name" required maxlength="64" placeholder="例: web"></label>
+      <label>説明 <input name="description" maxlength="256" placeholder="任意"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="security-groups-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="security-groups"></div>
+    </div>
+  </section>
+  <section>
+    <h2>イメージ</h2>
+    <p class="muted">qcow2 / raw のディスクイメージを受け付けます。Proxmox が中身を検証するので、壊れたファイルは弾かれます。</p>
+    <form id="upload-image">
+      <label>名前 <input name="name" required maxlength="128" placeholder="例: ubuntu-24.04"></label>
+      <label>ファイル <input name="file" type="file" required accept=".qcow2,.raw,.img,.vmdk"></label>
+      <button type="submit">アップロード</button>
+      <progress id="upload-progress" max="100" value="0" hidden></progress>
+      <span id="upload-status" class="muted"></span>
+    </form>
+    <div id="images-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>名前</th><th>所有者</th><th>種別</th><th>大きさ</th><th>作成</th><th>操作</th></tr></thead>
+          <tbody id="images"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>SSH鍵</h2>
+    <p class="muted">登録した公開鍵は、これから作るインスタンスの起動時にだけ書き込めます。</p>
+    <form id="import-key-pair">
+      <label>名前 <input name="key_name" required maxlength="64" placeholder="例: laptop"></label>
+      <label class="wide">公開鍵
+        <textarea name="public_key" rows="3" required placeholder="ssh-ed25519 AAAA... user@host"></textarea>
+        <span class="muted small">~/.ssh/id_ed25519.pub の中身をそのまま貼ってください。秘密鍵は貼らないでください。</span>
+      </label>
+      <button type="submit">登録</button>
+    </form>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>名前</th><th>フィンガープリント</th><th>作成</th><th>操作</th></tr></thead>
+        <tbody id="key-pairs"></tbody>
+      </table>
     </div>
   </section>
   <section>
