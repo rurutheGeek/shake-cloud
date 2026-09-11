@@ -19,7 +19,7 @@ pools:
   cloud:
     vmid_from: 5000
     vmid_to: 5999
-    comment: 自作クラウドAPI用の予約枠。現時点では空。VMID 5000-5999
+    comment: 自作クラウドAPIが管理するプール。利用者VM・ボリュームのホルダー・引き取った既存VM（VMIDは5000番台に限らない）
 
 # 自動化ユーザー terraform@pve へ権限を与えるプール。
 # cloud は**含めない**。将来の cloudapi@pve だけが /pool/cloud を触れる。
@@ -35,9 +35,9 @@ reserved_vmids:
   - vm_id: 100
     name: game1
     reason: >-
-      ゲームサーバの開発中VM。手で作られており Terraform 管理外。
-      将来はクラウドAPIの管理下へ移し、ゲームサーバ開発者のアカウントへ
-      紐づける。移すときは cloud プールへ入れる（ACLは /pool/cloud に
-      付いているので、VMIDが5000番台でなくても届く）。
-      docs/architecture/operations.md は VMID 100 を public-edge と
-      計画しているので、**public-edge には別のVMIDを割り当てる**。
+      ゲームサーバのVM。手で作られており Terraform 管理外。
+      2026-09-11 に cloud プールへ移し、クラウドAPIが shunyazhiyuan97 の
+      インスタンスとして引き取った（ACLは /pool/cloud に付いているので、
+      VMIDが5000番台でなくても届く）。VMID 100 はここで確保したままにして、
+      docs/architecture/operations.md が public-edge に計画している番号と
+      衝突しないようにする（**public-edge には別のVMIDを割り当てる**）。

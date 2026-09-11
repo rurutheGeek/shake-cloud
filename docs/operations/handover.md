@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 の既存VMの引き取りは実装済みで、使い捨てVMで実機確認済み（2026-09-11。`game1` の実機引き取りはプール移動を伴うため未実施）。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 の既存VMの引き取りは実装済みで、2026-09-11 に **game1（VMID 100）を `shunyazhiyuan97` として実機で引き取り済み**（プール移動・既定SG適用・稼働継続を確認）。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -82,7 +82,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | 秘密値 | すべて自動生成する。人に鍵を作らせたり、変えさせたりしない |
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
 | ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、旧ハブの「Nextcloud で編集する」仕組みは持ち込まない。Kubernetes ができたら設計どおり worker-01 へ移す |
-| game1（VMID 100） | 開発中の既存VM。後でゲームサーバ開発者のアカウントへ引き取る。VMID は `pools.yaml` の `reserved_vmids` で確保済み |
+| game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
 
 ## 4. いまの実機
 
@@ -90,7 +90,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 
 | VMID | 名前 | IP | 役割 | 状態 |
 | --- | --- | --- | --- | --- |
-| 100 | game1 | — | 開発中のゲームサーバ。台帳外 | 稼働。後でクラウドへ引き取る |
+| 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
@@ -98,7 +98,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 稼働 |
 | 5997 | shakecloud-volumes | — | ボリュームのホルダー（デタッチしたディスクの待機先）。起動しない | 停止。API が初回のボリューム作成時に作る |
 
-`cloud` プール（VMID 5000–5999）にあるのはボリュームのホルダー（5997）だけで、利用者VMは今はありません。IP は、クラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。
+`cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP はクラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
 
 ## 5. サービスの入口とログイン情報の置き場所
 
@@ -201,7 +201,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | 2 の追加 | **大きさを自由に指定できるようにし、GUI に一覧と編集を出した。**`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定（`instance_type` は任意の近道）。`PATCH /v1/instances/{id}`（管理者のみ）。ポータルの「インスタンス」で作成・電源・削除・編集ができ、**クラウドの全VMが所有者名つきで並ぶ**。2026-09-11 に実機で確認（バルーニングなしで `balloon=0`、稼働中のディスク拡大、縮小の拒否、停止後の vCPU・メモリ・バルーニング変更が実物に反映、削除して残骸なし）。[cloud.md 3-10](cloud.md) |
 | ✅ | 3 | **イメージのアップロード、SSH鍵ペア、Webコンソール。**2026-09-11 に実機で確認。本物の qcow2 が入って消え、フィンガープリントは `ssh-keygen -lf` と一致し、`user_data` なしで SSH ログインできた（`meta-data` の `public-keys`）。コンソールは API を通した WebSocket の最初のフレームが VM の VNC サーバからの `RFB 003.008` だった（noVNC 1.7.0 を同梱、中継は API）。**ブラウザで画面が描かれるところは、人がポータルから開いて確かめる**。[cloud.md 3-12](cloud.md#3-12)・[3-13](cloud.md#3-13) |
 | ✅ | 4 | **ボリュームとセキュリティグループを実装し、2026-09-11 に実機で確認。** `cloud/api/internal/compute/{volumes,volume_worker,securitygroups,firewall}.go`、DBマイグレーション `0006`、API エンドポイント、ポータル画面、Terraform の DC FW 有効化まで含む。実機では `volume_reassign`・`vm_firewall` プローブが PASS、ボリュームの作成→アタッチ→ゲストで `/dev/disk/by-id/virtio-<serial>` 認識→拡張→デタッチ→削除が通り、SSH のみ許可した SG で 8000 番と ICMP が遮断・許可ルール追加で回復した。残骸なし。**検証中に見つけた「ルール変更で Proxmox が live ruleset を再構築しない」バグを修正**（`setFilteredOptions` を毎回書く。§10 参照）。再現は `tools/verify-volumes.py`（`tests/test_verify_volumes.py` が判定を検査） |
-| 🟨 | 5 | **既存VMの引き取りを実装し、使い捨てVM(5900)で実機確認（2026-09-11）。** `POST /v1/instances/adopt`（cloud-admins のみ、DBマイグレーション `0007`）。MAC・スペックを読み、重複を 409 で断り、terminate で残骸なく消えることまで確認。管理DBへ `adopted=true` として登録し、以後は電源・コンソール・タグ・SGが効く。プールへ入れる操作はAPIの外（`qm set <vmid> --pool cloud`）。`game1` の実機引き取りはプール移動を伴うので所有者の判断待ち。**残りはポータルの仕上げと、ブートストラップ管理キーの無効化** |
+| 🟨 | 5 | **既存VMの引き取りを実装し、実機で確認（2026-09-11）。** `POST /v1/instances/adopt`（cloud-admins のみ、DBマイグレーション `0007`）。**game1（VMID 100）を `cloud` プールへ移して `shunyazhiyuan97` のインスタンスとして引き取り済み**（`i-bec54e3a0169b3660`、IP `192.168.10.127` を NetBox に予約）。Mac・スペック読み取り、重複 409、terminate で残骸なしも確認。**残りはポータルの仕上げと、ブートストラップ管理キーの無効化** |
 | ⬜ | 6 | Terraform Provider（`shakecloud_*`）と CLI |
 | ⬜ | 7 | Garage（`storage-s3` VM）と、バケット・S3 キーの API |
 | ⬜ | 8 | VLAN への切替 |

@@ -64,11 +64,11 @@
 
 `services-01` は `05-seed` の管轄で、DBを載せるため固定割り当てのままにしています（[配備台帳](../architecture/operations.md)の方針どおり）。
 
-### 食い違い3: VMID 100 の `game1`（記録済み・移行は後）
+### 食い違い3: VMID 100 の `game1`（2026-09-11 に引き取り済み）
 
-`platform/terraform/pools.yaml` の `reserved_vmids` に記録しました。`hosts.yaml` が同じVMIDを使おうとすると**テストが落ちます**。
+`platform/terraform/pools.yaml` の `reserved_vmids` に記録しました。`hosts.yaml` が同じVMIDを使おうとすると**テストが落ちます**。VMID 100 は引き取り後もここで確保したままにします。
 
-将来はクラウドAPIの管理下へ移し、ゲームサーバ開発者のアカウントへ紐づけます。**VMを作り直す必要はありません**。ACLは `/pool/cloud` に付いていてVMIDには付いていないので、`cloud` プールへ入れるだけで `cloudapi@pve` の到達範囲に入ります。詳細は[最小クラウドとProvider](../architecture/cloud.md)の「既にあるVMをクラウド管理下へ移す」。
+2026-09-11 に **VMを作り直さず**、`cloud` プールへ移してクラウドAPIの管理下へ入れ、`shunyazhiyuan97` のインスタンスとして引き取りました。ACLは `/pool/cloud` に付いていてVMIDには付いていないので、プールへ入れるだけで `cloudapi@pve` の到達範囲に入ります。詳細は[最小クラウドとProvider](../architecture/cloud.md)の「既にあるVMをクラウド管理下へ移す」と、この文書の 3-15。
 
 **配備台帳は VMID 100 を `public-edge` と計画しているので、そちらへ別のVMIDを割り当ててください。**
 
@@ -177,7 +177,7 @@ VM単位のファイアウォール（＝セキュリティグループ）は、
 3. **ノードFW→DC FW の順で適用**（`depends_on`）。逆順だと一瞬だけ既定設定で動く隙ができます。
 4. **`nf_conntrack_allow_invalid=1`** を入れ、有効化でゲストの RST が INVALID 扱いで落ちて「拒否」が「無応答（タイムアウト）」に化けるのを防ぎます。プロバイダに項目が無いので `scripts/node-firewall-options.py` が API を直接叩き、値を読み戻して確認します。
 
-絞られるのは `firewall=1` のNICとVM側 `enable=1` が揃ったVMだけです。基底VM（identity・cloud-01・services-01・dev-*）は NIC `firewall=0`、game1 は `firewall=1` でも VM `enable` が無いので影響しません（2026-09-11 実測）。適用後の既存VMへの影響と `nf_conntrack_allow_invalid` の値は、§4 の `vm_firewall` プローブと 3-14 の確認で見えます。
+絞られるのは `firewall=1` のNICとVM側 `enable=1` が揃ったVMだけです。DC FW を有効にした時点（2026-09-11）では、基底VM（identity・cloud-01・services-01・dev-*）は NIC `firewall=0`、game1 は `firewall=1` でも VM `enable` が無いので影響しませんでした。**その後 game1 は引き取り（3-15）で既定SG（全許可）が付き、VM FW が `enable=1` になっています**（all-allow なので透過）。適用後の既存VMへの影響と `nf_conntrack_allow_invalid` の値は、§4 の `vm_firewall` プローブと 3-14 の確認で見えます。
 
 **もし将来 DC FW の設定そのものを手で触る必要が出たら**、物理コンソールか IPMI を用意し、管理端末からの到達を許可するルールを先に入れてから変えてください。通常は `firewall.tf` を編集して `tools/tf 00-bootstrap apply` すれば十分です。
 
@@ -676,7 +676,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.ape
 2. **新プローブ2つが PASS。**`volume_reassign`（`move_disk` の往復と強制破棄）、`vm_firewall`（ルール順序・IPセット・オプション書き込み）。既存4つと合わせて **6/6 PASS**。
 3. **ボリュームの縦串。** API で作成（`creating`→`available`）→ 稼働中インスタンスへアタッチ（`virtio1`、`in-use`）→ ゲスト内に `/dev/disk/by-id/virtio-vol65ff58d26f4697fed` が 1GiB で出現 → 1→2GiB に拡張（ゲストにも反映）→ デタッチ（`available`、デバイス消滅）→ 削除（`deleted`）。ホスト側にディスクもホルダー上の `unusedN` も残りませんでした。
 4. **セキュリティグループの遮断と許容。** SSH（tcp/22、LAN のみ）だけを許可した SG を適用し、**SSH は通り、許可していない tcp/8000 はタイムアウト、ICMP も drop**。8000 を許可するルールを足すと 200 になり、そのルールを消すと再び遮断。`firewall_state` は各変更後に `in-sync` になりました。
-5. **DC FW 有効化で既存VMに影響なし。** identity・cloud-01・services-01・game1 へ SSH/HTTPS で到達でき、`https://cloud.apextox.dpdns.org/healthz` は 200、NetBox と Authentik は 302。基底VMはすべて NIC `firewall=0`、game1 は `firewall=1` だが VM の `enable` が無いため、どちらも絞られません。
+5. **DC FW 有効化で既存VMに影響なし。** identity・cloud-01・services-01・game1 へ SSH/HTTPS で到達でき、`https://cloud.apextox.dpdns.org/healthz` は 200、NetBox と Authentik は 302。基底VMはすべて NIC `firewall=0`、game1 は `firewall=1` だが VM の `enable` が無いため、どちらも絞られません（この確認の後、game1 は 3-15 で引き取り、既定SGが `enable=1` になった）。
 
 再実行するときは §4 のプローブと §9 のインスタンス検証に加え、`tools/verify-volumes.py` を使ってください。このスクリプトは、使い捨てインスタンスを作り、**実際にポートが遮断・許可されるか**（ルールの見た目ではなく）まで見てから、ボリュームの attach/detach と後片付けを確認します。判定は `tests/test_verify_volumes.py` が実機なしで検査します。
 
@@ -720,7 +720,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 
 `adopted` のインスタンスは `owns()` が無条件で持ち主とみなします。APIが作ったVMは description に instance ID を書きますが、引き取ったVMにはそれが無いためです。
 
-**2026-09-11 に使い捨てVM(5900)で実機確認済み**: Proxmox で直接作ったVM（ディスク無し・`root_disk_gib` 指定）を adopt → `GET` で `adopted=true`、重複 adopt は 409 `InvalidParameterValue`、terminate でVMが消えて残骸なし、までを確認しました。`game1`（VMID 100）は `qm set 100 --pool cloud` でプールへ移してから、所有者のアカウントIDを指定して adopt します。
+**2026-09-11 に実機で確認済み**: 使い捨てVM(5900)で、Proxmox で直接作ったVM（ディスク無し・`root_disk_gib` 指定）を adopt → `GET` で `adopted=true`、重複 adopt は 409 `InvalidParameterValue`、terminate でVMが消えて残骸なし、までを確認。さらに **game1（VMID 100）を実際に引き取りました**: プールへ移す操作は API ではなく root トークンで `PUT /pools/cloud`（vms=100）を実行し、所有者 `shunyazhiyuan97`（`account_id` `154909253172`）と `private_ip_address` `192.168.10.127` を指定して adopt。`state=running`・`adopted=true`・既定SGが `in-sync` になり、**game1 は稼働を続け ping も通る**ことを確認しました。`.127` は NetBox に予約登録し、新規VMに払い出されないようにしています。管理DBのアカウントは、Authentik の `sub`（`0a39d4ca-870f-4c52-963b-8ff0c0ec2660`）に合わせて先に作りました（本人が未ログインでも引き取れるように）。
 
 ## 4. 実機プローブ
 
