@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shake-cloud</title>
+<link rel="stylesheet" href="/static/portal.css">
+<script src="/static/portal.js" defer></script>
+</head>
+<body>
+<header>
+  <h1>shake-cloud</h1>
+  {{- if .LoggedIn}}
+  <div class="who">
+    <span>{{.Account.Username}}</span>
+    <span class="muted">アカウント {{.Account.ID}}</span>
+    {{- if .Account.IsAdmin}}<span class="badge">cloud-admins</span>{{end}}
+    <button id="logout" type="button">ログアウト</button>
+  </div>
+  {{- end}}
+</header>
+<main>
+{{- if .LoggedIn}}
+  <section>
+    <h2>容量</h2>
+    <p class="muted">ホストの実際の空きと、クラウドが配った合計（上限の合計）です。メモリはバルーニングなので、この2つは一致しません。</p>
+    <div id="capacity"></div>
+    <div id="capacity-accounts" hidden>
+      <h3>アカウント別</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>アカウント</th><th>名前</th><th>台数</th><th>vCPU</th><th>メモリ</th><th>ディスク</th></tr></thead>
+          <tbody id="account-usage"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {{- if .Account.IsAdmin}}
+  <section>
+    <h2>上限</h2>
+    <p class="muted">
+      <strong>0 は無制限です。</strong>空欄にすると既定値（<code>platform/terraform/cloud.yaml</code>）に戻ります。
+      保存するとこの画面の値がそのまま効きます。
+    </p>
+    <form id="limits">
+      <fieldset>
+        <legend>1アカウントあたり（停止中も数えます）</legend>
+        <label>台数 <input name="account_quota.instances" type="number" min="0" step="1"></label>
+        <label>vCPU <input name="account_quota.vcpus" type="number" min="0" step="1"></label>
+        <label>メモリ MiB <input name="account_quota.memory_mib" type="number" min="0" step="1"></label>
+        <label>ディスク合計 GiB <input name="account_quota.root_disk_gib" type="number" min="0" step="1"></label>
+      </fieldset>
+      <fieldset>
+        <legend>ルートディスク GiB</legend>
+        <label>最小 <input name="root_disk_gib.min" type="number" min="1" step="1"></label>
+        <label>既定 <input name="root_disk_gib.default" type="number" min="1" step="1"></label>
+        <label>最大 <input name="root_disk_gib.max" type="number" min="1" step="1"></label>
+      </fieldset>
+      <fieldset>
+        <legend>クラウド全体</legend>
+        <label>メモリ枠 MiB <input name="capacity.memory_budget_mib" type="number" min="0" step="1"></label>
+        <label>ノードに残す MiB <input name="capacity.node_memory_reserve_mib" type="number" min="0" step="1"></label>
+        <label>ディスク使用率の上限 % <input name="capacity.vm_disk_max_used_percent" type="number" min="0" max="100" step="1"></label>
+        <label>イメージ置き場の空き MiB <input name="capacity.image_store_min_free_mib" type="number" min="0" step="1"></label>
+      </fieldset>
+      <div class="actions">
+        <button type="submit">保存</button>
+        <button id="reset-limits" type="button">全部を既定値へ戻す</button>
+      </div>
+    </form>
+    <p class="muted">
+      <strong>「ノードに残す」と「ディスク使用率の上限」がホストを守っています。</strong>
+      0 にすると、利用者がホストを埋めて基盤VM（認証・API・台帳）ごと落とせます。
+    </p>
+    <p id="limits-status" class="muted"></p>
+  </section>
+  {{- end}}
+  <section>
+    <h2>アクセスキー</h2>
+    <p>Terraform と CLI はこのキーで API を呼びます。Authentik が止まっていても使えます。1アカウント5本までです。</p>
+    <form id="create-key">
+      <label>用途 <input name="description" maxlength="256" placeholder="例: ノートPCの Terraform"></label>
+      <label>有効期限
+        <select name="expires_in_days">
+          <option value="30">30日</option>
+          <option value="90" selected>90日</option>
+          <option value="365">1年</option>
+          <option value="">無期限</option>
+        </select>
+      </label>
+      <button type="submit">発行</button>
+    </form>
+    <div id="new-secret" class="notice" hidden>
+      <p><strong>この値は今しか表示されません。</strong>閉じる前に安全な場所へ保存してください。</p>
+      <pre id="new-secret-value"></pre>
+      <p>使い方の例:</p>
+      <pre id="new-secret-usage"></pre>
+      <button id="dismiss-secret" type="button">保存したので閉じる</button>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>キーID</th><th>用途</th><th>状態</th><th>作成</th><th>期限</th><th>最終使用</th><th></th></tr></thead>
+        <tbody id="keys"></tbody>
+      </table>
+    </div>
+  </section>
+  <section>
+    <h2>操作履歴</h2>
+    <p class="muted">{{if .Account.IsAdmin}}全アカウントの最新20件です。{{else}}このアカウントの最新20件です。{{end}}</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>日時</th><th>操作</th><th>結果</th><th>アカウント</th><th>キーID</th><th>送信元</th></tr></thead>
+        <tbody id="events"></tbody>
+      </table>
+    </div>
+  </section>
+  <p id="error" class="error" hidden></p>
+{{- else}}
+  <section>
+    <p>ホームラボのプライベートクラウドです。いまはログインと、Terraform・CLI 用アクセスキーの発行ができます。VM の作成は次の段階で加わります。</p>
+    <p><a class="button" href="/auth/login">Authentik でログイン</a></p>
+    <p class="muted">cloud-users か cloud-admins グループのアカウントだけが入れます。</p>
+  </section>
+{{- end}}
+</main>
+</body>
+</html>

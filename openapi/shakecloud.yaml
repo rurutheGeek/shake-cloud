@@ -1,0 +1,767 @@
+openapi: 3.1.0
+# The API's source of truth. cloud/api/internal/server/routes_test.go fails when
+# the Go route table and this document disagree about any path, method,
+# operationId or whether a credential is required.
+#
+# Vocabulary follows AWS (IAM access keys, CloudTrail LookupEvents) in
+# snake_case. It is not wire-compatible: no SigV4, no Query API.
+info:
+  title: shake-cloud API
+  version: 0.1.0
+  description: |
+    Phase 1: login, access keys and the audit log. Instances and the rest
+    arrive in later phases; see docs/operations/handover.md.
+
+    Browsers log in through Authentik and hold a session cookie. Terraform
+    and the CLI send `Authorization: Bearer sca_<access_key_id>.<secret>`.
+    Keys work while Authentik is down.
+servers:
+  - url: http://192.168.10.205:8080
+security:
+  - accessKey: []
+  - session: []
+tags:
+  - name: auth
+    description: Browser login through Authentik (OIDC authorization code with PKCE).
+  - name: iam
+  - name: audit
+  - name: compute
+    description: Instances, images and instance types.
+paths:
+  /healthz:
+    get:
+      operationId: GetHealth
+      summary: Report whether the API can reach its database.
+      description: Does not contact Authentik; the API is healthy without it.
+      security: []
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: {type: string, const: ok}
+        '503':
+          $ref: '#/components/responses/Error'
+
+  /auth/login:
+    get:
+      operationId: StartLogin
+      tags: [auth]
+      summary: Redirect the browser to Authentik.
+      security: []
+      responses:
+        '302':
+          description: Redirect to the Authentik authorization endpoint. Sets a short-lived login cookie bound to the state.
+        '503':
+          description: Authentik could not be reached. Access keys are unaffected.
+  /auth/callback:
+    get:
+      operationId: CompleteLogin
+      tags: [auth]
+      summary: Finish the OIDC login and start a session.
+      description: |
+        Requires membership in cloud-users or cloud-admins. An unknown subject
+        carrying the email of an existing account is refused rather than given
+        a second account.
+      security: []
+      parameters:
+        - {name: code, in: query, schema: {type: string}}
+        - {name: state, in: query, required: true, schema: {type: string}}
+      responses:
+        '302':
+          description: Logged in; redirect to the portal. Sets the session cookie.
+        '400':
+          description: State missing, reused, expired or not bound to this browser.
+        '403':
+          description: Not a member of the cloud groups, or the email belongs to another account.
+        '502':
+          description: Authentik returned an unusable token.
+  /auth/logout:
+    post:
+      operationId: Logout
+      tags: [auth]
+      summary: End the browser session.
+      security: []
+      responses:
+        '204':
+          description: Session ended (or there was none).
+
+  /v1/caller-identity:
+    get:
+      operationId: GetCallerIdentity
+      tags: [iam]
+      summary: Return who the credential belongs to.
+      description: Like STS GetCallerIdentity. Useful to check a key before running Terraform.
+      responses:
+        '200':
+          description: The caller.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CallerIdentity'}
+        '401': {$ref: '#/components/responses/Error'}
+
+  /v1/access-keys:
+    get:
+      operationId: ListAccessKeys
+      tags: [iam]
+      summary: List the caller's access keys that have not been deleted.
+      responses:
+        '200':
+          description: Keys, oldest first. Secrets are never returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_keys]
+                properties:
+                  access_keys:
+                    type: array
+                    items: {$ref: '#/components/schemas/AccessKey'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateAccessKey
+      tags: [iam]
+      summary: Create an access key. Portal session only.
+      description: |
+        An access key cannot create another access key, so a leaked key cannot
+        make itself permanent. The secret is returned in this response only.
+        An account may hold 5 active keys.
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                description: {type: string, maxLength: 256}
+                expires_in_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 3650
+                  description: Omit for a key that does not expire.
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_key, secret_access_key]
+                properties:
+                  access_key: {$ref: '#/components/schemas/AccessKey'}
+                  secret_access_key:
+                    type: string
+                    pattern: '^sca_[a-z2-7]{20}\.[A-Za-z0-9_-]{43}$'
+                    description: The complete bearer credential. Shown once.
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/access-keys/{access_key_id}:
+    delete:
+      operationId: DeleteAccessKey
+      tags: [iam]
+      summary: Delete (revoke) an access key.
+      description: |
+        Owners may delete their own keys; cloud-admins may delete anyone's.
+        The row is kept, inactive, so the audit log still names it.
+      parameters:
+        - name: access_key_id
+          in: path
+          required: true
+          schema: {type: string, pattern: '^[a-z2-7]{20}$'}
+      responses:
+        '204':
+          description: Deleted.
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /v1/audit-events:
+    get:
+      operationId: LookupEvents
+      tags: [audit]
+      summary: Read the audit log, newest first.
+      description: |
+        Records every change, every login, and failed attempts with a real
+        access key ID. Users see their own account; cloud-admins see all.
+        event_name is the operationId of the request.
+      parameters:
+        - name: account_id
+          in: query
+          description: cloud-admins only.
+          schema: {type: string, pattern: '^[0-9]{12}$'}
+        - {name: access_key_id, in: query, schema: {type: string}}
+        - {name: event_name, in: query, schema: {type: string}}
+        - name: max_results
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 1000, default: 50}
+        - name: next_token
+          in: query
+          description: next_token from the previous page.
+          schema: {type: string}
+      responses:
+        '200':
+          description: Events.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: {$ref: '#/components/schemas/AuditEvent'}
+                  next_token:
+                    type: string
+                    description: Present when more events may follow.
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+
+
+  /v1/images:
+    get:
+      operationId: DescribeImages
+      tags: [compute]
+      summary: List the shared images instances can be launched from.
+      responses:
+        '200':
+          description: Images.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [images]
+                properties:
+                  images:
+                    type: array
+                    items:
+                      type: object
+                      required: [image_id, name, state, public]
+                      properties:
+                        image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
+                        name: {type: string}
+                        state: {type: string, enum: [available]}
+                        public: {type: boolean}
+        '401': {$ref: '#/components/responses/Error'}
+  /v1/instance-types:
+    get:
+      operationId: DescribeInstanceTypes
+      tags: [compute]
+      summary: List the instance sizes, smallest first.
+      description: The same names Terraform uses in platform/terraform/flavors.yaml.
+      responses:
+        '200':
+          description: Instance types.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instance_types]
+                properties:
+                  instance_types:
+                    type: array
+                    items:
+                      type: object
+                      required: [instance_type, vcpus, memory_mib, memory_min_mib]
+                      properties:
+                        instance_type: {type: string}
+                        vcpus: {type: integer}
+                        memory_mib:
+                          type: integer
+                          description: The ceiling, and what quota and capacity count.
+                        memory_min_mib:
+                          type: integer
+                          description: The floor the host may balloon down to.
+        '401': {$ref: '#/components/responses/Error'}
+
+  /v1/capacity:
+    get:
+      operationId: DescribeCapacity
+      tags: [compute]
+      summary: Report what the host has, what the cloud has handed out, and the limits in force.
+      description: |
+        Answers the question a caller has before launching something large: is
+        there room, and am I allowed.
+
+        **Allotted figures are sums of ceilings, not measurements.** Memory is
+        ballooned, so a guest may be holding far less than its `memory_mib`.
+        The node's own figures and the allotted total will not agree, and both
+        are reported. cloud-admins also get a per-account breakdown.
+      responses:
+        '200':
+          description: Capacity.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Capacity'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
+  /v1/limits:
+    get:
+      operationId: DescribeLimits
+      tags: [compute]
+      summary: Read the limits in force, the deployment's defaults, and what an administrator changed.
+      responses:
+        '200':
+          description: Limits.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LimitsEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    put:
+      operationId: UpdateLimits
+      tags: [compute]
+      summary: Change the limits. cloud-admins only.
+      description: |
+        **Replaces every override at once.** A field left out of the request
+        goes back to the deployment's default from
+        `platform/terraform/cloud.yaml`, so an administrator cannot be left with
+        a limit they have forgotten setting. Send `{}` to return everything to
+        the defaults.
+
+        **0 means unlimited** for the account quotas and `memory_budget_mib`,
+        and turns `vm_disk_max_used_percent` off. `node_memory_reserve_mib` and
+        `vm_disk_max_used_percent` are the checks that look at real capacity, so
+        setting them to 0 removes the protection against filling the host; the
+        request that the memory being asked for is actually free is never
+        skipped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LimitOverrides'}
+      responses:
+        '200':
+          description: Stored.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LimitsEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
+  /v1/instances:
+    post:
+      operationId: RunInstances
+      tags: [compute]
+      summary: Launch an instance.
+      description: |
+        Returns immediately with the instance in `pending`; a worker then
+        allocates the address, builds the seed ISO and creates the VM. Poll
+        DescribeInstance until it is `running`, or read state_reason to see why
+        it ended up `terminated`.
+
+        Repeating a request with the same client_token returns the original
+        instance (200) instead of launching another.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [image_id, instance_type]
+              properties:
+                image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
+                instance_type: {type: string}
+                root_disk_gib:
+                  type: integer
+                  description: Omit for the deployment's default. Never smaller than the image.
+                user_data:
+                  type: string
+                  maxLength: 16384
+                  description: |
+                    cloud-init user data, passed verbatim on a CIDATA CD-ROM.
+                    It is readable from inside the instance, so it is not a
+                    place for secrets.
+                client_token: {type: string, maxLength: 64}
+                tags:
+                  type: object
+                  additionalProperties: {type: string}
+                  description: 'Name becomes the guest hostname. Keys starting with shakecloud: are reserved.'
+      responses:
+        '202':
+          description: Accepted; the instance is pending.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '200':
+          description: The client_token had already been used for this exact request.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409':
+          $ref: '#/components/responses/Error'
+        '503':
+          $ref: '#/components/responses/Error'
+    get:
+      operationId: DescribeInstances
+      tags: [compute]
+      summary: List instances, newest first.
+      description: |
+        Users see their own; cloud-admins see every account's. Terminated
+        instances stay listed for an hour.
+      parameters:
+        - name: account_id
+          in: query
+          description: cloud-admins only.
+          schema: {type: string, pattern: '^[0-9]{12}$'}
+      responses:
+        '200':
+          description: Instances.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [instances]
+                properties:
+                  instances:
+                    type: array
+                    items: {$ref: '#/components/schemas/Instance'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+  /v1/instances/{instance_id}:
+    get:
+      operationId: DescribeInstance
+      tags: [compute]
+      summary: Read one instance.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '200':
+          description: The instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: TerminateInstance
+      tags: [compute]
+      summary: Terminate an instance.
+      description: |
+        Returns immediately with the instance `shutting-down`. The VM, its disk,
+        the seed ISO and the address are all released before it reaches
+        `terminated`. Terminating a terminated instance is not an error.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/instances/{instance_id}/start:
+    post:
+      operationId: StartInstance
+      tags: [compute]
+      summary: Start a stopped instance.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/instances/{instance_id}/stop:
+    post:
+      operationId: StopInstance
+      tags: [compute]
+      summary: Stop a running instance.
+      description: The guest is asked to shut down first, and forced after two minutes.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/instances/{instance_id}/reboot:
+    post:
+      operationId: RebootInstance
+      tags: [compute]
+      summary: Reboot a running instance.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '202':
+          description: Accepted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+
+components:
+  parameters:
+    InstanceID:
+      name: instance_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+  securitySchemes:
+    accessKey:
+      type: http
+      scheme: bearer
+      bearerFormat: sca_<access_key_id>.<secret>
+    session:
+      type: apiKey
+      in: cookie
+      name: shakecloud_session
+  responses:
+    Error:
+      description: |
+        Codes: AuthFailure (401), UnauthorizedOperation (403),
+        CrossOriginRequestBlocked (403), NoSuchEntity (404), ValidationError
+        and MalformedRequest (400), LimitExceeded (409), InternalError (500),
+        ServiceUnavailable (503).
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string}
+            message: {type: string}
+        request_id: {type: string}
+    CallerIdentity:
+      type: object
+      required: [account_id, username, is_admin, credential_type]
+      properties:
+        account_id: {type: string, pattern: '^[0-9]{12}$'}
+        username: {type: string}
+        is_admin: {type: boolean}
+        credential_type: {type: string, enum: [session, access_key]}
+        access_key_id: {type: string}
+    InstanceEnvelope:
+      type: object
+      required: [instance]
+      properties:
+        instance: {$ref: '#/components/schemas/Instance'}
+    Instance:
+      type: object
+      required: [instance_id, account_id, image_id, instance_type, state, mac_address, vcpus, memory_mib, root_disk_gib, launch_time]
+      properties:
+        instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+        account_id: {type: string}
+        image_id: {type: string}
+        instance_type: {type: string}
+        state:
+          type: string
+          enum: [pending, running, stopping, stopped, shutting-down, terminated]
+        state_reason:
+          type: string
+          description: Why the instance is in this state, when it was not asked for.
+        private_ip_address:
+          type: string
+          description: Set once the address has been allocated.
+        mac_address: {type: string}
+        vcpus: {type: integer}
+        memory_mib:
+          type: integer
+          description: The ceiling. What quota and the memory budget count.
+        memory_min_mib:
+          type: integer
+          description: The floor the host may balloon this instance down to.
+        root_disk_gib: {type: integer}
+        tags:
+          type: object
+          additionalProperties: {type: string}
+        client_token: {type: string}
+        launch_time: {type: string, format: date-time}
+        terminated_at: {type: string, format: date-time}
+    AccessKey:
+      type: object
+      required: [access_key_id, status, description, create_date]
+      properties:
+        access_key_id: {type: string, pattern: '^[a-z2-7]{20}$'}
+        status:
+          type: string
+          enum: [Active, Inactive, Expired]
+        description: {type: string}
+        create_date: {type: string, format: date-time}
+        expire_date: {type: string, format: date-time}
+        last_used_date: {type: string, format: date-time}
+    AuditEvent:
+      type: object
+      required: [event_id, event_time, event_name, credential_type, source_ip_address, user_agent, request_id]
+      properties:
+        event_id: {type: string}
+        event_time: {type: string, format: date-time}
+        event_name: {type: string}
+        account_id: {type: string}
+        access_key_id: {type: string}
+        credential_type: {type: string, enum: [none, session, access_key]}
+        source_ip_address: {type: string}
+        user_agent: {type: string}
+        request_id: {type: string}
+        resource_id: {type: string}
+        error_code: {type: string}
+        detail: {type: object}
+    Limits:
+      type: object
+      required: [account_quota, root_disk_gib, capacity]
+      properties:
+        account_quota:
+          type: object
+          description: Per account. Stopped instances count, because starting them takes the same resources back.
+          required: [instances, vcpus, memory_mib, root_disk_gib]
+          properties:
+            instances: {type: integer, minimum: 0, description: '0 is unlimited.'}
+            vcpus: {type: integer, minimum: 0, description: '0 is unlimited.'}
+            memory_mib: {type: integer, minimum: 0, description: 'Sum of ceilings. 0 is unlimited.'}
+            root_disk_gib: {type: integer, minimum: 0, description: '0 is unlimited.'}
+        root_disk_gib:
+          type: object
+          required: [min, default, max]
+          properties:
+            min: {type: integer, minimum: 1}
+            default: {type: integer, minimum: 1}
+            max: {type: integer, minimum: 1}
+        capacity:
+          type: object
+          required: [memory_budget_mib, node_memory_reserve_mib, vm_disk_max_used_percent, image_store_min_free_mib]
+          properties:
+            memory_budget_mib:
+              type: integer
+              minimum: 0
+              description: |
+                Ceiling on the sum of every instance's memory_mib across all
+                accounts. A policy limit, not a physical one: it may exceed the
+                host's RAM, which is the point of ballooning. 0 is unlimited.
+            node_memory_reserve_mib:
+              type: integer
+              minimum: 0
+              description: Memory that must still be available on the node after a launch. The only check that looks at real free memory.
+            vm_disk_max_used_percent:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Refuse launches when the instance disk pool is this full. 0 turns the check off.
+            image_store_min_free_mib: {type: integer, minimum: 0}
+    LimitOverrides:
+      type: object
+      additionalProperties: false
+      description: |
+        The limits an administrator has changed. Every field is optional; one
+        left out is not overridden and the deployment's default applies.
+      properties:
+        account_quota:
+          type: object
+          additionalProperties: false
+          properties:
+            instances: {type: integer, minimum: 0}
+            vcpus: {type: integer, minimum: 0}
+            memory_mib: {type: integer, minimum: 0}
+            root_disk_gib: {type: integer, minimum: 0}
+        root_disk_gib:
+          type: object
+          additionalProperties: false
+          properties:
+            min: {type: integer, minimum: 1}
+            default: {type: integer, minimum: 1}
+            max: {type: integer, minimum: 1}
+        capacity:
+          type: object
+          additionalProperties: false
+          properties:
+            memory_budget_mib: {type: integer, minimum: 0}
+            node_memory_reserve_mib: {type: integer, minimum: 0}
+            vm_disk_max_used_percent: {type: integer, minimum: 0, maximum: 100}
+            image_store_min_free_mib: {type: integer, minimum: 0}
+    LimitsEnvelope:
+      type: object
+      required: [limits, defaults, overrides]
+      properties:
+        limits:
+          $ref: '#/components/schemas/Limits'
+          description: 'What is in force: the defaults with the overrides applied.'
+        defaults:
+          $ref: '#/components/schemas/Limits'
+          description: Declared in platform/terraform/cloud.yaml.
+        overrides: {$ref: '#/components/schemas/LimitOverrides'}
+        updated_at: {type: string, format: date-time}
+        updated_by: {type: string, description: Account that last changed them.}
+    Usage:
+      type: object
+      required: [instances, vcpus, memory_mib, root_disk_gib]
+      properties:
+        account_id: {type: string}
+        username: {type: string}
+        instances: {type: integer}
+        vcpus: {type: integer}
+        memory_mib: {type: integer, description: Sum of ceilings, not memory in use.}
+        root_disk_gib: {type: integer}
+    Capacity:
+      type: object
+      required: [node, storage, cloud, account, limits]
+      properties:
+        node:
+          type: object
+          required: [name, cpu_cores, cpu_threads, memory_total_mib, memory_used_mib, memory_available_mib]
+          properties:
+            name: {type: string}
+            cpu_model: {type: string}
+            cpu_cores: {type: integer, description: Physical cores.}
+            cpu_threads: {type: integer, description: What the scheduler sees.}
+            cpu_usage_percent: {type: number}
+            memory_total_mib: {type: integer}
+            memory_used_mib: {type: integer}
+            memory_available_mib: {type: integer, description: What a launch is checked against.}
+            kernel_version: {type: string}
+            pve_version: {type: string}
+            uptime_seconds: {type: integer}
+        storage:
+          type: array
+          items:
+            type: object
+            required: [name, purpose, total_mib, used_mib, avail_mib, used_percent]
+            properties:
+              name: {type: string}
+              purpose: {type: string, enum: [instance_disks, images_and_seed_isos]}
+              total_mib: {type: integer}
+              used_mib: {type: integer, description: Real use; the pool is thin provisioned.}
+              avail_mib: {type: integer}
+              used_percent: {type: number}
+              max_used_percent: {type: integer, description: The limit for this store; 0 when none applies.}
+              min_free_mib: {type: integer}
+        cloud:
+          $ref: '#/components/schemas/Usage'
+          description: Every account together.
+        account:
+          $ref: '#/components/schemas/Usage'
+          description: The caller's own.
+        limits: {$ref: '#/components/schemas/Limits'}
+        accounts:
+          type: array
+          description: Per account, largest first. cloud-admins only.
+          items: {$ref: '#/components/schemas/Usage'}

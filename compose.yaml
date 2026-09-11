@@ -1,0 +1,74 @@
+# 自作クラウドの API と管理DB。cloud-01（VMID 140）に置く。
+# API のイメージは api/ からこの場でビルドする。ベースイメージは api/Dockerfile で、
+# postgres は compose.lock.yaml で digest を固定する。
+name: cloud
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:18-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shakecloud
+      POSTGRES_USER: shakecloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    # 18 以降のイメージはデータを /var/lib/postgresql/<版>/docker に置くので、親をマウントする。
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/postgres:/var/lib/postgresql
+    shm_size: 128mb
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -d shakecloud -U shakecloud]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  api:
+    build: ./api
+    image: shakecloud-api:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      SHAKECLOUD_LISTEN: ':8080'
+      SHAKECLOUD_PUBLIC_URL: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      SHAKECLOUD_DATABASE_URL: postgres://shakecloud@postgres:5432/shakecloud?sslmode=disable
+      SHAKECLOUD_DATABASE_PASSWORD_FILE: /run/secrets/db_password
+      SHAKECLOUD_OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER in .env}
+      SHAKECLOUD_OIDC_CREDENTIALS_FILE: /run/secrets/oidc_credentials
+      # 同じホストの Caddy（ホストのネットワーク）から来る。公開したポートを経由すると
+      # 送信元は Docker のゲートウェイ（172.16.0.0/12 の中）になる。
+      SHAKECLOUD_TRUSTED_PROXIES: 127.0.0.1/32,172.16.0.0/12
+      # 空のファイルにするとブートストラップ管理キーは失効する（manage.py disable-bootstrap-key）。
+      SHAKECLOUD_BOOTSTRAP_KEY_FILE: /run/secrets/bootstrap_admin_key
+      # インスタンス（Phase 2）。site.json は Terraform の宣言から Ansible が生成する。
+      SHAKECLOUD_PROXMOX_URL: ${PROXMOX_URL:?set PROXMOX_URL in .env}
+      SHAKECLOUD_PROXMOX_TOKEN_FILE: /run/secrets/proxmox_token
+      SHAKECLOUD_PROXMOX_INSECURE: ${PROXMOX_INSECURE:-false}
+      SHAKECLOUD_NETBOX_URL: ${NETBOX_URL:?set NETBOX_URL in .env}
+      SHAKECLOUD_NETBOX_TOKEN_FILE: /run/secrets/netbox_token
+      SHAKECLOUD_SITE_FILE: /etc/shakecloud/site.json
+      SHAKECLOUD_WORK_DIR: /tmp
+    secrets: [db_password, oidc_credentials, bootstrap_admin_key, proxmox_token, netbox_token]
+    volumes:
+      - ./site.json:/etc/shakecloud/site.json:ro
+    # 読み取り専用のルートなので、seed ISO を組み立てる場所を別に与える。
+    tmpfs: [/tmp]
+    ports:
+      - '${BIND_ADDRESS:-0.0.0.0}:${API_PORT:-8080}:8080'
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, /shakecloud-api, healthcheck]
+      start_period: 30s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+secrets:
+  db_password: {file: ./secrets/db_password}
+  # identity VM の secrets/oidc-cloud.json を cloud_api ロールが写したもの。ここでは作らない。
+  oidc_credentials: {file: ./secrets/oidc_credentials}
+  bootstrap_admin_key: {file: ./secrets/bootstrap_admin_key}
+  # cloudapi@pve と NetBox の cloudapi トークン。cloud_api ロールが
+  # platform/sops/cloudapi.sops.yaml から写す。ここでは作らない。
+  proxmox_token: {file: ./secrets/proxmox_token}
+  netbox_token: {file: ./secrets/netbox_token}

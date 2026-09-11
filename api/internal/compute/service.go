@@ -1,0 +1,441 @@
+// Package compute runs instances. Requests are admitted here (validation,
+// quota, capacity) and recorded; a worker then turns each recorded action into
+// NetBox addresses, seed ISOs and Proxmox VMs, one idempotent step at a time.
+package compute
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+)
+
+// Hypervisor is the part of *proxmox.Client the service uses.
+type Hypervisor interface {
+	ListVMs(ctx context.Context) ([]proxmox.VM, error)
+	NodeStatus(ctx context.Context) (proxmox.NodeStatus, error)
+	StorageStatus(ctx context.Context, storage string) (proxmox.StorageStatus, error)
+	CreateVM(ctx context.Context, params url.Values) (string, error)
+	VMConfig(ctx context.Context, vmid int) (map[string]any, error)
+	VMStatus(ctx context.Context, vmid int) (string, error)
+	Power(ctx context.Context, vmid int, action string, params url.Values) (string, error)
+	ResizeDisk(ctx context.Context, vmid int, disk, size string) error
+	DeleteVM(ctx context.Context, vmid int) (string, error)
+	UploadISO(ctx context.Context, storage, filename string, content []byte) (string, error)
+	ListVolumes(ctx context.Context, storage, content string) ([]proxmox.Volume, error)
+	DeleteVolume(ctx context.Context, storage, volid string) error
+	WaitTask(ctx context.Context, upid string) error
+}
+
+// IPAM is the part of *netbox.Client the service uses.
+type IPAM interface {
+	IPRangeID(ctx context.Context, startAddress string) (int, error)
+	IPAddressesByDescription(ctx context.Context, description string) ([]netbox.IPAddress, error)
+	AllocateIP(ctx context.Context, rangeID int, allocation netbox.Allocation) (netbox.IPAddress, error)
+	DeleteIPAddress(ctx context.Context, id int) error
+}
+
+// Error is a refusal the HTTP layer reports with an EC2-style code.
+type Error struct {
+	Status  int
+	Code    string
+	Message string
+}
+
+func (e *Error) Error() string { return e.Code + ": " + e.Message }
+
+func refuse(status int, code, format string, args ...any) *Error {
+	return &Error{Status: status, Code: code, Message: fmt.Sprintf(format, args...)}
+}
+
+// NetBoxTag marks addresses the cloud API allocated (platform/terraform/tags.yaml).
+const NetBoxTag = "managed-by-cloud-api"
+
+type Service struct {
+	Pool    *pgxpool.Pool
+	PVE     Hypervisor
+	IPAM    IPAM
+	Site    site.Site
+	Log     *slog.Logger
+	WorkDir string
+	// MaxAttempts is how often a launch or power action is tried before it is
+	// abandoned. Terminates are retried until they succeed: giving up would
+	// leak a VM, an address or an ISO.
+	MaxAttempts int
+	// RetryDelay is the first backoff; it doubles up to five minutes.
+	RetryDelay time.Duration
+
+	wake    chan struct{}
+	rangeMu sync.Mutex
+	rangeID int
+	now     func() time.Time
+}
+
+func New(pool *pgxpool.Pool, pve Hypervisor, ipam IPAM, s site.Site, log *slog.Logger, workDir string) *Service {
+	return &Service{
+		Pool: pool, PVE: pve, IPAM: ipam, Site: s, Log: log, WorkDir: workDir,
+		MaxAttempts: 6, RetryDelay: 5 * time.Second,
+		wake: make(chan struct{}, 1), now: time.Now,
+	}
+}
+
+// Wake nudges the worker to look for work now rather than at its next poll.
+func (s *Service) Wake() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
+// RunRequest is the body of RunInstances.
+type RunRequest struct {
+	ImageID      string            `json:"image_id"`
+	InstanceType string            `json:"instance_type"`
+	RootDiskGiB  int               `json:"root_disk_gib"`
+	UserData     string            `json:"user_data"`
+	ClientToken  string            `json:"client_token"`
+	Tags         map[string]string `json:"tags"`
+}
+
+const maxUserData = 16 * 1024
+
+var clientToken = regexp.MustCompile(`^[\x21-\x7e]{1,64}$`)
+
+// EffectiveLimits returns the deployment's declared limits with the
+// administrator's overrides applied, and the overrides themselves so a caller
+// can tell a changed limit from a default one.
+func (s *Service) EffectiveLimits(ctx context.Context, q db.Querier) (site.Limits, db.LimitOverrides, error) {
+	if q == nil {
+		q = s.Pool
+	}
+	overrides, err := db.GetLimitOverrides(ctx, q)
+	if err != nil {
+		return site.Limits{}, db.LimitOverrides{}, err
+	}
+	return WithOverrides(s.Site.Limits, overrides), overrides, nil
+}
+
+// WithOverrides is where the two halves of a limit meet: the default declared
+// in platform/terraform/cloud.yaml and the change an administrator made.
+func WithOverrides(l site.Limits, o db.LimitOverrides) site.Limits {
+	set := func(target, override *int) {
+		if override != nil {
+			*target = *override
+		}
+	}
+	set(&l.AccountQuota.Instances, o.AccountInstances)
+	set(&l.AccountQuota.VCPUs, o.AccountVCPUs)
+	set(&l.AccountQuota.MemoryMiB, o.AccountMemoryMiB)
+	set(&l.AccountQuota.RootDiskGiB, o.AccountRootDiskGiB)
+	set(&l.RootDiskGiB.Min, o.RootDiskMinGiB)
+	set(&l.RootDiskGiB.Default, o.RootDiskDefaultGiB)
+	set(&l.RootDiskGiB.Max, o.RootDiskMaxGiB)
+	set(&l.Capacity.MemoryBudgetMiB, o.MemoryBudgetMiB)
+	set(&l.Capacity.NodeMemoryReserveMiB, o.NodeMemoryReserveMiB)
+	set(&l.Capacity.VMDiskMaxUsedPercent, o.VMDiskMaxUsedPercent)
+	set(&l.Capacity.ImageStoreMinFreeMiB, o.ImageStoreMinFreeMiB)
+	return l
+}
+
+func (s *Service) validate(r *RunRequest, limits site.Limits) (site.InstanceType, error) {
+	if _, ok := s.Site.Images[r.ImageID]; !ok {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidImageID.NotFound", "image %q does not exist; see GET /v1/images", r.ImageID)
+	}
+	instanceType, ok := s.Site.InstanceTypes[r.InstanceType]
+	if !ok {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "instance type %q does not exist; see GET /v1/instance-types", r.InstanceType)
+	}
+	disk := limits.RootDiskGiB
+	if r.RootDiskGiB == 0 {
+		r.RootDiskGiB = disk.Default
+	}
+	if r.RootDiskGiB < disk.Min || r.RootDiskGiB > disk.Max {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "root_disk_gib must be between %d and %d", disk.Min, disk.Max)
+	}
+	if len(r.UserData) > maxUserData {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "user_data must be at most %d bytes", maxUserData)
+	}
+	if r.ClientToken != "" && !clientToken.MatchString(r.ClientToken) {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "client_token must be 1-64 printable ASCII characters")
+	}
+	if len(r.Tags) > 20 {
+		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "an instance may have at most 20 tags")
+	}
+	for key, value := range r.Tags {
+		if key == "" || utf8.RuneCountInString(key) > 128 || utf8.RuneCountInString(value) > 256 || strings.HasPrefix(key, "shakecloud:") {
+			return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "tag keys are 1-128 characters, values at most 256, and shakecloud: is reserved")
+		}
+	}
+	return instanceType, nil
+}
+
+// requestHash fingerprints everything but the client token, so a retry with
+// the same token and different parameters is caught.
+func requestHash(r RunRequest) []byte {
+	r.ClientToken = ""
+	encoded, _ := json.Marshal(r)
+	sum := sha256.Sum256(encoded)
+	return sum[:]
+}
+
+func newInstanceID() string {
+	b := make([]byte, 9)
+	rand.Read(b)
+	return "i-" + hex.EncodeToString(b)[:17]
+}
+
+// Run admits a launch. It returns the instance and whether this call created
+// it; a retried request with the same client token gets the original back.
+// audit runs inside the transaction that records the instance.
+func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit func(pgx.Tx, db.Instance) error) (db.Instance, bool, error) {
+	// Read once: an administrator changing a limit while this launch is being
+	// admitted may land either side of it, which is no worse than the request
+	// arriving a moment earlier.
+	limits, _, err := s.EffectiveLimits(ctx, s.Pool)
+	if err != nil {
+		return db.Instance{}, false, err
+	}
+	instanceType, err := s.validate(&r, limits)
+	if err != nil {
+		return db.Instance{}, false, err
+	}
+	hash := requestHash(r)
+	if r.ClientToken != "" {
+		existing, err := db.InstanceByClientToken(ctx, s.Pool, accountID, r.ClientToken)
+		if err == nil {
+			return s.idempotent(existing, hash)
+		}
+		if !errors.Is(err, db.ErrNotFound) {
+			return db.Instance{}, false, err
+		}
+	}
+
+	// What only the host knows. It is a snapshot either way; the memory budget
+	// checked under the lock below is what stops two launches racing past it.
+	if err := s.checkHost(ctx, instanceType, limits); err != nil {
+		return db.Instance{}, false, err
+	}
+	visible, err := s.PVE.ListVMs(ctx)
+	if err != nil {
+		return db.Instance{}, false, s.unavailable(err)
+	}
+
+	var instance db.Instance
+	created := false
+	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		if err := db.LockCapacity(ctx, tx); err != nil {
+			return err
+		}
+		if r.ClientToken != "" {
+			existing, err := db.InstanceByClientToken(ctx, tx, accountID, r.ClientToken)
+			if err == nil {
+				instance = existing
+				return nil
+			}
+			if !errors.Is(err, db.ErrNotFound) {
+				return err
+			}
+		}
+		if err := s.checkQuota(ctx, tx, accountID, instanceType, r.RootDiskGiB, limits); err != nil {
+			return err
+		}
+		vmid, err := db.AllocateVMID(ctx, tx, s.Site.VMIDFrom, s.Site.VMIDTo, s.skipVMIDs(visible))
+		if errors.Is(err, db.ErrNoVMID) {
+			return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "no VMID is free in %d-%d", s.Site.VMIDFrom, s.Site.VMIDTo)
+		}
+		if err != nil {
+			return err
+		}
+		instance, err = db.InsertInstance(ctx, tx, db.Instance{
+			ID: newInstanceID(), AccountID: accountID, ClientToken: r.ClientToken, RequestSHA256: hash,
+			Name: r.Tags["Name"], ImageID: r.ImageID, InstanceType: r.InstanceType,
+			CPUCores: instanceType.CPUCores, MemoryMiB: instanceType.MemoryMiB, MemoryMinMiB: instanceType.MemoryMinMiB,
+			RootDiskGiB: r.RootDiskGiB, UserData: r.UserData, Tags: r.Tags,
+			VMID: &vmid, MACAddress: seed.NewMACAddress(),
+		})
+		if err != nil {
+			return err
+		}
+		created = true
+		if audit != nil {
+			return audit(tx, instance)
+		}
+		return nil
+	})
+	if err != nil {
+		return db.Instance{}, false, err
+	}
+	if !created {
+		return s.idempotent(instance, hash)
+	}
+	s.Wake()
+	return instance, true, nil
+}
+
+func (s *Service) idempotent(existing db.Instance, hash []byte) (db.Instance, bool, error) {
+	if !bytes.Equal(existing.RequestSHA256, hash) {
+		return db.Instance{}, false, refuse(http.StatusConflict, "IdempotentParameterMismatch",
+			"client_token was already used for a request with different parameters (instance %s)", existing.ID)
+	}
+	return existing, false, nil
+}
+
+func (s *Service) skipVMIDs(visible []proxmox.VM) []int {
+	skip := append([]int{}, s.Site.ProbeVMIDs...)
+	for _, vm := range visible {
+		skip = append(skip, vm.VMID)
+	}
+	return skip
+}
+
+// checkQuota enforces the account's share and the cloud's memory budget. A
+// limit of 0 means unlimited, which is how an administrator turns one off.
+func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, t site.InstanceType, rootDisk int, limits site.Limits) error {
+	usage, err := db.AccountUsage(ctx, tx, accountID)
+	if err != nil {
+		return err
+	}
+	quota := limits.AccountQuota
+	switch {
+	case quota.Instances > 0 && usage.Instances+1 > quota.Instances:
+		return refuse(http.StatusConflict, "InstanceLimitExceeded", "an account may hold %d instances (stopped ones count)", quota.Instances)
+	case quota.VCPUs > 0 && usage.VCPUs+t.CPUCores > quota.VCPUs:
+		return refuse(http.StatusConflict, "VcpuLimitExceeded", "an account may hold %d vCPUs; %d are in use", quota.VCPUs, usage.VCPUs)
+	case quota.MemoryMiB > 0 && usage.MemoryMiB+t.MemoryMiB > quota.MemoryMiB:
+		return refuse(http.StatusConflict, "InstanceLimitExceeded", "an account may hold %d MiB of memory; %d are in use", quota.MemoryMiB, usage.MemoryMiB)
+	case quota.RootDiskGiB > 0 && usage.RootDiskGiB+rootDisk > quota.RootDiskGiB:
+		return refuse(http.StatusConflict, "VolumeLimitExceeded", "an account may hold %d GiB of root disks; %d are in use", quota.RootDiskGiB, usage.RootDiskGiB)
+	}
+	live, err := db.LiveMemoryMiB(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if budget := limits.Capacity.MemoryBudgetMiB; budget > 0 && live+t.MemoryMiB > budget {
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity",
+			"the cloud's memory budget of %d MiB is used up (%d MiB allotted)", budget, live)
+	}
+	return nil
+}
+
+// checkHost is the part that looks at the machine rather than at policy. The
+// memory check is never skipped: whatever the limits say, memory that is not
+// there cannot be handed out. A disk threshold of 0 turns that check off.
+func (s *Service) checkHost(ctx context.Context, t site.InstanceType, limits site.Limits) error {
+	capacity := limits.Capacity
+	status, err := s.PVE.NodeStatus(ctx)
+	if err != nil {
+		return s.unavailable(err)
+	}
+	if status.Memory.Available-int64(t.MemoryMiB)<<20 < int64(capacity.NodeMemoryReserveMiB)<<20 {
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity",
+			"the host has %d MiB of memory available and %d MiB must stay free, so %d MiB cannot be allotted",
+			status.Memory.Available>>20, capacity.NodeMemoryReserveMiB, t.MemoryMiB)
+	}
+	disks, err := s.PVE.StorageStatus(ctx, s.Site.Storage.VMDisks)
+	if err != nil {
+		return s.unavailable(err)
+	}
+	if capacity.VMDiskMaxUsedPercent > 0 && disks.Total > 0 && disks.Used*100 >= int64(capacity.VMDiskMaxUsedPercent)*disks.Total {
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the disk pool is over %d%% used", capacity.VMDiskMaxUsedPercent)
+	}
+	images, err := s.PVE.StorageStatus(ctx, s.Site.Storage.Images)
+	if err != nil {
+		return s.unavailable(err)
+	}
+	if images.Avail < int64(capacity.ImageStoreMinFreeMiB)<<20 {
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the image store is nearly full")
+	}
+	return nil
+}
+
+func (s *Service) unavailable(err error) error {
+	s.Log.Error("hypervisor unreachable", "err", err)
+	return refuse(http.StatusServiceUnavailable, "ServiceUnavailable", "the hypervisor could not be reached; try again")
+}
+
+// Request records a user's terminate, start, stop or reboot. authorize decides
+// whether the caller may act on the instance; an instance they may not touch
+// answers exactly like one that does not exist.
+func (s *Service) Request(ctx context.Context, id, action string, authorize func(db.Instance) bool, audit func(pgx.Tx, db.Instance) error) (db.Instance, error) {
+	var result db.Instance
+	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		instance, err := db.LockInstance(ctx, tx, id)
+		if errors.Is(err, db.ErrNotFound) || (err == nil && !authorize(instance)) {
+			return refuse(http.StatusNotFound, "InvalidInstanceID.NotFound", "instance %s does not exist", id)
+		}
+		if err != nil {
+			return err
+		}
+		result = instance
+		busy := instance.PendingAction != ""
+		incorrect := refuse(http.StatusConflict, "IncorrectInstanceState", "instance %s is %s", id, describeState(instance))
+		switch action {
+		case db.ActionTerminate:
+			if instance.State == db.StateTerminated || instance.PendingAction == db.ActionTerminate {
+				break
+			}
+			result, err = db.SetAction(ctx, tx, id, db.StateShuttingDown, db.ActionTerminate)
+		case db.ActionStop:
+			if (instance.State == db.StateStopped && !busy) || instance.PendingAction == db.ActionStop {
+				break
+			}
+			if instance.State != db.StateRunning || busy {
+				return incorrect
+			}
+			result, err = db.SetAction(ctx, tx, id, db.StateStopping, db.ActionStop)
+		case db.ActionStart:
+			if (instance.State == db.StateRunning && !busy) || instance.PendingAction == db.ActionStart {
+				break
+			}
+			if instance.State != db.StateStopped || busy {
+				return incorrect
+			}
+			result, err = db.SetAction(ctx, tx, id, db.StatePending, db.ActionStart)
+		case db.ActionReboot:
+			if instance.State != db.StateRunning || busy {
+				return incorrect
+			}
+			result, err = db.SetAction(ctx, tx, id, db.StateRunning, db.ActionReboot)
+		default:
+			return fmt.Errorf("unknown action %q", action)
+		}
+		if err != nil {
+			return err
+		}
+		if audit != nil {
+			return audit(tx, result)
+		}
+		return nil
+	})
+	if err == nil {
+		s.Wake()
+	}
+	return result, err
+}
+
+func describeState(i db.Instance) string {
+	if i.PendingAction != "" {
+		return i.State + " (" + i.PendingAction + " in progress)"
+	}
+	return i.State
+}
