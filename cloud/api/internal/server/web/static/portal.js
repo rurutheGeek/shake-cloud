@@ -694,6 +694,29 @@
     }
   });
 
+  const adoptForm = $('adopt-instance-form');
+  if (adoptForm) {
+    adoptForm.addEventListener('submit', async (submit) => {
+      submit.preventDefault();
+      const data = new FormData(adoptForm);
+      const body = { vmid: Number(data.get('vmid')), account_id: data.get('account_id') };
+      if (data.get('name')) body.name = data.get('name');
+      if (data.get('private_ip_address')) body.private_ip_address = data.get('private_ip_address');
+      const status = $('adopt-status');
+      try {
+        $('error').hidden = true;
+        status.textContent = '引き取っています…';
+        const result = await api('POST', '/v1/instances/adopt', body);
+        status.textContent = `引き取りました: ${result.instance.instance_id}`;
+        adoptForm.reset();
+        await Promise.all([loadInstances(), loadCapacity()]);
+      } catch (error) {
+        status.textContent = '';
+        showError(error);
+      }
+    });
+  }
+
   const VOLUME_STATE_LABELS = {
     creating: '作成中',
     available: '未接続',

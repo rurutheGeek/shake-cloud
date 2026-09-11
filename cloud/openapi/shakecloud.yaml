@@ -600,6 +600,41 @@ paths:
                     items: {$ref: '#/components/schemas/Instance'}
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
+  /v1/instances/adopt:
+    post:
+      operationId: AdoptInstance
+      tags: [compute]
+      summary: Register a VM that already exists into the cloud. cloud-admins only.
+      description: |
+        cloud-admins only.
+
+        Takes over a VM the administrator has already moved into the cloud
+        pool. It is registered under `account_id` and from then on behaves like
+        a launched instance: power, console, tags and security groups all work.
+        It cannot be launched or re-created, so it keeps no source image or
+        seed ISO.
+
+        The VM must be running or stopped, have a net0 MAC address, and its
+        root disk must be measurable; if storage does not report the size, pass
+        `root_disk_gib`. An address is optional, but security groups filter by
+        address, so an adopted VM with none cannot be filtered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdoptInstanceRequest'}
+      responses:
+        '201':
+          description: The adopted instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instances/{instance_id}:
     get:
       operationId: DescribeInstance
@@ -1281,6 +1316,42 @@ components:
           type: string
           enum: [in-sync, applying]
           description: Whether the last change to security_groups has finished being pushed to the guest's firewall rules.
+        adopted:
+          type: boolean
+          description: 'True for a VM that already existed and was registered into the cloud, rather than created by a launch. It has no source image.'
+    AdoptInstanceRequest:
+      type: object
+      additionalProperties: false
+      required: [vmid, account_id]
+      properties:
+        vmid:
+          type: integer
+          minimum: 1
+          description: An existing VM in the cloud pool on this node.
+        account_id:
+          type: string
+          pattern: '^[0-9]{12}$'
+          description: The owner the administrator chooses. The VM's quota is checked against this account.
+        name:
+          type: string
+          maxLength: 255
+          description: Omit to keep the VM's own name.
+        private_ip_address:
+          type: string
+          description: Optional. Security groups filter by address, so an instance with none cannot be filtered.
+        root_disk_gib:
+          type: integer
+          minimum: 1
+          description: Omit to measure the disk from storage; pass it when storage does not report the size.
+        tags:
+          type: object
+          additionalProperties: {type: string}
+        security_group_ids:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+          description: 'Must belong to the chosen account. Omitted means the account''s default group.'
     Image:
       type: object
       required: [image_id, name, state, public]

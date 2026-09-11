@@ -88,6 +88,7 @@ func routes() []route {
 		{"GET", "/v1/limits", "DescribeLimits", anyCredential, (*Server).describeLimits},
 		{"PUT", "/v1/limits", "UpdateLimits", anyCredential, (*Server).updateLimits},
 		{"POST", "/v1/instances", "RunInstances", anyCredential, (*Server).runInstances},
+		{"POST", "/v1/instances/adopt", "AdoptInstance", anyCredential, (*Server).adoptInstance},
 		{"GET", "/v1/instances", "DescribeInstances", anyCredential, (*Server).describeInstances},
 		{"GET", "/v1/instances/{instance_id}", "DescribeInstance", anyCredential, (*Server).describeInstance},
 		{"PATCH", "/v1/instances/{instance_id}", "ModifyInstance", anyCredential, (*Server).modifyInstance},

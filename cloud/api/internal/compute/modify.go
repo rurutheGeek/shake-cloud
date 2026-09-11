@@ -133,7 +133,7 @@ func (s *Service) Modify(ctx context.Context, id string, r ModifyRequest, audit 
 	}
 
 	vmid := *instance.VMID
-	if owned, err := s.owns(ctx, vmid, instance.ID); err != nil || !owned {
+	if owned, err := s.owns(ctx, vmid, instance); err != nil || !owned {
 		return db.Instance{}, errors.Join(err, refuse(http.StatusConflict, "IncorrectInstanceState",
 			"VM %d does not belong to %s", vmid, instance.ID))
 	}

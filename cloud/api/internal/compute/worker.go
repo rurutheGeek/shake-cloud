@@ -288,15 +288,19 @@ func findVM(vms []proxmox.VM, vmid int) *proxmox.VM {
 	return nil
 }
 
-// owns tells a VM this instance created from anything else on the same VMID.
-// Every VM the API creates carries its instance ID in the description.
-func (s *Service) owns(ctx context.Context, vmid int, instanceID string) (bool, error) {
+// owns tells a VM this instance manages from anything else on the same VMID.
+// Every VM the API creates carries its instance ID in the description; an
+// adopted VM predates the API and is owned by virtue of being registered.
+func (s *Service) owns(ctx context.Context, vmid int, instance db.Instance) (bool, error) {
+	if instance.Adopted {
+		return true, nil
+	}
 	config, err := s.PVE.VMConfig(ctx, vmid)
 	if err != nil {
 		return false, err
 	}
 	description, _ := config["description"].(string)
-	return strings.Contains(description, instanceID), nil
+	return strings.Contains(description, instance.ID), nil
 }
 
 func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume string) url.Values {
@@ -333,7 +337,7 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 		return err
 	}
 	if findVM(vms, vmid) != nil {
-		owned, err := s.owns(ctx, vmid, instance.ID)
+		owned, err := s.owns(ctx, vmid, instance)
 		if err != nil || owned {
 			// Owned: an earlier attempt created it and crashed before recording that.
 			return err
@@ -422,7 +426,7 @@ func (s *Service) power(ctx context.Context, instance db.Instance, action string
 	if vm == nil {
 		return fmt.Errorf("VM %d is not in the cloud pool", vmid)
 	}
-	if owned, err := s.owns(ctx, vmid, instance.ID); err != nil || !owned {
+	if owned, err := s.owns(ctx, vmid, instance); err != nil || !owned {
 		return errors.Join(err, fmt.Errorf("VM %d does not belong to %s", vmid, instance.ID))
 	}
 	switch {
@@ -442,7 +446,7 @@ func (s *Service) terminate(ctx context.Context, instance db.Instance) error {
 			return err
 		}
 		if vm := findVM(vms, vmid); vm != nil {
-			owned, err := s.owns(ctx, vmid, instance.ID)
+			owned, err := s.owns(ctx, vmid, instance)
 			if err != nil {
 				return err
 			}

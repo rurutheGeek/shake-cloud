@@ -1,6 +1,6 @@
 # クラウドAPIの構築
 
-更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）**。
+更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5 の既存VMの引き取りを実装（3-15）**。
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -21,8 +21,9 @@
 | 上限の変更（管理者）と容量の表示 | `GET /v1/capacity`、`GET`/`PUT /v1/limits`、ポータルの「容量」「上限」（3-11） |
 | Phase 3（イメージアップロード、SSH鍵、Webコンソール） | `cloud/api/internal/compute/images.go`、keypairs、console、noVNC（3-12・3-13） |
 | Phase 4（追加ボリューム、セキュリティグループ、データセンターFW有効化） | `cloud/api/internal/compute/{volumes,securitygroups,firewall}.go`、`platform/terraform/00-bootstrap/firewall.tf`（3-14） |
+| Phase 5（既存VMの引き取り） | `POST /v1/instances/adopt`、`cloud/api/internal/compute/adopt.go`、DBマイグレーション `0007`（3-15） |
 
-**まだ無いもの**: セルフサービスポータルの完成（Phase 5。いまは最小ページだがボリューム・SG 操作は入った）、CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
+**まだ無いもの**: セルフサービスポータルの仕上げ、CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 
@@ -685,6 +686,41 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 ```
 
 **はまりどころ（2026-09-11 に修正）**: Proxmox は VM の `firewall/options` を書かないと、実行中VMの live ruleset を再構築しません。最初のSG適用で `enable=1`・`policy_in=DROP` になった後はルールだけ変えても options の値は変わらないので、`setFilteredOptions` が PUT を省くと**ホストは前の（緩い）ルールのまま**になります。API の `firewall_state` は `in-sync` でも、許可していないポートが開いたままです。修正は options を**毎回書く**こと（`compute/firewall.go`）。だからこのスクリプトは「設定が正しいか」ではなく「本当に遮断されるか」を見ます。
+
+<a id="3-15"></a>
+### 3-15. 既存VMの引き取り（Phase 5）
+
+`POST /v1/instances/adopt`（**cloud-admins のみ**）で、既にあるVMを管理下へ登録します。
+
+**プールへ入れる操作はAPIの外です。** `cloudapi@pve` は既に `cloud` プールに居るVMしか見えず、外のVMをプールへ入れる権限を持ちません。管理者が先に移します（Proxmox の画面、`qm set <vmid> --pool cloud`、または Terraform）。
+
+```bash
+# 既存VMを cloud プールへ入れる（管理者。APIトークンではできない）
+ssh root@192.168.10.126 qm set 100 --pool cloud
+```
+
+```bash
+# 引き取る。owner は12桁のアカウントID（ポータルの「容量」や /v1/caller-identity で見える）
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"vmid":100,"account_id":"123456789012","private_ip_address":"192.168.10.130"}' \
+  https://cloud.apextox.dpdns.org/v1/instances/adopt
+```
+
+読み取るものと、断る条件:
+
+| 項目 | どこから |
+| --- | --- |
+| vCPU・メモリ・バルーニングの下限 | Proxmox の VM 設定（`cores`・`memory`・`balloon`） |
+| MACアドレス | `net0` |
+| ルートディスク | ディスクの volid からストレージの実サイズを測る。読めないときだけ `root_disk_gib` を明示 |
+| 名前 | `name`（リクエスト → VM設定 → `tags.Name` の順） |
+| 状態 | `running` か `stopped` だけ。`paused` などは断る |
+
+断るのは、**プールに無いVMID**（404。先に移す）、**既に引き取り済み／生存中のVMID**（409）、**予約VMID（ホルダー5997・プローブ5998/5999）**、**未登録のアカウント**、**MACが無い**、**クォータ超過**です。引き取ったインスタンスは `adopted=true` で記録し、以後は電源・コンソール・タグ・SGが普通に効きます。ソースイメージ・user-data・seed ISO は持ちません。
+
+`adopted` のインスタンスは `owns()` が無条件で持ち主とみなします。APIが作ったVMは description に instance ID を書きますが、引き取ったVMにはそれが無いためです。
+
+**2026-09-11 に使い捨てVM(5900)で実機確認済み**: Proxmox で直接作ったVM（ディスク無し・`root_disk_gib` 指定）を adopt → `GET` で `adopted=true`、重複 adopt は 409 `InvalidParameterValue`、terminate でVMが消えて残骸なし、までを確認しました。`game1`（VMID 100）は `qm set 100 --pool cloud` でプールへ移してから、所有者のアカウントIDを指定して adopt します。
 
 ## 4. 実機プローブ
 

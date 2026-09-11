@@ -48,7 +48,7 @@ func (s *Service) OpenConsole(ctx context.Context, instanceID string) (db.Instan
 	vmid := *instance.VMID
 	// The same rule as every other action: a VM on this VMID that does not
 	// carry the instance's ID is someone else's, and a console is a way in.
-	owned, err := s.owns(ctx, vmid, instance.ID)
+	owned, err := s.owns(ctx, vmid, instance)
 	if err != nil {
 		return db.Instance{}, ConsoleTicket{}, s.unavailable(err)
 	}

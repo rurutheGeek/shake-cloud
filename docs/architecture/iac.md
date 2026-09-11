@@ -14,7 +14,7 @@
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
-| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ。未実装: バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
+| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ、既存VMの引き取り。未実装: バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
 
