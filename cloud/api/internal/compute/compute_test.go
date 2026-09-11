@@ -121,6 +121,19 @@ func (f *fakePVE) VMConfig(ctx context.Context, vmid int) (map[string]any, error
 	return copied, nil
 }
 
+func (f *fakePVE) UpdateVMConfig(ctx context.Context, vmid int, params url.Values) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	vm := f.vms[vmid]
+	if vm == nil {
+		return forbidden(vmid)
+	}
+	for key := range params {
+		vm.config[key] = params.Get(key)
+	}
+	return nil
+}
+
 func (f *fakePVE) VMStatus(ctx context.Context, vmid int) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

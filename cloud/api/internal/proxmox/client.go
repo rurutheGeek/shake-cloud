@@ -220,6 +220,18 @@ func (c *Client) VMConfig(ctx context.Context, vmid int) (map[string]any, error)
 	return config, err
 }
 
+// UpdateVMConfig changes a VM's configuration. Proxmox accepts cpu and memory
+// changes for a running VM but only applies them at its next start, so the
+// caller decides whether the VM has to be stopped first.
+func (c *Client) UpdateVMConfig(ctx context.Context, vmid int, params url.Values) error {
+	var upid *string
+	err := c.form(ctx, http.MethodPut, c.nodePath("/qemu/%d/config", vmid), params, &upid)
+	if err != nil || upid == nil || *upid == "" {
+		return err
+	}
+	return c.WaitTask(ctx, *upid)
+}
+
 // VMStatus returns "running" or "stopped".
 func (c *Client) VMStatus(ctx context.Context, vmid int) (string, error) {
 	var status struct {

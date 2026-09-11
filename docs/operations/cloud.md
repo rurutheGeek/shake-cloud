@@ -377,11 +377,50 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | 操作 | 呼び方 |
 | --- | --- |
 | 共有イメージの一覧 | `GET /v1/images` |
-| サイズの一覧 | `GET /v1/instance-types`（`flavors.yaml` と同じ名前） |
-| 作成 | `POST /v1/instances`（`image_id`、`instance_type`、任意で `root_disk_gib`・`user_data`・`client_token`・`tags`） |
-| 一覧・1台 | `GET /v1/instances`、`GET /v1/instances/{id}` |
+| 雛形の一覧 | `GET /v1/instance-types`（`flavors.yaml` と同じ名前）。**選ばなくてもよい** |
+| 作成 | `POST /v1/instances`（`image_id` と、`vcpus`＋`memory_mib`。任意で `memory_min_mib`・`ballooning`・`root_disk_gib`・`user_data`・`client_token`・`tags`。`instance_type` を使えば値が埋まる） |
+| 一覧・1台 | `GET /v1/instances`、`GET /v1/instances/{id}`。**一覧はクラウドの全VM**（所有者名・イメージ名つき） |
+| 大きさの変更 | `PATCH /v1/instances/{id}`（`cloud-admins` だけ） |
 | 電源 | `POST /v1/instances/{id}/start`・`/stop`・`/reboot` |
 | 削除 | `DELETE /v1/instances/{id}` |
+
+**大きさは自由に決められます。**決まったサイズの一覧から選ぶ必要はありません。
+
+```bash
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"image_id":"img-debian13","vcpus":6,"memory_mib":20480,"ballooning":false,"root_disk_gib":120,"tags":{"Name":"game"}}' \
+  https://cloud.apextox.dpdns.org/v1/instances
+```
+
+- `instance_type` は**任意の近道**です。指定すると `flavors.yaml` の値が入り、そこから好きな項目だけ上書きできます。1つでも上書きするとその型名は外れます（一覧では「カスタム」）。
+- `ballooning: false` は**固定メモリ**です（Proxmox の `balloon=0`）。ゲームVMのように実際に使い切る相手には、返ってこないメモリを空きに数えないぶん、こちらが正直です。
+- `ballooning: true`（既定）のとき `memory_min_mib` が回収の下限で、省略すると**上限の 1/4**（最低 512MiB）になります。
+- vCPU はノードのスレッド数（16）を超えられません。メモリとディスクは上限（`/v1/limits`）と実際の空きが決めます。
+
+**管理者は後から変えられます。**vCPU・メモリ・バルーニングは停止中だけ、ディスクは稼働中でも拡大のみです。
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' \
+  -d '{"vcpus":8,"memory_mib":16384,"ballooning":true}' \
+  https://cloud.apextox.dpdns.org/v1/instances/i-0123456789abcdef0
+```
+
+**ディスクは縮められません。**縮小はゲストのファイルシステムに知らせずに末尾を捨てる操作なので、断ります。
+
+#### 実機での確認（2026-09-11）
+
+| 確認 | 結果 |
+| --- | --- |
+| 型名なしで作成（2vCPU・3072MiB・バルーニングなし） | そのまま通った。`instance_type` は付かず、`memory_min_mib` は 0 |
+| Proxmox の実物 | `cores=2`、`memory=3072`、**`balloon=0`**（バルーニング無効） |
+| 一覧 | クラウドの全VMが出て、**所有者名とイメージ名**が付く |
+| 稼働中に `memory_mib` を変更 | **409**（次回起動までは反映されないので断る） |
+| 稼働中にディスクを 25GiB へ | 200。実物が `size=25G` になった |
+| ディスクを 10GiB へ縮小 | **400**（拒否） |
+| 停止後に 4vCPU・6144MiB・バルーニング有効へ | 200。床は上限の 1/4 の **1536MiB** に再計算 |
+| Proxmox の実物 | `cores=4`、`memory=6144`、`balloon=1536` |
+| 削除 | `terminated`、VM の残骸なし |
+| 監査ログ | `ModifyInstance` が成功・`IncorrectInstanceState`・`InvalidParameterValue` の3通りとも残った |
 
 作成の例（アクセスキーは Terraform・CLI と同じもの）:
 

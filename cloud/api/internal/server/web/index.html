@@ -76,6 +76,39 @@
   </section>
   {{- end}}
   <section>
+    <h2>インスタンス</h2>
+    <p class="muted">全アカウントのVMが並びます。自分のものだけではありません。</p>
+    <form id="create-instance">
+      <label>イメージ <select name="image_id" required></select></label>
+      <label>名前 <input name="name" placeholder="例: game"></label>
+      <label>構成の雛形
+        <select name="preset">
+          <option value="">指定しない（自由に入力）</option>
+        </select>
+      </label>
+      <label>vCPU <input name="vcpus" type="number" min="1" step="1"></label>
+      <label>メモリ MiB <input name="memory_mib" type="number" min="512" step="1"></label>
+      <label><input name="ballooning" type="checkbox" checked> バルーニングを使う（空きを host へ返す）</label>
+      <label>最小メモリ MiB <input name="memory_min_mib" type="number" min="512" step="1">
+        <span class="muted small">ホストが回収できるメモリの下限です</span>
+      </label>
+      <label>ルートディスク GiB <input name="root_disk_gib" type="number" min="1" step="1"></label>
+      <label class="wide">user-data
+        <textarea name="user_data" rows="4"></textarea>
+        <span class="muted small">VMの中から読めるので、秘密情報は書かないでください</span>
+      </label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="instances-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>名前</th><th>所有者</th><th>状態</th><th>IP</th><th>イメージ</th><th>構成</th><th>ディスク</th><th>操作</th></tr></thead>
+          <tbody id="instances"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  <section>
     <h2>アクセスキー</h2>
     <p>Terraform と CLI はこのキーで API を呼びます。Authentik が止まっていても使えます。1アカウント5本までです。</p>
     <form id="create-key">

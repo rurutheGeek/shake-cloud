@@ -159,6 +159,310 @@
     }
   }
 
+  const STATE_LABELS = {
+    pending: '起動準備中',
+    running: '稼働中',
+    stopping: '停止処理中',
+    stopped: '停止中',
+    'shutting-down': '削除処理中',
+    terminated: '削除済み',
+  };
+  const TRANSIENT_STATES = new Set(['pending', 'stopping', 'shutting-down']);
+  const stateLabel = (state) => STATE_LABELS[state] || state;
+
+  async function loadImages() {
+    const select = document.querySelector('#create-instance select[name="image_id"]');
+    try {
+      const { images } = await api('GET', '/v1/images');
+      select.replaceChildren(...images.map((image) => {
+        const option = document.createElement('option');
+        option.value = image.image_id;
+        option.textContent = image.name;
+        return option;
+      }));
+    } catch (error) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '取得できません';
+      select.replaceChildren(option);
+    }
+  }
+
+  // Filled in by loadInstanceTypes and read by the preset <select>'s change
+  // handler, so picking a preset can fill in the vCPU/memory/floor inputs.
+  let presetTypes = new Map();
+
+  async function loadInstanceTypes() {
+    const select = document.querySelector('#create-instance select[name="preset"]');
+    try {
+      const { instance_types: types } = await api('GET', '/v1/instance-types');
+      presetTypes = new Map(types.map((type) => [type.instance_type, type]));
+      for (const type of types) {
+        const option = document.createElement('option');
+        option.value = type.instance_type;
+        option.textContent = `${type.instance_type} — ${type.vcpus} vCPU / ${type.memory_mib} MiB`;
+        select.append(option);
+      }
+    } catch (error) {
+      // Leave only the "指定しない" option; explicit numbers still work.
+    }
+  }
+
+  function powerButton(label, path, enabled) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.disabled = !enabled;
+    button.addEventListener('click', async () => {
+      try {
+        $('error').hidden = true;
+        await api('POST', path);
+        await Promise.all([loadInstances(), loadCapacity()]);
+      } catch (error) {
+        showError(error);
+      }
+    });
+    return button;
+  }
+
+  function deleteInstanceButton(instance) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = '削除';
+    button.disabled = instance.state === 'terminated';
+    button.addEventListener('click', async () => {
+      const label = (instance.tags && instance.tags.Name) || instance.instance_id;
+      if (!confirm(`インスタンス「${label}」を削除します。`)) return;
+      try {
+        $('error').hidden = true;
+        await api('DELETE', `/v1/instances/${encodeURIComponent(instance.instance_id)}`);
+        await Promise.all([loadInstances(), loadCapacity()]);
+      } catch (error) {
+        showError(error);
+      }
+    });
+    return button;
+  }
+
+  function numberField(labelText, name, value, min) {
+    const label = document.createElement('label');
+    label.append(labelText + ' ');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.name = name;
+    input.min = String(min);
+    input.step = '1';
+    input.value = value;
+    label.append(input);
+    return { label, input };
+  }
+
+  function closeEditRows() {
+    for (const editRow of $('instances').querySelectorAll('tr.edit-row')) editRow.remove();
+  }
+
+  // The admin-only inline edit row. PATCH only carries fields that actually
+  // changed; the API itself enforces which fields may change while running.
+  function toggleEditRow(row, instance) {
+    const already = row.nextElementSibling;
+    if (already && already.classList.contains('edit-row')) {
+      already.remove();
+      return;
+    }
+    closeEditRows();
+
+    const vcpus = numberField('vCPU', 'vcpus', instance.vcpus, 1);
+    const memory = numberField('メモリ MiB', 'memory_mib', instance.memory_mib, 512);
+    // min is 0, not 512: a fixed-memory (ballooning off) instance already sits
+    // at memory_min_mib 0, and a min above the current value would make the
+    // browser refuse to submit the form at all.
+    const memoryMin = numberField('最小メモリ MiB', 'memory_min_mib', instance.memory_min_mib, 0);
+    const disk = numberField('ルートディスク GiB', 'root_disk_gib', instance.root_disk_gib, instance.root_disk_gib);
+
+    const ballooningLabel = document.createElement('label');
+    const ballooningInput = document.createElement('input');
+    ballooningInput.type = 'checkbox';
+    ballooningInput.checked = instance.ballooning;
+    ballooningLabel.append(ballooningInput, ' バルーニングを使う');
+
+    const hint = document.createElement('p');
+    hint.className = 'muted small wide';
+    hint.textContent = 'vCPU・メモリ・バルーニングの変更は停止中のインスタンスだけです。ディスクは拡大のみできます。';
+
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.textContent = '保存';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'やめる';
+
+    const form = document.createElement('form');
+    form.className = 'edit-instance';
+    form.append(vcpus.label, memory.label, memoryMin.label, ballooningLabel, disk.label, hint, save, cancel);
+
+    cancel.addEventListener('click', () => editRow.remove());
+    form.addEventListener('submit', async (submit) => {
+      submit.preventDefault();
+      const patch = {};
+      if (Number(vcpus.input.value) !== instance.vcpus) patch.vcpus = Number(vcpus.input.value);
+      if (Number(memory.input.value) !== instance.memory_mib) patch.memory_mib = Number(memory.input.value);
+      if (Number(memoryMin.input.value) !== instance.memory_min_mib) patch.memory_min_mib = Number(memoryMin.input.value);
+      if (ballooningInput.checked !== instance.ballooning) patch.ballooning = ballooningInput.checked;
+      if (Number(disk.input.value) !== instance.root_disk_gib) patch.root_disk_gib = Number(disk.input.value);
+      try {
+        $('error').hidden = true;
+        await api('PATCH', `/v1/instances/${encodeURIComponent(instance.instance_id)}`, patch);
+        editRow.remove();
+        await Promise.all([loadInstances(), loadCapacity()]);
+      } catch (error) {
+        showError(error);
+      }
+    });
+
+    const editRow = document.createElement('tr');
+    editRow.className = 'edit-row';
+    const td = document.createElement('td');
+    td.colSpan = 8;
+    td.append(form);
+    editRow.append(td);
+    row.after(editRow);
+  }
+
+  function instanceRow(instance, viewerAccountId, isAdmin) {
+    const row = document.createElement('tr');
+
+    const nameCell = document.createElement('td');
+    nameCell.append((instance.tags && instance.tags.Name) || '—');
+    if (instance.state_reason) {
+      const reason = document.createElement('div');
+      reason.className = 'muted small';
+      reason.textContent = instance.state_reason;
+      nameCell.append(reason);
+    }
+
+    const stateCell = document.createElement('td');
+    const state = document.createElement('span');
+    state.className = `state state-${instance.state}`;
+    state.textContent = stateLabel(instance.state);
+    stateCell.append(state);
+
+    const configCell = document.createElement('td');
+    const typeLine = document.createElement('div');
+    typeLine.textContent = instance.instance_type || 'カスタム';
+    const detailLine = document.createElement('div');
+    detailLine.className = 'muted small';
+    detailLine.textContent = `${instance.vcpus} vCPU / ${mib(instance.memory_mib)}`
+      + (instance.ballooning ? ` ・ 最小 ${mib(instance.memory_min_mib)}` : ' ・ 固定');
+    configCell.append(typeLine, detailLine);
+
+    row.append(
+      nameCell,
+      cell(instance.owner_username || instance.account_id),
+      stateCell,
+      cell(instance.private_ip_address || '—'),
+      cell(instance.image_name || instance.image_id),
+      configCell,
+      cell(instance.root_disk_gib + ' GiB'),
+    );
+
+    const actions = document.createElement('td');
+    if (instance.account_id === viewerAccountId || isAdmin) {
+      const id = encodeURIComponent(instance.instance_id);
+      actions.append(
+        powerButton('起動', `/v1/instances/${id}/start`, instance.state === 'stopped'),
+        powerButton('停止', `/v1/instances/${id}/stop`, instance.state === 'running'),
+        powerButton('再起動', `/v1/instances/${id}/reboot`, instance.state === 'running'),
+        deleteInstanceButton(instance),
+      );
+    }
+    if (isAdmin) {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.textContent = '編集';
+      edit.addEventListener('click', () => toggleEditRow(row, instance));
+      actions.append(edit);
+    }
+    row.append(actions);
+    return row;
+  }
+
+  // Re-arms itself only while some instance is mid-transition, so there is
+  // never more than one timer in flight.
+  let instancePollTimer = null;
+  function scheduleInstancePoll(instances) {
+    if (instancePollTimer) {
+      clearTimeout(instancePollTimer);
+      instancePollTimer = null;
+    }
+    if (instances.some((instance) => TRANSIENT_STATES.has(instance.state))) {
+      instancePollTimer = setTimeout(loadInstances, 5000);
+    }
+  }
+
+  async function loadInstances() {
+    const wrap = $('instances-wrap');
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const { instances } = await api('GET', '/v1/instances');
+      $('instances').replaceChildren(...instances.map((instance) => instanceRow(instance, viewerAccountId, isAdmin)));
+      scheduleInstancePoll(instances);
+    } catch (error) {
+      const row = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 8;
+      td.className = 'muted';
+      td.textContent = error.message;
+      row.append(td);
+      $('instances').replaceChildren(row);
+      scheduleInstancePoll([]);
+    }
+  }
+
+  const createInstanceForm = $('create-instance');
+  createInstanceForm.querySelector('select[name="preset"]').addEventListener('change', (event) => {
+    const preset = presetTypes.get(event.target.value);
+    if (!preset) return;
+    createInstanceForm.querySelector('input[name="vcpus"]').value = preset.vcpus;
+    createInstanceForm.querySelector('input[name="memory_mib"]').value = preset.memory_mib;
+    createInstanceForm.querySelector('input[name="memory_min_mib"]').value = preset.memory_min_mib;
+  });
+  createInstanceForm.querySelector('input[name="ballooning"]').addEventListener('change', (event) => {
+    createInstanceForm.querySelector('input[name="memory_min_mib"]').disabled = !event.target.checked;
+  });
+  createInstanceForm.addEventListener('submit', async (submit) => {
+    submit.preventDefault();
+    const data = new FormData(createInstanceForm);
+    const vcpus = data.get('vcpus');
+    const memoryMib = data.get('memory_mib');
+    const preset = data.get('preset');
+    const body = {
+      image_id: data.get('image_id'),
+      ballooning: createInstanceForm.querySelector('input[name="ballooning"]').checked,
+    };
+    if (preset && !vcpus && !memoryMib) body.instance_type = preset;
+    if (vcpus) body.vcpus = Number(vcpus);
+    if (memoryMib) body.memory_mib = Number(memoryMib);
+    const memoryMinMib = data.get('memory_min_mib');
+    if (memoryMinMib) body.memory_min_mib = Number(memoryMinMib);
+    const rootDiskGib = data.get('root_disk_gib');
+    if (rootDiskGib) body.root_disk_gib = Number(rootDiskGib);
+    const userData = data.get('user_data');
+    if (userData) body.user_data = userData;
+    const name = data.get('name');
+    if (name) body.tags = { Name: name };
+    try {
+      $('error').hidden = true;
+      await api('POST', '/v1/instances', body);
+      createInstanceForm.reset();
+      createInstanceForm.querySelector('input[name="memory_min_mib"]').disabled =
+        !createInstanceForm.querySelector('input[name="ballooning"]').checked;
+      await Promise.all([loadInstances(), loadCapacity()]);
+    } catch (error) {
+      showError(error);
+    }
+  });
+
   // The form shows an administrator's overrides as values and the deployment's
   // defaults as placeholders, so an empty box always means "use the default".
   async function loadLimits() {
@@ -207,7 +511,7 @@
     });
   }
 
-  const refresh = () => Promise.all([loadKeys(), loadEvents(), loadCapacity(), loadLimits()]);
+  const refresh = () => Promise.all([loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances()]);
 
   $('create-key').addEventListener('submit', async (submit) => {
     submit.preventDefault();
@@ -243,5 +547,7 @@
     }
   });
 
+  loadImages();
+  loadInstanceTypes();
   refresh().catch(showError);
 })();

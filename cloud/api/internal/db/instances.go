@@ -28,16 +28,23 @@ const (
 )
 
 type Instance struct {
-	ID            string
-	AccountID     string
+	ID        string
+	AccountID string
+	// OwnerUsername comes from the account row, so a listing can say whose
+	// instance this is without a second query.
+	OwnerUsername string
 	ClientToken   string
 	RequestSHA256 []byte
 	Name          string
 	ImageID       string
-	InstanceType  string
-	CPUCores      int
-	MemoryMiB     int
+	// InstanceType is empty when the size was given as explicit numbers rather
+	// than a named preset.
+	InstanceType string
+	CPUCores     int
+	MemoryMiB    int
+	// MemoryMinMiB is the balloon floor, and 0 when Ballooning is false.
 	MemoryMinMiB  int
+	Ballooning    bool
 	RootDiskGiB   int
 	UserData      string
 	Tags          map[string]string
@@ -58,16 +65,20 @@ type Instance struct {
 	UpdatedAt     time.Time
 }
 
-const instanceColumns = `i.instance_id, i.account_id, coalesce(i.client_token, ''), i.request_sha256, i.name,
-	i.image_id, i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.root_disk_gib, i.user_data, i.tags,
+const instanceColumns = `i.instance_id, i.account_id,
+	coalesce((SELECT a.username FROM accounts a WHERE a.id = i.account_id), ''),
+	coalesce(i.client_token, ''), i.request_sha256, i.name,
+	i.image_id, i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.ballooning, i.root_disk_gib,
+	i.user_data, i.tags,
 	i.state, coalesce(i.pending_action, ''), i.state_reason, i.last_error, i.attempts, i.next_attempt_at,
 	i.vmid, i.vm_created, i.mac_address, coalesce(i.ip_address, ''), i.netbox_ip_id, coalesce(i.seed_volume, ''),
 	i.launch_time, i.terminated_at, i.updated_at`
 
 func scanInstance(row pgx.Row) (Instance, error) {
 	var i Instance
-	err := row.Scan(&i.ID, &i.AccountID, &i.ClientToken, &i.RequestSHA256, &i.Name,
-		&i.ImageID, &i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.RootDiskGiB, &i.UserData, &i.Tags,
+	err := row.Scan(&i.ID, &i.AccountID, &i.OwnerUsername, &i.ClientToken, &i.RequestSHA256, &i.Name,
+		&i.ImageID, &i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.Ballooning, &i.RootDiskGiB,
+		&i.UserData, &i.Tags,
 		&i.State, &i.PendingAction, &i.StateReason, &i.LastError, &i.Attempts, &i.NextAttemptAt,
 		&i.VMID, &i.VMCreated, &i.MACAddress, &i.IPAddress, &i.NetBoxIPID, &i.SeedVolume,
 		&i.LaunchTime, &i.TerminatedAt, &i.UpdatedAt)
@@ -88,12 +99,12 @@ func InsertInstance(ctx context.Context, q Querier, i Instance) (Instance, error
 	}
 	return scanInstance(q.QueryRow(ctx, `INSERT INTO instances AS i
 		(instance_id, account_id, client_token, request_sha256, name, image_id, instance_type,
-		 cpu_cores, memory_mib, memory_min_mib, root_disk_gib, user_data, tags, state, pending_action,
+		 cpu_cores, memory_mib, memory_min_mib, ballooning, root_disk_gib, user_data, tags, state, pending_action,
 		 vmid, mac_address)
-		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending', 'launch', $14, $15)
+		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending', 'launch', $15, $16)
 		RETURNING `+instanceColumns,
 		i.ID, i.AccountID, i.ClientToken, i.RequestSHA256, i.Name, i.ImageID, i.InstanceType,
-		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.RootDiskGiB, i.UserData, i.Tags, i.VMID, i.MACAddress))
+		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.Ballooning, i.RootDiskGiB, i.UserData, i.Tags, i.VMID, i.MACAddress))
 }
 
 func GetInstance(ctx context.Context, q Querier, id string) (Instance, error) {
@@ -292,6 +303,17 @@ func GiveUpAction(ctx context.Context, q Querier, id, action, state, reason stri
 func ReleaseLease(ctx context.Context, q Querier, id string) error {
 	_, err := q.Exec(ctx, `UPDATE instances SET lease_until = NULL WHERE instance_id = $1`, id)
 	return err
+}
+
+// SetSpec changes an instance's size. The caller has already applied it to the
+// hypervisor, so a failure here means the ledger is behind the VM, not ahead of
+// it, which the reconciler and a retry can survive.
+func SetSpec(ctx context.Context, q Querier, id string, cpuCores, memoryMiB, memoryMinMiB int, ballooning bool, rootDiskGiB int) (Instance, error) {
+	return scanInstance(q.QueryRow(ctx, `UPDATE instances AS i
+		SET cpu_cores = $2, memory_mib = $3, memory_min_mib = $4, ballooning = $5, root_disk_gib = $6,
+		    instance_type = '', updated_at = now()
+		WHERE i.instance_id = $1 RETURNING `+instanceColumns,
+		id, cpuCores, memoryMiB, memoryMinMiB, ballooning, rootDiskGiB))
 }
 
 // SetAction records a requested transition. Callers hold the row via LockInstance.
