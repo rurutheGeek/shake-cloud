@@ -53,6 +53,16 @@ variable "disk_gib" {
   type = number
 }
 
+variable "data_disk_gib" {
+  description = <<-EOT
+    追加のデータディスク（GiB）。0 なら作らない。OS とデータを分けると、
+    OS を作り直してもデータが残り、バックアップの単位も分けられる。
+    フォーマットとマウントは Ansible 側で行う（cloud image は自動でやらない）。
+  EOT
+  type        = number
+  default     = 0
+}
+
 variable "node_name" {
   description = "Proxmox のノード名。実機の読み取りの結果から入れる。"
   type        = string

@@ -54,6 +54,7 @@ module "host" {
   memory_mib     = try(each.value.memory_mib, local.flavors[each.value.flavor].memory_mib)
   memory_min_mib = try(each.value.memory_min_mib, local.flavors[each.value.flavor].memory_min_mib)
   disk_gib       = each.value.disk_gib
+  data_disk_gib  = try(each.value.data_disk_gib, 0)
 
   node_name       = local.site.node_name
   vm_datastore_id = local.site.storage.vm_disks

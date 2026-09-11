@@ -76,6 +76,17 @@ resource "proxmox_virtual_environment_vm" "this" {
     discard      = "on"
   }
 
+  # データ用の追加ディスク。空のまま渡し、フォーマットとマウントは Ansible が行う。
+  dynamic "disk" {
+    for_each = var.data_disk_gib > 0 ? [var.data_disk_gib] : []
+    content {
+      datastore_id = var.vm_datastore_id
+      interface    = "virtio1"
+      size         = disk.value
+      discard      = "on"
+    }
+  }
+
   network_device {
     bridge  = var.network_bridge
     model   = "virtio"

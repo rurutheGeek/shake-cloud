@@ -1,0 +1,165 @@
+---
+- name: Install the packages this role needs
+  ansible.builtin.apt:
+    name: [openssl, e2fsprogs]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# データディスク。OS と分けてあるので、OS を作り直してもデータは残る。
+- name: Read the data device's filesystem
+  ansible.builtin.command: "blkid -s UUID -o value {{ garage_data_device }}"
+  register: garage_blkid
+  failed_when: false
+  changed_when: false
+
+- name: Format the data device once
+  ansible.builtin.command: "mkfs.ext4 -F -L garage-data {{ garage_data_device }}"
+  when: garage_blkid.rc != 0
+  changed_when: true
+
+- name: Read the data disk's UUID
+  ansible.builtin.command: "blkid -s UUID -o value {{ garage_data_device }}"
+  register: garage_uuid
+  changed_when: false
+
+- name: Create the mount point
+  ansible.builtin.file:
+    path: '{{ garage_data_mount }}'
+    state: directory
+    mode: '0750'
+
+- name: Mount the data disk at boot
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "UUID={{ garage_uuid.stdout }} {{ garage_data_mount }} ext4 defaults,noatime 0 2"
+    state: present
+
+- name: Check whether the data disk is mounted
+  ansible.builtin.command: "mountpoint -q {{ garage_data_mount }}"
+  register: garage_mountpoint
+  failed_when: false
+  changed_when: false
+
+- name: Mount the data disk now
+  ansible.builtin.command: "mount {{ garage_data_mount }}"
+  when: garage_mountpoint.rc != 0
+  changed_when: true
+
+- name: Create the Garage service user
+  ansible.builtin.user:
+    name: '{{ garage_user }}'
+    system: true
+    home: '{{ garage_data_mount }}'
+    shell: /usr/sbin/nologin
+
+# 版とチェックサムを固定する。更新はこの値を変えるときだけ行う。
+- name: Install the Garage binary
+  ansible.builtin.get_url:
+    url: '{{ garage_binary_url }}'
+    dest: '{{ garage_binary_path }}'
+    checksum: 'sha256:{{ garage_binary_sha256 }}'
+    owner: root
+    group: root
+    mode: '0755'
+
+# 設定は初回だけ書く。秘密値はそこで生成し、以降は上書きしない。
+- name: Look for an existing configuration
+  ansible.builtin.stat:
+    path: '{{ garage_config_path }}'
+  register: garage_config
+
+- name: Generate the RPC secret
+  ansible.builtin.command: openssl rand -hex 32
+  register: garage_rpc_secret
+  when: not garage_config.stat.exists
+  changed_when: false
+
+- name: Generate the admin token
+  ansible.builtin.command: openssl rand -base64 32
+  register: garage_admin_token
+  when: not garage_config.stat.exists
+  changed_when: false
+
+- name: Generate the metrics token
+  ansible.builtin.command: openssl rand -base64 32
+  register: garage_metrics_token
+  when: not garage_config.stat.exists
+  changed_when: false
+
+- name: Write the configuration once
+  ansible.builtin.copy:
+    dest: '{{ garage_config_path }}'
+    force: false
+    owner: root
+    group: '{{ garage_user }}'
+    mode: '0640'
+    content: |
+      metadata_dir = "{{ garage_data_mount }}/meta"
+      data_dir = "{{ garage_data_mount }}/data"
+      db_engine = "sqlite"
+      replication_factor = {{ garage_replication_factor }}
+
+      rpc_bind_addr = "{{ garage_rpc_bind }}"
+      rpc_public_addr = "127.0.0.1:3901"
+      rpc_secret = "{{ garage_rpc_secret.stdout }}"
+
+      [s3_api]
+      s3_region = "{{ garage_s3_region }}"
+      api_bind_addr = "{{ garage_s3_api_bind }}"
+      root_domain = ".s3.garage.localhost"
+
+      [admin]
+      api_bind_addr = "{{ garage_admin_api_bind }}"
+      admin_token = "{{ garage_admin_token.stdout }}"
+      metrics_token = "{{ garage_metrics_token.stdout }}"
+  when: not garage_config.stat.exists
+
+- name: Create the data directories
+  ansible.builtin.file:
+    path: "{{ garage_data_mount }}/{{ item }}"
+    state: directory
+    owner: '{{ garage_user }}'
+    group: '{{ garage_user }}'
+    mode: '0750'
+  loop: [meta, data]
+
+- name: Install the systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/garage.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Garage S3 object store
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User={{ garage_user }}
+      Group={{ garage_user }}
+      ExecStart={{ garage_binary_path }} -c {{ garage_config_path }} server --single-node
+      Restart=on-failure
+      LimitNOFILE=65536
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Start Garage
+  ansible.builtin.systemd:
+    name: garage
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# --single-node がレイアウトを自動で割り当てる。応答するまで少し待つ。
+- name: Read the cluster status
+  ansible.builtin.command: "{{ garage_binary_path }} -c {{ garage_config_path }} status"
+  register: garage_status
+  changed_when: false
+  until: garage_status.rc == 0
+  retries: 10
+  delay: 3
+
+- name: Report the cluster status
+  ansible.builtin.debug:
+    msg: "{{ garage_status.stdout_lines }}"

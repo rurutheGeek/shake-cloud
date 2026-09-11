@@ -67,3 +67,19 @@ hosts:
     started: true
     tags: [cloud-control, managed-by-terraform-admin]
     description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。
+
+  storage-s3:
+    vm_id: 130
+    pool: platform
+    # 当初計画の 1GiB に合わせる。flavor は保険で付け、数値で上書きする。
+    flavor: small
+    cpu_cores: 2
+    memory_mib: 1024
+    memory_min_mib: 512
+    disk_gib: 16
+    # Garage のメタデータとオブジェクトは OS と別ディスクに置く。
+    data_disk_gib: 32
+    on_boot: true
+    started: true
+    tags: [storage, managed-by-terraform-admin]
+    description: Garage（S3互換オブジェクトストア）。OS16+データ32。利用開始後は常時起動。

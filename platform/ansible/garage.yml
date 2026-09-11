@@ -1,0 +1,13 @@
+---
+# Garage（S3互換オブジェクトストア）を storage-s3 VM へ構築する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/garage.yml'
+#
+# データディスクの用意と単一ノードの設定まで。バケットとS3キーの管理は
+# クラウドAPI（Phase 7）が行う。
+- name: Deploy Garage
+  hosts: storage
+  become: true
+  roles:
+    - common
+    - garage

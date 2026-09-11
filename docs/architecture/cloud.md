@@ -33,6 +33,8 @@ Knative ServingだけではAWS Lambda API、ZIPアップロード、AWSの実行
 
 ## S3: Garageを第一候補にする
 
+**2026-09-11 に storage-s3 VM（VMID 130、.206）へ単一ノードで構築しました。** 実クライアント（awscli）で PUT/LIST/GET/削除を確認済みです。手順は[Garage（S3互換オブジェクトストア）](../operations/garage.md)。
+
 Garageは、バケット・キーの管理APIがあり、自作クラウドへ接続しやすい候補です。管理APIのトークンにはスコープと期限を設定できます。[Garage管理API](https://garagehq.deuxfleurs.fr/documentation/reference-manual/admin-api/)
 
 初期配置はKubernetes外の小型VMとし、専用のデータ用仮想ディスクを渡します。メタデータ・オブジェクト・設定・鍵をバックアップ対象にします。Kubernetes復旧時に、バックアップ格納先まで同じクラスタの起動待ちになる依存を減らせます。
@@ -307,7 +309,7 @@ Kubernetesクラスタが未構築なので、**サーバレスとDBアプライ
 7. ボリュームとセキュリティグループ（2026-09-11 に実機検証済み）。
 8. ポータル（最小ページは稼働中。ボリューム・SG 操作は実装済み）。既存VMの引き取り（Phase 5）は 2026-09-11 に実装済み。
 9. Terraform Provider（2026-09-11 に実装済み）。
-10. Garageのバケットと用途別S3キー。実クライアントでPUT/GET/削除を確認。
+10. Garage（2026-09-11 に storage-s3 VM へ単一ノードで構築、実クライアントで PUT/GET/削除を確認済み）と、バケット・用途別S3キーの API。
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 
