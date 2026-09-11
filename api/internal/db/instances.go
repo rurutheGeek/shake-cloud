@@ -68,6 +68,10 @@ type Instance struct {
 	LaunchTime    time.Time
 	TerminatedAt  *time.Time
 	UpdatedAt     time.Time
+	// Adopted marks a VM that already existed and was registered into the
+	// cloud, rather than one the API created. Its description carries no
+	// instance ID, and it has no seed image or source image to account for.
+	Adopted bool
 	// FirewallGeneration moves whenever the instance's groups or their rules
 	// change; FirewallApplied is the generation its VM firewall was last
 	// written from. They differ while a change is on its way to Proxmox.
@@ -83,7 +87,7 @@ const instanceColumns = `i.instance_id, i.account_id,
 	i.user_data, coalesce(i.key_name, ''), coalesce(i.key_public_key, ''), i.tags,
 	i.state, coalesce(i.pending_action, ''), i.state_reason, i.last_error, i.attempts, i.next_attempt_at,
 	i.vmid, i.vm_created, i.mac_address, coalesce(i.ip_address, ''), i.netbox_ip_id, coalesce(i.seed_volume, ''),
-	i.launch_time, i.terminated_at, i.updated_at,
+	i.launch_time, i.terminated_at, i.updated_at, i.adopted,
 	i.firewall_generation, i.firewall_applied, i.firewall_last_error`
 
 func scanInstance(row pgx.Row) (Instance, error) {
@@ -93,7 +97,7 @@ func scanInstance(row pgx.Row) (Instance, error) {
 		&i.UserData, &i.KeyName, &i.KeyPublicKey, &i.Tags,
 		&i.State, &i.PendingAction, &i.StateReason, &i.LastError, &i.Attempts, &i.NextAttemptAt,
 		&i.VMID, &i.VMCreated, &i.MACAddress, &i.IPAddress, &i.NetBoxIPID, &i.SeedVolume,
-		&i.LaunchTime, &i.TerminatedAt, &i.UpdatedAt,
+		&i.LaunchTime, &i.TerminatedAt, &i.UpdatedAt, &i.Adopted,
 		&i.FirewallGeneration, &i.FirewallApplied, &i.FirewallLastError)
 	return i, noRows(err)
 }
@@ -122,6 +126,25 @@ func InsertInstance(ctx context.Context, q Querier, i Instance) (Instance, error
 		i.KeyName, i.KeyPublicKey, i.Tags, i.VMID, i.MACAddress))
 }
 
+// InsertAdoptedInstance records a VM that already existed and was registered
+// into the cloud. It has no launch to carry out, so it is recorded settled in
+// the state Proxmox reports.
+func InsertAdoptedInstance(ctx context.Context, q Querier, i Instance) (Instance, error) {
+	if i.Tags == nil {
+		i.Tags = map[string]string{}
+	}
+	return scanInstance(q.QueryRow(ctx, `INSERT INTO instances AS i
+		(instance_id, account_id, name, image_id, instance_type,
+		 cpu_cores, memory_mib, memory_min_mib, ballooning, root_disk_gib, user_data,
+		 tags, state, pending_action, vmid, vm_created, mac_address, ip_address, adopted)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '', $11, $12, NULL, $13, true, $14,
+		        nullif($15::text, ''), true)
+		RETURNING `+instanceColumns,
+		i.ID, i.AccountID, i.Name, i.ImageID, i.InstanceType,
+		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.Ballooning, i.RootDiskGiB,
+		i.Tags, i.State, i.VMID, i.MACAddress, i.IPAddress))
+}
+
 func GetInstance(ctx context.Context, q Querier, id string) (Instance, error) {
 	return scanInstance(q.QueryRow(ctx, `SELECT `+instanceColumns+` FROM instances i WHERE i.instance_id = $1`, id))
 }
@@ -134,6 +157,14 @@ func LockInstance(ctx context.Context, q Querier, id string) (Instance, error) {
 func InstanceByClientToken(ctx context.Context, q Querier, accountID, token string) (Instance, error) {
 	return scanInstance(q.QueryRow(ctx, `SELECT `+instanceColumns+` FROM instances i
 		WHERE i.account_id = $1 AND i.client_token = $2`, accountID, token))
+}
+
+// LiveInstanceByVMID returns the instance holding a VMID, if any. The unique
+// index only allows one non-terminated instance to hold a VMID; this reads it
+// for a clear answer rather than a constraint violation.
+func LiveInstanceByVMID(ctx context.Context, q Querier, vmid int) (Instance, error) {
+	return scanInstance(q.QueryRow(ctx, `SELECT `+instanceColumns+` FROM instances i
+		WHERE i.vmid = $1 AND i.state <> 'terminated'`, vmid))
 }
 
 // ListInstances returns an account's instances (every account's when

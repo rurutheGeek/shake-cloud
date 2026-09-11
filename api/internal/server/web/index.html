@@ -112,6 +112,20 @@
       </label>
       <button type="submit">作成</button>
     </form>
+    {{- if .Account.IsAdmin}}
+    <details id="adopt-instance">
+      <summary>既存VMを引き取る（管理者）</summary>
+      <p class="muted">先に Proxmox で VM を <code>cloud</code> プールへ移してください。以後は通常のインスタンスとして扱います。</p>
+      <form id="adopt-instance-form">
+        <label>VMID <input name="vmid" type="number" min="1" step="1" required></label>
+        <label>所有者アカウントID <input name="account_id" pattern="[0-9]{12}" placeholder="12桁" required></label>
+        <label>名前（任意） <input name="name" maxlength="255"></label>
+        <label>IPアドレス（任意） <input name="private_ip_address" placeholder="例: 192.168.10.130"></label>
+        <button type="submit">引き取る</button>
+      </form>
+      <p id="adopt-status" class="muted"></p>
+    </details>
+    {{- end}}
     <div id="instances-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div class="scroll">
         <table>

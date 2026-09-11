@@ -100,7 +100,7 @@ func (s *Service) applyFirewall(ctx context.Context, instance db.Instance) error
 		return errors.New("the instance has no VM")
 	}
 	vmid := *instance.VMID
-	owned, err := s.owns(ctx, vmid, instance.ID)
+	owned, err := s.owns(ctx, vmid, instance)
 	if err != nil {
 		return err
 	}

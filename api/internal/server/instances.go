@@ -34,6 +34,9 @@ type instanceBody struct {
 	ClientToken      string            `json:"client_token,omitempty"`
 	LaunchTime       time.Time         `json:"launch_time"`
 	TerminatedAt     *time.Time        `json:"terminated_at,omitempty"`
+	// Adopted marks an instance that already existed and was registered into
+	// the cloud, rather than created by a launch. It has no source image.
+	Adopted bool `json:"adopted,omitempty"`
 	// SecurityGroups is empty for instances from before groups existed, which
 	// are unfiltered. FirewallState is "applying" while a change to the groups
 	// is still on its way to the VM.
@@ -60,6 +63,7 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []
 		Ballooning:  i.Ballooning,
 		RootDiskGiB: i.RootDiskGiB, KeyName: i.KeyName,
 		Tags: i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
+		Adopted: i.Adopted,
 	}
 	if owned {
 		body.ClientToken = i.ClientToken
@@ -161,6 +165,39 @@ func (s *Server) runInstances(w http.ResponseWriter, r *http.Request, c *call) {
 		status = http.StatusOK
 	}
 	s.writeInstance(w, r, status, service, instance, true)
+}
+
+// adoptInstance registers a VM that already exists into the cloud. Only
+// cloud-admins may: it picks another account to own the VM and takes over a
+// machine that already has its own contents.
+func (s *Server) adoptInstance(w http.ResponseWriter, r *http.Request, c *call) {
+	if !c.principal.account.IsAdmin {
+		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires cloud-admins"}))
+		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only cloud-admins may adopt a VM")
+		return
+	}
+	service := s.computeService(w, r)
+	if service == nil {
+		return
+	}
+	var request compute.AdoptRequest
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	instance, err := service.Adopt(r.Context(), request, func(tx pgx.Tx, i db.Instance) error {
+		event := c.event("", map[string]any{"owner_account_id": i.AccountID, "vmid": i.VMID, "adopted": true})
+		event.ResourceID = i.ID
+		return db.RecordAudit(r.Context(), tx, event)
+	})
+	if err != nil {
+		if refusal := (*compute.Error)(nil); errors.As(err, &refusal) {
+			event := c.event(refusal.Code, map[string]any{"vmid": request.VMID, "account_id": request.AccountID})
+			s.recordDenied(r.Context(), event)
+		}
+		s.computeError(w, r, err)
+		return
+	}
+	s.writeInstance(w, r, http.StatusCreated, service, instance, true)
 }
 
 // describeInstances lists every instance in the cloud, to whoever asks. Two

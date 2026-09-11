@@ -41,6 +41,12 @@ func scanAccount(row pgx.Row) (Account, error) {
 	return a, noRows(row.Scan(accountFields(&a)...))
 }
 
+// GetAccount reads one account by ID, for a caller that must name an owner,
+// such as an administrator adopting a VM for someone.
+func GetAccount(ctx context.Context, q Querier, id string) (Account, error) {
+	return scanAccount(q.QueryRow(ctx, `SELECT `+accountColumns+` FROM accounts a WHERE a.id = $1`, id))
+}
+
 // RecordLogin creates or refreshes the account for an Authentik subject and
 // reports whether it was created. Group membership is re-read on every login,
 // so removing someone from cloud-admins takes effect at their next login.

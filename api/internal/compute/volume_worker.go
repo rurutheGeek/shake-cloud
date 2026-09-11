@@ -335,7 +335,13 @@ func (s *Service) diskSizeGiB(ctx context.Context, volid string) (int, bool, err
 	if volid == "" {
 		return 0, false, nil
 	}
-	volumes, err := s.PVE.ListVolumes(ctx, s.Site.Storage.VMDisks, "images")
+	// The volume names its own storage, so an adopted VM whose disk lives
+	// somewhere other than the usual pool still measures.
+	storage := s.Site.Storage.VMDisks
+	if name, _, found := strings.Cut(volid, ":"); found && name != "" {
+		storage = name
+	}
+	volumes, err := s.PVE.ListVolumes(ctx, storage, "images")
 	if err != nil {
 		return 0, false, err
 	}
@@ -399,7 +405,7 @@ func (s *Service) attachVolumeDisk(ctx context.Context, v *db.Volume) error {
 		return giveUp{"Server.InternalError: instance " + instance.ID + " has no VM"}
 	}
 	vmid := *instance.VMID
-	owned, err := s.owns(ctx, vmid, instance.ID)
+	owned, err := s.owns(ctx, vmid, instance)
 	if err != nil {
 		return err
 	}
