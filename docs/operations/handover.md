@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-10。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）** を実機で構築・確認済み。次は Phase 3（イメージのアップロード・SSH鍵・Webコンソール）**。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示を実機で構築・確認済み。ここまでを [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) に出した。次は Phase 3（イメージのアップロード・SSH鍵・Webコンソール）**。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -164,7 +164,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | Phase 1 の最小ページ（ログイン、キーの発行・削除、操作履歴） | `html/template` と素の JS。ビルド基盤なし。Phase 5 で置き換える |
 | ✅ | `cloud/compose.yaml` と `cloud/manage.py`（既存スタックと同じ作法） | API のイメージは cloud-01 でビルド。ベースイメージは Dockerfile で digest 固定 |
 | ✅ | Ansible ロール `cloud_api` と `platform/ansible/cloud.yml` | 2026-09-10 に配備。再実行で変更ゼロ |
-| 🟨 | CI に Go を追加（`gofmt -l`、`go vet`、`go test ./...`、PostgreSQL サービス） | `validate.yml` に追加済み。**未 push のため GitHub 上ではまだ走っていない** |
+| ✅ | CI に Go を追加（`gofmt -l`、`go vet`、`go test ./...`、PostgreSQL サービス） | `validate.yml`。2026-09-11 に push して GitHub 上で初めて実行し、`push` と `pull_request` の両方で成功した |
 | ✅ | 実際のブラウザで Authentik ログインを1回通す | 2026-09-10 に `akadmin` で確認。監査ログに `CompleteLogin`（アカウント作成、管理者）、`CreateAccessKey`、`DeleteAccessKey` が残った |
 
 実機で確かめたこと（2026-09-10、dev-b から）:
