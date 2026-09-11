@@ -1,0 +1,29 @@
+---
+# IPの配り方。**このファイルが正本**。
+#
+# site.yaml が「実機がどうなっているか」（bridge名・prefix・gateway）なのに対し、
+# ここは「その中をどう切って配るか」という決めごと。実測できないので生成もしない。
+#
+# **採番はPrefix全体ではなくRangeから行う。** Prefix から採番すると、
+# ゲートウェイやルータのDHCPが配る帯まで対象になる。
+#
+# 管理用とクラウド用の範囲は**重ねない**。重ねると管理者Terraformとクラウドが
+# 同じアドレスを別々に配りうる。
+management:
+  # 基盤VMの静的割り当て。既存: .200 services-01（05-seed が静的に持つ）、
+  # .201 probe-01、.202 dev-a、.203 dev-b。
+  range_start: 192.168.10.201/24
+  range_end: 192.168.10.249/24
+
+cloud:
+  # 利用者VMが載るネットワーク。
+  #
+  # **VLAN分離が済むまでは null。** いまは管理系と同じ物理LAN（site.yaml の
+  # network.prefix）の別レンジを使うので、NetBox に別のPrefixは要らない。
+  # 同じCIDRで2つ作ると台帳が重複する。
+  # VLANを切ったら、ここへその VLAN のサブネットを書く。
+  prefix: null
+  # 利用者VM。クラウドAPIが実行時に available-ips で採番する。
+  # Terraform は範囲を作るだけで、個々のアドレスは state に入らない。
+  range_start: 192.168.10.100/24
+  range_end: 192.168.10.180/24

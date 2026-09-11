@@ -13,6 +13,8 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 
 このリポジトリの目的は、複数のセルフホストサービスを一つの入口から使い、別のサーバーへ移しても原本・設定・運用手順を引き継げる環境を作ることです。以下を今後の変更でも維持してください。
 
+**プライベートクラウド（Proxmox 上の自作API）の進捗・TODO・引き継ぎ方法は[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)が正本です。** 以下はメディア系スタックを含むリポジトリ全体の方針です。
+
 ### 設計上の決定
 
 - **可搬性**：書籍・音楽の原本は通常のファイルとして保持し、Nextcloudには外部ストレージとして登録します。Kavita・Navidromeには必要な原本だけを読み取り専用で渡します。サービスを変更しても原本を取り出すための専用エクスポートが不要な構成にします。
@@ -37,7 +39,11 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 | `platform/awx/` | 将来のAWX移行用の例。AWX本体は未構築 |
 | `stacks/compose.yaml`、`stacks/scripts/` | 基本サービス、初期化、スキャン、バックアップ |
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
-| `stacks/hub/` | Homarr、Authentik、リンク一覧、SSO利用者の宣言的管理、ドキュメント配信 |
+| `stacks/hub/` | Homarr、メディア系が使う検証用Authentik、リンク一覧、SSO利用者の宣言的管理、ドキュメント配信 |
+| `stacks/docs/` | ドキュメントサイトを配る nginx（services-01、`platform/ansible/docs-site.yml`） |
+| `stacks/identity/` | identity VM の Authentik（新規構築）と、クラウドのポータル用 OIDC クライアント |
+| `cloud/` | 自作クラウドの API（Go、`cloud/api/`）、その正本の OpenAPI（`cloud/openapi/`）、cloud-01 の Compose と `manage.py`（`platform/ansible/cloud.yml`） |
+| `stacks/tls-proxy/` | 各ホストの HTTPS の入口（Caddy と Cloudflare の DNS モジュール）。受ける名前は `platform/terraform/dns.yaml`、配備はロール `tls_proxy` |
 | `stacks/sso/` | Caddy、OIDC・認証プロキシ、ローカルTLS、アプリへの信頼設定 |
 | `stacks/music-tools/` | MeTube、BCSTM変換・削除同期、タグ編集、定期反映 |
 | `docs/`、`mkdocs.yml` | 日本語の利用・運用手順とサイト構成 |
@@ -120,9 +126,9 @@ set -a
 set +a
 
 ansible-inventory -i platform/ansible/inventory.netbox.yml --graph
-ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/deploy.yml \
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/deploy.yml \
   --list-hosts --limit media1
-ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/deploy.yml \
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/deploy.yml \
   --limit media1 -u ubuntu --ask-become-pass
 ```
 

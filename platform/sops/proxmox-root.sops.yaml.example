@@ -18,3 +18,15 @@ PROXMOX_VE_ENDPOINT: https://192.0.2.10:8006/
 PROXMOX_VE_API_TOKEN: root@pam!bootstrap=00000000-0000-0000-0000-000000000000
 # 自己署名証明書のままなら true。CA を信頼させたら false へ戻す。
 PROXMOX_VE_INSECURE: "true"
+
+# **root@pam 本人のログイン。** ACME アカウントの作成（acme.tf）だけは、Proxmox が
+# API トークンを受け付けない。root のトークンでも "user != root@pam" で断る。
+# この2つを入れると tools/tf が ticket 認証に切り替え、トークンは渡さない。
+# 入れなければ従来どおりトークンで動き、ACME アカウントの作成だけが失敗する。
+#
+# パスワードはチャットや手順書に貼らない。次で直接入れる。
+#
+#   sops platform/sops/proxmox-root.sops.yaml
+#
+PROXMOX_VE_USERNAME: root@pam
+PROXMOX_VE_PASSWORD: REPLACE_WITH_THE_ROOT_PAM_PASSWORD

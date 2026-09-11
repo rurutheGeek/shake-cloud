@@ -1,0 +1,109 @@
+---
+# 生成は実行側で1回だけ行う。--strict なので、リンク切れがあれば配る前に止まる。
+# ansible_playbook_python を使うのは、Ansible と同じ仮想環境の mkdocs を使うため。
+- name: Build the documentation site
+  delegate_to: localhost
+  become: false
+  run_once: true
+  block:
+    - name: Create a temporary build directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: docs-site
+      register: docs_site_build
+      changed_when: false
+
+    - name: Run MkDocs
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python }}', -m, mkdocs, build, --strict, --quiet,
+               --site-dir, '{{ docs_site_build.path }}/www']
+        chdir: '{{ docs_site_repo_dir }}'
+      changed_when: false
+
+    # MkDocs は生成時刻を index.html に書く。残すと中身が同じでも毎回「変更あり」になる。
+    - name: Drop the build timestamp so unchanged docs publish nothing
+      ansible.builtin.lineinfile:
+        path: '{{ docs_site_build.path }}/www/index.html'
+        regexp: '^Build Date UTC : '
+        state: absent
+      changed_when: false
+
+    - name: Pack the generated site
+      ansible.builtin.command:
+        argv: [tar, -czf, '{{ docs_site_build.path }}/www.tar.gz', -C, '{{ docs_site_build.path }}/www', .]
+      changed_when: false
+
+- name: Install rsync for deleting pages removed from the repository
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: Create the deployment directories
+  ansible.builtin.file:
+    path: '{{ docs_site_project_dir }}/{{ item }}'
+    state: directory
+    mode: '0755'
+  loop: ['', www]
+
+- name: Copy the compose files
+  ansible.builtin.copy:
+    src: '{{ docs_site_repo_dir }}/stacks/docs/{{ item }}'
+    dest: '{{ docs_site_project_dir }}/{{ item }}'
+    mode: '0644'
+  loop: [compose.yaml, compose.lock.yaml]
+  register: docs_site_compose
+
+- name: Write the listen address
+  ansible.builtin.copy:
+    dest: '{{ docs_site_project_dir }}/.env'
+    content: |
+      BIND_ADDRESS={{ docs_site_bind_address }}
+      DOCS_PORT={{ docs_site_port }}
+    mode: '0644'
+  register: docs_site_env
+
+# 一時展開と差分反映を分ける。www をそのまま置き換えると、nginx のバインドマウントが
+# 消えたディレクトリを指したままになる。
+- name: Create staging
+  ansible.builtin.file:
+    path: '{{ docs_site_project_dir }}/staging'
+    state: directory
+    mode: '0755'
+  changed_when: false
+
+- name: Unpack the site into staging
+  ansible.builtin.unarchive:
+    src: '{{ docs_site_build.path }}/www.tar.gz'
+    dest: '{{ docs_site_project_dir }}/staging'
+  changed_when: false
+
+- name: Publish only the changed pages
+  ansible.builtin.command:
+    # --chmod: アーカイブの最上位は一時ディレクトリの 0700 を持つので、そのまま写すと
+    # nginx が読めず、しかも毎回「変更あり」になる。
+    argv: [rsync, -rl, --delete, --checksum, --itemize-changes, '--chmod=D755,F644',
+           '{{ docs_site_project_dir }}/staging/', '{{ docs_site_project_dir }}/www/']
+  register: docs_site_sync
+  changed_when: docs_site_sync.stdout | length > 0
+
+- name: Remove staging
+  ansible.builtin.file:
+    path: '{{ docs_site_project_dir }}/staging'
+    state: absent
+  changed_when: false
+
+- name: Start the web server
+  ansible.builtin.command:
+    argv: [docker, compose, -f, compose.yaml, -f, compose.lock.yaml, up, -d, --wait, --wait-timeout, '120']
+    chdir: '{{ docs_site_project_dir }}'
+  register: docs_site_up
+  changed_when: "'Started' in docs_site_up.stderr or 'Recreated' in docs_site_up.stderr"
+
+- name: Remove the local build directory
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.file:
+    path: '{{ docs_site_build.path }}'
+    state: absent
+  changed_when: false

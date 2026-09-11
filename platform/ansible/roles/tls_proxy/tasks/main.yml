@@ -1,0 +1,102 @@
+---
+- name: Work out the names this host serves
+  ansible.builtin.set_fact:
+    tls_proxy_sites: >-
+      {{ tls_proxy_dns.records | dict2items
+         | selectattr('value.host', 'defined')
+         | selectattr('value.host', 'equalto', inventory_hostname)
+         | selectattr('value.upstream', 'defined')
+         | list }}
+
+- name: Refuse a host that has nothing to serve
+  ansible.builtin.assert:
+    that: tls_proxy_sites | length > 0
+    fail_msg: platform/terraform/dns.yaml has no record with host {{ inventory_hostname }} and an upstream
+    quiet: true
+
+- name: Read the Cloudflare DNS token
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --extract, '["CLOUDFLARE_DNS_API_TOKEN"]', '{{ tls_proxy_sops_file }}']
+  register: tls_proxy_token
+  changed_when: false
+  no_log: true
+
+- name: Create the deployment directories
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    mode: '{{ item.mode }}'
+  loop:
+    - {path: '{{ tls_proxy_project_dir }}', mode: '0750'}
+    - {path: '{{ tls_proxy_project_dir }}/conf', mode: '0755'}
+    - {path: '{{ tls_proxy_project_dir }}/secrets', mode: '0700'}
+    - {path: '{{ tls_proxy_storage_root }}/data', mode: '0700'}
+    - {path: '{{ tls_proxy_storage_root }}/config', mode: '0700'}
+
+- name: Copy the proxy build files
+  ansible.builtin.copy:
+    src: '{{ tls_proxy_source_dir }}/{{ item }}'
+    dest: '{{ tls_proxy_project_dir }}/{{ item }}'
+    mode: '0644'
+  loop: [Dockerfile, compose.yaml]
+
+- name: Write the storage location
+  ansible.builtin.copy:
+    dest: '{{ tls_proxy_project_dir }}/.env'
+    content: |
+      STORAGE_ROOT={{ tls_proxy_storage_root }}
+    mode: '0644'
+
+- name: Write the site list
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: '{{ tls_proxy_project_dir }}/conf/Caddyfile'
+    mode: '0644'
+  register: tls_proxy_caddyfile
+
+- name: Install the Cloudflare DNS token
+  ansible.builtin.copy:
+    content: '{{ tls_proxy_token.stdout }}'
+    dest: '{{ tls_proxy_project_dir }}/secrets/cloudflare_dns_api_token'
+    mode: '0400'
+  register: tls_proxy_secret
+  no_log: true
+
+- name: Build and start Caddy
+  ansible.builtin.command:
+    argv: [docker, compose, up, -d, --build]
+    chdir: '{{ tls_proxy_project_dir }}'
+  register: tls_proxy_up
+  changed_when: "'Started' in tls_proxy_up.stderr or 'Recreated' in tls_proxy_up.stderr"
+
+# 管理用 API を閉じているので設定は起動時にしか読まない。トークンは単一ファイルの
+# マウントで、置き換えると古い中身を見続けるため、再起動ではなく作り直す。
+- name: Recreate Caddy after the site list or token changed
+  ansible.builtin.command:
+    argv: [docker, compose, up, -d, --force-recreate]
+    chdir: '{{ tls_proxy_project_dir }}'
+  when:
+    - tls_proxy_caddyfile is changed or tls_proxy_secret is changed
+    - tls_proxy_up is not changed
+  changed_when: true
+
+# 初回は証明書の取得（DNS の伝播待ちを含む）に1〜2分かかる。
+- name: Wait until every name answers over HTTPS with a trusted certificate
+  ansible.builtin.uri:
+    url: 'https://{{ item.key }}.{{ tls_proxy_dns.zone }}/'
+    validate_certs: true
+    follow_redirects: none
+    # 502・503 も合格。ここで見るのは「証明書付きの HTTPS が張れているか」で、
+    # 中身が健全かは各サービスのロールが自分で確かめる。中身が落ちている状態で
+    # ここが失敗すると、それを直すタスクまで到達できなくなる。
+    status_code: [200, 301, 302, 303, 307, 308, 401, 403, 404, 502, 503]
+  loop: '{{ tls_proxy_sites }}'
+  loop_control:
+    label: '{{ item.key }}.{{ tls_proxy_dns.zone }}'
+  register: tls_proxy_check
+  retries: 40
+  delay: 6
+  until: tls_proxy_check is succeeded

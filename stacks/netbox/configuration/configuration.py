@@ -8,6 +8,8 @@ def secret(name):
 
 
 ALLOWED_HOSTS = environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
+# HTTPS の入口（tls_proxy の Caddy）越しのログインで、Origin の https を CSRF 検査に通すため。
+CSRF_TRUSTED_ORIGINS = environ.get('CSRF_TRUSTED_ORIGINS', '').split()
 DATABASES = {'default': {
     'NAME': 'netbox', 'USER': 'netbox', 'PASSWORD': secret('db_password'),
     'HOST': 'postgres', 'PORT': 5432, 'CONN_MAX_AGE': 300,

@@ -45,6 +45,15 @@ pve_survey_commands:
 - key: privileges
   title: PVEが認識する権限一覧（ロール定義の検証用）
   cmd: pveum role list --output-format json
+- key: acl_list
+  title: 現在のACL（所有境界の検証用）
+  cmd: pveum acl list --output-format json
+- key: firewall_options
+  title: データセンター階層のファイアウォール設定
+  cmd: pvesh get /cluster/firewall/options --output-format json
+- key: sdn_zones
+  title: SDNゾーン（SDN.Use を与えるパスの確認用）
+  cmd: pvesh get /cluster/sdn/zones --output-format json
 - key: iommu_groups
   title: IOMMUグループ
   cmd: find /sys/kernel/iommu_groups/ -type l

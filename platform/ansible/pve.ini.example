@@ -1,4 +1,4 @@
-# Proxmox VE ホストの静的インベントリ。NetBox へ登録する前の棚卸しに使う。
+# Proxmox VE ホストの静的インベントリ。NetBox へ登録する前の実機の読み取りに使う。
 # platform/ansible/pve.ini へコピーして実値を入れる。pve.ini は .gitignore 対象。
 # 鍵認証で接続し、初回は手動SSHでホスト鍵を確認してから実行する。
 [pve]

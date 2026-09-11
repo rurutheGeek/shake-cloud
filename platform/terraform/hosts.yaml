@@ -5,6 +5,10 @@
 # tests/test_platform_inventory.py の両方で落ちる。
 #   platform 100-399 / dev 400-499 / lab 900-999 / cloud 5000-5999
 #
+# flavor はサイズの既定。cpu_cores / memory_mib / memory_min_mib を書くと
+# その台だけ上書きできる。**手で広げた基盤VMを台帳が縮めに行かないため**の
+# 逃げ道で、利用者向けの語彙（flavor）は歪めない。
+#
 # started はVMの作成時にだけ使う。作成後の電源状態はTerraformが追跡しない
 # （lifecycle.ignore_changes）。利用者の devvm start/stop と衝突しないため。
 hosts:
@@ -22,6 +26,9 @@ hosts:
     vm_id: 400
     pool: dev
     flavor: small
+    # 実機に合わせる。既定が小さかったので、バルーニング併用で広げてある。
+    memory_mib: 8192
+    memory_min_mib: 1024
     disk_gib: 40
     on_boot: false
     started: true
@@ -32,8 +39,31 @@ hosts:
     vm_id: 401
     pool: dev
     flavor: small
+    # 実機に合わせる。既定が小さかったので、バルーニング併用で広げてある。
+    memory_mib: 8192
+    memory_min_mib: 1024
     disk_gib: 40
     on_boot: false
     started: true
     tags: [devbox, managed-by-terraform-admin]
     description: 開発VM（利用者B）。利用時のみ起動する。
+
+  identity:
+    vm_id: 110
+    pool: platform
+    flavor: medium
+    disk_gib: 32
+    on_boot: true
+    started: true
+    tags: [identity, managed-by-terraform-admin]
+    description: Authentikと専用DB。SSOの土台なので常時起動。
+
+  cloud-01:
+    vm_id: 140
+    pool: platform
+    flavor: small
+    disk_gib: 40
+    on_boot: true
+    started: true
+    tags: [cloud-control, managed-by-terraform-admin]
+    description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。

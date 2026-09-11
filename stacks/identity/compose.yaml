@@ -1,0 +1,66 @@
+# Authentik（共通ログイン）を identity VM に単独で置く。
+# 作業機上の stacks/hub は検証用で、ここへは移行しない（2026-09-10 に新規構築）。
+name: identity
+x-authentik: &authentik
+  image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.1}
+  restart: unless-stopped
+  shm_size: 512mb
+  environment: &environment
+    AUTHENTIK_POSTGRESQL__HOST: postgresql
+    AUTHENTIK_POSTGRESQL__NAME: authentik
+    AUTHENTIK_POSTGRESQL__USER: authentik
+    # file:// は Authentik の設定読み込みが解決する。値を環境変数に展開しない。
+    AUTHENTIK_POSTGRESQL__PASSWORD: file:///run/secrets/db_password
+    AUTHENTIK_SECRET_KEY: file:///run/secrets/secret_key
+    AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
+    AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+  secrets: [db_password, secret_key]
+  volumes:
+    - ${STORAGE_ROOT:-./storage}/data:/data
+    - ${STORAGE_ROOT:-./storage}/templates:/templates
+  depends_on:
+    postgresql: {condition: service_healthy}
+services:
+  postgresql:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -d authentik -U authentik]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  server:
+    <<: *authentik
+    command: server
+    # 9000 は HTTP、9443 は Authentik 自身の自己署名証明書による HTTPS。
+    # 所有ドメインと DNS-01 の証明書が決まるまでは、この2つを LAN に出す。
+    ports:
+      - '${BIND_ADDRESS:-0.0.0.0}:9000:9000'
+      - '${BIND_ADDRESS:-0.0.0.0}:9443:9443'
+    healthcheck:
+      test: [CMD, ak, healthcheck]
+      start_period: 120s
+      interval: 15s
+      timeout: 10s
+      retries: 20
+  worker:
+    <<: *authentik
+    command: worker
+    user: root
+    environment:
+      <<: *environment
+      # 初回起動時だけ効く。値は manage.py が secrets/ から渡し、.env には書かない。
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:?run manage.py up}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:?run manage.py up}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL:-admin@localhost.localdomain}
+secrets:
+  db_password: {file: ./secrets/db_password}
+  secret_key: {file: ./secrets/secret_key}

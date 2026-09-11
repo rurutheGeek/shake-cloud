@@ -1,0 +1,40 @@
+---
+# LAN の中の名前。**このファイルが正本**。
+#
+# 20-dns が Cloudflare へ A レコードを書き、tls_proxy ロールが各ホストの Caddy に
+# 「受ける名前と中継先」を渡す。
+#
+# **インターネットには公開しない。** 値は内部IPなので、外から名前を引けても届かない。
+# ドメインを持つのは、Let's Encrypt の証明書を DNS-01 で取るため
+# （docs/operations/handover.md の「ドメイン」の決定）。
+#
+#   host     : アドレスの出どころ。10-platform の hosts 出力（NetBox の採番）か、
+#              05-seed が静的に持つ services-01。ここへアドレスを書き写さない
+#   address  : 台帳に居ない機器（Proxmox 本体）だけ直接書く
+#   upstream : そのホストの Caddy が中継する先。サービス自身のポートは 127.0.0.1 に
+#              閉じる。省くと Caddy を置かない（Proxmox は自分で証明書を持つ）
+#
+# 整合は tests/test_tls_proxy.py が検査する。
+zone: apextox.dpdns.org
+cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
+
+records:
+  auth:
+    host: identity
+    upstream: 127.0.0.1:9000
+    description: Authentik（共通ログイン）
+  cloud:
+    host: cloud-01
+    upstream: 127.0.0.1:8080
+    description: クラウドのポータルとAPI
+  netbox:
+    host: services-01
+    upstream: 127.0.0.1:8000
+    description: NetBox
+  docs:
+    host: services-01
+    upstream: 127.0.0.1:8090
+    description: ドキュメントサイト
+  pve:
+    address: 192.168.10.126
+    description: Proxmoxの管理画面（ポート8006）

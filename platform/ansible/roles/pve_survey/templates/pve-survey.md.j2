@@ -1,4 +1,4 @@
-# {{ inventory_hostname }} のホスト棚卸し
+# {{ inventory_hostname }} のホストの読み取り
 
 取得日時: {{ ansible_facts['date_time'].iso8601 }}
 取得元: {{ ansible_host | default(inventory_hostname) }}
@@ -30,15 +30,23 @@
 | ノード名 | ノード一覧 | |
 | VMディスク用ストレージ名 | ストレージ定義 | |
 | cloud image / ISO 置き場（content に `iso` を含むもの） | ストレージ定義 | |
-| cloud-init snippet 置き場（content に `snippets` を含むもの） | ストレージ定義 | |
+| クラウドAPI用イメージ置き場（content に `iso` と `import` の両方） | ストレージ定義 | |
+| SDNゾーン名（`SDN.Use` を与えるパス） | SDNゾーン | |
+| データセンターFWの有効・無効 | ファイアウォール設定 | |
 | bridge 名と vlan-aware の有無 | ネットワーク定義 | |
 | 既存 LAN のサブネットと gateway | 経路表 / IPアドレス | |
 | 静的に使える空きIP範囲 | 経路表 / 既存VM | |
 | 使用済みVMID | 既存のVM/LXC | |
 | iGPU の PCI アドレスと IOMMU グループ | IOMMUグループ / PCIデバイス | |
 
-`snippets` を持つストレージが無い場合、cloud-init の追加設定は投入できない。
-その場合は Proxmox 側でストレージの content 種別を追加してから Terraform を書く。
+クラウドAPI（`cloud/`）は、任意の user-data を NoCloud の seed ISO として
+`content=iso` でアップロードする。**`snippets` は使わない**（upload API が
+content=snippets を受け付けないため）。そのため、利用者VMのディスク置き場とは
+別に、content に `iso` と `import` を持つディレクトリ型ストレージを1つ用意する。
+理由は docs/architecture/cloud.md。
+
+上の「現在のACL」は、`terraform@pve` が `/pool/cloud` を持たず、`cloudapi@pve`
+が `/pool/platform` を持たないことの確認に使う。
 
 {% for result in survey.results %}
 ## {{ result.item.title }}

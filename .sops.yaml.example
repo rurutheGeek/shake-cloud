@@ -11,6 +11,20 @@
 # sops は .sops.yaml をカレントから上へ辿って探すので、ルート以外に置くと
 # 見つかりません。path_regex は絶対パスに対して評価され、Windows では
 # 区切りが \ になるため [\/] で両方を受けます。
+#
+# 受信者は**カンマ区切りで複数**指定できます。特定の1人の鍵でしか復号できない
+# 状態にしないため、少なくとも「利用者2人ぶん」と「自動実行用」を並べます。
+#
+#   age: age1AAA...,age1BBB...,age1CI...
+#
+# **受信者を足しただけでは既存ファイルは読めるようになりません。**
+# 足したあと必ず再暗号化します。
+#
+#   sops updatekeys platform/sops/*.sops.yaml
+#
+# 忘れると「.sops.yaml には居るのに復号できない」状態になります。
+# tests/test_sops_config.py が、暗号化済みファイルの受信者一覧と
+# .sops.yaml の設定が一致するかを検査します。
 creation_rules:
   - path_regex: platform[\\/]sops[\\/].*\.sops\.yaml$
     age: age1REPLACE_WITH_YOUR_AGE_PUBLIC_KEY

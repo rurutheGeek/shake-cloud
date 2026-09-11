@@ -1,6 +1,6 @@
 # ホームラボ／最小プライベートクラウド構成案
 
-更新日: 2026-09-08。状態: **設計案・未構築部分を含む**。
+更新日: 2026-09-10。状態: **設計案・未構築部分を含む**。
 
 この文書は、現在のメディアスタックを、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。この文書の追加は、Proxmox・Kubernetes・クラウドAPIの構築やサービス移行を実行したことを意味しません。
 
@@ -12,9 +12,9 @@
 - Kubernetesはkubeadmで構築し、常用サービス・自作API・サーバレス実行・DBを実際に運用する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
-- 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。
-- クラウドのユーザー・組織・プロジェクト管理、課金、利用者ポータルは初期範囲に含めない。APIキーの権限と失効を用意する。
-- Authentikは普段使うWebアプリのSSOに使う。クラウドAPIの利用にブラウザSSOを必須としない。
+- 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。ただし後者2つはKubernetes前提なので、**v1はVMとS3に絞る**。
+- **変更**: クラウドの利用者管理と利用者ポータルを初期範囲に**含める**。Authentikユーザー1人が1アカウントで、自分のリソースだけが見え、消せる。クォータと所有権を成立させるために必要だったため。組織・プロジェクト・課金は引き続き含めない。
+- **変更**: Authentikをクラウドの統合認証にも使う。ブラウザはOIDCでポータルへログインし、そこで発行したアクセスキーをTerraformとCLIが使う。キーをSSOと分けるので、**Authentikが停止していてもTerraformは動く**。
 
 ミニPC到着後は、[Proxmox VE導入後の手順](bring-up.md)から進めてください。家電・ポケモンDBを含む具体的な配置先は[配備台帳](operations.md)を正とします。概要図は全サービスを列挙していません。
 
@@ -22,8 +22,8 @@
 
 | 文書 | 内容 |
 | --- | --- |
-| [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・Fluxと将来のクラウドAPIの担当範囲、VMIDとプールの分割 |
-| [最小クラウドとTerraform Provider](cloud.md) | 4機能、採用候補、APIキー、リソース設計、実装境界 |
+| [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプールの分割、ロールとACL |
+| [最小クラウドとTerraform Provider](cloud.md) | 4機能、採用候補、SSOとアクセスキー、Proxmox側の制約、リソース設計、実装境界 |
 | [VPNの比較と併用](vpn.md) | NetBird・Headscale・Tailcat、対応OS、復旧経路、認証依存 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマホ、認証の使い分け |
 | [2人用ゲーム・開発VM](gaming.md) | WolfとAzahar、通信プレイ、性能確認、軽量開発環境 |
@@ -81,12 +81,13 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | 項目 | 文書作成時点 |
 | --- | --- |
 | メディア・認証・ハブ | 既存Compose構成と運用手順あり。詳細は既存ドキュメントを参照 |
-| localhost:8090 | MkDocsをnginxで配信する既存サイト |
-| Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。実機への適用は未実施 |
-| ホスト棚卸し | Ansible `site.yml --tags survey` として実装済み。読み取りのみ |
-| ProxmoxへのVM作成・移行 | この文書では設計のみ。`10-platform` は未実装 |
+| ドキュメントサイト | 旧ハブの localhost:8090 に加え、2026-09-10 から services-01 の `http://192.168.10.200:8090` で LAN に公開。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
+| Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
+| ホストの読み取り | Ansible `site.yml --tags survey` として実装済み。読み取りのみ |
+| ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
+| クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | この文書では採用候補と配置を整理。未構築 |
-| 自作クラウドAPI・Terraform Provider | APIとリソースの提案。サンプルは未実装 |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | API は Phase 2（VM の作成・電源操作・削除）まで実装し、2026-09-10 に実機で確認。Provider・ポータル・CLI は未実装。手順は[クラウドAPIの構築](../operations/cloud.md) |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
 | 公開Web統合・NAS移行 | 将来作業 |
 

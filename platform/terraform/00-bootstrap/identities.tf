@@ -76,8 +76,73 @@ resource "proxmox_acl" "dev" {
 # bridge の割り当てに要る SDN.Use。プールやストレージとはパスが違うので
 # 別のACLにする。propagate でゾーン配下の bridge を含める。
 resource "proxmox_acl" "automation_network" {
-  path      = var.sdn_acl_path
+  path      = local.sdn_acl_path
   role_id   = proxmox_virtual_environment_role.network.role_id
   user_id   = proxmox_virtual_environment_user.automation.user_id
   propagate = true
+}
+
+# 自作クラウドAPIの実行アカウント。
+#
+# ここが所有境界の要になる。terraform@pve は /pool/cloud に権限を持たず、
+# cloudapi@pve は /pool/platform・/pool/dev・/pool/lab に権限を持たない。
+# 「利用者向けの削除APIが基盤VMへ届かない」ことを、運用規約ではなく
+# ACLの形で保証する。設計は docs/architecture/iac.md。
+resource "proxmox_virtual_environment_user" "cloudapi" {
+  user_id = var.cloudapi_user_id
+  comment = "Self-built cloud API. Managed by platform/terraform/00-bootstrap."
+  enabled = true
+}
+
+resource "proxmox_user_token" "cloudapi" {
+  user_id               = proxmox_virtual_environment_user.cloudapi.user_id
+  token_name            = var.cloudapi_token_name
+  comment               = "Used by cloud/api on cloud-01."
+  privileges_separation = false
+}
+
+# **cloud プールだけ。** ここを for_each で automation_pools と共有しない。
+# 共有すると片方を足したときにもう片方の到達範囲が黙って広がる。
+resource "proxmox_acl" "cloudapi_pool" {
+  path      = "/pool/${proxmox_virtual_environment_pool.this["cloud"].pool_id}"
+  role_id   = proxmox_virtual_environment_role.cloud_api_operator.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = true
+}
+
+# 利用者VMのディスク置き場。/storage 全体には与えない。
+# 置き場は site.yaml が正本なので、tfvars へ手で入れ直す必要はない。
+resource "proxmox_acl" "cloudapi_vm_storage" {
+  path      = local.vm_storage_acl_path
+  role_id   = proxmox_virtual_environment_role.cloud_api_storage.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = true
+}
+
+# イメージと seed ISO の専用ストレージ。Datastore.Allocate を含むので、
+# 利用者VMのディスク置き場とは必ず別のストレージにする。
+# パスは storage.tf が作ったストレージから引くので、両者がずれない。
+resource "proxmox_acl" "cloudapi_image_storage" {
+  path      = "/storage/${proxmox_storage_directory.cloud_images.id}"
+  role_id   = proxmox_virtual_environment_role.cloud_api_images.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = true
+}
+
+# NICに bridge を割り当てるための SDN.Use。terraform@pve と同じロールを
+# 同じパスへ与える。ゾーンは共有の物理ネットワークなので分けられない。
+resource "proxmox_acl" "cloudapi_network" {
+  path      = local.sdn_acl_path
+  role_id   = proxmox_virtual_environment_role.network.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = true
+}
+
+# ノードの空き容量を読むためだけのACL。読み取り専用なので、ここが
+# /pool/cloud の外へ出ている唯一の例外になる。
+resource "proxmox_acl" "cloudapi_node_audit" {
+  path      = "/nodes/${local.site.node_name}"
+  role_id   = proxmox_virtual_environment_role.cloud_api_node_audit.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = false
 }

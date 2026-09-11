@@ -7,6 +7,18 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-24.04
+    # The cloud API's integration tests create and drop one database per test.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - name: Install documentation and lint dependencies
@@ -39,6 +51,22 @@ jobs:
             terraform -chdir="$dir" init -backend=false -input=false > /dev/null
             terraform -chdir="$dir" validate
           done
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cloud/api/go.mod
+          cache-dependency-path: cloud/api/go.sum
+      - name: Check Go formatting
+        run: |
+          unformatted=$(gofmt -l cloud)
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+      - name: Vet and test the cloud API
+        working-directory: cloud/api
+        env:
+          SHAKECLOUD_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        run: |
+          go vet ./...
+          go test ./...
       - name: Lint YAML
         run: python3 -m yamllint -c .yamllint .
       - name: Check publication contents

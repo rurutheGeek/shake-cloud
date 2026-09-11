@@ -1,0 +1,20 @@
+# ドキュメントサイト（MkDocs の生成物）を LAN へ配るだけの nginx。
+# 生成は Ansible の実行側で行い、ここには HTML だけが届く。原稿は Git の docs/。
+# 置き場所は services-01（台帳・共有サービスの過渡的な置き場）。Kubernetes が
+# できたら docs/architecture/operations.md の配置どおり worker-01 へ移す。
+name: docs
+services:
+  web:
+    image: nginx:alpine
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/var/cache/nginx, /var/run, /tmp]
+    security_opt: ['no-new-privileges:true']
+    ports: ['${BIND_ADDRESS:-0.0.0.0}:${DOCS_PORT:-8090}:80']
+    volumes:
+      - ./www:/usr/share/nginx/html:ro
+    healthcheck:
+      test: [CMD, wget, -q, --spider, 'http://127.0.0.1/']
+      interval: 30s
+      timeout: 5s
+      retries: 3

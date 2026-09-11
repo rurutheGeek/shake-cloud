@@ -34,7 +34,7 @@ variable "platform_admin_privileges" {
   description = <<-EOT
     TerraformAdmin ロールの権限。VMの作成・構成・電源・cloud-initまで。
     PVEの版によって存在しない権限があると作成に失敗するため変数にしている。
-    実機の権限名は棚卸し（survey-pve.yml）が取得する `pveum role list` を見る。
+    実機の権限名は実機の読み取り（survey-pve.yml）が取得する `pveum role list` を見る。
     PVE 9.2 では VM.Monitor が廃止されている。guest agent 経由のIP取得には
     VM.GuestAgent.Audit が要る。bridge の割り当てに要る SDN.Use は
     パスが違うため sdn_privileges / sdn_acl_path で別に扱う。
@@ -80,33 +80,6 @@ variable "dev_operator_privileges" {
   default     = ["VM.Audit", "VM.PowerMgmt", "VM.Console"]
 }
 
-variable "proxmox_node_name" {
-  description = "cloud image の取得先ノード。棚卸しの結果から入れる。"
-  type        = string
-  default     = null
-}
-
-variable "cloud_images" {
-  description = <<-EOT
-    取得する cloud image。キーは 05-seed / 10-platform から参照するときの名前。
-    `latest` ではなく日付入りのビルドを指定する。再実行で中身が変わらないため。
-  EOT
-  type = map(object({
-    datastore_id       = string
-    content_type       = optional(string, "import")
-    url                = string
-    file_name          = string
-    checksum           = string
-    checksum_algorithm = optional(string, "sha512")
-  }))
-  default = {}
-
-  validation {
-    condition     = length(var.cloud_images) == 0 || var.proxmox_node_name != null
-    error_message = "proxmox_node_name is required when cloud_images is set."
-  }
-}
-
 variable "sdn_privileges" {
   description = <<-EOT
     TerraformNetwork ロールの権限。PVE 8.2 以降、VMへ bridge を割り当てるには
@@ -117,11 +90,116 @@ variable "sdn_privileges" {
   default     = ["SDN.Use"]
 }
 
-variable "sdn_acl_path" {
+variable "cloudapi_user_id" {
   description = <<-EOT
-    SDN.Use を与えるパス。素の Linux bridge は既定ゾーン localnetwork に入る。
-    実機のゾーン名は `pvesh get /cluster/sdn/zones` で確認する。
+    自作クラウドAPIの実行アカウント。realm を含めて指定する。
+    このユーザーは `/pool/cloud` にしか権限を持たない。基盤VM（platform / dev /
+    lab）へは一覧にも出ない。設計は docs/architecture/iac.md。
   EOT
   type        = string
-  default     = "/sdn/zones/localnetwork"
+  default     = "cloudapi@pve"
+}
+
+variable "cloudapi_token_name" {
+  description = "クラウドAPIが使うAPIトークン名。"
+  type        = string
+  default     = "cloudapi"
+}
+
+variable "cloud_api_privileges" {
+  description = <<-EOT
+    CloudApiOperator ロールの権限。**TerraformAdmin とは別に持つ。**
+    利用者がAPI経由で作るVMに要るものだけを入れる。
+
+    - VM.Config.CDROM は必須。任意の user-data を渡すために、APIが NoCloud の
+      seed ISO を作って CD-ROM として接続するから。Proxmox 内蔵の cloud-init
+      ドライブは使わない。upload API が content=snippets を受け付けないので、
+      cicustom 方式は絞ったトークンでは成立しない。
+    - VM.Config.Network はNICだけでなく、セキュリティグループの実体である
+      VM単位のFWルールにも要る。クラスタ階層の /cluster/firewall/groups は
+      `/` の Sys.Modify を要求するので使えない。
+    - VM.Clone と VM.Migrate は**入れない**。APIはテンプレートから複製せず、
+      単一ノードなので移送もしない。権限は要る分だけにする。
+    - VM.Config.Cloudinit も**入れない**。seed ISO 方式では Proxmox 内蔵の
+      cloud-init ドライブを一切触らないため要らず、持たせないことで
+      cicustom への誤書き込みも起きなくなる。実機検証で seed ISO 方式が
+      成立しないと分かったら、ここへ戻して内蔵ドライブへ切り替える。
+  EOT
+  type        = set(string)
+  default = [
+    "VM.Allocate",
+    "VM.Audit",
+    "VM.Config.CDROM",
+    "VM.Config.CPU",
+    "VM.Config.Disk",
+    "VM.Config.HWType",
+    "VM.Config.Memory",
+    "VM.Config.Network",
+    "VM.Config.Options",
+    "VM.Console",
+    "VM.GuestAgent.Audit",
+    "VM.PowerMgmt",
+    "Pool.Allocate",
+    "Pool.Audit",
+  ]
+}
+
+variable "cloud_api_storage_privileges" {
+  description = <<-EOT
+    CloudApiStorage ロールの権限。**利用者VMのディスクを置くストレージ**へ与える。
+    Datastore.Allocate は**含めない**。VMが持つディスクの削除は VM.Config.Disk で
+    通るため要らず、含めるとストレージ定義そのものを消せてしまう。
+    Datastore.Audit はアドミッション制御（実空き容量の取得）に要る。
+  EOT
+  type        = set(string)
+  default = [
+    "Datastore.Audit",
+    "Datastore.AllocateSpace",
+  ]
+}
+
+variable "cloud_api_image_privileges" {
+  description = <<-EOT
+    CloudApiImages ロールの権限。**イメージと seed ISO を置く専用ストレージ**
+    だけへ与える。
+
+    Datastore.AllocateTemplate はアップロードに、Datastore.Allocate は削除に要る。
+    アップロードしたISO・イメージはVMの持ち物にならないので、VM.Config.Disk では
+    消せないため。Datastore.Allocate はストレージ定義自体も触れる強い権限なので、
+    利用者VMのディスク置き場とは**別のストレージ**を用意し、そこだけに与える。
+  EOT
+  type        = set(string)
+  default = [
+    "Datastore.Audit",
+    "Datastore.AllocateSpace",
+    "Datastore.AllocateTemplate",
+    "Datastore.Allocate",
+  ]
+}
+
+variable "cloud_api_node_audit_privileges" {
+  description = <<-EOT
+    CloudApiNodeAudit ロールの権限。読み取りだけ。
+
+    アドミッション制御（作成前に実空き容量を見る）が使う
+    `GET /nodes/<node>/status` は、**プールではなく `/nodes/<node>` に対する
+    Sys.Audit** を要求する。/pool/cloud だけに絞ったトークンでは 403 になり、
+    空きRAMを読めないまま作成を通してしまう。
+    ノードのタスク状態（UPIDのポーリング）も、これがあると
+    トークンの持ち主に依存せず読める。
+  EOT
+  type        = set(string)
+  default     = ["Sys.Audit"]
+}
+
+variable "cloudflare_dns_api_token" {
+  description = <<-EOT
+    Proxmox 本体の証明書を DNS-01 で取るための Cloudflare トークン（ゾーンの読み取りと
+    DNS の編集だけ）。tools/tf が platform/sops/cloudflare-dns.sops.yaml から
+    TF_VAR_cloudflare_dns_api_token で渡す。acme.tf が write-only 属性へ渡すので、
+    plan にも state にも残らない。
+  EOT
+  type        = string
+  sensitive   = true
+  ephemeral   = true
 }

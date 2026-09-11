@@ -60,8 +60,12 @@ resource "proxmox_virtual_environment_vm" "this" {
     type  = "host"
   }
 
+  # dedicated が上限、floating がバルーニングの下限。floating を省くと
+  # 固定割り当てになる。空き容量の見積もりは上限で行い、回収分を余剰に
+  # 数えない（flavors.yaml を参照）。
   memory {
     dedicated = var.memory_mib
+    floating  = var.memory_min_mib
   }
 
   disk {

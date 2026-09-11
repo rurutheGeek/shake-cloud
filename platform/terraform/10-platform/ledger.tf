@@ -30,7 +30,7 @@ resource "netbox_cluster" "this" {
 
 # 基盤VMが載るネットワーク。台帳としての登録で、ここからは採番しない。
 resource "netbox_prefix" "management" {
-  prefix      = var.management_prefix
+  prefix      = local.site.network.prefix
   status      = "active"
   site_id     = tonumber(netbox_site.this.id)
   description = "LAN shared with existing devices. Allocation happens from the range below."
@@ -40,8 +40,8 @@ resource "netbox_prefix" "management" {
 # 実際の採番元。**Prefix 全体ではなくこの範囲だけ**を使う。
 # Prefix から採番するとゲートウェイやDHCPが配る帯まで対象になる。
 resource "netbox_ip_range" "management" {
-  start_address = var.management_range_start
-  end_address   = var.management_range_end
+  start_address = local.network.management.range_start
+  end_address   = local.network.management.range_end
   status        = "active"
   description   = "Static allocations owned by platform/terraform/10-platform"
   tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
@@ -51,11 +51,26 @@ resource "netbox_ip_range" "management" {
 # 今は台帳へ枠を作るだけで、誰も使わない。範囲を分けておくことで、
 # APIを載せたときに管理者Terraformと採番を奪い合わない。
 resource "netbox_prefix" "cloud" {
-  count = var.cloud_prefix == null ? 0 : 1
+  count = local.network.cloud.prefix == null ? 0 : 1
 
-  prefix      = var.cloud_prefix
-  status      = "reserved"
+  # count が 0 のときこの値は使われないが、null のままだと
+  # terraform validate が「必須引数が無い」で落ちる（count を見ない）ため、
+  # 使われない側にも文字列を入れておく。
+  prefix      = coalesce(local.network.cloud.prefix, local.site.network.prefix)
+  status      = "active"
   site_id     = tonumber(netbox_site.this.id)
-  description = "Reserved for the self-built cloud API. Not used yet."
+  description = "Owned by the self-built cloud API. Allocation happens from the range below."
   tags        = [netbox_tag.this["managed-by-cloud-api"].name]
+}
+
+# クラウドAPIの採番元。**このstateはこの範囲を作るだけで、中のIPは触らない。**
+# 個々のアドレスは cloud/api が実行時に available-ips で取り、Terraform の
+# state には入らない。管理者Terraformとクラウドが同じアドレスを配らないことを、
+# 範囲を分けることで保証する。
+resource "netbox_ip_range" "cloud" {
+  start_address = local.network.cloud.range_start
+  end_address   = local.network.cloud.range_end
+  status        = "active"
+  description   = "Allocated at runtime by cloud/api. Not managed by Terraform."
+  tags          = [netbox_tag.this["managed-by-cloud-api"].name]
 }

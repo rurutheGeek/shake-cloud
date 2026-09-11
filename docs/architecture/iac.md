@@ -1,6 +1,6 @@
 # IaCの所有境界
 
-更新日: 2026-09-09。状態: **00-bootstrapのみ実装済み。VM作成以降は未実装**。
+更新日: 2026-09-10。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPIは VM の作成まで実装済み（Phase 2）**。
 
 [配備・Git管理・ストレージ・復旧](operations.md)の「Gitと構成の所有者」は「**同じオブジェクトをFluxと自作API、または2つのTerraform stateで管理しません**」と定めています。この文書は、その原則をProxmoxの権限とVMIDの分割で**構造として**保証する方法を書きます。運用規約ではなく、権限が無いから触れない、という形にします。
 
@@ -14,18 +14,50 @@
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
-| 利用者が作る動的リソース | 自作クラウドAPI（未実装） | `cloud` プールのVM、関数、バケット、DB | API自身の永続化 |
+| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み: VM の作成・電源操作・削除、IP の採番。未実装: イメージのアップロード、ボリューム、セキュリティグループ、バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
 
 実際の値はYAMLに置き、`.tf` は機構だけを持ちます。Terraform・Ansible・テストが同じファイルを読むので、同じ事実が3か所で食い違いません。
 
-| ファイル | 内容 | 読む側 |
-| --- | --- | --- |
-| `platform/terraform/pools.yaml` | プールとVMID範囲、自動化ユーザーに許すプール | `00-bootstrap`、`10-platform`、テスト |
-| `platform/terraform/flavors.yaml` | VMのサイズ。名前は将来のクラウドAPIと共用 | `10-platform`、テスト |
-| `platform/terraform/tags.yaml` | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
-| `platform/terraform/hosts.yaml` | ホストの宣言。**正本** | `10-platform`、テスト |
+ファイルは性質で2つに分かれます。**実測**は機械が実機から書き、**決めごと**は人が書きます。どちらも Git に入り、`terraform.tfvars` には何も残しません。
+
+| ファイル | 性質 | 内容 | 読む側 |
+| --- | --- | --- | --- |
+| `platform/terraform/site.yaml` | **実測** | ノード名、ストレージ名、bridge、ゾーン、prefix、gateway、DNS | 全モジュール、テスト |
+| `platform/terraform/pools.yaml` | 決めごと | プールとVMID範囲、自動化ユーザーに許すプール、台帳外VMID | `00-bootstrap`、`10-platform`、テスト |
+| `platform/terraform/flavors.yaml` | 決めごと | VMのサイズとバルーニングの下限。名前はクラウドAPIと共用 | `10-platform`、テスト |
+| `platform/terraform/network.yaml` | 決めごと | prefix の中をどう切って配るか（管理用・クラウド用の範囲） | `10-platform`、テスト |
+| `platform/terraform/access.yaml` | 決めごと | 基盤VMへ入れるSSH公開鍵。**順序が意味を持つ** | `10-platform`、テスト |
+| `platform/terraform/images.yaml` | 決めごと | 共有 cloud image のURLとチェックサム | `00-bootstrap`、`10-platform`、テスト |
+| `platform/terraform/tags.yaml` | 決めごと | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
+| `platform/terraform/hosts.yaml` | 決めごと | ホストの宣言。**正本** | `10-platform`、テスト |
+| `platform/terraform/cloud.yaml` | 決めごと | クラウドAPIの上限の**既定値**と、プローブ用VMID | クラウドAPI（`render_site.py` 経由）、テスト |
+
+### 例外: 実行中に変わる値は1か所だけ
+
+`cloud.yaml` の上限は**既定値**で、`cloud-admins` が `PUT /v1/limits` で上書きできます。上書きは API の管理DBに入ります。ここだけ「Gitの宣言が唯一の正本」から外れるので、形を決めてあります。
+
+**管理DBには、管理者が実際に変えた項目だけが入ります。**触っていない上限の行は存在せず、読み出しのたびに `cloud.yaml` の既定値と重ね合わせます。同じ上限が2か所に書かれることは無く、`GET /v1/limits` は実効値・既定値・上書きぶんを別々に返すので、どちらが効いているかが常に分かります。上書きを消せば既定値へ戻ります。
+
+上限を運用中に変えられる必要があったのは、容量の判断が実測に依存するからです（[配備台帳](operations.md#measured-budget)）。実測で変わる値のために Git のコミットと再配備を要求すると、いちばん急いでいるときに動けません。
+
+`site.yaml` は `tools/site-yaml.py --api` が読み取り専用トークンで生成します。**手で書きません。**候補が1つに絞れないときは推測せず候補名を出して止まります。
+
+### なぜ tfvars に置かないか
+
+`terraform.tfvars` は `.gitignore` 対象です。そこにしか宣言が無いと、**そのファイルを持たない作業機で plan を打ったときに Terraform は「宣言が無い＝消す」と読みます。**
+
+実際に起きました。cloud image の宣言が tfvars にしかなく、別の作業機での plan が
+
+```
+proxmox_download_file.cloud_image["debian13"] will be destroyed
+(because key ["debian13"] is not in for_each map)
+```
+
+を出しました。消えると基盤VMを作り直せなくなります。同じ形の穴がSSH公開鍵にもありました（全VMから鍵が剥がれる）。
+
+**秘密でない宣言を tfvars に置かない**というのがここから得た規則です。URL・チェックサム・公開鍵・ストレージ名・IP範囲はいずれも秘密ではありません。秘密値は今まで通り SOPS 経由の環境変数で渡します。
 
 `tests/test_platform_inventory.py` が整合を検査します。VMIDが範囲外・重複、未宣言のタグやflavor、`cloud` プールの使用、`automation_pools` への `cloud` の混入、`media` グループ式の変更は、実機へ触る前にここで落ちます。
 
@@ -38,9 +70,9 @@
 | 100–399 | `platform` | 管理者Terraform | public-edge、vpn-01、identity、home-assistant、storage-s3、k8s、game |
 | 400–499 | `dev` | 管理者Terraform | 開発VM。利用者は電源とコンソールのみ |
 | 900–999 | `lab` | 管理者Terraform | 検証・復元ドリル。使い捨て |
-| 5000–5999 | `cloud` | 自作クラウドAPI（将来） | 利用者がAPI・Providerで作るVM |
+| 5000–5999 | `cloud` | 自作クラウドAPI | 利用者がAPI・Providerで作るVM |
 
-`cloud` プールは**空のまま先に作ります**。枠を予約しておくことで、後から自作APIを載せるときにVMIDの再採番や既存VMの移動が要りません。
+`cloud` プールは**空のまま先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
 
 ## ロールとトークン
 
@@ -48,16 +80,26 @@
 | --- | --- | --- | --- |
 | `TerraformAdmin` | VM.\*（Config含む）、Pool.Audit | `terraform@pve` | `/pool/platform`、`/pool/dev`、`/pool/lab` |
 | `TerraformStorage` | Datastore.Audit / AllocateSpace / AllocateTemplate | `terraform@pve` | `/storage` |
+| `TerraformNetwork` | SDN.Use | `terraform@pve`、`cloudapi@pve` | SDNゾーン |
 | `DevVMOperator` | VM.Audit、VM.PowerMgmt、VM.Console | `dev-a@pve`、`dev-b@pve` | `/vms/400`、`/vms/401` |
-| `CloudApiOperator` | TerraformAdminと同等 | **未割り当て**（将来の `cloudapi@pve`） | `/pool/cloud` のみ |
+| `CloudApiOperator` | VM.\*（Clone・Migrate・Config.Cloudinit を除く）、Pool | `cloudapi@pve` | `/pool/cloud` のみ |
+| `CloudApiStorage` | Datastore.Audit / AllocateSpace | `cloudapi@pve` | 利用者VMのディスク置き場 |
+| `CloudApiImages` | 上記＋AllocateTemplate / Allocate | `cloudapi@pve` | `cloud-images` のみ |
+| `CloudApiNodeAudit` | Sys.Audit | `cloudapi@pve` | `/nodes/<ノード名>` |
 
-`terraform@pve` は `/pool/cloud` に権限を持ちません。逆に将来の `cloudapi@pve` は `/pool/platform` に権限を持ちません。**利用者向けの削除APIが基盤VMへ届かないことを、ACLの形で保証します。**
+`terraform@pve` は `/pool/cloud` に権限を持ちません。逆に `cloudapi@pve` は `/pool/platform` に権限を持ちません。**利用者向けの削除APIが基盤VMへ届かないことを、ACLの形で保証します。**
+
+`CloudApiOperator` の権限リストを `TerraformAdmin` と共用しないのも同じ理由です。共用していると、片方に必要な権限を足したときに**もう片方の到達範囲が黙って広がります**。
+
+`CloudApiNodeAudit` だけが `/pool/cloud` の外に出ます。作成前に空きRAMを見る `GET /nodes/<node>/status` が `/nodes/<node>` の `Sys.Audit` を要求するためで、読み取り専用です。これが無いと**容量を見ないまま作成を通します**。
+
+`Datastore.Allocate` を `cloud-images` にだけ与えるのは、アップロードしたISOがVMの持ち物にならず `VM.Config.Disk` では消せないためです。ストレージ定義そのものも触れる強い権限なので、他のストレージへは広げません。
 
 `DevVMOperator` に `VM.Config.*` を含めないのは意図的です。電源とコンソールは自由に使えますが、CPU・RAM・ディスク・NICの正本はTerraformのままです。利用者の操作でIaCと実機が乖離しません。これは開発VMの中で何をしてよいかの制限ではありません。VMの外側の形だけを固定します。
 
 ## モジュールの入力を将来のAPIと揃える
 
-[最小クラウドとTerraform Provider](cloud.md)の `homelab_instance` は image・CPU・RAM・disk・network を受け取ります。`platform/terraform/modules/managed-host` の入力を同じ形にして、`flavors.yaml`（`small` など）の名前も共用します。
+[最小クラウドとTerraform Provider](cloud.md)の `shakecloud_instance` は image・CPU・RAM・disk・network を受け取ります。`platform/terraform/modules/managed-host` の入力を同じ形にして、`flavors.yaml`（`small` など）の名前も共用します。
 
 **将来のGo APIはこのモジュールを呼びません。** APIはProxmox APIを直接叩きます。揃えるのは入力の形だけで、TerraformをAPIの内側に隠しません。隠すと、APIの障害時にTerraformも使えなくなります。
 

@@ -7,3 +7,6 @@
   roles:
     - docker
     - netbox
+    # NetBox が新しい名前を許可してから入口を確かめる。docs-site.yml も同じホストに
+    # 同じ入口を置くので、どちらを流しても両方の名前が残る。
+    - tls_proxy

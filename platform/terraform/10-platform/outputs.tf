@@ -13,3 +13,11 @@ output "ansible_hint" {
   description = "NetBox 動的インベントリでの確認方法。"
   value       = "ansible-inventory -i platform/ansible/inventory.netbox.yml --graph"
 }
+
+output "cloud_ip_range_id" {
+  description = <<-EOT
+    クラウドAPIが採番に使う NetBox IP Range のID。cloud/api の設定へ入れる。
+    範囲の宣言は ../network.yaml の cloud。
+  EOT
+  value       = netbox_ip_range.cloud.id
+}

@@ -1,19 +1,37 @@
 ---
-# VMのサイズ。名前は将来の自作クラウドAPI（cloud.md の homelab_instance の
+# VMのサイズ。名前は自作クラウドAPI（cloud.md の shakecloud_instance の
 # flavor）と共用する。ここで名前を決めておけば、APIを載せるときに
 # 利用者向けの語彙を作り直さずに済む。
-# 値は docs/architecture/operations.md の配分表に合わせた設計値であり、
-# 実測保証ではない。
+#
+# **メモリは既定でバルーニングを使う。** memory_mib が上限、
+# memory_min_mib がホストが回収できる下限。1台あたりの上限を大きく取りつつ、
+# 遊んでいるVMからは返してもらう。
+#
+# ただし **バルーニングで回収できる分を空き容量として数えない**。
+# ゲストが実際に使っていれば返ってこないし、回収には時間がかかる。
+# アドミッション制御は memory_mib（上限）の合計で判断する。
+# 配分の考え方は docs/architecture/operations.md。
 flavors:
   small:
     cpu_cores: 2
     memory_mib: 2048
+    memory_min_mib: 512
   medium:
     cpu_cores: 2
     memory_mib: 4096
+    memory_min_mib: 1024
   large:
     cpu_cores: 4
     memory_mib: 8192
+    memory_min_mib: 2048
   xlarge:
     cpu_cores: 8
     memory_mib: 12288
+    memory_min_mib: 3072
+  # ゲームVMのように「上限は大きく、遊んでいるときは返す」使い方のための枠。
+  # 16GiB はホストの物理メモリの約4分の1なので、**同時に何台も動かせない**。
+  # 実際に作れるかは cloud.yaml の枠とノードの空きが決める（作成時に断られる）。
+  2xlarge:
+    cpu_cores: 8
+    memory_mib: 16384
+    memory_min_mib: 4096

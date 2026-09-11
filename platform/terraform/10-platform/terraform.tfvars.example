@@ -1,41 +1,24 @@
-# terraform.tfvars へコピーして実値を入れる。tfvars は .gitignore 対象。
-# **すべて棚卸し（platform/ansible/survey-pve.yml）の出力から転記する。**
-# 秘密値はここに書かない。接続情報は SOPS 経由の環境変数で渡す。
-
-proxmox_node_name = "pve"
-vm_datastore_id   = "local-lvm"
-
-# PVE 8.4 以降なら import。使えない版では "iso" にしてファイル名を .img にする。
-
-# 00-bootstrap の `cloud_image_file_ids` 出力から転記する。取得そのものは
-# 特権が要るため 00-bootstrap（root@pam）が担当する。
-image_file_id = "local:import/debian-13-genericcloud-amd64-<日付>-<番号>.qcow2"
-
-network_bridge = "vmbr0"
-# VLAN を使わないなら指定しない
-# network_vlan_id = 20
-
-# 基盤VMが載るネットワーク。台帳としての登録で、ここからは採番しない。
-management_prefix = "192.0.2.0/24"
-
-# 実際の採番元。**Prefix 全体から採番するとゲートウェイまで対象になる**ので、
-# ルータのDHCP配布範囲・ゲートウェイ・既存の固定機器を避けた範囲で限定する。
-management_range_start = "192.0.2.201/24"
-management_range_end   = "192.0.2.249/24"
-# cloud_prefix    = "198.51.100.0/24"
-
-gateway     = "192.0.2.1"
-dns_servers = ["192.0.2.1"]
-# dns_domain = "home.arpa"
-
-vm_username = "debian"
-
-admin_ssh_public_keys = [
-  "ssh-ed25519 AAAA...REPLACE admin@management-pc",
-]
-
-# 開発VMには本人の鍵だけを足す。鍵は共有しない。
-host_ssh_public_keys = {
-  "dev-a" = ["ssh-ed25519 AAAA...REPLACE user-a@laptop"]
-  "dev-b" = ["ssh-ed25519 AAAA...REPLACE user-b@laptop"]
-}
+# **10-platform に terraform.tfvars は要りません。**
+#
+# 以前ここにあった値は、性質ごとに正本へ移しました。tfvars は gitignore 対象
+# なので、それを持たない作業機で plan を打つと「宣言に無い＝消す／剥がす」
+# という差分が出ていました。実際にイメージを消す plan が出たため、全部移しました。
+#
+# | もとの変数 | いまの正本 | 性質 |
+# | --- | --- | --- |
+# | proxmox_node_name / vm_datastore_id / network_bridge | site.yaml | 実測 |
+# | management_prefix / gateway / dns_servers | site.yaml | 実測 |
+# | management_range_* / cloud_* | network.yaml | 決めごと |
+# | admin_ssh_public_keys / host_ssh_public_keys | access.yaml | 決めごと（公開鍵） |
+# | image_file_id | images.yaml から組み立て | 決めごと |
+#
+# site.yaml は tools/site-yaml.py --api が実機から生成します。手で書きません。
+#
+# 残る変数はすべて既定値を持つので、上書きしたいときだけ tfvars を作ります。
+#
+# image_name          = "debian13"     # 既定は images.yaml の default_image
+# network_vlan_id     = 20             # VLAN分離後に指定する
+# dns_domain          = "home.arpa"
+# vm_username         = "debian"
+# netbox_site_name    = "Homelab"
+# netbox_cluster_name = "k11"

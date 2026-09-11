@@ -1,0 +1,5 @@
+---
+docs_site_project_dir: /opt/docs-site
+docs_site_bind_address: 0.0.0.0
+docs_site_port: 8090
+docs_site_repo_dir: '{{ playbook_dir }}/../..'
