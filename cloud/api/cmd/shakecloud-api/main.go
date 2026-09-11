@@ -74,6 +74,7 @@ func run(log *slog.Logger) error {
 			proxmox.New(cfg.ProxmoxURL, cfg.ProxmoxToken, deployment.Node, cfg.ProxmoxInsecure),
 			netbox.New(cfg.NetBoxURL, cfg.NetBoxToken),
 			deployment, log, cfg.WorkDir)
+		service.UploadDir = cfg.UploadDir
 		srv.Compute = service
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)

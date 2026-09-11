@@ -41,8 +41,14 @@ class BootstrapKeyTests(unittest.TestCase):
             self.assertEqual((root / 'secrets/db_password').read_text(), password)
             self.assertEqual((root / 'secrets/bootstrap_admin_key').read_text(), '')
             self.assertTrue((root / 'data/postgres').is_dir())
-            # PostgreSQL 18 cannot create its data directory inside a root-owned mount.
-            chown.assert_called_with(root / 'data/postgres', 70, 70)
+            self.assertTrue((root / 'data/uploads').is_dir())
+            # Both mounts have to belong to the user of the container that writes
+            # them, and the assertions do not depend on which is chowned first:
+            # PostgreSQL 18 cannot create its data directory inside a root-owned
+            # mount, and the API runs as the distroless nonroot user, so an
+            # upload would fail at the first write.
+            chown.assert_any_call(root / 'data/postgres', 70, 70)
+            chown.assert_any_call(root / 'data/uploads', 65532, 65532)
 
 
 class ComposeTests(unittest.TestCase):
@@ -62,6 +68,14 @@ class ComposeTests(unittest.TestCase):
     def test_the_api_container_cannot_write_or_escalate(self):
         api = self.services['api']
         self.assertTrue(api['read_only'])
+        # With a read-only root the API needs somewhere to put an uploaded image
+        # while it hands it to Proxmox, and it cannot be the tmpfs: that is RAM,
+        # and the node refuses a body whose length is not declared, so the upload
+        # has to be written down to be measured.
+        self.assertEqual(api['environment']['SHAKECLOUD_UPLOAD_DIR'], '/var/lib/shakecloud/uploads')
+        self.assertTrue(any(mount.endswith(':/var/lib/shakecloud/uploads') for mount in api['volumes']),
+                        api['volumes'])
+        self.assertNotIn('/var/lib/shakecloud/uploads', api['tmpfs'])
         self.assertIn('no-new-privileges:true', api['security_opt'])
         self.assertEqual(api['cap_drop'], ['ALL'])
 

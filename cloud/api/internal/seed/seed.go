@@ -36,6 +36,11 @@ type Config struct {
 	Gateway     netip.Addr
 	Nameservers []netip.Addr
 	UserData    string
+	// PublicKeys go into meta-data, not user-data. user-data is whatever the
+	// caller wrote — it may be a shell script rather than cloud-config — so
+	// merging keys into it would mean rewriting someone else's document.
+	// NoCloud's own public-keys field works whatever user-data contains.
+	PublicKeys []string
 }
 
 // NewMACAddress returns a random address under Proxmox's own OUI (BC:24:11),
@@ -62,7 +67,11 @@ func Hostname(name, instanceID string) string {
 }
 
 func (c Config) metaData() ([]byte, error) {
-	return yaml.Marshal(map[string]string{"instance-id": c.InstanceID, "local-hostname": c.Hostname})
+	meta := map[string]any{"instance-id": c.InstanceID, "local-hostname": c.Hostname}
+	if len(c.PublicKeys) > 0 {
+		meta["public-keys"] = c.PublicKeys
+	}
+	return yaml.Marshal(meta)
 }
 
 func (c Config) networkConfig() ([]byte, error) {

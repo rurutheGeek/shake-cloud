@@ -29,16 +29,27 @@ type instanceBody struct {
 	MemoryMinMiB     int               `json:"memory_min_mib"`
 	Ballooning       bool              `json:"ballooning"`
 	RootDiskGiB      int               `json:"root_disk_gib"`
+	KeyName          string            `json:"key_name,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
 	ClientToken      string            `json:"client_token,omitempty"`
 	LaunchTime       time.Time         `json:"launch_time"`
 	TerminatedAt     *time.Time        `json:"terminated_at,omitempty"`
+	// SecurityGroups is empty for instances from before groups existed, which
+	// are unfiltered. FirewallState is "applying" while a change to the groups
+	// is still on its way to the VM.
+	SecurityGroups []instanceGroupBody `json:"security_groups"`
+	FirewallState  string              `json:"firewall_state"`
+}
+
+type instanceGroupBody struct {
+	GroupID   string `json:"group_id"`
+	GroupName string `json:"group_name"`
 }
 
 // instanceJSON renders an instance. Everyone may see that an instance exists
 // and what it holds, so that the cloud's use is visible to the people sharing
 // it; owned decides only whether the caller's own client_token comes back.
-func instanceJSON(service *compute.Service, i db.Instance, owned bool) instanceBody {
+func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []db.GroupRef) instanceBody {
 	body := instanceBody{
 		InstanceID: i.ID, AccountID: i.AccountID, OwnerUsername: i.OwnerUsername,
 		ImageID: i.ImageID, ImageName: service.Site.Images[i.ImageID].Name, InstanceType: i.InstanceType,
@@ -47,13 +58,31 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool) instanceB
 		PrivateIPAddress: strings.SplitN(i.IPAddress, "/", 2)[0],
 		MACAddress:       i.MACAddress, VCPUs: i.CPUCores, MemoryMiB: i.MemoryMiB, MemoryMinMiB: i.MemoryMinMiB,
 		Ballooning:  i.Ballooning,
-		RootDiskGiB: i.RootDiskGiB,
-		Tags:        i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
+		RootDiskGiB: i.RootDiskGiB, KeyName: i.KeyName,
+		Tags: i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
 	}
 	if owned {
 		body.ClientToken = i.ClientToken
 	}
+	body.SecurityGroups = make([]instanceGroupBody, 0, len(groups))
+	for _, group := range groups {
+		body.SecurityGroups = append(body.SecurityGroups, instanceGroupBody{GroupID: group.GroupID, GroupName: group.GroupName})
+	}
+	body.FirewallState = "in-sync"
+	if i.FirewallGeneration != i.FirewallApplied {
+		body.FirewallState = "applying"
+	}
 	return body
+}
+
+// writeInstance renders one instance with its groups.
+func (s *Server) writeInstance(w http.ResponseWriter, r *http.Request, status int, service *compute.Service, instance db.Instance, owned bool) {
+	groups, err := db.InstanceGroups(r.Context(), s.pool, []string{instance.ID})
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, status, map[string]any{"instance": instanceJSON(service, instance, owned, groups[instance.ID])})
 }
 
 // mayAct reports whether the caller may change this instance, writing the
@@ -131,7 +160,7 @@ func (s *Server) runInstances(w http.ResponseWriter, r *http.Request, c *call) {
 		// A repeated client_token returns the original instance unchanged.
 		status = http.StatusOK
 	}
-	writeJSON(w, status, map[string]any{"instance": instanceJSON(service, instance, true)})
+	s.writeInstance(w, r, status, service, instance, true)
 }
 
 // describeInstances lists every instance in the cloud, to whoever asks. Two
@@ -147,9 +176,18 @@ func (s *Server) describeInstances(w http.ResponseWriter, r *http.Request, c *ca
 		s.internalError(w, r, err)
 		return
 	}
+	ids := make([]string, 0, len(instances))
+	for _, instance := range instances {
+		ids = append(ids, instance.ID)
+	}
+	groups, err := db.InstanceGroups(r.Context(), s.pool, ids)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	body := make([]instanceBody, 0, len(instances))
 	for _, instance := range instances {
-		body = append(body, instanceJSON(service, instance, c.mayTouch(instance)))
+		body = append(body, instanceJSON(service, instance, c.mayTouch(instance), groups[instance.ID]))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"instances": body})
 }
@@ -168,7 +206,7 @@ func (s *Server) describeInstance(w http.ResponseWriter, r *http.Request, c *cal
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"instance": instanceJSON(service, instance, c.mayTouch(instance))})
+	s.writeInstance(w, r, http.StatusOK, service, instance, c.mayTouch(instance))
 }
 
 // modifyInstance changes an instance's size. Only cloud-admins may: a resize
@@ -205,7 +243,7 @@ func (s *Server) modifyInstance(w http.ResponseWriter, r *http.Request, c *call)
 		s.computeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"instance": instanceJSON(service, instance, true)})
+	s.writeInstance(w, r, http.StatusOK, service, instance, true)
 }
 
 // instanceAction handles terminate, start, stop and reboot, which differ only
@@ -234,27 +272,8 @@ func instanceAction(action string) func(*Server, http.ResponseWriter, *http.Requ
 			s.computeError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusAccepted, map[string]any{"instance": instanceJSON(service, instance, c.mayTouch(instance))})
+		s.writeInstance(w, r, http.StatusAccepted, service, instance, c.mayTouch(instance))
 	}
-}
-
-func (s *Server) describeImages(w http.ResponseWriter, r *http.Request, c *call) {
-	service := s.computeService(w, r)
-	if service == nil {
-		return
-	}
-	type imageBody struct {
-		ImageID string `json:"image_id"`
-		Name    string `json:"name"`
-		State   string `json:"state"`
-		Public  bool   `json:"public"`
-	}
-	body := make([]imageBody, 0, len(service.Site.Images))
-	for id, image := range service.Site.Images {
-		body = append(body, imageBody{ImageID: id, Name: image.Name, State: "available", Public: true})
-	}
-	sort.Slice(body, func(i, j int) bool { return body[i].ImageID < body[j].ImageID })
-	writeJSON(w, http.StatusOK, map[string]any{"images": body})
 }
 
 func (s *Server) describeInstanceTypes(w http.ResponseWriter, r *http.Request, c *call) {

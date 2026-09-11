@@ -1,6 +1,6 @@
 # クラウドAPIの構築
 
-更新日: 2026-09-10。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った**。
+更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）**。
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -19,8 +19,10 @@
 | クラウドAPI の Phase 1（Authentik ログイン、アクセスキー、監査ログ、ブートストラップ管理キー） | `cloud/`、`platform/ansible/cloud.yml`（3-8） |
 | クラウドAPI の Phase 2（VM の作成・電源操作・削除、IP 採番、seed ISO、クォータ、差分リコンサイラ） | `cloud/api/internal/compute/`（3-10） |
 | 上限の変更（管理者）と容量の表示 | `GET /v1/capacity`、`GET`/`PUT /v1/limits`、ポータルの「容量」「上限」（3-11） |
+| Phase 3（イメージアップロード、SSH鍵、Webコンソール） | `cloud/api/internal/compute/images.go`、keypairs、console、noVNC（3-12・3-13） |
+| Phase 4（追加ボリューム、セキュリティグループ、データセンターFW有効化） | `cloud/api/internal/compute/{volumes,securitygroups,firewall}.go`、`platform/terraform/00-bootstrap/firewall.tf`（3-14） |
 
-**まだ無いもの**: 利用者のイメージのアップロード・SSH鍵・Webコンソール（Phase 3）、追加ボリュームとセキュリティグループ（Phase 4）、セルフサービスポータル（Phase 5。いまは最小ページ）、CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
+**まだ無いもの**: セルフサービスポータルの完成（Phase 5。いまは最小ページだがボリューム・SG 操作は入った）、CLI、Terraform Provider、VLAN分離、利用者アカウント（招待の仕組み）。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 
@@ -83,7 +85,7 @@
 | --- | --- | --- |
 | 1 | 実機の読み取りを1回走らせる | ノード名・ストレージ名・bridge名は実機にしか無い。**値の転記はもう要らない**（§3-1）。走らせる操作だけが残る |
 | 2 | `tools/tf 00-bootstrap apply` | **`00-bootstrap` はロール・ユーザー・ACLを作る。それができるアカウントは自分に何でも付与できる**ので、実質 root と同じ。誰がどこで持つかは委譲の設計そのもの（§6）。**2026-09-10 に適用済み**（12 added / 1 changed / 0 destroyed、再実行で差分なし） |
-| 3 | 実機プローブ（§4） | 「この版のProxmoxでこのAPIが通るか」は実機に聞くしかない。**判定は自動**で、人が読むのは結果だけ。**2026-09-10 に4つとも PASS** |
+| 3 | 実機プローブ（§4） | 「この版のProxmoxでこのAPIが通るか」は実機に聞くしかない。**判定は自動**で、人が読むのは結果だけ。**2026-09-11 に6つとも PASS** |
 | 4 | データセンターFWの有効化とVLAN工事 | 前者は**失敗するとホストから締め出される**。後者は物理機器 |
 
 **以前ここにあった3つは自動化しました。**
@@ -163,15 +165,20 @@ sops platform/sops/cloudapi.sops.yaml
 
 この値は Terraform の state にも平文で入ります。扱いは[Terraformの実行手順](terraform.md)に従ってください。
 
-### 3-5. データセンターFWの有効化（後回しでよい。危険）
+### 3-5. データセンターFWの有効化（`firewall.tf` が安全に自動化。適用済み）
 
-VM単位のファイアウォール（＝セキュリティグループ）は、データセンター階層のFWが有効でないと効きません。**ただし単一ノードの本番機でこれを有効にすると、順序を間違えるとホストから締め出されます。**
+VM単位のファイアウォール（＝セキュリティグループ）は、データセンター階層のFWが有効でないと効きません。単一ノードの本番機でこれを有効にすると、順序を間違えるとホストから締め出される危険があります。
 
-セキュリティグループの実装（Phase 4）に入るまで不要なので、それまで触らないでください。実施するときは:
+そこで**手作業ではなく `platform/terraform/00-bootstrap/firewall.tf` が自動化**しています。`00-bootstrap` の apply に含まれ、2026-09-11 に適用済みです（再 plan は No changes）。安全の根拠は:
 
-1. Proxmoxの**物理コンソールかIPMI**を用意する（SSHが切れても戻れる経路）
-2. 管理端末からの到達を許可するルールを**先に**入れる
-3. そのあとで `enable=1` にする
+1. **ノードFWは無効のまま**（`proxmox_node_firewall.node` の `enabled=false`）。ホスト自身への通信は今までどおり素通しになり、`8006` や SSH を失いません。
+2. **DC FW の既定ポリシーは ACCEPT**。あとで誰かがノードFWを有効にしても、いきなり全部は落ちません。
+3. **ノードFW→DC FW の順で適用**（`depends_on`）。逆順だと一瞬だけ既定設定で動く隙ができます。
+4. **`nf_conntrack_allow_invalid=1`** を入れ、有効化でゲストの RST が INVALID 扱いで落ちて「拒否」が「無応答（タイムアウト）」に化けるのを防ぎます。プロバイダに項目が無いので `scripts/node-firewall-options.py` が API を直接叩き、値を読み戻して確認します。
+
+絞られるのは `firewall=1` のNICとVM側 `enable=1` が揃ったVMだけです。基底VM（identity・cloud-01・services-01・dev-*）は NIC `firewall=0`、game1 は `firewall=1` でも VM `enable` が無いので影響しません（2026-09-11 実測）。適用後の既存VMへの影響と `nf_conntrack_allow_invalid` の値は、§4 の `vm_firewall` プローブと 3-14 の確認で見えます。
+
+**もし将来 DC FW の設定そのものを手で触る必要が出たら**、物理コンソールか IPMI を用意し、管理端末からの到達を許可するルールを先に入れてから変えてください。通常は `firewall.tf` を編集して `tools/tf 00-bootstrap apply` すれば十分です。
 
 ### 3-6. NetBox 側
 
@@ -525,6 +532,160 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 | 削除 | `terminated`。VM の残骸なし |
 | 監査ログ | `UpdateLimits`・`RunInstances`・`TerminateInstance` が残った |
 
+<a id="3-12"></a>
+### 3-12. イメージのアップロードと SSH鍵
+
+| 操作 | 呼び方 |
+| --- | --- |
+| イメージの一覧（共有＋全員のアップロード） | `GET /v1/images` |
+| アップロード | `POST /v1/images`（`multipart/form-data`、`name` と `file`） |
+| 削除 | `DELETE /v1/images/{image_id}` |
+| SSH鍵の登録・一覧・削除 | `POST`/`GET`/`DELETE /v1/key-pairs` |
+| 作成時に鍵を入れる | `POST /v1/instances` の `key_name` |
+
+```bash
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -F 'name=ubuntu 24.04' -F 'file=@noble.qcow2' https://cloud.apextox.dpdns.org/v1/images
+```
+
+**`name` を `file` より先に送ってください。**素通しで流すので、ファイルの名前をファイルより後には受け取れません。
+
+#### なぜ直接アップロードなのか（実測）
+
+設計当初は「URL を渡して Proxmox に取りに行かせる」（`download-url`）方が軽いと見えましたが、**`cloudapi@pve` では 403** でした。絞ったトークンには許されていません。一方 `upload` は `content=import` を受け付けます（どちらも 2026-09-11 に実測）。したがって **API を通した直接アップロードが唯一の道**です。
+
+そのうえで3つの制約が実装を決めました。**最初に書いた「素通しで流す」設計は実機で成立しませんでした。**
+
+- **Proxmox はチャンク転送を 501 で拒否します**（`chunked transfer encoding not supported`、2026-09-11 実測）。つまり**本文の長さを先に宣言しなければ受け取ってもらえません**。長さは本文の終わりまで分からないので、「一切溜めずに流す」ことは**できません**。
+- したがって cloud-01 の**実ディスク**（`/srv/cloud-stack/storage/uploads`、コンテナ内は `/var/lib/shakecloud/uploads`）へ一旦書き出し、大きさを確定させてから Proxmox へ流します。**`/tmp` は RAM（tmpfs）なので使えません**（cloud-01 の RAM は 2GiB、ディスクの空きは約31GiB）。multipart の枠は自前で組み立てて長さを正確に計算し、**中身はストリームで送ります**（枠だけがメモリに載ります）。
+- **サーバの読み取り期限は 30秒**です。アップロードのときだけ**この1リクエストの期限を外します**（他のリクエストは今までどおり守られます）。なお `statusRecorder` に `Unwrap()` が無いと期限を外せません（`feature not supported` になる）。
+
+**上限の既定を 12GiB にしてあるのはこのためです。**置き場（Proxmox のルートFS）と cloud-01 のディスクの**両方**に同じ大きさが必要で、cloud-01 の空きは約31GiB しかありません。
+
+**中身の検査は Proxmox が qemu-img で行います。**壊れたファイルや対応外の形式はタスクが失敗し、**何も残りません**（実測で確認）。大きさは `max_image_gib`（既定 12GiB、管理者が変更可、0 は無制限）と、置き場に残す空き（`image_store_min_free_mib`）で決まります。置き場は Proxmox のルートFS（約94GiB）で、ISO やバックアップと同じ領域を分け合います。
+
+**共有イメージは API から消せません。**Terraform の宣言物なので、消すならコードを直します。利用者のイメージは所有者と管理者が消せます。**そのイメージから既に作った VM は無関係です**（作成時にディスクへ複製済み）。ただし**作成中の VM がある間は**断ります。
+
+#### SSH鍵
+
+**公開鍵だけを保存します。**秘密鍵を貼った場合はそう指摘して弾きます。フィンガープリントは `ssh-keygen -lf` と同じ `SHA256:…` 形式なので、手元の鍵と見比べられます。
+
+```bash
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type: application/json' -d "{\"key_name\":\"laptop\",\"public_key\":\"$(cat ~/.ssh/id_ed25519.pub)\"}" https://cloud.apextox.dpdns.org/v1/key-pairs
+```
+
+**鍵は `user-data` ではなく `meta-data` の `public-keys` で渡します。**`user-data` は自由書式で、シェルスクリプトを書く人もいます。そこへ鍵を混ぜ込むのは他人の文書を書き換える操作なので、cloud-init 自身が持つ経路を使います。
+
+**鍵の本文は作成を受け付けた時点でインスタンスへ複製します。**直後に鍵ペアを消されても、入れない VM は生まれません。逆に後から鍵ペアを消しても**既存の VM は動き続けます**（鍵はその VM の seed イメージの中にあります）。
+
+#### 実機での確認（2026-09-11）
+
+`qemu-img` で作った本物の qcow2（196,616 バイト）を使いました。
+
+| 確認 | 結果 |
+| --- | --- |
+| アップロード | 201。`cloud-images:import/img-….qcow2` として実在し、形式は store が返した `qcow2` |
+| 一覧 | 共有イメージは `public` のまま、アップロード分は所有者名つきで並ぶ |
+| ディスクイメージでないファイル | **400** |
+| ファイルを付けない要求 | **400** |
+| 共有イメージの削除 | **409**（Terraform の宣言物なので API からは消せない） |
+| 鍵の登録 | 201。フィンガープリントが **`ssh-keygen -lf` と完全一致** |
+| 同じ名前で2回 | **409** |
+| 秘密鍵を貼る | **400** |
+| `key_name` を付けて作成 → SSH | **ログインできた。**`user_data` は一切送っていないので、`meta-data` の `public-keys` が効いた証拠 |
+| 鍵ペアを消してから再ログイン | **入れた**（鍵は seed イメージの中にある） |
+| イメージの削除 | 204。置き場は元の1件（共有イメージ）だけに戻った |
+| 監査ログ | `ImportImage`・`DeleteImage`・`ImportKeyPair`・`DeleteKeyPair` が成功・失敗とも残った |
+
+**空の qcow2 は起動しないので、「アップロードしたイメージから起動する」ところまでは実機で確かめていません。**API がそのイメージの実体を VM 作成時に渡すことは単体テストで検査しています（`import-from=` が作成パラメータに入ること）。
+
+<a id="3-13"></a>
+### 3-13. Webコンソール
+
+ポータルのインスタンス一覧で、**稼働中の自分のVM**（管理者は全VM）に「コンソール」ボタンが出ます。押すと別タブで noVNC の画面が開きます。上部に Ctrl+Alt+Del・全画面・画面に合わせる・切断のボタンがあります。
+
+API から開く場合:
+
+```bash
+curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpdns.org/v1/instances/i-0123456789abcdef0/console
+```
+
+返ってくる `url` を、**同じアカウントでログインしたブラウザ**で開きます。URL は5分有効で、別のアカウントでは使えません。
+
+#### 仕組みと、そうした理由
+
+**3段階に分けています。**2つの制約が逆を向いているためです。
+
+1. `POST …/console` は**開けるかどうかの判定だけ**をして URL を返します（所有者か管理者か、稼働中か）。Proxmox にはまだ何も頼みません。
+2. **ページを開いた瞬間に** Proxmox へ VNC のチケットと使い捨てパスワードを頼みます。Proxmox の VNC プロキシは起動してから**数秒しか接続を待たない**ので、接続の直前まで遅らせています。そのため**ページを再読み込みすれば新しいチケットで繋ぎ直せます**。
+3. ページの WebSocket は **API が中継します**。ブラウザは WebSocket に `Authorization` ヘッダを付けられませんが、Proxmox の `vncwebsocket` はそれを要求するためです。API が自分の `cloudapi@pve` トークンで Proxmox に接続し、あとは**中身を解釈せずバイト列をそのまま双方向にコピー**します（WebSocket のライブラリは使っていません）。
+
+**noVNC 1.7.0 を同梱しています**（`cloud/api/internal/server/web/static/novnc/`）。npm の sha512 と照合した tarball から無改変で取り、ライセンス（MPL-2.0）も同梱しました。CDN は使いません。更新手順は同じ場所の `PROVENANCE.md` にあります。
+
+#### 守っていること
+
+- **他サイトからは開けません。**Cookie で認証された WebSocket は、Origin がこのサイトでなければ断ります。`http.CrossOriginProtection` は POST などしか見ないので、GET で始まる WebSocket はここで別に守る必要があります。
+- **1回のページ表示で張れる WebSocket は1本だけ**です。URL を誰かに見られても、横から同じ画面に入れません。
+- **URL のトークンはログに出しません**（`/console/{token}` と記録します）。API のメモリ上もハッシュで持ちます。
+- パスワードを含むページは**キャッシュさせません**（`Cache-Control: no-store`）。
+- 開いた記録と接続した記録が、どちらも**監査ログに残ります**（`CreateConsoleSession`、`ConnectConsole`）。
+
+#### 実機での確認（2026-09-11）
+
+ブラウザを使わず、生の TLS ソケットで noVNC と同じ手順を踏みました（ページと WebSocket はアクセスキーでも認証できるため）。
+
+| 確認 | 結果 |
+| --- | --- |
+| 起動中に `POST …/console` | **409**（まだ VM が無い） |
+| 稼働後に `POST …/console` | 201、`/console/…` の URL |
+| `console.js`・noVNC の `rfb.js`・`pako` | どれも 200 で `text/javascript` として配信 |
+| ページ | 200。専用の CSP（`img-src 'self' data: blob:`）と `Cache-Control: no-store`、WebSocket のパスと使い捨てパスワードを含む |
+| **API を通した WebSocket** | 101（accept キーも正しい）。**最初のフレームは VM の VNC サーバからの `RFB 003.008`**（マスク無しのバイナリ）。ブラウザ側 → API の中継 → Proxmox の `vncwebsocket` → VM の VNC、の全経路が実物で繋がった |
+| 同じページ表示で2本目 | **404** |
+| ページを再読み込みして接続 | 101 と `RFB 003.008`（再接続できる） |
+| ログインせずにページを開く | **401** |
+| 存在しない URL の WebSocket | **404** |
+| API のログ | **トークンは出ていない**。接続と切断は記録されている |
+| 監査ログ | `CreateConsoleSession`（成功と `IncorrectInstanceState`）、`ConnectConsole` |
+
+**画面そのもの（noVNC がブラウザで絵を描くところ）は、この確認では見ていません。**ポータルの「コンソール」から開いて確かめてください。サーバ側は、テンプレートの項目がハンドラと一致することと、ページにインラインのスクリプトやスタイルが無いこと（CSP で弾かれるため）を Go のテストで検査しています。
+
+<a id="3-14"></a>
+### 3-14. ボリュームとセキュリティグループ（Phase 4）
+
+**2026-09-11 に実機で確認済みです。** 実装の範囲は次のとおりです。
+
+| 操作 | 呼び方 |
+| --- | --- |
+| ボリュームの作成・一覧・拡張・削除 | `POST`/`GET`/`PATCH`/`DELETE /v1/volumes` |
+| ボリュームのアタッチ・デタッチ | `POST /v1/volumes/{id}/attach`、`POST /v1/volumes/{id}/detach` |
+| セキュリティグループの作成・ルール追加・削除 | `POST`/`GET`/`DELETE /v1/security-groups`、`POST /v1/security-groups/{id}/{ingress,egress}`、`DELETE /v1/security-groups/{id}/rules/{rule_id}` |
+| インスタンスへの SG 適用 | `PUT /v1/instances/{id}/security-groups` |
+
+設計上のポイント:
+
+- **追加ボリュームは Proxmox の `move_disk` で差し替えます。** Proxmox のディスクは必ずどれかの VM の持ち物なので、デタッチ時には専用の「起動しないホルダーVM」（VMID 5997）へ移動します。
+- **セキュリティグループは VM 単位のファイアウォールルールに展開します。** Proxmox のクラスター全体ファイアウォールグループは `cloudapi@pve` に権限がないため、各 VM の `/nodes/<node>/qemu/<vmid>/firewall/rules` へ書き込みます。ルール変更時は対象 VM 全台のルールを全書き換えします。
+- **データセンターのファイアウォール有効化は Terraform で安全に自動化しています。** `platform/terraform/00-bootstrap/firewall.tf` は、ノードのファイアウォールは無効のまま、データセンターのファイアウォールだけを有効・既定ポリシー ACCEPT にします。これによりホスト自身への通信は今までどおり通り、VM 単位の `firewall=1` な VM のみが絞られます。さらに `nf_conntrack_allow_invalid=1` を設定し、ファイアウォール有効化による RST  drop（接続タイムアウト化）を防ぎます。
+
+#### 実機で確認したこと（2026-09-11、PVE 9.2.2）
+
+`cloudapi@pve` トークンとブートストラップ管理キーで、次をすべて実機で確認しました。
+
+1. **`firewall.tf` は適用済みで安定している。**`tools/tf 00-bootstrap plan -detailed-exitcode` が **No changes（終了コード 0）**。実機はノードFW無効、DC FW有効・既定 ACCEPT、`nf_conntrack_allow_invalid=1` で、宣言と一致しています。
+2. **新プローブ2つが PASS。**`volume_reassign`（`move_disk` の往復と強制破棄）、`vm_firewall`（ルール順序・IPセット・オプション書き込み）。既存4つと合わせて **6/6 PASS**。
+3. **ボリュームの縦串。** API で作成（`creating`→`available`）→ 稼働中インスタンスへアタッチ（`virtio1`、`in-use`）→ ゲスト内に `/dev/disk/by-id/virtio-vol65ff58d26f4697fed` が 1GiB で出現 → 1→2GiB に拡張（ゲストにも反映）→ デタッチ（`available`、デバイス消滅）→ 削除（`deleted`）。ホスト側にディスクもホルダー上の `unusedN` も残りませんでした。
+4. **セキュリティグループの遮断と許容。** SSH（tcp/22、LAN のみ）だけを許可した SG を適用し、**SSH は通り、許可していない tcp/8000 はタイムアウト、ICMP も drop**。8000 を許可するルールを足すと 200 になり、そのルールを消すと再び遮断。`firewall_state` は各変更後に `in-sync` になりました。
+5. **DC FW 有効化で既存VMに影響なし。** identity・cloud-01・services-01・game1 へ SSH/HTTPS で到達でき、`https://cloud.apextox.dpdns.org/healthz` は 200、NetBox と Authentik は 302。基底VMはすべて NIC `firewall=0`、game1 は `firewall=1` だが VM の `enable` が無いため、どちらも絞られません。
+
+再実行するときは §4 のプローブと §9 のインスタンス検証に加え、`tools/verify-volumes.py` を使ってください。このスクリプトは、使い捨てインスタンスを作り、**実際にポートが遮断・許可されるか**（ルールの見た目ではなく）まで見てから、ボリュームの attach/detach と後片付けを確認します。判定は `tests/test_verify_volumes.py` が実機なしで検査します。
+
+```bash
+export SHAKECLOUD_ACCESS_KEY=$(ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key)
+sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
+```
+
+**はまりどころ（2026-09-11 に修正）**: Proxmox は VM の `firewall/options` を書かないと、実行中VMの live ruleset を再構築しません。最初のSG適用で `enable=1`・`policy_in=DROP` になった後はルールだけ変えても options の値は変わらないので、`setFilteredOptions` が PUT を省くと**ホストは前の（緩い）ルールのまま**になります。API の `firewall_state` は `in-sync` でも、許可していないポートが開いたままです。修正は options を**毎回書く**こと（`compute/firewall.go`）。だからこのスクリプトは「設定が正しいか」ではなく「本当に遮断されるか」を見ます。
+
 ## 4. 実機プローブ
 
 **設計の前提がこの Proxmox の版で成立するかを機械判定します。**結果が違えば設計を変えるので、実装より先に走らせてください。PVEを上げたあとにも走らせます。
@@ -543,7 +704,7 @@ AWX から回す場合は同じことを Job Template で:
 
 読み取りと、`cloud` プール内の使い捨てVM（VMID 5998・5999）の作成・削除だけを行い、最後に片付けます。判定は自動で、1つでも落ちれば終了コードが非ゼロになるので、無人実行のゲートに使えます。
 
-**2026-09-10 に PVE 9.2.2 で実行した結果は4つとも PASS**、つまり設計の前提はすべて成立しました。
+**2026-09-10 に PVE 9.2.2 で最初の4つ、2026-09-11 に Phase 4 の2つ（`volume_reassign`・`vm_firewall`）を足した6つとも PASS**、つまり設計の前提はすべて成立しました。
 
 | プローブ | 確かめること | 結果 | 落ちたときに変わること |
 | --- | --- | --- | --- |
@@ -551,6 +712,8 @@ AWX から回す場合は同じことを Job Template で:
 | `image_lifecycle` | ISOを上げて、**消せる**か | **PASS** | インスタンスごとの seed ISO が消えず溜まる。管理者側の定期削除へ切り替える |
 | `pool_boundary` | `cloud` は通り、`platform` は 403 か | **PASS** | 所有境界が効いていない。**利用者へ公開してはいけない** |
 | `console_auth` | `vncwebsocket` がAPIトークンを受けるか | **PASS** | Webコンソールがチケット認証を要求する。`cloudapi@pve` にパスワードを与える |
+| `volume_reassign` | デタッチしたディスクを holder VM と他 VM 間で `move_disk` できるか | **PASS**（2026-09-11） | Detach/Attach が成立しない。権限または `move_disk` の扱いを見直す |
+| `vm_firewall` | VM のファイアウォールルールを書き、追加順序が想定どおりか | **PASS**（2026-09-11） | セキュリティグループのルールが逆向きに適用される。`firewall.tf` や書き込み順序を見直す |
 
 意味するところ:
 

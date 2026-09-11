@@ -49,12 +49,24 @@ def render(directory):
         raise SystemExit('no image in images.yaml has shared_with_cloud: true; '
                          'the cloud API cannot create disks from images it cannot read')
 
+    # The holder VM must live where the cloud API's own ACLs reach, and must not
+    # be a VMID the allocator already treats as reserved for something else.
+    vmid_from, vmid_to = pools['pools']['cloud']['vmid_from'], pools['pools']['cloud']['vmid_to']
+    holder = cloud['volume_holder_vmid']
+    if not (vmid_from <= holder <= vmid_to):
+        raise SystemExit(f'volume_holder_vmid {holder} is outside the cloud pool range '
+                         f'{vmid_from}-{vmid_to}; fix cloud.yaml')
+    if holder in cloud['probe_vmids']:
+        raise SystemExit(f'volume_holder_vmid {holder} collides with a probe VMID '
+                         f'{cloud["probe_vmids"]}; fix cloud.yaml')
+
     return {
         'node': site['node_name'],
         'pool': 'cloud',
         'vmid_from': pools['pools']['cloud']['vmid_from'],
         'vmid_to': pools['pools']['cloud']['vmid_to'],
         'probe_vmids': cloud['probe_vmids'],
+        'volume_holder_vmid': holder,
         'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store},
         'network': {
             'bridge': site['network']['bridge'],
@@ -71,6 +83,7 @@ def render(directory):
         'limits': {
             'account_quota': cloud['account_quota'],
             'root_disk_gib': cloud['root_disk_gib'],
+            'volume_size_gib': cloud['volume_size_gib'],
             'capacity': cloud['capacity'],
         },
     }

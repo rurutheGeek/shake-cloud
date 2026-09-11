@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,12 +19,18 @@ import (
 // and CI plus one being rotated in.
 const maxActiveAccessKeys = 5
 
+// keyName is what an SSH key pair may be called. It matches the database's own
+// check, so a name the API accepts is one the database accepts.
+var keyName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$`)
+
 type Server struct {
 	cfg  config.Config
 	pool *pgxpool.Pool
 	log  *slog.Logger
 	oidc *oidcClient
 	now  func() time.Time
+	// consoles holds console URLs handed out in the last few minutes.
+	consoles *consoleStore
 	// Compute serves the instance endpoints. It is nil when the deployment has
 	// no Proxmox or NetBox settings, and those endpoints then answer 503.
 	Compute *compute.Service
@@ -31,11 +38,12 @@ type Server struct {
 
 func New(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) *Server {
 	return &Server{
-		cfg:  cfg,
-		pool: pool,
-		log:  log,
-		oidc: newOIDCClient(cfg),
-		now:  time.Now,
+		cfg:      cfg,
+		pool:     pool,
+		log:      log,
+		oidc:     newOIDCClient(cfg),
+		now:      time.Now,
+		consoles: newConsoleStore(),
 	}
 }
 
@@ -69,7 +77,12 @@ func routes() []route {
 		{"POST", "/v1/access-keys", "CreateAccessKey", sessionOnly, (*Server).createAccessKey},
 		{"DELETE", "/v1/access-keys/{access_key_id}", "DeleteAccessKey", anyCredential, (*Server).deleteAccessKey},
 		{"GET", "/v1/audit-events", "LookupEvents", anyCredential, (*Server).lookupEvents},
+		{"GET", "/v1/key-pairs", "DescribeKeyPairs", anyCredential, (*Server).describeKeyPairs},
+		{"POST", "/v1/key-pairs", "ImportKeyPair", anyCredential, (*Server).importKeyPair},
+		{"DELETE", "/v1/key-pairs/{key_name}", "DeleteKeyPair", anyCredential, (*Server).deleteKeyPair},
 		{"GET", "/v1/images", "DescribeImages", anyCredential, (*Server).describeImages},
+		{"POST", "/v1/images", "ImportImage", anyCredential, (*Server).importImage},
+		{"DELETE", "/v1/images/{image_id}", "DeleteImage", anyCredential, (*Server).deleteImage},
 		{"GET", "/v1/instance-types", "DescribeInstanceTypes", anyCredential, (*Server).describeInstanceTypes},
 		{"GET", "/v1/capacity", "DescribeCapacity", anyCredential, (*Server).describeCapacity},
 		{"GET", "/v1/limits", "DescribeLimits", anyCredential, (*Server).describeLimits},
@@ -82,6 +95,22 @@ func routes() []route {
 		{"POST", "/v1/instances/{instance_id}/start", "StartInstance", anyCredential, instanceAction(db.ActionStart)},
 		{"POST", "/v1/instances/{instance_id}/stop", "StopInstance", anyCredential, instanceAction(db.ActionStop)},
 		{"POST", "/v1/instances/{instance_id}/reboot", "RebootInstance", anyCredential, instanceAction(db.ActionReboot)},
+		{"POST", "/v1/instances/{instance_id}/console", "CreateConsoleSession", anyCredential, (*Server).createConsoleSession},
+		{"PUT", "/v1/instances/{instance_id}/security-groups", "ModifyInstanceSecurityGroups", anyCredential, (*Server).modifyInstanceSecurityGroups},
+		{"GET", "/v1/volumes", "DescribeVolumes", anyCredential, (*Server).describeVolumes},
+		{"POST", "/v1/volumes", "CreateVolume", anyCredential, (*Server).createVolume},
+		{"GET", "/v1/volumes/{volume_id}", "DescribeVolume", anyCredential, (*Server).describeVolume},
+		{"PATCH", "/v1/volumes/{volume_id}", "ModifyVolume", anyCredential, (*Server).modifyVolume},
+		{"DELETE", "/v1/volumes/{volume_id}", "DeleteVolume", anyCredential, (*Server).deleteVolume},
+		{"POST", "/v1/volumes/{volume_id}/attach", "AttachVolume", anyCredential, (*Server).attachVolume},
+		{"POST", "/v1/volumes/{volume_id}/detach", "DetachVolume", anyCredential, (*Server).detachVolume},
+		{"GET", "/v1/security-groups", "DescribeSecurityGroups", anyCredential, (*Server).describeSecurityGroups},
+		{"POST", "/v1/security-groups", "CreateSecurityGroup", anyCredential, (*Server).createSecurityGroup},
+		{"GET", "/v1/security-groups/{group_id}", "DescribeSecurityGroup", anyCredential, (*Server).describeSecurityGroup},
+		{"DELETE", "/v1/security-groups/{group_id}", "DeleteSecurityGroup", anyCredential, (*Server).deleteSecurityGroup},
+		{"POST", "/v1/security-groups/{group_id}/ingress", "AuthorizeSecurityGroupIngress", anyCredential, authorizeRules(db.DirectionIngress)},
+		{"POST", "/v1/security-groups/{group_id}/egress", "AuthorizeSecurityGroupEgress", anyCredential, authorizeRules(db.DirectionEgress)},
+		{"DELETE", "/v1/security-groups/{group_id}/rules/{rule_id}", "RevokeSecurityGroupRule", anyCredential, (*Server).revokeSecurityGroupRule},
 	}
 }
 
@@ -91,6 +120,9 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(rt.method+" "+rt.pattern, s.endpoint(rt))
 	}
 	mux.HandleFunc("GET /{$}", s.portal)
+	// Browser endpoints of a console, like the portal page: not API operations.
+	mux.HandleFunc("GET /console/{token}", s.consolePage)
+	mux.HandleFunc("GET /console/{token}/ws", s.consoleSocket)
 	mux.Handle("GET /static/", staticFiles())
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "NotFound", "no such endpoint")

@@ -49,10 +49,17 @@ class RenderSiteTests(unittest.TestCase):
         cloud = self.yaml('cloud.yaml')
         self.assertEqual(self.site['limits']['account_quota'], cloud['account_quota'])
         self.assertEqual(self.site['limits']['capacity'], cloud['capacity'])
+        self.assertEqual(self.site['limits']['volume_size_gib'], cloud['volume_size_gib'])
         self.assertEqual(self.site['probe_vmids'], cloud['probe_vmids'])
+        self.assertEqual(self.site['volume_holder_vmid'], cloud['volume_holder_vmid'])
         # The probe VMIDs must sit inside the pool, or reserving them means nothing.
         for vmid in self.site['probe_vmids']:
             self.assertTrue(self.site['vmid_from'] <= vmid <= self.site['vmid_to'], vmid)
+        # Same for the holder: outside the pool it sits where the API's ACLs
+        # cannot reach, and colliding with a probe VMID means a probe run
+        # could delete or overwrite the volume holder.
+        self.assertTrue(self.site['vmid_from'] <= self.site['volume_holder_vmid'] <= self.site['vmid_to'])
+        self.assertNotIn(self.site['volume_holder_vmid'], self.site['probe_vmids'])
 
     def test_the_output_is_json_the_api_can_read(self):
         # site.Load refuses a half-rendered file; keep the shape it expects.
@@ -67,6 +74,30 @@ class RenderSiteTests(unittest.TestCase):
             broken = yaml.safe_load((TERRAFORM / 'site.yaml').read_text())
             broken['storage']['vm_disks'] = 'UNMEASURED'
             (Path(directory) / 'site.yaml').write_text(yaml.safe_dump(broken))
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
+
+    def test_a_holder_outside_the_pool_range_stops_rendering(self):
+        # A holder outside 5000-5999 would sit where the cloud API's ACLs
+        # cannot reach it; catch that at render time, not at first volume detach.
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+                (Path(directory) / name).write_text((TERRAFORM / name).read_text())
+            broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
+            broken['volume_holder_vmid'] = 1
+            (Path(directory) / 'cloud.yaml').write_text(yaml.safe_dump(broken))
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
+
+    def test_a_holder_equal_to_a_probe_vmid_stops_rendering(self):
+        # The probe script deletes and recreates its VMIDs; a holder sharing
+        # one would lose its volumes the next time a probe runs.
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+                (Path(directory) / name).write_text((TERRAFORM / name).read_text())
+            broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
+            broken['volume_holder_vmid'] = broken['probe_vmids'][0]
+            (Path(directory) / 'cloud.yaml').write_text(yaml.safe_dump(broken))
             with self.assertRaises(SystemExit):
                 render_site.render(directory)
 

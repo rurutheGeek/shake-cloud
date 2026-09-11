@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。ここまでを [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) に出した。次は Phase 3（イメージのアップロード・SSH鍵・Webコンソール）**。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -42,11 +42,19 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | VM の大きさ | **自由入力**。`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定する。`instance_type`（`flavors.yaml` の名前）は**任意の近道**で、指定すると値が埋まるだけ。1つでも数値を上書きしたらその型名は外れる（カスタム扱い） |
 | バルーニング | **VMごとに選べる。** `ballooning: false` なら固定メモリ（Proxmox の `balloon=0`）。`true` のとき `memory_min_mib` が回収の下限で、省略すると上限の 1/4（最低 512MiB） |
 | 大きさの変更 | `PATCH /v1/instances/{id}`、**`cloud-admins` だけ**。vCPU・メモリ・バルーニングは**停止中のみ**（Proxmox は次回起動時にしか反映しないので、動作中に変えると台帳と実物が食い違う）。ディスクは稼働中でも**拡大のみ**。変更後の大きさでクォータと空き容量を再検査する |
+| イメージのアップロード経路 | **API を通した直接アップロードだけ。**`download-url`（URL から Proxmox に取りに行かせる）は `cloudapi@pve` に **403**、`upload` は `content=import` を受ける（どちらも実測）。**Proxmox はチャンク転送を 501 で拒否する**ので本文の長さを先に宣言する必要があり、**「一切溜めずに流す」は成立しない**。cloud-01 の実ディスク（`storage/uploads`）へ一旦書いて大きさを確定させ、そこから流す。**`/tmp` は tmpfs なので使えない**。**中身の検査は Proxmox が qemu-img で行う**ので、壊れたファイルは弾かれ、何も残らない |
+| イメージの上限 | 1イメージ **12GiB**（`max_image_gib`、管理者が変更可、0 は無制限）。置き場（Proxmox のルートFS 約94GiB）と cloud-01 のディスク（空き約31GiB）の**両方**に同じ大きさが要るので、小さい方に合わせてある。加えて置き場の空き（`image_store_min_free_mib`）を必ず残す |
+| イメージの削除 | 所有者と `cloud-admins`。**共有イメージは API から消せない**（Terraform の宣言物）。既にそのイメージから作った VM は無関係（作成時にディスクへ複製済み）。**作成中の VM がある間だけ**削除を断る |
+| SSH鍵 | 公開鍵だけを保存する。**`user-data` には触らず、NoCloud の `meta-data` の `public-keys` で渡す**（`user-data` はシェルスクリプトでもよい自由書式なので、他人の文書を書き換えないため）。鍵の本文は**承認時に**インスタンスへ複製するので、直後に鍵ペアを消されても入れない VM は生まれない。鍵ペアを後から消しても既存の VM は動き続ける |
+| Webコンソール | **noVNC 1.7.0 を同梱する**（`web/static/novnc/`、npm の sha512 と照合した tarball から `core/`・`vendor/`・`LICENSE.txt` を無改変で。MPL-2.0。出所と更新手順は同じ場所の `PROVENANCE.md`）。**CDN は使わない**。ビルド無しの ES モジュールとして読み、CSP の `script-src 'self'` に収まる |
+| コンソールの経路 | ブラウザは WebSocket に `Authorization` を付けられず、`vncwebsocket` はそれを要求するので、**API が自分の `cloudapi@pve` トークンで中継する**。**WebSocket のライブラリは足さない**。ハンドシェイクだけ双方と行い、以後はフレームを解釈せずバイト列を双方向にコピーする（ブラウザのマスク付きフレームは Proxmox が期待する形、Proxmox の非マスクのフレームはブラウザが期待する形なので、そのまま正しい）。圧縮などの拡張はどちら側とも交渉しない |
+| コンソールの手順と期限 | ①`POST /v1/instances/{id}/console`（所有者と管理者だけ、稼働中だけ）が**5分有効・アカウントに結び付いた URL** を返す。**この時点では Proxmox に何も頼まない**。②その**ページを開くたびに** Proxmox の新しいチケットと使い捨てパスワードを発行する（Proxmox の VNC プロキシは数秒しか WebSocket を待たないので、接続の直前まで遅らせる。再読み込みがそのまま再接続になる）。③WebSocket は**1回のページ表示につき1本だけ** |
+| コンソールの防御 | **Cookie で認証された WebSocket は Origin が自サイトでなければ断る**（`CrossOriginProtection` は GET を見ないので、他サイトからのクロスサイト WebSocket 乗っ取りはここで止める）。アクセスキーは他サイトのページから送れないので Origin は問わない（CLI 用）。URL のトークンは**アクセスログに出さず**（`/console/{token}` と記録）、メモリ上も**ハッシュで持つ**。ページは `Cache-Control: no-store`（パスワードを含むため） |
 | v1 の範囲 | EC2相当 + S3（Garage）。サーバレス・RDB は Kubernetes 構築後 |
 | EC2 の追加機能 | 追加ボリューム、セキュリティグループ。スナップショットと IMDS は作らない |
 | 運用機能 | クォータと空き容量検査、差分リコンサイラ、監査ログ。削除保護は作らない |
 | Web UI | フルのセルフサービスポータル |
-| イメージ | 利用者が API へ直接アップロード |
+| イメージ | 利用者が API へ直接アップロード（他に道が無いことを実測で確認。下の「イメージのアップロード経路」） |
 | user-data | 完全に自由（NoCloud seed ISO で渡す） |
 | CLI | 作る |
 | 置き場所 | API と管理DB（PostgreSQL）は専用VM `cloud-01`。コードは `cloud/`（`cloud/api` が Go、`cloud/openapi` が正本） |
@@ -88,8 +96,9 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
 | 400 / 401 | dev-a / dev-b | .202 / .203 | 開発VM。dev-b が自動化の実行ホスト | 稼働 |
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 稼働 |
+| 5997 | shakecloud-volumes | — | ボリュームのホルダー（デタッチしたディスクの待機先）。起動しない | 停止。API が初回のボリューム作成時に作る |
 
-`cloud` プール（VMID 5000–5999）は空です。IP は、クラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。
+`cloud` プール（VMID 5000–5999）にあるのはボリュームのホルダー（5997）だけで、利用者VMは今はありません。IP は、クラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。
 
 ## 5. サービスの入口とログイン情報の置き場所
 
@@ -153,7 +162,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ⬜ | 外出先（Tailscale）から名前で使えるようにする | Tailscale の DNS がどの名前にも SERVFAIL を返す件と、LAN へのサブネットルートが未設定 |
 | ✅ | OIDC クライアントの秘密値を cloud-01 へ渡す | SOPS へ入れる予定だったが、identity VM から直接写す方式に変えた（§3） |
 | ⬜ | 新しい Authentik での利用者の作り方（招待フロー） | `stacks/hub/invitations.py` は旧ハブ用。移植するか作り直す |
-| ⬜ 👤 | データセンターのファイアウォール有効化 | Phase 4 の前提。失敗すると管理者自身が締め出されるので、許可ルールを先に入れ、コンソールを開いた状態で行う |
+| ✅ | データセンターのファイアウォール有効化 | Phase 4 の前提。`platform/terraform/00-bootstrap/firewall.tf` で安全に自動化し、**2026-09-11 に適用済み**（再 plan は No changes）。ノードFWは無効、DC FWは有効・既定ACCEPT、`nf_conntrack_allow_invalid=1`。既存の基盤VM・game1 への通信に影響がないこと、`nf_conntrack_allow_invalid=1` が入っていることを実機で確認。次に触る場合は物理コンソール/IPMI を用意する |
 | ⬜ 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。完了後に `network.yaml` の `cloud.prefix` を埋める |
 
 ### Phase 1 — Go の足場、認証、監査ログ
@@ -190,8 +199,8 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | 2 | **VMが1台できる縦串**。2026-09-10 に実機で確認（作成 → SSH でログイン → 削除 → 残骸なし）。冪等性（`client_token`）、クォータと空き容量、VMID の採番と隔離、NetBox での IP 採番、seed ISO、一覧・電源操作・Terminate、差分リコンサイラを含む。[cloud.md 3-10](cloud.md) |
 | ✅ | 2 の追加 | **上限を管理者が変えられるようにし、容量が見えるようにした。**`GET /v1/capacity`（CPU・メモリ・ストレージ・配った合計・アカウント別）、`GET`/`PUT /v1/limits`、ポータルの「容量」と「上限」。16GiB の `2xlarge` を追加。2026-09-10 に実機で確認（上限の上書きと復帰、16GiB の VM が `balloon=4096` で起動 → 削除して残骸なし、監査ログに記録）。[cloud.md 3-11](cloud.md#3-11) |
 | ✅ | 2 の追加 | **大きさを自由に指定できるようにし、GUI に一覧と編集を出した。**`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定（`instance_type` は任意の近道）。`PATCH /v1/instances/{id}`（管理者のみ）。ポータルの「インスタンス」で作成・電源・削除・編集ができ、**クラウドの全VMが所有者名つきで並ぶ**。2026-09-11 に実機で確認（バルーニングなしで `balloon=0`、稼働中のディスク拡大、縮小の拒否、停止後の vCPU・メモリ・バルーニング変更が実物に反映、削除して残骸なし）。[cloud.md 3-10](cloud.md) |
-| ⬜ | 3 | **次にやる。** イメージ（共有とアップロード）、キーペア、noVNC コンソール |
-| ⬜ | 4 | ボリューム、セキュリティグループ（VM 単位のルールへ展開） |
+| ✅ | 3 | **イメージのアップロード、SSH鍵ペア、Webコンソール。**2026-09-11 に実機で確認。本物の qcow2 が入って消え、フィンガープリントは `ssh-keygen -lf` と一致し、`user_data` なしで SSH ログインできた（`meta-data` の `public-keys`）。コンソールは API を通した WebSocket の最初のフレームが VM の VNC サーバからの `RFB 003.008` だった（noVNC 1.7.0 を同梱、中継は API）。**ブラウザで画面が描かれるところは、人がポータルから開いて確かめる**。[cloud.md 3-12](cloud.md#3-12)・[3-13](cloud.md#3-13) |
+| ✅ | 4 | **ボリュームとセキュリティグループを実装し、2026-09-11 に実機で確認。** `cloud/api/internal/compute/{volumes,volume_worker,securitygroups,firewall}.go`、DBマイグレーション `0006`、API エンドポイント、ポータル画面、Terraform の DC FW 有効化まで含む。実機では `volume_reassign`・`vm_firewall` プローブが PASS、ボリュームの作成→アタッチ→ゲストで `/dev/disk/by-id/virtio-<serial>` 認識→拡張→デタッチ→削除が通り、SSH のみ許可した SG で 8000 番と ICMP が遮断・許可ルール追加で回復した。残骸なし。**検証中に見つけた「ルール変更で Proxmox が live ruleset を再構築しない」バグを修正**（`setFilteredOptions` を毎回書く。§10 参照）。再現は `tools/verify-volumes.py`（`tests/test_verify_volumes.py` が判定を検査） |
 | ⬜ | 5 | セルフサービスポータル。game1 の引き取りもここ以降。完成したらブートストラップ管理キーを無効にする |
 | ⬜ | 6 | Terraform Provider（`shakecloud_*`）と CLI |
 | ⬜ | 7 | Garage（`storage-s3` VM）と、バケット・S3 キーの API |
@@ -304,6 +313,12 @@ tools/tf 10-platform plan -detailed-exitcode
 sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-cloud.py'
 ```
 
+ボリュームとセキュリティグループは、実際に遮断・許可されるところまで見ます（§6 Phase 4、`SHAKECLOUD_ACCESS_KEY` が要ります）:
+
+```bash
+sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
+```
+
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml 'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 ```
@@ -367,3 +382,4 @@ tools/tf 20-dns plan -detailed-exitcode
 | `sops exec-env` の中で `ansible-playbook: not found` | **`sops exec-env` は `/bin/sh` で実行するので、venv は PATH に入っていない。**ansible は `.venv/bin/` にしか無い（`command -v ansible-playbook` は何も返さない）。コマンド全体を単一引用符で囲んでいるため、外側のシェルの PATH も効かない。`.venv/bin/ansible-playbook` と書く |
 | 失敗した配備が成功したように見える | `... \| tail -30` のようにパイプへ繋ぐと、終了コードはパイプの**最後**のコマンドのものになる。`ansible-playbook` が起動すらしていなくても `tail` が 0 を返すので 0 になる。`${PIPESTATUS[0]}` を見るか、パイプを外す |
 | ドキュメントサイトの配備が「何もせずに」終わる | `docs-site.yml` は `hosts: netbox_bootstrap` で、このグループは**静的な `platform/ansible/seed.ini` にしか無い**（services-01 は `05-seed` の管轄で NetBox にVM記録が無いため、動的インベントリに入っていない）。動的インベントリで流すと `skipping: no hosts matched` になり、**そのとき ansible の終了コードは 0** なので成功に見える。`-i platform/ansible/seed.ini` で流し、`PLAY RECAP` に `services-01` が出ることを確かめる |
+| セキュリティグループのルールが正しいのに通信が遮断されない | **Proxmox は VM の `firewall/options` を書かないと、実行中VMの live ruleset を再構築しない。**最初のSG適用で `enable=1`・`policy_in=DROP` になった後は、ルールだけ変えても options の値は変わらないため、`setFilteredOptions` が PUT を省くと**ホスト側は前の（緩い）ルールのまま**になる。API の `firewall_state` は `in-sync`、`firewall/rules` も新ルールなのに、許可していないポートが開いたままになる（2026-09-11 実測）。修正: options を**毎回書く**（`compute/firewall.go` の `setFilteredOptions`）。`TestARuleOnlyChangeRewritesTheOptionsSoProxmoxReloads` が回帰を防ぐ。実機は `tools/verify-volumes.py` が実際の遮断まで見る |

@@ -1,6 +1,6 @@
 # IaCの所有境界
 
-更新日: 2026-09-10。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPIは VM の作成まで実装済み（Phase 2）**。
+更新日: 2026-09-11。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPI は Phase 4（ボリューム・セキュリティグループ）まで実装済み・実機検証済み**。
 
 [配備・Git管理・ストレージ・復旧](operations.md)の「Gitと構成の所有者」は「**同じオブジェクトをFluxと自作API、または2つのTerraform stateで管理しません**」と定めています。この文書は、その原則をProxmoxの権限とVMIDの分割で**構造として**保証する方法を書きます。運用規約ではなく、権限が無いから触れない、という形にします。
 
@@ -14,7 +14,7 @@
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
-| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み: VM の作成・電源操作・削除、IP の採番。未実装: イメージのアップロード、ボリューム、セキュリティグループ、バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
+| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ。未実装: バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
 
