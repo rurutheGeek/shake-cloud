@@ -85,6 +85,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
 | ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、旧ハブの「Nextcloud で編集する」仕組みは持ち込まない。Kubernetes ができたら設計どおり worker-01 へ移す |
 | game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
+| メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。SMTP の資格情報は任意の `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](smtp.md)） |
 
 ## 4. いまの実機
 
