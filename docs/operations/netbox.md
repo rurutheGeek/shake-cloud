@@ -23,6 +23,21 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
   sudo cat /opt/netbox-stack/secrets/superuser_password
 ```
 
+## SSO（共通ログイン）
+
+NetBox は新しい Authentik で **SSO できます**（ログイン画面の **OpenID**）。OIDC クライアント `netbox` は identity 側の `configure.py` が作り、クライアント秘密は `platform/sops/netbox.sops.yaml` の `NETBOX_OIDC_CLIENT_SECRET` を**正本**として identity と NetBox の両方が読みます。
+
+| Authentik のグループ | NetBox での権限 |
+| --- | --- |
+| `admins` | **superuser**（すべて操作できる） |
+| `users` | **閲覧のみ**（`SSO users (read only)`。dcim/ipam/virtualization/tenancy/extras の view） |
+
+- 初回ログインでユーザーを自動作成し、以後はログインのたびにグループを IdP の `groups` クレームへ合わせます。
+- **ローカルの `admin` ログインは残しています**（SSO が壊れたときの非常口）。
+- NetBox 標準のグループ同期（`REMOTE_AUTH_GROUP_SYNC_*`）は **HTTP ヘッダー認証でしか動かず OIDC では効きません**。`stacks/netbox/sso_pipeline.py` の pipeline で `groups` クレームから同期しています（`configuration.py` の `SOCIAL_AUTH_PIPELINE`）。
+- 変更時は **`identity.yml`（クライアント作成・更新）→ `netbox.yml`（秘密の配布・再作成・権限 seed）** の順で流します。
+- **SSO は `https://netbox.apextox.dpdns.org/` から使います。** リダイレクト URI はこの名前で厳密一致で登録しているため、IP 直（`http://192.168.10.200:8000`）からの SSO は `redirect_uri_no_match` で失敗します。IP 直は API・Terraform 用で、ブラウザのログインは名前を使ってください（IP 直でもローカル `admin` は使えます）。
+
 ## 主な画面
 
 | 画面 | 何が見えるか |

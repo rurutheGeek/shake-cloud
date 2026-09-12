@@ -111,6 +111,8 @@ def configure():
         sender = sender[sender.index('<') + 1:sender.index('>')]
     env = dict(os.environ, AUTHENTIK_TOKEN=secret('bootstrap_token'),
                CLOUD_PORTAL_URL=values.get('CLOUD_PORTAL_URL', ''),
+               NETBOX_URL=values.get('NETBOX_URL', ''),
+               NETBOX_OIDC_CLIENT_SECRET=values.get('NETBOX_OIDC_CLIENT_SECRET', ''),
                CLOUD_ADMIN_EMAIL=sender.strip())
     run([sys.executable, str(ROOT / 'configure.py')], env=env)
     # Invitation-only enrollment is part of the identity service. The cloud API

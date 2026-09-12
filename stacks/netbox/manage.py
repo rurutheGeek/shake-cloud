@@ -64,7 +64,8 @@ def init():
     directory = ROOT / 'secrets'
     directory.mkdir(exist_ok=True, mode=0o700)
     directory.chmod(0o700)
-    for name in ('db_password', 'secret_key', 'api_token_pepper_1', 'superuser_password'):
+    for name in ('db_password', 'secret_key', 'api_token_pepper_1', 'superuser_password',
+                 'oidc_client_secret'):
         path = directory / name
         if not path.exists():
             with path.open('x') as file:
@@ -116,7 +117,7 @@ def backup(destination):
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
              'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'configuration', 'secrets',
              'manage.py', 'seed_inventory.py', 'seed_terraform_identity.py',
-             'seed_cloudapi_identity.py'])
+             'seed_cloudapi_identity.py', 'seed_sso.py', 'sso_pipeline.py'])
     finally:
         if running:
             compose('start', *running)
@@ -190,9 +191,23 @@ def seed_cloudapi():
                   'NETBOX_TOKEN for cloud/api')
 
 
+def seed_sso():
+    """Give the group OIDC users land in read-only access to the ledger."""
+    compose('exec', '-T', 'netbox',
+            '/opt/netbox/venv/bin/python', '/opt/netbox/netbox/manage.py',
+            'shell', '--no-startup', '--no-imports', '--interface', 'python',
+            input=(ROOT / 'seed_sso.py').read_text(encoding='utf-8'))
+
+
+def restart():
+    """Recreate NetBox so it re-reads configuration and mounted secrets."""
+    compose('up', '-d', '--no-deps', '--force-recreate', 'netbox', 'netbox-worker')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup', 'seed', 'seed-terraform', 'seed-cloudapi'])
+    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup', 'seed',
+                                           'seed-terraform', 'seed-cloudapi', 'seed-sso', 'restart'])
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--host-name')
@@ -204,6 +219,10 @@ if __name__ == '__main__':
         seed_terraform()
     elif args.action == 'seed-cloudapi':
         seed_cloudapi()
+    elif args.action == 'seed-sso':
+        seed_sso()
+    elif args.action == 'restart':
+        restart()
     elif args.action == 'init':
         init()
     elif args.action == 'lock':

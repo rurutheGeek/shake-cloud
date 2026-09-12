@@ -12,3 +12,11 @@ netbox_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns
 netbox_allowed_hosts: 'localhost 127.0.0.1 {{ ansible_host }} {{ inventory_hostname }} netbox.{{ netbox_dns.zone }}'
 netbox_csrf_trusted_origins: 'https://netbox.{{ netbox_dns.zone }}'
 netbox_source_dir: '{{ playbook_dir }}/../../stacks/netbox'
+# SSO（OIDC）。identity ロールが作る netbox クライアントと対で使う。
+# クライアント秘密の正本は SOPS で、identity ロールも同じ値を読む。
+netbox_sso_enabled: true
+netbox_oidc_key: netbox
+# 末尾スラッシュを付けない。social-auth が `{endpoint}/.well-known/...` を
+# 組み立てるので、付けると二重スラッシュになって 404 になる。
+netbox_oidc_endpoint: 'https://auth.{{ netbox_dns.zone }}/application/o/netbox'
+netbox_sops_file: '{{ playbook_dir }}/../sops/netbox.sops.yaml'

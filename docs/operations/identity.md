@@ -19,6 +19,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
   - OIDC クライアント `homarr`（services-01の入口。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
   - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`。`users`と`admins`の両方を許可）
+  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso共通ログイン)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
 - 2 回目の実行はすべて `OK:` になります。
@@ -44,6 +45,20 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 `oidc-cloud.json` は **SOPS へ複製しません。** 正本はこの VM にあり、配備のたびに `cloud.yml` が直接写します。2 か所に持つと、Authentik 側で作り直したときに食い違います。
 
 バックアップは VM 上で `manage.py backup`（`storage/` と配備ファイルを 1 つの tar にまとめる。既定 `backups/`）を取ります。手順と保管先は[バックアップと復旧](../architecture/operations.md#バックアップと復旧)に沿って決めます。
+
+## グループ
+
+`configure.py` が作るのは2つです。**アプリへの許可はこの2つに紐づきます。**
+
+| グループ | 何のため | 主なアプリでの扱い |
+| --- | --- | --- |
+| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ） |
+| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、AWX など |
+
+- `akadmin` は `admins` に入ります。**招待で作られた人は `users` に入ります。**
+- 管理者の追加や既存ユーザーの移行は GUI で行います（**Directory → Users → 対象 → Groups**）。
+- **グループ名を変えたら、既存ユーザーを新しいグループへ入れ直してください。** 旧グループを消しただけでは移りません。2026-09-12 の改名（`cloud-users`/`cloud-admins` → `users`/`admins`）で実際に起きました。旧 `cloud-users` にいた `ruruthegeek` と `shunyazhiyuan97` は**どちらも利用者アカウント**なので `users` へ移して解決しています（管理者は `akadmin` だけ。Authentik のイベントログの `add_user` 記録で確認）。
+- `gaming-users` / `gaming-admins` は、ゲームポータルが `game_identity` スコープの `groups` クレームで使うため残しています。
 
 <a id="利用者の招待管理者"></a>
 ## 利用者の招待（管理者）
