@@ -25,3 +25,11 @@ spec:
     kind: GitRepository
     name: awx-operator
   targetNamespace: awx
+  # 上流の既定イメージを差し替える。kube-rbac-proxy は GCR から消えたので
+  # quay のミラーへ。operator 本体は上流が :latest なので tag で固定する。
+  images:
+    - name: gcr.io/kubebuilder/kube-rbac-proxy
+      newName: quay.io/brancz/kube-rbac-proxy
+      newTag: v0.15.0
+    - name: quay.io/ansible/awx-operator
+      newTag: "2.19.1"
