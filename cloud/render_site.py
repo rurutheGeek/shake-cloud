@@ -94,7 +94,10 @@ def render(directory):
         'vmid_to': pools['pools']['cloud']['vmid_to'],
         'probe_vmids': cloud['probe_vmids'],
         'volume_holder_vmid': holder,
-        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store},
+        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store,
+                    # The administrator's ISO store. The API lists it read-only so
+                    # ISOs placed there from Proxmox are usable without a declaration.
+                    'admin_images': site['storage']['admin_images']},
         'network': {
             'bridge': site['network']['bridge'],
             'gateway': site['network']['gateway'],

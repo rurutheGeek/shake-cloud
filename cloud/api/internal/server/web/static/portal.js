@@ -432,6 +432,7 @@
   // The image declares its guest OS, so the create form can adapt without a
   // separate choice: a Windows image gets the Windows hardware and no SSH key.
   const imageOS = new Map();
+  const isoOS = new Map();
   const isWindowsImage = () => imageOS.get(document.querySelector('#create-instance select[name="image_id"]').value) === 'windows';
 
   function updateGuestOS() {
@@ -450,6 +451,7 @@
     const fromISO = instanceSource() === 'iso';
     $('image-field').hidden = fromISO;
     $('install-iso-field').hidden = !fromISO;
+    $('iso-guest-os-field').hidden = !fromISO;
     $('driver-iso-field').hidden = !fromISO;
     $('iso-note').hidden = !fromISO;
     const image = document.querySelector('#create-instance select[name="image_id"]');
@@ -523,6 +525,8 @@
     const isAdmin = wrap.dataset.isAdmin === 'true';
     try {
       const { isos } = await api('GET', '/v1/isos');
+      isoOS.clear();
+      for (const iso of isos) if (iso.os) isoOS.set(iso.iso_id, iso.os);
       const labelled = (iso) => option(iso.iso_id, iso.os === 'windows' ? `${iso.name}（Windows 11）` : iso.name);
       replaceOptions(install, [option('', 'インストールISOを選んでください'), ...isos.map(labelled)]);
       const placeholder = driver.querySelector('option[value=""]') || option('', '使わない');
@@ -1029,6 +1033,10 @@
 
   const createInstanceForm = $('create-instance');
   createInstanceForm.querySelector('select[name="image_id"]').addEventListener('change', updateGuestOS);
+  createInstanceForm.querySelector('select[name="install_iso_id"]').addEventListener('change', (event) => {
+    const os = isoOS.get(event.target.value);
+    if (os) createInstanceForm.elements.guest_os.value = os;
+  });
   $('instance-source').addEventListener('change', () => { updateSource(); });
   updateSource();
   createInstanceForm.querySelector('select[name="preset"]').addEventListener('change', (event) => {
@@ -1064,6 +1072,7 @@
     };
     if (fromISO) {
       body.install_iso_id = data.get('install_iso_id');
+      body.guest_os = data.get('guest_os');
       const driverISO = data.get('driver_iso_id');
       if (driverISO) body.driver_iso_id = driverISO;
     } else {
@@ -1116,7 +1125,7 @@
       : `イメージ: ${createInstanceForm.elements.image_id.selectedOptions[0]?.textContent}`;
     const selectedGroups = groupIds.length ? groupIds.map((id) => lastSecurityGroups.find((g) => g.group_id === id)?.group_name || id).join('、') : '既定グループ（全通信を許可）';
     if (!await confirmAction({ title: 'インスタンスの作成内容', confirmLabel: 'この構成で作成',
-      message: `名前: ${name || '未指定'}\nゲストOS: ${windows ? 'Windows 11' : (fromISO ? 'ISOのOS' : 'Linux')}\n${sourceName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : (fromISO ? 'SSH鍵: 使いません' : `SSH鍵: ${keyName || '使わない'}`)}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
+      message: `名前: ${name || '未指定'}\nゲストOS: ${windows || (fromISO && data.get('guest_os') === 'windows') ? 'Windows 11' : 'Linux'}\n${sourceName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : (fromISO ? 'SSH鍵: 使いません' : `SSH鍵: ${keyName || '使わない'}`)}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
     if (!launchTokens.has(digest)) launchTokens.set(digest, crypto.randomUUID());
     body.client_token = launchTokens.get(digest);
     try {

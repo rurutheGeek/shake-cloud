@@ -26,7 +26,8 @@ class RenderSiteTests(unittest.TestCase):
         network, flavors = self.yaml('network.yaml'), self.yaml('flavors.yaml')
         self.assertEqual(self.site['node'], site['node_name'])
         self.assertEqual(self.site['storage'], {'vm_disks': site['storage']['vm_disks'],
-                                                'images': site['storage']['cloud_images']})
+                                                'images': site['storage']['cloud_images'],
+                                                'admin_images': site['storage']['admin_images']})
         self.assertEqual(self.site['network']['bridge'], site['network']['bridge'])
         self.assertEqual(self.site['network']['gateway'], site['network']['gateway'])
         self.assertEqual(self.site['network']['dns_servers'], site['network']['dns_servers'])

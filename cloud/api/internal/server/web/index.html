@@ -163,6 +163,12 @@
       <label id="image-field">イメージ <select name="image_id" required></select></label>
       <p id="image-os-note" class="muted small wide" hidden></p>
       <label id="install-iso-field" hidden>インストールISO <select name="install_iso_id"></select></label>
+      <label id="iso-guest-os-field" hidden>ゲストOS
+        <select name="guest_os">
+          <option value="linux">Linux</option>
+          <option value="windows">Windows 11</option>
+        </select>
+      </label>
       <label id="driver-iso-field" hidden>ドライバISO（任意） <select name="driver_iso_id"><option value="">使わない</option></select></label>
       <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
       <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>

@@ -129,10 +129,9 @@ func (s *Server) deleteISO(w http.ResponseWriter, r *http.Request, c *call) {
 		return
 	}
 	id := r.PathValue("iso_id")
-	mayDelete := func(i db.ISO) bool {
-		return c.principal.account.IsAdmin || i.AccountID == c.principal.account.ID
-	}
-	err := service.DeleteISO(r.Context(), id, mayDelete, func(deleted db.ISO) error {
+	// ISOs are shared, not per-account property: any signed-in user may remove
+	// an uploaded one. The service still refuses while a live instance uses it.
+	err := service.DeleteISO(r.Context(), id, nil, func(deleted db.ISO) error {
 		event := c.event("", map[string]any{"owner_account_id": deleted.AccountID, "name": deleted.Name})
 		event.ResourceID = deleted.ID
 		return db.RecordAudit(r.Context(), s.pool, event)
