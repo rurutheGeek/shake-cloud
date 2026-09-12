@@ -91,6 +91,7 @@ func (p *shakecloudProvider) Resources(_ context.Context) []func() resource.Reso
 		NewVolumeAttachmentResource,
 		NewKeyPairResource,
 		NewBucketResource,
+		NewImageResource,
 	}
 }
 
