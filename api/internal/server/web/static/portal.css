@@ -6,6 +6,7 @@
   --line: #d9dadc;
   --muted: #666b73;
   --accent: #2458c6;
+  --on-accent: #ffffff;
   --danger: #b3261e;
   --good: #1a7f37;
   --warn: #9a6700;
@@ -18,13 +19,21 @@
     --line: #343840;
     --muted: #9aa0a8;
     --accent: #7ea6ff;
+    /* Dark text on the light accent: white on #7ea6ff is only about 2.4:1. */
+    --on-accent: #10131a;
     --danger: #ff8a80;
     --good: #6fdd8b;
     --warn: #e3b341;
   }
 }
+*, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { margin: 0; font: 15px/1.6 system-ui, sans-serif; color: var(--fg); background: var(--bg); }
+body { margin: 0; font: 15px/1.6 system-ui, sans-serif; color: var(--fg); background: var(--bg); overflow-wrap: break-word; }
+.skip-link { position: absolute; left: -999px; top: 0; z-index: 10; padding: 0.5rem 1rem; background: var(--panel); color: var(--accent); border: 1px solid var(--accent); border-radius: 0 0 6px 0; }
+.skip-link:focus { left: 0; }
+/* Keeps a column named for assistive technology without adding a visible
+   heading to the action column. */
+.visually-hidden { position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
 header { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--panel); }
 h1 { font-size: 1.15rem; margin: 0; }
 h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
@@ -34,10 +43,24 @@ section { background: var(--panel); border: 1px solid var(--line); border-radius
 .muted { color: var(--muted); }
 .badge { font-size: 0.8rem; padding: 0 0.5rem; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
 form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 0.75rem 0; }
-input, select, button, textarea { font: inherit; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
-input { min-width: 16rem; }
+input, select, button, textarea { font: inherit; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); max-width: 100%; }
+input { min-width: 0; }
 button, .button { cursor: pointer; }
-.button { display: inline-block; padding: 0.4rem 1rem; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; }
+button.danger, .button.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+.button { display: inline-block; padding: 0.4rem 1rem; border-radius: 6px; background: var(--accent); color: var(--on-accent); text-decoration: none; }
+#navigation { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin: 0 0 1rem; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+#navigation a { color: var(--accent); text-decoration: none; padding: 0.15rem 0.25rem; border-radius: 4px; }
+#navigation a:hover, #navigation a:focus { text-decoration: underline; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 0 0 1rem; }
+.form-message { flex-basis: 100%; margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; }
+.form-message.error { border-color: var(--danger); color: var(--danger); }
+.empty-state { text-align: center; }
+.stale-warning { color: var(--warn); }
+.removed-warning { flex-basis: 100%; }
+.console-fallback { margin: 0.5rem 0; }
+#confirm-message { white-space: pre-line; }
+dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); max-width: min(32rem, 92vw); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 .scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -81,6 +104,7 @@ progress::-moz-progress-bar { background: var(--accent); border-radius: 999px; }
 .state-creating, .state-deleting { color: var(--warn); }
 .state-deleted { color: var(--muted); }
 .state-error { color: var(--danger); }
+.state-available, .state-in-use { color: var(--good); }
 code { padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
 
 /* A checkbox list nested in a fieldset (create-instance's security groups,
@@ -89,6 +113,22 @@ code { padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4
    own caption. */
 .checklist { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
 .checklist label { flex-direction: row; align-items: center; color: var(--fg); font-size: 0.85rem; }
+.checklist > .muted { flex-basis: 100%; margin: 0.25rem 0 0; }
+
+/* Narrow screens: a form is one column and no field pushes the page wider
+   than the viewport. Tables keep their own horizontal scroll inside .scroll. */
+@media (max-width: 40rem) {
+  main { padding: 1rem; }
+  section { padding: 0.75rem 0.9rem; }
+  form { flex-direction: column; align-items: stretch; }
+  form label { width: 100%; }
+  form input:not([type="checkbox"]):not([type="radio"]), form select, form textarea { width: 100%; }
+  .checklist { width: 100%; }
+  .checklist label { width: auto; }
+  .actions { flex-direction: column; }
+  .actions button, .actions .button { width: 100%; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+}
 
 /* Security groups section: one card per group, each with its own ingress and
    egress rule tables plus an add-rule form. */
