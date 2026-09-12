@@ -475,7 +475,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 | --- | --- |
 | `POST /v1/instances` | 202、`pending`。数十秒で `running` |
 | NetBox | `192.168.10.100/24` を採番、DNS 名は Name タグから、`description` は instance ID |
-| Proxmox の VM | VMID 5000、10GiB のディスク、seed ISO の CD-ROM、指定した MAC、バルーニング 2048/512、タグ `shakecloud` |
+| Proxmox の VM | VMID 5000、10GiB のディスク、seed ISO の CD-ROM、指定した MAC、バルーニング 2048/512、タグ `shakecloud`。**VM 名は Name タグ**（無ければ instance ID。人が Proxmox 画面で読めるようにするため） |
 | **seed ISO が効いたか** | **SSH でログインできた。**ホスト名・IP・既定経路が指定どおりで、`cloud-init status` は `done` |
 | `DELETE /v1/instances/{id}` | 202、`shutting-down` → `terminated` |
 | 後片付け | VM・ディスク・seed ISO・NetBox の IP すべて残骸なし |
