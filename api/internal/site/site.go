@@ -44,6 +44,13 @@ type Network struct {
 	DNSServers []string `json:"dns_servers"`
 	// IPRangeStart identifies the NetBox IP range instances draw from, e.g. 192.168.10.100/24.
 	IPRangeStart string `json:"ip_range_start"`
+	// VLANID tags the NICs of instances the API creates. 0 means untagged,
+	// which is how the management LAN works before the VLAN cut.
+	VLANID int `json:"vlan_id"`
+	// BridgeVLANAware records whether the bridge passes VLAN tags (site.yaml).
+	// A tagged cloud network on a bridge that cannot carry the tag would make
+	// every instance unreachable, so Load refuses it.
+	BridgeVLANAware bool `json:"bridge_vlan_aware"`
 }
 
 // Image is a shared image. Volume is the Proxmox volume ID in Storage.Images.
@@ -125,6 +132,10 @@ func (s Site) Validate() error {
 	}
 	_, err = netip.ParsePrefix(s.Network.IPRangeStart)
 	check(err == nil, "site: ip_range_start %q is not a prefix", s.Network.IPRangeStart)
+	check(s.Network.VLANID >= 0 && s.Network.VLANID <= 4094, "site: vlan_id %d is not a VLAN id", s.Network.VLANID)
+	check(s.Network.VLANID == 0 || s.Network.BridgeVLANAware,
+		"site: vlan_id %d is set but bridge %s is not VLAN-aware; make it vlan-aware first (docs/operations/vlan.md)",
+		s.Network.VLANID, s.Network.Bridge)
 	check(len(s.Images) > 0, "site: no images")
 	for id, image := range s.Images {
 		check(imageID.MatchString(id), "site: image ID %q does not look like img-<name>", id)

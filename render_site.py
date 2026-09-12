@@ -74,6 +74,12 @@ def render(directory):
             'dns_servers': site['network']['dns_servers'],
             # The cloud API allocates from this range; Terraform only creates it.
             'ip_range_start': network['cloud']['range_start'],
+            # After the VLAN cut, the API tags new instances with this; null (0 in
+            # Go) means untagged, as before. See docs/operations/vlan.md.
+            'vlan_id': network['vlan']['cloud']['vlan_id'],
+            # Whether the bridge passes VLAN tags. The API refuses to start with
+            # a cloud VLAN on a bridge that cannot carry it.
+            'bridge_vlan_aware': site['network']['bridge_vlan_aware'],
         },
         'images': shared,
         'instance_types': {name: {'cpu_cores': flavor['cpu_cores'],

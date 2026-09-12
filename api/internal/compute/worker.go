@@ -303,6 +303,14 @@ func (s *Service) owns(ctx context.Context, vmid int, instance db.Instance) (boo
 	return strings.Contains(description, instance.ID), nil
 }
 
+// vlanTag is the ",tag=<id>" NIC option, or "" while the cloud is untagged.
+func vlanTag(id int) string {
+	if id <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(",tag=%d", id)
+}
+
 func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume string) url.Values {
 	return url.Values{
 		"vmid":        {strconv.Itoa(vmid)},
@@ -316,7 +324,7 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"scsihw":      {"virtio-scsi-single"},
 		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", s.Site.Storage.VMDisks, imageVolume)},
 		"ide2":        {resources.SeedVolume + ",media=cdrom"},
-		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1", instance.MACAddress, s.Site.Network.Bridge)},
+		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
 		"boot":        {"order=virtio0"},
 		"serial0":     {"socket"},
 		"tags":        {"shakecloud"},
