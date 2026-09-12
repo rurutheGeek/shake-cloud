@@ -25,6 +25,7 @@
 {{- if .LoggedIn}}
   <nav id="navigation" aria-label="クラウドの操作">
     <a href="#overview">概要</a>
+    <a href="#help-view" class="help-link">ヘルプ</a>
     <a href="#instances-view">インスタンス</a>
     <a href="#volumes-view">ボリューム</a>
     <a href="#security-view">セキュリティグループ</a>
@@ -36,7 +37,6 @@
     <a href="#ssh-view">SSH鍵</a>
     <a href="#keys-view">アクセスキー</a>
     <a href="#events-view">操作履歴</a>
-    <a href="#help-view">ヘルプ</a>
     {{if .Account.IsAdmin}}<a href="#settings">管理設定</a>{{end}}
   </nav>
   <div class="toolbar"><button id="refresh-all" type="button">表示を更新</button><span id="refresh-status" class="muted" role="status"></span></div>
@@ -56,7 +56,7 @@
   </dialog>
   <section id="overview" data-view>
     <h2 tabindex="-1">概要</h2>
-    <p><a class="button" href="#instance-create-view">インスタンスを作成</a> <a href="#instances-view">インスタンス一覧へ</a></p>
+    <p><a class="button" href="#instance-create-view">インスタンスを作成</a> <a href="#instances-view">インスタンス一覧へ</a> <a href="#help-view">使い方・ヘルプ</a></p>
     <p id="operation-summary" role="status">インスタンスの状態を読み込み中…</p>
     <h3>あなたの残り利用枠</h3><div id="quota-summary">読み込み中…</div>
     <h3>ホストとクラウドの容量</h3>
@@ -174,6 +174,16 @@
       </label>
       <label id="driver-iso-field" hidden>ドライバISO（任意） <select name="driver_iso_id"><option value="">使わない</option></select></label>
       <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
+      <details class="wide" id="windows-help">
+        <summary>Windows 11 をインストールするときの手順</summary>
+        <ol class="small">
+          <li>インストール先が見えない → 「ドライバーの読み込み」→ virtio-win のCDの <code>viostor\w11\amd64</code> を選ぶ</li>
+          <li>ネットワークを使う → 同じCDの <code>NetKVM\w11\amd64</code></li>
+          <li>一覧の「IP」をWindows側に設定（ゲートウェイ・DNSは 192.168.10.1）</li>
+          <li>OOBEで先に進めない → Shift+F10 → <code>oobe\bypassnro</code></li>
+        </ol>
+        <p class="muted small">RDPの有効化やOEMライセンスの持ち込みは <a href="#help-view">ヘルプ</a> にあります。</p>
+      </details>
       <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>
       <label>構成の雛形
         <select name="preset">
