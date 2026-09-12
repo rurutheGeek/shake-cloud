@@ -6,5 +6,6 @@ kind: Kustomization
 resources:
   - flux-system
   - apps/awx-namespace.yaml
+  - apps/cert-issuer.yaml
   - apps/awx-operator.yaml
   - apps/awx.yaml

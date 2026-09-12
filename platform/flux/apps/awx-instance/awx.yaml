@@ -4,11 +4,18 @@ metadata:
   name: awx
   namespace: awx
 spec:
-  # 入口は MetalLB の LoadBalancer（HTTP）。TLS は後で Ingress/Gateway を足す。
-  service_type: LoadBalancer
-  loadbalancer_protocol: http
+  # 入口は Cilium の Ingress（HTTPS）。MetalLB が配る .241 が受ける。
+  service_type: ClusterIP
   admin_user: admin
   admin_password_secret: awx-admin-password
+  ingress_type: ingress
+  ingress_class_name: cilium
+  ingress_hosts:
+    - hostname: awx.apextox.dpdns.org
+      tls_secret: awx-tls
+  # この Ingress に証明書を発行させる（cert-manager → Let's Encrypt DNS-01）。
+  ingress_annotations: |
+    cert-manager.io/cluster-issuer: letsencrypt-dns
   # DB は Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク）。
   postgres_storage_class: local-path
   postgres_storage_requirements:
