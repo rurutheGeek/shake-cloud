@@ -111,6 +111,7 @@ tools/tf 10-platform apply
 | SSHホスト鍵の指紋確認 | 中間者攻撃を検知する唯一の機会です。自動承認すると確認の意味がなくなります | **意図的に自動化しません** |
 | age鍵の生成と保管場所の決定 | 生成自体はスクリプト化できますが、秘密鍵をどこに何個置くかは人が決めます | 生成は可・未 |
 | Proxmox `root@pam` トークンの発行 | SSHが通れば `pveum` で作れます | 可・**未** |
+| Windows 11 Pro のメディアとプロダクトキー、ゴールデンイメージの作成 | **OS のメディアとライセンスは配布元から自動取得できません。** 一度だけ手でインストールし、`cloud-images` へ置きます。以降のVM作成はポータルから自動です。手順は[Windows 11 ProのVMを作る](windows.md) | 原理的に不可（ライセンス）。イメージ作成後の配備は `cloud.yml` |
 | Proxmox `root@pam` のパスワードを SOPS へ入れる | **パスワードそのものは人しか知りません。**入れれば ACME アカウントの作成までコードが行います。Proxmox はこの操作を API トークンに許さず、root のトークンでも `Permission check failed (user != root@pam)` で断るため、`root@pam` 本人のログイン（ticket 認証）が要ります（2026-09-10 実測）。入れたあとは `tools/tf 00-bootstrap apply` がアカウント・プラグイン・証明書を作ります | 原理的に不可（資格情報の受け渡し） |
 | ~~`dev-a@pve` / `dev-b@pve` のパスワードとAPIトークン~~ | **コード化済み。** トークンは `00-bootstrap`、パスワードは `platform/ansible/site.yml --tags pve-users`（Proxmoxが `/access/password` をAPIトークンで受けないため、SSH経由の `pveum`） | 済 |
 | ~~読み取り結果を `terraform.tfvars` へ転記~~ | **コード化済み。** `tools/site-yaml.py --api` が実機から `platform/terraform/site.yaml` を生成します。tfvars は使いません | 済 |

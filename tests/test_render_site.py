@@ -45,6 +45,36 @@ class RenderSiteTests(unittest.TestCase):
             self.assertTrue(image['volume'].startswith(f'{store}:import/'), image_id)
             self.assertIn(images[image['name']]['file_name'], image['volume'])
 
+    def edit_declarations(self, directory, edits):
+        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            (Path(directory) / name).write_text((TERRAFORM / name).read_text())
+        for name, change in edits.items():
+            loaded = yaml.safe_load((TERRAFORM / name).read_text())
+            change(loaded)
+            (Path(directory) / name).write_text(yaml.safe_dump(loaded))
+
+    def test_a_windows_image_carries_its_os(self):
+        # The guest OS decides the API's virtual hardware, so it must survive
+        # rendering; an image without it stays a Linux guest.
+        with tempfile.TemporaryDirectory() as directory:
+            def add(images):
+                images['images']['win11pro'] = {'file_name': 'win11pro.qcow2', 'os': 'windows',
+                                                'provided': True, 'shared_with_cloud': True}
+            self.edit_declarations(directory, {'images.yaml': add})
+            site = render_site.render(directory)
+            self.assertEqual(site['images']['img-win11pro']['os'], 'windows')
+            self.assertEqual(site['images']['img-win11pro']['volume'],
+                             f"{site['storage']['images']}:import/win11pro.qcow2")
+            self.assertNotIn('os', site['images']['img-debian13'])
+
+    def test_an_unknown_image_os_stops_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def break_it(images):
+                images['images']['debian13']['os'] = 'plan9'
+            self.edit_declarations(directory, {'images.yaml': break_it})
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
+
     def test_limits_come_from_cloud_yaml(self):
         cloud = self.yaml('cloud.yaml')
         self.assertEqual(self.site['limits']['account_quota'], cloud['account_quota'])

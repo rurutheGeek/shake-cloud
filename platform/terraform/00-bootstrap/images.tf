@@ -6,7 +6,9 @@
 # 宣言の正本は ../images.yaml。**tfvars ではない。** 秘密値ではないうえ、
 # 手元にファイルが無い人が plan を打つと消す差分が出るため。
 resource "proxmox_download_file" "cloud_image" {
-  for_each = local.images
+  # provided: true のイメージは配布元URLが無く、管理者が cloud-images へ直接置く
+  # （Windows のようにライセンス上ダウンロードできないもの）。ここでは取得しない。
+  for_each = { for name, image in local.images : name => image if !try(image.provided, false) }
 
   node_name          = local.site.node_name
   datastore_id       = coalesce(try(each.value.datastore_id, null), local.site.storage.admin_images)
@@ -25,7 +27,8 @@ resource "proxmox_download_file" "cloud_image" {
 # cloudapi@pve が権限を持つ cloud-images にも同じものを置く。
 # local へ権限を広げないのは、そこにバックアップや管理者のイメージも載っているため。
 resource "proxmox_download_file" "cloud_shared_image" {
-  for_each = { for name, image in local.images : name => image if try(image.shared_with_cloud, false) }
+  for_each = { for name, image in local.images : name => image
+               if try(image.shared_with_cloud, false) && !try(image.provided, false) }
 
   node_name           = local.site.node_name
   datastore_id        = proxmox_storage_directory.cloud_images.id

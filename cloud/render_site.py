@@ -43,8 +43,18 @@ def render(directory):
                          'Run the survey and tools/site-yaml.py first.')
 
     store = site['storage']['cloud_images']
-    shared = {f'img-{name}': {'name': name, 'volume': f'{store}:import/{image["file_name"]}'}
-              for name, image in images['images'].items() if image.get('shared_with_cloud')}
+    shared = {}
+    for name, image in images['images'].items():
+        if not image.get('shared_with_cloud'):
+            continue
+        entry = {'name': name, 'volume': f'{store}:import/{image["file_name"]}'}
+        if image.get('os'):
+            # The guest OS decides the virtual hardware and the first-boot
+            # format; an image without it is a Linux guest.
+            if image['os'] not in ('linux', 'windows'):
+                raise SystemExit(f'image {name} has unknown os {image["os"]!r}; use linux or windows')
+            entry['os'] = image['os']
+        shared[f'img-{name}'] = entry
     if not shared:
         raise SystemExit('no image in images.yaml has shared_with_cloud: true; '
                          'the cloud API cannot create disks from images it cannot read')

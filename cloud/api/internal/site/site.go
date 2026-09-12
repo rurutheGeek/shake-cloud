@@ -54,9 +54,13 @@ type Network struct {
 }
 
 // Image is a shared image. Volume is the Proxmox volume ID in Storage.Images.
+// OS is "windows" for a Windows guest and empty for a Linux one; it decides the
+// virtual hardware the API creates and how first-boot configuration is handed
+// to the guest.
 type Image struct {
 	Name   string `json:"name"`
 	Volume string `json:"volume"`
+	OS     string `json:"os,omitempty"`
 }
 
 type InstanceType struct {
@@ -140,6 +144,8 @@ func (s Site) Validate() error {
 	for id, image := range s.Images {
 		check(imageID.MatchString(id), "site: image ID %q does not look like img-<name>", id)
 		check(image.Volume != "", "site: image %s has no volume", id)
+		check(image.OS == "" || image.OS == "linux" || image.OS == "windows",
+			"site: image %s has unknown os %q (use linux or windows)", id, image.OS)
 	}
 	check(len(s.InstanceTypes) > 0, "site: no instance types")
 	for name, t := range s.InstanceTypes {

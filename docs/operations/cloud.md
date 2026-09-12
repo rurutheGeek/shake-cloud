@@ -826,6 +826,12 @@ sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud
 
 各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（`storage-s3`）や別ディスクへの外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
 
+### 3-19. Windows 11 Pro のゲスト
+
+イメージに `os: windows` を宣言すると、API はそのイメージから **UEFI（OVMF）・TPM 2.0・q35** の VM を作り、初回設定を **cloudbase-init の NoCloud**（network config v1）へ渡します。ポータルではイメージ選択時に SSH鍵の欄が消え、初回はコンソールでセットアップする案内が出ます。ディスク・NIC・seed ISO の形は Linux と同じで、イメージ側に virtio ドライバと cloudbase-init が必要です。
+
+Windows のインストールメディアとプロダクトキーは自動取得できないため、**ゴールデンイメージの作成だけが管理者の手作業**です。作り方と `images.yaml` への登録、利用者の作成手順は [Windows 11 ProのVMを作る](windows.md) にあります。
+
 ## 4. 実機プローブ
 
 **設計の前提がこの Proxmox の版で成立するかを機械判定します。**結果が違えば設計を変えるので、実装より先に走らせてください。PVEを上げたあとにも走らせます。

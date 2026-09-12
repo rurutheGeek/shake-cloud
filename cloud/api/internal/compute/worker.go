@@ -235,9 +235,14 @@ func (s *Service) uploadSeed(ctx context.Context, instance db.Instance, ipAddres
 	if err != nil {
 		return "", fmt.Errorf("address %q from NetBox: %w", ipAddress, err)
 	}
+	image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
+	if err != nil {
+		return "", err
+	}
 	config := seed.Config{
 		InstanceID: instance.ID, Hostname: seed.Hostname(instance.Name, instance.ID), MACAddress: instance.MACAddress,
 		Address: address, Gateway: netip.MustParseAddr(s.Site.Network.Gateway), UserData: instance.UserData,
+		GuestOS: image.OS,
 	}
 	if instance.KeyPublicKey != "" {
 		config.PublicKeys = []string{instance.KeyPublicKey}
@@ -311,8 +316,8 @@ func vlanTag(id int) string {
 	return fmt.Sprintf(",tag=%d", id)
 }
 
-func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume string) url.Values {
-	return url.Values{
+func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume, guestOS string) url.Values {
+	values := url.Values{
 		"vmid":        {strconv.Itoa(vmid)},
 		"name":        {instance.ID},
 		"pool":        {s.Site.Pool},
@@ -330,6 +335,19 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"tags":        {"shakecloud"},
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s). Managed by cloud/api; do not edit.", instance.ID, instance.AccountID)},
 	}
+	if guestOS == seed.OSWindows {
+		// Windows 11 needs UEFI, a TPM 2.0 and the q35 chipset. The image
+		// already carries the virtio storage and network drivers plus
+		// cloudbase-init, so the rest of the layout (virtio disk and NIC,
+		// NoCloud seed ISO) matches the Linux guests.
+		values.Set("ostype", "win11")
+		values.Set("bios", "ovmf")
+		values.Set("machine", "q35")
+		values.Set("efidisk0", s.Site.Storage.VMDisks+":0,efitype=4m,pre-enrolled-keys=1")
+		values.Set("tpmstate0", s.Site.Storage.VMDisks+":4,version=v2.0")
+		values.Set("agent", "enabled=1")
+	}
+	return values
 }
 
 func (s *Service) createVM(ctx context.Context, instance db.Instance, resources *db.Resources) error {
@@ -353,7 +371,7 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 		return s.moveVMID(ctx, instance, resources, vms, "occupied by a VM the API did not create")
 	}
 	err = s.task(ctx, func() (string, error) {
-		return s.PVE.CreateVM(ctx, s.vmParams(instance, vmid, *resources, image.Volume))
+		return s.PVE.CreateVM(ctx, s.vmParams(instance, vmid, *resources, image.Volume, image.OS))
 	})
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		// Taken by a VM outside the cloud pool, which the token cannot list.
