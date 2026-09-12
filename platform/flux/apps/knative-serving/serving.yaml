@@ -12,7 +12,9 @@ spec:
       enabled: true
   config:
     network:
-      ingress-class: kourier
+      # 完全名で指定する。net-kourier の controller はこの値で Ingress を
+      # フィルタするので、短縮名 "kourier" だと一致せず無視される。
+      ingress-class: kourier.ingress.networking.knative.dev
     kourier:
       # ゲートウェイは knative-serving に置かれる（kourier-system ではない）。
       namespace: knative-serving
