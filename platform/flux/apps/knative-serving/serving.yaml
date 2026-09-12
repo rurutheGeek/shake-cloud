@@ -13,5 +13,9 @@ spec:
   config:
     network:
       ingress-class: kourier
+    kourier:
+      # ゲートウェイは knative-serving に置かれる（kourier-system ではない）。
+      namespace: knative-serving
+      service: kourier
     domain:
       "k8s.apextox.dpdns.org": ""
