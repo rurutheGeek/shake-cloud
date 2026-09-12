@@ -25,3 +25,9 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+  # 秘密値は SOPS で暗号化して置く。age 鍵はクラスタ内の Secret にある
+  # （bootstrap では作られないので、配備時に別途入れる）。
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
