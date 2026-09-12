@@ -874,7 +874,7 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/functions/fn-...
 ```
 
 - 1アカウント **10個**まで。名前は 2〜30 文字の小文字英数字とハイフン（先頭は英字）。
-- 呼び出し URL は `<name>.functions.k8s.apextox.dpdns.org`（関数は `functions` namespace に作られます）。**ワイルドカード `*.functions.k8s` を Kourier の LB（`.240`）に向けてある**ので、URL をそのまま HTTP で叩けます（**TLS は未対応**）。使わないときは 0 レプリカまで縮退します。
+- 呼び出し URL は `<name>.functions.k8s.apextox.dpdns.org`（関数は `functions` namespace に作られます）。**HTTPS で叩けます。** Knative の `config-network.external-domain-tls` と `config-certmanager`（`issuerRef: letsencrypt-dns`）が、**namespace ごとにワイルドカード証明書 `*.functions.k8s.apextox.dpdns.org` を1枚だけ**発行します（DNS-01、関数が何個でも証明書は1枚）。使わないときは 0 レプリカまで縮退します。
 - Kubernetes を操作するトークンは database と同じ ServiceAccount `databases/cloud-api`（`functions` namespace の Knative Service だけ触れる）。
 - 実機確認（2026-09-12）: POST で `fn-...` が作られ、`Provisioning` → `Ready`（URL 発行）に遷移、Kourier 経由で `Hello World!` が返り、DELETE で Service も消えることを確認しました。
 - **ポータル**の「関数」画面から、作成・一覧・削除ができます。
