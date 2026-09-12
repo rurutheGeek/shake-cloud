@@ -11,18 +11,22 @@ default). Applications then create their own account on first SSO login.
     python3 invitations.py list
     python3 invitations.py revoke --name cloud-0123...
 
-It never sends mail: SMTP is not set up, so the administrator takes the saved
-link to the person by another route. The link is written to a 0600 file under
-runtime/invitations/ rather than printed, so the token does not reach a terminal
+It sends the link by email when SMTP is configured in .env (SMTP_HOST,
+SMTP_FROM, ...), and always saves it to a 0600 file under runtime/invitations/ as
+a record. Without SMTP the administrator takes the link to the person by another
+route. The token itself is never printed, so it does not reach a terminal
 scrollback or a log.
 """
 import argparse
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 import json
 import os
 from pathlib import Path
 import re
 import secrets
+import smtplib
+import ssl
 import urllib.error
 import urllib.request
 
@@ -120,7 +124,77 @@ def _pending(api):
     return api.rows('stages/invitation/invitations/')
 
 
-def invite(api, username, email, name=None, email_owner_confirmed=False):
+def smtp_settings(environ=None, dotenv=None):
+    """SMTP settings from the environment, falling back to .env. None if unset.
+
+    Returns None when SMTP_HOST is empty, which is the normal state until an
+    SMTP provider is chosen: the tool then only saves the link to a file.
+    """
+    values = {}
+    if dotenv and Path(dotenv).exists():
+        for line in Path(dotenv).read_text(encoding='utf-8').splitlines():
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                values[key.strip()] = value.strip()
+    environ = environ or {}
+
+    def get(key):
+        return environ.get(key) or values.get(key) or ''
+
+    host = get('SMTP_HOST')
+    if not host:
+        return None
+    port = int(get('SMTP_PORT') or 587)
+    security = get('SMTP_SECURITY') or ('ssl' if port == 465 else 'starttls' if port == 587 else 'plain')
+    sender = get('SMTP_FROM')
+    if not sender:
+        raise SystemExit('SMTP_HOST is set but SMTP_FROM is missing')
+    return {'host': host, 'port': port, 'username': get('SMTP_USERNAME'), 'password': get('SMTP_PASSWORD'),
+            'sender': sender, 'from_name': get('SMTP_FROM_NAME') or 'shake-cloud', 'security': security}
+
+
+def build_message(settings, name, email, url, expires):
+    message = EmailMessage()
+    message['From'] = f"{settings['from_name']} <{settings['sender']}>"
+    message['To'] = f'{name} <{email}>' if name else email
+    message['Subject'] = 'shake-cloud への招待'
+    message.set_content(f"""{name or username_of(email)} さん
+
+ホームラボのプライベートクラウド（shake-cloud）へ招待します。
+次のリンクを開き、パスワード（12文字以上）を設定してください。
+
+{url}
+
+このリンクは1回限りで、{expires} まで有効です。
+心当たりが無ければ、このメールは捨ててください。
+""")
+    return message
+
+
+def username_of(email):
+    return email.split('@', 1)[0]
+
+
+def deliver(settings, message):
+    """Hand the message to the SMTP server. Raises on any failure."""
+    if settings['security'] == 'ssl':
+        client = smtplib.SMTP_SSL(settings['host'], settings['port'], timeout=30,
+                                  context=ssl.create_default_context())
+    else:
+        client = smtplib.SMTP(settings['host'], settings['port'], timeout=30)
+    try:
+        client.ehlo()
+        if settings['security'] == 'starttls':
+            client.starttls(context=ssl.create_default_context())
+            client.ehlo()
+        if settings['username']:
+            client.login(settings['username'], settings['password'])
+        client.send_message(message)
+    finally:
+        client.quit()
+
+
+def invite(api, username, email, name=None, email_owner_confirmed=False, send_email=True, settings=None):
     """Create one single-use invitation and save its link. Returns the saved path."""
     email = (email or '').strip()
     if not USERNAME.fullmatch(username or ''):
@@ -144,15 +218,23 @@ def invite(api, username, email, name=None, email_owner_confirmed=False):
         'expires': expires, 'fixed_data': {
             'username': username, 'email': email, 'name': name or username,
             'attributes': {'email_verified': bool(email_owner_confirmed)}}})
+    url = f'{EXTERNAL}/if/flow/{SLUG}/?itoken={record["pk"]}'
     directory = ROOT / 'runtime' / 'invitations'
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     target = directory / (record['name'] + '.json')
     fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'w') as stream:
-        json.dump({'url': f'{EXTERNAL}/if/flow/{SLUG}/?itoken={record["pk"]}',
-                   'expires': expires, 'username': username, 'email': email}, stream, indent=2)
-    print('CHANGED: invitation saved to', target.relative_to(ROOT), '; no message sent')
-    print('note: the link is in that file (0600). Share it with the person directly.')
+        json.dump({'url': url, 'expires': expires, 'username': username, 'email': email}, stream, indent=2)
+    print('CHANGED: invitation saved to', target.relative_to(ROOT))
+    if not send_email:
+        print('note: --no-email; the link is in that file (0600). Share it directly.')
+    else:
+        settings = settings or smtp_settings(os.environ, ROOT / '.env')
+        if settings:
+            deliver(settings, build_message(settings, name or username, email, url, expires))
+            print(f'CHANGED: invitation emailed to {email}')
+        else:
+            print('note: SMTP is not configured; the link is in that file (0600). Share it directly.')
     return target
 
 
@@ -197,6 +279,8 @@ def main():
     add.add_argument('--name')
     add.add_argument('--email-owner-confirmed', action='store_true',
                      help='administrator has independently verified ownership of this email')
+    add.add_argument('--no-email', action='store_true',
+                     help='save the link but do not send it, even when SMTP is configured')
     subs.add_parser('list', help='list invitations and whether they were used')
     remove = subs.add_parser('revoke', help='delete an invitation and its saved link')
     remove.add_argument('--name', required=True)
@@ -209,7 +293,8 @@ def main():
     if args.command == 'configure':
         configure(api, args.group)
     elif args.command == 'invite':
-        invite(api, args.username, args.email, args.name, args.email_owner_confirmed)
+        invite(api, args.username, args.email, args.name, args.email_owner_confirmed,
+               send_email=not args.no_email)
     elif args.command == 'list':
         list_invitations(api)
     else:

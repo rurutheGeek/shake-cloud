@@ -55,4 +55,32 @@ SMTP事業者と送信元は未定です。公開メールサーバーは構築�
 
 自前の受信メールボックスも必要になった場合は、SMTP送信だけとは別の要件として、メールボックス・迷惑メール対策・配送監視を設計します。
 
-Authentikにも同じSMTPサービスを設定できます。hub/compose.smtp.example.yamlを参考に、ホスト・ポート・送信元・認証情報を入力します。まだ実際のメール配送は検証していません。
+## 新しい identity（Authentik）での設定
+
+事業者が決まったら、`platform/sops/smtp.sops.yaml` を作り、次のキーを入れる（SOPS で暗号化。Git には平文を入れない）:
+
+```yaml
+SMTP_HOST: smtp.example.net
+SMTP_PORT: "587"
+SMTP_USERNAME: cloud@example.net
+SMTP_PASSWORD: <password>
+SMTP_FROM: cloud@example.net
+SMTP_FROM_NAME: shake-cloud
+SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
+```
+
+`platform/ansible/identity.yml` を流すと、identity ロールがこれを復号して identity VM の
+`.env` へ写します。`.env` の値は:
+
+- **Authentik 自身**が `AUTHENTIK_EMAIL__*` として読み、パスワード再設定などを送ります。
+- **招待ツール**（`stacks/identity/invitations.py`）が `SMTP_*` として読み、招待メールを
+  送ります。`smtp.sops.yaml` が無ければ招待はメールを送らず、リンクを 0600 のファイルへ
+  保存するだけです。
+
+認証情報は Secret として identity VM の `.env`（0600）にだけ置き、リポジトリには
+暗号化した `smtp.sops.yaml` だけを置きます。
+
+2026-09-11 に、identity VM 上へ**一時的な SMTP シンク**を立てて招待メールの送信
+経路（STARTTLS/SSL/PLAIN、認証、送信）を確認しました。実際の事業者・送信元が
+決まれば、`smtp.sops.yaml` を作って配備するだけで有効になります。受信側の
+迷惑メール・SPF・DKIM・DMARC は事業者側の設定として別途確認します。

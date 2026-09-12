@@ -139,6 +139,73 @@ class InvitationTests(unittest.TestCase):
         self.assertFalse((directory / 'cloud-abc.json').exists())
 
 
+class FakeSMTP:
+    """Records the SMTP conversation instead of opening a socket."""
+
+    instances = []
+
+    def __init__(self, host, port, timeout=None, context=None):
+        self.host, self.port = host, port
+        self.calls = []
+        FakeSMTP.instances.append(self)
+
+    def ehlo(self):
+        self.calls.append('ehlo')
+
+    def starttls(self, context=None):
+        self.calls.append('starttls')
+
+    def login(self, username, password):
+        self.calls.append(('login', username))
+
+    def send_message(self, message):
+        self.calls.append(('send', message))
+
+    def quit(self):
+        self.calls.append('quit')
+
+
+class MailTests(unittest.TestCase):
+    def test_no_smtp_host_means_no_email(self):
+        self.assertIsNone(invitations.smtp_settings({}, None))
+
+    def test_settings_pick_starttls_or_ssl_from_the_port(self):
+        starttls = invitations.smtp_settings(
+            {'SMTP_HOST': 'smtp.example.org', 'SMTP_FROM': 'cloud@example.org'}, None)
+        self.assertEqual((starttls['port'], starttls['security']), (587, 'starttls'))
+        implicit = invitations.smtp_settings(
+            {'SMTP_HOST': 'smtp.example.org', 'SMTP_FROM': 'cloud@example.org', 'SMTP_PORT': '465'}, None)
+        self.assertEqual(implicit['security'], 'ssl')
+
+    def test_a_host_without_a_sender_is_refused(self):
+        with self.assertRaises(SystemExit):
+            invitations.smtp_settings({'SMTP_HOST': 'smtp.example.org'}, None)
+
+    def test_the_message_carries_the_link(self):
+        settings = invitations.smtp_settings(
+            {'SMTP_HOST': 'smtp.example.org', 'SMTP_FROM': 'cloud@example.org'}, None)
+        message = invitations.build_message(settings, 'alice', 'alice@example.org',
+                                            'https://auth.example.org/if/flow/x/?itoken=t', '2026-09-12T00:00:00Z')
+        self.assertEqual(message['To'], 'alice <alice@example.org>')
+        self.assertIn('cloud@example.org', message['From'])
+        self.assertIn('https://auth.example.org/if/flow/x/?itoken=t', message.get_content())
+
+    def test_deliver_starts_tls_logs_in_and_sends(self):
+        settings = invitations.smtp_settings(
+            {'SMTP_HOST': 'smtp.example.org', 'SMTP_FROM': 'cloud@example.org',
+             'SMTP_USERNAME': 'user', 'SMTP_PASSWORD': 'secret'}, None)
+        message = invitations.build_message(settings, 'alice', 'alice@example.org', 'https://x/y', 'soon')
+        original = invitations.smtplib.SMTP
+        invitations.smtplib.SMTP = FakeSMTP
+        self.addCleanup(lambda: setattr(invitations.smtplib, 'SMTP', original))
+
+        invitations.deliver(settings, message)
+        calls = FakeSMTP.instances[-1].calls
+        self.assertIn('starttls', calls)
+        self.assertIn(('login', 'user'), calls)
+        self.assertTrue(any(isinstance(call, tuple) and call[0] == 'send' for call in calls))
+
+
 class InventoryNameTests(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[1]
 

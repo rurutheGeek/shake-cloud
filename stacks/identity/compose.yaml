@@ -14,6 +14,16 @@ x-authentik: &authentik
     AUTHENTIK_SECRET_KEY: file:///run/secrets/secret_key
     AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
     AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+    # メール送信。SMTP事業者は未定なので、未設定でも動く既定にしておく
+    # （Host が localhost:25 のままだと、送ろうとしたときだけ失敗する）。
+    # 実値を .env へ入れると、Authentik のパスワード再設定なども送れる。
+    AUTHENTIK_EMAIL__HOST: ${SMTP_HOST:-localhost}
+    AUTHENTIK_EMAIL__PORT: ${SMTP_PORT:-25}
+    AUTHENTIK_EMAIL__USERNAME: ${SMTP_USERNAME:-}
+    AUTHENTIK_EMAIL__PASSWORD: ${SMTP_PASSWORD:-}
+    AUTHENTIK_EMAIL__USE_TLS: ${SMTP_USE_TLS:-false}
+    AUTHENTIK_EMAIL__USE_SSL: ${SMTP_USE_SSL:-false}
+    AUTHENTIK_EMAIL__FROM: ${SMTP_FROM:-authentik@localhost}
   secrets: [db_password, secret_key]
   volumes:
     - ${STORAGE_ROOT:-./storage}/data:/data

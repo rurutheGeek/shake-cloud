@@ -781,7 +781,7 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 | 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
 | --- | --- |
 | フローを作る・直す（冪等） | `python3 invitations.py configure [--group cloud-users]` |
-| 招待を発行してリンクを保存 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed]` |
+| 招待を発行してリンクを保存・送信 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed] [--no-email]` |
 | 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
 | 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
 
@@ -792,10 +792,10 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 - **招待は1回限り・24時間有効。** リンクを開いても登録を終えなかった場合は期限切れになるので、`revoke` して再発行します。Authentik の Invitation Stage は**リンクを開いた時点で消費する**ため、途中でブラウザを閉じた場合も再発行です。
 - **ユーザー名・メール・所属グループは招待が固定します。** 登録画面で入力できるのはパスワード（12文字以上）だけ。管理者グループを自己指定する入口はありません。
 - **グループの既定は `cloud-users`。** 他のサービス（メディア等）へも招待するようになったら、`configure --group` と招待の宛先で分けます。1つのフローに複数グループを持たせるのではなく、サービスごとに分ける方針です。
-- **メールは送りません。** SMTP 未設定のため、リンクは `runtime/invitations/<name>.json`（0600）に保存し、管理者が本人へ別経路で渡します。リンクのトークンは端末の履歴やログに出しません。
+- **メールで送れます。** `stacks/identity/.env` に `SMTP_HOST`・`SMTP_FROM`（必要なら `SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_PORT`/`SMTP_SECURITY`）があれば、`invite` は招待メールを SMTP へ投げます。無ければ送らず、リンクを `runtime/invitations/<name>.json`（0600）に保存して管理者が別経路で渡します。`--no-email` で送信を止められます。トークンは端末の履歴やログに出しません。SMTP の正本は任意の `platform/sops/smtp.sops.yaml` で、あれば identity ロールが `.env` へ写します（[SMTPとメール送信](smtp.md)）。Authentik 自身（パスワード再設定など）も同じ `SMTP_*` を `AUTHENTIK_EMAIL__*` として使います。
 - **メール所有の確認は明示したときだけ。** 管理者が本人とアドレスを別経路で確認済みの場合に `--email-owner-confirmed` を付けると `email_verified=true` になります。付けなければ未確認のままです。
 
-実機確認（2026-09-11）: `identity.yml` 配備でフロー作成を確認。`invite` で招待を発行 → `list` に未使用として表示 → 外部URL `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` が **200** で招待ページを返すこと、`revoke` で消えることを確認。user_write ステージが `cloud-users` に作ること、Invitation Stage が「招待なしは拒否」であることも API で確認しました。
+実機確認（2026-09-11）: `identity.yml` 配備でフロー作成を確認。`invite` で招待を発行 → `list` に未使用として表示 → 外部URL `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` が **200** で招待ページを返すこと、`revoke` で消えることを確認。user_write ステージが `cloud-users` に作ること、Invitation Stage が「招待なしは拒否」であることも API で確認しました。**メール送信**は、identity VM 上に一時的な SMTP シンク（127.0.0.1:2525）を立てて `invite` を実行し、リンク入りのメッセージが届くことを確認しました（シンクとテスト招待は削除済み）。
 
 ## 4. 実機プローブ
 

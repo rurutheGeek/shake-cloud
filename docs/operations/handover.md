@@ -164,7 +164,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ⬜ | NetBox を使うツール（Terraform・Ansible・クラウドAPI）の接続先を `https://netbox.apextox.dpdns.org` へ移し、`:8000` と `:8090` を閉じる | `netbox.sops.yaml`・`netbox-inventory.sops.yaml`・`cloudapi.sops.yaml` の URL を変える |
 | ⬜ | 外出先（Tailscale）から名前で使えるようにする | Tailscale の DNS がどの名前にも SERVFAIL を返す件と、LAN へのサブネットルートが未設定 |
 | ✅ | OIDC クライアントの秘密値を cloud-01 へ渡す | SOPS へ入れる予定だったが、identity VM から直接写す方式に変えた（§3） |
-| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。メールは送らずリンクを 0600 で保存し管理者が渡す。配備（`identity.yml`）で `configure` が走る。実機確認済み（[cloud.md 3-17](cloud.md#3-17)） |
+| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。**メール送信に対応**（`.env`／任意の `smtp.sops.yaml` に `SMTP_*` があれば招待メールを送り、無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
 | ✅ | データセンターのファイアウォール有効化 | Phase 4 の前提。`platform/terraform/00-bootstrap/firewall.tf` で安全に自動化し、**2026-09-11 に適用済み**（再 plan は No changes）。ノードFWは無効、DC FWは有効・既定ACCEPT、`nf_conntrack_allow_invalid=1`。既存の基盤VM・game1 への通信に影響がないこと、`nf_conntrack_allow_invalid=1` が入っていることを実機で確認。次に触る場合は物理コンソール/IPMI を用意する |
 | 🟨 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。**宣言と安全装置・手順書は用意済み**（`network.yaml` の `vlan`、`managed-host` と `site.Validate` の precondition、[vlan.md](vlan.md)）。実機切替は人の物理作業待ち |
 
