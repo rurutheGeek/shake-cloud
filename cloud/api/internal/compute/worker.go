@@ -122,7 +122,16 @@ func (s *Service) carryOut(ctx context.Context, instance db.Instance) (string, e
 		// ACPI shutdown first, so the guest can flush its disks; forced after the timeout.
 		return db.StateStopped, s.power(ctx, instance, "shutdown", url.Values{"forceStop": {"1"}, "timeout": {"120"}})
 	case db.ActionReboot:
-		return db.StateRunning, s.power(ctx, instance, "reboot", url.Values{"timeout": {"120"}})
+		// A guest that does not answer ACPI (Windows without the guest agent,
+		// or one still in setup) makes Proxmox's reboot time out. A hard reset
+		// is a power cycle, so the action still completes instead of leaving
+		// pending_action blocking every other power operation.
+		if err := s.power(ctx, instance, "reboot", url.Values{"timeout": {"60"}}); err == nil {
+			return db.StateRunning, nil
+		} else {
+			s.Log.Warn("reboot timed out; resetting instead", "instance_id", instance.ID, "err", err)
+		}
+		return db.StateRunning, s.power(ctx, instance, "reset", nil)
 	case db.ActionTerminate:
 		return db.StateTerminated, s.terminate(ctx, instance)
 	}
