@@ -232,7 +232,7 @@ type PerAccountUsage struct {
 }
 
 // UsageByAccount is every account that holds something, largest first. Only
-// cloud-admins see it, so it is not part of the per-account path.
+// admins see it, so it is not part of the per-account path.
 func UsageByAccount(ctx context.Context, q Querier) ([]PerAccountUsage, error) {
 	rows, err := q.Query(ctx, `SELECT a.id, a.username,
 			coalesce(i.instances, 0), coalesce(i.vcpus, 0), coalesce(i.memory_mib, 0), coalesce(i.root_disk_gib, 0),

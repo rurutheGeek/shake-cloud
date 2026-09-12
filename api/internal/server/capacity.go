@@ -180,8 +180,8 @@ func (s *Server) updateLimits(w http.ResponseWriter, r *http.Request, c *call) {
 	// Checked before anything else, so a user who may not do this cannot tell
 	// whether the deployment has instances configured.
 	if !c.principal.account.IsAdmin {
-		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires cloud-admins"}))
-		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only cloud-admins may change limits")
+		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires admins"}))
+		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only admins may change limits")
 		return
 	}
 	service := s.computeService(w, r)

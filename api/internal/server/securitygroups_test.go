@@ -28,7 +28,7 @@ type volumeList struct {
 }
 
 // A group's rules say where someone's VM is open, so unlike instances groups
-// are not listed to other accounts; cloud-admins see them all.
+// are not listed to other accounts; admins see them all.
 func TestSecurityGroupsArePrivateToTheirAccount(t *testing.T) {
 	s := testServer(t, nil)
 	withInstances(t, s)

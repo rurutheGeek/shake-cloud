@@ -35,6 +35,9 @@ services:
       SHAKECLOUD_DATABASE_PASSWORD_FILE: /run/secrets/db_password
       SHAKECLOUD_OIDC_ISSUER: ${OIDC_ISSUER:?set OIDC_ISSUER in .env}
       SHAKECLOUD_OIDC_CREDENTIALS_FILE: /run/secrets/oidc_credentials
+      # Authentik 側のグループ名。identity の configure.py と揃える。
+      SHAKECLOUD_USER_GROUP: ${USER_GROUP:-users}
+      SHAKECLOUD_ADMIN_GROUP: ${ADMIN_GROUP:-admins}
       # 同じホストの Caddy（ホストのネットワーク）から来る。公開したポートを経由すると
       # 送信元は Docker のゲートウェイ（172.16.0.0/12 の中）になる。
       SHAKECLOUD_TRUSTED_PROXIES: 127.0.0.1/32,172.16.0.0/12

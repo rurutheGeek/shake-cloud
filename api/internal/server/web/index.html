@@ -16,7 +16,7 @@
   <div class="who">
     <span>{{.Account.Username}}</span>
     <span class="muted">アカウント {{.Account.ID}}</span>
-    {{- if .Account.IsAdmin}}<span class="badge">cloud-admins</span>{{end}}
+    {{- if .Account.IsAdmin}}<span class="badge">admins</span>{{end}}
     <button id="logout" type="button">ログアウト</button>
   </div>
   {{- end}}
@@ -440,7 +440,7 @@
   <section>
     <p>ホームラボのプライベートクラウドです。ログインすると、自分のVMの作成・電源操作・コンソール、追加ボリューム、セキュリティグループ、イメージとSSH鍵、Terraform・CLI 用アクセスキーを扱えます。</p>
     <p><a class="button" href="/auth/login">Authentik でログイン</a></p>
-    <p class="muted">cloud-users か cloud-admins グループのアカウントだけが入れます。</p>
+    <p class="muted">users か admins グループのアカウントだけが入れます。</p>
   </section>
 {{- end}}
 </main>

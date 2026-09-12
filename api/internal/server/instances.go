@@ -179,12 +179,12 @@ func (s *Server) runInstances(w http.ResponseWriter, r *http.Request, c *call) {
 }
 
 // adoptInstance registers a VM that already exists into the cloud. Only
-// cloud-admins may: it picks another account to own the VM and takes over a
+// admins may: it picks another account to own the VM and takes over a
 // machine that already has its own contents.
 func (s *Server) adoptInstance(w http.ResponseWriter, r *http.Request, c *call) {
 	if !c.principal.account.IsAdmin {
-		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires cloud-admins"}))
-		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only cloud-admins may adopt a VM")
+		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires admins"}))
+		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only admins may adopt a VM")
 		return
 	}
 	service := s.computeService(w, r)
@@ -257,13 +257,13 @@ func (s *Server) describeInstance(w http.ResponseWriter, r *http.Request, c *cal
 	s.writeInstance(w, r, http.StatusOK, service, instance, c.mayTouch(instance))
 }
 
-// modifyInstance changes an instance's size. Only cloud-admins may: a resize
+// modifyInstance changes an instance's size. Only admins may: a resize
 // reaches into a VM someone else is using, and the quota it is re-checked
 // against is the account's, not the caller's.
 func (s *Server) modifyInstance(w http.ResponseWriter, r *http.Request, c *call) {
 	if !c.principal.account.IsAdmin {
-		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires cloud-admins"}))
-		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only cloud-admins may change an instance's size")
+		s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires admins"}))
+		writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only admins may change an instance's size")
 		return
 	}
 	service := s.computeService(w, r)

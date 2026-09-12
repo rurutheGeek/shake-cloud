@@ -11,7 +11,7 @@ import (
 )
 
 // Functions are serverless HTTP services backed by Knative, private to the
-// account that owns them. cloud-admins see every account's.
+// account that owns them. admins see every account's.
 
 type functionBody struct {
 	FunctionID    string    `json:"function_id"`

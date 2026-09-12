@@ -36,7 +36,7 @@ func TestValidSettingsLoadWithDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Listen != ":8080" || cfg.UserGroup != "cloud-users" || cfg.AdminGroup != "cloud-admins" {
+	if cfg.Listen != ":8080" || cfg.UserGroup != "users" || cfg.AdminGroup != "admins" {
 		t.Errorf("unexpected defaults: %+v", cfg)
 	}
 	if cfg.OIDCClientID != "cloud" || cfg.OIDCClientSecret != "s3cret" {
