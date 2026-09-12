@@ -67,6 +67,25 @@ game1 や利用者VMは**ポータル／CLI で所有者が停止**します（�
    - `tools/k8s status` が `running`
 5. k8s の中身は Flux が Git から合わせ直します。AWX・CNPG・Knative が Ready になるまで数分かかります（[Kubernetes クラスタ](kubernetes.md#止めると何が止まるか)）。
 
+## 停電時に動いていたVMを戻す（実装済み）
+
+`onboot: true` は「決まったVM」しか戻せません。**「切れたときに動いていたVM」をそのまま戻す**仕組みを Proxmox ホストへ入れてあります（Ansible ロール `pve_guest_state`）。
+
+- **`shakecloud-guests.service`**: 起動時に、記録した組のうちまだ動いていないVMを `qm start` します。停止時は `pve-guests` がVMを止める**前**に、いま動いている組を記録します。
+- **`shakecloud-guests-snapshot.timer`**: 1分ごとに記録します。**ハード停電でも直前の状態が残ります。**
+- 記録先は `/var/lib/shakecloud/guests-running`（VMID の一覧）。
+
+配備（**root SSH が通る管理マシン**で実行）:
+
+```bash
+cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。実値を入れる
+.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-guests.yml
+```
+
+- 確認: `cat /var/lib/shakecloud/guests-running` と `systemctl status shakecloud-guests`。
+- **ホスト自体が復電後に起動するには、BIOS の "Restore on AC Power Loss" を `Power On`（または `Last State`）に**してください。OSからは設定できません。
+- 手動で停止したVMは次の記録から外れるので、次回の起動では戻りません（意図どおり）。
+
 ## 停電で自動停止させる（任意・推奨）
 
 UPS を USB でホストにつなぎ、**NUT**（Network UPS Tools）で監視すると、バッテリー低下時に自動で `shutdown -h now` をかけられます。手順の骨子:

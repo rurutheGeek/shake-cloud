@@ -1,0 +1,7 @@
+[Unit]
+Description=Remember the running Proxmox guests (safety net for a hard power loss)
+Documentation=https://docs.apextox.dpdns.org/operations/power/
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/shakecloud-guests save

@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Remember which Proxmox guests were running and put them back on boot.
+
+`pve-guests.service` starts only guests with onboot=1, so a VM that was running
+when the host was powered off does not come back by itself. This records the
+exact set that was running and restores it after pve-guests has run.
+
+    shakecloud-guests save      # write the running set
+    shakecloud-guests restore   # start the saved set, skipping those already up
+
+`save` runs every minute (hard power loss leaves the last snapshot) and just
+before pve-guests stops the guests on a clean shutdown (that value is exact).
+Because the saved set follows reality, a guest that was off stays off.
+"""
+import pathlib
+import subprocess
+import sys
+
+STATE = pathlib.Path('/var/lib/shakecloud/guests-running')
+
+
+def running():
+    result = subprocess.run(['qm', 'list'], capture_output=True, text=True, check=True)
+    guests = []
+    for line in result.stdout.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == 'running':
+            guests.append(parts[0])
+    return guests
+
+
+def save():
+    guests = running()
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text('\n'.join(guests) + '\n')
+    print('saved:', ' '.join(guests) if guests else '(none)')
+
+
+def restore():
+    if not STATE.exists():
+        print('no saved state; nothing to restore')
+        return
+    up = set(running())
+    for vmid in STATE.read_text().split():
+        if vmid in up:
+            continue
+        result = subprocess.run(['qm', 'start', vmid], capture_output=True, text=True)
+        print(f'start {vmid}: rc={result.returncode} {result.stderr.strip()}')
+
+
+if __name__ == '__main__':
+    command = sys.argv[1] if len(sys.argv) > 1 else ''
+    if command == 'save':
+        save()
+    elif command == 'restore':
+        restore()
+    else:
+        raise SystemExit(__doc__)
