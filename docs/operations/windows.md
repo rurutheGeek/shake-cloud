@@ -35,6 +35,18 @@ Windows 11 Pro の入れ方は2とおりあります。
 
 ISOはCD-ROMとして渡され、ルートディスクには複製されません。起動順はインストールISO→ルートディスクなので、インストール後の再起動ではWindows ISOの「Press any key」でキーを押さなければディスクから起動します。
 
+## リモートデスクトップ（RDP）で入る
+
+RDPのホスト側は **Windows 11 Pro** だけ（Home不可）。ゲストで有効化し、クラウド側でTCP 3389を許可します。
+
+1. Windowsで「設定」→「システム」→「リモートデスクトップ」をオン（または `sysdm.cpl` → リモート）。
+   - PowerShell（管理者）: `Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0` → `Enable-NetFirewallRule -DisplayGroup "リモート デスクトップ"`
+2. 接続するアカウントにパスワードを設定する（パスワード無しは不可）。
+3. ポータルのセキュリティグループに **TCP 3389・送信元 192.168.10.0/24** の受信ルールを追加する（既定SGは全許可なので、絞っていなければ不要）。
+4. 手元から `mstsc /v:192.168.10.100`（一覧の割り当てIP）で接続する。
+
+ネットワークが「識別されていないネットワーク」のままの場合は、IPだけでなく**ゲートウェイとDNS**（既定 192.168.10.1）も設定してください。
+
 ## OEMのWindows 11ライセンスを使う（管理者・任意）
 
 GMKtec K11 のように、このPVEホストへOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（[Qiita: OEMのWindows11ライセンスをProxmoxVEに移行する](https://qiita.com/tachiki__/items/67be59e5d98a2dfe7097)）。**同一の物理機内でのみ**可、1ライセンス1台です。
