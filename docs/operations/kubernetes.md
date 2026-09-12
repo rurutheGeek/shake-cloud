@@ -135,7 +135,7 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 
 実機確認（2026-09-12）: `kubectl -n databases get cluster demo` が **INSTANCES 1 / READY 1 / Cluster in healthy state**、PVC `demo-1` が Bound、`psql -U postgres` が **PostgreSQL 18** を返すことを確認しました。
 
-**まだ API からは作れません。** クラウドAPIに `databases` のエンドポイントを足し、Provider に `shakecloud_database` を実装するのは次の段です。
+**API から作れます。** `POST /v1/databases` が `databases` namespace に CNPG Cluster を作り、`GET /v1/databases`・`GET`/`DELETE /v1/databases/{id}`・`GET /v1/databases/{id}/credentials` があります。API は Flux で作った ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）のトークンで Kubernetes を操作します。トークンと CA は `platform/sops/k8s.sops.yaml` に置き、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。Provider `shakecloud_database` と CLI は次の段です。
 
 ## 起動と停止
 

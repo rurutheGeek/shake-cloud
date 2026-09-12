@@ -826,6 +826,29 @@ sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud
 
 各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（`storage-s3`）や別ディスクへの外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
 
+### 3-19. データベース（CloudNativePG）
+
+管理クラウドの「DBアプライアンス」です。`POST /v1/databases` が Kubernetes の `databases` namespace に CloudNativePG の `Cluster` を1つ作ります。実体と配置は [Kubernetes クラスタ](kubernetes.md) を参照。
+
+```bash
+BASE=https://cloud.apextox.dpdns.org
+# 作成（storage_gib は 1〜50）
+curl -X POST -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"name":"shop","storage_gib":5}' $BASE/v1/databases
+# 一覧・詳細
+curl -H "Authorization: Bearer $KEY" $BASE/v1/databases
+curl -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-...
+# 接続情報（CNPG が作った Secret を読む。owner か cloud-admin だけ）
+curl -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-.../credentials
+# 削除（Cluster ごと消える）
+curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-...
+```
+
+- 1アカウント **5個**まで。名前は 2〜30 文字の小文字英数字とハイフン（先頭は英字）。
+- 接続先は `db-<id>-rw.databases.svc:5432`。アプリの資格情報は `/credentials` で取ります（クラウド側には保存しません）。
+- Kubernetes を操作するトークンは Flux が作る ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）。正本は `platform/sops/k8s.sops.yaml` で、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。
+- 実機確認（2026-09-12）: POST で `db-...` が作られ、`Setting up primary` → `Cluster in healthy state` に遷移、`/credentials` が app の資格情報を返し、DELETE で Cluster も消えることを確認しました。
+
 ## 4. 実機プローブ
 
 **設計の前提がこの Proxmox の版で成立するかを機械判定します。**結果が違えば設計を変えるので、実装より先に走らせてください。PVEを上げたあとにも走らせます。
