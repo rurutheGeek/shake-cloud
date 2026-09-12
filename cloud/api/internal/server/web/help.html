@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shake-cloud ヘルプ</title>
+<link rel="stylesheet" href="/static/portal.css">
+</head>
+<body>
+<header>
+  <h1>shake-cloud ヘルプ</h1>
+  <div class="who"><a class="button" href="/">ポータルへ戻る</a></div>
+</header>
+<main class="help">
+  <p class="muted">よく使う操作の手順です。管理者向けの詳しい手順は運用ドキュメントにもあります。</p>
+
+  <section>
+    <h2>Windows 11 をISOからインストールする</h2>
+    <ol>
+      <li>「ISO」に <strong>Win11 のISO（OS=Windows 11）</strong> と <strong>virtio-win のISO</strong> があるのを確認します（共有ISOにあればそのまま使えます）。</li>
+      <li>「インスタンスを作成」→ 作成方法<strong>「ISOからインストール」</strong>。インストールISO=Win11、ゲストOS=Windows 11、ドライバISO=virtio-win、ルートディスクは<strong>64 GiB以上</strong>、メモリは<strong>4096 MiB以上</strong>にします。</li>
+      <li>起動したら一覧の「コンソール」を開きます。インストール先の一覧が空のときは<strong>「ドライバーの読み込み」</strong>→ virtio-win のCDの <code>viostor\w11\amd64</code> を開き、<strong>「Red Hat VirtIO SCSI controller」</strong>を選びます（このポータルが作るディスクは <code>virtio0</code> のため。<code>vioscsi</code> は <code>scsi0</code> 用で見つかりません）。</li>
+      <li>ネットワークも使うなら、同じ手順で <code>NetKVM\w11\amd64</code> を読み込みます。NICが「Red Hat VirtIO Ethernet Adapter」と認識されれば成功です。</li>
+      <li>一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します（ゲートウェイとDNSは 192.168.10.1）。セットアップ中なら Shift+F10 → 次のコマンド例（IPは例）:<br>
+        <code>netsh interface ip set address "Ethernet" static 192.168.10.100 255.255.255.0 192.168.10.1</code><br>
+        <code>netsh interface ip set dns "Ethernet" static 192.168.10.1</code></li>
+      <li>「インターネットに接続していません」で先に進めないときは、Shift+F10 → <code>oobe\bypassnro</code> → Enter。自動で再起動し、ローカルアカウントを作れます（<code>BypassNRO.cmd</code> と同じ）。</li>
+      <li>IPやホスト名を自動でしたい場合は、「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動します。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>リモートデスクトップ（RDP）で入る（Windows 11 Pro）</h2>
+    <p class="muted">RDPのホスト側は Windows 11 <strong>Pro</strong> だけです（Home不可）。</p>
+    <ol>
+      <li>Windowsで「設定」→「システム」→「リモートデスクトップ」をオン（または <code>sysdm.cpl</code> → リモート）。PowerShellなら:<br>
+        <code>Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0</code><br>
+        <code>Enable-NetFirewallRule -DisplayGroup "リモート デスクトップ"</code></li>
+      <li>接続するアカウントにパスワードを設定します（パスワード無しは拒否されます）。</li>
+      <li>ポータルで、このVMのセキュリティグループに <strong>TCP 3389・送信元 192.168.10.0/24</strong> の受信ルールを追加します（既定グループは全許可なので、絞っていなければ不要）。</li>
+      <li>手元のPCから <code>mstsc /v:192.168.10.100</code>（一覧の割り当てIP）で接続します。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>OEMのWindows 11ライセンスをこのPVEへ持ち込む（管理者）</h2>
+    <p>GMKtec K11 のように、このPVEホストへOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（<strong>同一の物理機内のみ</strong>。1ライセンス1台）。ホストのrootが要るため、ポータルからは実行できません。</p>
+    <ol>
+      <li>ポータルでWindows VMを作成し、VMIDを確認します（Proxmoxで <code>qm list | grep i-</code>）。</li>
+      <li>ホスト（root）でOEM情報をVMへ渡します:<br>
+        <code>mkdir -p /etc/pve/qemu-server/&lt;vmid&gt;</code><br>
+        <code>cat /sys/firmware/acpi/tables/MSDM &gt; /etc/pve/qemu-server/&lt;vmid&gt;/slic_table</code><br>
+        <code>qm set &lt;vmid&gt; --args "-acpitable file=/etc/pve/qemu-server/&lt;vmid&gt;/slic_table"</code></li>
+      <li><code>dmidecode -s system-manufacturer / system-product-name / system-uuid / system-serial-number</code> の値でSMBIOSを合わせます。PVE 9はスペース入りを拒否するため、値はbase64にして <code>base64=1</code> を付けます（例: GMKtec / NucBox K11 / Default string）:<br>
+        <code>qm set &lt;vmid&gt; --smbios1 'uuid=&lt;UUID&gt;,manufacturer=R01LdGVj,product=TnVjQm94IEsxMQ==,serial=RGVmYXVsdCBzdHJpbmc=,base64=1'</code></li>
+      <li>VMを<strong>停止→起動</strong>（<code>args</code>/<code>smbios1</code> は起動時に反映。リセットでは反映されません）。Windowsをインストールするとプロダクトキーを聞かれずOEM認証が効きます。インストール済みなら <code>slmgr /ato</code>。</li>
+    </ol>
+    <p class="muted small">VMを削除したら <code>/etc/pve/qemu-server/&lt;vmid&gt;/</code> を掃除してください。</p>
+  </section>
+
+  <section>
+    <h2>電源操作ができない／再起動が終わらない</h2>
+    <p>作成・起動・停止・再起動・削除のいずれかが処理中の間は、一覧の状態に「〜処理中…」と表示され、別の電源操作は受け付けません。処理中にボタンを押すと理由を案内します。完了まで待ってください。ACPIに応答しないゲスト（Windowsでguest agent未導入など）では、再起動は自動で強制リセットに切り替わります。</p>
+  </section>
+
+  <section>
+    <h2>コンソールが開かない</h2>
+    <p>ブラウザがポップアップをブロックした場合、画面に表示される「〜のコンソールを開く」リンクを押してください（5分で無効）。もう一度「コンソール」を押して発行し直すこともできます。コンソールへの貼り付けはWindows側が対応しておらず使えないことがあるので、短いコマンドを入力してください。</p>
+  </section>
+
+  <section>
+    <h2>IPアドレス・削除の注意</h2>
+    <p>一覧の「IP」列が割り当てられた固定IPです。Linuxのイメージは起動時に自動設定されます。WindowsやISOから入れたゲストは自分で設定してください。VMを削除するとルートディスクも消え、接続済みの追加ボリュームは切り離されて残ります。</p>
+  </section>
+</main>
+</body>
+</html>

@@ -53,6 +53,19 @@ paths:
                   status: {type: string, const: ok}
         '503':
           $ref: '#/components/responses/Error'
+  /help:
+    get:
+      operationId: Help
+      tags: [portal]
+      summary: The portal help page.
+      description: Static HTML page; it is public so it works even without a session.
+      security: []
+      responses:
+        '200':
+          description: HTML help page.
+          content:
+            text/html:
+              schema: {type: string}
 
   /auth/login:
     get:

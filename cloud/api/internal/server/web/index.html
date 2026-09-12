@@ -25,7 +25,7 @@
 {{- if .LoggedIn}}
   <nav id="navigation" aria-label="クラウドの操作">
     <a href="#overview">概要</a>
-    <a href="#help-view" class="help-link">ヘルプ</a>
+    <a href="/help" class="help-link">ヘルプ</a>
     <a href="#instances-view">インスタンス</a>
     <a href="#volumes-view">ボリューム</a>
     <a href="#security-view">セキュリティグループ</a>
@@ -56,7 +56,7 @@
   </dialog>
   <section id="overview" data-view>
     <h2 tabindex="-1">概要</h2>
-    <p><a class="button" href="#instance-create-view">インスタンスを作成</a> <a href="#instances-view">インスタンス一覧へ</a> <a href="#help-view">使い方・ヘルプ</a></p>
+    <p><a class="button" href="#instance-create-view">インスタンスを作成</a> <a href="#instances-view">インスタンス一覧へ</a> <a href="/help">使い方・ヘルプ</a></p>
     <p id="operation-summary" role="status">インスタンスの状態を読み込み中…</p>
     <h3>あなたの残り利用枠</h3><div id="quota-summary">読み込み中…</div>
     <h3>ホストとクラウドの容量</h3>
@@ -174,16 +174,7 @@
       </label>
       <label id="driver-iso-field" hidden>ドライバISO（任意） <select name="driver_iso_id"><option value="">使わない</option></select></label>
       <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
-      <details class="wide" id="windows-help">
-        <summary>Windows 11 をインストールするときの手順</summary>
-        <ol class="small">
-          <li>インストール先が見えない → 「ドライバーの読み込み」→ virtio-win のCDの <code>viostor\w11\amd64</code> を選ぶ</li>
-          <li>ネットワークを使う → 同じCDの <code>NetKVM\w11\amd64</code></li>
-          <li>一覧の「IP」をWindows側に設定（ゲートウェイ・DNSは 192.168.10.1）</li>
-          <li>OOBEで先に進めない → Shift+F10 → <code>oobe\bypassnro</code></li>
-        </ol>
-        <p class="muted small">RDPの有効化やOEMライセンスの持ち込みは <a href="#help-view">ヘルプ</a> にあります。</p>
-      </details>
+      <p class="muted small wide">Windowsの入れ方（ドライバーの読み込み・OOBE・RDP・OEMライセンス）は <a href="/help">ヘルプ</a> にまとめています。</p>
       <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>
       <label>構成の雛形
         <select name="preset">
@@ -415,69 +406,6 @@
       </table>
     </div>
     <button id="more-events" type="button" hidden>さらに20件表示</button>
-  </section>
-  <section id="help-view" data-view>
-    <h2 tabindex="-1">ヘルプ</h2>
-    <p class="muted">よく使う操作の手順です。詳しい運用は管理者の手順書も参照してください。</p>
-    <details open>
-      <summary>Windows 11 をISOからインストールする</summary>
-      <ol>
-        <li>「ISO」に <strong>Win11 のISO（OS=Windows 11）</strong> と <strong>virtio-win のISO</strong> があるのを確認します（共有ISOにあればそのまま使えます）。</li>
-        <li>「インスタンスを作成」→ 作成方法<strong>「ISOからインストール」</strong>。インストールISO=Win11、ゲストOS=Windows 11、ドライバISO=virtio-win、ルートディスクは<strong>64 GiB以上</strong>、メモリは<strong>4096 MiB以上</strong>にします。</li>
-        <li>起動したら一覧の「コンソール」を開きます。インストール先の一覧が空のときは<strong>「ドライバーの読み込み」</strong>→ virtio-win のCDの <code>viostor\w11\amd64</code> を開き、<strong>「Red Hat VirtIO SCSI controller」</strong>を選んでインストールします（このポータルが作るディスクは <code>virtio0</code> のため。<code>vioscsi</code> は <code>scsi0</code> のディスク用で、こちらでは見つかりません）。</li>
-        <li>ネットワークも使うなら、同じ手順で <code>NetKVM\w11\amd64</code> も読み込みます。</li>
-        <li>インストール後、一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します。セットアップ中なら Shift+F10 → <code>ncpa.cpl</code> か、次のコマンドで設定できます（例: 192.168.10.100）。<br>
-          <code>netsh interface ip set address "Ethernet" static 192.168.10.100 255.255.255.0 192.168.10.1</code><br>
-          <code>netsh interface ip set dns "Ethernet" static 192.168.10.1</code></li>
-        <li>「インターネットに接続していません」で先に進めないときは、Shift+F10 → <code>oobe\bypassnro</code> → Enter。自動で再起動し、ローカルアカウントを作れます（<code>BypassNRO.cmd</code> と同じ）。</li>
-        <li>IPやホスト名を自動でしたい場合は、「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動します（seed ISOのNoCloud設定が効きます）。</li>
-      </ol>
-      <p class="muted small">コンソールへの貼り付けはWindows側が対応しておらず使えないことがあります。短いコマンドを入力してください。</p>
-    </details>
-    <details>
-      <summary>リモートデスクトップ（RDP）で入れるようにする（Windows 11 Pro）</summary>
-      <p class="muted small">RDPの「ホスト」側は Windows 11 <strong>Pro</strong> だけです（Home不可）。</p>
-      <ol>
-        <li>Windowsで「設定」→「システム」→「リモートデスクトップ」を<strong>オン</strong>（または <code>sysdm.cpl</code> → リモート → リモートデスクトップを有効にする）。</li>
-        <li>管理者PowerShellでも可:<br>
-          <code>Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0</code><br>
-          <code>Enable-NetFirewallRule -DisplayGroup "リモート デスクトップ"</code></li>
-        <li>接続するアカウントに<strong>パスワード</strong>を設定します（パスワード無しは拒否されます）。</li>
-        <li>ポータルで、このVMのセキュリティグループに <strong>TCP 3389（送信元は自分のLAN、例 192.168.10.0/24）</strong>の受信ルールを追加します（既定グループは全許可なので、絞っていなければ不要）。</li>
-        <li>手元のPCから <code>mstsc /v:192.168.10.100</code>（一覧の割り当てIP）で接続します。</li>
-      </ol>
-    </details>
-    <details>
-      <summary>OEMのWindows 11ライセンスをこのPVEへ持ち込む（管理者）</summary>
-      <p>GMKtec K11 など、このPVEホストにOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（<strong>同一の物理機内のみ</strong>。1ライセンス1台）。</p>
-      <ol>
-        <li>ポータルでWindows VMを作成し、VMIDを確認します（Proxmoxで <code>qm list | grep i-</code>）。</li>
-        <li>PVEのシェル（root）で、ホストのOEM情報をVMへ渡します。<br>
-          <code>mkdir -p /etc/pve/qemu-server/&lt;vmid&gt;</code><br>
-          <code>cat /sys/firmware/acpi/tables/MSDM &gt; /etc/pve/qemu-server/&lt;vmid&gt;/slic_table</code><br>
-          <code>qm set &lt;vmid&gt; --args "-acpitable file=/etc/pve/qemu-server/&lt;vmid&gt;/slic_table"</code></li>
-        <li><code>dmidecode -s system-manufacturer / system-product-name / system-uuid / system-serial-number</code> の値でSMBIOSを合わせます。PVE 9はスペース入りを拒否するため、値はbase64にして<code>base64=1</code>を付けます（例: GMKtec / NucBox K11 / Default string）。<br>
-          <code>qm set &lt;vmid&gt; --smbios1 'uuid=&lt;UUID&gt;,manufacturer=R01LdGVj,product=TnVjQm94IEsxMQ==,serial=RGVmYXVsdCBzdHJpbmc=,base64=1'</code></li>
-        <li>VMを<strong>停止→起動</strong>（リセットでは反映されません）。Windowsをインストールすると、プロダクトキーを聞かれずOEM認証が効きます。インストール済みなら <code>slmgr /ato</code>。</li>
-      </ol>
-      <p class="muted small">この操作はホストのrootが要るためポータルからは実行できません。<code>args</code>はroot専用、<code>smbios1</code>はAPIでも設定可（確認済み）。VMを削除したら <code>/etc/pve/qemu-server/&lt;vmid&gt;/</code> を掃除してください。</p>
-    </details>
-    <details>
-      <summary>電源操作ができない／再起動が終わらない</summary>
-      <p>作成・起動・停止・再起動・削除のいずれかが処理中の間は、一覧の状態に「〜処理中…」と表示され、別の電源操作は受け付けません。処理中にボタンを押すと理由を案内します。完了まで待ってください。Windowsなどguest agentが無いゲストでACPIに応答しない場合は、再起動は自動で強制リセットに切り替わります。</p>
-    </details>
-    <details>
-      <summary>コンソールが開かない</summary>
-      <p>ブラウザがポップアップをブロックした場合、画面に表示される「〜のコンソールを開く」リンクを押してください。リンクは5分で無効になります。その場合はもう一度「コンソール」を押して発行し直します。</p>
-    </details>
-    <details>
-      <summary>IPアドレスはどこ？／ネットワークにつながらない</summary>
-      <p>一覧の「IP」列が割り当てられた固定IPです。Linuxのイメージは起動時に自動設定されます。WindowsやISOから入れたゲストは、そのIPをゲスト側で設定してください（「Windows 11をISOからインストールする」の手順5）。SSHやRDPで入るには、そのポートを許可するセキュリティグループをVMに付けてください。</p>
-    </details>
-    <details>
-      <summary>削除する前に</summary>
-      <p> VMを削除するとルートディスクも消えます。接続済みの追加ボリュームは切り離されて残ります。消したくないデータはボリュームかS3へ。削除の確認画面に対象の名前・ID・所有者が出ます。</p>
-    </details>
   </section>
 {{- else}}
   <section>

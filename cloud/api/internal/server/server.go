@@ -69,6 +69,7 @@ type route struct {
 func routes() []route {
 	return []route{
 		{"GET", "/healthz", "GetHealth", public, (*Server).getHealth},
+		{"GET", "/help", "Help", public, (*Server).helpPage},
 		{"GET", "/auth/login", "StartLogin", public, (*Server).startLogin},
 		{"GET", "/auth/callback", "CompleteLogin", public, (*Server).completeLogin},
 		{"POST", "/auth/logout", "Logout", public, (*Server).logout},
