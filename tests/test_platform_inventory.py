@@ -307,6 +307,24 @@ class AccessTests(unittest.TestCase):
         for forbidden in ('sort(', 'toset('):
             self.assertNotIn(forbidden, block)
 
+    def test_seed_keys_are_public_keys(self):
+        keys = self.access['seed_ssh_public_keys']
+        self.assertTrue(keys, '05-seed would lock everyone out of services-01')
+        for key in keys:
+            self.assertTrue(key.startswith(('ssh-ed25519 ', 'ssh-rsa ', 'ecdsa-')), key[:20])
+            self.assertNotIn('PRIVATE', key)
+
+    def test_seed_module_reads_the_canonical_file(self):
+        # 05-seed used to take keys from a gitignored tfvars, which a machine
+        # without that file plans as "remove every key". It now reads the same
+        # canonical access.yaml as 10-platform, in the frozen seed order.
+        main = source('05-seed/main.tf')
+        self.assertIn('access.yaml', main)
+        self.assertIn('seed_ssh_public_keys', main)
+        self.assertNotIn('var.ssh_public_keys', main)
+        variables = source('05-seed/variables.tf')
+        self.assertNotIn('variable "ssh_public_keys"', variables)
+
 
 class OwnershipBoundaryTests(unittest.TestCase):
     """Guard the ACL side of the boundary PoolTests guards on the pool side.

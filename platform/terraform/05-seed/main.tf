@@ -1,3 +1,9 @@
+locals {
+  # 公開鍵の正本。access.yaml は 10-platform も読む。順序が意味を持つので
+  # seed 専用の並び（seed_ssh_public_keys）を使う。
+  access = yamldecode(file("${path.module}/../access.yaml"))
+}
+
 resource "proxmox_virtual_environment_vm" "services" {
   name        = var.name
   description = "NetBox など台帳・共有サービスの置き場。10-platform が動くための前提を作る過渡的なホスト。"
@@ -57,7 +63,7 @@ resource "proxmox_virtual_environment_vm" "services" {
 
     user_account {
       username = var.username
-      keys     = var.ssh_public_keys
+      keys     = local.access.seed_ssh_public_keys
     }
   }
 

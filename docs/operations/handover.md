@@ -220,7 +220,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
 | public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
-| `05-seed` の SSH 鍵 | まだ tfvars にある | `access.yaml` へ移す。**鍵が逆順**なので、順序を合わせないと services-01 に差分が出る |
+| `05-seed` の SSH 鍵 | **解決済み（2026-09-12）**: `access.yaml` の `seed_ssh_public_keys` へ移した。実機（VMID 150 の `sshkeys`）の順序＝admin 先頭2鍵の逆順と一致。`05-seed/main.tf` が access.yaml を読む（`tests/test_platform_inventory.py` が検査） | — |
 | cloud-01 のサイズ | `small`（2GiB）。Phase 1 の実測で使用 約500MiB（API 7MiB、PostgreSQL 65MiB） | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
 | ポータルのフロント | Phase 1 は `html/template` と素の JS で作った | Phase 5 もこの方式で足りるか。新しい JS ビルド基盤を増やさない前提 |
 | 管理DBのバックアップ | `manage.py backup`（pg_dump）はあるが、定期実行も外部コピーも無い | Phase 2 で利用者のリソースが入る前に決める |

@@ -17,7 +17,7 @@ gateway     = "192.0.2.1"
 dns_servers = ["192.0.2.1"]
 
 username = "debian"
-ssh_public_keys = [
-  "ssh-ed25519 AAAA...REPLACE admin@management-pc",
-  "ssh-ed25519 AAAA...REPLACE ansible@wsl",
-]
+
+# SSH 公開鍵は gitignore された tfvars ではなく、正本の
+# platform/terraform/access.yaml（seed_ssh_public_keys）から読む。
+# tfvars に置くと、そのファイルを持たない作業機で鍵が剥がれる差分が出る。

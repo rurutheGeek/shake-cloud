@@ -133,7 +133,7 @@ Pick the one that should hold user VM disks and set it by hand.
 | `proxmox_node_name` / `vm_datastore_id` / `network_bridge` | `site.yaml` | 実測 |
 | `management_prefix` / `gateway` / `dns_servers` | `site.yaml` | 実測 |
 | `management_range_*` / `cloud_*` | `network.yaml` | 決めごと |
-| `admin_ssh_public_keys` / `host_ssh_public_keys` | `access.yaml` | 決めごと |
+| `admin_ssh_public_keys` / `host_ssh_public_keys` / `seed_ssh_public_keys` | `access.yaml` | 決めごと |
 | `cloud_images` / `image_file_id` | `images.yaml` | 決めごと |
 
 残る変数はすべて既定値を持ちます。上書きしたいときだけ tfvars を作ってください。

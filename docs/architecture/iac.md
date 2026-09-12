@@ -28,7 +28,7 @@
 | `platform/terraform/pools.yaml` | 決めごと | プールとVMID範囲、自動化ユーザーに許すプール、台帳外VMID | `00-bootstrap`、`10-platform`、テスト |
 | `platform/terraform/flavors.yaml` | 決めごと | 基盤VMのサイズとバルーニングの下限。クラウドAPIでは**利用者向けの雛形**として同じ名前を出すが、利用者は値を自由に指定できる（型から選ぶ必要はない） | `10-platform`、クラウドAPI、テスト |
 | `platform/terraform/network.yaml` | 決めごと | prefix の中をどう切って配るか（管理用・クラウド用の範囲） | `10-platform`、テスト |
-| `platform/terraform/access.yaml` | 決めごと | 基盤VMへ入れるSSH公開鍵。**順序が意味を持つ** | `10-platform`、テスト |
+| `platform/terraform/access.yaml` | 決めごと | 基盤VMへ入れるSSH公開鍵。**順序が意味を持つ**（`05-seed` は専用の `seed_ssh_public_keys` を読む） | `05-seed`、`10-platform`、テスト |
 | `platform/terraform/images.yaml` | 決めごと | 共有 cloud image のURLとチェックサム | `00-bootstrap`、`10-platform`、テスト |
 | `platform/terraform/tags.yaml` | 決めごと | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
 | `platform/terraform/hosts.yaml` | 決めごと | ホストの宣言。**正本** | `10-platform`、テスト |
