@@ -382,8 +382,16 @@
     const row = document.createElement('tr');
     row.dataset.resource = 'image:' + image.image_id;
     const owner = image.public ? '共有' : (image.owner_username || image.account_id);
+    const nameCell = document.createElement('td');
+    nameCell.append(image.name);
+    if (image.os === 'windows') {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = 'Windows 11';
+      nameCell.append(badge);
+    }
     row.append(
-      cell(image.name),
+      nameCell,
       cell(owner),
       cell(image.format || '—'),
       cell(image.size_mib ? mib(image.size_mib) : '—'),
@@ -411,6 +419,21 @@
     return row;
   }
 
+  // The image declares its guest OS, so the create form can adapt without a
+  // separate choice: a Windows image gets the Windows hardware and no SSH key.
+  const imageOS = new Map();
+  const isWindowsImage = () => imageOS.get(document.querySelector('#create-instance select[name="image_id"]').value) === 'windows';
+
+  function updateGuestOS() {
+    const windows = isWindowsImage();
+    $('key-name-field').hidden = windows;
+    $('image-os-note').hidden = !windows;
+    $('image-os-note').textContent = windows
+      ? 'Windows 11 のイメージです。SSH鍵は使われません。初回起動後、コンソールでセットアップしてください（ネットワークとホスト名は自動設定されます）。'
+      : '';
+    if (windows) document.querySelector('#create-instance select[name="key_name"]').value = '';
+  }
+
   async function loadImages() {
     const select = document.querySelector('#create-instance select[name="image_id"]');
     const wrap = $('images-wrap');
@@ -418,7 +441,11 @@
     const isAdmin = wrap.dataset.isAdmin === 'true';
     try {
       const { images } = await api('GET', '/v1/images');
-      replaceOptions(select, [option('', 'イメージを選んでください'), ...images.map((image) => option(image.image_id, image.name))]);
+      imageOS.clear();
+      for (const image of images) if (image.os) imageOS.set(image.image_id, image.os);
+      replaceOptions(select, [option('', 'イメージを選んでください'),
+        ...images.map((image) => option(image.image_id, image.os === 'windows' ? `${image.name}（Windows 11）` : image.name))]);
+      updateGuestOS();
       readiness.images = images.length > 0;
       updateReadiness();
       tableRows($('images'), images.map((image) => imageRow(image, viewerAccountId, isAdmin)), 'イメージがありません。上のフォームからアップロードしてください。');
@@ -920,6 +947,7 @@
   }
 
   const createInstanceForm = $('create-instance');
+  createInstanceForm.querySelector('select[name="image_id"]').addEventListener('change', updateGuestOS);
   createInstanceForm.querySelector('select[name="preset"]').addEventListener('change', (event) => {
     const preset = presetTypes.get(event.target.value);
     if (!preset) { $('instance-preset-status').textContent = 'カスタム構成です。'; return; }
@@ -943,6 +971,7 @@
   let uncertainLaunch = false;
   onAction(createInstanceForm, 'submit', async (submit, scope) => {
     submit.preventDefault();
+    const windows = isWindowsImage();
     const data = new FormData(createInstanceForm);
     const vcpus = data.get('vcpus');
     const memoryMib = data.get('memory_mib');
@@ -958,7 +987,8 @@
     if (rootDiskGib) body.root_disk_gib = Number(rootDiskGib);
     const userData = data.get('user_data');
     if (userData) body.user_data = userData;
-    const keyName = data.get('key_name');
+    // A Windows image is configured by cloudbase-init, not by an SSH key.
+    const keyName = windows ? '' : data.get('key_name');
     if (keyName) body.key_name = keyName;
     const name = data.get('name');
     if (name) body.tags = { Name: name };
@@ -989,7 +1019,7 @@
     const imageName = createInstanceForm.elements.image_id.selectedOptions[0]?.textContent;
     const selectedGroups = groupIds.length ? groupIds.map((id) => lastSecurityGroups.find((g) => g.group_id === id)?.group_name || id).join('、') : '既定グループ（全通信を許可）';
     if (!await confirmAction({ title: 'インスタンスの作成内容', confirmLabel: 'この構成で作成',
-      message: `名前: ${name || '未指定'}\nイメージ: ${imageName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\nSSH鍵: ${keyName || '使わない'}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
+      message: `名前: ${name || '未指定'}\nゲストOS: ${windows ? 'Windows 11' : 'Linux'}\nイメージ: ${imageName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : `SSH鍵: ${keyName || '使わない'}`}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
     if (!launchTokens.has(digest)) launchTokens.set(digest, crypto.randomUUID());
     body.client_token = launchTokens.get(digest);
     try {
