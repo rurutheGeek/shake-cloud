@@ -94,6 +94,51 @@ func TestNetworkConfigPinsTheAddressToTheNIC(t *testing.T) {
 	}
 }
 
+func TestWindowsGetsNetworkConfigV1ForCloudbaseInit(t *testing.T) {
+	c := config()
+	c.GuestOS = OSWindows
+	files, err := c.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cloudbase-init's NoCloud service implements static networking only in
+	// cloud-init's network config v1 (a Linux guest keeps v2).
+	var network struct {
+		Version int `yaml:"version"`
+		Config  []struct {
+			Type       string `yaml:"type"`
+			Name       string `yaml:"name"`
+			MACAddress string `yaml:"mac_address"`
+			Subnets    []struct {
+				Type    string `yaml:"type"`
+				Address string `yaml:"address"`
+				Netmask string `yaml:"netmask"`
+				Gateway string `yaml:"gateway"`
+			} `yaml:"subnets"`
+			Address []string `yaml:"address"`
+		} `yaml:"config"`
+	}
+	if err := yaml.Unmarshal(files["network-config"], &network); err != nil {
+		t.Fatal(err)
+	}
+	if network.Version != 1 || len(network.Config) != 2 {
+		t.Fatalf("network-config = %s", files["network-config"])
+	}
+	physical := network.Config[0]
+	if physical.Type != "physical" || physical.Name != "eth0" || physical.MACAddress != "bc:24:11:aa:bb:cc" {
+		t.Fatalf("physical = %+v", physical)
+	}
+	subnet := physical.Subnets[0]
+	if subnet.Type != "static" || subnet.Address != "192.168.10.100" ||
+		subnet.Netmask != "255.255.255.0" || subnet.Gateway != "192.168.10.1" {
+		t.Fatalf("subnet = %+v", subnet)
+	}
+	nameserver := network.Config[1]
+	if nameserver.Type != "nameserver" || len(nameserver.Address) != 1 || nameserver.Address[0] != "192.168.10.1" {
+		t.Fatalf("nameserver = %+v", nameserver)
+	}
+}
+
 func TestAnEmptyUserDataIsStillACloudConfig(t *testing.T) {
 	c := config()
 	c.UserData = ""

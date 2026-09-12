@@ -45,6 +45,7 @@ type Hypervisor interface {
 	ResizeDisk(ctx context.Context, vmid int, disk, size string) error
 	DeleteVM(ctx context.Context, vmid int) (string, error)
 	UploadISO(ctx context.Context, storage, filename string, content []byte) (string, error)
+	UploadISOStream(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error)
 	UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error)
 	ListVolumes(ctx context.Context, storage, content string) ([]proxmox.Volume, error)
 	DeleteVolume(ctx context.Context, storage, volid string) error
@@ -152,16 +153,23 @@ func (s *Service) Wake() {
 // "not given" is distinguishable from zero: a named instance_type fills in
 // whatever the caller left out, and nothing forces the caller to use one.
 type RunRequest struct {
-	ImageID      string            `json:"image_id"`
-	InstanceType string            `json:"instance_type"`
-	KeyName      string            `json:"key_name"`
-	VCPUs        *int              `json:"vcpus"`
-	MemoryMiB    *int              `json:"memory_mib"`
-	MemoryMinMiB *int              `json:"memory_min_mib"`
-	Ballooning   *bool             `json:"ballooning"`
-	RootDiskGiB  int               `json:"root_disk_gib"`
-	UserData     string            `json:"user_data"`
-	ClientToken  string            `json:"client_token"`
+	ImageID      string `json:"image_id"`
+	InstanceType string `json:"instance_type"`
+	KeyName      string `json:"key_name"`
+	VCPUs        *int   `json:"vcpus"`
+	MemoryMiB    *int   `json:"memory_mib"`
+	MemoryMinMiB *int   `json:"memory_min_mib"`
+	Ballooning   *bool  `json:"ballooning"`
+	RootDiskGiB  int    `json:"root_disk_gib"`
+	UserData     string `json:"user_data"`
+	ClientToken  string `json:"client_token"`
+	// InstallISOID turns the launch into an installation: instead of copying an
+	// image to the root disk, the VM boots this ISO and the guest installs
+	// itself. DriverISOID is an optional second CD (the virtio-win disc).
+	// GuestOS is "windows" or "linux" and defaults from the ISO's own os.
+	InstallISOID string            `json:"install_iso_id,omitempty"`
+	DriverISOID  string            `json:"driver_iso_id,omitempty"`
+	GuestOS      string            `json:"guest_os,omitempty"`
 	Tags         map[string]string `json:"tags"`
 	// SecurityGroupIDs omitted means the account's default group. omitempty
 	// keeps the request hash of a launch that names none what it was before
@@ -303,10 +311,49 @@ func validateSpec(spec Spec) error {
 }
 
 func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limits) (Spec, error) {
-	// Shared images and uploaded ones are both launchable, so existence is a
-	// question for the resolver rather than for site.json alone.
-	if _, err := s.ResolveImage(ctx, s.Pool, r.ImageID); err != nil {
-		return Spec{}, err
+	bad := func(format string, args ...any) error {
+		return refuse(http.StatusBadRequest, "InvalidParameterValue", format, args...)
+	}
+	switch {
+	case r.ImageID == "" && r.InstallISOID == "":
+		return Spec{}, bad("either image_id or install_iso_id is required")
+	case r.ImageID != "" && r.InstallISOID != "":
+		return Spec{}, bad("image_id and install_iso_id cannot be combined: install media is not a root image")
+	case r.GuestOS != "" && r.GuestOS != seed.OSLinux && r.GuestOS != seed.OSWindows:
+		return Spec{}, bad("guest_os must be linux or windows")
+	}
+	if r.ImageID != "" {
+		// Shared images and uploaded ones are both launchable, so existence is a
+		// question for the resolver rather than for site.json alone.
+		image, err := s.ResolveImage(ctx, s.Pool, r.ImageID)
+		if err != nil {
+			return Spec{}, err
+		}
+		if r.GuestOS == "" {
+			r.GuestOS = image.OS
+		}
+		if image.OS != "" && r.GuestOS != image.OS {
+			return Spec{}, bad("image %s is a %s guest, not %s", r.ImageID, image.OS, r.GuestOS)
+		}
+	} else {
+		iso, err := s.ResolveISO(ctx, s.Pool, r.InstallISOID)
+		if err != nil {
+			return Spec{}, err
+		}
+		if r.GuestOS == "" {
+			r.GuestOS = iso.OS
+		}
+		if iso.OS != "" && r.GuestOS != iso.OS {
+			return Spec{}, bad("ISO %s is a %s installer, not %s", r.InstallISOID, iso.OS, r.GuestOS)
+		}
+		if r.DriverISOID != "" {
+			if r.DriverISOID == r.InstallISOID {
+				return Spec{}, bad("driver_iso_id must differ from install_iso_id")
+			}
+			if _, err := s.ResolveISO(ctx, s.Pool, r.DriverISOID); err != nil {
+				return Spec{}, err
+			}
+		}
 	}
 	spec, err := s.resolveSpec(r)
 	if err != nil {
@@ -443,7 +490,8 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 		}
 		instance, err = db.InsertInstance(ctx, tx, db.Instance{
 			ID: newInstanceID(), AccountID: accountID, ClientToken: r.ClientToken, RequestSHA256: hash,
-			Name: r.Tags["Name"], ImageID: r.ImageID, InstanceType: spec.TypeName,
+			Name: r.Tags["Name"], ImageID: r.ImageID, GuestOS: r.GuestOS,
+			InstallISOID: r.InstallISOID, DriverISOID: r.DriverISOID, InstanceType: spec.TypeName,
 			CPUCores: spec.CPUCores, MemoryMiB: spec.MemoryMiB, MemoryMinMiB: spec.MemoryMinMiB, Ballooning: spec.Ballooning,
 			RootDiskGiB: r.RootDiskGiB, UserData: r.UserData,
 			KeyName: r.KeyName, KeyPublicKey: keyPublicKey, Tags: r.Tags,

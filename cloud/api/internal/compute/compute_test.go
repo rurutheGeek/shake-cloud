@@ -42,6 +42,9 @@ type fakePVE struct {
 	storage    map[string]proxmox.StorageStatus
 	failUpload int
 	failCreate error
+	// failReboot makes Proxmox's ACPI reboot time out, as a Windows guest
+	// without the agent does.
+	failReboot bool
 	consoles   int
 	// disks are VM disks on local-lvm by volume ID, with their size. labels
 	// stand in for their contents: a move renames a disk and carries its label,
@@ -176,10 +179,15 @@ func (f *fakePVE) Power(ctx context.Context, vmid int, action string, params url
 	}
 	switch action {
 	case "start", "reboot":
+		if action == "reboot" && f.failReboot {
+			return "", errors.New("VM quit/powerdown failed - got timeout")
+		}
 		if action == "start" {
 			firewall := f.firewalls[vmid]
 			f.startedFiltered[vmid] = firewall != nil && firewall.options["enable"] == "1"
 		}
+		vm.status = "running"
+	case "reset":
 		vm.status = "running"
 	case "stop", "shutdown":
 		vm.status = "stopped"
@@ -229,6 +237,26 @@ func (f *fakePVE) UploadISO(ctx context.Context, storage, filename string, conte
 		return "", errors.New("upload interrupted")
 	}
 	f.volumes[storage+":iso/"+filename] = true
+	return f.task(nil), nil
+}
+
+func (f *fakePVE) UploadISOStream(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	if int64(len(content)) != size {
+		return "", fmt.Errorf("upload said %d bytes but sent %d", size, len(content))
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failUpload > 0 {
+		f.failUpload--
+		return "", errors.New("upload interrupted")
+	}
+	volid := storage + ":iso/" + filename
+	f.volumes[volid] = true
+	f.sizes[volid] = size
 	return f.task(nil), nil
 }
 
@@ -642,6 +670,28 @@ func TestPowerActionsFollowTheStateRules(t *testing.T) {
 	work(t, s, 2)
 	if got := get(t, s, instance.ID); got.State != db.StateRunning {
 		t.Fatalf("after start: %s", got.State)
+	}
+}
+
+func TestRebootFallsBackToResetWhenTheGuestIgnoresACPI(t *testing.T) {
+	// A Windows guest without the guest agent (or one still in setup) never
+	// answers Proxmox's ACPI shutdown, so reboot times out. A hard reset still
+	// restarts it; leaving the action pending would block every other button.
+	s, pve, _ := testService(t)
+	alice := newAccount(t, s, "alice")
+	instance := run(t, s, alice, small)
+	work(t, s, 5)
+	pve.failReboot = true
+	if _, err := request(t, s, instance.ID, db.ActionReboot, alice); err != nil {
+		t.Fatal(err)
+	}
+	work(t, s, 2)
+	got := get(t, s, instance.ID)
+	if got.State != db.StateRunning || got.PendingAction != "" || got.LastError != "" {
+		t.Fatalf("after reboot: state=%s pending=%q err=%q", got.State, got.PendingAction, got.LastError)
+	}
+	if pve.vms[5000].status != "running" {
+		t.Fatalf("vm status = %s", pve.vms[5000].status)
 	}
 }
 

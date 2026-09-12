@@ -1,0 +1,220 @@
+{
+  "host": "dev-b (development VM)",
+  "scope": "dev-b 上でのローカル確認。フロントは模擬API応答＋実ヘッドレスChromium、バックエンドは dev-b の PostgreSQL を使った Go テスト。",
+  "source_commit": "15d491b（Web GUI の修正は未コミットの作業ツリー）",
+  "environment": {
+    "browser": "chromium headless shell 153.0.8010.12 (Playwright 1.63)",
+    "go": "go1.27.1",
+    "database": "dev-b の PostgreSQL (127.0.0.1:55432)",
+    "viewports": [
+      "1440x1000",
+      "390x844",
+      "320x800"
+    ],
+    "screenshots": [
+      "after-desktop-admin.png",
+      "after-desktop-admin-dark.png",
+      "after-mobile-user.png"
+    ]
+  },
+  "functional_checks": {
+    "passed": 28,
+    "failed": 0,
+    "checks": [
+      {
+        "name": "SC1 double submit sends one POST",
+        "passed": true,
+        "detail": "posts=1"
+      },
+      {
+        "name": "SC1 no page errors",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC2 double click starts once",
+        "passed": true,
+        "detail": "starts=1"
+      },
+      {
+        "name": "SC2 no page errors",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC3 edit row kept across refresh",
+        "passed": true,
+        "detail": "value=5"
+      },
+      {
+        "name": "SC3 no page errors",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC4 image selection kept",
+        "passed": true,
+        "detail": "value=img-2"
+      },
+      {
+        "name": "SC4 no page errors",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC5 no overflow at 320px",
+        "passed": true,
+        "detail": "scrollWidth=320"
+      },
+      {
+        "name": "SC5 no overflow at 390px",
+        "passed": true,
+        "detail": "scrollWidth=390"
+      },
+      {
+        "name": "SC6 dark button contrast >= 4.5",
+        "passed": true,
+        "detail": "ratio=7.77"
+      },
+      {
+        "name": "SC7 confirmation names ID and owner",
+        "passed": true,
+        "detail": "インスタンス: db1 / ID: i-0002 / 所有者: other / 状態: 停止中 /  / このVMとルートディスクを削除します。追加ボリュームは切り離して保持します。この操作は取り消せません。"
+      },
+      {
+        "name": "SC7 cancel is focused",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC7 Escape sends no delete",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC7 accept sends one delete",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC8 friendly 502 message",
+        "passed": true,
+        "detail": "情報を取得できませんでした。しばらく待って表示を更新してください。 最後に取得した表示と入力を保持しています。"
+      },
+      {
+        "name": "SC8 no uncaught page errors",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC9 401 shows session-expired",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC10 owner is not the default",
+        "passed": true,
+        "detail": "{\"cb\":{\"read\":true,\"write\":false,\"owner\":false},\"purpose\":\"read\"}"
+      },
+      {
+        "name": "SC10 confirmation names owner grant",
+        "passed": true,
+        "detail": "バケット「photos」のキー「laptop」に「読み取り・owner」を許可します。"
+      },
+      {
+        "name": "SC10 owner only when chosen",
+        "passed": true,
+        "detail": "{\"read\":true,\"write\":false,\"owner\":true}"
+      },
+      {
+        "name": "SC11 change is spelled out",
+        "passed": true,
+        "detail": "このフォーム全体を保存します。 /  / 台数: 10 → 25（既定へ上書き） /  / 空欄にした項目は既定値へ戻ります。"
+      },
+      {
+        "name": "SC11 one limits PUT",
+        "passed": true,
+        "detail": ""
+      },
+      {
+        "name": "SC11 no-op does not save",
+        "passed": true,
+        "detail": "open=false notice=変更はありません。"
+      },
+      {
+        "name": "SC12 preset fills then custom is shown",
+        "passed": true,
+        "detail": "filled=2 preset= status=カスタム構成です。入力した数値で作成します。"
+      },
+      {
+        "name": "SC13 transfer then server phase",
+        "passed": true,
+        "detail": "転送が完了しました。サーバーで検証・登録しています…"
+      },
+      {
+        "name": "SC13 cancel explains the server may continue",
+        "passed": true,
+        "detail": "転送を中断しました。サーバー側で検証が続いている場合があります。一覧を更新して確認してください。"
+      },
+      {
+        "name": "SC13 the server sees the transfer stop",
+        "passed": true,
+        "detail": "aborted=true"
+      }
+    ]
+  },
+  "backend_tests": {
+    "command": "go vet ./... && go test ./...",
+    "database_url": "dev-b PostgreSQL",
+    "result": "pass",
+    "packages": [
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/compute\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/config\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/garage\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/seed\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/server\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/site\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/sshkey\t(cached)",
+      "ok  \tgithub.com/rurutheGeek/shake-cloud/cloud/api/internal/wsrelay\t(cached)"
+    ]
+  },
+  "accessibility": {
+    "tool": "axe-core 4.x (WCAG 2.x rules)",
+    "scenarios": [
+      {
+        "label": "admin light 1440",
+        "violations": []
+      },
+      {
+        "label": "admin dark 1440",
+        "violations": []
+      },
+      {
+        "label": "user light 390",
+        "violations": []
+      }
+    ],
+    "violations": 0
+  },
+  "keyboard": {
+    "firstTab": {
+      "cls": "skip-link",
+      "left": 0
+    },
+    "skipHref": "#main",
+    "dialogInitial": "confirm-cancel",
+    "shiftTabFromCancel": "confirm-accept",
+    "tabBackToCancel": "confirm-cancel",
+    "wrapFromCancel": "confirm-accept",
+    "trapStaysInside": true,
+    "focusAfterClose": "削除"
+  },
+  "not_done": [
+    "認証済みポータルのセッション確立（Authentik のログインが要る）と、それを使った画面操作",
+    "実VM／実S3の作成・変更（Proxmox・Garage への副作用がある操作）",
+    "実機のスクリーンリーダーでの読み上げ確認"
+  ]
+}

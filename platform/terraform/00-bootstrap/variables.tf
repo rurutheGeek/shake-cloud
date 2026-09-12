@@ -90,6 +90,19 @@ variable "sdn_privileges" {
   default     = ["SDN.Use"]
 }
 
+variable "cloud_api_shared_iso_privileges" {
+  description = <<-EOT
+    共有ISOの読み取り専用ロール。管理者が admin_images（local）へ置いた既存の
+    ISO を、複製せずに利用者VMのCD-ROMとして付けられるようにする。
+
+    **Datastore.Audit だけ**を与える。Allocate 系を渡すとクラウドAPIがローカルの
+    バックアップや管理者イメージを消せてしまう。読み取りでもストレージの一覧は
+    見えるので、API が公開するのは isos.yaml で宣言した共有ISOだけにする。
+  EOT
+  type        = set(string)
+  default     = ["Datastore.Audit"]
+}
+
 variable "cloudapi_user_id" {
   description = <<-EOT
     自作クラウドAPIの実行アカウント。realm を含めて指定する。

@@ -22,12 +22,23 @@ type Site struct {
 	ProbeVMIDs []int  `json:"probe_vmids"`
 	// VolumeHolderVMID is the never-started VM that owns detached volumes:
 	// Proxmox keeps every disk under some VM, and only move_disk changes which.
-	VolumeHolderVMID int                     `json:"volume_holder_vmid"`
-	Storage          Storage                 `json:"storage"`
-	Network          Network                 `json:"network"`
-	Images           map[string]Image        `json:"images"`
-	InstanceTypes    map[string]InstanceType `json:"instance_types"`
-	Limits           Limits                  `json:"limits"`
+	VolumeHolderVMID int              `json:"volume_holder_vmid"`
+	Storage          Storage          `json:"storage"`
+	Network          Network          `json:"network"`
+	Images           map[string]Image `json:"images"`
+	// SharedISOs are admin-placed ISO files the API attaches to instances as
+	// CD-ROMs. They are not copied into the cloud's own store.
+	SharedISOs    map[string]ISO          `json:"shared_isos"`
+	InstanceTypes map[string]InstanceType `json:"instance_types"`
+	Limits        Limits                  `json:"limits"`
+}
+
+// ISO is a shared installation image. Volume is the Proxmox volume ID in the
+// admin image store, used as-is.
+type ISO struct {
+	Name   string `json:"name"`
+	Volume string `json:"volume"`
+	OS     string `json:"os,omitempty"`
 }
 
 type Storage struct {
@@ -35,6 +46,9 @@ type Storage struct {
 	VMDisks string `json:"vm_disks"`
 	// Images holds shared images and per-instance seed ISOs.
 	Images string `json:"images"`
+	// AdminImages is the administrator's store. The API only lists its ISOs,
+	// so an ISO dropped there from Proxmox is usable without a declaration.
+	AdminImages string `json:"admin_images"`
 }
 
 type Network struct {
@@ -54,9 +68,13 @@ type Network struct {
 }
 
 // Image is a shared image. Volume is the Proxmox volume ID in Storage.Images.
+// OS is "windows" for a Windows guest and empty for a Linux one; it decides the
+// virtual hardware the API creates and how first-boot configuration is handed
+// to the guest.
 type Image struct {
 	Name   string `json:"name"`
 	Volume string `json:"volume"`
+	OS     string `json:"os,omitempty"`
 }
 
 type InstanceType struct {
@@ -97,6 +115,7 @@ type Quota struct {
 }
 
 var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
+var sharedISOID = regexp.MustCompile(`^iso-[a-z0-9-]+$`)
 
 // Load reads and checks the rendered file. A half-rendered site is refused at
 // startup rather than discovered when the first instance fails.
@@ -122,7 +141,7 @@ func (s Site) Validate() error {
 	check(s.Node != "", "site: node is empty")
 	check(s.Pool != "", "site: pool is empty")
 	check(s.VMIDFrom >= 100 && s.VMIDTo > s.VMIDFrom, "site: bad VMID range %d-%d", s.VMIDFrom, s.VMIDTo)
-	check(s.Storage.VMDisks != "" && s.Storage.Images != "", "site: storage names are empty")
+	check(s.Storage.VMDisks != "" && s.Storage.Images != "" && s.Storage.AdminImages != "", "site: storage names are empty")
 	check(s.Network.Bridge != "", "site: bridge is empty")
 	_, err := netip.ParseAddr(s.Network.Gateway)
 	check(err == nil, "site: gateway %q is not an address", s.Network.Gateway)
@@ -140,6 +159,14 @@ func (s Site) Validate() error {
 	for id, image := range s.Images {
 		check(imageID.MatchString(id), "site: image ID %q does not look like img-<name>", id)
 		check(image.Volume != "", "site: image %s has no volume", id)
+		check(image.OS == "" || image.OS == "linux" || image.OS == "windows",
+			"site: image %s has unknown os %q (use linux or windows)", id, image.OS)
+	}
+	for id, iso := range s.SharedISOs {
+		check(sharedISOID.MatchString(id), "site: shared ISO ID %q does not look like iso-<name>", id)
+		check(iso.Volume != "", "site: shared ISO %s has no volume", id)
+		check(iso.OS == "" || iso.OS == "linux" || iso.OS == "windows",
+			"site: shared ISO %s has unknown os %q", id, iso.OS)
 	}
 	check(len(s.InstanceTypes) > 0, "site: no instance types")
 	for name, t := range s.InstanceTypes {

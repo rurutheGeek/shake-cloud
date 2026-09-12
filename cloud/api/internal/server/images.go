@@ -20,6 +20,8 @@ type imageBody struct {
 	AccountID     string `json:"account_id,omitempty"`
 	OwnerUsername string `json:"owner_username,omitempty"`
 	Format        string `json:"format,omitempty"`
+	// OS is "windows" for a Windows image and empty for a Linux one.
+	OS string `json:"os,omitempty"`
 	// A pointer so that a shared image, whose size the ledger does not hold, is
 	// absent rather than reported as zero.
 	SizeMiB   *int64     `json:"size_mib,omitempty"`
@@ -32,7 +34,7 @@ func sizeMiB(bytes int64) int64 { return (bytes + (1 << 20) - 1) >> 20 }
 
 func imageJSON(i compute.Image) imageBody {
 	body := imageBody{ImageID: i.ID, Name: i.Name, State: "available", Public: i.Public,
-		AccountID: i.AccountID, OwnerUsername: i.OwnerUsername, Format: i.Format}
+		AccountID: i.AccountID, OwnerUsername: i.OwnerUsername, Format: i.Format, OS: i.OS}
 	if i.SizeBytes > 0 {
 		mib := sizeMiB(i.SizeBytes)
 		body.SizeMiB = &mib

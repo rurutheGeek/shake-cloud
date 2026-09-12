@@ -26,7 +26,8 @@ class RenderSiteTests(unittest.TestCase):
         network, flavors = self.yaml('network.yaml'), self.yaml('flavors.yaml')
         self.assertEqual(self.site['node'], site['node_name'])
         self.assertEqual(self.site['storage'], {'vm_disks': site['storage']['vm_disks'],
-                                                'images': site['storage']['cloud_images']})
+                                                'images': site['storage']['cloud_images'],
+                                                'admin_images': site['storage']['admin_images']})
         self.assertEqual(self.site['network']['bridge'], site['network']['bridge'])
         self.assertEqual(self.site['network']['gateway'], site['network']['gateway'])
         self.assertEqual(self.site['network']['dns_servers'], site['network']['dns_servers'])
@@ -44,6 +45,57 @@ class RenderSiteTests(unittest.TestCase):
         for image_id, image in self.site['images'].items():
             self.assertTrue(image['volume'].startswith(f'{store}:import/'), image_id)
             self.assertIn(images[image['name']]['file_name'], image['volume'])
+
+    def edit_declarations(self, directory, edits):
+        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
+            (Path(directory) / name).write_text((TERRAFORM / name).read_text())
+        for name, change in edits.items():
+            loaded = yaml.safe_load((TERRAFORM / name).read_text())
+            change(loaded)
+            (Path(directory) / name).write_text(yaml.safe_dump(loaded))
+
+    def test_a_windows_image_carries_its_os(self):
+        # The guest OS decides the API's virtual hardware, so it must survive
+        # rendering; an image without it stays a Linux guest.
+        with tempfile.TemporaryDirectory() as directory:
+            def add(images):
+                images['images']['win11pro'] = {'file_name': 'win11pro.qcow2', 'os': 'windows',
+                                                'provided': True, 'shared_with_cloud': True}
+            self.edit_declarations(directory, {'images.yaml': add})
+            site = render_site.render(directory)
+            self.assertEqual(site['images']['img-win11pro']['os'], 'windows')
+            self.assertEqual(site['images']['img-win11pro']['volume'],
+                             f"{site['storage']['images']}:import/win11pro.qcow2")
+            self.assertNotIn('os', site['images']['img-debian13'])
+
+    def test_an_unknown_image_os_stops_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def break_it(images):
+                images['images']['debian13']['os'] = 'plan9'
+            self.edit_declarations(directory, {'images.yaml': break_it})
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
+
+    def test_shared_isos_keep_the_admin_volume(self):
+        # A declared shared ISO is used where the administrator put it; copying
+        # it into the cloud store would double the space for no benefit.
+        with tempfile.TemporaryDirectory() as directory:
+            def add(isos):
+                isos['isos']['win11'] = {'name': 'Win11', 'volume': 'local:iso/Win11.iso', 'os': 'windows'}
+            self.edit_declarations(directory, {'isos.yaml': add})
+            site = render_site.render(directory)
+            self.assertEqual(site['shared_isos']['iso-win11']['volume'], 'local:iso/Win11.iso')
+            self.assertEqual(site['shared_isos']['iso-win11']['os'], 'windows')
+
+    def test_a_shared_iso_outside_the_admin_store_stops_rendering(self):
+        # The cloud token can only attach files from the admin image store; a
+        # declaration pointing elsewhere would fail at launch, not at render.
+        with tempfile.TemporaryDirectory() as directory:
+            def break_it(isos):
+                isos['isos']['win11'] = {'name': 'Win11', 'volume': 'cloud-images:iso/Win11.iso'}
+            self.edit_declarations(directory, {'isos.yaml': break_it})
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
 
     def test_limits_come_from_cloud_yaml(self):
         cloud = self.yaml('cloud.yaml')
@@ -69,7 +121,7 @@ class RenderSiteTests(unittest.TestCase):
 
     def test_an_unmeasured_site_stops_instead_of_guessing(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'site.yaml').read_text())
             broken['storage']['vm_disks'] = 'UNMEASURED'
@@ -81,7 +133,7 @@ class RenderSiteTests(unittest.TestCase):
         # A holder outside 5000-5999 would sit where the cloud API's ACLs
         # cannot reach it; catch that at render time, not at first volume detach.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = 1
@@ -93,7 +145,7 @@ class RenderSiteTests(unittest.TestCase):
         # The probe script deletes and recreates its VMIDs; a holder sharing
         # one would lose its volumes the next time a probe runs.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = broken['probe_vmids'][0]

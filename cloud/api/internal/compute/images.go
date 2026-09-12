@@ -22,8 +22,11 @@ import (
 // site.json, or one a user uploaded. The two are merged here rather than
 // copied into one table, so neither becomes a second copy of the other.
 type Image struct {
-	ID            string
-	Name          string
+	ID   string
+	Name string
+	// OS is "windows" for a Windows guest and "" for a Linux one. Shared
+	// images declare it; an uploaded image is a Linux guest.
+	OS            string
 	Volume        string
 	Format        string
 	Public        bool
@@ -47,7 +50,7 @@ func newImageID() string {
 // ResolveImage finds an image by ID, shared ones first.
 func (s *Service) ResolveImage(ctx context.Context, q db.Querier, imageID string) (Image, error) {
 	if shared, ok := s.Site.Images[imageID]; ok {
-		return Image{ID: imageID, Name: shared.Name, Volume: shared.Volume, Public: true}, nil
+		return Image{ID: imageID, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true}, nil
 	}
 	if q == nil {
 		q = s.Pool
@@ -75,7 +78,7 @@ func imageOf(i db.Image) Image {
 func (s *Service) Images(ctx context.Context) ([]Image, error) {
 	images := make([]Image, 0, len(s.Site.Images))
 	for id, shared := range s.Site.Images {
-		images = append(images, Image{ID: id, Name: shared.Name, Volume: shared.Volume, Public: true})
+		images = append(images, Image{ID: id, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true})
 	}
 	sort.Slice(images, func(i, j int) bool { return images[i].ID < images[j].ID })
 	uploaded, err := db.ListImages(ctx, s.Pool)

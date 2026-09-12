@@ -28,6 +28,7 @@ def render(directory):
     pools = load(directory, 'pools.yaml')
     network = load(directory, 'network.yaml')
     images = load(directory, 'images.yaml')
+    isos = load(directory, 'isos.yaml')
     flavors = load(directory, 'flavors.yaml')
     cloud = load(directory, 'cloud.yaml')
 
@@ -43,11 +44,37 @@ def render(directory):
                          'Run the survey and tools/site-yaml.py first.')
 
     store = site['storage']['cloud_images']
-    shared = {f'img-{name}': {'name': name, 'volume': f'{store}:import/{image["file_name"]}'}
-              for name, image in images['images'].items() if image.get('shared_with_cloud')}
+    shared = {}
+    for name, image in images['images'].items():
+        if not image.get('shared_with_cloud'):
+            continue
+        entry = {'name': name, 'volume': f'{store}:import/{image["file_name"]}'}
+        if image.get('os'):
+            # The guest OS decides the virtual hardware and the first-boot
+            # format; an image without it is a Linux guest.
+            if image['os'] not in ('linux', 'windows'):
+                raise SystemExit(f'image {name} has unknown os {image["os"]!r}; use linux or windows')
+            entry['os'] = image['os']
+        shared[f'img-{name}'] = entry
     if not shared:
         raise SystemExit('no image in images.yaml has shared_with_cloud: true; '
                          'the cloud API cannot create disks from images it cannot read')
+
+    # Shared ISOs the administrator already placed in the admin image store.
+    # The file is not copied: the API attaches this exact volume as a CD-ROM.
+    admin_store = site['storage']['admin_images']
+    shared_isos = {}
+    for name, iso in isos.get('isos', {}).items():
+        volume = iso['volume']
+        if not volume.startswith(f'{admin_store}:'):
+            raise SystemExit(f'ISO {name} is on {volume!r}, but shared ISOs must live '
+                             f'in the admin image store {admin_store!r}')
+        entry = {'name': iso['name'], 'volume': volume}
+        if iso.get('os'):
+            if iso['os'] not in ('linux', 'windows'):
+                raise SystemExit(f'ISO {name} has unknown os {iso["os"]!r}; use linux or windows')
+            entry['os'] = iso['os']
+        shared_isos[f'iso-{name}'] = entry
 
     # The holder VM must live where the cloud API's own ACLs reach, and must not
     # be a VMID the allocator already treats as reserved for something else.
@@ -67,7 +94,10 @@ def render(directory):
         'vmid_to': pools['pools']['cloud']['vmid_to'],
         'probe_vmids': cloud['probe_vmids'],
         'volume_holder_vmid': holder,
-        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store},
+        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store,
+                    # The administrator's ISO store. The API lists it read-only so
+                    # ISOs placed there from Proxmox are usable without a declaration.
+                    'admin_images': site['storage']['admin_images']},
         'network': {
             'bridge': site['network']['bridge'],
             'gateway': site['network']['gateway'],
@@ -82,6 +112,7 @@ def render(directory):
             'bridge_vlan_aware': site['network']['bridge_vlan_aware'],
         },
         'images': shared,
+        'shared_isos': shared_isos,
         'instance_types': {name: {'cpu_cores': flavor['cpu_cores'],
                                   'memory_mib': flavor['memory_mib'],
                                   'memory_min_mib': flavor['memory_min_mib']}

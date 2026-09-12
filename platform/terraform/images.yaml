@@ -11,6 +11,13 @@
 # チェックサムは配布元の SHA512SUMS から転記する。
 #
 # datastore_id は省略できる。省くと site.yaml の storage.admin_images を使う。
+#
+# os は "linux"（既定）か "windows"。windows のイメージは、API が UEFI・TPM 2.0・
+# q35 の VM を作り、初回設定を cloudbase-init（NoCloud、network config v1）へ渡す。
+# イメージ側に virtio ドライバと cloudbase-init が入っている必要がある。
+#
+# provided: true は配布元URLが無く、管理者が cloud-images へ直接置くイメージ。
+# 00-bootstrap は取得もコピーもしない。置き方は docs/operations/windows.md。
 images:
   debian13:
     url: https://cloud.debian.org/images/cloud/trixie/20260831-2587/debian-13-genericcloud-amd64-20260831-2587.qcow2
@@ -20,6 +27,15 @@ images:
     content_type: import
     # クラウドの利用者にも共有イメージとして出す。00-bootstrap が cloud-images にも置く。
     shared_with_cloud: true
+  # Windows 11 Pro を使えるようにしたあと、次の例を有効にする（イメージ作成は
+  # docs/operations/windows.md。url は無く、cloud-images に直接置く）。
+  #
+  # win11pro:
+  #   file_name: win11pro.qcow2
+  #   os: windows
+  #   provided: true
+  #   content_type: import
+  #   shared_with_cloud: true
 
 # 基盤VM（05-seed / 10-platform）が既定で使うイメージ。上の key を指す。
 default_image: debian13

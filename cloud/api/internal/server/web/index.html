@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>shake-cloud</title>
 <link rel="stylesheet" href="/static/portal.css">
+<script src="/static/portal-ui.js" defer></script>
 <script src="/static/portal.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#main">本文へ移動</a>
 <header>
   <h1>shake-cloud</h1>
   {{- if .LoggedIn}}
@@ -19,12 +21,47 @@
   </div>
   {{- end}}
 </header>
-<main>
+<main id="main">
 {{- if .LoggedIn}}
-  <section>
-    <h2>容量</h2>
+  <nav id="navigation" aria-label="クラウドの操作">
+    <a href="#overview">概要</a>
+    <a href="#instances-view">インスタンス</a>
+    <a href="#volumes-view">ボリューム</a>
+    <a href="#security-view">セキュリティグループ</a>
+    <a href="#s3-view">S3ストレージ</a>
+    <a href="#databases-view">データベース</a>
+    <a href="#functions-view">関数</a>
+    <a href="#images-view">イメージ</a>
+    <a href="#isos-view">ISO</a>
+    <a href="#ssh-view">SSH鍵</a>
+    <a href="#keys-view">アクセスキー</a>
+    <a href="#events-view">操作履歴</a>
+    <a href="#help-view">ヘルプ</a>
+    {{if .Account.IsAdmin}}<a href="#settings">管理設定</a>{{end}}
+  </nav>
+  <div class="toolbar"><button id="refresh-all" type="button">表示を更新</button><span id="refresh-status" class="muted" role="status"></span></div>
+  <aside id="feedback" aria-label="操作の通知">
+    <div id="error" class="error" role="alert" hidden></div>
+    <button id="dismiss-error" type="button">エラー通知を閉じる</button>
+    <p id="notice" role="status" hidden></p>
+    <button id="dismiss-notice" type="button">完了通知を閉じる</button>
+  </aside>
+  <div id="session-expired" class="notice" role="alert" hidden>
+    <p>ログインの有効期限が切れました。入力はこの画面に保持しています。再ログインするとこの画面を離れます。</p>
+    <a class="button" href="/auth/login">再ログイン</a>
+  </div>
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <h2 id="confirm-title"></h2><p id="confirm-message"></p>
+    <form method="dialog"><button id="confirm-cancel" value="cancel" autofocus>キャンセル</button><button id="confirm-accept" value="confirm">続ける</button></form>
+  </dialog>
+  <section id="overview" data-view>
+    <h2 tabindex="-1">概要</h2>
+    <p><a class="button" href="#instance-create-view">インスタンスを作成</a> <a href="#instances-view">インスタンス一覧へ</a></p>
+    <p id="operation-summary" role="status">インスタンスの状態を読み込み中…</p>
+    <h3>あなたの残り利用枠</h3><div id="quota-summary">読み込み中…</div>
+    <h3>ホストとクラウドの容量</h3>
     <p class="muted">ホストの実際の空きと、クラウドが配った合計（上限の合計）です。メモリはバルーニングなので、この2つは一致しません。</p>
-    <div id="capacity"></div>
+    <div id="capacity">容量を読み込み中…</div><p id="capacity-status" class="muted" role="status"></p>
     <div id="capacity-accounts" hidden>
       <h3>アカウント別</h3>
       <div class="scroll">
@@ -36,11 +73,11 @@
     </div>
   </section>
   {{- if .Account.IsAdmin}}
-  <section>
-    <h2>上限</h2>
+  <section id="settings" data-view>
+    <h2 tabindex="-1">上限</h2>
     <p class="muted">
-      <strong>0 は無制限です。</strong>空欄にすると既定値（<code>platform/terraform/cloud.yaml</code>）に戻ります。
-      保存するとこの画面の値がそのまま効きます。
+      利用数・容量枠の <strong>0 は無制限です。</strong>空欄は既定値に戻します。
+      このフォーム全体の上書き設定を保存します。保存前に変更内容を確認できます。
     </p>
     <form id="limits">
       <fieldset>
@@ -72,46 +109,27 @@
         <label>1イメージの上限 GiB <input name="capacity.max_image_gib" type="number" min="0" step="1"></label>
       </fieldset>
       <div class="actions">
-        <button type="submit">保存</button>
-        <button id="reset-limits" type="button">全部を既定値へ戻す</button>
+        <button type="submit" disabled>変更内容を確認</button>
+        <button id="reset-limits" type="button" disabled>全部を既定値へ戻す</button>
       </div>
     </form>
     <p class="muted">
       <strong>「ノードに残す」と「ディスク使用率の上限」がホストを守っています。</strong>
       0 にすると、利用者がホストを埋めて基盤VM（認証・API・台帳）ごと落とせます。
     </p>
-    <p id="limits-status" class="muted"></p>
+    <p id="limits-status" class="muted" role="status"></p>
   </section>
   {{- end}}
-  <section>
-    <h2>インスタンス</h2>
+  <section id="instances-view" data-view>
+    <h2 tabindex="-1">インスタンス</h2>
     <p class="muted">全アカウントのVMが並びます。自分のものだけではありません。</p>
-    <form id="create-instance">
-      <label>イメージ <select name="image_id" required></select></label>
-      <label>名前 <input name="name" placeholder="例: game"></label>
-      <label>構成の雛形
-        <select name="preset">
-          <option value="">指定しない（自由に入力）</option>
-        </select>
-      </label>
-      <label>vCPU <input name="vcpus" type="number" min="1" step="1"></label>
-      <label>メモリ MiB <input name="memory_mib" type="number" min="512" step="1"></label>
-      <label><input name="ballooning" type="checkbox" checked> バルーニングを使う（空きを host へ返す）</label>
-      <label>最小メモリ MiB <input name="memory_min_mib" type="number" min="512" step="1">
-        <span class="muted small">ホストが回収できるメモリの下限です</span>
-      </label>
-      <label>ルートディスク GiB <input name="root_disk_gib" type="number" min="1" step="1"></label>
-      <label>SSH鍵 <select name="key_name"><option value="">使わない</option></select></label>
-      <fieldset>
-        <legend>セキュリティグループ（選ばなければ既定を使います）</legend>
-        <div id="create-instance-groups" class="checklist"></div>
-      </fieldset>
-      <label class="wide">user-data
-        <textarea name="user_data" rows="4"></textarea>
-        <span class="muted small">VMの中から読めるので、秘密情報は書かないでください</span>
-      </label>
-      <button type="submit">作成</button>
-    </form>
+    <div class="toolbar">
+      <label>検索 <input id="instance-search" type="search" placeholder="名前・ID・IP・所有者"></label>
+      <label>所有者 <select id="instance-owner"><option value="all">全アカウント</option><option value="mine">自分のみ</option></select></label>
+      <label>状態 <select id="instance-state"><option value="">すべて</option><option value="running">稼働中</option><option value="stopped">停止中</option><option value="pending">起動準備中</option><option value="stopping">停止処理中</option><option value="shutting-down">削除処理中</option><option value="terminated">削除済み</option></select></label>
+      <a class="button" href="#instance-create-view">インスタンスを作成</a>
+    </div>
+    <p id="instances-status" class="muted" role="status">読み込み中…</p>
     {{- if .Account.IsAdmin}}
     <details id="adopt-instance">
       <summary>既存VMを引き取る（管理者）</summary>
@@ -135,14 +153,68 @@
       </div>
     </div>
   </section>
-  <section>
-    <h2>ボリューム</h2>
+  <section id="instance-create-view" data-view>
+    <h2 tabindex="-1">インスタンスを作成</h2>
+    <p><a href="#instances-view">一覧へ戻る</a> · <a href="#ssh-view">SSH鍵を登録</a> · <a href="#images-view">イメージを追加</a> · <a href="#isos-view">ISOを追加</a></p>
+    <form id="create-instance">
+      <label>作成方法
+        <select id="instance-source">
+          <option value="image">イメージから</option>
+          <option value="iso">ISOからインストール</option>
+        </select>
+      </label>
+      <label id="image-field">イメージ <select name="image_id" required></select></label>
+      <p id="image-os-note" class="muted small wide" hidden></p>
+      <label id="install-iso-field" hidden>インストールISO <select name="install_iso_id"></select></label>
+      <label id="iso-guest-os-field" hidden>ゲストOS
+        <select name="guest_os">
+          <option value="linux">Linux</option>
+          <option value="windows">Windows 11</option>
+        </select>
+      </label>
+      <label id="driver-iso-field" hidden>ドライバISO（任意） <select name="driver_iso_id"><option value="">使わない</option></select></label>
+      <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
+      <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>
+      <label>構成の雛形
+        <select name="preset">
+          <option value="">指定しない（自由に入力）</option>
+        </select>
+      </label>
+      <label>vCPU <input name="vcpus" required type="number" min="1" step="1"></label>
+      <label>メモリ MiB <input name="memory_mib" required type="number" min="512" step="1"></label>
+      <details class="wide"><summary>メモリの詳細設定</summary>
+      <label><input name="ballooning" type="checkbox" checked> バルーニングを使う（空きを host へ返す）</label>
+      <label>最小メモリ MiB <input name="memory_min_mib" type="number" min="512" step="1">
+        <span class="muted small">VMに残すメモリの下限です。最大メモリ以下にしてください</span>
+      </label>
+      </details>
+      <label>ルートディスク GiB <input name="root_disk_gib" type="number" min="1" step="1"></label>
+      <label id="key-name-field">SSH鍵 <select name="key_name"><option value="">使わない</option></select></label>
+      <fieldset>
+        <legend>セキュリティグループ（選ばなければ既定を使います）</legend>
+        <div id="create-instance-groups" class="checklist">読み込み中…</div>
+        <p class="muted small">未選択の場合、すべての通信を許可する既定グループを使います。</p>
+      </fieldset>
+      <details class="wide"><summary>初回起動時の設定（user-data）</summary>
+      <label class="wide">user-data
+        <textarea name="user_data" rows="4"></textarea>
+        <span class="muted small">VMの中から読めるので、秘密情報は書かないでください</span>
+      </label>
+      </details>
+      <p id="instance-preset-status" class="muted wide" role="status">構成を入力するか、雛形を選んでください。</p>
+      <p id="create-instance-readiness" class="muted wide" role="status">作成に必要な情報を読み込み中…</p>
+      <button type="submit" disabled>作成内容を確認</button>
+    </form>
+  </section>
+  <section id="volumes-view" data-view>
+    <h2 tabindex="-1">ボリューム</h2>
     <p class="muted">全アカウントのボリュームが並びます。自分のものだけではありません。</p>
     <form id="create-volume">
       <label>大きさ GiB <input name="size_gib" type="number" min="1" step="1" required></label>
       <label>名前 <input name="name" placeholder="例: data"></label>
       <button type="submit">作成</button>
     </form>
+    <p id="volumes-status" class="muted" role="status">読み込み中…</p>
     <div id="volumes-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div class="scroll">
         <table>
@@ -152,8 +224,8 @@
       </div>
     </div>
   </section>
-  <section>
-    <h2>セキュリティグループ</h2>
+  <section id="security-view" data-view>
+    <h2 tabindex="-1">セキュリティグループ</h2>
     <p class="muted">既定グループはすべての通信を許可します。絞りたいときは新しいグループを作り、インスタンスに付け替えてください。</p>
     <form id="create-security-group">
       <label>名前 <input name="group_name" required maxlength="64" placeholder="例: web"></label>
@@ -164,8 +236,8 @@
       <div id="security-groups"></div>
     </div>
   </section>
-  <section>
-    <h2>S3バケット</h2>
+  <section id="s3-view" data-view>
+    <h2 tabindex="-1">S3バケット</h2>
     <p class="muted">オブジェクトはAPIを通りません。下に表示されるエンドポイントへ、発行したS3キーで直接接続します（S3署名で認証）。</p>
     <form id="create-bucket">
       <label>名前 <input name="bucket_name" required minlength="3" maxlength="63" placeholder="例: photos"></label>
@@ -182,25 +254,57 @@
     </form>
     <div id="new-s3-secret" class="notice" hidden>
       <p><strong>この値は今しか表示されません。</strong>閉じる前に安全な場所へ保存してください。</p>
-      <pre id="new-s3-secret-value"></pre>
+      <pre id="new-s3-secret-value" tabindex="0"></pre>
+      <button id="copy-s3-secret" type="button">キーをコピー</button>
       <button id="dismiss-s3-secret" type="button">保存したので閉じる</button>
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th>キーID</th><th>名前</th><th>作成</th><th></th></tr></thead>
+        <thead><tr><th>キーID</th><th>名前</th><th>作成</th><th><span class="visually-hidden">操作</span></th></tr></thead>
         <tbody id="s3-keys"></tbody>
       </table>
     </div>
   </section>
-  <section>
-    <h2>イメージ</h2>
-    <p class="muted">qcow2 / raw のディスクイメージを受け付けます。Proxmox が中身を検証するので、壊れたファイルは弾かれます。</p>
+  <section id="databases-view" data-view>
+    <h2 tabindex="-1">データベース</h2>
+    <p class="muted">PostgreSQL のアプライアンスです。作成には少し時間がかかり、準備できると接続情報を取得できます。</p>
+    <form id="create-database">
+      <label>名前 <input name="name" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="例: shop"></label>
+      <label>容量(GiB) <input name="storage_gib" type="number" min="1" max="50" value="5" required></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="database-credentials" class="notice" hidden>
+      <p><strong>接続情報</strong>（この値は API に保存されません。必要なら今控えてください）</p>
+      <pre id="database-credentials-value" tabindex="0"></pre>
+      <button id="dismiss-database-credentials" type="button">閉じる</button>
+    </div>
+    <div id="databases-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="databases"></div>
+    </div>
+  </section>
+  <section id="functions-view" data-view>
+    <h2 tabindex="-1">関数</h2>
+    <p class="muted">コンテナイメージをサーバレス HTTP として動かします。使われていないときは 0 個まで縮退します。</p>
+    <form id="create-function">
+      <label>名前 <input name="name" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="例: greeter"></label>
+      <label>イメージ <input name="image" required maxlength="512" placeholder="例: gcr.io/knative-samples/helloworld-go"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="functions-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="functions"></div>
+    </div>
+  </section>
+  <section id="images-view" data-view>
+    <h2 tabindex="-1">イメージ</h2>
+    <p class="muted">qcow2・raw・img・vmdk のディスクイメージを受け付けます。転送後にサーバーで内容を検証します。</p>
+    <p id="upload-limit" class="muted">アップロード上限を読み込み中…</p>
     <form id="upload-image">
       <label>名前 <input name="name" required maxlength="128" placeholder="例: ubuntu-24.04"></label>
       <label>ファイル <input name="file" type="file" required accept=".qcow2,.raw,.img,.vmdk"></label>
-      <button type="submit">アップロード</button>
-      <progress id="upload-progress" max="100" value="0" hidden></progress>
-      <span id="upload-status" class="muted"></span>
+      <button type="submit" disabled>アップロード</button>
+      <button id="cancel-upload" type="button" hidden>転送を中断</button>
+      <progress id="upload-progress" aria-label="ファイル転送の進捗" max="100" value="0" hidden></progress>
+      <span id="upload-status" class="muted" role="status"></span>
     </form>
     <div id="images-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div class="scroll">
@@ -211,8 +315,33 @@
       </div>
     </div>
   </section>
-  <section>
-    <h2>SSH鍵</h2>
+  <section id="isos-view" data-view>
+    <h2 tabindex="-1">ISO</h2>
+    <p class="muted">インストーラーのISOを保管し、「ISOからインストール」で仮想マシンにCDとして渡します。Windows 11 のISOはOSで「Windows」を選ぶと、UEFI・TPM 2.0 の仮想マシンになります。</p>
+    <form id="upload-iso">
+      <label>名前 <input name="name" required maxlength="128" placeholder="例: Win11_25H2"></label>
+      <label>OS
+        <select name="os">
+          <option value="">Linux</option>
+          <option value="windows">Windows 11</option>
+        </select>
+      </label>
+      <label>ファイル <input name="file" type="file" required accept=".iso"></label>
+      <button type="submit" disabled>アップロード</button>
+      <button id="cancel-iso-upload" type="button" hidden>転送を中断</button>
+      <progress id="iso-upload-progress" aria-label="ISO転送の進捗" max="100" value="0" hidden></progress>
+      <span id="iso-upload-status" class="muted" role="status"></span>
+    </form>
+    <p id="isos-status" class="muted" role="status">読み込み中…</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>名前</th><th>OS</th><th>所有者</th><th>大きさ</th><th>作成</th><th>操作</th></tr></thead>
+        <tbody id="isos"></tbody>
+      </table>
+    </div>
+  </section>
+  <section id="ssh-view" data-view>
+    <h2 tabindex="-1">SSH鍵</h2>
     <p class="muted">登録した公開鍵は、これから作るインスタンスの起動時にだけ書き込めます。</p>
     <form id="import-key-pair">
       <label>名前 <input name="key_name" required maxlength="64" placeholder="例: laptop"></label>
@@ -229,8 +358,8 @@
       </table>
     </div>
   </section>
-  <section>
-    <h2>アクセスキー</h2>
+  <section id="keys-view" data-view>
+    <h2 tabindex="-1">アクセスキー</h2>
     <p>Terraform と CLI はこのキーで API を呼びます。Authentik が止まっていても使えます。1アカウント5本までです。</p>
     <form id="create-key">
       <label>用途 <input name="description" maxlength="256" placeholder="例: ノートPCの Terraform"></label>
@@ -246,29 +375,67 @@
     </form>
     <div id="new-secret" class="notice" hidden>
       <p><strong>この値は今しか表示されません。</strong>閉じる前に安全な場所へ保存してください。</p>
-      <pre id="new-secret-value"></pre>
+      <pre id="new-secret-value" tabindex="0"></pre>
+      <button id="copy-secret" type="button">キーをコピー</button>
       <p>使い方の例:</p>
       <pre id="new-secret-usage"></pre>
       <button id="dismiss-secret" type="button">保存したので閉じる</button>
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th>キーID</th><th>用途</th><th>状態</th><th>作成</th><th>期限</th><th>最終使用</th><th></th></tr></thead>
+        <thead><tr><th>キーID</th><th>用途</th><th>状態</th><th>作成</th><th>期限</th><th>最終使用</th><th><span class="visually-hidden">操作</span></th></tr></thead>
         <tbody id="keys"></tbody>
       </table>
     </div>
   </section>
-  <section>
-    <h2>操作履歴</h2>
-    <p class="muted">{{if .Account.IsAdmin}}全アカウントの最新20件です。{{else}}このアカウントの最新20件です。{{end}}</p>
+  <section id="events-view" data-view>
+    <h2 tabindex="-1">操作履歴</h2>
+    <p class="muted">{{if .Account.IsAdmin}}全アカウントの操作を表示します。{{else}}このアカウントの操作を表示します。{{end}}</p>
+    <form id="event-filters">
+      <label>操作名 <input name="event_name" placeholder="例: RunInstances"></label>
+      {{if .Account.IsAdmin}}<label>アカウントID <input name="account_id" pattern="[0-9]{12}" placeholder="12桁"></label>{{end}}
+      <label>アクセスキーID <input name="access_key_id"></label>
+      <button type="submit">履歴を検索</button><button id="clear-event-filters" type="button">条件をクリア</button>
+    </form>
+    <p id="events-status" class="muted" role="status">読み込み中…</p>
     <div class="scroll">
       <table>
-        <thead><tr><th>日時</th><th>操作</th><th>結果</th><th>アカウント</th><th>キーID</th><th>送信元</th></tr></thead>
+        <thead><tr><th>日時</th><th>操作</th><th>結果</th><th>アカウント</th><th>キーID</th><th>送信元</th><th>対象・詳細</th></tr></thead>
         <tbody id="events"></tbody>
       </table>
     </div>
+    <button id="more-events" type="button" hidden>さらに20件表示</button>
   </section>
-  <p id="error" class="error" hidden></p>
+  <section id="help-view" data-view>
+    <h2 tabindex="-1">ヘルプ</h2>
+    <p class="muted">よく使う操作の手順です。詳しい運用は管理者の手順書も参照してください。</p>
+    <details open>
+      <summary>Windows 11 をISOからインストールする</summary>
+      <ol>
+        <li>「ISO」に <strong>Win11 のISO（OS=Windows 11）</strong> と <strong>virtio-win のISO</strong> があるのを確認します（共有ISOにあればそのまま使えます）。</li>
+        <li>「インスタンスを作成」→ 作成方法<strong>「ISOからインストール」</strong>。インストールISO=Win11、ゲストOS=Windows 11、ドライバISO=virtio-win、ルートディスクは<strong>64 GiB以上</strong>、メモリは<strong>4096 MiB以上</strong>にします。</li>
+        <li>起動したら一覧の「コンソール」を開きます。インストール先の一覧が空のときは<strong>「ドライバーの読み込み」</strong>→ virtio-win のCDの <code>viostor\w11\amd64</code> を開き、<strong>「Red Hat VirtIO SCSI controller」</strong>を選んでインストールします（このポータルが作るディスクは <code>virtio0</code> のため。<code>vioscsi</code> は <code>scsi0</code> のディスク用で、こちらでは見つかりません）。</li>
+        <li>ネットワークも使うなら、同じ手順で <code>NetKVM\w11\amd64</code> も読み込みます。</li>
+        <li>インストール後、一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します。または「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動するとホスト名とIPが自動設定されます。</li>
+      </ol>
+    </details>
+    <details>
+      <summary>電源操作ができない／再起動が終わらない</summary>
+      <p>作成・起動・停止・再起動・削除のいずれかが処理中の間は、一覧の状態に「〜処理中…」と表示され、別の電源操作は受け付けません。処理中にボタンを押すと理由を案内します。完了まで待ってください。Windowsなどguest agentが無いゲストでACPIに応答しない場合は、再起動は自動で強制リセットに切り替わります。</p>
+    </details>
+    <details>
+      <summary>コンソールが開かない</summary>
+      <p>ブラウザがポップアップをブロックした場合、画面に表示される「〜のコンソールを開く」リンクを押してください。リンクは5分で無効になります。その場合はもう一度「コンソール」を押して発行し直します。</p>
+    </details>
+    <details>
+      <summary>IPアドレスはどこ？／ネットワークにつながらない</summary>
+      <p>一覧の「IP」列が割り当てられた固定IPです。Linuxのイメージは起動時に自動設定されます。WindowsやISOから入れたゲストは、そのIPをゲスト側で設定してください（「Windows 11をISOからインストールする」の手順5）。SSHやRDPで入るには、そのポートを許可するセキュリティグループをVMに付けてください。</p>
+    </details>
+    <details>
+      <summary>削除する前に</summary>
+      <p> VMを削除するとルートディスクも消えます。接続済みの追加ボリュームは切り離されて残ります。消したくないデータはボリュームかS3へ。削除の確認画面に対象の名前・ID・所有者が出ます。</p>
+    </details>
+  </section>
 {{- else}}
   <section>
     <p>ホームラボのプライベートクラウドです。ログインすると、自分のVMの作成・電源操作・コンソール、追加ボリューム、セキュリティグループ、イメージとSSH鍵、Terraform・CLI 用アクセスキーを扱えます。</p>

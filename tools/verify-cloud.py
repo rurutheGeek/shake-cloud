@@ -383,6 +383,48 @@ def cleanup(api, site):
                 params={'purge': 1, 'destroy-unreferenced-disks': 1})
 
 
+def probe_windows_devices(api, site, probe):
+    """Can the scoped token create a Windows 11 VM (UEFI, TPM, q35)?
+
+    Windows 11 needs `bios=ovmf`, a TPM 2.0 and the q35 chipset. Creating the
+    EFI disk and TPM state touches storage and VM configuration outside what a
+    Linux guest uses, so a failure here means the portal cannot offer Windows.
+    The VM is empty: only the virtual devices are under test.
+    """
+    node = site['node_name']
+    vmid = PROBE_VMID - 1  # also covered by cleanup(), and never a real VMID
+    disks = site['storage']['vm_disks']
+    body = {'vmid': vmid, 'name': 'shakecloud-win-probe', 'pool': 'cloud',
+            'ostype': 'win11', 'bios': 'ovmf', 'machine': 'q35',
+            'cores': 1, 'memory': 1024, 'scsihw': 'virtio-scsi-single',
+            'efidisk0': f'{disks}:0,efitype=4m,pre-enrolled-keys=1',
+            'tpmstate0': f'{disks}:4,version=v2.0',
+            'net0': f"virtio,bridge={site['network']['bridge']},firewall=1",
+            'agent': 'enabled=1'}
+    created = api.call('POST', f'/nodes/{node}/qemu', data=body)
+    if created.status_code != 200:
+        return probe.record(False, f'create HTTP {created.status_code}: {created.text[:200]}')
+    finished, detail = api.wait_task(node, created.json().get('data'))
+    if not finished:
+        return probe.record(False, f'create task failed: {detail}')
+
+    config = api.call('GET', f'/nodes/{node}/qemu/{vmid}/config')
+    values = config.json().get('data', {}) if config.status_code == 200 else {}
+    missing = [key for key in ('ostype', 'bios', 'machine', 'efidisk0', 'tpmstate0')
+               if not values.get(key)]
+    passed = config.status_code == 200 and values.get('ostype') == 'win11' and not missing
+    # Remove it before the later probes, which reuse this VMID as their holder.
+    removed = api.call('DELETE', f'/nodes/{node}/qemu/{vmid}',
+                       params={'purge': 1, 'destroy-unreferenced-disks': 1})
+    if removed.status_code == 200:
+        api.wait_task(node, removed.json().get('data'))
+    if not passed:
+        return probe.record(False, f'config HTTP {config.status_code} = '
+                                   f'{ {k: values.get(k) for k in missing or ["ostype"]} }')
+    return probe.record(True, f"ostype={values['ostype']} bios={values['bios']} "
+                              f"machine={values['machine']}")
+
+
 PROBES = [
     ('node_status', probe_node_status,
      'Can a pool-scoped token read the node\'s free memory?',
@@ -393,6 +435,9 @@ PROBES = [
     ('pool_boundary', probe_pool_boundary,
      'Does the cloud pool accept a VM while the platform pool refuses one?',
      'The ownership boundary is not enforced. Do not expose the API to users.'),
+    ('windows_devices', probe_windows_devices,
+     'Can the scoped token create a Windows 11 VM with UEFI, a TPM 2.0 and q35?',
+     'The portal cannot offer Windows guests; relax the role or change the design in docs/operations/windows.md.'),
     ('console_auth', probe_console_auth,
      'Does vncwebsocket accept an API token?',
      'Give cloudapi@pve a password and use ticket auth, as roles/pve_users already does.'),

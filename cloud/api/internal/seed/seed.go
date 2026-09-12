@@ -12,6 +12,7 @@ package seed
 import (
 	"crypto/rand"
 	"fmt"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -25,6 +26,14 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+// GuestOS names the guest's operating system. Empty and "linux" are the same;
+// cloud-init and cloudbase-init read the seed, but cloudbase-init on Windows
+// only understands the older network config v1.
+const (
+	OSLinux   = "linux"
+	OSWindows = "windows"
+)
+
 // Label is the volume ID cloud-init's NoCloud source looks for.
 const Label = "CIDATA"
 
@@ -35,7 +44,10 @@ type Config struct {
 	Address     netip.Prefix
 	Gateway     netip.Addr
 	Nameservers []netip.Addr
-	UserData    string
+	// GuestOS is "" or "linux" for a cloud-init guest, and "windows" for a
+	// cloudbase-init guest, which reads network config v1 instead of v2.
+	GuestOS  string
+	UserData string
 	// PublicKeys go into meta-data, not user-data. user-data is whatever the
 	// caller wrote — it may be a shell script rather than cloud-config — so
 	// merging keys into it would mean rewriting someone else's document.
@@ -75,6 +87,9 @@ func (c Config) metaData() ([]byte, error) {
 }
 
 func (c Config) networkConfig() ([]byte, error) {
+	if c.GuestOS == OSWindows {
+		return c.networkConfigV1()
+	}
 	type route struct {
 		To  string `yaml:"to"`
 		Via string `yaml:"via"`
@@ -85,10 +100,7 @@ func (c Config) networkConfig() ([]byte, error) {
 		Routes      []route             `yaml:"routes"`
 		Nameservers map[string][]string `yaml:"nameservers"`
 	}
-	servers := make([]string, 0, len(c.Nameservers))
-	for _, server := range c.Nameservers {
-		servers = append(servers, server.String())
-	}
+	servers := c.dnsStrings()
 	return yaml.Marshal(map[string]any{
 		"version": 2,
 		"ethernets": map[string]ethernet{
@@ -101,6 +113,36 @@ func (c Config) networkConfig() ([]byte, error) {
 			},
 		},
 	})
+}
+
+// networkConfigV1 is the only static network format cloudbase-init's NoCloud
+// service implements. It is emitted only for Windows; Linux keeps v2.
+func (c Config) networkConfigV1() ([]byte, error) {
+	netmask := net.IPMask(net.CIDRMask(c.Address.Bits(), c.Address.Addr().BitLen()))
+	subnet := map[string]any{
+		"type":    "static",
+		"address": c.Address.Addr().String(),
+		"netmask": net.IP(netmask).String(),
+		"gateway": c.Gateway.String(),
+	}
+	config := []any{map[string]any{
+		"type":        "physical",
+		"name":        "eth0",
+		"mac_address": strings.ToLower(c.MACAddress),
+		"subnets":     []any{subnet},
+	}}
+	if servers := c.dnsStrings(); len(servers) > 0 {
+		config = append(config, map[string]any{"type": "nameserver", "address": servers})
+	}
+	return yaml.Marshal(map[string]any{"version": 1, "config": config})
+}
+
+func (c Config) dnsStrings() []string {
+	servers := make([]string, 0, len(c.Nameservers))
+	for _, server := range c.Nameservers {
+		servers = append(servers, server.String())
+	}
+	return servers
 }
 
 // Files returns the seed's contents by file name.

@@ -826,7 +826,14 @@ sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud
 
 各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（`storage-s3`）や別ディスクへの外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
 
-### 3-19. データベース（CloudNativePG）
+### 3-19. Windows 11 Pro のゲスト
+
+イメージに `os: windows` を宣言すると、API はそのイメージから **UEFI（OVMF）・TPM 2.0・q35** の VM を作り、初回設定を **cloudbase-init の NoCloud**（network config v1）へ渡します。ポータルではイメージ選択時に SSH鍵の欄が消え、初回はコンソールでセットアップする案内が出ます。ディスク・NIC・seed ISO の形は Linux と同じで、イメージ側に virtio ドライバと cloudbase-init が必要です。
+
+管理者が Proxmox の `local:iso` に置いたファイルは、**自動で `GET /v1/isos` へ「共有」として出ます**（宣言不要。読み取り専用ACL `CloudApiSharedISO`＝`Datastore.Audit` だけで、複製もしません）。ポータルからアップロードしたISOは `cloud-images` に入り、同じ一覧に並びます。どちらも全員共有で、アップロードしたものは誰でも削除できます。イメージを使わず、**ISOをインストールメディアとして起動する経路**もあります。`POST /v1/isos` で `.iso` をアップロード（`os: windows` でWindows 11のハードウェア）、`RunInstances` に `install_iso_id`（と任意の `driver_iso_id`）を渡すと、空のルートディスク＋CD-ROMで起動し、コンソールでインストールします。ポータルの「ISO」画面と作成方法「ISOからインストール」がこの経路です。ISOは使用中インスタンスがあると削除できません。
+
+Windows のインストールメディアとプロダクトキーは自動取得できないため、**メディアの用意だけが人の手作業**です。ISO方式の使い方と、ゴールデンイメージを共有イメージにする方式は [Windows 11 ProのVMを作る](windows.md) にあります。
+### 3-20. データベース（CloudNativePG）
 
 管理クラウドの「DBアプライアンス」です。`POST /v1/databases` が Kubernetes の `databases` namespace に CloudNativePG の `Cluster` を1つ作ります。実体と配置は [Kubernetes クラスタ](kubernetes.md) を参照。
 
@@ -848,8 +855,9 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-...
 - 接続先は `db-<id>-rw.databases.svc:5432`。アプリの資格情報は `/credentials` で取ります（クラウド側には保存しません）。
 - Kubernetes を操作するトークンは Flux が作る ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）。正本は `platform/sops/k8s.sops.yaml` で、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。
 - 実機確認（2026-09-12）: POST で `db-...` が作られ、`Setting up primary` → `Cluster in healthy state` に遷移、`/credentials` が app の資格情報を返し、DELETE で Cluster も消えることを確認しました。
+- **ポータル**の「データベース」画面から、作成・一覧・接続情報の表示・削除ができます。
 
-### 3-20. 関数（Knative）
+### 3-21. 関数（Knative）
 
 管理クラウドの「サーバレス実行」です。`POST /v1/functions` が Kubernetes の `functions` namespace に Knative Service を1つ作ります。実体と配置は [Kubernetes クラスタ](kubernetes.md) を参照。
 
@@ -866,9 +874,10 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/functions/fn-...
 ```
 
 - 1アカウント **10個**まで。名前は 2〜30 文字の小文字英数字とハイフン（先頭は英字）。
-- 呼び出し URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。**DNS はまだ未登録**なので、現状は Host ヘッダで Kourier の LB IP に投げて確認します。使わないときは 0 レプリカまで縮退します。
+- 呼び出し URL は `<name>.functions.k8s.apextox.dpdns.org`（関数は `functions` namespace に作られます）。**HTTPS で叩けます。** Knative の `config-network.external-domain-tls` と `config-certmanager`（`issuerRef: letsencrypt-dns`）が、**namespace ごとにワイルドカード証明書 `*.functions.k8s.apextox.dpdns.org` を1枚だけ**発行します（DNS-01、関数が何個でも証明書は1枚）。使わないときは 0 レプリカまで縮退します。
 - Kubernetes を操作するトークンは database と同じ ServiceAccount `databases/cloud-api`（`functions` namespace の Knative Service だけ触れる）。
 - 実機確認（2026-09-12）: POST で `fn-...` が作られ、`Provisioning` → `Ready`（URL 発行）に遷移、Kourier 経由で `Hello World!` が返り、DELETE で Service も消えることを確認しました。
+- **ポータル**の「関数」画面から、作成・一覧・削除ができます。
 
 ## 4. 実機プローブ
 

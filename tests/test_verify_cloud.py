@@ -271,6 +271,38 @@ class VMFirewallTests(unittest.TestCase):
         self.assertIn('informational only', result.detail)
 
 
+class WindowsDevicesTests(unittest.TestCase):
+    """Windows 11 needs UEFI, a TPM 2.0 and q35 from a pool-scoped token."""
+
+    def test_a_created_windows_vm_passes_and_is_removed(self):
+        result = probe('windows_devices')
+        api = FakeApi([FakeResponse(200, 'UPID:create'),
+                       FakeResponse(200, {'ostype': 'win11', 'bios': 'ovmf', 'machine': 'pc-q35-11.0',
+                                          'efidisk0': 'x', 'tpmstate0': 'y'}),
+                       FakeResponse(200, 'UPID:delete')])
+        verify.probe_windows_devices(api, SITE, result)
+        self.assertTrue(result.passed, result.detail)
+        self.assertEqual(api.calls[-1][0], 'DELETE')
+
+    def test_a_missing_tpm_is_a_failure(self):
+        # The device is easy to forget and then Windows 11 refuses to install.
+        result = probe('windows_devices')
+        api = FakeApi([FakeResponse(200, 'UPID:create'),
+                       FakeResponse(200, {'ostype': 'win11', 'bios': 'ovmf', 'machine': 'pc-q35-11.0',
+                                          'efidisk0': 'x'}),
+                       FakeResponse(200, 'UPID:delete')])
+        verify.probe_windows_devices(api, SITE, result)
+        self.assertFalse(result.passed)
+        self.assertIn('tpmstate0', result.detail)
+
+    def test_a_refused_create_is_a_failure(self):
+        result = probe('windows_devices')
+        api = FakeApi([FakeResponse(403)])
+        verify.probe_windows_devices(api, SITE, result)
+        self.assertFalse(result.passed)
+        self.assertIn('403', result.detail)
+
+
 class RunnerTests(unittest.TestCase):
     def test_a_raising_probe_fails_instead_of_stopping_the_run(self):
         # One unreachable endpoint must not hide the other three answers.

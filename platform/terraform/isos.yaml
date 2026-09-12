@@ -1,0 +1,11 @@
+---
+# 共有ISOの上書き宣言（任意）。
+#
+# 通常はここに何も書かなくてよい。
+#   - ポータルからアップロードしたISOは、そのまま全員共有で一覧に出る。
+#   - Proxmox の admin_images（site.yaml の storage.admin_images）に置いた
+#     ISO も、自動で「共有」として一覧に出る（複製なし・読み取り専用）。
+#
+# ここに書くのは、Proxmox に置いたファイルへ表示名や os（windows など）を
+# 付けたいときだけ。volume は admin_images のストレージでなければならない。
+isos: {}
