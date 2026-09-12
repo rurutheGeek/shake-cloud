@@ -491,7 +491,7 @@
     const osCell = document.createElement('td');
     osCell.textContent = iso.os === 'windows' ? 'Windows 11' : 'Linux';
     const actions = document.createElement('td');
-    if (iso.account_id === viewerAccountId || isAdmin) {
+    if (!iso.public && (iso.account_id === viewerAccountId || isAdmin)) {
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = '削除';
@@ -510,7 +510,7 @@
       });
       actions.append(button);
     }
-    row.append(cell(iso.name), osCell, cell(iso.owner_username || iso.account_id || '—'),
+    row.append(cell(iso.name), osCell, cell(iso.public ? '共有' : (iso.owner_username || iso.account_id || '—')),
       cell(iso.size_mib ? mib(iso.size_mib) : '—'), cell(when(iso.created_at)), actions);
     return row;
   }

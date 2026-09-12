@@ -28,6 +28,7 @@ def render(directory):
     pools = load(directory, 'pools.yaml')
     network = load(directory, 'network.yaml')
     images = load(directory, 'images.yaml')
+    isos = load(directory, 'isos.yaml')
     flavors = load(directory, 'flavors.yaml')
     cloud = load(directory, 'cloud.yaml')
 
@@ -58,6 +59,22 @@ def render(directory):
     if not shared:
         raise SystemExit('no image in images.yaml has shared_with_cloud: true; '
                          'the cloud API cannot create disks from images it cannot read')
+
+    # Shared ISOs the administrator already placed in the admin image store.
+    # The file is not copied: the API attaches this exact volume as a CD-ROM.
+    admin_store = site['storage']['admin_images']
+    shared_isos = {}
+    for name, iso in isos.get('isos', {}).items():
+        volume = iso['volume']
+        if not volume.startswith(f'{admin_store}:'):
+            raise SystemExit(f'ISO {name} is on {volume!r}, but shared ISOs must live '
+                             f'in the admin image store {admin_store!r}')
+        entry = {'name': iso['name'], 'volume': volume}
+        if iso.get('os'):
+            if iso['os'] not in ('linux', 'windows'):
+                raise SystemExit(f'ISO {name} has unknown os {iso["os"]!r}; use linux or windows')
+            entry['os'] = iso['os']
+        shared_isos[f'iso-{name}'] = entry
 
     # The holder VM must live where the cloud API's own ACLs reach, and must not
     # be a VMID the allocator already treats as reserved for something else.
@@ -92,6 +109,7 @@ def render(directory):
             'bridge_vlan_aware': site['network']['bridge_vlan_aware'],
         },
         'images': shared,
+        'shared_isos': shared_isos,
         'instance_types': {name: {'cpu_cores': flavor['cpu_cores'],
                                   'memory_mib': flavor['memory_mib'],
                                   'memory_min_mib': flavor['memory_min_mib']}

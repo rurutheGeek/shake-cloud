@@ -595,11 +595,11 @@ paths:
                   description: 'Launch by copying this image to the root disk. Give either image_id or install_iso_id, not both.'
                 install_iso_id:
                   type: string
-                  pattern: '^iso-[0-9a-f]{17}$'
+                  pattern: '^iso-[a-z0-9-]+$'
                   description: 'Install instead of launch: the VM boots this ISO with an empty root disk. Give either image_id or install_iso_id, not both.'
                 driver_iso_id:
                   type: string
-                  pattern: '^iso-[0-9a-f]{17}$'
+                  pattern: '^iso-[a-z0-9-]+$'
                   description: 'Optional second CD-ROM, e.g. the virtio-win driver disc, attached when install_iso_id is used.'
                 guest_os:
                   type: string
@@ -1457,7 +1457,7 @@ components:
       name: iso_id
       in: path
       required: true
-      schema: {type: string, pattern: '^iso-[0-9a-f]{17}$'}
+      schema: {type: string, pattern: '^iso-[a-z0-9-]+$'}
     VolumeID:
       name: volume_id
       in: path
@@ -1653,14 +1653,15 @@ components:
         image: {$ref: '#/components/schemas/Image'}
     ISO:
       type: object
-      required: [iso_id, name, created_at]
+      required: [iso_id, name]
       properties:
-        iso_id: {type: string, pattern: '^iso-[0-9a-f]{17}$'}
+        iso_id: {type: string, pattern: '^iso-[a-z0-9-]+$'}
         name: {type: string}
         os: {type: string, enum: ['', linux, windows], description: 'windows for a Windows installer, empty for a Linux one.'}
-        account_id: {type: string}
+        public: {type: boolean, description: 'True for the administrator''s shared ISOs, which everyone may install from and nobody may delete through the API.'}
+        account_id: {type: string, description: 'The uploader; absent for shared ISOs.'}
         owner_username: {type: string}
-        size_mib: {type: integer}
+        size_mib: {type: integer, description: 'Absent for shared ISOs, whose size the API does not measure.'}
         created_at: {type: string, format: date-time}
     ISOEnvelope:
       type: object

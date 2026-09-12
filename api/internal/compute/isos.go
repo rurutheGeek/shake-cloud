@@ -20,10 +20,16 @@ import (
 // ISO is installation media. Unlike an Image it is never copied to the root
 // disk; the worker attaches it as a CD-ROM.
 type ISO struct {
-	ID            string
-	Name          string
-	Volume        string
-	OS            string
+	ID   string
+	Name string
+	// Volume is the Proxmox volume the CD-ROM points at. A shared ISO keeps
+	// the administrator's volume as-is; an uploaded one lives in the cloud's
+	// own store.
+	Volume string
+	OS     string
+	// Public marks an ISO the administrator declared in Terraform. Everyone
+	// may install from it, nobody may delete it through the API.
+	Public        bool
 	AccountID     string
 	OwnerUsername string
 	SizeBytes     int64
@@ -46,6 +52,9 @@ func isoOf(i db.ISO) ISO {
 
 // ResolveISO finds an ISO by ID.
 func (s *Service) ResolveISO(ctx context.Context, q db.Querier, isoID string) (ISO, error) {
+	if shared, ok := s.Site.SharedISOs[isoID]; ok {
+		return ISO{ID: isoID, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true}, nil
+	}
 	if q == nil {
 		q = s.Pool
 	}
@@ -60,13 +69,17 @@ func (s *Service) ResolveISO(ctx context.Context, q db.Querier, isoID string) (I
 	return isoOf(stored), nil
 }
 
-// ISOs lists every account's installation media, newest first, as images do.
+// ISOs lists the administrator's shared ISOs and every account's uploaded
+// ones, newest first, as images do.
 func (s *Service) ISOs(ctx context.Context) ([]ISO, error) {
 	stored, err := db.ListISOs(ctx, s.Pool)
 	if err != nil {
 		return nil, err
 	}
-	isos := make([]ISO, 0, len(stored))
+	isos := make([]ISO, 0, len(s.Site.SharedISOs)+len(stored))
+	for id, shared := range s.Site.SharedISOs {
+		isos = append(isos, ISO{ID: id, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true})
+	}
 	for _, i := range stored {
 		isos = append(isos, isoOf(i))
 	}
@@ -168,6 +181,10 @@ func (s *Service) ImportISO(ctx context.Context, accountID, name, guestOS, fileN
 // DeleteISO removes an uploaded ISO. authorize decides whether the caller may.
 func (s *Service) DeleteISO(ctx context.Context, isoID string, authorize func(db.ISO) bool,
 	audit func(db.ISO) error) error {
+	if _, shared := s.Site.SharedISOs[isoID]; shared {
+		return refuse(http.StatusConflict, "InvalidParameterValue",
+			"%s is a shared ISO declared in Terraform, not through the API", isoID)
+	}
 	iso, err := db.GetISO(ctx, s.Pool, isoID)
 	if errors.Is(err, db.ErrNotFound) {
 		return refuse(http.StatusNotFound, "InvalidISOID.NotFound", "ISO %s does not exist", isoID)
