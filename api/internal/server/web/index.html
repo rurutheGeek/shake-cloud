@@ -425,6 +425,19 @@
       <p class="muted small">コンソールへの貼り付けはWindows側が対応しておらず使えないことがあります。短いコマンドを入力してください。</p>
     </details>
     <details>
+      <summary>リモートデスクトップ（RDP）で入れるようにする（Windows 11 Pro）</summary>
+      <p class="muted small">RDPの「ホスト」側は Windows 11 <strong>Pro</strong> だけです（Home不可）。</p>
+      <ol>
+        <li>Windowsで「設定」→「システム」→「リモートデスクトップ」を<strong>オン</strong>（または <code>sysdm.cpl</code> → リモート → リモートデスクトップを有効にする）。</li>
+        <li>管理者PowerShellでも可:<br>
+          <code>Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0</code><br>
+          <code>Enable-NetFirewallRule -DisplayGroup "リモート デスクトップ"</code></li>
+        <li>接続するアカウントに<strong>パスワード</strong>を設定します（パスワード無しは拒否されます）。</li>
+        <li>ポータルで、このVMのセキュリティグループに <strong>TCP 3389（送信元は自分のLAN、例 192.168.10.0/24）</strong>の受信ルールを追加します（既定グループは全許可なので、絞っていなければ不要）。</li>
+        <li>手元のPCから <code>mstsc /v:192.168.10.100</code>（一覧の割り当てIP）で接続します。</li>
+      </ol>
+    </details>
+    <details>
       <summary>OEMのWindows 11ライセンスをこのPVEへ持ち込む（管理者）</summary>
       <p>GMKtec K11 など、このPVEホストにOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（<strong>同一の物理機内のみ</strong>。1ライセンス1台）。</p>
       <ol>
