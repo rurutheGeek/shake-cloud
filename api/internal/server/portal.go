@@ -46,6 +46,13 @@ func (s *Server) portal(w http.ResponseWriter, r *http.Request) {
 	renderHTML(w, http.StatusOK, "index.html", data)
 }
 
+// helpPage is the portal's help, kept as its own page so the working screen
+// stays uncluttered and the help is reachable from the navigation. The route
+// table hands every handler a *call, so this one accepts and ignores it.
+func (s *Server) helpPage(w http.ResponseWriter, r *http.Request, _ *call) {
+	renderHTML(w, http.StatusOK, "help.html", nil)
+}
+
 // loginPage explains a failed login to a person; the login endpoints are
 // reached by browser navigation, so JSON would be unreadable there.
 func loginPage(w http.ResponseWriter, status int, message string) {

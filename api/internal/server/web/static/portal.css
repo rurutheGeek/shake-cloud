@@ -52,12 +52,10 @@ button.danger, .button.danger { color: var(--danger); border-color: var(--danger
 #navigation a { color: var(--accent); text-decoration: none; padding: 0.15rem 0.25rem; border-radius: 4px; }
 #navigation a:hover, #navigation a:focus { text-decoration: underline; }
 #navigation a.help-link { font-weight: 600; }
-#help-view details { margin: 0.5rem 0; }
-#help-view summary { cursor: pointer; font-weight: 600; }
-#help-view ol { margin: 0.4rem 0 0.4rem 1.4rem; }
-#help-view li { margin: 0.2rem 0; }
-#windows-help { margin: 0.5rem 0; }
-#windows-help summary { cursor: pointer; font-weight: 600; }
+.help section { max-width: 52rem; }
+.help ol { margin: 0.4rem 0 0.4rem 1.4rem; }
+.help li { margin: 0.3rem 0; }
+.help h2 { margin-top: 1.5rem; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 0 0 1rem; }
 .form-message { flex-basis: 100%; margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; }
 .form-message.error { border-color: var(--danger); color: var(--danger); }
