@@ -855,6 +855,7 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-...
 - 接続先は `db-<id>-rw.databases.svc:5432`。アプリの資格情報は `/credentials` で取ります（クラウド側には保存しません）。
 - Kubernetes を操作するトークンは Flux が作る ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）。正本は `platform/sops/k8s.sops.yaml` で、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。
 - 実機確認（2026-09-12）: POST で `db-...` が作られ、`Setting up primary` → `Cluster in healthy state` に遷移、`/credentials` が app の資格情報を返し、DELETE で Cluster も消えることを確認しました。
+- **ポータル**の「データベース」画面から、作成・一覧・接続情報の表示・削除ができます。
 
 ### 3-21. 関数（Knative）
 
@@ -876,6 +877,7 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/functions/fn-...
 - 呼び出し URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。**DNS はまだ未登録**なので、現状は Host ヘッダで Kourier の LB IP に投げて確認します。使わないときは 0 レプリカまで縮退します。
 - Kubernetes を操作するトークンは database と同じ ServiceAccount `databases/cloud-api`（`functions` namespace の Knative Service だけ触れる）。
 - 実機確認（2026-09-12）: POST で `fn-...` が作られ、`Provisioning` → `Ready`（URL 発行）に遷移、Kourier 経由で `Hello World!` が返り、DELETE で Service も消えることを確認しました。
+- **ポータル**の「関数」画面から、作成・一覧・削除ができます。
 
 ## 4. 実機プローブ
 
