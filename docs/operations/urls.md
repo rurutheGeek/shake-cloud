@@ -9,7 +9,7 @@
 | サービス | URL | 中身 | 誰が使う |
 | --- | --- | --- | --- |
 | クラウド | <https://cloud.apextox.dpdns.org> | ポータルと API（cloud-01。API の `:8080` は 127.0.0.1） | `users` / `admins` |
-| クラウドAPI | `/v1/...`（上と同じホスト） | JSON API。[OpenAPI](../../cloud/openapi/shakecloud.yaml) が正本 | CLI・Terraform・アプリ |
+| クラウドAPI | `/v1/...`（上と同じホスト） | JSON API。正本は `cloud/openapi/shakecloud.yaml` | CLI・Terraform・アプリ |
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（identity VM。`:9000`・`:9443` は 127.0.0.1） | 全員 |
 | 招待リンク | `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` | 招待登録（1回限り・24時間） | 招待された人 |
 | AWX | <https://awx.apextox.dpdns.org> | Ansible 実行基盤（Kubernetes・Let's Encrypt） | 管理者 |
