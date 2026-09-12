@@ -60,6 +60,7 @@ provider "shakecloud" {
 | `shakecloud_security_group_rule` | `aws_security_group_rule` | 受信/送信ルールを1つずつ |
 | `shakecloud_key_pair` | `aws_key_pair` | SSH公開鍵の登録 |
 | `shakecloud_image` | `aws_ami`（自作） | ローカルのディスクイメージをアップロード。`.qcow2`/`.raw`/`.img`/`.vmdk`、既定12GiBまで |
+| `shakecloud_database` | `aws_db_instance` | PostgreSQL（CloudNativePG）。`name`・`storage_gib` で作る。資格情報は state に置かない |
 | `shakecloud_bucket` | `aws_s3_bucket` | S3バケット（Garage）。オブジェクト本体はAPIを通らない |
 
 データソース:
@@ -120,6 +121,11 @@ resource "shakecloud_bucket" "photos" {
   bucket_name = "photos"
 }
 
+resource "shakecloud_database" "shop" {
+  name        = "shop"
+  storage_gib = 5
+}
+
 # 自分のディスクイメージを上げて、そこから起動する。
 resource "shakecloud_image" "custom" {
   name = "custom-debian"
@@ -139,6 +145,8 @@ resource "shakecloud_instance" "from_custom" {
 
 **S3キーは Provider で作りません。** 作成時にだけ秘密値が返り、それを state に置くと漏れるためです。鍵はポータルか `shakecloud s3-key create` で発行し、バケットへの権限もそちらで付けます（`shakecloud bucket allow`）。Terraform はバケットそのものと、その `s3_endpoint`・`s3_region` を持ちます。
 
+**データベースの資格情報も Provider で扱いません。** CloudNativePG が作る Kubernetes Secret にあり、`shakecloud database credentials` かポータルで読みます。Terraform は `database_id`・`host`・`port`・`status` などだけを持ちます。
+
 ## 5. 実装の約束
 
 - **Create/Read/Update/Delete/Import を備えます。** `terraform import shakecloud_instance.dev i-...` のように取り込めます。`shakecloud_security_group_rule` だけは `GROUP_ID/RULE_ID` の形で取り込みます。`user_data` や `image.file` のような**作成時だけの入力は API から読めない**ので、import 後の plan では作り直しになります。
@@ -157,3 +165,5 @@ cd cloud/provider && go vet ./... && go test ./...
 実機での確認（2026-09-11）: dev override で `terraform apply` し、`shakecloud_key_pair`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_volume`・`shakecloud_bucket` を作成、`data.shakecloud_caller_identity` を読み、再 plan が **No changes**、SG と バケットを `terraform import` して再 plan も **No changes**、最後に `terraform destroy` で残骸なし、を確認しました。
 
 実機での確認（2026-09-12）: `shakecloud_image` を dev override で `apply` し、`img-...`（`format=raw`・`size_mib=1`・`state=available`）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
+
+実機での確認（2026-09-12）: `shakecloud_database` を apply し、`db-...`（CloudNativePG Cluster）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
