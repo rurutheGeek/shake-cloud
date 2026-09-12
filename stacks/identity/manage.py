@@ -103,8 +103,15 @@ def lock(refresh=False):
 
 
 def configure():
+    values = settings()
+    # The administrator's recovery address is the SMTP sender unless ADMIN_EMAIL
+    # overrides it. `Name <addr>` is unwrapped so the API gets a bare address.
+    sender = values.get('ADMIN_EMAIL') or values.get('SMTP_FROM', '')
+    if '<' in sender and '>' in sender:
+        sender = sender[sender.index('<') + 1:sender.index('>')]
     env = dict(os.environ, AUTHENTIK_TOKEN=secret('bootstrap_token'),
-               CLOUD_PORTAL_URL=settings().get('CLOUD_PORTAL_URL', ''))
+               CLOUD_PORTAL_URL=values.get('CLOUD_PORTAL_URL', ''),
+               CLOUD_ADMIN_EMAIL=sender.strip())
     run([sys.executable, str(ROOT / 'configure.py')], env=env)
     # Invitation-only enrollment is part of the identity service. The cloud API
     # and portal do not manage it; the identity administrator does.

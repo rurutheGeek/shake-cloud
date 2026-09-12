@@ -221,7 +221,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 | 項目 | 現状 | 決めるときの材料 |
 | --- | --- | --- |
-| パスキー | 2026-09-10 に `akadmin` が登録した。予備の認証器と、失くしたときの復旧方法は未決 | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。予備の認証器と復旧方法を先に決める。[ネットワーク・SSO](../architecture/network-auth.md) |
+| パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用 | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。予備の認証器と復旧方法を先に決める。[ネットワーク・SSO](../architecture/network-auth.md) |
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
 | public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
