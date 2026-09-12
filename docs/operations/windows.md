@@ -27,7 +27,10 @@ Linux の cloud image は `images.yaml` の URL から自動取得しますが�
 - `virtio-win.iso`（<https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso>）
 - `cloudbase-init` のインストーラー。**`cloudbase.it` は応答しないことがあるので GitHub Releases から取る**（<https://github.com/cloudbase/cloudbase-init/releases>。x64 の `CloudbaseInitSetup_<版>_x64.msi`）。ドキュメントは <https://cloudbase-init.readthedocs.io/>
 
-Proxmox の `local` ストレージへ ISO を置きます（Web UI か `qm` でアップロード）。
+Windows 11 と virtio-win の ISO は Proxmox の `local` ストレージへ置きます（Web UI: ノード → `local` → ISO Images → Upload、または `qm`/SCP）。**MSI は `local` に置けません（content=iso のみ）。** MSI は次のどちらかでゲストへ渡します。
+
+1. MSI を入れた小さな ISO を作って `local` へ上げ、CD-ROM として追加する（例: `cloudbase-init-1.1.8.iso`）
+2. Windows のセットアップ中に Shift+F10 → PowerShell で取得する（`iwr <URL> -OutFile C:\cloudbase-init.msi`）
 
 ### 2. ビルド用 VM を作ってインストールする
 
@@ -43,6 +46,7 @@ qm create 9001 --name win11-golden --memory 8192 --cores 4 --cpu host \
   --net0 virtio,bridge=vmbr0 \
   --ide2 local:iso/Win11.iso,media=cdrom \
   --ide3 local:iso/virtio-win.iso,media=cdrom \
+  --ide0 local:iso/cloudbase-init-1.1.8.iso,media=cdrom \
   --ostype win11 --boot order=scsi0
 qm start 9001
 ```
@@ -125,3 +129,4 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | 同じ IP が二重に付く | イメージ側に固定 IP が残っている | sysprep 前に DHCP へ戻す |
 | `import-from` が失敗する | `cloud-images` にファイルが無い/名前違い | `file_name` と `/srv/cloud-images/import/` の名前を一致させる |
 | `www.cloudbase.it` がタイムアウトして MSI を取れない | 配布元サイトが到達不能（2026-09-12 実測） | GitHub Releases（<https://github.com/cloudbase/cloudbase-init/releases>）から `CloudbaseInitSetup_<版>_x64.msi` を取得する |
+| MSI を Proxmox の `local` へアップロードできない | `local` は `content=iso` のみで、MSI は ISO ではない | MSI 入りの ISO を作って CD で渡すか、Windows 内から取得する |
