@@ -98,9 +98,9 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
-| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。ノード準備済み（containerd 2.3.5 / kubeadm・kubelet 1.36.4）。クラスタ本体は次のスライス |
-| 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。ノード準備済み |
-| 211 | k8s-worker-02 | 192.168.10.208 | Kubernetes worker（予備） | **停止のまま**作成。`tools/k8s up --all` で起動する |
+| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。**Ready**。kubeadm 1.36.4、Cilium 1.20.1 |
+| 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。**Ready**。join 済み |
+| 211 | k8s-worker-02 | 192.168.10.208 | Kubernetes worker（予備） | **停止のまま**。`tools/k8s up --all` で起動し `--limit k8s-worker-02` で join |
 | 400 / 401 | dev-a / dev-b | .202 / .203 | 開発VM。dev-b が自動化の実行ホスト | 稼働 |
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 稼働 |
 | 5997 | shakecloud-volumes | — | ボリュームのホルダー（デタッチしたディスクの待機先）。起動しない | 停止。API が初回のボリューム作成時に作る |
@@ -212,7 +212,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | 6 | **CLI と Terraform Provider を実装・実機確認（2026-09-11）。** CLI（`cloud/client`・`cloud/cli`）は identity・capacity・limits・events・instance・volume・sg・image・key・access-key を操作。Provider（`cloud/provider`、`terraform-plugin-framework`）は `shakecloud_instance`・`shakecloud_volume`・`shakecloud_volume_attachment`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_key_pair` と `shakecloud_caller_identity`。実機で apply/plan‑no‑changes/import/destroy を確認。[CLI](cli.md)・[Provider](terraform-provider.md) |
 | ✅ | 7 | **Garage を storage-s3 VM（VMID 130、.206）へ単一ノードで構築し、バケット・S3キーを扱うクラウドAPIを実装（2026-09-11）。** データは専用32GiBディスク。API の `POST /v1/buckets`・`POST /v1/s3-keys`・権限の付与/剥奪で Garage の管理API v2 を操作する。CLI に `bucket`・`s3-key`、**Terraform Provider に `shakecloud_bucket`、ポータルに「S3バケット」画面**（作成・キー権限・S3キー発行）を追加。**実クライアント（awscli）で、APIが発行した鍵を使い PUT/LIST/GET/削除まで確認**。Garage 自体は [garage.md](garage.md)、APIは [cloud.md 3-16](cloud.md#3-16) |
 | 🟨 | 8 | **切替の宣言・安全装置・手順書を用意（2026-09-11）。** `network.yaml` の `vlan`、`10-platform` がそこから管理VLANを読む形、`managed-host` と `site.Validate` の「bridge が vlan-aware でないのに vlan_id を設定したら止める」precondition、API が作るVMへのタグ付け、[vlan.md](vlan.md) の段階手順とロールバック。**実機切替は物理スイッチ/ルータと Proxmox bridge の作業待ち** |
-| 🟨 | K8s | **スライス①（宣言・VM作成・ノード準備）を実装（2026-09-12）。** `hosts.yaml` に k8s-cp-01/worker-01/worker-02 を宣言し `10-platform` で作成（worker-02 は停止）。`k8s_node` ロールで containerd 2.3.5・kubeadm/kubelet 1.36.4・swap無効・sysctl を導入。`tools/k8s up\|down` で起動/停止。**クラスタ本体（kubeadm init/join・Cilium）は次のスライス** | [kubernetes.md](kubernetes.md) |
+| 🟨 | K8s | **スライス①（宣言・VM作成・ノード準備）とスライス②（`kubeadm init`/join・Cilium 1.20.1）を実機で確認（2026-09-12）。** k8s-cp-01 と worker-01 が **Ready**、Cilium が kube-proxy を置換、Pod間通信と NetworkPolicy を確認。worker-02 は停止のまま（`--limit` で後から join）。`tools/k8s up\|down` で起動/停止。**次は storage（local-path）・MetalLB・cert-manager・Flux/SOPS** | [kubernetes.md](kubernetes.md) |
 
 各 Phase の詳しい中身と完了条件は[最小クラウドとProvider](../architecture/cloud.md)にあります。
 

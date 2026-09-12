@@ -1,0 +1,20 @@
+---
+# worker をクラスタへ参加させる。既に参加済みなら何もしない。
+- name: Check whether this node already joined
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: k8s_kubelet_conf
+
+- name: Assert the control plane published a join command
+  ansible.builtin.assert:
+    that:
+      - hostvars[groups['k8s_cp'][0]]['k8s_join_command'] is defined
+      - hostvars[groups['k8s_cp'][0]]['k8s_join_command'] | length > 0
+    quiet: true
+  when: not k8s_kubelet_conf.stat.exists
+
+- name: Join the cluster
+  ansible.builtin.command:
+    argv: "{{ hostvars[groups['k8s_cp'][0]]['k8s_join_command'].split() }}"
+  when: not k8s_kubelet_conf.stat.exists
+  changed_when: true

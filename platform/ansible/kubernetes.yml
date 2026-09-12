@@ -1,11 +1,31 @@
 ---
-# Kubernetes ノードを準備する（クラスタ作成の前段。kubeadm は次のスライス）。
-#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
-#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-#        -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml'
+# Kubernetes クラスタを用意する。
+#   1. ノード準備（swap・カーネル・containerd・kubeadm）
+#   2. control plane で kubeadm init と Cilium 導入
+#   3. worker を join
+#
+# 停止中の worker（k8s-worker-02）は到達できないので --limit で外す:
+#   ... kubernetes.yml --limit k8s-cp-01,k8s-worker-01
+# 起動後にそのホストだけ流し直す:
+#   ... kubernetes.yml --limit k8s-worker-02
 - name: Prepare the Kubernetes nodes
   hosts: k8s_cp:k8s_worker
   become: true
+  vars_files: [k8s-vars.yml]
   roles:
     - common
     - k8s_node
+
+- name: Create the cluster on the control plane
+  hosts: k8s_cp
+  become: true
+  vars_files: [k8s-vars.yml]
+  roles:
+    - k8s_control_plane
+
+- name: Join the workers
+  hosts: k8s_worker
+  become: true
+  vars_files: [k8s-vars.yml]
+  roles:
+    - k8s_join

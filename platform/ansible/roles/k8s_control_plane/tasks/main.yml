@@ -1,0 +1,117 @@
+---
+# control plane を作る。既に init 済みなら飛ばし、join 用トークンと Cilium だけ
+# 揃える（再実行しても壊れない）。
+#
+# kube-proxy は入れない。Cilium が Service を担う（cilium-values.yaml.j2 と対）。
+- name: Look for an existing cluster
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: k8s_admin_conf
+
+- name: Render the kubeadm configuration
+  ansible.builtin.template:
+    src: kubeadm-init.yaml.j2
+    dest: /etc/kubeadm-init.yaml
+    mode: '0600'
+  when: not k8s_admin_conf.stat.exists
+
+- name: Initialize the cluster
+  ansible.builtin.command:
+    argv: [kubeadm, init, --config, /etc/kubeadm-init.yaml, --skip-phases=addon/kube-proxy]
+  register: k8s_init
+  when: not k8s_admin_conf.stat.exists
+
+- name: Create the kubeconfig directory for the login user
+  ansible.builtin.file:
+    path: /home/{{ ansible_user }}/.kube
+    state: directory
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    mode: '0700'
+
+- name: Install the kubeconfig for the login user
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/{{ ansible_user }}/.kube/config
+    remote_src: true
+    owner: '{{ ansible_user }}'
+    group: '{{ ansible_user }}'
+    mode: '0600'
+
+# 新しいトークンを毎回作る。join 側は未参加のときだけ使うので、
+# 何度流しても古いトークンが残って問題になることはない。
+- name: Create a bootstrap token and print the join command
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: k8s_token
+  changed_when: false
+
+- name: Publish the join command to the worker play
+  ansible.builtin.set_fact:
+    k8s_join_command: '{{ k8s_token.stdout }}'
+
+# --- Cilium（CNI）。kube-proxy を置き換える。 -------------------------------
+- name: Download Helm
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz"
+    dest: "/tmp/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz"
+    mode: '0644'
+
+- name: Download the Helm checksum
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz.sha256sum"
+    dest: "/tmp/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz.sha256sum"
+    mode: '0644'
+
+- name: Verify the Helm archive
+  ansible.builtin.command:
+    argv: [sha256sum, --check, "/tmp/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz.sha256sum"]
+    chdir: /tmp
+  changed_when: false
+
+- name: Extract Helm
+  ansible.builtin.unarchive:
+    src: "/tmp/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: '/tmp/linux-amd64/helm'
+
+- name: Install the Helm binary
+  ansible.builtin.copy:
+    src: /tmp/linux-amd64/helm
+    dest: /usr/local/bin/helm
+    remote_src: true
+    mode: '0755'
+
+- name: Add the Cilium Helm repository
+  ansible.builtin.command: helm repo add cilium https://helm.cilium.io/
+  register: k8s_cilium_repo
+  changed_when: "'already exists' not in k8s_cilium_repo.stdout"
+  failed_when: k8s_cilium_repo.rc != 0 and 'already exists' not in k8s_cilium_repo.stdout
+
+- name: Render the Cilium values
+  ansible.builtin.template:
+    src: cilium-values.yaml.j2
+    dest: /root/cilium-values.yaml
+    mode: '0600'
+
+- name: Install or upgrade Cilium
+  ansible.builtin.command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - cilium
+      - cilium/cilium
+      - --version
+      - '{{ k8s_cilium_version }}'
+      - --namespace
+      - kube-system
+      - --values
+      - /root/cilium-values.yaml
+      - --wait
+      - --timeout
+      - 10m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_cilium
+  changed_when: "'STATUS: deployed' in k8s_cilium.stdout"

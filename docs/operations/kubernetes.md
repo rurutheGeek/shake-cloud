@@ -1,6 +1,6 @@
 # Kubernetes クラスタ
 
-更新日: 2026-09-12。状態: **スライス①（宣言・VM作成・ノード準備）を実機で確認済み**。クラスタ本体（`kubeadm init`/join、Cilium）は次のスライス。
+更新日: 2026-09-12。状態: **スライス②（`kubeadm init`/join と Cilium）を実機で確認済み**。2ノードが Ready で、Pod間通信と NetworkPolicy が効いています。次は storage・MetalLB・cert-manager・Flux/SOPS。
 
 ## 何に使うか
 
@@ -10,13 +10,14 @@
 
 ## 版と CIDR
 
-版は `platform/ansible/roles/k8s_node/defaults/main.yml` が唯一の出所です。
+版は `platform/ansible/k8s-vars.yml` が唯一の出所です。
 
 | 項目 | 値 | 理由 |
 | --- | --- | --- |
 | Kubernetes | **1.36.4** | Cilium 1.20 が e2e で保証するのは 1.36 まで（1.37 は未対応） |
 | containerd | **2.3.5**（LTS） | Kubernetes 1.36 が対応。Docker の apt から版指定で入れる |
-| Cilium | 1.20.1（次のスライス） | kube-proxy 置換で使う予定 |
+| Cilium | **1.20.1** | **kube-proxy を置き換える**（Service も Cilium が担う） |
+| Helm | 3.22.0 | Cilium 導入に使う。cp に版指定＋SHA256 検証で入れる |
 | Pod CIDR | `10.244.0.0/16` | LAN `192.168.10.0/24`・クラウド用と重ならない |
 | Service CIDR | `10.96.0.0/12` | 同上 |
 
@@ -24,33 +25,42 @@
 
 ## ノード
 
-| VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 起動 |
+| VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | 常時 |
-| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | 常時 |
-| 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま作成**。RAM が要るときに起動 |
+| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | Ready（control-plane taint あり） |
+| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | Ready |
+| 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
 
-宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。
+宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せず（taint を外さない）、worker に載せます。
 
-## 準備（このスライスでやること）
+## 準備とクラスタ作成
 
 ```bash
+# VM（初回だけ）
 tools/tf 10-platform apply
+
+# ノード準備 → cp で init+Cilium → worker join
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-     -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml'
+     -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml \
+     --limit k8s-cp-01,k8s-worker-01'
 ```
 
-`k8s_node` ロールがやること:
+playbook は3段です。どれも再実行できます。
 
-- swap を止め、`/etc/fstab` から外す
-- `overlay`・`br_netfilter` を読み込み、`net.ipv4.ip_forward` などを設定
-- containerd を版指定で入れて `SystemdCgroup = true`、hold
-- `kubeadm`／`kubelet`／`kubectl` を版指定で入れて hold
+1. **`k8s_node`**（全ノード）: swap 無効・`overlay`/`br_netfilter`・sysctl・containerd 2.3.5・`kubeadm`/`kubelet`/`kubectl` 1.36.4。
+2. **`k8s_control_plane`**（cp）: `/etc/kubeadm-init.yaml` で `kubeadm init`（**`--skip-phases=addon/kube-proxy`**、Pod/Service CIDR を指定）。かぶらないよう kube-proxy は置きません。Helm を入れ、**Cilium 1.20.1 を kube-proxy 置換で**導入します（`kubeProxyReplacement: true`、`k8sServiceHost` は cp の IP、IPAM は kubernetes）。kubeconfig は `debian` の `~/.kube/config` に置きます。
+3. **`k8s_join`**（worker）: 未参加（`/etc/kubernetes/kubelet.conf` が無い）ときだけ join。
 
-この時点では **まだクラスタではありません**。`kubelet` は設定待ちで止まっています。`kubectl get nodes` ができるのは次のスライス（`kubeadm init`/join）以降です。
+停止中の worker-02 は到達できないので `--limit` で外します。起動後に `--limit k8s-worker-02` で流せば参加します。
 
-実機確認（2026-09-12）: `tools/tf 10-platform` で3台を作成後、`kubernetes.yml` を cp-01 と worker-01 へ流し、`kubeadm`／`kubelet` が **v1.36.4**、`containerd` が **2.3.5** で active、`qemu-guest-agent` active、`net.ipv4.ip_forward=1`・`net.bridge.bridge-nf-call-iptables=1`、swap 無効、apt hold 済みを確認しました。worker-02 は停止中なので未適用です（起動後に `--limit k8s-worker-02` で流します）。
+### 確認
+
+```bash
+ssh debian@192.168.10.207 'kubectl get nodes'
+```
+
+実機確認（2026-09-12）: 2ノードが **Ready**、`cilium status` が **OK**。テスト用の client→server で **ClusterIP 通信が 200**、`default-deny` の NetworkPolicy で **遮断（000）**、client からの allow で **200** に戻ることを確認しました（テスト namespace は削除済み）。cp には control-plane の taint を残しているので Pod は worker-01 に載ります。
 
 ## 起動と停止
 
@@ -60,13 +70,13 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 tools/k8s status     # 各VMの状態
 tools/k8s up         # cp → worker の順に起動
 tools/k8s down       # worker → cp の順に停止
+tools/k8s up --all   # worker-02 も含めて起動
 ```
 
 RAM が足りないときは `k8s-worker-02` を起動し、使わないときは落としておきます。
 
 ## 次のスライス
 
-1. `kubeadm init`（cp）と `kubeadm join`（worker）
-2. Cilium を入れ、node Ready・Pod間通信・NetworkPolicy を確認
-3. local-path PVC・MetalLB・cert-manager・Flux/SOPS
-4. AWX、CloudNativePG、Knative
+1. 永続ストレージ（local-path PVC）・MetalLB の IP 範囲・cert-manager・Flux/SOPS
+2. AWX
+3. CloudNativePG（`database`）・Knative（`function`）

@@ -1,0 +1,11 @@
+# Cilium の値。cp 上でテンプレートから生成する。
+# kube-proxy を置かず、Cilium が Service を担う。kubeadm init を
+# --skip-phases=addon/kube-proxy で実行するのと対になっている。
+cluster:
+  name: shakecloud
+kubeProxyReplacement: true
+k8sServiceHost: {{ k8s_control_plane_address }}
+k8sServicePort: 6443
+# Pod の CIDR は kube-controller-manager が配る（kubeadm の podSubnet）。
+ipam:
+  mode: kubernetes
