@@ -1,6 +1,6 @@
 # shakecloud Terraform Provider
 
-更新日: 2026-09-11。状態: **実装済み・実機で確認済み**（`cloud/provider`、SDKは `terraform-plugin-framework`）。
+更新日: 2026-09-12。状態: **実装済み・実機で確認済み**（`cloud/provider`、SDKは `terraform-plugin-framework`）。
 
 **自作クラウドAPIを Terraform から扱う Provider です。** 語彙と状態遷移は EC2 に揃えていますが、**ワイヤ互換ではありません**（SigV4 でも本物の `hashicorp/aws` でもありません）。`aws_instance` を書ける人がそのまま書けることを狙っています。
 
@@ -59,6 +59,7 @@ provider "shakecloud" {
 | `shakecloud_security_group` | `aws_security_group` | ルールの入れ物 |
 | `shakecloud_security_group_rule` | `aws_security_group_rule` | 受信/送信ルールを1つずつ |
 | `shakecloud_key_pair` | `aws_key_pair` | SSH公開鍵の登録 |
+| `shakecloud_image` | `aws_ami`（自作） | ローカルのディスクイメージをアップロード。`.qcow2`/`.raw`/`.img`/`.vmdk`、既定12GiBまで |
 | `shakecloud_bucket` | `aws_s3_bucket` | S3バケット（Garage）。オブジェクト本体はAPIを通らない |
 
 データソース:
@@ -118,6 +119,20 @@ resource "shakecloud_volume_attachment" "data" {
 resource "shakecloud_bucket" "photos" {
   bucket_name = "photos"
 }
+
+# 自分のディスクイメージを上げて、そこから起動する。
+resource "shakecloud_image" "custom" {
+  name = "custom-debian"
+  file = "images/custom.qcow2"   # .qcow2/.raw/.img/.vmdk、既定12GiBまで
+}
+
+resource "shakecloud_instance" "from_custom" {
+  image_id         = shakecloud_image.custom.id
+  instance_type    = "small"
+  key_name         = shakecloud_key_pair.me.key_name
+  security_group_ids = [shakecloud_security_group.ssh.id]
+  tags             = { Name = "from-custom" }
+}
 ```
 
 `shakecloud_instance` の作成と削除は、ワーカーが終わるまで**待ちます**。`terraform apply` が終わった時点で `running`（または `terminated`）です。
@@ -126,10 +141,11 @@ resource "shakecloud_bucket" "photos" {
 
 ## 5. 実装の約束
 
-- **Create/Read/Update/Delete/Import を備えます。** `terraform import shakecloud_instance.dev i-...` のように取り込めます。`shakecloud_security_group_rule` だけは `GROUP_ID/RULE_ID` の形で取り込みます。
+- **Create/Read/Update/Delete/Import を備えます。** `terraform import shakecloud_instance.dev i-...` のように取り込めます。`shakecloud_security_group_rule` だけは `GROUP_ID/RULE_ID` の形で取り込みます。`user_data` や `image.file` のような**作成時だけの入力は API から読めない**ので、import 後の plan では作り直しになります。
 - **非同期を待ちます。** 作成・削除・アタッチはAPIのワーカーが後で行うので、Providerが状態を確認してから返します。
 - **権限エラーを「削除済み」と誤認しません。** 403 はそのままエラーにし、404 のときだけ state から外します。
 - **タグに更新APIはありません。** `tags` を変えるとリソースは作り直されます（`RequiresReplace`）。同じく `name` 相当は `tags.Name` です（`aws_instance` と同じ）。
+- **イメージのファイルは作成時に送ります。** `file` はローカルのパスで、`name` と同じく変えると作り直しです（`RequiresReplace`）。アップロード済みのイメージだけを管理し、Terraform の `images.yaml` で宣言した共有イメージは API から削除できません（409。`import` で読むことはできます）。
 - ルールは差分適用ではなく**入れ替え**です。APIが1つずつ追加・削除する形なので、`shakecloud_security_group_rule` を1ルール1リソースにしています。
 
 ## 6. 確認のしかた
@@ -139,3 +155,5 @@ cd cloud/provider && go vet ./... && go test ./...
 ```
 
 実機での確認（2026-09-11）: dev override で `terraform apply` し、`shakecloud_key_pair`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_volume`・`shakecloud_bucket` を作成、`data.shakecloud_caller_identity` を読み、再 plan が **No changes**、SG と バケットを `terraform import` して再 plan も **No changes**、最後に `terraform destroy` で残骸なし、を確認しました。
+
+実機での確認（2026-09-12）: `shakecloud_image` を dev override で `apply` し、`img-...`（`format=raw`・`size_mib=1`・`state=available`）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
