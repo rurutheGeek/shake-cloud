@@ -39,6 +39,7 @@ nav:
       - Garage（S3互換ストレージ）: operations/garage.md
       - VLAN 分離への切替: operations/vlan.md
       - Kubernetes クラスタ: operations/kubernetes.md
+      - 電源とUPS: operations/power.md
       - Flux にアプリを足す: operations/flux-apps.md
       - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md

@@ -17,6 +17,7 @@
 | S3 互換ストレージを使う | [Garage（S3互換ストレージ）](operations/garage.md) |
 | Windows の VM を作る | [Windows 11 ProのVMを作る](operations/windows.md) |
 | VLAN 分離へ切り替える | [VLAN 分離への切替](operations/vlan.md) |
+| 電源を安全に切る・UPS を入れる | [電源とUPS](operations/power.md) |
 
 ## メディア系（旧スタック）
 
