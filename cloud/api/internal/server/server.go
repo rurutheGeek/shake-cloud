@@ -126,6 +126,10 @@ func routes() []route {
 		{"GET", "/v1/databases/{database_id}", "DescribeDatabase", anyCredential, (*Server).describeDatabase},
 		{"DELETE", "/v1/databases/{database_id}", "DeleteDatabase", anyCredential, (*Server).deleteDatabase},
 		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, (*Server).getDatabaseCredentials},
+		{"GET", "/v1/functions", "DescribeFunctions", anyCredential, (*Server).describeFunctions},
+		{"POST", "/v1/functions", "CreateFunction", anyCredential, (*Server).createFunction},
+		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, (*Server).describeFunction},
+		{"DELETE", "/v1/functions/{function_id}", "DeleteFunction", anyCredential, (*Server).deleteFunction},
 	}
 }
 

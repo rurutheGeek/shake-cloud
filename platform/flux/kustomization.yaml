@@ -14,3 +14,4 @@ resources:
   - apps/knative-namespaces.yaml
   - apps/knative.yaml
   - apps/knative-serving.yaml
+  - apps/functions-rbac.yaml

@@ -22,6 +22,7 @@ import (
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/garage"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/knative"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/server"
@@ -86,17 +87,23 @@ func run(log *slog.Logger) error {
 			log.Warn("object storage disabled: no Garage settings")
 		}
 		if cfg.KubernetesConfigured() {
-			k8s, err := cnpg.New(cfg.K8sURL, cfg.K8sCA, cfg.K8sToken)
+			databases, err := cnpg.New(cfg.K8sURL, cfg.K8sCA, cfg.K8sToken)
 			if err != nil {
 				return err
 			}
-			service.Databases = k8s
-			// All appliances live in one namespace, on the worker's data disk.
+			service.Databases = databases
 			service.DatabaseNamespace = "databases"
 			service.DatabaseStorageClass = "local-path"
-			log.Info("databases enabled", "api_url", cfg.K8sURL, "namespace", service.DatabaseNamespace)
+			functions, err := knative.New(cfg.K8sURL, cfg.K8sCA, cfg.K8sToken)
+			if err != nil {
+				return err
+			}
+			service.Functions = functions
+			service.FunctionNamespace = "functions"
+			log.Info("kubernetes enabled", "api_url", cfg.K8sURL,
+				"databases", service.DatabaseNamespace, "functions", service.FunctionNamespace)
 		} else {
-			log.Warn("databases disabled: no Kubernetes settings")
+			log.Warn("databases and functions disabled: no Kubernetes settings")
 		}
 		srv.Compute = service
 		go service.RunWorker(ctx)

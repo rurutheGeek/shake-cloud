@@ -1,0 +1,31 @@
+# クラウドAPI（cloud-01 の Compose）が Knative Service を作るための最小権限。
+# 同じ ServiceAccount（databases/cloud-api）を使い回し、functions namespace の
+# Knative Service だけ触れる。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: functions
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cloud-api
+  namespace: functions
+rules:
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloud-api
+  namespace: functions
+subjects:
+  - kind: ServiceAccount
+    name: cloud-api
+    namespace: databases
+roleRef:
+  kind: Role
+  name: cloud-api
+  apiGroup: rbac.authorization.k8s.io

@@ -114,6 +114,11 @@ type Service struct {
 	// DatabaseNamespace and DatabaseStorageClass say where a new cluster goes.
 	DatabaseNamespace    string
 	DatabaseStorageClass string
+	// Functions is the Kubernetes API for Knative Services. Nil when this
+	// deployment has no Kubernetes connection, and the function endpoints 503.
+	Functions FunctionStore
+	// FunctionNamespace is where a new Knative Service goes.
+	FunctionNamespace string
 	// MaxAttempts is how often a launch or power action is tried before it is
 	// abandoned. Terminates are retried until they succeed: giving up would
 	// leak a VM, an address or an ISO.
