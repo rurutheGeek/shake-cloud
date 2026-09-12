@@ -24,3 +24,11 @@ spec:
   sourceRef:
     kind: GitRepository
     name: knative-operator
+  # 上流の config/default は ko:// のままなので、release の実イメージへ差し替える。
+  images:
+    - name: ko://knative.dev/operator/cmd/operator
+      newName: gcr.io/knative-releases/knative.dev/operator/cmd/operator
+      digest: sha256:2ebbd50df4792fef5c10c067779e2e99545722c2a04fd034747258b57f415c44
+    - name: ko://knative.dev/operator/cmd/webhook
+      newName: gcr.io/knative-releases/knative.dev/operator/cmd/webhook
+      digest: sha256:4b88bee02a5d97e4f0993707020ba6e2f24f4ccd762a308ccf774cfc9834c6b1
