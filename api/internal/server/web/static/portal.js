@@ -1188,6 +1188,218 @@
     }
   });
 
+  // Buckets and S3 keys.
+  let lastS3Keys = [];
+
+  function bucketKeyList(bucket, canManage) {
+    const wrap = document.createElement('div');
+    if (!bucket.keys || bucket.keys.length === 0) {
+      const none = document.createElement('span');
+      none.className = 'muted small';
+      none.textContent = '許可されたキーはありません';
+      wrap.append(none);
+      return wrap;
+    }
+    for (const key of bucket.keys) {
+      const line = document.createElement('div');
+      line.className = 'small';
+      const perms = (key.read ? 'R' : '') + (key.write ? 'W' : '') + (key.owner ? 'O' : '');
+      const label = document.createElement('span');
+      label.textContent = `${key.key_name || key.key_id}（${perms}）`;
+      line.append(label);
+      if (canManage) {
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.textContent = '剥奪';
+        revoke.addEventListener('click', async () => {
+          try {
+            $('error').hidden = true;
+            await api('DELETE', `/v1/buckets/${encodeURIComponent(bucket.bucket_name)}/keys/${encodeURIComponent(key.key_id)}`);
+            await loadBuckets();
+          } catch (error) {
+            showError(error);
+          }
+        });
+        line.append(revoke);
+      }
+      wrap.append(line);
+    }
+    return wrap;
+  }
+
+  function bucketAllowForm(bucket) {
+    const form = document.createElement('form');
+    form.className = 'inline';
+    const select = document.createElement('select');
+    select.name = 'key_id';
+    for (const key of lastS3Keys) {
+      select.append(option(key.key_id, key.name || key.key_id));
+    }
+    const label = (text) => {
+      const wrapper = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = text;
+      input.checked = text === 'owner';
+      wrapper.append(input, text);
+      return wrapper;
+    };
+    const button = document.createElement('button');
+    button.type = 'submit';
+    button.textContent = '許可';
+    form.append(select, label('read'), label('write'), label('owner'), button);
+    form.addEventListener('submit', async (submit) => {
+      submit.preventDefault();
+      const data = new FormData(form);
+      try {
+        $('error').hidden = true;
+        await api('PUT', `/v1/buckets/${encodeURIComponent(bucket.bucket_name)}/keys/${encodeURIComponent(data.get('key_id'))}`, {
+          read: data.get('read') === 'on',
+          write: data.get('write') === 'on',
+          owner: data.get('owner') === 'on',
+        });
+        await loadBuckets();
+      } catch (error) {
+        showError(error);
+      }
+    });
+    return form;
+  }
+
+  function bucketCard(bucket, viewerAccountId, isAdmin) {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    const title = document.createElement('strong');
+    title.textContent = bucket.bucket_name;
+    head.append(title);
+    const owner = document.createElement('span');
+    owner.className = 'muted';
+    owner.textContent = bucket.owner_username || bucket.account_id;
+    head.append(owner);
+    const stats = document.createElement('span');
+    stats.className = 'muted';
+    stats.textContent = `${bucket.objects} objects / ${bucket.bytes} bytes`;
+    head.append(stats);
+    card.append(head);
+
+    const endpoint = document.createElement('p');
+    endpoint.className = 'muted small';
+    endpoint.textContent = `S3エンドポイント ${bucket.s3_endpoint}（region ${bucket.s3_region}）`;
+    card.append(endpoint);
+
+    const canManage = bucket.account_id === viewerAccountId || isAdmin;
+    card.append(bucketKeyList(bucket, canManage));
+    if (canManage) {
+      if (lastS3Keys.length > 0) card.append(bucketAllowForm(bucket));
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = 'バケットを削除';
+      del.addEventListener('click', async () => {
+        if (!confirm(`バケット「${bucket.bucket_name}」を削除します。中身が残っていると失敗します。`)) return;
+        try {
+          $('error').hidden = true;
+          await api('DELETE', `/v1/buckets/${encodeURIComponent(bucket.bucket_name)}`);
+          await loadBuckets();
+        } catch (error) {
+          showError(error);
+        }
+      });
+      card.append(del);
+    }
+    return card;
+  }
+
+  async function loadBuckets() {
+    const wrap = $('buckets-wrap');
+    if (!wrap) return;
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const [{ buckets }, { s3_keys: keys }] = await Promise.all([
+        api('GET', '/v1/buckets'),
+        api('GET', '/v1/s3-keys'),
+      ]);
+      lastS3Keys = keys;
+      $('buckets').replaceChildren(...buckets.map((bucket) => bucketCard(bucket, viewerAccountId, isAdmin)));
+    } catch (error) {
+      $('buckets').replaceChildren(note(error.message));
+    }
+  }
+
+  async function loadS3Keys() {
+    const tbody = $('s3-keys');
+    if (!tbody) return;
+    try {
+      const { s3_keys: keys } = await api('GET', '/v1/s3-keys');
+      lastS3Keys = keys;
+      tbody.replaceChildren(...keys.map((key) => {
+        const row = document.createElement('tr');
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.textContent = '削除';
+        del.addEventListener('click', async () => {
+          if (!confirm(`S3キー「${key.name}」を削除します。このキーに与えた権限も消えます。`)) return;
+          try {
+            $('error').hidden = true;
+            await api('DELETE', `/v1/s3-keys/${encodeURIComponent(key.key_id)}`);
+            await Promise.all([loadS3Keys(), loadBuckets()]);
+          } catch (error) {
+            showError(error);
+          }
+        });
+        const actions = document.createElement('td');
+        actions.append(del);
+        row.append(cell(key.key_id), cell(key.name), cell(when(key.created_at)), actions);
+        return row;
+      }));
+    } catch (error) {
+      tbody.replaceChildren(note(error.message));
+    }
+  }
+
+  const createBucketForm = $('create-bucket');
+  if (createBucketForm) {
+    createBucketForm.addEventListener('submit', async (submit) => {
+      submit.preventDefault();
+      const data = new FormData(createBucketForm);
+      try {
+        $('error').hidden = true;
+        await api('POST', '/v1/buckets', { bucket_name: data.get('bucket_name') });
+        createBucketForm.reset();
+        await loadBuckets();
+      } catch (error) {
+        showError(error);
+      }
+    });
+  }
+
+  const createS3KeyForm = $('create-s3-key');
+  if (createS3KeyForm) {
+    createS3KeyForm.addEventListener('submit', async (submit) => {
+      submit.preventDefault();
+      const data = new FormData(createS3KeyForm);
+      try {
+        $('error').hidden = true;
+        const { s3_key: key } = await api('POST', '/v1/s3-keys', { name: data.get('name') });
+        createS3KeyForm.reset();
+        if (key.secret_access_key) {
+          $('new-s3-secret-value').textContent = `${key.key_id}\n${key.secret_access_key}`;
+          $('new-s3-secret').hidden = false;
+        }
+        await Promise.all([loadS3Keys(), loadBuckets()]);
+      } catch (error) {
+        showError(error);
+      }
+    });
+  }
+
+  $('dismiss-s3-secret').addEventListener('click', () => {
+    $('new-s3-secret-value').textContent = '';
+    $('new-s3-secret').hidden = true;
+  });
+
   // GET /v1/limits is readable by every caller (only PUT is admin-only), so
   // the create-volume form's min/max come from here even for non-admins. The
   // form itself (below) only exists in the DOM for admins.
@@ -1245,7 +1457,7 @@
 
   const refresh = () => Promise.all([
     loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances(), loadImages(), loadKeyPairs(),
-    loadVolumes(), loadSecurityGroups(),
+    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(),
   ]);
 
   $('create-key').addEventListener('submit', async (submit) => {

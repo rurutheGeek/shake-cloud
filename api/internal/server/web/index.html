@@ -165,6 +165,34 @@
     </div>
   </section>
   <section>
+    <h2>S3バケット</h2>
+    <p class="muted">オブジェクトはAPIを通りません。下に表示されるエンドポイントへ、発行したS3キーで直接接続します（S3署名で認証）。</p>
+    <form id="create-bucket">
+      <label>名前 <input name="bucket_name" required minlength="3" maxlength="63" placeholder="例: photos"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="buckets-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="buckets"></div>
+    </div>
+    <h3>S3キー</h3>
+    <p class="muted">鍵の秘密値は発行時に一度だけ表示されます。APIは保存しません。</p>
+    <form id="create-s3-key">
+      <label>名前 <input name="name" required maxlength="64" placeholder="例: laptop"></label>
+      <button type="submit">発行</button>
+    </form>
+    <div id="new-s3-secret" class="notice" hidden>
+      <p><strong>この値は今しか表示されません。</strong>閉じる前に安全な場所へ保存してください。</p>
+      <pre id="new-s3-secret-value"></pre>
+      <button id="dismiss-s3-secret" type="button">保存したので閉じる</button>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>キーID</th><th>名前</th><th>作成</th><th></th></tr></thead>
+        <tbody id="s3-keys"></tbody>
+      </table>
+    </div>
+  </section>
+  <section>
     <h2>イメージ</h2>
     <p class="muted">qcow2 / raw のディスクイメージを受け付けます。Proxmox が中身を検証するので、壊れたファイルは弾かれます。</p>
     <form id="upload-image">
