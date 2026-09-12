@@ -154,6 +154,42 @@
   loop_control:
     label: '{{ item.key }}'
 
+# Kubernetes（database 機能）。ServiceAccount cloud-api の CA とトークンを写す。
+- name: Read the Kubernetes credentials
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ cloud_api_k8s_sops_file }}']
+  register: cloud_api_k8s
+  changed_when: false
+  no_log: true
+
+- name: Install the Kubernetes CA
+  ansible.builtin.copy:
+    content: '{{ (cloud_api_k8s.stdout | from_json).K8S_CA_BASE64 | b64decode }}'
+    dest: '{{ cloud_api_project_dir }}/secrets/k8s_ca'
+    mode: '0444'
+  register: cloud_api_k8s_ca
+  no_log: true
+
+- name: Install the Kubernetes token
+  ansible.builtin.copy:
+    content: '{{ (cloud_api_k8s.stdout | from_json).K8S_TOKEN }}'
+    dest: '{{ cloud_api_project_dir }}/secrets/k8s_token'
+    mode: '0444'
+  register: cloud_api_k8s_token
+  no_log: true
+
+- name: Converge the Kubernetes API URL
+  ansible.builtin.lineinfile:
+    path: '{{ cloud_api_project_dir }}/.env'
+    regexp: '^K8S_URL='
+    line: 'K8S_URL={{ (cloud_api_k8s.stdout | from_json).K8S_API_URL }}'
+    mode: '0600'
+  register: cloud_api_k8s_url
+  no_log: true
+
 # 配備先の事実と上限。platform/terraform の宣言から作るので、API 側に写しを持たない。
 - name: Render the site file
   delegate_to: localhost
@@ -193,7 +229,7 @@
     argv: [docker, compose, --env-file, .env, -f, compose.yaml, -f, compose.lock.yaml,
            up, -d, --no-deps, --force-recreate, --wait, --wait-timeout, '120', api]
     chdir: '{{ cloud_api_project_dir }}'
-  when: cloud_api_oidc_installed is changed or cloud_api_tokens is changed or cloud_api_site_installed is changed
+  when: cloud_api_oidc_installed is changed or cloud_api_tokens is changed or cloud_api_site_installed is changed or cloud_api_k8s_ca is changed or cloud_api_k8s_token is changed
   changed_when: true
 
 - name: Check the API answers

@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/cnpg"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
@@ -83,6 +84,19 @@ func run(log *slog.Logger) error {
 			log.Info("object storage enabled", "admin_url", cfg.GarageAdminURL, "s3_endpoint", cfg.GarageS3Endpoint)
 		} else {
 			log.Warn("object storage disabled: no Garage settings")
+		}
+		if cfg.KubernetesConfigured() {
+			k8s, err := cnpg.New(cfg.K8sURL, cfg.K8sCA, cfg.K8sToken)
+			if err != nil {
+				return err
+			}
+			service.Databases = k8s
+			// All appliances live in one namespace, on the worker's data disk.
+			service.DatabaseNamespace = "databases"
+			service.DatabaseStorageClass = "local-path"
+			log.Info("databases enabled", "api_url", cfg.K8sURL, "namespace", service.DatabaseNamespace)
+		} else {
+			log.Warn("databases disabled: no Kubernetes settings")
 		}
 		srv.Compute = service
 		go service.RunWorker(ctx)

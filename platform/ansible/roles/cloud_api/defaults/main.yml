@@ -20,6 +20,8 @@ cloud_api_oidc_credentials_path: /opt/identity-stack/secrets/oidc-cloud.json
 # インスタンス（Phase 2）。Proxmox と NetBox の資格情報は SOPS が正本で、
 # 配備のたびに復号して cloud-01 の secrets/ へ写す。
 cloud_api_cloudapi_sops_file: '{{ playbook_dir }}/../sops/cloudapi.sops.yaml'
+# database 機能。databases namespace の ServiceAccount cloud-api の CA とトークン。
+cloud_api_k8s_sops_file: '{{ playbook_dir }}/../sops/k8s.sops.yaml'
 # API が読む配備先の事実と上限。platform/terraform の宣言から生成する。
 cloud_api_render_site: '{{ playbook_dir }}/../../cloud/render_site.py'
 cloud_api_terraform_dir: '{{ playbook_dir }}/../terraform'
