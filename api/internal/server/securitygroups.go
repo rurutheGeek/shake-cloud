@@ -13,7 +13,7 @@ import (
 
 // Security groups. Unlike instances and volumes they are private to their
 // account: a group's rules say where a VM is open, which is the owner's
-// business. cloud-admins see and may change every account's.
+// business. admins see and may change every account's.
 
 type ruleBody struct {
 	RuleID      string `json:"rule_id"`

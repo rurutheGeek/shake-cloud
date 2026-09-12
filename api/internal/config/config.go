@@ -98,8 +98,8 @@ func Load(getenv func(string) string) (Config, error) {
 		Listen:      withDefault(getenv("SHAKECLOUD_LISTEN"), ":8080"),
 		DatabaseURL: required("SHAKECLOUD_DATABASE_URL"),
 		OIDCIssuer:  required("SHAKECLOUD_OIDC_ISSUER"),
-		UserGroup:   withDefault(getenv("SHAKECLOUD_USER_GROUP"), "cloud-users"),
-		AdminGroup:  withDefault(getenv("SHAKECLOUD_ADMIN_GROUP"), "cloud-admins"),
+		UserGroup:   withDefault(getenv("SHAKECLOUD_USER_GROUP"), "users"),
+		AdminGroup:  withDefault(getenv("SHAKECLOUD_ADMIN_GROUP"), "admins"),
 		SessionTTL:  12 * time.Hour,
 	}
 

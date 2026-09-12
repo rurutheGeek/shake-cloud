@@ -56,7 +56,7 @@ func (g globals) capacity(args []string) error {
 	printUsage("  cloud", capacity.Cloud)
 	printUsage("  yours", capacity.Account)
 	if len(capacity.Accounts) > 0 {
-		fmt.Println("by account (cloud-admins only):")
+		fmt.Println("by account (admins only):")
 		w := table()
 		fmt.Fprintln(w, "  ACCOUNT\tUSERNAME\tINSTANCES\tVCPUS\tMEMORY_MIB\tROOT_DISK_GIB\tVOLUMES\tVOLUME_GIB")
 		for _, usage := range capacity.Accounts {
