@@ -1,0 +1,20 @@
+---
+# Kubernetes の版・CIDR・導入ツール。**ここが唯一の出所。**
+# ノード準備・クラスタ作成・Cilium の値がここを読む。上げる前に
+# Cilium の対応表（docs/operations/kubernetes.md）を確認すること。
+k8s_version: "1.36.4"
+k8s_package_revision: "1.1"
+k8s_minor: "1.36"
+k8s_containerd_package: "containerd.io=2.3.5-1~debian.13~trixie"
+k8s_keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+k8s_prerequisite_packages: [ca-certificates, curl, gnupg, conntrack, socat, e2fsprogs]
+
+# Pod / Service の CIDR。LAN(192.168.10.0/24) と重ならないこと。
+k8s_pod_cidr: "10.244.0.0/16"
+k8s_service_cidr: "10.96.0.0/12"
+
+# CNI と、その導入に使う Helm。Cilium は kube-proxy を置き換える
+# （kubeadm init を --skip-phases=addon/kube-proxy で実行する）。
+k8s_cilium_version: "1.20.1"
+k8s_helm_version: "3.22.0"
+k8s_helm_sha256: "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb"

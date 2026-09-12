@@ -6,16 +6,22 @@ import datetime
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parent
 BOOTSTRAP_KEY = 'bootstrap_admin_key'
+# A finished backup is a directory named with its UTC stamp, e.g.
+# 20260912T024107123456Z. `.incomplete` staging directories are not backups.
+BACKUP_STAMP = re.compile(r'^\d{8}T\d{12}Z$')
 # Written by the cloud_api Ansible role from the identity VM, never generated here.
 OIDC_CREDENTIALS = 'oidc_credentials'
 # The postgres user in the official alpine image.
 POSTGRES_UID = 70
+# The nonroot user in the distroless base image the API runs as (api/Dockerfile).
+API_UID = 65532
 
 
 def run(args, **kwargs):
@@ -76,6 +82,19 @@ def init():
         # must belong to that user; the entrypoint only fixes the leaf.
         os.chown(path, POSTGRES_UID, POSTGRES_UID)
         changed = True
+
+    # Where an uploaded image waits while it is handed to Proxmox. It has to be
+    # real disk: the node refuses a body of unknown length, so the API writes
+    # the upload down to learn its size, and an image does not fit in RAM. The
+    # API runs as the distroless nonroot user, so the mount must belong to it.
+    uploads = storage() / 'uploads'
+    if not uploads.exists():
+        uploads.mkdir(parents=True, mode=0o750)
+        changed = True
+    if uploads.stat().st_uid != API_UID:
+        os.chown(uploads, API_UID, API_UID)
+        changed = True
+
     directory = ROOT / 'secrets'
     directory.mkdir(exist_ok=True, mode=0o700)
     directory.chmod(0o700)
@@ -149,7 +168,22 @@ def disable_bootstrap_key():
     print('CHANGED: bootstrap key disabled')
 
 
-def backup(destination):
+def complete_backups(destination):
+    """Finished backups, oldest first. A crash mid-dump leaves a `.incomplete`
+    staging directory, which must not count as a backup to keep or to prune."""
+    return sorted(path for path in destination.iterdir()
+                  if path.is_dir() and BACKUP_STAMP.fullmatch(path.name))
+
+
+def expired_backups(destination, keep):
+    """The finished backups older than the newest `keep`. keep <= 0 keeps all."""
+    if keep <= 0:
+        return []
+    complete = complete_backups(destination)
+    return complete[:-keep] if len(complete) > keep else []
+
+
+def backup(destination, keep=0):
     """pg_dump runs against the live database, so the API stays up."""
     destination = Path(destination).resolve()
     if destination == storage() or storage() in destination.parents:
@@ -165,6 +199,10 @@ def backup(destination):
     run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
          'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'secrets', 'manage.py'])
     target.rename(target.with_suffix(''))
+    # Prune only after a finished backup exists, so a failed run never deletes
+    # the only good copy.
+    for old in expired_backups(destination, keep):
+        shutil.rmtree(old)
     print(f'Cloud backup complete: {target.with_suffix("")}')
 
 
@@ -174,6 +212,8 @@ def main():
                                            'rotate-bootstrap-key', 'disable-bootstrap-key'])
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
+    parser.add_argument('--keep', type=int, default=0,
+                        help='keep this many finished backups and delete older ones (0 = keep all)')
     args = parser.parse_args()
     if args.action == 'init':
         init()
@@ -184,7 +224,7 @@ def main():
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'backup':
-        backup(args.destination)
+        backup(args.destination, args.keep)
     elif args.action == 'rotate-bootstrap-key':
         rotate_bootstrap_key()
     else:

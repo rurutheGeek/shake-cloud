@@ -20,6 +20,7 @@ import (
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/garage"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/server"
@@ -74,6 +75,15 @@ func run(log *slog.Logger) error {
 			proxmox.New(cfg.ProxmoxURL, cfg.ProxmoxToken, deployment.Node, cfg.ProxmoxInsecure),
 			netbox.New(cfg.NetBoxURL, cfg.NetBoxToken),
 			deployment, log, cfg.WorkDir)
+		service.UploadDir = cfg.UploadDir
+		if cfg.StorageConfigured() {
+			service.Garage = garage.New(cfg.GarageAdminURL, cfg.GarageAdminToken)
+			service.S3Endpoint = cfg.GarageS3Endpoint
+			service.S3Region = cfg.GarageS3Region
+			log.Info("object storage enabled", "admin_url", cfg.GarageAdminURL, "s3_endpoint", cfg.GarageS3Endpoint)
+		} else {
+			log.Warn("object storage disabled: no Garage settings")
+		}
 		srv.Compute = service
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)

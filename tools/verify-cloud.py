@@ -181,10 +181,206 @@ def probe_console_auth(api, site, probe):
                                'the console needs ticket authentication')
 
 
+def ensure_vm_in_cloud_pool(api, site, vmid):
+    """Create vmid in the cloud pool unless it already exists.
+
+    volume_reassign and vm_firewall each need one or two throwaway VMs, and
+    must work when run alone (`--probe volume_reassign`) as well as after
+    pool_boundary, which already creates PROBE_VMID but only *tries* to
+    create PROBE_VMID-1 (in the platform pool, where it is refused). Checking
+    first makes both call patterns safe to repeat.
+    """
+    node = site['node_name']
+    response = api.call('GET', f'/nodes/{node}/qemu/{vmid}/config')
+    if response.status_code == 200:
+        return True, ''
+    body = {'vmid': vmid, 'name': 'shakecloud-probe', 'memory': 512, 'cores': 1,
+            'net0': f"virtio,bridge={site['network']['bridge']},firewall=1", 'pool': 'cloud'}
+    created = api.call('POST', f"/nodes/{node}/qemu", data=body)
+    if created.status_code != 200:
+        return False, f'create VM {vmid} HTTP {created.status_code}: {created.text[:200]}'
+    finished, detail = api.wait_task(node, created.json().get('data'))
+    if not finished:
+        return False, f'create VM {vmid} task failed: {detail}'
+    return True, ''
+
+
+def probe_volume_reassign(api, site, probe):
+    """Can a detached disk be held on one VM and handed to another?
+
+    Every Proxmox disk belongs to some VM, and the only operation that
+    changes which VM is move_disk. A DetachVolume with nowhere to put the
+    disk cannot exist, so this probe walks the exact sequence DetachVolume
+    and AttachVolume would use: allocate, detach (unlink), reassign to
+    another VM (move_disk), reassign back, then destroy for good.
+    """
+    node = site['node_name']
+    store = site['storage']['vm_disks']
+    instance, holder = PROBE_VMID, PROBE_VMID - 1
+
+    for vmid in (holder, instance):
+        ok, detail = ensure_vm_in_cloud_pool(api, site, vmid)
+        if not ok:
+            return probe.record(False, detail)
+
+    response = api.call('POST', f'/nodes/{node}/qemu/{holder}/config',
+                        data={'scsi0': f'{store}:1,discard=on'})
+    if response.status_code != 200:
+        return probe.record(False, f'allocate disk HTTP {response.status_code}: {response.text[:200]}')
+    upid = response.json().get('data')
+    if upid:
+        finished, detail = api.wait_task(node, upid)
+        if not finished:
+            return probe.record(False, f'allocate disk task failed: {detail}')
+
+    config = api.call('GET', f'/nodes/{node}/qemu/{holder}/config').json()['data']
+    if 'scsi0' not in config:
+        return probe.record(False, f'holder has no scsi0 after allocation: {config}')
+    volid = config['scsi0'].split(',')[0]
+
+    # Detach without force: the disk must survive as an unusedN with the same volid.
+    response = api.call('PUT', f'/nodes/{node}/qemu/{holder}/unlink', data={'idlist': 'scsi0'})
+    if response.status_code != 200:
+        return probe.record(False, f'unlink scsi0 HTTP {response.status_code}: {response.text[:200]}')
+    config = api.call('GET', f'/nodes/{node}/qemu/{holder}/config').json()['data']
+    unused_key = next((key for key, value in config.items()
+                       if key.startswith('unused') and value.split(',')[0] == volid), None)
+    if unused_key is None:
+        return probe.record(False, f'unlinked disk {volid} did not reappear as unusedN: {config}')
+
+    # Hand it to the other VM.
+    response = api.call('POST', f'/nodes/{node}/qemu/{holder}/move_disk',
+                        data={'disk': unused_key, 'target-vmid': instance, 'target-disk': 'unused0'})
+    if response.status_code != 200:
+        return probe.record(False, f'move_disk to instance HTTP {response.status_code}: {response.text[:200]}')
+    finished, detail = api.wait_task(node, response.json().get('data'))
+    if not finished:
+        return probe.record(False, f'move_disk to instance task failed: {detail}')
+    config = api.call('GET', f'/nodes/{node}/qemu/{instance}/config').json()['data']
+    if not config.get('unused0', '').startswith(f'{store}:vm-{instance}-'):
+        return probe.record(False, f'instance config missing the reassigned disk: {config}')
+
+    # Move it back to the holder.
+    response = api.call('POST', f'/nodes/{node}/qemu/{instance}/move_disk',
+                        data={'disk': 'unused0', 'target-vmid': holder, 'target-disk': unused_key})
+    if response.status_code != 200:
+        return probe.record(False, f'move_disk back HTTP {response.status_code}: {response.text[:200]}')
+    finished, detail = api.wait_task(node, response.json().get('data'))
+    if not finished:
+        return probe.record(False, f'move_disk back task failed: {detail}')
+    config = api.call('GET', f'/nodes/{node}/qemu/{holder}/config').json()['data']
+    if unused_key not in config:
+        return probe.record(False, f'disk did not return to the holder as {unused_key}: {config}')
+    final_volid = config[unused_key].split(',')[0]
+
+    # Destroy it for good, as DeleteVolume would.
+    response = api.call('PUT', f'/nodes/{node}/qemu/{holder}/unlink',
+                        data={'idlist': unused_key, 'force': 1})
+    if response.status_code != 200:
+        return probe.record(False, f'force unlink HTTP {response.status_code}: {response.text[:200]}')
+    config = api.call('GET', f'/nodes/{node}/qemu/{holder}/config').json()['data']
+    if unused_key in config:
+        return probe.record(False, f'{unused_key} still in the holder config after force unlink')
+    content = api.call('GET', f'/nodes/{node}/storage/{store}/content',
+                       params={'content': 'images', 'vmid': holder})
+    if content.status_code != 200:
+        return probe.record(False, f'storage content list HTTP {content.status_code}: {content.text[:200]}')
+    if final_volid in [v.get('volid') for v in content.json().get('data', [])]:
+        return probe.record(False, f'{final_volid} still on storage after force unlink')
+
+    return probe.record(True, f'allocate -> unlink -> move_disk -> move back -> force unlink all worked '
+                              f'({volid} -> {final_volid})')
+
+
+def probe_vm_firewall(api, site, probe):
+    """Can the scoped token write a VM's firewall, and where does a rule land?
+
+    Security groups will be implemented as per-VM Proxmox firewall rules
+    rewritten on every change. If the token cannot write them, security
+    groups cannot be enforced. If Proxmox inserts a rule posted without
+    `pos` somewhere other than the top, the rewrite logic must post rules
+    in reverse order or every group ends up backwards.
+    """
+    node = site['node_name']
+    vmid = PROBE_VMID
+
+    ok, detail = ensure_vm_in_cloud_pool(api, site, vmid)
+    if not ok:
+        return probe.record(False, detail)
+
+    response = api.call('PUT', f'/nodes/{node}/qemu/{vmid}/firewall/options',
+                        data={'enable': 1, 'policy_in': 'DROP', 'policy_out': 'ACCEPT'})
+    if response.status_code != 200:
+        return probe.record(False, f'set firewall options HTTP {response.status_code}: {response.text[:200]}')
+
+    response = api.call('POST', f'/nodes/{node}/qemu/{vmid}/firewall/rules',
+                        data={'type': 'in', 'action': 'ACCEPT', 'comment': 'probe-a'})
+    if response.status_code != 200:
+        return probe.record(False, f'insert rule a HTTP {response.status_code}: {response.text[:200]}')
+    response = api.call('POST', f'/nodes/{node}/qemu/{vmid}/firewall/rules',
+                        data={'type': 'in', 'action': 'ACCEPT', 'comment': 'probe-b'})
+    if response.status_code != 200:
+        return probe.record(False, f'insert rule b HTTP {response.status_code}: {response.text[:200]}')
+
+    rules = api.call('GET', f'/nodes/{node}/qemu/{vmid}/firewall/rules')
+    if rules.status_code != 200:
+        return probe.record(False, f'list rules HTTP {rules.status_code}: {rules.text[:200]}')
+    by_pos = {rule['pos']: rule for rule in rules.json().get('data', [])}
+    ordering_ok = by_pos.get(0, {}).get('comment') == 'probe-b'
+    ordering_detail = '' if ordering_ok else (
+        f'expected probe-b at pos 0, got {sorted((p, r.get("comment")) for p, r in by_pos.items())}')
+
+    ipset_ok, ipset_detail = True, ''
+    response = api.call('POST', f'/nodes/{node}/qemu/{vmid}/firewall/ipset', data={'name': 'ipfilter-net0'})
+    if response.status_code != 200:
+        ipset_ok = False
+        ipset_detail = f'create ipset HTTP {response.status_code}: {response.text[:200]}'
+    else:
+        response = api.call('POST', f'/nodes/{node}/qemu/{vmid}/firewall/ipset/ipfilter-net0',
+                            data={'cidr': '192.0.2.10'})
+        if response.status_code != 200:
+            ipset_ok = False
+            ipset_detail = f'add ipset entry HTTP {response.status_code}: {response.text[:200]}'
+
+    # The datacenter firewall is out of this token's ACL scope by design (it
+    # is Terraform's job, not the cloud API's), so a 403 here is expected and
+    # must not fail the probe -- only reported for the human reading --json.
+    dc_detail = []
+    cluster = api.call('GET', '/cluster/firewall/options')
+    if cluster.status_code == 200:
+        dc_detail.append(f"datacenter enable={cluster.json().get('data', {}).get('enable')}")
+    else:
+        dc_detail.append(f'datacenter options HTTP {cluster.status_code} (informational only)')
+    node_options = api.call('GET', f'/nodes/{node}/firewall/options')
+    if node_options.status_code == 200:
+        value = node_options.json().get('data', {}).get('nf_conntrack_allow_invalid')
+        dc_detail.append(f'node nf_conntrack_allow_invalid={value}')
+    else:
+        dc_detail.append(f'node options HTTP {node_options.status_code} (informational only)')
+
+    # Clean up regardless of outcome: entry, ipset, rules highest pos first
+    # (deleting shifts lower positions), then the options that were set.
+    if ipset_ok:
+        api.call('DELETE', f'/nodes/{node}/qemu/{vmid}/firewall/ipset/ipfilter-net0/192.0.2.10')
+        api.call('DELETE', f'/nodes/{node}/qemu/{vmid}/firewall/ipset/ipfilter-net0')
+    for pos in sorted(by_pos, reverse=True):
+        api.call('DELETE', f'/nodes/{node}/qemu/{vmid}/firewall/rules/{pos}')
+    api.call('PUT', f'/nodes/{node}/qemu/{vmid}/firewall/options',
+            data={'delete': 'enable,policy_in,policy_out'})
+
+    detail = '; '.join(dc_detail)
+    if not ordering_ok:
+        return probe.record(False, f'{ordering_detail}; {detail}')
+    if not ipset_ok:
+        return probe.record(False, f'{ipset_detail}; {detail}')
+    return probe.record(True, f'options, rule ordering (probe-b at pos 0) and ipset all worked; {detail}')
+
+
 def cleanup(api, site):
     node = site['node_name']
     for vmid in (PROBE_VMID, PROBE_VMID - 1):
-        api.call('DELETE', f'/nodes/{node}/qemu/{vmid}', params={'purge': 1})
+        api.call('DELETE', f'/nodes/{node}/qemu/{vmid}',
+                params={'purge': 1, 'destroy-unreferenced-disks': 1})
 
 
 PROBES = [
@@ -200,6 +396,13 @@ PROBES = [
     ('console_auth', probe_console_auth,
      'Does vncwebsocket accept an API token?',
      'Give cloudapi@pve a password and use ticket auth, as roles/pve_users already does.'),
+    ('volume_reassign', probe_volume_reassign,
+     'Can a detached disk be held on one VM and handed to another with move_disk?',
+     'Volumes cannot be detached without a VM to hold them; redesign before shipping volumes.'),
+    ('vm_firewall', probe_vm_firewall,
+     'Can the scoped token write a VM\'s firewall, and does a rule posted without pos land at the top?',
+     'Security groups cannot be enforced; or, if only the ordering differs, '
+     'the API writes rules in the wrong order.'),
 ]
 
 

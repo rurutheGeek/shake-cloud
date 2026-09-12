@@ -1,6 +1,6 @@
 # IaCの所有境界
 
-更新日: 2026-09-10。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPIは VM の作成まで実装済み（Phase 2）**。
+更新日: 2026-09-11。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPI は Phase 4（ボリューム・セキュリティグループ）まで実装済み・実機検証済み**。
 
 [配備・Git管理・ストレージ・復旧](operations.md)の「Gitと構成の所有者」は「**同じオブジェクトをFluxと自作API、または2つのTerraform stateで管理しません**」と定めています。この文書は、その原則をProxmoxの権限とVMIDの分割で**構造として**保証する方法を書きます。運用規約ではなく、権限が無いから触れない、という形にします。
 
@@ -14,7 +14,7 @@
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
-| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み: VM の作成・電源操作・削除、IP の採番。未実装: イメージのアップロード、ボリューム、セキュリティグループ、バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
+| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ、既存VMの引き取り。未実装: バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
 
@@ -26,9 +26,9 @@
 | --- | --- | --- | --- |
 | `platform/terraform/site.yaml` | **実測** | ノード名、ストレージ名、bridge、ゾーン、prefix、gateway、DNS | 全モジュール、テスト |
 | `platform/terraform/pools.yaml` | 決めごと | プールとVMID範囲、自動化ユーザーに許すプール、台帳外VMID | `00-bootstrap`、`10-platform`、テスト |
-| `platform/terraform/flavors.yaml` | 決めごと | VMのサイズとバルーニングの下限。名前はクラウドAPIと共用 | `10-platform`、テスト |
+| `platform/terraform/flavors.yaml` | 決めごと | 基盤VMのサイズとバルーニングの下限。クラウドAPIでは**利用者向けの雛形**として同じ名前を出すが、利用者は値を自由に指定できる（型から選ぶ必要はない） | `10-platform`、クラウドAPI、テスト |
 | `platform/terraform/network.yaml` | 決めごと | prefix の中をどう切って配るか（管理用・クラウド用の範囲） | `10-platform`、テスト |
-| `platform/terraform/access.yaml` | 決めごと | 基盤VMへ入れるSSH公開鍵。**順序が意味を持つ** | `10-platform`、テスト |
+| `platform/terraform/access.yaml` | 決めごと | 基盤VMへ入れるSSH公開鍵。**順序が意味を持つ**（`05-seed` は専用の `seed_ssh_public_keys` を読む） | `05-seed`、`10-platform`、テスト |
 | `platform/terraform/images.yaml` | 決めごと | 共有 cloud image のURLとチェックサム | `00-bootstrap`、`10-platform`、テスト |
 | `platform/terraform/tags.yaml` | 決めごと | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
 | `platform/terraform/hosts.yaml` | 決めごと | ホストの宣言。**正本** | `10-platform`、テスト |
@@ -100,6 +100,8 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 ## モジュールの入力を将来のAPIと揃える
 
 [最小クラウドとTerraform Provider](cloud.md)の `shakecloud_instance` は image・CPU・RAM・disk・network を受け取ります。`platform/terraform/modules/managed-host` の入力を同じ形にして、`flavors.yaml`（`small` など）の名前も共用します。
+
+**ただし利用者側は名前から選ぶ必要はありません。**クラウドAPIは CPU・メモリ・ディスク・バルーニングの有無を直接受け取り、`flavors.yaml` の名前は値を埋める雛形として出すだけです。基盤VM側（`hosts.yaml`）はこれまでどおり名前で指定し、台ごとに上書きします。
 
 **将来のGo APIはこのモジュールを呼びません。** APIはProxmox APIを直接叩きます。揃えるのは入力の形だけで、TerraformをAPIの内側に隠しません。隠すと、APIの障害時にTerraformも使えなくなります。
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the shake-cloud management database backup
+
+[Timer]
+OnCalendar={{ cloud_api_backup_oncalendar }}
+Persistent=true
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

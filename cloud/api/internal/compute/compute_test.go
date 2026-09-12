@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -25,16 +27,34 @@ import (
 // matters: VMs outside the pool are invisible and make creation fail, per-VM
 // calls on an unknown VMID answer 403, and work finishes through tasks.
 type fakePVE struct {
-	mu         sync.Mutex
-	vms        map[int]*fakeVM
-	outside    map[int]bool
-	volumes    map[string]bool
+	mu      sync.Mutex
+	vms     map[int]*fakeVM
+	outside map[int]bool
+	volumes map[string]bool
+	sizes   map[string]int64
+	// created keeps the parameters each VM was made with. The stored config is
+	// not the same thing: Proxmox replaces virtio0 with the disk it created, so
+	// a creation parameter like import-from cannot be read back from it.
+	created    map[int]url.Values
 	tasks      map[string]error
 	n          int
 	memory     proxmox.Memory
 	storage    map[string]proxmox.StorageStatus
 	failUpload int
 	failCreate error
+	consoles   int
+	// disks are VM disks on local-lvm by volume ID, with their size. labels
+	// stand in for their contents: a move renames a disk and carries its label,
+	// so a test can tell the same disk from a new one.
+	disks  map[string]int64
+	labels map[string]string
+	// refuseUnplug makes a running guest refuse hot-unplugs; the change then
+	// stays pending, as in Proxmox.
+	refuseUnplug bool
+	pending      map[int][]string
+	firewalls    map[int]*fakeFirewall
+	// startedFiltered records, for each VM start, whether its firewall was on.
+	startedFiltered map[int]bool
 }
 
 type fakeVM struct {
@@ -44,7 +64,10 @@ type fakeVM struct {
 
 func newFakePVE() *fakePVE {
 	return &fakePVE{
-		vms: map[int]*fakeVM{}, outside: map[int]bool{}, volumes: map[string]bool{}, tasks: map[string]error{},
+		vms: map[int]*fakeVM{}, outside: map[int]bool{}, volumes: map[string]bool{},
+		sizes: map[string]int64{}, created: map[int]url.Values{}, tasks: map[string]error{},
+		disks: map[string]int64{}, labels: map[string]string{}, pending: map[int][]string{},
+		firewalls: map[int]*fakeFirewall{}, startedFiltered: map[int]bool{},
 		memory: proxmox.Memory{Total: 64 << 30, Free: 30 << 30, Available: 30 << 30},
 		storage: map[string]proxmox.StorageStatus{
 			"local-lvm":    {Total: 1000, Used: 100, Avail: 900},
@@ -103,6 +126,7 @@ func (f *fakePVE) CreateVM(ctx context.Context, params url.Values) (string, erro
 			config[key] = params.Get(key)
 		}
 	}
+	f.created[vmid] = params
 	f.vms[vmid] = &fakeVM{status: "stopped", config: config}
 	return f.task(nil), nil
 }
@@ -119,6 +143,19 @@ func (f *fakePVE) VMConfig(ctx context.Context, vmid int) (map[string]any, error
 		copied[k] = v
 	}
 	return copied, nil
+}
+
+func (f *fakePVE) UpdateVMConfig(ctx context.Context, vmid int, params url.Values) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	vm := f.vms[vmid]
+	if vm == nil {
+		return forbidden(vmid)
+	}
+	for key := range params {
+		vm.config[key] = params.Get(key)
+	}
+	return nil
 }
 
 func (f *fakePVE) VMStatus(ctx context.Context, vmid int) (string, error) {
@@ -139,6 +176,10 @@ func (f *fakePVE) Power(ctx context.Context, vmid int, action string, params url
 	}
 	switch action {
 	case "start", "reboot":
+		if action == "start" {
+			firewall := f.firewalls[vmid]
+			f.startedFiltered[vmid] = firewall != nil && firewall.options["enable"] == "1"
+		}
 		vm.status = "running"
 	case "stop", "shutdown":
 		vm.status = "stopped"
@@ -156,6 +197,11 @@ func (f *fakePVE) ResizeDisk(ctx context.Context, vmid int, disk, size string) e
 		return forbidden(vmid)
 	}
 	vm.config[disk] = sizeField.ReplaceAllString(vm.config[disk].(string), "size="+size)
+	volid := strings.SplitN(vm.config[disk].(string), ",", 2)[0]
+	if _, ok := f.disks[volid]; ok {
+		gib, _ := strconv.Atoi(strings.TrimSuffix(size, "G"))
+		f.disks[volid] = int64(gib) << 30
+	}
 	return nil
 }
 
@@ -166,6 +212,12 @@ func (f *fakePVE) DeleteVM(ctx context.Context, vmid int) (string, error) {
 		return "", forbidden(vmid)
 	}
 	delete(f.vms, vmid)
+	// destroy-unreferenced-disks: every disk named after the VM goes with it.
+	for volid := range f.disks {
+		if strings.HasPrefix(volid, fmt.Sprintf("local-lvm:vm-%d-", vmid)) {
+			delete(f.disks, volid)
+		}
+	}
 	return f.task(nil), nil
 }
 
@@ -180,13 +232,43 @@ func (f *fakePVE) UploadISO(ctx context.Context, storage, filename string, conte
 	return f.task(nil), nil
 }
 
+func (f *fakePVE) UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	// Read it all and check the promised length: the real node is told the size
+	// up front and a mismatch there is a broken request, not a short read.
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	if int64(len(content)) != size {
+		return "", fmt.Errorf("upload said %d bytes but sent %d", size, len(content))
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	volid := storage + ":import/" + filename
+	f.volumes[volid] = true
+	f.sizes[volid] = size
+	return f.task(nil), nil
+}
+
 func (f *fakePVE) ListVolumes(ctx context.Context, storage, content string) ([]proxmox.Volume, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var volumes []proxmox.Volume
+	if content == "images" {
+		for volid, size := range f.disks {
+			if strings.HasPrefix(volid, storage+":") {
+				volumes = append(volumes, proxmox.Volume{VolID: volid, Size: size, Format: "raw"})
+			}
+		}
+		return volumes, nil
+	}
 	for volid := range f.volumes {
 		if strings.HasPrefix(volid, storage+":"+content+"/") {
-			volumes = append(volumes, proxmox.Volume{VolID: volid})
+			volume := proxmox.Volume{VolID: volid, Size: f.sizes[volid]}
+			if content == "import" {
+				volume.Format = "qcow2"
+			}
+			volumes = append(volumes, volume)
 		}
 	}
 	return volumes, nil
@@ -197,6 +279,26 @@ func (f *fakePVE) DeleteVolume(ctx context.Context, storage, volid string) error
 	defer f.mu.Unlock()
 	delete(f.volumes, volid)
 	return nil
+}
+
+func (f *fakePVE) VNCProxy(ctx context.Context, vmid int) (proxmox.VNCTicket, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	vm := f.vms[vmid]
+	if vm == nil {
+		return proxmox.VNCTicket{}, forbidden(vmid)
+	}
+	if vm.status != "running" {
+		return proxmox.VNCTicket{}, &proxmox.Error{Method: "POST", Path: fmt.Sprintf("/nodes/apextox/qemu/%d/vncproxy", vmid),
+			Status: http.StatusInternalServerError, Reason: "VM is not running"}
+	}
+	f.consoles++
+	return proxmox.VNCTicket{Port: 5900 + f.consoles, Ticket: fmt.Sprintf("PVEVNC:fake:%d", f.consoles), Password: "fake-password"}, nil
+}
+
+func (f *fakePVE) DialVNC(ctx context.Context, vmid int, ticket proxmox.VNCTicket) (net.Conn, error) {
+	// The relay itself is tested against a real TLS websocket in internal/proxmox.
+	return nil, errors.New("the fake node has no VNC server")
 }
 
 func (f *fakePVE) WaitTask(ctx context.Context, upid string) error {
@@ -247,7 +349,7 @@ func (f *fakeIPAM) DeleteIPAddress(ctx context.Context, id int) error {
 
 func sampleSite() site.Site {
 	s := site.Site{
-		Node: "apextox", Pool: "cloud", VMIDFrom: 5000, VMIDTo: 5999, ProbeVMIDs: []int{5998, 5999},
+		Node: "apextox", Pool: "cloud", VMIDFrom: 5000, VMIDTo: 5999, ProbeVMIDs: []int{5998, 5999}, VolumeHolderVMID: 5997,
 		Storage: site.Storage{VMDisks: "local-lvm", Images: "cloud-images"},
 		Network: site.Network{Bridge: "vmbr0", Gateway: "192.168.10.1", DNSServers: []string{"192.168.10.1"}, IPRangeStart: "192.168.10.100/24"},
 		Images:  map[string]site.Image{"img-debian13": {Name: "debian13", Volume: "cloud-images:import/debian-13.qcow2"}},
@@ -257,7 +359,8 @@ func sampleSite() site.Site {
 			"2xlarge": {CPUCores: 8, MemoryMiB: 16384, MemoryMinMiB: 4096},
 		},
 	}
-	s.Limits.AccountQuota = site.Quota{Instances: 4, VCPUs: 8, MemoryMiB: 8192, RootDiskGiB: 200}
+	s.Limits.AccountQuota = site.Quota{Instances: 4, VCPUs: 8, MemoryMiB: 8192, RootDiskGiB: 200, Volumes: 3, VolumeGiB: 100}
+	s.Limits.VolumeSizeGiB.Min, s.Limits.VolumeSizeGiB.Max = 1, 50
 	s.Limits.RootDiskGiB.Min, s.Limits.RootDiskGiB.Default, s.Limits.RootDiskGiB.Max = 10, 20, 100
 	s.Limits.Capacity.MemoryBudgetMiB = 8192
 	s.Limits.Capacity.NodeMemoryReserveMiB = 4096
@@ -272,6 +375,8 @@ func testService(t *testing.T) (*Service, *fakePVE, *fakeIPAM) {
 	pve, ipam := newFakePVE(), newFakeIPAM()
 	s := New(pool, pve, ipam, sampleSite(), slog.New(slog.DiscardHandler), t.TempDir())
 	s.RetryDelay = 0
+	// A real deployment points this at disk, not at the tmpfs WorkDir.
+	s.UploadDir = t.TempDir()
 	return s, pve, ipam
 }
 

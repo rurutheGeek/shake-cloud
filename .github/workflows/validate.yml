@@ -35,10 +35,13 @@ jobs:
               if name.endswith(('.yaml','.yml')):
                   yaml.safe_load(pathlib.Path(name).read_text())
           PY
+      - name: Read the pinned Terraform version
+        id: terraform
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.15.8
+          terraform_version: ${{ steps.terraform.outputs.version }}
           terraform_wrapper: false
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive platform/terraform
@@ -55,7 +58,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: cloud/api/go.mod
-          cache-dependency-path: cloud/api/go.sum
+          cache-dependency-path: |
+            cloud/api/go.sum
+            cloud/provider/go.sum
       - name: Check Go formatting
         run: |
           unformatted=$(gofmt -l cloud)
@@ -64,6 +69,17 @@ jobs:
         working-directory: cloud/api
         env:
           SHAKECLOUD_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        run: |
+          go vet ./...
+          go test ./...
+      - name: Vet and test the cloud client and CLI
+        run: |
+          for dir in cloud/client cloud/cli; do
+            echo "== $dir"
+            (cd "$dir" && go vet ./... && go test ./...)
+          done
+      - name: Vet and test the Terraform provider
+        working-directory: cloud/provider
         run: |
           go vet ./...
           go test ./...

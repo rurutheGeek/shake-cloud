@@ -46,11 +46,22 @@ services:
       SHAKECLOUD_PROXMOX_INSECURE: ${PROXMOX_INSECURE:-false}
       SHAKECLOUD_NETBOX_URL: ${NETBOX_URL:?set NETBOX_URL in .env}
       SHAKECLOUD_NETBOX_TOKEN_FILE: /run/secrets/netbox_token
+      # オブジェクトストレージ（Phase 7）。空ならバケット系のエンドポイントは 503。
+      SHAKECLOUD_GARAGE_ADMIN_URL: ${GARAGE_ADMIN_URL:-}
+      SHAKECLOUD_GARAGE_ADMIN_TOKEN_FILE: /run/secrets/garage_admin_token
+      SHAKECLOUD_GARAGE_S3_ENDPOINT: ${GARAGE_S3_ENDPOINT:-}
+      SHAKECLOUD_GARAGE_S3_REGION: ${GARAGE_S3_REGION:-garage}
       SHAKECLOUD_SITE_FILE: /etc/shakecloud/site.json
       SHAKECLOUD_WORK_DIR: /tmp
-    secrets: [db_password, oidc_credentials, bootstrap_admin_key, proxmox_token, netbox_token]
+      # アップロードされたイメージを Proxmox へ渡すまで置く場所。**tmpfs では駄目。**
+      # Proxmox は長さの分からない本文（チャンク転送）を 501 で拒否するので、
+      # 長さを確定させるために一旦書き出す必要があり、数GBは RAM に載らない。
+      SHAKECLOUD_UPLOAD_DIR: /var/lib/shakecloud/uploads
+    secrets: [db_password, oidc_credentials, bootstrap_admin_key, proxmox_token, netbox_token, garage_admin_token]
     volumes:
       - ./site.json:/etc/shakecloud/site.json:ro
+      # 書き込めるのはここだけ（manage.py init が uid 65532 で作る）。
+      - ${STORAGE_ROOT:-./storage}/uploads:/var/lib/shakecloud/uploads
     # 読み取り専用のルートなので、seed ISO を組み立てる場所を別に与える。
     tmpfs: [/tmp]
     ports:
@@ -72,3 +83,6 @@ secrets:
   # platform/sops/cloudapi.sops.yaml から写す。ここでは作らない。
   proxmox_token: {file: ./secrets/proxmox_token}
   netbox_token: {file: ./secrets/netbox_token}
+  # Garage の管理APIトークン（用途を絞ったもの）。cloud_api ロールが
+  # platform/sops/cloudapi.sops.yaml から写す。ここでは作らない。
+  garage_admin_token: {file: ./secrets/garage_admin_token}

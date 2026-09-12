@@ -1,0 +1,96 @@
+# Kubernetes クラスタ
+
+更新日: 2026-09-12。状態: **スライス③（共通基盤: local-path・MetalLB・cert-manager）まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書が動いています。**Flux/SOPS だけは Git の取り込み方を決めてから**入れます。
+
+## 何に使うか
+
+近い将来に載せるのは **AWX** と、**クラウドの function（Knative）／database（CloudNativePG）**です。自作 cloud API 本体は cloud-01 の Compose のままで動くので、移すかは後で決めます。メディア系の移行は後回しです。
+
+**使わないときは落とせます。** control plane と worker は別VMなので、worker だけ止めて control plane（etcd/API）を残す、全部止める、どちらもできます（[起動と停止](#起動と停止)）。
+
+## 版と CIDR
+
+版は `platform/ansible/k8s-vars.yml` が唯一の出所です。
+
+| 項目 | 値 | 理由 |
+| --- | --- | --- |
+| Kubernetes | **1.36.4** | Cilium 1.20 が e2e で保証するのは 1.36 まで（1.37 は未対応） |
+| containerd | **2.3.5**（LTS） | Kubernetes 1.36 が対応。Docker の apt から版指定で入れる |
+| Cilium | **1.20.1** | **kube-proxy を置き換える**（Service も Cilium が担う） |
+| Helm | 3.22.0 | Cilium 導入に使う。cp に版指定＋SHA256 検証で入れる |
+| Pod CIDR | `10.244.0.0/16` | LAN `192.168.10.0/24`・クラウド用と重ならない |
+| Service CIDR | `10.96.0.0/12` | 同上 |
+
+**k8s ノードはバルーニングしません。** kubelet はVMの上限メモリを「使える量」としてスケジューラに広告するため、後からホストが回収すると Pod が追い出されます。上限＝実際に使う量で固定します。
+
+## ノード
+
+| VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | Ready（control-plane taint あり） |
+| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | Ready |
+| 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
+
+宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せず（taint を外さない）、worker に載せます。
+
+## 準備とクラスタ作成
+
+```bash
+# VM（初回だけ）
+tools/tf 10-platform apply
+
+# ノード準備 → cp で init+Cilium → worker join
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+     -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml \
+     --limit k8s-cp-01,k8s-worker-01'
+```
+
+playbook は3段です。どれも再実行できます。
+
+1. **`k8s_node`**（全ノード）: swap 無効・`overlay`/`br_netfilter`・sysctl・containerd 2.3.5・`kubeadm`/`kubelet`/`kubectl` 1.36.4。
+2. **`k8s_control_plane`**（cp）: `/etc/kubeadm-init.yaml` で `kubeadm init`（**`--skip-phases=addon/kube-proxy`**、Pod/Service CIDR を指定）。かぶらないよう kube-proxy は置きません。Helm を入れ、**Cilium 1.20.1 を kube-proxy 置換で**導入します（`kubeProxyReplacement: true`、`k8sServiceHost` は cp の IP、IPAM は kubernetes）。kubeconfig は `debian` の `~/.kube/config` に置きます。
+3. **`k8s_join`**（worker）: 未参加（`/etc/kubernetes/kubelet.conf` が無い）ときだけ join。
+
+停止中の worker-02 は到達できないので `--limit` で外します。起動後に `--limit k8s-worker-02` で流せば参加します。
+
+### 確認
+
+```bash
+ssh debian@192.168.10.207 'kubectl get nodes'
+```
+
+実機確認（2026-09-12）: 2ノードが **Ready**、`cilium status` が **OK**。テスト用の client→server で **ClusterIP 通信が 200**、`default-deny` の NetworkPolicy で **遮断（000）**、client からの allow で **200** に戻ることを確認しました（テスト namespace は削除済み）。cp には control-plane の taint を残しているので Pod は worker-01 に載ります。
+
+## 共通基盤
+
+`k8s_addons` ロールが cp から入れます（再実行可）。版は `platform/ansible/roles/k8s_addons/defaults/main.yml`。
+
+| 役割 | 何を入れる | 設定 |
+| --- | --- | --- |
+| 永続ストレージ | local-path-provisioner **v0.0.37** | worker のデータディスク（`/dev/vdb`）を `/srv/k8s` にマウントし、PV は `/srv/k8s/local-path` に置く。`local-path` を既定 StorageClass にする |
+| LoadBalancer | MetalLB **0.16.1**（L2） | `network.yaml` の `metallb` レンジ `.240-.249`。NetBox の管理レンジ（`.201-.239`）から切り出してある |
+| 証明書 | cert-manager **v1.21.2** | 自前 CA の `ClusterIssuer` **`shakecloud-ca`**（`shakecloud-selfsigned` から発行）。外部 DNS が要らない。Let's Encrypt は後で足す |
+
+実機確認（2026-09-12）: PVC に書いたファイルが Pod を作り直しても残ること、`LoadBalancer` が `.240` を得て `curl` が **200**、`ClusterIssuer` `shakecloud-ca` と CA `Certificate` が **Ready** であることを確認しました。
+
+**Flux/SOPS はまだ入れていません。** 作業ブランチを `main` へ取り込む時期と GitOps のディレクトリ構成を決めてから入れます。
+
+## 起動と停止
+
+`tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
+
+```bash
+tools/k8s status     # 各VMの状態
+tools/k8s up         # cp → worker の順に起動
+tools/k8s down       # worker → cp の順に停止
+tools/k8s up --all   # worker-02 も含めて起動
+```
+
+RAM が足りないときは `k8s-worker-02` を起動し、使わないときは落としておきます。
+
+## 次のスライス
+
+1. Flux/SOPS（`main` への取り込み方とディレクトリ構成を決めてから）
+2. AWX
+3. CloudNativePG（`database`）・Knative（`function`）

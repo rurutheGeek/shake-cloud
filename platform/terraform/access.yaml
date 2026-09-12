@@ -11,9 +11,6 @@
 #
 # 利用者が自分の鍵を足すのは、ログイン後に ssh-copy-id で各自が行う。
 # docs/onboarding.md の手順どおりで、ここには書かない。
-#
-# 05-seed は同じ2鍵を**逆順**で持っており、すでに適用済みなので触らない。
-# 移すときは順序を合わせないと services-01 の cloud-init に差分が出る。
 admin_ssh_public_keys:
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAshlf3KGO8Gi+vKYAoymtCmKJtb3tVStqsqAkscCjHT ansible@wsl
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGsdf/2Y8hw7cmyZSetxGdtnsvpGMleP2y6sJsiKt3Kq ruru@ouchithegeek
@@ -22,6 +19,14 @@ admin_ssh_public_keys:
   # ために要る。agent が応答するまで Terraform の作成が待つので、鍵が無いと
   # 新規VMに入れず、待ちを解けない。詳細は docs/operations/bootstrap.md。
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICTH4vzwMtR18mFWJyQprDla1KiMzqtDiCOIddzMeein shake-cloud automation on dev-b
+
+# 05-seed（services-01）だけは別の並びを使う。ブートストラップ時はこの順で適用済みで、
+# **変えると services-01 の cloud-init に差分が出る**（Proxmox は鍵を1つの文字列で持つ）。
+# admin の先頭2鍵の**逆順**で、automation 鍵は入っていない（当時まだ無かった）。
+# 値は実機（VMID 150 の sshkeys、2026-09-12 確認）から取った。
+seed_ssh_public_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGsdf/2Y8hw7cmyZSetxGdtnsvpGMleP2y6sJsiKt3Kq ruru@ouchithegeek
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAshlf3KGO8Gi+vKYAoymtCmKJtb3tVStqsqAkscCjHT ansible@wsl
 
 # 特定のVMにだけ足す鍵。今は誰も使っていない。
 host_ssh_public_keys: {}

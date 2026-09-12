@@ -15,16 +15,19 @@ import (
 )
 
 type Site struct {
-	Node          string                  `json:"node"`
-	Pool          string                  `json:"pool"`
-	VMIDFrom      int                     `json:"vmid_from"`
-	VMIDTo        int                     `json:"vmid_to"`
-	ProbeVMIDs    []int                   `json:"probe_vmids"`
-	Storage       Storage                 `json:"storage"`
-	Network       Network                 `json:"network"`
-	Images        map[string]Image        `json:"images"`
-	InstanceTypes map[string]InstanceType `json:"instance_types"`
-	Limits        Limits                  `json:"limits"`
+	Node       string `json:"node"`
+	Pool       string `json:"pool"`
+	VMIDFrom   int    `json:"vmid_from"`
+	VMIDTo     int    `json:"vmid_to"`
+	ProbeVMIDs []int  `json:"probe_vmids"`
+	// VolumeHolderVMID is the never-started VM that owns detached volumes:
+	// Proxmox keeps every disk under some VM, and only move_disk changes which.
+	VolumeHolderVMID int                     `json:"volume_holder_vmid"`
+	Storage          Storage                 `json:"storage"`
+	Network          Network                 `json:"network"`
+	Images           map[string]Image        `json:"images"`
+	InstanceTypes    map[string]InstanceType `json:"instance_types"`
+	Limits           Limits                  `json:"limits"`
 }
 
 type Storage struct {
@@ -41,6 +44,13 @@ type Network struct {
 	DNSServers []string `json:"dns_servers"`
 	// IPRangeStart identifies the NetBox IP range instances draw from, e.g. 192.168.10.100/24.
 	IPRangeStart string `json:"ip_range_start"`
+	// VLANID tags the NICs of instances the API creates. 0 means untagged,
+	// which is how the management LAN works before the VLAN cut.
+	VLANID int `json:"vlan_id"`
+	// BridgeVLANAware records whether the bridge passes VLAN tags (site.yaml).
+	// A tagged cloud network on a bridge that cannot carry the tag would make
+	// every instance unreachable, so Load refuses it.
+	BridgeVLANAware bool `json:"bridge_vlan_aware"`
 }
 
 // Image is a shared image. Volume is the Proxmox volume ID in Storage.Images.
@@ -62,11 +72,18 @@ type Limits struct {
 		Max     int `json:"max"`
 		Default int `json:"default"`
 	} `json:"root_disk_gib"`
+	// VolumeSizeGiB bounds one volume.
+	VolumeSizeGiB struct {
+		Min int `json:"min"`
+		Max int `json:"max"`
+	} `json:"volume_size_gib"`
 	Capacity struct {
 		MemoryBudgetMiB      int `json:"memory_budget_mib"`
 		NodeMemoryReserveMiB int `json:"node_memory_reserve_mib"`
 		VMDiskMaxUsedPercent int `json:"vm_disk_max_used_percent"`
 		ImageStoreMinFreeMiB int `json:"image_store_min_free_mib"`
+		// MaxImageGiB bounds one uploaded image. 0 is unlimited.
+		MaxImageGiB int `json:"max_image_gib"`
 	} `json:"capacity"`
 }
 
@@ -75,6 +92,8 @@ type Quota struct {
 	VCPUs       int `json:"vcpus"`
 	MemoryMiB   int `json:"memory_mib"`
 	RootDiskGiB int `json:"root_disk_gib"`
+	Volumes     int `json:"volumes"`
+	VolumeGiB   int `json:"volume_gib"`
 }
 
 var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
@@ -113,6 +132,10 @@ func (s Site) Validate() error {
 	}
 	_, err = netip.ParsePrefix(s.Network.IPRangeStart)
 	check(err == nil, "site: ip_range_start %q is not a prefix", s.Network.IPRangeStart)
+	check(s.Network.VLANID >= 0 && s.Network.VLANID <= 4094, "site: vlan_id %d is not a VLAN id", s.Network.VLANID)
+	check(s.Network.VLANID == 0 || s.Network.BridgeVLANAware,
+		"site: vlan_id %d is set but bridge %s is not VLAN-aware; make it vlan-aware first (docs/operations/vlan.md)",
+		s.Network.VLANID, s.Network.Bridge)
 	check(len(s.Images) > 0, "site: no images")
 	for id, image := range s.Images {
 		check(imageID.MatchString(id), "site: image ID %q does not look like img-<name>", id)
@@ -126,11 +149,22 @@ func (s Site) Validate() error {
 	check(q.Instances > 0 && q.VCPUs > 0 && q.MemoryMiB > 0 && q.RootDiskGiB > 0, "site: account quota must be positive")
 	check(r.Min > 0 && r.Min <= r.Default && r.Default <= r.Max, "site: root disk limits %d <= %d <= %d do not hold", r.Min, r.Default, r.Max)
 	check(c.MemoryBudgetMiB > 0 && c.VMDiskMaxUsedPercent > 0 && c.VMDiskMaxUsedPercent <= 100, "site: capacity limits are unset")
+	v := s.Limits.VolumeSizeGiB
+	check(q.Volumes > 0 && q.VolumeGiB > 0, "site: volume quota must be positive")
+	check(v.Min > 0 && v.Min <= v.Max, "site: volume size limits %d <= %d do not hold", v.Min, v.Max)
+	check(s.VolumeHolderVMID >= s.VMIDFrom && s.VolumeHolderVMID <= s.VMIDTo,
+		"site: volume holder VMID %d is outside %d-%d", s.VolumeHolderVMID, s.VMIDFrom, s.VMIDTo)
+	for _, probe := range s.ProbeVMIDs {
+		check(probe != s.VolumeHolderVMID, "site: volume holder VMID %d is also a probe VMID", probe)
+	}
 	return errors.Join(errs...)
 }
 
 // ReservedVMID reports whether the allocator must skip vmid.
 func (s Site) ReservedVMID(vmid int) bool {
+	if vmid == s.VolumeHolderVMID {
+		return true
+	}
 	for _, probe := range s.ProbeVMIDs {
 		if probe == vmid {
 			return true

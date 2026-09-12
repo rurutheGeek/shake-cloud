@@ -8,20 +8,27 @@
 package proxmox
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/wsrelay"
 )
 
 type Client struct {
@@ -85,10 +92,16 @@ func (c *Client) nodePath(format string, args ...any) string {
 	return "/nodes/" + url.PathEscape(c.node) + fmt.Sprintf(format, args...)
 }
 
-func (c *Client) do(ctx context.Context, method, path string, body io.Reader, contentType string, out any) error {
+// do sends one request. contentLength is -1 to let net/http work it out from
+// the body type; a real value is needed when the body is a stream, because
+// Proxmox answers 501 to a chunked request.
+func (c *Client) do(ctx context.Context, method, path string, body io.Reader, contentLength int64, contentType string, out any) error {
 	request, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
 	if err != nil {
 		return err
+	}
+	if contentLength >= 0 {
+		request.ContentLength = contentLength
 	}
 	request.Header.Set("Authorization", "PVEAPIToken="+c.token)
 	if contentType != "" {
@@ -136,9 +149,9 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, co
 
 func (c *Client) form(ctx context.Context, method, path string, values url.Values, out any) error {
 	if values == nil {
-		return c.do(ctx, method, path, nil, "", out)
+		return c.do(ctx, method, path, nil, -1, "", out)
 	}
-	return c.do(ctx, method, path, strings.NewReader(values.Encode()), "application/x-www-form-urlencoded", out)
+	return c.do(ctx, method, path, strings.NewReader(values.Encode()), -1, "application/x-www-form-urlencoded", out)
 }
 
 // Memory is the node's RAM in bytes.
@@ -220,6 +233,18 @@ func (c *Client) VMConfig(ctx context.Context, vmid int) (map[string]any, error)
 	return config, err
 }
 
+// UpdateVMConfig changes a VM's configuration. Proxmox accepts cpu and memory
+// changes for a running VM but only applies them at its next start, so the
+// caller decides whether the VM has to be stopped first.
+func (c *Client) UpdateVMConfig(ctx context.Context, vmid int, params url.Values) error {
+	var upid *string
+	err := c.form(ctx, http.MethodPut, c.nodePath("/qemu/%d/config", vmid), params, &upid)
+	if err != nil || upid == nil || *upid == "" {
+		return err
+	}
+	return c.WaitTask(ctx, *upid)
+}
+
 // VMStatus returns "running" or "stopped".
 func (c *Client) VMStatus(ctx context.Context, vmid int) (string, error) {
 	var status struct {
@@ -274,13 +299,172 @@ func (c *Client) UploadISO(ctx context.Context, storage, filename string, conten
 		return "", err
 	}
 	var upid string
-	err = c.do(ctx, http.MethodPost, c.nodePath("/storage/%s/upload", url.PathEscape(storage)), &body, writer.FormDataContentType(), &upid)
+	err = c.do(ctx, http.MethodPost, c.nodePath("/storage/%s/upload", url.PathEscape(storage)), &body, -1, writer.FormDataContentType(), &upid)
 	return upid, err
 }
 
+// UploadImage stores a disk image as <storage>:import/<filename> and returns
+// the task's UPID. size must be the exact number of bytes body will yield.
+//
+// **Proxmox refuses a chunked request body with 501** (measured 2026-09-11), so
+// the length of the whole multipart envelope has to be declared up front. That
+// rules out piping a body of unknown length, which is why the caller has to
+// know the size; the envelope is assembled by hand here so its length can be
+// computed exactly rather than guessed.
+//
+// The bytes themselves are still streamed, not buffered: only the framing is
+// held in memory. Proxmox validates the file with qemu-img and the task fails
+// on anything it cannot open, leaving nothing stored, so a corrupt upload needs
+// no cleanup.
+func (c *Client) UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	boundary := make([]byte, 16)
+	if _, err := rand.Read(boundary); err != nil {
+		return "", err
+	}
+	mark := "shakecloud" + hex.EncodeToString(boundary)
+
+	var prefix bytes.Buffer
+	fmt.Fprintf(&prefix, "--%s\r\nContent-Disposition: form-data; name=\"content\"\r\n\r\nimport\r\n", mark)
+	fmt.Fprintf(&prefix, "--%s\r\nContent-Disposition: form-data; name=\"filename\"; filename=%q\r\n", mark, filename)
+	fmt.Fprint(&prefix, "Content-Type: application/octet-stream\r\n\r\n")
+	suffix := fmt.Sprintf("\r\n--%s--\r\n", mark)
+
+	// LimitReader keeps a body that turns out longer than promised from running
+	// past the length already declared.
+	envelope := io.MultiReader(bytes.NewReader(prefix.Bytes()), io.LimitReader(body, size), strings.NewReader(suffix))
+	length := int64(prefix.Len()) + size + int64(len(suffix))
+
+	var upid string
+	err := c.do(ctx, http.MethodPost, c.nodePath("/storage/%s/upload", url.PathEscape(storage)),
+		envelope, length, "multipart/form-data; boundary="+mark, &upid)
+	return upid, err
+}
+
+// VNCTicket is what vncproxy hands back for one console connection: the port
+// the VM's VNC proxy listens on, the ticket that opens its websocket, and the
+// one-time password the VNC session itself asks for.
+type VNCTicket struct {
+	Port     int
+	Ticket   string
+	Password string
+}
+
+// VNCProxy starts a VNC proxy for a running VM. websocket=1 makes it reachable
+// through vncwebsocket; generate-password=1 makes Proxmox issue a password
+// separate from the ticket, so the ticket — which opens the websocket — never
+// has to reach the browser.
+//
+// The proxy only waits a few seconds for its websocket, so call this as late
+// as possible before connecting.
+func (c *Client) VNCProxy(ctx context.Context, vmid int) (VNCTicket, error) {
+	var raw struct {
+		// Proxmox reports the port as a string; accept a number too.
+		Port     json.RawMessage `json:"port"`
+		Ticket   string          `json:"ticket"`
+		Password string          `json:"password"`
+	}
+	params := url.Values{"websocket": {"1"}, "generate-password": {"1"}}
+	if err := c.form(ctx, http.MethodPost, c.nodePath("/qemu/%d/vncproxy", vmid), params, &raw); err != nil {
+		return VNCTicket{}, err
+	}
+	port, err := strconv.Atoi(strings.Trim(string(raw.Port), `"`))
+	if err != nil || port <= 0 {
+		return VNCTicket{}, fmt.Errorf("proxmox vncproxy: unusable port %s", raw.Port)
+	}
+	if raw.Ticket == "" || raw.Password == "" {
+		return VNCTicket{}, errors.New("proxmox vncproxy: the answer has no ticket or password")
+	}
+	return VNCTicket{Port: port, Ticket: raw.Ticket, Password: raw.Password}, nil
+}
+
+// DialVNC opens the websocket to a VM's VNC proxy and returns the connection
+// once Proxmox has switched protocols. Everything that follows is websocket
+// frames, which the caller relays without interpreting.
+//
+// This exists because a browser cannot put an Authorization header on a
+// websocket, and vncwebsocket requires one. The API makes the connection with
+// its own pool-scoped token instead (probe console_auth measured that the token
+// is accepted here).
+func (c *Client) DialVNC(ctx context.Context, vmid int, ticket VNCTicket) (net.Conn, error) {
+	endpoint, err := url.Parse(c.base)
+	if err != nil {
+		return nil, err
+	}
+	address := endpoint.Host
+	if endpoint.Port() == "" {
+		address = net.JoinHostPort(endpoint.Hostname(), "443")
+	}
+	tlsConfig := &tls.Config{}
+	if transport, ok := c.http.Transport.(*http.Transport); ok && transport.TLSClientConfig != nil {
+		tlsConfig = transport.TLSClientConfig.Clone()
+	}
+	if tlsConfig.ServerName == "" {
+		tlsConfig.ServerName = endpoint.Hostname()
+	}
+	dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}, Config: tlsConfig}
+	conn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("proxmox vncwebsocket: %w", err)
+	}
+
+	nonce := make([]byte, 16)
+	if _, err := rand.Read(nonce); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	key := base64.StdEncoding.EncodeToString(nonce)
+	query := url.Values{"port": {strconv.Itoa(ticket.Port)}, "vncticket": {ticket.Ticket}}
+	target := endpoint.Path + c.nodePath("/qemu/%d/vncwebsocket", vmid) + "?" + query.Encode()
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(15 * time.Second)
+	}
+	_ = conn.SetDeadline(deadline)
+	// No Sec-WebSocket-Extensions: frames are relayed verbatim, so nothing may
+	// be negotiated here that the browser's side did not also agree to.
+	_, err = fmt.Fprintf(conn, "GET %s HTTP/1.1\r\nHost: %s\r\nAuthorization: PVEAPIToken=%s\r\n"+
+		"Connection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\n"+
+		"Sec-WebSocket-Key: %s\r\nSec-WebSocket-Protocol: binary\r\n\r\n",
+		target, endpoint.Host, c.token, key)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("proxmox vncwebsocket: %w", err)
+	}
+	reader := bufio.NewReader(conn)
+	request, _ := http.NewRequest(http.MethodGet, endpoint.Scheme+"://"+endpoint.Host+target, nil)
+	response, err := http.ReadResponse(reader, request)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("proxmox vncwebsocket: %w", err)
+	}
+	route := strings.SplitN(target, "?", 2)[0]
+	if response.StatusCode != http.StatusSwitchingProtocols {
+		conn.Close()
+		return nil, &Error{Method: http.MethodGet, Path: route, Status: response.StatusCode,
+			Reason: strings.TrimSpace(strings.TrimPrefix(response.Status, strconv.Itoa(response.StatusCode)))}
+	}
+	if response.Header.Get("Sec-WebSocket-Accept") != wsrelay.AcceptKey(key) {
+		conn.Close()
+		return nil, fmt.Errorf("proxmox vncwebsocket: the handshake answer does not match the key sent")
+	}
+	_ = conn.SetDeadline(time.Time{})
+	return &bufferedConn{Conn: conn, reader: reader}, nil
+}
+
+// bufferedConn keeps bytes the handshake reader already pulled off the socket,
+// such as a first frame that arrived with the 101 answer.
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func (b *bufferedConn) Read(p []byte) (int, error) { return b.reader.Read(p) }
+
 type Volume struct {
-	VolID string `json:"volid"`
-	Size  int64  `json:"size"`
+	VolID  string `json:"volid"`
+	Size   int64  `json:"size"`
+	Format string `json:"format"`
 }
 
 func (c *Client) ListVolumes(ctx context.Context, storage, content string) ([]Volume, error) {

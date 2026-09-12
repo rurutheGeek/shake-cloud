@@ -89,10 +89,6 @@ variable "username" {
   default     = "debian"
 }
 
-variable "ssh_public_keys" {
-  type = list(string)
-}
-
 variable "tags" {
   type    = list(string)
   default = ["managed-by-terraform-admin", "seed"]

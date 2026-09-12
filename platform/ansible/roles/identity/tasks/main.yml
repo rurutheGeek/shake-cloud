@@ -14,6 +14,7 @@
     - compose.yaml
     - manage.py
     - configure.py
+    - invitations.py
     - .env.example
 
 - name: Copy the reviewed image lock when the repository has one
@@ -41,6 +42,35 @@
     - {key: STORAGE_ROOT, value: '{{ identity_storage_root }}'}
     - {key: BIND_ADDRESS, value: '{{ identity_bind_address }}'}
     - {key: CLOUD_PORTAL_URL, value: '{{ identity_cloud_portal_url | trim }}'}
+
+# SMTP は任意。platform/sops/smtp.sops.yaml があるときだけ .env へ写す。
+# 事業者が未定の間はファイルが無く、招待リンクはファイル保存だけになる。
+- name: Look for SMTP credentials
+  ansible.builtin.stat:
+    path: '{{ identity_smtp_sops_file }}'
+  delegate_to: localhost
+  become: false
+  register: identity_smtp
+
+- name: Read the SMTP credentials
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ identity_smtp_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: identity_smtp_values
+  changed_when: false
+  no_log: true
+  when: identity_smtp.stat.exists
+
+- name: Converge the SMTP settings
+  ansible.builtin.lineinfile:
+    path: '{{ identity_project_dir }}/.env'
+    regexp: '^{{ item }}='
+    line: '{{ item }}={{ (identity_smtp_values.stdout | from_json)[item] | default("") }}'
+    mode: '0600'
+  loop: '{{ identity_smtp_keys }}'
+  no_log: true
+  when: identity_smtp.stat.exists
 
 - name: Initialize storage and generated secrets
   ansible.builtin.command:

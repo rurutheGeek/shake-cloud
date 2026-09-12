@@ -9,8 +9,11 @@ info:
   title: shake-cloud API
   version: 0.1.0
   description: |
-    Phase 1: login, access keys and the audit log. Instances and the rest
-    arrive in later phases; see docs/operations/handover.md.
+    Login, access keys, the audit log and compute. Instances can be created
+    with free-form cpu, memory and disk; named instance types are only a
+    shorthand starting point, not a fixed catalogue of sizes. Quotas and
+    capacity limits are administrator-settable at runtime through
+    /v1/limits, not baked into the deployment.
 
     Browsers log in through Authentik and hold a session cookie. Terraform
     and the CLI send `Authorization: Bearer sca_<access_key_id>.<secret>`.
@@ -27,6 +30,10 @@ tags:
   - name: audit
   - name: compute
     description: Instances, images and instance types.
+  - name: volumes
+    description: Detachable block storage.
+  - name: security-groups
+    description: Per-instance network firewalls.
 paths:
   /healthz:
     get:
@@ -183,6 +190,72 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
 
+  /v1/key-pairs:
+    get:
+      operationId: DescribeKeyPairs
+      tags: [iam]
+      summary: List the caller's SSH keys.
+      description: A caller sees only their own.
+      responses:
+        '200':
+          description: Key pairs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key_pairs]
+                properties:
+                  key_pairs:
+                    type: array
+                    items: {$ref: '#/components/schemas/KeyPair'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: ImportKeyPair
+      tags: [iam]
+      summary: Register an SSH public key.
+      description: |
+        Only the **public** key is stored; the API never holds a private
+        key. The key is written into an instance's seed image at launch
+        when RunInstances names it, so deleting a key pair later does not
+        lock anyone out of an existing VM. Key names are unique per
+        account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [key_name, public_key]
+              properties:
+                key_name: {type: string, maxLength: 64}
+                public_key: {type: string, maxLength: 16384}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/KeyPairEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/key-pairs/{key_name}:
+    delete:
+      operationId: DeleteKeyPair
+      tags: [iam]
+      summary: Delete one of the caller's SSH keys.
+      parameters:
+        - name: key_name
+          in: path
+          required: true
+          schema: {type: string, maxLength: 64}
+      responses:
+        '204':
+          description: Deleted.
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+
   /v1/audit-events:
     get:
       operationId: LookupEvents
@@ -230,7 +303,8 @@ paths:
     get:
       operationId: DescribeImages
       tags: [compute]
-      summary: List the shared images instances can be launched from.
+      summary: List the deployment's shared images and every account's uploaded ones.
+      description: 'So people can see what is available to launch from, and who added it.'
       responses:
         '200':
           description: Images.
@@ -242,15 +316,71 @@ paths:
                 properties:
                   images:
                     type: array
-                    items:
-                      type: object
-                      required: [image_id, name, state, public]
-                      properties:
-                        image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
-                        name: {type: string}
-                        state: {type: string, enum: [available]}
-                        public: {type: boolean}
+                    items: {$ref: '#/components/schemas/Image'}
         '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: ImportImage
+      tags: [compute]
+      summary: Upload a disk image.
+      description: |
+        The image is streamed straight through to the node's image store,
+        never buffered in the API, because the API container has only a
+        small RAM-backed /tmp. Proxmox validates the file with qemu-img, so
+        a corrupt or unsupported file is refused and nothing is stored.
+        qcow2 and raw are what the store accepts.
+
+        The request is answered when the store has accepted the image, so a
+        large upload holds the connection open for minutes.
+
+        The size is bounded by the administrator-settable
+        `capacity.max_image_gib` limit and by the free space the image store
+        must keep (`capacity.image_store_min_free_mib`).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, file]
+              properties:
+                name: {type: string, maxLength: 128}
+                file: {type: string, format: binary}
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '201':
+          description: Uploaded.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImageEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/images/{image_id}:
+    delete:
+      operationId: DeleteImage
+      tags: [compute]
+      summary: Delete an uploaded image.
+      description: |
+        An owner or a cloud-admin may delete an uploaded image; the
+        deployment's **shared** images cannot be deleted through the API
+        (they are declared in Terraform). Instances already created from an
+        image are unaffected, because their disk was copied at creation. A
+        deletion is refused while an instance that was launched from it is
+        still being created.
+      parameters:
+        - $ref: '#/components/parameters/ImageID'
+      responses:
+        '204':
+          description: Deleted.
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instance-types:
     get:
       operationId: DescribeInstanceTypes
@@ -363,6 +493,20 @@ paths:
 
         Repeating a request with the same client_token returns the original
         instance (200) instead of launching another.
+
+        **Sizing is free-form; instance_type is only a starting point.**
+        Either `instance_type`, or both `vcpus` and `memory_mib`, must be
+        given. Explicit `vcpus`, `memory_mib`, `memory_min_mib` or
+        `root_disk_gib` override the preset's values.
+
+        `ballooning` defaults to true. When true and no `memory_min_mib` is
+        given, the floor defaults to a quarter of `memory_mib` (at least 512
+        MiB). When false, the VM gets fixed memory and the balloon driver is
+        disabled.
+
+        vCPUs may not exceed the node's thread count; memory and disk are
+        bounded by the account quota and the cloud's capacity checks, not by
+        a fixed catalogue of sizes.
       requestBody:
         required: true
         content:
@@ -370,10 +514,19 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [image_id, instance_type]
+              required: [image_id]
               properties:
                 image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
-                instance_type: {type: string}
+                instance_type:
+                  type: string
+                  description: A named preset from GET /v1/instance-types, used as a starting point.
+                vcpus: {type: integer, minimum: 1}
+                memory_mib: {type: integer, minimum: 512}
+                memory_min_mib:
+                  type: integer
+                  minimum: 512
+                  description: The balloon floor. Ignored when ballooning is false.
+                ballooning: {type: boolean, default: true}
                 root_disk_gib:
                   type: integer
                   description: Omit for the deployment's default. Never smaller than the image.
@@ -385,10 +538,20 @@ paths:
                     It is readable from inside the instance, so it is not a
                     place for secrets.
                 client_token: {type: string, maxLength: 64}
+                key_name:
+                  type: string
+                  maxLength: 64
+                  description: 'Must be one of the caller''s own key pairs. Its public key is added to the instance''s ssh_authorized_keys through cloud-init.'
                 tags:
                   type: object
                   additionalProperties: {type: string}
                   description: 'Name becomes the guest hostname. Keys starting with shakecloud: are reserved.'
+                security_group_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+                  description: 'Must belong to the caller''s own account. Omitted means the account''s default group.'
       responses:
         '202':
           description: Accepted; the instance is pending.
@@ -411,12 +574,17 @@ paths:
       tags: [compute]
       summary: List instances, newest first.
       description: |
-        Users see their own; cloud-admins see every account's. Terminated
-        instances stay listed for an hour.
+        Every authenticated caller sees every instance in the cloud, not only
+        their own, so that users can see what the cloud is running and who
+        owns it. client_token is returned only for instances the caller owns.
+        Terminated instances stay listed for an hour.
+
+        Listing does not grant control: acting on an instance (power,
+        terminate) still requires owning it or being a cloud-admin.
       parameters:
         - name: account_id
           in: query
-          description: cloud-admins only.
+          description: Filter by account. Available to everyone, not only cloud-admins.
           schema: {type: string, pattern: '^[0-9]{12}$'}
       responses:
         '200':
@@ -432,6 +600,41 @@ paths:
                     items: {$ref: '#/components/schemas/Instance'}
         '401': {$ref: '#/components/responses/Error'}
         '403': {$ref: '#/components/responses/Error'}
+  /v1/instances/adopt:
+    post:
+      operationId: AdoptInstance
+      tags: [compute]
+      summary: Register a VM that already exists into the cloud. cloud-admins only.
+      description: |
+        cloud-admins only.
+
+        Takes over a VM the administrator has already moved into the cloud
+        pool. It is registered under `account_id` and from then on behaves like
+        a launched instance: power, console, tags and security groups all work.
+        It cannot be launched or re-created, so it keeps no source image or
+        seed ISO.
+
+        The VM must be running or stopped, have a net0 MAC address, and its
+        root disk must be measurable; if storage does not report the size, pass
+        `root_disk_gib`. An address is optional, but security groups filter by
+        address, so an adopted VM with none cannot be filtered.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdoptInstanceRequest'}
+      responses:
+        '201':
+          description: The adopted instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instances/{instance_id}:
     get:
       operationId: DescribeInstance
@@ -465,6 +668,50 @@ paths:
               schema: {$ref: '#/components/schemas/InstanceEnvelope'}
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: ModifyInstance
+      tags: [compute]
+      summary: Change an instance's cpu, memory, ballooning or disk size. cloud-admins only.
+      description: |
+        cloud-admins only.
+
+        `vcpus`, `memory_mib` and `ballooning` can only be changed while the
+        instance is **stopped**; Proxmox applies them at the next start.
+        `root_disk_gib` may be grown while the instance runs. A disk can only
+        grow, never shrink.
+
+        The new size is re-checked against the account quota and the host's
+        capacity, so a change can be refused for the same reasons a launch
+        can.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              description: At least one property is required.
+              properties:
+                vcpus: {type: integer, minimum: 1}
+                memory_mib: {type: integer, minimum: 512}
+                memory_min_mib: {type: integer, minimum: 512}
+                ballooning: {type: boolean}
+                root_disk_gib: {type: integer}
+      responses:
+        '200':
+          description: The modified instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instances/{instance_id}/start:
     post:
       operationId: StartInstance
@@ -514,6 +761,597 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
+  /v1/instances/{instance_id}/console:
+    post:
+      operationId: CreateConsoleSession
+      tags: [compute]
+      summary: Open a browser console to a running instance.
+      description: |
+        Only the instance's owner or a cloud-admin may open one; anyone else
+        gets 403, not 404, because every instance is visible to every
+        account and 404 would deny knowledge of something the caller can
+        already see listed.
+
+        The instance must be running (409 otherwise).
+
+        The response is a URL on this origin, valid for five minutes and
+        bound to the caller's account. Opening it in a browser that is
+        logged in as the same account shows a noVNC console; it is not
+        usable by another account.
+
+        Each load of that page asks Proxmox for a fresh VNC ticket and
+        one-time password, because Proxmox's VNC proxy only waits a few
+        seconds for its websocket. A reload therefore reconnects cleanly,
+        and a URL copied elsewhere is useless once it expires.
+
+        The page's websocket is relayed through the API: browsers cannot
+        attach the Authorization header Proxmox requires, so the API
+        connects with its own pool-scoped token and copies the websocket
+        frames both ways without interpreting them. When the websocket is
+        authenticated by the session cookie, its Origin must be this API's
+        own origin, which is what stops another site from opening a console
+        through a logged-in user's browser.
+
+        The page (`GET /console/{token}`) and its websocket
+        (`GET /console/{token}/ws`) are browser endpoints like the portal
+        page, not API operations, so they are not listed as paths here.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConsoleEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
+  /v1/volumes:
+    get:
+      operationId: DescribeVolumes
+      tags: [volumes]
+      summary: List volumes, newest first.
+      description: |
+        Every authenticated caller sees every volume in the cloud, like
+        instances, so a viewer can tell what exists and who owns it.
+        client_token is returned only to the owner. Deleted volumes stay
+        listed for an hour.
+      responses:
+        '200':
+          description: Volumes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [volumes]
+                properties:
+                  volumes:
+                    type: array
+                    items: {$ref: '#/components/schemas/Volume'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateVolume
+      tags: [volumes]
+      summary: Create a detachable block volume.
+      description: |
+        Returns immediately with the volume `creating`; poll DescribeVolume
+        until it is `available`.
+
+        size_gib is bounded by `limits.volume_size_gib` and by the account
+        quota (`account_quota.volumes`, `account_quota.volume_gib`), which
+        counts every volume the account holds except deleted ones.
+
+        Repeating a request with the same client_token returns the original
+        volume instead of creating another (409 IdempotentParameterMismatch
+        if the rest of the request does not match).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateVolumeRequest'}
+      responses:
+        '202':
+          description: Accepted; the volume is creating.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/volumes/{volume_id}:
+    get:
+      operationId: DescribeVolume
+      tags: [volumes]
+      summary: Read one volume.
+      parameters:
+        - $ref: '#/components/parameters/VolumeID'
+      responses:
+        '200':
+          description: The volume.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: ModifyVolume
+      tags: [volumes]
+      summary: Grow a volume.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). A
+        volume can only grow, never shrink; size_gib must exceed the current
+        size_gib (400 InvalidParameterValue otherwise) and stay within
+        `limits.volume_size_gib` and the account quota.
+
+        The volume must be `available` or `in-use` (409 IncorrectState
+        otherwise). While the resize is applying, modification_state is
+        `modifying`; an attached volume's new size is visible in the guest
+        immediately.
+      parameters:
+        - $ref: '#/components/parameters/VolumeID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModifyVolumeRequest'}
+      responses:
+        '202':
+          description: Accepted; the resize is applying.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteVolume
+      tags: [volumes]
+      summary: Delete a volume.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). The
+        volume must be detached (409 VolumeInUse otherwise); detach it
+        first. Deleting an already-deleted volume is not an error. Deleted
+        volumes stay listed for an hour.
+      parameters:
+        - $ref: '#/components/parameters/VolumeID'
+      responses:
+        '202':
+          description: Accepted; the volume is deleting.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/volumes/{volume_id}/attach:
+    post:
+      operationId: AttachVolume
+      tags: [volumes]
+      summary: Attach a volume to an instance.
+      description: |
+        Owner or cloud-admins only, and the instance must belong to the same
+        account as the volume (403 UnauthorizedOperation otherwise). The
+        volume must be `available` (409 IncorrectState otherwise) and the
+        instance must be running or stopped (409 IncorrectInstanceState
+        otherwise). device is optional; when omitted, the lowest free
+        virtio1..virtio15 slot is used (409 AttachmentLimitExceeded when none
+        are free).
+
+        Hot-plugs on a running instance; the guest sees
+        `/dev/disk/by-id/virtio-<serial>` once attached.
+      parameters:
+        - $ref: '#/components/parameters/VolumeID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AttachVolumeRequest'}
+      responses:
+        '202':
+          description: Accepted; the volume is attaching.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/volumes/{volume_id}/detach:
+    post:
+      operationId: DetachVolume
+      tags: [volumes]
+      summary: Detach a volume from its instance.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        The volume must be `in-use` (409 IncorrectState otherwise). Detaching
+        expects the guest to have already unmounted the device; the API does
+        not ask the guest to unmount it first.
+
+        Hot-unplugs from a running instance; the guest no longer sees the
+        device once detached.
+      parameters:
+        - $ref: '#/components/parameters/VolumeID'
+      responses:
+        '202':
+          description: Accepted; the volume is detaching.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VolumeEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
+  /v1/security-groups:
+    get:
+      operationId: DescribeSecurityGroups
+      tags: [security-groups]
+      summary: List the caller's security groups.
+      description: Callers see their own groups; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Security groups.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [security_groups]
+                properties:
+                  security_groups:
+                    type: array
+                    items: {$ref: '#/components/schemas/SecurityGroup'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateSecurityGroup
+      tags: [security-groups]
+      summary: Create a security group.
+      description: |
+        A new group starts with no ingress rules and one egress rule
+        allowing everything (0.0.0.0/0 and ::/0), as in AWS. group_name is
+        unique per account (409 InvalidGroup.Duplicate otherwise). Limited to
+        20 groups per account (409 SecurityGroupLimitExceeded).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateSecurityGroupRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecurityGroupEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/security-groups/{group_id}:
+    get:
+      operationId: DescribeSecurityGroup
+      tags: [security-groups]
+      summary: Read one security group.
+      description: Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+      parameters:
+        - $ref: '#/components/parameters/GroupID'
+      responses:
+        '200':
+          description: The security group.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecurityGroupEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteSecurityGroup
+      tags: [security-groups]
+      summary: Delete a security group.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). The
+        account's default group cannot be deleted (409 CannotDelete). A
+        group still attached to a live instance cannot be deleted (409
+        DependencyViolation); remove it from every instance's
+        security_groups first.
+      parameters:
+        - $ref: '#/components/parameters/GroupID'
+      responses:
+        '204':
+          description: Deleted.
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/security-groups/{group_id}/ingress:
+    post:
+      operationId: AuthorizeSecurityGroupIngress
+      tags: [security-groups]
+      summary: Add ingress rules to a security group.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        from_port and to_port are required for tcp and udp and rejected for
+        every other protocol (400 InvalidParameterValue). A rule identical to
+        one that already exists is rejected (409
+        InvalidPermission.Duplicate). Limited to 60 ingress rules per group
+        (409 RulesPerSecurityGroupLimitExceeded).
+      parameters:
+        - $ref: '#/components/parameters/GroupID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuthorizeSecurityGroupRulesRequest'}
+      responses:
+        '200':
+          description: The updated security group.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecurityGroupEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/security-groups/{group_id}/egress:
+    post:
+      operationId: AuthorizeSecurityGroupEgress
+      tags: [security-groups]
+      summary: Add egress rules to a security group.
+      description: |
+        Same rules as AuthorizeSecurityGroupIngress, applied to the egress
+        direction. Limited to 60 egress rules per group (409
+        RulesPerSecurityGroupLimitExceeded).
+      parameters:
+        - $ref: '#/components/parameters/GroupID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AuthorizeSecurityGroupRulesRequest'}
+      responses:
+        '200':
+          description: The updated security group.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecurityGroupEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/security-groups/{group_id}/rules/{rule_id}:
+    delete:
+      operationId: RevokeSecurityGroupRule
+      tags: [security-groups]
+      summary: Remove one rule (ingress or egress) from a security group.
+      description: Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+      parameters:
+        - $ref: '#/components/parameters/GroupID'
+        - $ref: '#/components/parameters/RuleID'
+      responses:
+        '200':
+          description: The updated security group.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecurityGroupEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /v1/instances/{instance_id}/security-groups:
+    put:
+      operationId: ModifyInstanceSecurityGroups
+      tags: [security-groups]
+      summary: Replace the security groups an instance uses.
+      description: |
+        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        **Replaces the whole set.** 1 to 5 groups (409
+        SecurityGroupsPerInstanceLimitExceeded beyond 5), every one belonging
+        to the instance's own account (404 InvalidGroup.NotFound otherwise).
+
+        Pushing the new rules to the guest's firewall is asynchronous:
+        firewall_state becomes `applying` immediately and returns to
+        `in-sync` once done.
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModifyInstanceSecurityGroupsRequest'}
+      responses:
+        '200':
+          description: The updated instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+
+  /v1/buckets:
+    get:
+      operationId: DescribeBuckets
+      tags: [storage]
+      summary: List buckets. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Buckets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [buckets]
+                properties:
+                  buckets:
+                    type: array
+                    items: {$ref: '#/components/schemas/Bucket'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateBucket
+      tags: [storage]
+      summary: Create an S3 bucket.
+      description: |
+        Creates a bucket in Garage, owned by the caller's account. The name is a
+        global alias and is unique across the cloud. Repeating the request for a
+        bucket the caller already owns returns it with 200 rather than making a
+        second one; a name owned by another account is 409 BucketAlreadyExists.
+
+        The response carries the S3 endpoint and region to point a client at.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateBucketRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '200':
+          description: The caller already owns a bucket with this name.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/buckets/{bucket_name}:
+    get:
+      operationId: DescribeBucket
+      tags: [storage]
+      summary: Read one bucket and the keys allowed on it.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+      responses:
+        '200':
+          description: The bucket.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteBucket
+      tags: [storage]
+      summary: Delete an empty bucket.
+      description: Garage refuses a bucket that still holds objects; that refusal is passed through.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/buckets/{bucket_name}/keys/{key_id}:
+    put:
+      operationId: PutBucketKey
+      tags: [storage]
+      summary: Grant an S3 key read, write or owner on a bucket.
+      description: The key must belong to the same account as the bucket.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+        - $ref: '#/components/parameters/KeyID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/BucketKeyRequest'}
+      responses:
+        '200':
+          description: The bucket now allowing the key.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteBucketKey
+      tags: [storage]
+      summary: Revoke all of an S3 key's permissions on a bucket.
+      parameters:
+        - $ref: '#/components/parameters/BucketName'
+        - $ref: '#/components/parameters/KeyID'
+      responses:
+        '200':
+          description: The bucket without the key.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BucketEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/s3-keys:
+    get:
+      operationId: ListS3Keys
+      tags: [storage]
+      summary: List S3 access keys. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Keys. The secret is never returned here.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [s3_keys]
+                properties:
+                  s3_keys:
+                    type: array
+                    items: {$ref: '#/components/schemas/S3Key'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateS3Key
+      tags: [storage]
+      summary: Create an S3 access key.
+      description: |
+        The secret is returned in this response only; Garage never shows it
+        again, and the cloud API does not store it. Repeating the request with a
+        name the account already has returns the existing key, without a secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateS3KeyRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/S3KeyEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/s3-keys/{key_id}:
+    delete:
+      operationId: DeleteS3Key
+      tags: [storage]
+      summary: Delete an S3 access key.
+      description: Garage removes its permissions on every bucket.
+      parameters:
+        - $ref: '#/components/parameters/KeyID'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
 
 components:
   parameters:
@@ -522,6 +1360,36 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+    ImageID:
+      name: image_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^img-[a-z0-9-]+$'}
+    VolumeID:
+      name: volume_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^vol-[0-9a-f]{17}$'}
+    GroupID:
+      name: group_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+    RuleID:
+      name: rule_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^sgr-[0-9a-f]{17}$'}
+    BucketName:
+      name: bucket_name
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'}
+    KeyID:
+      name: key_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^GK[0-9a-f]{24}$'}
   securitySchemes:
     accessKey:
       type: http
@@ -535,9 +1403,23 @@ components:
     Error:
       description: |
         Codes: AuthFailure (401), UnauthorizedOperation (403),
-        CrossOriginRequestBlocked (403), NoSuchEntity (404), ValidationError
-        and MalformedRequest (400), LimitExceeded (409), InternalError (500),
-        ServiceUnavailable (503).
+        CrossOriginRequestBlocked (403), NoSuchEntity (404), ValidationError,
+        InvalidParameterValue and MalformedRequest (400), IncorrectInstanceState
+        and LimitExceeded (409), InternalError (500), ServiceUnavailable (503).
+        Also InvalidImageID.NotFound (404), ImageLimitExceeded (409),
+        RequestEntityTooLarge (413), InvalidKeyPair.Duplicate (409) and
+        InvalidKeyPair.NotFound (404).
+        Volumes and security groups add InvalidVolume.NotFound (404),
+        IncorrectState (409), VolumeInUse (409), VolumeLimitExceeded (409),
+        AttachmentLimitExceeded (409), InvalidInstanceID.NotFound (404),
+        IncorrectInstanceState (409), IdempotentParameterMismatch (409),
+        InvalidGroup.NotFound (404), InvalidGroup.Duplicate (409),
+        InvalidPermission.Duplicate (409), InvalidPermission.NotFound (404),
+        DependencyViolation (409), CannotDelete (409),
+        InsufficientVolumeCapacity (503),
+        RulesPerSecurityGroupLimitExceeded (409),
+        SecurityGroupsPerInstanceLimitExceeded (409) and
+        SecurityGroupLimitExceeded (409).
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
@@ -569,12 +1451,18 @@ components:
         instance: {$ref: '#/components/schemas/Instance'}
     Instance:
       type: object
-      required: [instance_id, account_id, image_id, instance_type, state, mac_address, vcpus, memory_mib, root_disk_gib, launch_time]
+      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, ballooning, launch_time, security_groups, firewall_state]
       properties:
         instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
         account_id: {type: string}
+        owner_username:
+          type: string
+          description: The account's username, so a viewer can tell whose instance this is.
         image_id: {type: string}
-        instance_type: {type: string}
+        image_name: {type: string, description: The human name of the image.}
+        instance_type:
+          type: string
+          description: Absent when the instance was created with explicit cpu/memory rather than a named preset.
         state:
           type: string
           enum: [pending, running, stopping, stopped, shutting-down, terminated]
@@ -591,14 +1479,91 @@ components:
           description: The ceiling. What quota and the memory budget count.
         memory_min_mib:
           type: integer
-          description: The floor the host may balloon this instance down to.
+          description: The floor the host may reclaim this instance's memory down to. 0 when ballooning is off.
+        ballooning:
+          type: boolean
+          description: Whether the memory balloon driver is enabled. When false the instance has fixed memory and memory_min_mib is 0.
         root_disk_gib: {type: integer}
         tags:
           type: object
           additionalProperties: {type: string}
         client_token: {type: string}
+        key_name: {type: string, description: 'Absent when no key was used.'}
         launch_time: {type: string, format: date-time}
         terminated_at: {type: string, format: date-time}
+        security_groups:
+          type: array
+          items: {$ref: '#/components/schemas/InstanceSecurityGroup'}
+          description: 'Empty for instances launched before security groups existed; such instances are unfiltered.'
+        firewall_state:
+          type: string
+          enum: [in-sync, applying]
+          description: Whether the last change to security_groups has finished being pushed to the guest's firewall rules.
+        adopted:
+          type: boolean
+          description: 'True for a VM that already existed and was registered into the cloud, rather than created by a launch. It has no source image.'
+    AdoptInstanceRequest:
+      type: object
+      additionalProperties: false
+      required: [vmid, account_id]
+      properties:
+        vmid:
+          type: integer
+          minimum: 1
+          description: An existing VM in the cloud pool on this node.
+        account_id:
+          type: string
+          pattern: '^[0-9]{12}$'
+          description: The owner the administrator chooses. The VM's quota is checked against this account.
+        name:
+          type: string
+          maxLength: 255
+          description: Omit to keep the VM's own name.
+        private_ip_address:
+          type: string
+          description: Optional. Security groups filter by address, so an instance with none cannot be filtered.
+        root_disk_gib:
+          type: integer
+          minimum: 1
+          description: Omit to measure the disk from storage; pass it when storage does not report the size.
+        tags:
+          type: object
+          additionalProperties: {type: string}
+        security_group_ids:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+          description: 'Must belong to the chosen account. Omitted means the account''s default group.'
+    Image:
+      type: object
+      required: [image_id, name, state, public]
+      properties:
+        image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
+        name: {type: string}
+        state: {type: string, enum: [available]}
+        public: {type: boolean, description: 'True for the deployment''s shared images, which every account may launch from and nobody may delete through the API.'}
+        account_id: {type: string, description: 'The uploader; absent for shared images.'}
+        owner_username: {type: string}
+        format: {type: string, description: 'qcow2 or raw, as reported by the store.'}
+        size_mib: {type: integer}
+        created_at: {type: string, format: date-time}
+    ImageEnvelope:
+      type: object
+      required: [image]
+      properties:
+        image: {$ref: '#/components/schemas/Image'}
+    ConsoleSession:
+      type: object
+      required: [url, expires_at]
+      properties:
+        url: {type: string, description: 'Path on this origin to open in a browser, e.g. /console/<token>.'}
+        expires_at: {type: string, format: date-time}
+    ConsoleEnvelope:
+      type: object
+      required: [console]
+      properties:
+        console: {$ref: '#/components/schemas/ConsoleSession'}
     AccessKey:
       type: object
       required: [access_key_id, status, description, create_date]
@@ -611,6 +1576,18 @@ components:
         create_date: {type: string, format: date-time}
         expire_date: {type: string, format: date-time}
         last_used_date: {type: string, format: date-time}
+    KeyPair:
+      type: object
+      required: [key_name, fingerprint, created_at]
+      properties:
+        key_name: {type: string}
+        fingerprint: {type: string, description: 'OpenSSH-style SHA256 fingerprint of the public key, e.g. SHA256:abc... -- the same string ssh-keygen -lf prints.'}
+        created_at: {type: string, format: date-time}
+    KeyPairEnvelope:
+      type: object
+      required: [key_pair]
+      properties:
+        key_pair: {$ref: '#/components/schemas/KeyPair'}
     AuditEvent:
       type: object
       required: [event_id, event_time, event_name, credential_type, source_ip_address, user_agent, request_id]
@@ -629,17 +1606,19 @@ components:
         detail: {type: object}
     Limits:
       type: object
-      required: [account_quota, root_disk_gib, capacity]
+      required: [account_quota, root_disk_gib, volume_size_gib, capacity]
       properties:
         account_quota:
           type: object
           description: Per account. Stopped instances count, because starting them takes the same resources back.
-          required: [instances, vcpus, memory_mib, root_disk_gib]
+          required: [instances, vcpus, memory_mib, root_disk_gib, volumes, volume_gib]
           properties:
             instances: {type: integer, minimum: 0, description: '0 is unlimited.'}
             vcpus: {type: integer, minimum: 0, description: '0 is unlimited.'}
             memory_mib: {type: integer, minimum: 0, description: 'Sum of ceilings. 0 is unlimited.'}
             root_disk_gib: {type: integer, minimum: 0, description: '0 is unlimited.'}
+            volumes: {type: integer, minimum: 0, description: 'Volumes the account may hold. Deleted volumes do not count. 0 is unlimited.'}
+            volume_gib: {type: integer, minimum: 0, description: 'Total size of those volumes. 0 is unlimited.'}
         root_disk_gib:
           type: object
           required: [min, default, max]
@@ -647,10 +1626,21 @@ components:
             min: {type: integer, minimum: 1}
             default: {type: integer, minimum: 1}
             max: {type: integer, minimum: 1}
+        volume_size_gib:
+          type: object
+          description: The size of one volume. No default, since CreateVolume requires size_gib explicitly.
+          required: [min, max]
+          properties:
+            min: {type: integer, minimum: 1}
+            max: {type: integer, minimum: 1}
         capacity:
           type: object
-          required: [memory_budget_mib, node_memory_reserve_mib, vm_disk_max_used_percent, image_store_min_free_mib]
+          required: [memory_budget_mib, node_memory_reserve_mib, vm_disk_max_used_percent, image_store_min_free_mib, max_image_gib]
           properties:
+            max_image_gib:
+              type: integer
+              minimum: 0
+              description: 'Largest single uploaded image, in GiB. 0 is unlimited.'
             memory_budget_mib:
               type: integer
               minimum: 0
@@ -683,12 +1673,20 @@ components:
             vcpus: {type: integer, minimum: 0}
             memory_mib: {type: integer, minimum: 0}
             root_disk_gib: {type: integer, minimum: 0}
+            volumes: {type: integer, minimum: 0}
+            volume_gib: {type: integer, minimum: 0}
         root_disk_gib:
           type: object
           additionalProperties: false
           properties:
             min: {type: integer, minimum: 1}
             default: {type: integer, minimum: 1}
+            max: {type: integer, minimum: 1}
+        volume_size_gib:
+          type: object
+          additionalProperties: false
+          properties:
+            min: {type: integer, minimum: 1}
             max: {type: integer, minimum: 1}
         capacity:
           type: object
@@ -698,6 +1696,7 @@ components:
             node_memory_reserve_mib: {type: integer, minimum: 0}
             vm_disk_max_used_percent: {type: integer, minimum: 0, maximum: 100}
             image_store_min_free_mib: {type: integer, minimum: 0}
+            max_image_gib: {type: integer, minimum: 0}
     LimitsEnvelope:
       type: object
       required: [limits, defaults, overrides]
@@ -713,14 +1712,16 @@ components:
         updated_by: {type: string, description: Account that last changed them.}
     Usage:
       type: object
-      required: [instances, vcpus, memory_mib, root_disk_gib]
+      required: [instances, vcpus, memory_mib, root_disk_gib, volumes, volume_gib]
       properties:
         account_id: {type: string}
         username: {type: string}
         instances: {type: integer}
         vcpus: {type: integer}
-        memory_mib: {type: integer, description: Sum of ceilings, not memory in use.}
+        memory_mib: {type: integer, description: 'Sum of ceilings, not memory in use.'}
         root_disk_gib: {type: integer}
+        volumes: {type: integer, description: Deleted volumes do not count.}
+        volume_gib: {type: integer}
     Capacity:
       type: object
       required: [node, storage, cloud, account, limits]
@@ -765,3 +1766,259 @@ components:
           type: array
           description: Per account, largest first. cloud-admins only.
           items: {$ref: '#/components/schemas/Usage'}
+    Volume:
+      type: object
+      required: [volume_id, account_id, size_gib, state, serial, create_time]
+      properties:
+        volume_id: {type: string, pattern: '^vol-[0-9a-f]{17}$'}
+        account_id: {type: string}
+        owner_username:
+          type: string
+          description: The account's username, so a viewer can tell whose volume this is.
+        size_gib: {type: integer}
+        state:
+          type: string
+          enum: [creating, available, in-use, deleting, deleted, error]
+        state_reason:
+          type: string
+          description: Why the volume is in this state, when it was not asked for.
+        modification_state:
+          type: string
+          enum: [modifying]
+          description: Present only while a ModifyVolume resize is still being applied.
+        serial:
+          type: string
+          pattern: '^vol[0-9a-f]{17}$'
+          description: 'The 17 hex digits of volume_id prefixed with vol, max 20 chars as Proxmox requires. Seen inside the guest as /dev/disk/by-id/virtio-<serial> once attached.'
+        tags:
+          type: object
+          additionalProperties: {type: string}
+        client_token:
+          type: string
+          description: Returned only to the owner.
+        create_time: {type: string, format: date-time}
+        attachment:
+          $ref: '#/components/schemas/VolumeAttachment'
+          description: Omitted when the volume is not attached to an instance.
+    VolumeAttachment:
+      type: object
+      required: [instance_id, device, state]
+      properties:
+        instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+        device:
+          type: string
+          pattern: '^virtio([1-9]|1[0-5])$'
+        state:
+          type: string
+          enum: [attaching, attached, detaching]
+        device_path:
+          type: string
+          description: 'Present once attached, e.g. /dev/disk/by-id/virtio-vol0123456789abcdef0.'
+    VolumeEnvelope:
+      type: object
+      required: [volume]
+      properties:
+        volume: {$ref: '#/components/schemas/Volume'}
+    CreateVolumeRequest:
+      type: object
+      additionalProperties: false
+      required: [size_gib]
+      properties:
+        size_gib:
+          type: integer
+          minimum: 1
+          description: Bounded by limits.volume_size_gib and the account quota.
+        client_token: {type: string, maxLength: 64}
+        tags:
+          type: object
+          additionalProperties: {type: string}
+    ModifyVolumeRequest:
+      type: object
+      additionalProperties: false
+      required: [size_gib]
+      properties:
+        size_gib:
+          type: integer
+          minimum: 1
+          description: Must be larger than the volume's current size_gib. Volumes only grow, never shrink.
+    AttachVolumeRequest:
+      type: object
+      additionalProperties: false
+      required: [instance_id]
+      properties:
+        instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+        device:
+          type: string
+          pattern: '^virtio([1-9]|1[0-5])$'
+          description: Optional; omit for the lowest free virtio1..virtio15 slot.
+    SecurityGroup:
+      type: object
+      required: [group_id, account_id, group_name, is_default, ingress, egress, instance_ids, created_at]
+      properties:
+        group_id: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+        account_id: {type: string}
+        owner_username:
+          type: string
+          description: The account's username, so a viewer can tell whose group this is.
+        group_name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$'}
+        description: {type: string, maxLength: 255}
+        is_default:
+          type: boolean
+          description: 'The account''s default group, created automatically on first use. Allows all ingress and egress from 0.0.0.0/0 and ::/0, and cannot be deleted.'
+        ingress:
+          type: array
+          items: {$ref: '#/components/schemas/SecurityGroupRule'}
+        egress:
+          type: array
+          items: {$ref: '#/components/schemas/SecurityGroupRule'}
+        instance_ids:
+          type: array
+          items: {type: string, pattern: '^i-[0-9a-f]{17}$'}
+          description: Instances currently using this group.
+        created_at: {type: string, format: date-time}
+    SecurityGroupRule:
+      type: object
+      required: [rule_id, protocol, cidr]
+      properties:
+        rule_id: {type: string, pattern: '^sgr-[0-9a-f]{17}$'}
+        protocol: {type: string, enum: [tcp, udp, icmp, icmpv6, all]}
+        from_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Present only when protocol is tcp or udp.
+        to_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Present only when protocol is tcp or udp.
+        cidr:
+          type: string
+          description: 'IPv4 or IPv6 CIDR, e.g. 192.168.10.0/24 or ::/0. The family decides IPv4 vs IPv6.'
+        description: {type: string, maxLength: 255}
+    SecurityGroupRuleRequest:
+      type: object
+      additionalProperties: false
+      required: [protocol, cidr]
+      properties:
+        protocol: {type: string, enum: [tcp, udp, icmp, icmpv6, all]}
+        from_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Required when protocol is tcp or udp; rejected for every other protocol.
+        to_port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Required when protocol is tcp or udp; rejected for every other protocol.
+        cidr: {type: string, description: 'IPv4 or IPv6 CIDR, e.g. 192.168.10.0/24 or ::/0.'}
+        description: {type: string, maxLength: 255}
+    SecurityGroupEnvelope:
+      type: object
+      required: [security_group]
+      properties:
+        security_group: {$ref: '#/components/schemas/SecurityGroup'}
+    CreateSecurityGroupRequest:
+      type: object
+      additionalProperties: false
+      required: [group_name]
+      properties:
+        group_name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$'}
+        description: {type: string, maxLength: 255}
+    AuthorizeSecurityGroupRulesRequest:
+      type: object
+      additionalProperties: false
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/SecurityGroupRuleRequest'}
+    ModifyInstanceSecurityGroupsRequest:
+      type: object
+      additionalProperties: false
+      required: [security_group_ids]
+      properties:
+        security_group_ids:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+          description: Must belong to the instance's own account.
+    InstanceSecurityGroup:
+      type: object
+      required: [group_id, group_name]
+      properties:
+        group_id: {type: string, pattern: '^sg-[0-9a-f]{17}$'}
+        group_name: {type: string}
+    BucketKey:
+      type: object
+      required: [key_id, key_name, read, write, owner]
+      properties:
+        key_id: {type: string, pattern: '^GK[0-9a-f]{24}$'}
+        key_name: {type: string}
+        read: {type: boolean}
+        write: {type: boolean}
+        owner: {type: boolean}
+    Bucket:
+      type: object
+      required: [bucket_name, account_id, s3_endpoint, s3_region, keys, created_at]
+      properties:
+        bucket_name: {type: string, pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'}
+        account_id: {type: string}
+        owner_username: {type: string}
+        s3_endpoint:
+          type: string
+          description: 'The S3 API URL to point a client at, e.g. http://192.168.10.206:3900. The data does not pass through the cloud API.'
+        s3_region: {type: string}
+        objects: {type: integer, format: int64, description: 'Number of objects, from Garage. Best effort.'}
+        bytes: {type: integer, format: int64, description: 'Bytes stored, from Garage. Best effort.'}
+        keys:
+          type: array
+          items: {$ref: '#/components/schemas/BucketKey'}
+        created_at: {type: string, format: date-time}
+    BucketEnvelope:
+      type: object
+      required: [bucket]
+      properties:
+        bucket: {$ref: '#/components/schemas/Bucket'}
+    CreateBucketRequest:
+      type: object
+      additionalProperties: false
+      required: [bucket_name]
+      properties:
+        bucket_name:
+          type: string
+          pattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+          description: 'S3 bucket rules: 3-63 characters of lower case letters, digits, dots and hyphens, starting and ending with a letter or digit.'
+    BucketKeyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        read: {type: boolean, default: false}
+        write: {type: boolean, default: false}
+        owner: {type: boolean, default: false}
+    S3Key:
+      type: object
+      required: [key_id, name, account_id, created_at]
+      properties:
+        key_id: {type: string, pattern: '^GK[0-9a-f]{24}$'}
+        name: {type: string}
+        account_id: {type: string}
+        owner_username: {type: string}
+        created_at: {type: string, format: date-time}
+        secret_access_key:
+          type: string
+          description: 'The S3 secret. Returned only by CreateS3Key, and never again; the cloud API does not store it.'
+    S3KeyEnvelope:
+      type: object
+      required: [s3_key]
+      properties:
+        s3_key: {$ref: '#/components/schemas/S3Key'}
+    CreateS3KeyRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$'}

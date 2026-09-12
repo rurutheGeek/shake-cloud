@@ -10,11 +10,9 @@ variable "image_name" {
   type        = string
   default     = null
 }
-variable "network_vlan_id" {
-  description = "VLAN を使わない場合は null のままにする。"
-  type        = number
-  default     = null
-}
+
+# network_vlan_id は variables ではない。切替の値を1か所に保つため、
+# ../network.yaml の vlan.management.vlan_id を hosts.tf が直接読む。
 
 variable "dns_domain" {
   type    = string

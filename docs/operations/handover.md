@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示を実機で構築・確認済み。ここまでを [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) に出した。次は Phase 3（イメージのアップロード・SSH鍵・Webコンソール）**。
+更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。**Phase 6 の CLI と Terraform Provider を実装し、実機で確認した**。Phase 7 は storage-s3 VM と Garage を構築し、バケット・S3キーを扱うクラウドAPI・CLI・Terraform Provider・ポータル画面を実装、APIが発行した鍵で実クライアント（awscli）から PUT/LIST/GET/削除まで確認した。利用者の招待フロー（identity サービスの `invitations.py`）も実装した。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -25,8 +25,10 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | 3 | [IaCの所有境界](../architecture/iac.md) | 誰が何を作るか、宣言ファイルの置き場所 |
 | 4 | [クラウドAPIの構築](cloud.md) | 実機で行った手順・実測値・確認結果。API の配備と運用は 3-8 |
 | 5 | `cloud/openapi/shakecloud.yaml` | API の正本。エンドポイント・フィールド・エラーコード |
-| 6 | [Terraformの実行](terraform.md) | plan/apply の方法と、中断時の回収 |
-| 7 | [秘密値の管理](secrets.md) | SOPS と age の扱い |
+| 6 | [shakecloud CLI](cli.md) | コマンドからの操作。アクセスキーの使い方とサブコマンド |
+| 7 | [shakecloud Terraform Provider](terraform-provider.md) | Terraform から操作。リソースと例 |
+| 8 | [Terraformの実行](terraform.md) | plan/apply の方法と、中断時の回収 |
+| 9 | [秘密値の管理](secrets.md) | SOPS と age の扱い |
 
 ## 3. 確定した決定
 
@@ -37,18 +39,30 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | APIの形 | AWS の語彙・状態遷移・フィールド名に揃えた自作 REST（OpenAPI が正本）。ワイヤ互換（SigV4、本物の `aws` CLI）は作らない |
 | 認証 | ブラウザは Authentik の OIDC。機械は、ポータルで発行するアクセスキーを `Authorization: Bearer sca_<keyid>.<secret>` で送る |
 | アクセスキーの発行 | **ポータルのログインからだけ。** アクセスキーで別のアクセスキーは作れない（漏れたキーが複製を作って居座れないように）。1アカウント5本まで。削除は行を残して無効化 |
-| テナント | Authentik ユーザー1人 = 1アカウント。`cloud-admins` だけが全体を見られる |
+| テナント | Authentik ユーザー1人 = 1アカウント |
+| VM の見え方と権限 | **クラウドのVMは全員が見られる**（所有者名・イメージ・リソース・状態）。1台のホストを分け合うので、誰が何を動かしているか分からないと容量の判断ができないため。ただし**操作できるのは所有者と `cloud-admins` だけ**（他人のVMへの電源操作・削除は 403）。他人の `client_token` は返さない。`user_data` は一覧に出さない |
+| VM の大きさ | **自由入力**。`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定する。`instance_type`（`flavors.yaml` の名前）は**任意の近道**で、指定すると値が埋まるだけ。1つでも数値を上書きしたらその型名は外れる（カスタム扱い） |
+| バルーニング | **VMごとに選べる。** `ballooning: false` なら固定メモリ（Proxmox の `balloon=0`）。`true` のとき `memory_min_mib` が回収の下限で、省略すると上限の 1/4（最低 512MiB） |
+| 大きさの変更 | `PATCH /v1/instances/{id}`、**`cloud-admins` だけ**。vCPU・メモリ・バルーニングは**停止中のみ**（Proxmox は次回起動時にしか反映しないので、動作中に変えると台帳と実物が食い違う）。ディスクは稼働中でも**拡大のみ**。変更後の大きさでクォータと空き容量を再検査する |
+| イメージのアップロード経路 | **API を通した直接アップロードだけ。**`download-url`（URL から Proxmox に取りに行かせる）は `cloudapi@pve` に **403**、`upload` は `content=import` を受ける（どちらも実測）。**Proxmox はチャンク転送を 501 で拒否する**ので本文の長さを先に宣言する必要があり、**「一切溜めずに流す」は成立しない**。cloud-01 の実ディスク（`storage/uploads`）へ一旦書いて大きさを確定させ、そこから流す。**`/tmp` は tmpfs なので使えない**。**中身の検査は Proxmox が qemu-img で行う**ので、壊れたファイルは弾かれ、何も残らない |
+| イメージの上限 | 1イメージ **12GiB**（`max_image_gib`、管理者が変更可、0 は無制限）。置き場（Proxmox のルートFS 約94GiB）と cloud-01 のディスク（空き約31GiB）の**両方**に同じ大きさが要るので、小さい方に合わせてある。加えて置き場の空き（`image_store_min_free_mib`）を必ず残す |
+| イメージの削除 | 所有者と `cloud-admins`。**共有イメージは API から消せない**（Terraform の宣言物）。既にそのイメージから作った VM は無関係（作成時にディスクへ複製済み）。**作成中の VM がある間だけ**削除を断る |
+| SSH鍵 | 公開鍵だけを保存する。**`user-data` には触らず、NoCloud の `meta-data` の `public-keys` で渡す**（`user-data` はシェルスクリプトでもよい自由書式なので、他人の文書を書き換えないため）。鍵の本文は**承認時に**インスタンスへ複製するので、直後に鍵ペアを消されても入れない VM は生まれない。鍵ペアを後から消しても既存の VM は動き続ける |
+| Webコンソール | **noVNC 1.7.0 を同梱する**（`web/static/novnc/`、npm の sha512 と照合した tarball から `core/`・`vendor/`・`LICENSE.txt` を無改変で。MPL-2.0。出所と更新手順は同じ場所の `PROVENANCE.md`）。**CDN は使わない**。ビルド無しの ES モジュールとして読み、CSP の `script-src 'self'` に収まる |
+| コンソールの経路 | ブラウザは WebSocket に `Authorization` を付けられず、`vncwebsocket` はそれを要求するので、**API が自分の `cloudapi@pve` トークンで中継する**。**WebSocket のライブラリは足さない**。ハンドシェイクだけ双方と行い、以後はフレームを解釈せずバイト列を双方向にコピーする（ブラウザのマスク付きフレームは Proxmox が期待する形、Proxmox の非マスクのフレームはブラウザが期待する形なので、そのまま正しい）。圧縮などの拡張はどちら側とも交渉しない |
+| コンソールの手順と期限 | ①`POST /v1/instances/{id}/console`（所有者と管理者だけ、稼働中だけ）が**5分有効・アカウントに結び付いた URL** を返す。**この時点では Proxmox に何も頼まない**。②その**ページを開くたびに** Proxmox の新しいチケットと使い捨てパスワードを発行する（Proxmox の VNC プロキシは数秒しか WebSocket を待たないので、接続の直前まで遅らせる。再読み込みがそのまま再接続になる）。③WebSocket は**1回のページ表示につき1本だけ** |
+| コンソールの防御 | **Cookie で認証された WebSocket は Origin が自サイトでなければ断る**（`CrossOriginProtection` は GET を見ないので、他サイトからのクロスサイト WebSocket 乗っ取りはここで止める）。アクセスキーは他サイトのページから送れないので Origin は問わない（CLI 用）。URL のトークンは**アクセスログに出さず**（`/console/{token}` と記録）、メモリ上も**ハッシュで持つ**。ページは `Cache-Control: no-store`（パスワードを含むため） |
 | v1 の範囲 | EC2相当 + S3（Garage）。サーバレス・RDB は Kubernetes 構築後 |
 | EC2 の追加機能 | 追加ボリューム、セキュリティグループ。スナップショットと IMDS は作らない |
 | 運用機能 | クォータと空き容量検査、差分リコンサイラ、監査ログ。削除保護は作らない |
 | Web UI | フルのセルフサービスポータル |
-| イメージ | 利用者が API へ直接アップロード |
+| イメージ | 利用者が API へ直接アップロード（他に道が無いことを実測で確認。下の「イメージのアップロード経路」） |
 | user-data | 完全に自由（NoCloud seed ISO で渡す） |
 | CLI | 作る |
 | 置き場所 | API と管理DB（PostgreSQL）は専用VM `cloud-01`。コードは `cloud/`（`cloud/api` が Go、`cloud/openapi` が正本） |
 | API の実装 | Go の標準 `net/http`（CSRF 対策は `http.CrossOriginProtection`）、`pgx`、`go-oidc`。**OpenAPI からのコード生成はしない。** エンドポイントが少ないうちは生成物の保守の方が重いので、Go のルート表と OpenAPI の一致をテスト（`routes_test.go`）で保証する |
 | Terraform Provider 名 | `shakecloud_*` |
-| 管理面の分離 | VLAN で分ける。工事は API と並行し、切替は設定値1つで行う |
+| 管理面の分離 | VLAN で分ける。**まず管理はタグなし（ネイティブVLAN）のまま、利用者VM（cloud）だけをタグ付きVLANに載せる。**切り替えは `network.yaml` の `vlan.cloud.vlan_id`（＋ `cloud.prefix`／range）を埋めるだけで行う。宣言と手順は [VLAN 分離への切替](vlan.md) |
 | Authentik | identity VM（110）に**新規構築**した。作業機上の `stacks/hub` は検証用で、移行しない |
 | Authentik の `sub` | `user_uuid`。プロバイダを作り直しても変わらないため |
 | 知らない `sub` と既知のメール | ログインを拒否する（`AccountConflict`）。別アカウントを黙って作ると、その人のリソースが2つに分かれるため |
@@ -56,7 +70,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | HTTPS の入口 | 各ホストの Caddy（`stacks/tls-proxy/`）が Let's Encrypt の証明書を DNS-01 で取り、同じホストの 127.0.0.1 のサービスへ中継する。1台に集めず各ホストに置くのは、認証基盤（identity）を他のホストの障害に巻き込まないため。代わりに Cloudflare の DNS トークンが各ホストに載る |
 | ドメイン | **`apextox.dpdns.org`**（DigitalPlat の無料ドメイン。DNS は Cloudflare に委任）。**インターネットには公開しない。** グローバルIPも使わず、HTTPS の証明書を DNS-01 で取るためにだけ使う。`home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるため |
 | OIDC クライアントの秘密値 | **SOPS へ複製しない。** 正本は identity VM の `oidc-cloud.json` で、`cloud.yml` が配備のたびに直接写す。2か所に持つと、作り直したときに食い違うため |
-| ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。セルフサービスポータルができたら無効にする |
+| ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。**2026-09-11 に無効化した**（以後はポータルでログインして発行するアクセスキーを使う。緊急時は `rotate-bootstrap-key` で作り直す） |
 | インスタンスの上限 | **既定値は `platform/terraform/cloud.yaml`、変更は `cloud-admins` が実行中に行う**（`PUT /v1/limits` かポータルの「上限」）。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねる（同じ事実を2か所に持たない）。既定は1アカウント 8台・32vCPU・32GiB・ディスク計 1000GiB、クラウド全体のメモリ枠 32GiB、ノードに 4GiB 残す、ディスク実使用率 85%。**0 は無制限。**停止中も数える |
 | 上限とホストの保護の関係 | **上限の合計が物理メモリを超えることを許す**（バルーニング前提）。物理を見ているのは「ノードの `available` が指定量残るか」と「ディスクの実使用率」の2つだけで、これは上限を無制限にしても残る。この2つを 0 にすると基盤VMごと倒せる。[配備台帳の実測](../architecture/operations.md#measured-budget) |
 | VMID | API が 5000–5999 から採番する。**他が使っていた VMID は隔離し、二度と払い出さない**。プローブ用の 5998・5999 は使わない |
@@ -70,7 +84,8 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | 秘密値 | すべて自動生成する。人に鍵を作らせたり、変えさせたりしない |
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
 | ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、旧ハブの「Nextcloud で編集する」仕組みは持ち込まない。Kubernetes ができたら設計どおり worker-01 へ移す |
-| game1（VMID 100） | 開発中の既存VM。後でゲームサーバ開発者のアカウントへ引き取る。VMID は `pools.yaml` の `reserved_vmids` で確保済み |
+| game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
+| メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。**2026-09-12 に Gmail（`shake.notify@gmail.com`、アプリパスワード）を設定済み・実送信確認済み。** SMTP の資格情報は `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](smtp.md)） |
 
 ## 4. いまの実機
 
@@ -78,14 +93,19 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 
 | VMID | 名前 | IP | 役割 | 状態 |
 | --- | --- | --- | --- | --- |
-| 100 | game1 | — | 開発中のゲームサーバ。台帳外 | 稼働。後でクラウドへ引き取る |
+| 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
+| 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
+| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。**Ready**。kubeadm 1.36.4、Cilium 1.20.1 |
+| 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。**Ready**。join 済み |
+| 211 | k8s-worker-02 | 192.168.10.208 | Kubernetes worker（予備） | **停止のまま**。`tools/k8s up --all` で起動し `--limit k8s-worker-02` で join |
 | 400 / 401 | dev-a / dev-b | .202 / .203 | 開発VM。dev-b が自動化の実行ホスト | 稼働 |
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 稼働 |
+| 5997 | shakecloud-volumes | — | ボリュームのホルダー（デタッチしたディスクの待機先）。起動しない | 停止。API が初回のボリューム作成時に作る |
 
-`cloud` プール（VMID 5000–5999）は空です。IP は、クラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。
+`cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP はクラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
 
 ## 5. サービスの入口とログイン情報の置き場所
 
@@ -100,7 +120,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | identity の `/opt/identity-stack/secrets/bootstrap_password` |
 | クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`cloud-users` か `cloud-admins`） | Authentik 側。`akadmin` は `cloud-admins` に入っている |
-| クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用は cloud-01 の `/opt/cloud-stack/secrets/bootstrap_admin_key` |
+| クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用ブートストラップキーは 2026-09-11 に無効化（§6 Phase 5）。緊急時は cloud-01 で `manage.py rotate-bootstrap-key` |
 | 開発VM への SSH | `debian@192.168.10.202` / `.203` | パスワードまたは鍵 | `.local/devvm-passwords.yml`（**devbox の playbook を実行した作業機の手元にだけある平文**。dev-b には無い） |
 | 基盤VM への SSH（services-01、identity、cloud-01、probe-01） | `debian@<IP>` | 鍵のみ | 鍵は `platform/terraform/access.yaml`。dev-b からは `~/.ssh/id_ed25519_pve` |
 | Terraform の state | Cloudflare R2 | アクセスキー | `platform/sops/s3.sops.yaml` |
@@ -148,9 +168,9 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ⬜ | NetBox を使うツール（Terraform・Ansible・クラウドAPI）の接続先を `https://netbox.apextox.dpdns.org` へ移し、`:8000` と `:8090` を閉じる | `netbox.sops.yaml`・`netbox-inventory.sops.yaml`・`cloudapi.sops.yaml` の URL を変える |
 | ⬜ | 外出先（Tailscale）から名前で使えるようにする | Tailscale の DNS がどの名前にも SERVFAIL を返す件と、LAN へのサブネットルートが未設定 |
 | ✅ | OIDC クライアントの秘密値を cloud-01 へ渡す | SOPS へ入れる予定だったが、identity VM から直接写す方式に変えた（§3） |
-| ⬜ | 新しい Authentik での利用者の作り方（招待フロー） | `stacks/hub/invitations.py` は旧ハブ用。移植するか作り直す |
-| ⬜ 👤 | データセンターのファイアウォール有効化 | Phase 4 の前提。失敗すると管理者自身が締め出されるので、許可ルールを先に入れ、コンソールを開いた状態で行う |
-| ⬜ 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。完了後に `network.yaml` の `cloud.prefix` を埋める |
+| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。**メール送信に対応**（`smtp.sops.yaml` の `SMTP_*` を `.env` 経由で読み、現在は Gmail。無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
+| ✅ | データセンターのファイアウォール有効化 | Phase 4 の前提。`platform/terraform/00-bootstrap/firewall.tf` で安全に自動化し、**2026-09-11 に適用済み**（再 plan は No changes）。ノードFWは無効、DC FWは有効・既定ACCEPT、`nf_conntrack_allow_invalid=1`。既存の基盤VM・game1 への通信に影響がないこと、`nf_conntrack_allow_invalid=1` が入っていることを実機で確認。次に触る場合は物理コンソール/IPMI を用意する |
+| 🟨 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。**宣言と安全装置・手順書は用意済み**（`network.yaml` の `vlan`、`managed-host` と `site.Validate` の precondition、[vlan.md](vlan.md)）。実機切替は人の物理作業待ち |
 
 ### Phase 1 — Go の足場、認証、監査ログ
 
@@ -185,12 +205,14 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | --- | --- | --- |
 | ✅ | 2 | **VMが1台できる縦串**。2026-09-10 に実機で確認（作成 → SSH でログイン → 削除 → 残骸なし）。冪等性（`client_token`）、クォータと空き容量、VMID の採番と隔離、NetBox での IP 採番、seed ISO、一覧・電源操作・Terminate、差分リコンサイラを含む。[cloud.md 3-10](cloud.md) |
 | ✅ | 2 の追加 | **上限を管理者が変えられるようにし、容量が見えるようにした。**`GET /v1/capacity`（CPU・メモリ・ストレージ・配った合計・アカウント別）、`GET`/`PUT /v1/limits`、ポータルの「容量」と「上限」。16GiB の `2xlarge` を追加。2026-09-10 に実機で確認（上限の上書きと復帰、16GiB の VM が `balloon=4096` で起動 → 削除して残骸なし、監査ログに記録）。[cloud.md 3-11](cloud.md#3-11) |
-| ⬜ | 3 | **次にやる。** イメージ（共有とアップロード）、キーペア、noVNC コンソール |
-| ⬜ | 4 | ボリューム、セキュリティグループ（VM 単位のルールへ展開） |
-| ⬜ | 5 | セルフサービスポータル。game1 の引き取りもここ以降。完成したらブートストラップ管理キーを無効にする |
-| ⬜ | 6 | Terraform Provider（`shakecloud_*`）と CLI |
-| ⬜ | 7 | Garage（`storage-s3` VM）と、バケット・S3 キーの API |
-| ⬜ | 8 | VLAN への切替 |
+| ✅ | 2 の追加 | **大きさを自由に指定できるようにし、GUI に一覧と編集を出した。**`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定（`instance_type` は任意の近道）。`PATCH /v1/instances/{id}`（管理者のみ）。ポータルの「インスタンス」で作成・電源・削除・編集ができ、**クラウドの全VMが所有者名つきで並ぶ**。2026-09-11 に実機で確認（バルーニングなしで `balloon=0`、稼働中のディスク拡大、縮小の拒否、停止後の vCPU・メモリ・バルーニング変更が実物に反映、削除して残骸なし）。[cloud.md 3-10](cloud.md) |
+| ✅ | 3 | **イメージのアップロード、SSH鍵ペア、Webコンソール。**2026-09-11 に実機で確認。本物の qcow2 が入って消え、フィンガープリントは `ssh-keygen -lf` と一致し、`user_data` なしで SSH ログインできた（`meta-data` の `public-keys`）。コンソールは API を通した WebSocket の最初のフレームが VM の VNC サーバからの `RFB 003.008` だった（noVNC 1.7.0 を同梱、中継は API）。**ブラウザで画面が描かれるところは、人がポータルから開いて確かめる**。[cloud.md 3-12](cloud.md#3-12)・[3-13](cloud.md#3-13) |
+| ✅ | 4 | **ボリュームとセキュリティグループを実装し、2026-09-11 に実機で確認。** `cloud/api/internal/compute/{volumes,volume_worker,securitygroups,firewall}.go`、DBマイグレーション `0006`、API エンドポイント、ポータル画面、Terraform の DC FW 有効化まで含む。実機では `volume_reassign`・`vm_firewall` プローブが PASS、ボリュームの作成→アタッチ→ゲストで `/dev/disk/by-id/virtio-<serial>` 認識→拡張→デタッチ→削除が通り、SSH のみ許可した SG で 8000 番と ICMP が遮断・許可ルール追加で回復した。残骸なし。**検証中に見つけた「ルール変更で Proxmox が live ruleset を再構築しない」バグを修正**（`setFilteredOptions` を毎回書く。§10 参照）。再現は `tools/verify-volumes.py`（`tests/test_verify_volumes.py` が判定を検査） |
+| ✅ | 5 | **セルフサービスポータルを完成させ、ブートストラップ管理キーを無効化（2026-09-11）。** ポータルはVM・ボリューム・SG（受信/送信ルール）・イメージ・SSH鍵・アクセスキー・容量・上限・操作履歴を扱え、古い文言も直した。既存VMの引き取りも実装し、**game1（VMID 100）を `shunyazhiyuan97` として引き取り済み**（`i-bec54e3a0169b3660`、IP `192.168.10.127` を NetBox に予約）。ブートストラップ管理キーは無効化し、以後はポータル発行のアクセスキーを使う（緊急時は `manage.py rotate-bootstrap-key`） |
+| ✅ | 6 | **CLI と Terraform Provider を実装・実機確認（2026-09-11）。** CLI（`cloud/client`・`cloud/cli`）は identity・capacity・limits・events・instance・volume・sg・image・key・access-key を操作。Provider（`cloud/provider`、`terraform-plugin-framework`）は `shakecloud_instance`・`shakecloud_volume`・`shakecloud_volume_attachment`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_key_pair` と `shakecloud_caller_identity`。実機で apply/plan‑no‑changes/import/destroy を確認。[CLI](cli.md)・[Provider](terraform-provider.md) |
+| ✅ | 7 | **Garage を storage-s3 VM（VMID 130、.206）へ単一ノードで構築し、バケット・S3キーを扱うクラウドAPIを実装（2026-09-11）。** データは専用32GiBディスク。API の `POST /v1/buckets`・`POST /v1/s3-keys`・権限の付与/剥奪で Garage の管理API v2 を操作する。CLI に `bucket`・`s3-key`、**Terraform Provider に `shakecloud_bucket`、ポータルに「S3バケット」画面**（作成・キー権限・S3キー発行）を追加。**実クライアント（awscli）で、APIが発行した鍵を使い PUT/LIST/GET/削除まで確認**。Garage 自体は [garage.md](garage.md)、APIは [cloud.md 3-16](cloud.md#3-16) |
+| 🟨 | 8 | **切替の宣言・安全装置・手順書を用意（2026-09-11）。** `network.yaml` の `vlan`、`10-platform` がそこから管理VLANを読む形、`managed-host` と `site.Validate` の「bridge が vlan-aware でないのに vlan_id を設定したら止める」precondition、API が作るVMへのタグ付け、[vlan.md](vlan.md) の段階手順とロールバック。**実機切替は物理スイッチ/ルータと Proxmox bridge の作業待ち** |
+| 🟨 | K8s | **スライス①（宣言・VM作成・ノード準備）とスライス②（`kubeadm init`/join・Cilium 1.20.1）を実機で確認（2026-09-12）。** k8s-cp-01 と worker-01 が **Ready**、Cilium が kube-proxy を置換、Pod間通信と NetworkPolicy を確認。worker-02 は停止のまま（`--limit` で後から join）。`tools/k8s up\|down` で起動/停止。**次は storage（local-path）・MetalLB・cert-manager・Flux/SOPS** | [kubernetes.md](kubernetes.md) |
 
 各 Phase の詳しい中身と完了条件は[最小クラウドとProvider](../architecture/cloud.md)にあります。
 
@@ -202,13 +224,13 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
 | public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
-| `05-seed` の SSH 鍵 | まだ tfvars にある | `access.yaml` へ移す。**鍵が逆順**なので、順序を合わせないと services-01 に差分が出る |
+| `05-seed` の SSH 鍵 | **解決済み（2026-09-12）**: `access.yaml` の `seed_ssh_public_keys` へ移した。実機（VMID 150 の `sshkeys`）の順序＝admin 先頭2鍵の逆順と一致。`05-seed/main.tf` が access.yaml を読む（`tests/test_platform_inventory.py` が検査） | — |
 | cloud-01 のサイズ | `small`（2GiB）。Phase 1 の実測で使用 約500MiB（API 7MiB、PostgreSQL 65MiB） | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
 | ポータルのフロント | Phase 1 は `html/template` と素の JS で作った | Phase 5 もこの方式で足りるか。新しい JS ビルド基盤を増やさない前提 |
-| 管理DBのバックアップ | `manage.py backup`（pg_dump）はあるが、定期実行も外部コピーも無い | Phase 2 で利用者のリソースが入る前に決める |
+| 管理DBのバックアップ | **定期実行を実装（2026-09-12）**: cloud-01 の `cloud-backup.timer` が毎日 `manage.py backup --keep 14` を `/var/backups/cloud-api` へ。**外部コピーは未着手**（Garage は単一ノードなので唯一の控えにしない） | 別ディスク／外部へのコピー先を決める（[cloud.md 3-18](cloud.md#3-18)） |
 | state の置き場 | Cloudflare R2 | Phase 7 で Garage へ移すか。クラウドが止まっていても読める場所という条件がある |
 | AWX | 未構築 | Kubernetes が前提。できるまでは dev-b から人が実行する |
-| Terraform の版 | 手元 1.16.2、CI 1.15.8 | 保存した plan は別の版では apply できない。揃えるか、plan を作り直す |
+| Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
 
 ## 8. 引き継ぐ人のアクセス
 
@@ -229,7 +251,7 @@ VM の中にある秘密値は、次の場所で自動生成されています�
 | --- | --- |
 | services-01 `/opt/netbox-stack/secrets/` | NetBox の DB・鍵、各トークン（`inventory` / `terraform` / `cloudapi`） |
 | identity `/opt/identity-stack/secrets/` | Authentik の DB・鍵、`akadmin` の初期パスワード、ブートストラップトークン、`oidc-cloud.json` |
-| cloud-01 `/opt/cloud-stack/secrets/` | 管理DBのパスワード、ブートストラップ管理キー、`oidc_credentials`（identity の `oidc-cloud.json` の写し） |
+| cloud-01 `/opt/cloud-stack/secrets/` | 管理DBのパスワード、`oidc_credentials`（identity の `oidc-cloud.json` の写し）。`bootstrap_admin_key` は 2026-09-11 に無効化して空 |
 | identity・cloud-01・services-01 の `/opt/tls-proxy/secrets/` | Cloudflare の DNS 編集トークン（`cloudflare-dns.sops.yaml` の写し）。証明書は `/srv/tls-proxy/storage/data` |
 
 リポジトリ側の暗号化済みファイルは次のとおりです。
@@ -281,8 +303,10 @@ cd cloud/api && go vet ./... && go test ./...
 
 実機で「API から VM が1台できて、片付けまで済む」ことは次で確かめます。作成→SSH→削除まで行い、残骸があれば失敗します。
 
+**アクセスキーはポータルで発行したものを使います**（ブートストラップ管理キーは 2026-09-11 に無効化済み。§5・§6 Phase 5）。ポータルにログイン →「アクセスキー」→ 発行し、表示された一度きりの値を環境変数に入れます。どうしても管理キーが要る場合は `manage.py rotate-bootstrap-key` で作り直します。
+
 ```bash
-export SHAKECLOUD_ACCESS_KEY=$(ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key)
+export SHAKECLOUD_ACCESS_KEY='sca_...'   # ポータルで発行したアクセスキー
 ```
 
 ```bash
@@ -297,6 +321,12 @@ tools/tf 10-platform plan -detailed-exitcode
 
 ```bash
 sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-cloud.py'
+```
+
+ボリュームとセキュリティグループは、実際に遮断・許可されるところまで見ます（§6 Phase 4、`SHAKECLOUD_ACCESS_KEY` が要ります）:
+
+```bash
+sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 ```
 
 ```bash
@@ -362,3 +392,4 @@ tools/tf 20-dns plan -detailed-exitcode
 | `sops exec-env` の中で `ansible-playbook: not found` | **`sops exec-env` は `/bin/sh` で実行するので、venv は PATH に入っていない。**ansible は `.venv/bin/` にしか無い（`command -v ansible-playbook` は何も返さない）。コマンド全体を単一引用符で囲んでいるため、外側のシェルの PATH も効かない。`.venv/bin/ansible-playbook` と書く |
 | 失敗した配備が成功したように見える | `... \| tail -30` のようにパイプへ繋ぐと、終了コードはパイプの**最後**のコマンドのものになる。`ansible-playbook` が起動すらしていなくても `tail` が 0 を返すので 0 になる。`${PIPESTATUS[0]}` を見るか、パイプを外す |
 | ドキュメントサイトの配備が「何もせずに」終わる | `docs-site.yml` は `hosts: netbox_bootstrap` で、このグループは**静的な `platform/ansible/seed.ini` にしか無い**（services-01 は `05-seed` の管轄で NetBox にVM記録が無いため、動的インベントリに入っていない）。動的インベントリで流すと `skipping: no hosts matched` になり、**そのとき ansible の終了コードは 0** なので成功に見える。`-i platform/ansible/seed.ini` で流し、`PLAY RECAP` に `services-01` が出ることを確かめる |
+| セキュリティグループのルールが正しいのに通信が遮断されない | **Proxmox は VM の `firewall/options` を書かないと、実行中VMの live ruleset を再構築しない。**最初のSG適用で `enable=1`・`policy_in=DROP` になった後は、ルールだけ変えても options の値は変わらないため、`setFilteredOptions` が PUT を省くと**ホスト側は前の（緩い）ルールのまま**になる。API の `firewall_state` は `in-sync`、`firewall/rules` も新ルールなのに、許可していないポートが開いたままになる（2026-09-11 実測）。修正: options を**毎回書く**（`compute/firewall.go` の `setFilteredOptions`）。`TestARuleOnlyChangeRewritesTheOptionsSoProxmoxReloads` が回帰を防ぐ。実機は `tools/verify-volumes.py` が実際の遮断まで見る |

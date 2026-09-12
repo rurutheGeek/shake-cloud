@@ -4,11 +4,19 @@
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
+## Terraform の版
+
+CLI の版はリポジトリ直下の `.terraform-version` が唯一の出所です（現在 `1.15.8`）。保存した plan は別の版では apply できないため、CI と開発VMで揃えます。
+
+- **CI** は `.terraform-version` を読んで `hashicorp/setup-terraform` に渡します（`tests/test_terraform_version.py` が、リテラルを書かず同ファイルを読むことを検査）。
+- **開発VM** は `devbox` ロールが同じ版の配布バイナリを検証（SHA256SUMS）して `/usr/local/bin` へ入れます。
+- 手元の `terraform version` が `.terraform-version` と一致していることを確認してから plan/apply します。
+
 ## 1. 何ができるか
 
 Proxmoxのプール・ロール・自動化ユーザー・ACLを宣言的に作ります。GUIで作った権限設定と違い、差分がGitに残り、再実行しても同じ状態になります。
 
-これはVMを作る段階ではありません。VMの作成は `10-platform`（未実装）です。
+これはVMを作る段階ではありません。基盤VMの作成は `10-platform`（実機適用済み）です。
 
 ## 2. どの利用者に影響するか
 
@@ -186,6 +194,8 @@ ssh debian@<IP> 'sudo apt-get install -y qemu-guest-agent && sudo systemctl star
 ```
 
 **agent を入れる前に plan を打つと、起動中の VM の読み取りで同じ待ちに入って終わりません。**2026-09-10 に identity (110) と cloud-01 (140) で実際に起きた手順です。
+
+2026-09-12 には k8s の3台（200/210/211）で実際に起き、NetBox の VM・IP・タグは作成済み、Proxmox の VM も作成済み・稼働中で、state にはタグしか無い状態から、残りを `import` して復旧しました。`netbox_primary_ip` だけは import が効かないため、`netbox_available_ip_address` と Proxmox VM を取り込んだうえで `apply` で作り直しています（既に設定済みの primary IP を再設定するだけなので実害はありません）。
 
 根本対策は、作成時の cloud-init で agent を入れることです。ただし `managed-host` は Proxmox 内蔵の cloud-init ドライブを使っており、任意の user-data を渡すには snippets 対応ストレージが要ります。クラウドAPI側（seed ISO 方式）ではこの問題は起きません。
 

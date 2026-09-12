@@ -1,0 +1,27 @@
+---
+# Garage（S3互換オブジェクトストア）。storage-s3 VM に単一ノードで置く。
+#
+# **データは OS と別ディスクに置く。** OS を作り直してもメタデータと
+# オブジェクトが残るようにするため。ディスクのフォーマットとマウントは
+# このロールが行う（cloud image は自動でやらない）。
+garage_version: v2.4.1
+# 公式の配布物にチェックサムファイルが無いので、取得したものの sha256 を
+# ここへ固定する。更新は Renovate か人の手で、この値を変えるときに行う。
+garage_binary_sha256: "ae49f8de4aaee6b5ca305f7cbdccc8cd8a29b2804aac074649f18bfb83d0a2b6"
+garage_binary_url: "https://garagehq.deuxfleurs.fr/_releases/{{ garage_version }}/x86_64-unknown-linux-musl/garage"
+garage_binary_path: /usr/local/bin/garage
+
+garage_user: garage
+garage_data_device: /dev/vdb
+garage_data_mount: /srv/garage
+garage_config_path: /etc/garage.toml
+
+# 単一ノード・replication factor 1。**冗長性は無い**（設計上の割り切り）。
+garage_replication_factor: 1
+
+# S3 API は LAN に開ける。認証は S3 署名で行い、ブラウザ用の Forward Auth は
+# 挟まない。管理 API も開けるが、トークンは用途別に絞る（クラウドAPI用は別途）。
+garage_s3_region: garage
+garage_s3_api_bind: "[::]:3900"
+garage_rpc_bind: "[::]:3901"
+garage_admin_api_bind: "[::]:3903"

@@ -1,0 +1,33 @@
+# 自前の CA を作り、そこから証明書を配る。外部 DNS が要らないので、
+# クラスタの中だけで完結する。Let's Encrypt を使うときは別の ClusterIssuer を足す。
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: shakecloud-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: shakecloud-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: shakecloud-ca
+  secretName: shakecloud-ca
+  duration: 87600h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: shakecloud-selfsigned
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: shakecloud-ca
+spec:
+  ca:
+    secretName: shakecloud-ca

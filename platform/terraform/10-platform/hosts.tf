@@ -54,12 +54,15 @@ module "host" {
   memory_mib     = try(each.value.memory_mib, local.flavors[each.value.flavor].memory_mib)
   memory_min_mib = try(each.value.memory_min_mib, local.flavors[each.value.flavor].memory_min_mib)
   disk_gib       = each.value.disk_gib
+  data_disk_gib  = try(each.value.data_disk_gib, 0)
 
   node_name       = local.site.node_name
   vm_datastore_id = local.site.storage.vm_disks
   image_file_id   = local.image_file_id
   network_bridge  = local.site.network.bridge
-  network_vlan_id = var.network_vlan_id
+  # VLAN 切替はこの1か所（network.yaml）で行う。null の間はタグなし。
+  network_vlan_id   = local.network.vlan.management.vlan_id
+  bridge_vlan_aware = local.site.network.bridge_vlan_aware
 
   gateway     = local.site.network.gateway
   dns_servers = local.site.network.dns_servers

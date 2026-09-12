@@ -252,7 +252,7 @@ class AllocationTests(unittest.TestCase):
         return first, last
 
     def test_each_range_is_ordered(self):
-        for name in ('management', 'cloud'):
+        for name in ('management', 'metallb', 'cloud'):
             first, last = self.addresses(self.network[name])
             self.assertLess(first, last, name)
 
@@ -262,6 +262,13 @@ class AllocationTests(unittest.TestCase):
         self.assertTrue(management[1] < cloud[0] or cloud[1] < management[0],
                         f'management {management} overlaps cloud {cloud}')
 
+    def test_metallb_is_carved_out_of_management(self):
+        # MetalLB hands these to Kubernetes LoadBalancer services. If they sit
+        # inside the management range, NetBox can hand the same address to a VM.
+        management = self.addresses(self.network['management'])
+        metallb = self.addresses(self.network['metallb'])
+        self.assertTrue(management[1] < metallb[0], f'management {management} overlaps metallb {metallb}')
+
     def test_every_range_sits_inside_the_measured_prefix(self):
         # A range outside the prefix would be allocated happily by NetBox and
         # then be unreachable, because the guests are on this L2 and no other.
@@ -269,7 +276,7 @@ class AllocationTests(unittest.TestCase):
         if self.site['network']['prefix'] == 'UNMEASURED':
             self.skipTest('prefix not measured yet')
         network = ipaddress.ip_network(self.site['network']['prefix'])
-        for name in ('management', 'cloud'):
+        for name in ('management', 'metallb', 'cloud'):
             for address in self.addresses(self.network[name]):
                 self.assertIn(address, network, f'{name}: {address}')
 
@@ -306,6 +313,24 @@ class AccessTests(unittest.TestCase):
         self.assertIn('concat(', block)
         for forbidden in ('sort(', 'toset('):
             self.assertNotIn(forbidden, block)
+
+    def test_seed_keys_are_public_keys(self):
+        keys = self.access['seed_ssh_public_keys']
+        self.assertTrue(keys, '05-seed would lock everyone out of services-01')
+        for key in keys:
+            self.assertTrue(key.startswith(('ssh-ed25519 ', 'ssh-rsa ', 'ecdsa-')), key[:20])
+            self.assertNotIn('PRIVATE', key)
+
+    def test_seed_module_reads_the_canonical_file(self):
+        # 05-seed used to take keys from a gitignored tfvars, which a machine
+        # without that file plans as "remove every key". It now reads the same
+        # canonical access.yaml as 10-platform, in the frozen seed order.
+        main = source('05-seed/main.tf')
+        self.assertIn('access.yaml', main)
+        self.assertIn('seed_ssh_public_keys', main)
+        self.assertNotIn('var.ssh_public_keys', main)
+        variables = source('05-seed/variables.tf')
+        self.assertNotIn('variable "ssh_public_keys"', variables)
 
 
 class OwnershipBoundaryTests(unittest.TestCase):

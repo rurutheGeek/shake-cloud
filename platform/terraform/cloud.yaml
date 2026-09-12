@@ -16,17 +16,36 @@
 # 守っている。**この2つを 0 にするとホストごと落とせる。**
 
 # 1アカウントあたりの上限。停止中のインスタンスも数える（再起動すれば同じだけ使うため）。
+# volumes・volume_gib も上の「0 は無制限」の対象。
 account_quota:
   instances: 8
   vcpus: 32
   memory_mib: 32768
   root_disk_gib: 1000
+  # アカウントが持てるボリューム数。削除済みは数えない。
+  volumes: 16
+  # 上のボリューム全部の合計サイズ（GiB）。
+  volume_gib: 1000
 
 # ルートディスクの大きさ（GiB）。イメージより小さくはできない。
 root_disk_gib:
   min: 10
   max: 500
   default: 20
+
+# ボリューム1本あたりの大きさ（GiB）。account_quota.volume_gib は合計、
+# こちらは1本ごとの範囲。
+volume_size_gib:
+  min: 1
+  max: 500
+
+# 切り離したボリュームを unusedN として預かる、起動しないVM。
+#
+# Proxmox のディスクは必ずどれかのVMの持ち物で、持ち主を変えられるのは
+# move_disk だけ。そのため、どのインスタンスにも付いていないディスクを
+# 置くにはこのVMが要る。unused は1VIDあたり256個まで。**API はこの VMID を
+# 払い出さない。**
+volume_holder_vmid: 5997
 
 capacity:
   # 全アカウントの memory_mib（上限）の合計がこれを超える作成は断る。
@@ -42,6 +61,13 @@ capacity:
   vm_disk_max_used_percent: 85
   # イメージと seed ISO の置き場に最低限残す空き。
   image_store_min_free_mib: 4096
+  # 利用者がアップロードする1イメージの上限（GiB）。0 は無制限。
+  #
+  # **2か所の容量に効く。** 置き場は Proxmox のルートFS（約94GiB、バックアップや
+  # ISOと同じ領域）で、さらに cloud-01 が受け取ったイメージを一旦ディスクへ置く
+  # （Proxmox が長さの分からない本文を受け付けないため）。cloud-01 の空きは
+  # 約31GiB なので、同時に2本来ても溢れない値にしてある。
+  max_image_gib: 12
 
 # プール内でも API が払い出さない VMID。tools/verify-cloud.py の使い捨てVMが使う。
 probe_vmids: [5998, 5999]

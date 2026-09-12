@@ -59,3 +59,9 @@ talosconfig
 platform/sops/*
 !platform/sops/*.sops.yaml
 !platform/sops/*.example
+
+# shakecloud CLI のビルド成果物（go build を cloud/cli で実行したときの名前）。
+/cloud/cli/cli
+/cloud/cli/shakecloud
+/cloud/provider/provider
+/cloud/provider/terraform-provider-shakecloud

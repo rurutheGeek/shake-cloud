@@ -1,0 +1,4 @@
+---
+# control plane のアドレス（LAN の IP）。libvirt ではなく NetBox が採番した
+# primary IP を使うので、宣言に書き写さない。
+k8s_control_plane_address: "{{ hostvars[groups['k8s_cp'][0]]['ansible_host'] }}"

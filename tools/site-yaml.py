@@ -61,6 +61,9 @@ storage:
 
 network:
   bridge: {bridge}
+  # この bridge が VLAN タグを通すか（実測）。VLAN 切替の前提で、
+  # 10-platform が「vlan_id を設定したのに bridge が未対応」を plan で止める。
+  bridge_vlan_aware: {bridge_vlan_aware}
   # 素の Linux bridge が入る既定ゾーン。SDN を使っていなければ localnetwork。
   sdn_zone: {sdn_zone}
   # ゲストが載るネットワーク。ホストの bridge のアドレスから導出した。
@@ -211,6 +214,7 @@ def build(nodes, storage, bridges, zones, node=None, dns=None):
         'cloud_images': CLOUD_IMAGES_STORE,
         'cloud_images_path': CLOUD_IMAGES_PATH,
         'bridge': bridge,
+        'bridge_vlan_aware': str(vlan_aware(bridges, bridge)).lower(),
         'sdn_zone': sdn_zone(zones),
     }
 

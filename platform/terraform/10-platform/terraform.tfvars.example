@@ -17,8 +17,10 @@
 # 残る変数はすべて既定値を持つので、上書きしたいときだけ tfvars を作ります。
 #
 # image_name          = "debian13"     # 既定は images.yaml の default_image
-# network_vlan_id     = 20             # VLAN分離後に指定する
 # dns_domain          = "home.arpa"
 # vm_username         = "debian"
 # netbox_site_name    = "Homelab"
 # netbox_cluster_name = "k11"
+#
+# VLAN は network.yaml の vlan.management.vlan_id で切り替えます（tfvars では
+# ありません）。切替手順は docs/operations/vlan.md。

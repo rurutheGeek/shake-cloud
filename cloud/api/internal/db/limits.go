@@ -25,6 +25,11 @@ type LimitOverrides struct {
 	NodeMemoryReserveMiB *int
 	VMDiskMaxUsedPercent *int
 	ImageStoreMinFreeMiB *int
+	MaxImageGiB          *int
+	AccountVolumes       *int
+	AccountVolumeGiB     *int
+	VolumeMinGiB         *int
+	VolumeMaxGiB         *int
 	UpdatedAt            *time.Time
 	UpdatedBy            string
 }
@@ -32,6 +37,7 @@ type LimitOverrides struct {
 const limitColumns = `account_instances, account_vcpus, account_memory_mib, account_root_disk_gib,
 	root_disk_min_gib, root_disk_default_gib, root_disk_max_gib,
 	memory_budget_mib, node_memory_reserve_mib, vm_disk_max_used_percent, image_store_min_free_mib,
+	max_image_gib, account_volumes, account_volume_gib, volume_min_gib, volume_max_gib,
 	updated_at, coalesce(updated_by, '')`
 
 func scanLimitOverrides(row pgx.Row) (LimitOverrides, error) {
@@ -39,6 +45,7 @@ func scanLimitOverrides(row pgx.Row) (LimitOverrides, error) {
 	err := row.Scan(&o.AccountInstances, &o.AccountVCPUs, &o.AccountMemoryMiB, &o.AccountRootDiskGiB,
 		&o.RootDiskMinGiB, &o.RootDiskDefaultGiB, &o.RootDiskMaxGiB,
 		&o.MemoryBudgetMiB, &o.NodeMemoryReserveMiB, &o.VMDiskMaxUsedPercent, &o.ImageStoreMinFreeMiB,
+		&o.MaxImageGiB, &o.AccountVolumes, &o.AccountVolumeGiB, &o.VolumeMinGiB, &o.VolumeMaxGiB,
 		&o.UpdatedAt, &o.UpdatedBy)
 	return o, noRows(err)
 }
@@ -57,10 +64,12 @@ func SetLimitOverrides(ctx context.Context, q Querier, o LimitOverrides, byAccou
 		account_instances = $1, account_vcpus = $2, account_memory_mib = $3, account_root_disk_gib = $4,
 		root_disk_min_gib = $5, root_disk_default_gib = $6, root_disk_max_gib = $7,
 		memory_budget_mib = $8, node_memory_reserve_mib = $9, vm_disk_max_used_percent = $10,
-		image_store_min_free_mib = $11, updated_at = now(), updated_by = nullif($12::text, '')
+		image_store_min_free_mib = $11, max_image_gib = $12,
+		account_volumes = $13, account_volume_gib = $14, volume_min_gib = $15, volume_max_gib = $16,
+		updated_at = now(), updated_by = nullif($17::text, '')
 		WHERE id RETURNING `+limitColumns,
 		o.AccountInstances, o.AccountVCPUs, o.AccountMemoryMiB, o.AccountRootDiskGiB,
 		o.RootDiskMinGiB, o.RootDiskDefaultGiB, o.RootDiskMaxGiB,
 		o.MemoryBudgetMiB, o.NodeMemoryReserveMiB, o.VMDiskMaxUsedPercent, o.ImageStoreMinFreeMiB,
-		byAccountID))
+		o.MaxImageGiB, o.AccountVolumes, o.AccountVolumeGiB, o.VolumeMinGiB, o.VolumeMaxGiB, byAccountID))
 }

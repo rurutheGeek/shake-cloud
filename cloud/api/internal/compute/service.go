@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -37,14 +39,32 @@ type Hypervisor interface {
 	StorageStatus(ctx context.Context, storage string) (proxmox.StorageStatus, error)
 	CreateVM(ctx context.Context, params url.Values) (string, error)
 	VMConfig(ctx context.Context, vmid int) (map[string]any, error)
+	UpdateVMConfig(ctx context.Context, vmid int, params url.Values) error
 	VMStatus(ctx context.Context, vmid int) (string, error)
 	Power(ctx context.Context, vmid int, action string, params url.Values) (string, error)
 	ResizeDisk(ctx context.Context, vmid int, disk, size string) error
 	DeleteVM(ctx context.Context, vmid int) (string, error)
 	UploadISO(ctx context.Context, storage, filename string, content []byte) (string, error)
+	UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error)
 	ListVolumes(ctx context.Context, storage, content string) ([]proxmox.Volume, error)
 	DeleteVolume(ctx context.Context, storage, volid string) error
 	WaitTask(ctx context.Context, upid string) error
+	VNCProxy(ctx context.Context, vmid int) (proxmox.VNCTicket, error)
+	DialVNC(ctx context.Context, vmid int, ticket proxmox.VNCTicket) (net.Conn, error)
+	ConfigureVM(ctx context.Context, vmid int, params url.Values) (string, error)
+	UnlinkDisks(ctx context.Context, vmid int, keys []string, force bool) error
+	MoveDisk(ctx context.Context, vmid int, disk string, targetVMID int, targetDisk string) (string, error)
+	VMPending(ctx context.Context, vmid int) ([]proxmox.PendingChange, error)
+	FirewallRules(ctx context.Context, vmid int) ([]proxmox.FirewallRule, error)
+	InsertFirewallRule(ctx context.Context, vmid int, rule proxmox.FirewallRule) error
+	DeleteFirewallRule(ctx context.Context, vmid, pos int) error
+	FirewallOptions(ctx context.Context, vmid int) (map[string]any, error)
+	SetFirewallOptions(ctx context.Context, vmid int, params url.Values) error
+	IPSets(ctx context.Context, vmid int) ([]string, error)
+	CreateIPSet(ctx context.Context, vmid int, name string) error
+	IPSetEntries(ctx context.Context, vmid int, name string) ([]string, error)
+	AddIPSetEntry(ctx context.Context, vmid int, name, cidr string) error
+	DeleteIPSetEntry(ctx context.Context, vmid int, name, cidr string) error
 }
 
 // IPAM is the part of *netbox.Client the service uses.
@@ -78,6 +98,16 @@ type Service struct {
 	Site    site.Site
 	Log     *slog.Logger
 	WorkDir string
+	// UploadDir is disk-backed space for an image on its way to the node. It
+	// cannot be WorkDir: that is a tmpfs, and an image does not fit in RAM.
+	// Empty means this deployment refuses uploads rather than filling memory.
+	UploadDir string
+	// Garage is the object store's administration API. Nil when this
+	// deployment has no object storage, and the bucket endpoints answer 503.
+	Garage BucketStore
+	// S3Endpoint and S3Region are what a bucket's owner points a client at.
+	S3Endpoint string
+	S3Region   string
 	// MaxAttempts is how often a launch or power action is tried before it is
 	// abandoned. Terminates are retried until they succeed: giving up would
 	// leak a VM, an address or an ISO.
@@ -107,17 +137,48 @@ func (s *Service) Wake() {
 	}
 }
 
-// RunRequest is the body of RunInstances.
+// RunRequest is the body of RunInstances. The size fields are pointers so that
+// "not given" is distinguishable from zero: a named instance_type fills in
+// whatever the caller left out, and nothing forces the caller to use one.
 type RunRequest struct {
 	ImageID      string            `json:"image_id"`
 	InstanceType string            `json:"instance_type"`
+	KeyName      string            `json:"key_name"`
+	VCPUs        *int              `json:"vcpus"`
+	MemoryMiB    *int              `json:"memory_mib"`
+	MemoryMinMiB *int              `json:"memory_min_mib"`
+	Ballooning   *bool             `json:"ballooning"`
 	RootDiskGiB  int               `json:"root_disk_gib"`
 	UserData     string            `json:"user_data"`
 	ClientToken  string            `json:"client_token"`
 	Tags         map[string]string `json:"tags"`
+	// SecurityGroupIDs omitted means the account's default group. omitempty
+	// keeps the request hash of a launch that names none what it was before
+	// groups existed, so a retried client token still matches.
+	SecurityGroupIDs []string `json:"security_group_ids,omitempty"`
+}
+
+// Spec is the size an instance actually gets. TypeName is the preset it came
+// from, and empty when the numbers were given directly.
+type Spec struct {
+	CPUCores     int
+	MemoryMiB    int
+	MemoryMinMiB int
+	Ballooning   bool
+	TypeName     string
 }
 
 const maxUserData = 16 * 1024
+
+// A guest below this cannot boot the cloud images, and Proxmox itself refuses
+// very small values, so it is checked before anything is created.
+const minMemoryMiB = 512
+
+// balloonFloor is the default reclaim floor when ballooning is on and the
+// caller did not name one: a quarter of the ceiling, never below the minimum.
+func balloonFloor(memoryMiB int) int {
+	return max(minMemoryMiB, memoryMiB/4)
+}
 
 var clientToken = regexp.MustCompile(`^[\x21-\x7e]{1,64}$`)
 
@@ -154,39 +215,122 @@ func WithOverrides(l site.Limits, o db.LimitOverrides) site.Limits {
 	set(&l.Capacity.NodeMemoryReserveMiB, o.NodeMemoryReserveMiB)
 	set(&l.Capacity.VMDiskMaxUsedPercent, o.VMDiskMaxUsedPercent)
 	set(&l.Capacity.ImageStoreMinFreeMiB, o.ImageStoreMinFreeMiB)
+	set(&l.Capacity.MaxImageGiB, o.MaxImageGiB)
+	set(&l.AccountQuota.Volumes, o.AccountVolumes)
+	set(&l.AccountQuota.VolumeGiB, o.AccountVolumeGiB)
+	set(&l.VolumeSizeGiB.Min, o.VolumeMinGiB)
+	set(&l.VolumeSizeGiB.Max, o.VolumeMaxGiB)
 	return l
 }
 
-func (s *Service) validate(r *RunRequest, limits site.Limits) (site.InstanceType, error) {
-	if _, ok := s.Site.Images[r.ImageID]; !ok {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidImageID.NotFound", "image %q does not exist; see GET /v1/images", r.ImageID)
+// resolveSpec turns a request into the size the instance gets. A named preset
+// is a starting point the caller may override field by field; without one, the
+// cpu and memory have to be given outright.
+func (s *Service) resolveSpec(r *RunRequest) (Spec, error) {
+	bad := func(format string, args ...any) error {
+		return refuse(http.StatusBadRequest, "InvalidParameterValue", format, args...)
 	}
-	instanceType, ok := s.Site.InstanceTypes[r.InstanceType]
-	if !ok {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "instance type %q does not exist; see GET /v1/instance-types", r.InstanceType)
+	var spec Spec
+	if r.InstanceType != "" {
+		preset, ok := s.Site.InstanceTypes[r.InstanceType]
+		if !ok {
+			return Spec{}, bad("instance type %q does not exist; see GET /v1/instance-types, or give vcpus and memory_mib instead", r.InstanceType)
+		}
+		spec = Spec{CPUCores: preset.CPUCores, MemoryMiB: preset.MemoryMiB, MemoryMinMiB: preset.MemoryMinMiB, TypeName: r.InstanceType}
+	} else if r.VCPUs == nil || r.MemoryMiB == nil {
+		return Spec{}, bad("give an instance_type, or both vcpus and memory_mib")
+	}
+
+	memoryGiven := r.MemoryMiB != nil
+	if r.VCPUs != nil {
+		spec.CPUCores = *r.VCPUs
+	}
+	if memoryGiven {
+		spec.MemoryMiB = *r.MemoryMiB
+	}
+	// Any explicit number means this is no longer that preset.
+	if r.VCPUs != nil || memoryGiven || r.MemoryMinMiB != nil || r.Ballooning != nil {
+		spec.TypeName = ""
+	}
+
+	spec.Ballooning = r.Ballooning == nil || *r.Ballooning
+	switch {
+	case !spec.Ballooning:
+		// Proxmox disables the balloon driver by targeting 0, so a floor would
+		// be a figure nothing enforces.
+		spec.MemoryMinMiB = 0
+	case r.MemoryMinMiB != nil:
+		spec.MemoryMinMiB = *r.MemoryMinMiB
+	case spec.MemoryMinMiB == 0 || memoryGiven:
+		// A preset's floor does not survive a changed ceiling.
+		spec.MemoryMinMiB = balloonFloor(spec.MemoryMiB)
+	}
+
+	if err := validateSpec(spec); err != nil {
+		return Spec{}, err
+	}
+	return spec, nil
+}
+
+// validateSpec rejects a size no guest could boot. Launches and an
+// administrator's resize share it, so the two cannot drift apart.
+func validateSpec(spec Spec) error {
+	bad := func(format string, args ...any) error {
+		return refuse(http.StatusBadRequest, "InvalidParameterValue", format, args...)
+	}
+	switch {
+	case spec.CPUCores < 1:
+		return bad("vcpus must be at least 1")
+	case spec.MemoryMiB < minMemoryMiB:
+		return bad("memory_mib must be at least %d", minMemoryMiB)
+	case spec.Ballooning && spec.MemoryMinMiB < minMemoryMiB:
+		return bad("memory_min_mib must be at least %d", minMemoryMiB)
+	case spec.Ballooning && spec.MemoryMinMiB > spec.MemoryMiB:
+		return bad("memory_min_mib (%d) must not exceed memory_mib (%d)", spec.MemoryMinMiB, spec.MemoryMiB)
+	}
+	return nil
+}
+
+func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limits) (Spec, error) {
+	// Shared images and uploaded ones are both launchable, so existence is a
+	// question for the resolver rather than for site.json alone.
+	if _, err := s.ResolveImage(ctx, s.Pool, r.ImageID); err != nil {
+		return Spec{}, err
+	}
+	spec, err := s.resolveSpec(r)
+	if err != nil {
+		return Spec{}, err
 	}
 	disk := limits.RootDiskGiB
 	if r.RootDiskGiB == 0 {
 		r.RootDiskGiB = disk.Default
 	}
 	if r.RootDiskGiB < disk.Min || r.RootDiskGiB > disk.Max {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "root_disk_gib must be between %d and %d", disk.Min, disk.Max)
+		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "root_disk_gib must be between %d and %d", disk.Min, disk.Max)
 	}
 	if len(r.UserData) > maxUserData {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "user_data must be at most %d bytes", maxUserData)
+		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "user_data must be at most %d bytes", maxUserData)
 	}
 	if r.ClientToken != "" && !clientToken.MatchString(r.ClientToken) {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "client_token must be 1-64 printable ASCII characters")
+		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "client_token must be 1-64 printable ASCII characters")
 	}
-	if len(r.Tags) > 20 {
-		return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "an instance may have at most 20 tags")
+	if err := validateTags(r.Tags); err != nil {
+		return Spec{}, err
 	}
-	for key, value := range r.Tags {
+	return spec, nil
+}
+
+// validateTags applies EC2's tag rules, to instances and volumes alike.
+func validateTags(tags map[string]string) error {
+	if len(tags) > 20 {
+		return refuse(http.StatusBadRequest, "InvalidParameterValue", "at most 20 tags are allowed")
+	}
+	for key, value := range tags {
 		if key == "" || utf8.RuneCountInString(key) > 128 || utf8.RuneCountInString(value) > 256 || strings.HasPrefix(key, "shakecloud:") {
-			return site.InstanceType{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "tag keys are 1-128 characters, values at most 256, and shakecloud: is reserved")
+			return refuse(http.StatusBadRequest, "InvalidParameterValue", "tag keys are 1-128 characters, values at most 256, and shakecloud: is reserved")
 		}
 	}
-	return instanceType, nil
+	return nil
 }
 
 // requestHash fingerprints everything but the client token, so a retry with
@@ -215,7 +359,7 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 	if err != nil {
 		return db.Instance{}, false, err
 	}
-	instanceType, err := s.validate(&r, limits)
+	spec, err := s.validate(ctx, &r, limits)
 	if err != nil {
 		return db.Instance{}, false, err
 	}
@@ -230,9 +374,25 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 		}
 	}
 
+	// Resolved now and stored with the instance, so deleting the key pair in the
+	// seconds before the worker builds the seed image cannot produce a VM with
+	// no way into it.
+	keyPublicKey := ""
+	if r.KeyName != "" {
+		pair, err := db.GetKeyPair(ctx, s.Pool, accountID, r.KeyName)
+		if errors.Is(err, db.ErrNotFound) {
+			return db.Instance{}, false, refuse(http.StatusBadRequest, "InvalidKeyPair.NotFound",
+				"you have no key called %q; see GET /v1/key-pairs", r.KeyName)
+		}
+		if err != nil {
+			return db.Instance{}, false, err
+		}
+		keyPublicKey = pair.PublicKey
+	}
+
 	// What only the host knows. It is a snapshot either way; the memory budget
 	// checked under the lock below is what stops two launches racing past it.
-	if err := s.checkHost(ctx, instanceType, limits); err != nil {
+	if err := s.checkHost(ctx, spec, spec.MemoryMiB, limits); err != nil {
 		return db.Instance{}, false, err
 	}
 	visible, err := s.PVE.ListVMs(ctx)
@@ -256,7 +416,11 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 				return err
 			}
 		}
-		if err := s.checkQuota(ctx, tx, accountID, instanceType, r.RootDiskGiB, limits); err != nil {
+		if err := s.checkQuota(ctx, tx, accountID, spec, r.RootDiskGiB, limits, nil); err != nil {
+			return err
+		}
+		groupIDs, err := s.resolveGroups(ctx, tx, accountID, r.SecurityGroupIDs)
+		if err != nil {
 			return err
 		}
 		vmid, err := db.AllocateVMID(ctx, tx, s.Site.VMIDFrom, s.Site.VMIDTo, s.skipVMIDs(visible))
@@ -268,12 +432,20 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 		}
 		instance, err = db.InsertInstance(ctx, tx, db.Instance{
 			ID: newInstanceID(), AccountID: accountID, ClientToken: r.ClientToken, RequestSHA256: hash,
-			Name: r.Tags["Name"], ImageID: r.ImageID, InstanceType: r.InstanceType,
-			CPUCores: instanceType.CPUCores, MemoryMiB: instanceType.MemoryMiB, MemoryMinMiB: instanceType.MemoryMinMiB,
-			RootDiskGiB: r.RootDiskGiB, UserData: r.UserData, Tags: r.Tags,
+			Name: r.Tags["Name"], ImageID: r.ImageID, InstanceType: spec.TypeName,
+			CPUCores: spec.CPUCores, MemoryMiB: spec.MemoryMiB, MemoryMinMiB: spec.MemoryMinMiB, Ballooning: spec.Ballooning,
+			RootDiskGiB: r.RootDiskGiB, UserData: r.UserData,
+			KeyName: r.KeyName, KeyPublicKey: keyPublicKey, Tags: r.Tags,
 			VMID: &vmid, MACAddress: seed.NewMACAddress(),
 		})
 		if err != nil {
+			return err
+		}
+		// The launch writes the firewall these groups make before the first boot.
+		if err := db.SetInstanceGroups(ctx, tx, instance.ID, groupIDs); err != nil {
+			return err
+		}
+		if instance, err = db.GetInstance(ctx, tx, instance.ID); err != nil {
 			return err
 		}
 		created = true
@@ -301,7 +473,7 @@ func (s *Service) idempotent(existing db.Instance, hash []byte) (db.Instance, bo
 }
 
 func (s *Service) skipVMIDs(visible []proxmox.VM) []int {
-	skip := append([]int{}, s.Site.ProbeVMIDs...)
+	skip := append([]int{s.Site.VolumeHolderVMID}, s.Site.ProbeVMIDs...)
 	for _, vm := range visible {
 		skip = append(skip, vm.VMID)
 	}
@@ -310,18 +482,28 @@ func (s *Service) skipVMIDs(visible []proxmox.VM) []int {
 
 // checkQuota enforces the account's share and the cloud's memory budget. A
 // limit of 0 means unlimited, which is how an administrator turns one off.
-func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, t site.InstanceType, rootDisk int, limits site.Limits) error {
+//
+// replacing is the instance whose size is being changed, whose current
+// resources are therefore not counted against the new ones; nil for a launch.
+func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, spec Spec, rootDisk int, limits site.Limits, replacing *db.Instance) error {
 	usage, err := db.AccountUsage(ctx, tx, accountID)
 	if err != nil {
 		return err
 	}
+	added := 1
+	if replacing != nil {
+		added = 0
+		usage.VCPUs -= replacing.CPUCores
+		usage.MemoryMiB -= replacing.MemoryMiB
+		usage.RootDiskGiB -= replacing.RootDiskGiB
+	}
 	quota := limits.AccountQuota
 	switch {
-	case quota.Instances > 0 && usage.Instances+1 > quota.Instances:
+	case quota.Instances > 0 && usage.Instances+added > quota.Instances:
 		return refuse(http.StatusConflict, "InstanceLimitExceeded", "an account may hold %d instances (stopped ones count)", quota.Instances)
-	case quota.VCPUs > 0 && usage.VCPUs+t.CPUCores > quota.VCPUs:
+	case quota.VCPUs > 0 && usage.VCPUs+spec.CPUCores > quota.VCPUs:
 		return refuse(http.StatusConflict, "VcpuLimitExceeded", "an account may hold %d vCPUs; %d are in use", quota.VCPUs, usage.VCPUs)
-	case quota.MemoryMiB > 0 && usage.MemoryMiB+t.MemoryMiB > quota.MemoryMiB:
+	case quota.MemoryMiB > 0 && usage.MemoryMiB+spec.MemoryMiB > quota.MemoryMiB:
 		return refuse(http.StatusConflict, "InstanceLimitExceeded", "an account may hold %d MiB of memory; %d are in use", quota.MemoryMiB, usage.MemoryMiB)
 	case quota.RootDiskGiB > 0 && usage.RootDiskGiB+rootDisk > quota.RootDiskGiB:
 		return refuse(http.StatusConflict, "VolumeLimitExceeded", "an account may hold %d GiB of root disks; %d are in use", quota.RootDiskGiB, usage.RootDiskGiB)
@@ -330,7 +512,10 @@ func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, t
 	if err != nil {
 		return err
 	}
-	if budget := limits.Capacity.MemoryBudgetMiB; budget > 0 && live+t.MemoryMiB > budget {
+	if replacing != nil {
+		live -= replacing.MemoryMiB
+	}
+	if budget := limits.Capacity.MemoryBudgetMiB; budget > 0 && live+spec.MemoryMiB > budget {
 		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity",
 			"the cloud's memory budget of %d MiB is used up (%d MiB allotted)", budget, live)
 	}
@@ -340,23 +525,29 @@ func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, t
 // checkHost is the part that looks at the machine rather than at policy. The
 // memory check is never skipped: whatever the limits say, memory that is not
 // there cannot be handed out. A disk threshold of 0 turns that check off.
-func (s *Service) checkHost(ctx context.Context, t site.InstanceType, limits site.Limits) error {
+//
+// memoryNeededMiB is what this request would add, which for a resize is only
+// the increase.
+func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int, limits site.Limits) error {
 	capacity := limits.Capacity
 	status, err := s.PVE.NodeStatus(ctx)
 	if err != nil {
 		return s.unavailable(err)
 	}
-	if status.Memory.Available-int64(t.MemoryMiB)<<20 < int64(capacity.NodeMemoryReserveMiB)<<20 {
+	// A guest with more vCPUs than the host has threads is a configuration the
+	// node can never satisfy, so it is refused as a bad request rather than as
+	// a lack of capacity.
+	if threads := status.CPUInfo.CPUs; threads > 0 && spec.CPUCores > threads {
+		return refuse(http.StatusBadRequest, "InvalidParameterValue",
+			"vcpus is %d but the node has %d threads", spec.CPUCores, threads)
+	}
+	if status.Memory.Available-int64(memoryNeededMiB)<<20 < int64(capacity.NodeMemoryReserveMiB)<<20 {
 		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity",
 			"the host has %d MiB of memory available and %d MiB must stay free, so %d MiB cannot be allotted",
-			status.Memory.Available>>20, capacity.NodeMemoryReserveMiB, t.MemoryMiB)
+			status.Memory.Available>>20, capacity.NodeMemoryReserveMiB, memoryNeededMiB)
 	}
-	disks, err := s.PVE.StorageStatus(ctx, s.Site.Storage.VMDisks)
-	if err != nil {
-		return s.unavailable(err)
-	}
-	if capacity.VMDiskMaxUsedPercent > 0 && disks.Total > 0 && disks.Used*100 >= int64(capacity.VMDiskMaxUsedPercent)*disks.Total {
-		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the disk pool is over %d%% used", capacity.VMDiskMaxUsedPercent)
+	if err := s.checkDiskPool(ctx, limits); err != nil {
+		return err
 	}
 	images, err := s.PVE.StorageStatus(ctx, s.Site.Storage.Images)
 	if err != nil {
@@ -364,6 +555,20 @@ func (s *Service) checkHost(ctx context.Context, t site.InstanceType, limits sit
 	}
 	if images.Avail < int64(capacity.ImageStoreMinFreeMiB)<<20 {
 		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the image store is nearly full")
+	}
+	return nil
+}
+
+// checkDiskPool refuses new disk space once the thin pool is used past the
+// threshold: past it, guests see free space that writes can no longer get.
+func (s *Service) checkDiskPool(ctx context.Context, limits site.Limits) error {
+	threshold := limits.Capacity.VMDiskMaxUsedPercent
+	disks, err := s.PVE.StorageStatus(ctx, s.Site.Storage.VMDisks)
+	if err != nil {
+		return s.unavailable(err)
+	}
+	if threshold > 0 && disks.Total > 0 && disks.Used*100 >= int64(threshold)*disks.Total {
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the disk pool is over %d%% used", threshold)
 	}
 	return nil
 }

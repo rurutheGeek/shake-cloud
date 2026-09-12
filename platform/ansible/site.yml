@@ -12,4 +12,5 @@
 - import_playbook: guests.yml
 - import_playbook: identity.yml
 - import_playbook: cloud.yml
+- import_playbook: garage.yml
 - import_playbook: docs-site.yml

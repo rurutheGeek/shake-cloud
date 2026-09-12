@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Start, stop and show the Kubernetes VMs, and nothing else.
+
+The cluster is meant to be powered down when it is not being used. Keeping the
+order here means nobody has to remember that the control plane starts first and
+stops last. The VM list comes from hosts.yaml, so it cannot drift from the
+declaration.
+
+  tools/k8s status
+  tools/k8s up        # control plane, then the workers that are not spare
+  tools/k8s up --all  # include hosts declared with `started: false`
+  tools/k8s down      # workers first, then the control plane
+"""
+import json
+import os
+import shlex
+import ssl
+import sys
+import urllib.request
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+SOPS = ROOT / 'platform' / 'sops' / 'proxmox-root.sops.yaml'
+HOSTS = ROOT / 'platform' / 'terraform' / 'hosts.yaml'
+SITE = ROOT / 'platform' / 'terraform' / 'site.yaml'
+
+
+def load():
+    """(node, control plane entries, worker entries). Entries carry the VMID,
+    the name, and whether the declaration keeps them stopped by default."""
+    hosts = yaml.safe_load(HOSTS.read_text())['hosts']
+    control, workers = [], []
+    for name, spec in hosts.items():
+        tags = spec.get('tags', [])
+        entry = {'vm_id': spec['vm_id'], 'name': name, 'spare': spec.get('started') is False}
+        if 'k8s-cp' in tags:
+            control.append(entry)
+        elif 'k8s-worker' in tags:
+            workers.append(entry)
+    node = yaml.safe_load(SITE.read_text())['node_name']
+    return node, sorted(control, key=lambda row: row['vm_id']), sorted(workers, key=lambda row: row['vm_id'])
+
+
+def api(endpoint, token, path, method='GET'):
+    request = urllib.request.Request(endpoint.rstrip('/') + path, method=method)
+    request.add_header('Authorization', 'PVEAPIToken=' + token)
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    with urllib.request.urlopen(request, context=context) as response:
+        body = response.read()
+    return json.loads(body)['data'] if body else None
+
+
+def state(endpoint, token, node, vm_id):
+    return api(endpoint, token, '/api2/json/nodes/%s/qemu/%s/status/current' % (node, vm_id))['status']
+
+
+def act(endpoint, token, node, vm_id, verb):
+    api(endpoint, token, '/api2/json/nodes/%s/qemu/%s/status/%s' % (node, vm_id, verb), method='POST')
+
+
+def main():
+    arguments = sys.argv[1:]
+    action = arguments[0] if arguments else 'status'
+    endpoint = os.environ['PROXMOX_VE_ENDPOINT']
+    token = os.environ['PROXMOX_VE_API_TOKEN']
+    node, control, workers = load()
+
+    if action == 'status':
+        for entry in control + workers:
+            print('%-5s %-14s %s' % (entry['vm_id'], entry['name'],
+                                     state(endpoint, token, node, entry['vm_id'])))
+        return
+    if action == 'up':
+        wanted = [entry for entry in control + workers if not entry['spare'] or '--all' in arguments]
+        for entry in wanted:  # control plane first
+            if state(endpoint, token, node, entry['vm_id']) != 'running':
+                act(endpoint, token, node, entry['vm_id'], 'start')
+                print('started %s' % entry['name'])
+        return
+    if action == 'down':
+        for entry in reversed(control + workers):  # workers first
+            if state(endpoint, token, node, entry['vm_id']) == 'running':
+                act(endpoint, token, node, entry['vm_id'], 'shutdown')
+                print('stopping %s' % entry['name'])
+        return
+    raise SystemExit(__doc__)
+
+
+if __name__ == '__main__':
+    # Credentials come from SOPS. Re-exec ourselves inside `sops exec-env` so the
+    # caller does not have to. `exec-env` takes the command as one string.
+    if 'PROXMOX_VE_API_TOKEN' not in os.environ:
+        command = ' '.join(shlex.quote(part)
+                           for part in [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]])
+        os.execvp('sops', ['sops', 'exec-env', str(SOPS), command])
+    main()

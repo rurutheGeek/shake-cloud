@@ -58,6 +58,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(result['vm_disks'], 'local-lvm')
         self.assertEqual(result['admin_images'], 'local')
         self.assertEqual(result['bridge'], 'vmbr0')
+        self.assertEqual(result['bridge_vlan_aware'], 'true')
         self.assertEqual(result['sdn_zone'], 'localnetwork')
 
     def test_two_image_stores_refuse_to_guess_and_name_both(self):
@@ -133,7 +134,7 @@ class ApiTests(unittest.TestCase):
         'network': [{'iface': 'lo', 'type': 'loopback'},
                     {'iface': 'nic1', 'type': 'eth'},
                     {'iface': 'vmbr0', 'type': 'bridge', 'bridge_ports': 'nic1',
-                     'bridge_vlan_aware': '0', 'cidr': '192.168.10.126/24',
+                     'bridge_vlan_aware': '1', 'cidr': '192.168.10.126/24',
                      'gateway': '192.168.10.1'}],
         'sdn_zones': [],
     }
@@ -160,9 +161,9 @@ class ApiTests(unittest.TestCase):
 
     def test_the_api_reports_vlan_awareness(self):
         bridges = site.bridges_from_api(self.API['network'])
-        self.assertFalse(site.vlan_aware(bridges, 'vmbr0'))
-        aware = site.bridges_from_api([dict(self.API['network'][2], bridge_vlan_aware='1')])
-        self.assertTrue(site.vlan_aware(aware, 'vmbr0'))
+        self.assertTrue(site.vlan_aware(bridges, 'vmbr0'))
+        unaware = site.bridges_from_api([dict(self.API['network'][2], bridge_vlan_aware='0')])
+        self.assertFalse(site.vlan_aware(unaware, 'vmbr0'))
 
 
 class OutputTests(unittest.TestCase):

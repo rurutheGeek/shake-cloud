@@ -9,11 +9,12 @@ devbox_packages:
   - age
   - python3-venv
   - vim
-# HashiCorp の apt リポジトリから Terraform を入れる。
+# Terraform を入れるか。版はリポジトリ直下の .terraform-version と揃える
+# （CI も同じファイルを読む）。apt の最新版は版が動くので、配布バイナリを版指定で置く。
 devbox_install_terraform: true
-# HashiCorp が新しいコードネームをまだ出していない場合に上書きする。
-# 例: trixie 未提供なら bookworm を指定する。
-devbox_hashicorp_release: "{{ ansible_facts['distribution_release'] }}"
+devbox_terraform_version: "1.15.8"
+# Terraform の配布名は ansible の architecture と一部違う。
+devbox_terraform_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
 # 自作クラウドAPIの Provider をここから実行する。state は各自のホーム。
 devbox_state_dir: tf
 
