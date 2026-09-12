@@ -14,8 +14,8 @@ ipam:
 ingressController:
   enabled: true
   # 共有 LB（cilium-ingress）を1つだけ使う。Ingress ごとに IP が増えず、
-  # DNS を固定できる。
-  mode: shared
+  # DNS を固定できる（正しいキーは loadbalancerMode）。
+  loadbalancerMode: shared
   service:
     annotations:
       metallb.universe.tf/loadBalancerIPs: 192.168.10.241
