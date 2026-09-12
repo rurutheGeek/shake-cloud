@@ -51,13 +51,18 @@ services:
       SHAKECLOUD_GARAGE_ADMIN_TOKEN_FILE: /run/secrets/garage_admin_token
       SHAKECLOUD_GARAGE_S3_ENDPOINT: ${GARAGE_S3_ENDPOINT:-}
       SHAKECLOUD_GARAGE_S3_REGION: ${GARAGE_S3_REGION:-garage}
+      # Kubernetes（database 機能）。CA とトークンは SOPS から secrets/ へ写される。
+      # URL が空なら database 系のエンドポイントは 503。
+      SHAKECLOUD_K8S_URL: ${K8S_URL:-}
+      SHAKECLOUD_K8S_CA_FILE: /run/secrets/k8s_ca
+      SHAKECLOUD_K8S_TOKEN_FILE: /run/secrets/k8s_token
       SHAKECLOUD_SITE_FILE: /etc/shakecloud/site.json
       SHAKECLOUD_WORK_DIR: /tmp
       # アップロードされたイメージを Proxmox へ渡すまで置く場所。**tmpfs では駄目。**
       # Proxmox は長さの分からない本文（チャンク転送）を 501 で拒否するので、
       # 長さを確定させるために一旦書き出す必要があり、数GBは RAM に載らない。
       SHAKECLOUD_UPLOAD_DIR: /var/lib/shakecloud/uploads
-    secrets: [db_password, oidc_credentials, bootstrap_admin_key, proxmox_token, netbox_token, garage_admin_token]
+    secrets: [db_password, oidc_credentials, bootstrap_admin_key, proxmox_token, netbox_token, garage_admin_token, k8s_ca, k8s_token]
     volumes:
       - ./site.json:/etc/shakecloud/site.json:ro
       # 書き込めるのはここだけ（manage.py init が uid 65532 で作る）。
@@ -86,3 +91,7 @@ secrets:
   # Garage の管理APIトークン（用途を絞ったもの）。cloud_api ロールが
   # platform/sops/cloudapi.sops.yaml から写す。ここでは作らない。
   garage_admin_token: {file: ./secrets/garage_admin_token}
+  # databases namespace の ServiceAccount cloud-api の CA とトークン。cloud_api ロールが
+  # platform/sops/k8s.sops.yaml から写す。ここでは作らない。
+  k8s_ca: {file: ./secrets/k8s_ca}
+  k8s_token: {file: ./secrets/k8s_token}
