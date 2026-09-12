@@ -51,15 +51,41 @@ Vaultwardenでは、メールだけで忘れたマスターパスワードを再
 
 ## 今回の方針
 
-SMTP事業者と送信元は未定です。公開メールサーバーは構築していません。少量の招待・確認メールには、認証付きの外部SMTPを各サービスから利用する構成を基本にします。ドメイン登録とSMTP契約は別です。Cloudflareでドメインを購入しても、それだけで一般のSMTP送信設定が得られるわけではありません。
+送信には **Gmail（`shake.notify@gmail.com`）の SMTP** を使います（2026-09-12 設定）。公開メールサーバーは構築していません。少量の招待・確認メールには、認証付きの外部SMTPを各サービスから利用する構成を基本にします。ドメイン登録とSMTP契約は別です。Cloudflareでドメインを購入しても、それだけで一般のSMTP送信設定が得られるわけではありません。
 
 **ローカルMTA（Postfix）は置きません**（2026-09-11 決定）。サテライトとして置けばアプリは認証情報を持たずに済みますが、結局インターネットへ届けるには上流のスマートホストが要り、構成要素が1つ増えるだけです。家庭回線からの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否されやすいため、上流が外部SMTPなら、アプリが直接そこへ送る方が短く済みます。将来メールボックスや複数アプリの集約が要るようになったら再検討します。
 
 自前の受信メールボックスも必要になった場合は、SMTP送信だけとは別の要件として、メールボックス・迷惑メール対策・配送監視を設計します。
 
+## Gmailを使う場合（現在の設定）
+
+`shake.notify@gmail.com` から送ります。設定の要点:
+
+- **アカウントのパスワードではなく「アプリパスワード」を使う。** 2段階認証を有効にしたうえで
+  [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) で発行する。画面は
+  `abcd efgh ijkl mnop` のように4文字ずつ区切って表示されるが、**空白は表示用**で、実際の値は
+  16文字。`.env`／SOPS には空白を除いて入れる。
+- ホスト `smtp.gmail.com`、587番 STARTTLS（または465番 SSL）。外向き 587 が塞がれていないこと。
+- **差出人は認証したアドレス（または Gmail 側で確認済みの別名）に限られる。** 別ドメインの
+  `@apextox.dpdns.org` などを `SMTP_FROM` にはできない。
+- 無料アカウントのSMTPは**1日およそ500通**まで。配信はGoogleのSPF/DKIMで通るため、
+  SPF/DKIM/DMARC を自前で用意しなくてよい。
+
+`platform/sops/smtp.sops.yaml`（SOPS 暗号化。書式は `platform/sops/smtp.sops.yaml.example`）:
+
+```yaml
+SMTP_HOST: smtp.gmail.com
+SMTP_PORT: "587"
+SMTP_SECURITY: starttls
+SMTP_USERNAME: shake.notify@gmail.com
+SMTP_PASSWORD: <16文字のアプリパスワード>
+SMTP_FROM: shake.notify@gmail.com
+SMTP_FROM_NAME: shake-cloud
+```
+
 ## 新しい identity（Authentik）での設定
 
-事業者が決まったら、`platform/sops/smtp.sops.yaml` を作り、次のキーを入れる（SOPS で暗号化。Git には平文を入れない）:
+SMTP は `platform/sops/smtp.sops.yaml`（上記 Gmail の例を参照）で設定します。キーは:
 
 ```yaml
 SMTP_HOST: smtp.example.net
@@ -82,7 +108,9 @@ SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
 認証情報は Secret として identity VM の `.env`（0600）にだけ置き、リポジトリには
 暗号化した `smtp.sops.yaml` だけを置きます。
 
-2026-09-11 に、identity VM 上へ**一時的な SMTP シンク**を立てて招待メールの送信
-経路（STARTTLS/SSL/PLAIN、認証、送信）を確認しました。実際の事業者・送信元が
-決まれば、`smtp.sops.yaml` を作って配備するだけで有効になります。受信側の
-迷惑メール・SPF・DKIM・DMARC は事業者側の設定として別途確認します。
+2026-09-11 に identity VM 上へ**一時的な SMTP シンク**を立てて送信経路
+（STARTTLS/SSL/PLAIN、認証、送信）を確認し、2026-09-12 に **Gmail の実設定を配備して
+実送信を確認**しました（`invitations.py` の `smtp_settings`／`deliver` が `.env` を
+読み、Gmail 経由で配送）。値を変えるときは `smtp.sops.yaml` を更新し、
+`platform/ansible/identity.yml` を流し直します。配信の迷惑メール・SPF・DKIM・DMARC は
+Google 側で通ります。

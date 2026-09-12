@@ -1,0 +1,22 @@
+SMTP_HOST: ENC[AES256_GCM,data:Api/4vx7J/rvVH3vMYE=,iv:h7xyzTbnAsy2f+S7eW8Hnri2X+6WaF5SicV0SKr1Av4=,tag:iqTbKCyX9cIhCLBcAsGnpg==,type:str]
+SMTP_PORT: ENC[AES256_GCM,data:aOEG,iv:zf9WQNs7svi14S1gqljb7bQ4byCVHE82nW5JqLO/ED8=,tag:ypCOLlzPmNc5lelxViXskw==,type:str]
+SMTP_SECURITY: ENC[AES256_GCM,data:S6GdPwQX1EM=,iv:xwFCC7v4iTFr51ujs2RKhgvafqXE2j7fX4hJ+IowpIw=,tag:yGe5fn1azQ0122ofEC4vJA==,type:str]
+SMTP_USERNAME: ENC[AES256_GCM,data:770Kp9fCpxVf5mRTHMNospek6FZvIA==,iv:QJUOKWjmbR0+3NfmG4eGcPXxE6aIt8fflZ36iyXBDLk=,tag:DHl57DCVzoiu4WlGTDmcVA==,type:str]
+SMTP_PASSWORD: ENC[AES256_GCM,data:X9UlrkvEQH4sJ5ert9ppcg==,iv:c38gtQ93yOJ3s3cSRmCeou+GxZzwoOq6BzIPACPZeao=,tag:NOWwgd2dP2O8cMxfhU6WoQ==,type:str]
+SMTP_FROM: ENC[AES256_GCM,data:Pdw9uykPCdkOmEsEFtDLVTA+lA2ToQ==,iv:HbXWetjjpfo9mSxDs104K52MGrMK9gR/ib7BFFmAP7k=,tag:hkWCEvOJUrT19yEDqqEqiw==,type:str]
+SMTP_FROM_NAME: ENC[AES256_GCM,data:B+gSkk8zS5F+IQ0=,iv:vSOndQ0hlSh17/oKAfiCQb8PvCF0H/xeBw76mZywl7E=,tag:z4QFdtZBB/L0q57n4Thv4g==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBHRGRwNFIrTmJQVnBNeXhy
+            QjFwOWdwMjFMNFU4QzdpNDZockc0dGsyc1FzCmZhQVpTSi9KT0IxcXFDbDcxVkEv
+            VGNWS0lxQnBJRGxGMUhtSjQvNDVuMWMKLS0tIHRSWlltSUVjWXhQc0thV2NKM3U0
+            YXN1TzV6TmJodSszM1dDQkNKemNsTUkKcg7aFAEsi3MJGu/MUjqobHSF6cVmeeF4
+            ln7CThBNQ+oABgf9D1s2IvlKY81yToGu5nc4XSy4gzcze3fHx8EjkA==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h
+    lastmodified: "2026-09-12T02:23:40Z"
+    mac: ENC[AES256_GCM,data:/m6JPUvUhtJnnh5XTCEHK8D0JrPILbieYS82DXqI4+Cb1TNh4c/B8fDjXCrVkO2OfAZGoe9Qc34KBnpy54RQ0EHo4vEx+zMj4WLrv8Gi7Iu6Sc1wtEWUk5BH32O8Dp1AKAcpE3xekY9BGR/A4bNe4XorEA/8PPlrXB/MgUEhlDQ=,iv:Zm+zM8o3bjlQY0wC9o8jzprDfR/6rRZrk1viN+SV9vU=,tag:Aysuk4KPyWKEVXsCp86jjw==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3
