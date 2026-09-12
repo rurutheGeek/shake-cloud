@@ -162,6 +162,25 @@ tools/k8s up --all   # worker-02 も含めて起動
 
 RAM が足りないときは `k8s-worker-02` を起動し、使わないときは落としておきます。
 
+### 止めると何が止まるか
+
+`tools/k8s down` は worker → control plane の順に **ACPI の shutdown** を投げます（強制停止ではありません）。次が止まります。
+
+| 止まるもの | 影響 |
+| --- | --- |
+| AWX | `https://awx.apextox.dpdns.org` にアクセスできない。実行中のジョブは中断される |
+| database（CloudNativePG） | クラウドで作った PostgreSQL が使えない（接続拒否） |
+| function（Knative / Kourier） | `<name>.functions.k8s.apextox.dpdns.org` が応答しない |
+| MetalLB / Cilium Ingress | 上の入口が無くなる |
+
+**止まらないもの:** クラウドAPI本体（cloud-01 の Compose）・管理DB・Garage/S3・identity・NetBox・docs・Proxmox。ただし**クラウドAPI の database/function の画面と API はエラー（503 系）**になります（Kubernetes に届かないため）。VM・ボリューム・セキュリティグループ・イメージ・S3 は影響を受けません。
+
+**データ:** local-path の PVC は worker-01 のデータディスクに残るので、起動し直せば読めます。ただし**単一ノードでバックアップは未設定**なので、ディスク故障やノード喪失で失われます（CNPG の外部バックアップは保留中）。
+
+**起動:** `tools/k8s up` は control plane → worker の順に起動し、Flux が Git と同期し直します。AWX・CNPG・Knative が Ready になるまで数分かかります。`down` は停止の完了を待たないので、`up` の前に `status` で `stopped` を確認します。
+
+**どのVMを止めるか:** worker-01 に AWX・CNPG・Knative が載っているので、**worker-01 を止めた時点で上のアプリは止まります**。control plane だけ残しても同じです（アプリは動きません）。`tools/k8s down` は起動中の worker を全部止めます。
+
 ## 次のスライス
 
 1. CNPG のバックアップを Garage（S3）へ
