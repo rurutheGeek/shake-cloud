@@ -89,8 +89,10 @@ hosts:
     pool: platform
     # 常時起動の control plane。実行時は etcd と API が載る。
     flavor: small
+    # k8s ノードはバルーニングしない（kubelet が上限を能力としてスケジューラへ
+    # 広告するので、後からホストが回収すると Pod が追い出される）。
     memory_mib: 3072
-    memory_min_mib: 1024
+    memory_min_mib: 3072
     disk_gib: 32
     on_boot: true
     started: true
@@ -102,6 +104,9 @@ hosts:
     pool: platform
     # メディア・DB・AI API を載せる想定。データは別ディスクへ。
     flavor: large
+    # バルーニング無効（memory と同じ床）。
+    memory_mib: 8192
+    memory_min_mib: 8192
     disk_gib: 32
     data_disk_gib: 64
     on_boot: true
@@ -115,6 +120,8 @@ hosts:
     # RAM が足りないので止めたまま作る。使うときは人が起動する
     # （lifecycle が started を追わないので Terraform では変えない）。
     flavor: large
+    memory_mib: 8192
+    memory_min_mib: 8192
     disk_gib: 32
     data_disk_gib: 48
     on_boot: false
