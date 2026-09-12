@@ -1,0 +1,27 @@
+# AWX Operator を上流リポジトリから kustomize で入れる（公式 Helm チャートは無い）。
+# 版は tag で固定する。
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: awx-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/ansible/awx-operator
+  ref:
+    tag: "2.19.1"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: awx-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./config/default
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: awx-operator
+  targetNamespace: awx

@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Flux のルート。**ここに列挙したものだけ**を適用する（サブディレクトリを再帰的に
+# 拾わせない）。アプリ本体は子 Kustomization がパス指定で適用するので、CRD が
+# 先に必要なリソース（AWX の CR など）をここに直接置かない。
+resources:
+  - flux-system
+  - apps/awx-namespace.yaml
+  - apps/awx-operator.yaml
+  - apps/awx.yaml

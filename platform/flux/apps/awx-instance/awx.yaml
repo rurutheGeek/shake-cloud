@@ -1,0 +1,29 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  namespace: awx
+spec:
+  # 入口は MetalLB の LoadBalancer（HTTP）。TLS は後で Ingress/Gateway を足す。
+  service_type: LoadBalancer
+  loadbalancer_protocol: http
+  admin_user: admin
+  admin_password_secret: awx-admin-password
+  # DB は Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク）。
+  postgres_storage_class: local-path
+  postgres_storage_requirements: 8Gi
+  # 常時1レプリカ。worker-01 の RAM を守るため requests だけ置く（limits は付けない）。
+  web_replicas: 1
+  task_replicas: 1
+  web_resource_requirements:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  task_resource_requirements:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  ee_resource_requirements:
+    requests:
+      cpu: 50m
+      memory: 64Mi
