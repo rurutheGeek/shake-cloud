@@ -25,7 +25,7 @@ Linux の cloud image は `images.yaml` の URL から自動取得しますが�
 
 - Windows 11 Pro の ISO（Microsoft の公式サイト。プロダクトキーは各自のライセンス）
 - `virtio-win.iso`（<https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso>）
-- `cloudbase-init` のインストーラー（<https://cloudbase-init.readthedocs.io/en/latest/intro.html>）
+- `cloudbase-init` のインストーラー。**`cloudbase.it` は応答しないことがあるので GitHub Releases から取る**（<https://github.com/cloudbase/cloudbase-init/releases>。x64 の `CloudbaseInitSetup_<版>_x64.msi`）。ドキュメントは <https://cloudbase-init.readthedocs.io/>
 
 Proxmox の `local` ストレージへ ISO を置きます（Web UI か `qm` でアップロード）。
 
@@ -124,3 +124,4 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | 起動後ネットワークが無い | cloudbase-init が NoCloud を読めていない | `cloudbase-init.log` を確認。`metadata_services` を NoCloud だけにする |
 | 同じ IP が二重に付く | イメージ側に固定 IP が残っている | sysprep 前に DHCP へ戻す |
 | `import-from` が失敗する | `cloud-images` にファイルが無い/名前違い | `file_name` と `/srv/cloud-images/import/` の名前を一致させる |
+| `www.cloudbase.it` がタイムアウトして MSI を取れない | 配布元サイトが到達不能（2026-09-12 実測） | GitHub Releases（<https://github.com/cloudbase/cloudbase-init/releases>）から `CloudbaseInitSetup_<版>_x64.msi` を取得する |
