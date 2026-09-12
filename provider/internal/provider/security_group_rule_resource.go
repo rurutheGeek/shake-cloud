@@ -109,14 +109,11 @@ func (r *securityGroupRuleResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 	groupID := plan.GroupID.ValueString()
+	direction := plan.Direction.ValueString()
 	before, err := r.client.DescribeSecurityGroup(ctx, groupID)
 	if err != nil {
 		addError(&resp.Diagnostics, "read the security group", err)
 		return
-	}
-	existing := map[string]bool{}
-	for _, rule := range append(before.Ingress, before.Egress...) {
-		existing[rule.RuleID] = true
 	}
 
 	request := client.SecurityGroupRuleRequest{
@@ -124,12 +121,12 @@ func (r *securityGroupRuleResource) Create(ctx context.Context, req resource.Cre
 		FromPort: optionalInt(plan.FromPort), ToPort: optionalInt(plan.ToPort),
 		Description: plan.Description.ValueString(),
 	}
-	group, err := r.authorize(ctx, groupID, plan.Direction.ValueString(), request)
+	group, err := r.authorize(ctx, groupID, direction, request)
 	if err != nil {
 		addError(&resp.Diagnostics, "add the rule", err)
 		return
 	}
-	rule, ok := findNewRule(append(group.Ingress, group.Egress...), existing)
+	rule, ok := findNewRule(rulesFor(before, direction), rulesFor(group, direction), request)
 	if !ok {
 		resp.Diagnostics.AddError("shake-cloud: could not find the new rule", "the API accepted the rule but did not return it")
 		return
@@ -232,11 +229,43 @@ func (r *securityGroupRuleResource) ImportState(ctx context.Context, req resourc
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("direction"), direction)...)
 }
 
-func findNewRule(rules []client.SecurityGroupRule, existing map[string]bool) (client.SecurityGroupRule, bool) {
-	for _, rule := range rules {
-		if !existing[rule.RuleID] {
-			return rule, true
+func rulesFor(group client.SecurityGroup, direction string) []client.SecurityGroupRule {
+	if direction == "egress" {
+		return group.Egress
+	}
+	return group.Ingress
+}
+
+// findNewRule returns the rule the API just added. An id that was not in
+// before identifies it, but the attributes must match too: Terraform creates
+// the rules of one group at the same time, so every Create reads the same
+// `before` snapshot while the API returns the whole group. The first new rule
+// is not necessarily this one.
+func findNewRule(before, after []client.SecurityGroupRule, request client.SecurityGroupRuleRequest) (client.SecurityGroupRule, bool) {
+	existing := map[string]bool{}
+	for _, rule := range before {
+		existing[rule.RuleID] = true
+	}
+	for _, rule := range after {
+		if existing[rule.RuleID] || !sameRule(rule, request) {
+			continue
 		}
+		return rule, true
 	}
 	return client.SecurityGroupRule{}, false
+}
+
+func sameRule(rule client.SecurityGroupRule, request client.SecurityGroupRuleRequest) bool {
+	return rule.Protocol == request.Protocol &&
+		rule.CIDR == request.CIDR &&
+		rule.Description == request.Description &&
+		sameOptionalInt(rule.FromPort, request.FromPort) &&
+		sameOptionalInt(rule.ToPort, request.ToPort)
+}
+
+func sameOptionalInt(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
