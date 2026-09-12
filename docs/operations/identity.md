@@ -117,4 +117,12 @@ sudo python3 /opt/identity-stack/invitations.py list
 
 ## パスキーだけでログインする（パスワードレス）
 
-現状は**パスワード必須**で、パスキーは 2 要素目です。パスキーだけで入る（パスワードレス）には、識別ステージの **WebAuthn Authenticator Validation Stage** に、WebAuthn を許可した検証ステージを指定します。HTTPS・ブラウザーの conditional UI 対応・**discoverable credential（resident key）**・登録時と同じホスト名が条件です。有効化してもパスワード経路は残すので、パスキーを失ったときは前節のメール復旧が使えます。実装・有効化は未実施です。
+**有効（2026-09-12）。** `configure.py` が認証フローの識別ステージの **WebAuthn Authenticator Validation Stage** を同じフローの検証ステージへ向けると、ログイン画面でブラウザーのパスキー自動入力（条件付き UI）が出ます。パスキーで入ったあとは Authentik の既定ポリシー（`auth_method == auth_webauthn_pwl`）がパスワード段階と検証段階を飛ばすので、パスワードなしでログインできます。設定は識別ステージの 1 か所だけで、再適用で戻ります。
+
+条件と注意:
+
+- `auth.apextox.dpdns.org` の **HTTPS**、ブラウザーの conditional UI 対応、登録時と同じホスト名。
+- 登録済みパスキーが **discoverable credential（resident key）** であること。そうでなければ自動入力は出ません。
+- **パスワード経路は残します。** パスキーを失ったときは前節のメール復旧が使えます。
+
+GUI で切り替えるなら **Flows and Stages → Stages → 識別ステージ → WebAuthn Authenticator Validation Stage** です。

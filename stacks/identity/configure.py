@@ -195,6 +195,39 @@ def configure_recovery(api):
     print(('CHANGED: ' if created else 'OK: ') + f'password recovery flow ({RECOVERY_FLOW})')
 
 
+def configure_passkey_login(api):
+    """Let people sign in with a passkey alone (passwordless).
+
+    Pointing the authentication flow's identification stage at the flow's
+    authenticator validation stage makes the login form offer the browser's
+    passkey autofill. Authentik's built-in policies then skip the password and
+    validation stages for a passkey login, so this one pointer is the whole
+    switch. Passkeys must be discoverable (resident keys) for the prompt to
+    appear, and the registration HTTPS name must not change.
+    """
+    flow = next((row for row in api.rows('flows/instances/')
+                 if row['slug'] == 'default-authentication-flow'), None)
+    if flow is None:
+        raise SystemExit('default-authentication-flow is missing')
+    stages = {}
+    for binding in api.rows(f"flows/bindings/?target={flow['pk']}"):
+        stage = binding.get('stage_obj') or {}
+        stages[stage.get('component')] = stage
+    identification = stages.get('ak-stage-identification-form')
+    validate = stages.get('ak-stage-authenticator-validate-form')
+    if identification is None or validate is None:
+        raise SystemExit('authentication flow is missing its identification or validation stage')
+    detail = api.call('GET', f"stages/identification/{identification['pk']}/")
+    if detail.get('webauthn_stage') == validate['pk']:
+        print('OK: passkey (passwordless) sign-in')
+        return
+    # The identification serializer insists on re-reading user_fields, so send
+    # them with the patch or it reports "no user fields and no source".
+    api.call('PATCH', f"stages/identification/{identification['pk']}/",
+             {'webauthn_stage': validate['pk'], 'user_fields': detail.get('user_fields', [])})
+    print('CHANGED: passkey (passwordless) sign-in enabled')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -273,6 +306,7 @@ def main():
 
     configure_email_authenticator(api)
     configure_recovery(api)
+    configure_passkey_login(api)
 
 
 if __name__ == '__main__':
