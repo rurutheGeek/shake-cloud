@@ -1,0 +1,94 @@
+[
+  {
+    "name": "Shake Lab Docs",
+    "href": "https://docs.apextox.dpdns.org",
+    "description": "利用手順・設定例・運用ドキュメント",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/mkdocs.svg"
+  },
+  {
+    "name": "Shake Cloud",
+    "href": "https://cloud.apextox.dpdns.org",
+    "description": "VM・S3・DB・関数のセルフサービス",
+    "iconText": "CLOUD",
+    "iconColor": "#2563eb"
+  },
+  {
+    "name": "Authentik",
+    "href": "https://auth.apextox.dpdns.org",
+    "description": "共通ログイン（招待・パスキー・パスワード復旧）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/authentik.svg"
+  },
+  {
+    "name": "NetBox",
+    "href": "https://netbox.apextox.dpdns.org",
+    "description": "IP・VM・配備対象の台帳",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/netbox.svg"
+  },
+  {
+    "name": "Home Assistant",
+    "href": "https://ha.apextox.dpdns.org",
+    "description": "家電の自動化・状態確認",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/home-assistant.svg"
+  },
+  {
+    "name": "Nextcloud",
+    "href": "https://nextcloud.apextox.dpdns.org",
+    "description": "ファイル・共有・カレンダー・タスク",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/nextcloud.svg"
+  },
+  {
+    "name": "Kavita",
+    "href": "https://kavita.apextox.dpdns.org",
+    "description": "PDF・電子書籍リーダー",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/kavita.svg"
+  },
+  {
+    "name": "Navidrome",
+    "href": "https://navidrome.apextox.dpdns.org",
+    "description": "音楽ストリーミング",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/navidrome.svg"
+  },
+  {
+    "name": "MeTube",
+    "href": "https://metube.apextox.dpdns.org",
+    "description": "URLから音声を取り込む",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/metube.svg"
+  },
+  {
+    "name": "Picard",
+    "href": "https://picard.apextox.dpdns.org",
+    "description": "音楽タグの編集（GUI）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz-picard.svg"
+  },
+  {
+    "name": "Vaultwarden",
+    "href": "https://vault.apextox.dpdns.org",
+    "description": "パスワード管理（SSO）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/vaultwarden.svg"
+  },
+  {
+    "name": "ゲームポータル",
+    "href": "https://play.apextox.dpdns.org",
+    "description": "ゲーム配信・ランチャーの入口",
+    "iconText": "GAME",
+    "iconColor": "#8b5cf6"
+  },
+  {
+    "name": "AWX",
+    "href": "https://awx.apextox.dpdns.org",
+    "description": "Ansibleの実行基盤",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/awx.svg"
+  },
+  {
+    "name": "Proxmox",
+    "href": "https://pve.apextox.dpdns.org:8006",
+    "description": "仮想化ホストの管理画面",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/proxmox.svg"
+  },
+  {
+    "name": "GitHub リポジトリ",
+    "href": "https://github.com/rurutheGeek/shake-cloud",
+    "description": "shake-cloud のソースコード",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/github.svg"
+  }
+]

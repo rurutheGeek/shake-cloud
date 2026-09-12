@@ -1,0 +1,53 @@
+---
+# Kavita を media-01 の独立 Compose プロジェクトとして配備する。
+#   ansible-playbook -i <inventory> platform/ansible/media-kavita.yml
+- name: Deploy Kavita
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Create Kavita deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/kavita'
+        state: directory
+        mode: '0750'
+    - name: Copy Kavita definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/kavita/{{ item }}'
+        dest: '{{ project_dir }}/media/kavita/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example, bootstrap.py]
+    - name: Configure Kavita environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          LIBRARY_ROOT={{ library_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          KAVITA_PORT={{ kavita_port | default(5000) }}
+        dest: '{{ project_dir }}/media/kavita/.env'
+        mode: '0600'
+    - name: Prepare Kavita data directories
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/kavita/manage.py', init]
+      changed_when: true
+    - name: Deploy Kavita
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/kavita/manage.py', up]
+      changed_when: true
+    # bootstrap.py は requests を使う。古い deploy.yml と同じく、配備先へ
+    # python3-requests を入れてから API を叩く。
+    - name: Install the HTTP client for the Kavita bootstrap
+      ansible.builtin.apt:
+        name: python3-requests
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+    # 初回は管理者の登録と Books ライブラリの作成、以降は現状確認だけ。
+    # 秘密値は secrets/accounts.json に 0600 で残り、標準出力には出ない。
+    - name: Initialize the Kavita admin and Books library
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/kavita/bootstrap.py']
+        chdir: '{{ project_dir }}/media/kavita'
+      register: kavita_bootstrap
+      changed_when: "'CHANGED:' in kavita_bootstrap.stdout"

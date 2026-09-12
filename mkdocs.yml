@@ -1,4 +1,4 @@
-site_name: セルフホスト・ハブの手引き
+site_name: Shake Lab Docs
 docs_dir: docs
 site_dir: stacks/hub/site
 use_directory_urls: true
@@ -8,6 +8,56 @@ theme:
 nav:
   - ホーム: index.md
   - 開発参加ガイド: onboarding.md
+  - 開発計画:
+      - 配置・作業ID・並列作業: development/index.md
+      - W：Web・メディア:
+          - W01 Homarr: development/W01-homarr.md
+          - W02 Vaultwarden: development/W02-vaultwarden.md
+          - W03 Nextcloud・Calendar・Tasks: development/W03-nextcloud.md
+          - W04 Kavita: development/W04-kavita.md
+          - W05 Navidrome: development/W05-navidrome.md
+          - W06 MeTube・音楽変換・Picard: development/W06-music-tools.md
+          - W07 RomM: development/W07-romm.md
+      - A：AI:
+          - A01 ポケモンDB・WebUI・agent: development/A01-pokemon-ai.md
+          - A02 Ollama: development/A02-ollama.md
+          - A03 汎用RAG: development/A03-rag.md
+          - A04 Discord Bot: development/A04-discord-bot.md
+          - A05 OpenHomeの製品・要件調査: development/A05-openhome.md
+      - G：ゲーム:
+          - G01 Wolf: development/G01-wolf.md
+          - G02 Azahar・非公開ルーム: development/G02-azahar.md
+          - G03 ゲームとAIの負荷調整: development/G03-game-ai-resources.md
+      - H：家電:
+          - H01 Home Assistant Container: development/H01-home-assistant.md
+          - H02 SwitchBot: development/H02-switchbot.md
+          - H03 Echo: development/H03-echo.md
+          - H04 Eufy: development/H04-eufy.md
+      - N：ネットワーク:
+          - N01 セルフホストVPN: development/N01-vpn.md
+          - N02 Tailscaleの復旧経路・DNS: development/N02-tailscale.md
+          - N03 VLAN切替: development/N03-vlan.md
+          - N04 公開Web入口: development/N04-public-edge.md
+          - N05 既存サービスのHTTPS移行完了: development/N05-https.md
+      - I：基盤:
+          - I01 容量測定・軽量化: development/I01-resources.md
+          - I02 media-01のVM宣言: development/I02-media-vm.md
+          - I03 クラウドVMのAnsible連携: development/I03-cloud-inventory.md
+          - I04 DNS登録: development/I04-cloud-dns.md
+          - I05 サービス用state管理: development/I05-service-state.md
+          - I06 AWXのジョブ整備: development/I06-awx.md
+      - O：復旧・運用:
+          - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
+          - O02 CNPGバックアップ: development/O02-cnpg-backup.md
+          - O03 VM・アプリ状態の復元: development/O03-restore.md
+      - D：資料のみ:
+          - D01 オンボーディング: development/D01-onboarding.md
+          - D02 配置・配分表・構成図: development/D02-placement.md
+          - D03 サービス配置とIaC所有境界: development/D03-service-boundaries.md
+          - D04 実装状況の訂正: development/D04-status.md
+          - D05 Picard: development/D05-picard.md
+          - D06 LocalSend: development/D06-localsend.md
+          - D07 Tailcat: development/D07-tailcat.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
       - 共通ログインの使い方: services/identity.md

@@ -1,0 +1,36 @@
+# Homarr（サービスの入口）を services-01 に単独で置く。
+#
+# 旧ハブの media-hub とは別の Compose プロジェクト。認証DB・docs・他サービスを
+# 同居させない。イメージは compose.lock.yaml でダイジェスト固定する。
+name: homarr
+
+services:
+  homarr:
+    image: ${HOMARR_IMAGE:-ghcr.io/homarr-labs/homarr}:${HOMARR_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # 秘密値は .env ではなく secrets/ から manage.py が環境変数で渡す。
+      SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?run manage.py up}
+      AUTH_PROVIDERS: ${AUTH_PROVIDERS:-credentials}
+      AUTH_OIDC_CLIENT_ID: ${AUTH_OIDC_CLIENT_ID:-homarr}
+      AUTH_OIDC_CLIENT_SECRET: ${AUTH_OIDC_CLIENT_SECRET:-}
+      AUTH_OIDC_ISSUER: ${AUTH_OIDC_ISSUER:-}
+      AUTH_OIDC_CLIENT_NAME: ${AUTH_OIDC_CLIENT_NAME:-Authentik}
+      AUTH_OIDC_SCOPE_OVERWRITE: openid email profile
+      NEXTAUTH_URL: ${BASE_URL:-http://localhost:7575}
+      BASE_URL: ${BASE_URL:-http://localhost:7575}
+    volumes:
+      - ${STORAGE_ROOT:-./storage}/homarr:/appdata
+    ports:
+      # 既定は 127.0.0.1。LAN へ出すのは HTTPS 入口（Caddy）だけにする。
+      - '${BIND_ADDRESS:-127.0.0.1}:${HOMARR_PORT:-7575}:7575'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:7575/api/auth/csrf').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

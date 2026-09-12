@@ -1,9 +1,29 @@
 ---
+# music-tools（MeTube・Picard・変換・同期）を media ホストへ配備する。
+# この playbook が再現手順の正本。先行配備した Picard だけを対象にする場合は
+#   -e music_tools_services=picard
+# のようにサービスを限定して再適用し、手作業の結果を playbook に収束させる。
+# 複数指定はカンマ区切り。JSONリスト（-e '{"music_tools_services":["picard"]}'）も受け付ける。
 - name: Deploy music ingestion and tagging tools
   hosts: media
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
+    # 既定は従来どおり全サービス。services-01 を含む既存ホストの再実行が
+    # 同じ結果になるよう、全リストを既定にしておく。Picard の段階配備は
+    # -e music_tools_services=picard で限定する。
+    music_tools_services:
+      - metube
+      - picard
+      - convert
+    # 既定は有効のまま（現行配備の挙動を変えない）。切替中に旧タイマーと
+    # 二重に走らせたくない場合だけ -e music_tools_sync_enabled=false にする。
+    music_tools_sync_enabled: true
+    # .env に書く値。compose.yaml の既定値と同じなので、既存ホストへ再適用
+    # してもコンテナの設定は変わらない。変更したい場合はホスト変数ではなく
+    # これらの変数を -e で上書きする。
+    music_tools_tz: 'Asia/Tokyo'
+    music_tools_picard_port: 5800
   tasks:
     - name: Create tool directory
       ansible.builtin.file:
@@ -15,22 +35,41 @@
         src: '{{ source_dir }}/music-tools/{{ item }}'
         dest: '{{ project_dir }}/music-tools/{{ item }}'
         mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json]
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, .env.example]
     - name: Copy pinned tool images
       ansible.builtin.copy:
         src: '{{ item }}'
         dest: '{{ project_dir }}/music-tools/compose.lock.yaml'
         mode: '0644'
       with_fileglob: ['{{ source_dir }}/music-tools/compose.lock.yaml']
-    - name: Configure original storage path
+    - name: Configure environment
+      # 既存ホストの .env は LIBRARY_ROOT だけだった。TZ と PICARD_PORT は
+      # compose.yaml の既定値と同じ値で追記するので再実行しても挙動は変わらない。
+      # PICARD_PORT は Picard を配備対象にしたときだけ書く。
       ansible.builtin.copy:
-        content: 'LIBRARY_ROOT={{ library_root }}{{ "\n" }}'
+        content: |
+          LIBRARY_ROOT={{ library_root }}
+          TZ={{ music_tools_tz }}
+          {% if 'picard' in music_tools_services %}PICARD_PORT={{ music_tools_picard_port }}{% endif %}
         dest: '{{ project_dir }}/music-tools/.env'
         mode: '0600'
-    - name: Deploy ingestion and conversion
+    - name: Deploy selected music tools
+      # manage.py up は引数でサービスを絞れないため、manage.py に足した
+      # --services へ music_tools_services を渡す。既定は全サービスのため、
+      # このタスクは従来の `manage.py up` と同じ `up -d --wait` を実行する。
+      # init（ディレクトリ・ライブラリID・lock 生成）は manage.py 側で従来どおり。
+      # `-e music_tools_services=picard` は文字列、JSONリストはリストで届くので、
+      # 文字列はそのまま、リストは join して manage.py のカンマ区切りへ揃える。
       ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/music-tools/manage.py', up]
+        argv: [python3, '{{ project_dir }}/music-tools/manage.py', up, '--services', "{{ music_tools_services if music_tools_services is string else (music_tools_services | join(',')) }}"]
       changed_when: true
+    - name: Create synchronization code directory
+      # services-01 では既にあったが、media-01 の新規配備では無い。
+      # copy 先の親ディレクトリが無いと失敗する（2026-09-12 実機で発見）。
+      ansible.builtin.file:
+        path: '{{ project_dir }}/scripts'
+        state: directory
+        mode: '0750'
     - name: Copy cache synchronization code
       ansible.builtin.copy:
         src: '{{ source_dir }}/scripts/sync-music.py'
@@ -46,9 +85,11 @@
         src: '{{ source_dir }}/music-tools/media-stack-music-sync.timer'
         dest: /etc/systemd/system/media-stack-music-sync.timer
         mode: '0644'
-    - name: Enable music synchronization
+    - name: Configure music synchronization
+      # 既定 (true) は従来どおり有効化して開始する。false では停止・無効化
+      # だけを行い、起動済みタイマーを残さない。
       ansible.builtin.systemd:
         name: media-stack-music-sync.timer
         daemon_reload: true
-        enabled: true
-        state: started
+        enabled: "{{ music_tools_sync_enabled | bool }}"
+        state: "{{ music_tools_sync_enabled | bool | ternary('started', 'stopped') }}"

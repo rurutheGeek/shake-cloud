@@ -1,25 +1,36 @@
 flowchart TB
+  users["利用者の端末 / LAN・VPN"]
+  pi["既存ラズパイ<br/>復旧用Tailscale・DNS・監視"]
   internet["インターネット"] --> router["既存ルータ・スイッチ"]
-  users["2人の端末 / VPN"] --> pi["既存ラズパイ<br/>Tailscale・DNS・監視"]
-  subgraph host["K11 / Proxmox VE"]
-    edge["公開Caddy VM"]
-    private["VPN側の内部接続"]
-    k8s["常用Kubernetes<br/>CP 1 + worker 2<br/>Web・クラウドAPI<br/>Knative・CloudNativePG"]
-    identity["認証VM<br/>Authentik + 専用DB"]
-    s3["S3 VM<br/>Garage"]
-    game["ゲームVM<br/>Wolf・Azahar×2<br/>780M / 必要時Ollama"]
+  subgraph host["現有K11 / Proxmox VE：機能別の配置計画"]
+    services["services-01 / 常用<br/>NetBox・MkDocs・Homarr<br/>追加予定：家電・VPN・Vaultwarden"]
+    media["media-01 / VM作成済み<br/>移行予定：Nextcloud・書籍・音楽<br/>MeTube・Picard"]
+    game["既存game1 / GPU割当済み<br/>開発対象：Wolf・Azahar・RomM<br/>ポケモンAI・汎用RAG・Bot・Ollama"]
+    identity["identity<br/>Authentik + 専用DB"]
+    cloud["cloud-01<br/>クラウドAPI + 管理DB"]
+    k8s["既存Kubernetes<br/>AWX・CloudNativePG・Knative<br/>起動状態は配備台帳を参照"]
+    s3["storage-s3<br/>Garage"]
+    edge["public-edge / 条件成立後に追加<br/>公開Caddy"]
     pve["Proxmox API"]
-    dev["開発VM A / B<br/>動的に作成するVM"]
-    edge -->|公開Webのみ| k8s
-    private --> k8s
-    private --> identity
-    private --> s3
-    private --> game
-    k8s -. VM作成 .-> pve
-    pve -.-> dev
+    dev["既存dev-a / dev-b<br/>各担当の並列開発"]
+    edge -->|許可した公開Webのみ| media
+    cloud -. VM管理 .-> pve
+    cloud -. DB・関数提供 .-> k8s
+    cloud -. S3管理 .-> s3
+    pve -. cloud所有VM .-> media
+    pve -. cloud所有VM .-> game
+    dev -. 作成・設定 .-> cloud
   end
-  router -->|公開443| edge
-  pi --> private
-  git["GitHub / 管理PC"] -. 基盤構築 .-> pve
-  backup["別ディスク・別機器<br/>VM・DB・ファイルのバックアップ"]
-  pve -.-> backup
+  users --> services
+  users --> media
+  users --> game
+  users --> identity
+  users --> pi
+  pi -. 復旧経路 .-> pve
+  router -. 公開条件を確認後 .-> edge
+  git["Git / 管理環境<br/>独立した作業ID・計画書"] -. 基盤構築 .-> pve
+  backup["既存の外部保存先<br/>利用可否・復元はO01-O03で確認"]
+  services -. 整合バックアップ .-> backup
+  media -. 整合バックアップ .-> backup
+  game -. 整合バックアップ .-> backup
+  cloud -. 整合バックアップ .-> backup

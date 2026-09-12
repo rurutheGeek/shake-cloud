@@ -4,7 +4,7 @@
 
 ## 既存機器の使い方
 
-新規ネットワーク機器の購入は前提にしません。方針は、既存ルータとスイッチを使い、K11にセルフホストVPN、ラズパイに予備のTailscale subnet routerと監視を置く構成です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
+新規ネットワーク機器の購入は前提にしません。方針は、既存ルータとスイッチを使い、K11のservices-01にセルフホストVPN、ラズパイに予備のTailscale subnet routerと監視を置く構成です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
 
 ### VPNをラズパイに置く理由と選択肢
 
@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | ラズパイのTailscale subnet router | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | ラズパイのNIC・CPU・稼働状態に依存 |
 | 各VMにTailscaleを直接導入 | game-01の映像通信、開発VMへのSSH | 対象VM停止中は接続できない。台数ごとの管理が必要 |
-| K11内のVPN VM | ラズパイを使わない場合の代案 | K11停止時に管理用VPNも停止。VM枠を追加する必要がある |
+| services-01のセルフホストVPN | 常用アクセス。家電・NetBox等とは別Composeで管理 | services-01再起動時はVPNも停止するため、ラズパイの復旧経路を残す |
 | 既存ルータのVPN機能 | 対応機能があり運用できる場合の代案 | 機種・更新状況・VPN機能が未確認 |
 
 今回の第一案は「K11のセルフホストVPN＋ラズパイのTailscale復旧経路＋必要なVMへのagent」です。ラズパイは必須機器ではありません。宅内で遊ぶときはLAN直結を優先し、全インターネット通信をラズパイに流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
@@ -44,13 +44,12 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 - 内部API・個人用サービスはVPN内のHTTPS名を使用する。
 - 公開443番は公開Caddy VMだけへ転送する。HTTP-01を使わないなら証明書のための80番公開は不要。
-- 公開Caddyからは公開用Gatewayと許可したバックエンドだけへ接続する。
-- 公開用GatewayのAllowedRoutesは公開用namespaceに限定し、内部Routeを受け付けない。
+- 公開Caddyからは明示的に許可したバックエンドだけへ接続する。現行クラスタはCilium Ingressで、Gateway APIへの変更は前提にしない。
 - 公開IPへ内部ホスト名を指定しても内部アプリに届かないことを確認する。
 - 管理API、DBの管理ポート、S3管理APIは公開しない。
 - IPv6がある場合もIPv4と同じ公開範囲に制限する。
 
-アプリ用Gatewayとは別にKnativeのKourierを設置します。関数は初期状態で内部向けとし、公開する関数だけを公開経路へ追加します。Gatewayの存在だけで関数の認証が実装されるわけではありません。
+クラスタのCilium Ingressとは別にKnativeのKourierが稼働しています。関数は初期状態で内部向けとし、公開する関数だけを公開経路へ追加します。Gatewayの存在だけで関数の認証が実装されるわけではありません。
 
 ## DNSとHTTPS
 
@@ -66,8 +65,8 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `awx.apextox.dpdns.org` | AWX（Cilium Ingress・Let's Encrypt） |
 | `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
-- **名前の引き方:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。家のルーターも Tailscale の端末も、DNS の設定を足さずに引けます。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。ルーターが内部IPを返す応答を捨てないことは確認済みです。
-- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。サービス自身のポートは 127.0.0.1 に閉じ、入口は HTTPS だけにしました。
+- **名前の引き方:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。LANでは名前解決を確認済みです。Tailscale経由のDNSとサブネット経路は[N02](../development/N02-tailscale.md)の未完了項目です。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。ルーターが内部IPを返す応答を捨てないことは確認済みです。
+- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。identity・cloud-01のサービス自身のポートは127.0.0.1へ閉じています。NetBoxの8000と文書の8090を閉じる残作業は[N05](../development/N05-https.md)です。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。各ホストに置くので、1台が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
 `home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。
@@ -87,7 +86,7 @@ VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範�
 | OIDC対応Webアプリ | ネイティブOIDC。アプリごとにclientとredirect URIを設定 |
 | Proxmox Web UI | OIDC。Proxmox内のロールは別途設定 |
 | OIDC非対応のブラウザ専用ツール | 必要に応じてAuthentik Forward Auth |
-| 自作クラウドAPI／Terraform | スコープ付きAPIキー。SSOや利用者台帳を要求しない |
+| 自作クラウドAPI／Terraform | Authentikログインから発行するアクセスキー。呼出し時はBearerで認証し、APIのアカウント所有権を確認 |
 | S3クライアント | S3 access key／secretと署名 |
 | DBクライアント | DBロール・パスワード等。必要に応じてTLS |
 | SSH | 各自のSSH鍵 |
@@ -96,9 +95,11 @@ VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範�
 
 OIDC対応アプリへさらに一律Forward Authを重ねない構成を優先します。Forward Authでは認証済みヘッダーを信頼するバックエンドへの直接アクセスを制限し、クライアントが送った同名ヘッダーを信用しない設定にします。[Authentik Forward Auth](https://docs.goauthentik.io/add-secure-apps/providers/proxy/forward_auth)、[Proxmox連携](https://docs.goauthentik.io/integrations/services/proxmox-ve/)
 
+**Home AssistantはコアがOIDCに対応していないため、コミュニティ製の [hass-oidc-auth](https://github.com/christiaangoossens/hass-oidc-auth) を公開クライアント（PKCE）で使います。** Authentik側の `home-assistant` クライアントは `stacks/identity/configure.py` が作り、HAは `auth_oidc` を `configuration.yaml` の管理ブロックへ設定します（[H01](../development/H01-home-assistant.md)）。入口はCaddyのTLSに限定し、**ローカルのオーナーアカウントは緊急用に残します**。WebSocket・Companionアプリがあるため、CaddyのForward Authは使いません。Authentikの手順もHA向けには非公式統合を案内しています。[Authentik Home Assistant](https://integrations.goauthentik.io/miscellaneous/home-assistant)
+
 ## パスキーと復旧
 
-AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で登録し、予備の認証器と復旧方法を用意します。クラウドAPI用のユーザー管理を省くことと、普段使うNextcloud等のアカウントをなくすことは別です。[Authentikパスキー](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_webauthn/)
+AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で登録し、予備の認証器と復旧方法を用意します。クラウドAPIにはAuthentikの利用者に対応するアカウント台帳があり、普段使うNextcloud等のアプリ内アカウント・権限とは別です。[Authentikパスキー](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_webauthn/)
 
 ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。`configure.py` が **メール確認コード**（第二の認証器）と**パスワード再設定フロー**を用意し、`akadmin` の復旧先を `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き）にします。運用と非常口（デバイス削除、`ak shell`）の手順は[認証基盤（identity・Authentik）](../operations/identity.md)にまとめています。**パスキーだけで入るパスワードレスも有効です**（2026-09-12）。
 

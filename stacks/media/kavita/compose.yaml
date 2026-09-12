@@ -1,0 +1,16 @@
+name: media-kavita
+
+services:
+  kavita:
+    image: ${KAVITA_IMAGE:-ghcr.io/kareadita/kavita:latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/kavita:/kavita/config
+      - ${LIBRARY_ROOT:-/srv/media-stack/library}/books:/books:ro
+    ports: ['127.0.0.1:${KAVITA_PORT:-5000}:5000']
+    networks: [kavita]
+
+networks:
+  kavita: {}

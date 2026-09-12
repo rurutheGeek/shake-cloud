@@ -1,0 +1,27 @@
+name: services-home-assistant
+
+services:
+  homeassistant:
+    image: ${HOME_ASSISTANT_IMAGE:-ghcr.io/home-assistant/home-assistant:stable}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/services/home-assistant}/config:/config
+    ports:
+      - 127.0.0.1:${HOME_ASSISTANT_PORT:-8123}:8123
+    networks: [homeassistant]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8123/]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+networks:
+  # 固定するのは、Caddy が 127.0.0.1:8123 経由で来たときの送信元が
+  # このネットワークのゲートウェイに見えるため。trusted_proxies と対で使う。
+  homeassistant:
+    ipam:
+      config:
+        - subnet: 172.31.254.0/24

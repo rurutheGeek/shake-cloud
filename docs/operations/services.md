@@ -1,6 +1,6 @@
 # サービスの置き場所とクラウドVMでの作り方
 
-更新日: 2026-09-12。状態: **方針と手順。新しいサービスはこの形で足す。**
+更新日: 2026-09-12。状態: **方針と手順。機能別VMと常用サービスの同居方針を更新。新配置は未配備。**
 
 ## 方針
 
@@ -8,7 +8,14 @@
 
 例外は**基盤そのもの**です。identity（認証）、cloud-01（クラウドAPI と管理DB）、services-01（NetBox とドキュメント）、storage-s3（Garage）、Kubernetes の各ノードは `platform` プールの基盤VMで、Terraform `10-platform` が作ります。**基盤をクラウドAPIで作ると、「APIを載せる前にAPIが要る」循環になります。** 所有境界は[IaCの所有境界](../architecture/iac.md)を正とします。
 
-**Kubernetes に載せられるものは Kubernetes のままにします。** 常時動く小さなアプリ、DB、関数は Flux（`platform/flux/apps/`）で配ります。VM が要るもの（GPU、独自カーネル、大きなディスク、GUI）をクラウドVMにします。
+**配置は停止単位と運用上の利点で決めます。** 既存KubernetesのAWX・DB提供（CloudNativePG）・関数提供（Knative）は維持します。Homarr・Vaultwardenを単に小さいWebアプリだからKubernetesへ移すことはしません。
+
+- services-01にはNetBox・MkDocsを残し、Home Assistant Container・VPN・Homarr・Vaultwardenを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません。
+- game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
+- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・MeTubeを載せます。機能群の停止・再開をVM単位で行います。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
+- public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
+
+スペック案・独立した作業ID・依存関係は[並列開発計画](../development/index.md)を参照してください。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
 
 ## リポジトリのどこに置くか
 
@@ -19,6 +26,7 @@
 | `platform/ansible/roles/<name>/` と `platform/ansible/<name>.yml` | VM の中の構成を冪等に適用する場合（任意） | `roles/garage/` |
 | `platform/flux/apps/<name>.yaml` | Kubernetes に載せる場合 | `awx.yaml` |
 | `platform/terraform/dns.yaml` | LAN の中で名前を付ける場合。`20-dns` が Cloudflare へ書く | `awx`、`cloud` |
+| `docs/development/<ID>-<name>.md` | 独立して開発・確認できる作業ごとの計画。番号は実施順ではない | [W01 Homarr](../development/W01-homarr.md) |
 | `docs/operations/<name>.md` | 管理者向けの構築・運用 | [identity.md](identity.md) |
 | `docs/services/<name>.md` | 利用者向けの使い方 | [usage.md](../services/usage.md) |
 

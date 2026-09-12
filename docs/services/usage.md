@@ -15,18 +15,18 @@
 
 ## まず開く場所
 
-パソコンでは [セルフホスト・ハブ（Homarr）](http://localhost:7575/) を開き、使いたいサービスのタイルを押します。
+パソコンでは [Homarr](https://homarr.apextox.dpdns.org)（新しい基盤。LAN内）を開き、使いたいサービスのタイルを押します。**メディア系は移行中で、次の表の `localhost` のURLは旧メディアスタック（SSHトンネル）のものです。**
 
 | やりたいこと | 開く場所 |
 | --- | --- |
-| サービスを選ぶ | [Homarr](http://localhost:7575/) |
+| サービスを選ぶ | [Homarr](https://homarr.apextox.dpdns.org)（新基盤） |
 | ファイルを保存・共有する | [Nextcloud](https://nextcloud.localhost:8443) |
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
 | 本・PDFを読む | [Kavita](https://kavita.localhost:5443) |
 | 音楽を聴く | [Navidrome](http://localhost:4533) |
 | URLから音声を取り込む | [MeTube](http://localhost:8081) |
 | パスワードを使う | [Vaultwarden](https://vault.localhost:8243) |
-| 手順書を読む | [日本語手順書](http://localhost:8090) |
+| 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
 ログインを求められたら、案内に従って共通ログイン画面へ進みます。サービスによっては、最初に招待されたアカウントの登録や、サービス専用のパスワード設定が必要です。
 
@@ -46,7 +46,7 @@
 | `music` | MP3などの音楽 | Navidrome |
 | `docs` | Markdownの手順書 | 8090の手順書サイト |
 
-`docs`が見えない場合は、現在の設定では編集できる利用者が限定されています。手順書サイトの閲覧は[日本語手順書](http://localhost:8090)からできます。
+`docs`が見えない場合は、現在の設定では編集できる利用者が限定されています。手順書サイトの閲覧は[Shake Lab Docs](https://docs.apextox.dpdns.org)からできます。
 
 ### 予定を管理する
 
@@ -121,7 +121,7 @@ Vaultwardenでは、Webサイトやアプリのログイン情報を保管しま
 
 ### 読む
 
-[日本語手順書](http://localhost:8090)を開き、目次からページを選びます。Homarrの **日本語の手順書** タイルからも開けます。
+[Shake Lab Docs](https://docs.apextox.dpdns.org)を開き、目次からページを選びます。Homarrの **Shake Lab Docs** タイルからも開けます。
 
 ### 更新する
 
@@ -142,7 +142,7 @@ Androidから使うには、まずサーバーへ到達できるネットワー�
 | パスワード | 公式Bitwardenアプリ | **Self-hosted** に保管庫URLを登録 |
 | 音楽 | Navidrome対応アプリ | OpenSubsonic/Subsonicの接続情報を登録 |
 | 本 | ブラウザー、またはOPDS対応アプリ | KavitaのOPDSを登録 |
-| Homarr・MeTube・手順書 | Androidブラウザー | ホーム画面に追加すると便利 |
+| Homarr・MeTube・手順書 | Androidブラウザー | ホーム画面に追加すると便利（HomarrはLANのHTTPS名） |
 
 Nextcloud公式マニュアルも、Androidのファイル利用には公式アプリ、カレンダー・連絡先・タスクの同期にはDAVx⁵を案内しています。[NextcloudのAndroid同期手順](https://docs.nextcloud.com/server/latest/user_manual/en/pim/sync_android.html)
 

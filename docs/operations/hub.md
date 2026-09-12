@@ -1,5 +1,11 @@
 # ハブの運用
 
+> **Homarrは新しい基盤（services-01、`https://homarr.apextox.dpdns.org`）へ移行済みです。**
+> このページのHomarr（`localhost:7575`）と旧Authentikは、まだ移行していないメディア系
+> （Nextcloud・Kavita・Navidrome・MeTube・Vaultwarden）のための旧環境です。新しい基盤の
+> 接続先は[URL一覧](urls.md)、Homarrは[Homarrの使い方](../services/homarr.md)を参照して
+> ください。
+
 ## ドメインなしで接続
 
 手元のPCで実行し、`ubuntu@SERVER` を実際の接続先に置き換えます。すでに同じポートを転送しているSSH接続は終了してから実行してください。

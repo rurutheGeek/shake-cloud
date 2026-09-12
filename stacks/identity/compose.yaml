@@ -71,6 +71,7 @@ services:
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:?run manage.py up}
       AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:?run manage.py up}
       AUTHENTIK_BOOTSTRAP_EMAIL: ${BOOTSTRAP_EMAIL:-admin@localhost.localdomain}
+
 secrets:
   db_password: {file: ./secrets/db_password}
   secret_key: {file: ./secrets/secret_key}

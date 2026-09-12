@@ -1,0 +1,112 @@
+---
+- name: Create the Homarr deployment directory
+  ansible.builtin.file:
+    path: '{{ homarr_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the Homarr stack
+  ansible.builtin.copy:
+    src: '{{ homarr_source_dir }}/{{ item }}'
+    dest: '{{ homarr_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - configure.py
+    - apps.json
+    - .env.example
+
+- name: Render the initial environment without replacing an existing one
+  ansible.builtin.copy:
+    src: '{{ homarr_source_dir }}/.env.example'
+    dest: '{{ homarr_project_dir }}/.env'
+    mode: '0600'
+    force: false
+
+# init は既存の .env を上書きしないので、配備ごとに決まる行だけを揃える。
+- name: Converge deployment-specific settings
+  ansible.builtin.lineinfile:
+    path: '{{ homarr_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: STORAGE_ROOT, value: '{{ homarr_storage_root }}'}
+    - {key: BIND_ADDRESS, value: '{{ homarr_bind_address }}'}
+    - {key: HOMARR_PORT, value: '{{ homarr_port }}'}
+    - {key: BASE_URL, value: '{{ homarr_public_url }}'}
+    - {key: AUTH_PROVIDERS, value: 'credentials,oidc'}
+    - {key: AUTH_OIDC_ISSUER, value: '{{ homarr_oidc_issuer }}'}
+    - {key: AUTH_OIDC_CLIENT_ID, value: '{{ homarr_oidc_client_id }}'}
+    - {key: BOARD_TITLE, value: '{{ homarr_board_title }}'}
+
+- name: Initialize storage and generated secrets
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ homarr_project_dir }}'
+  register: homarr_init
+  changed_when: "'CHANGED' in homarr_init.stdout"
+
+- name: Read the Homarr OIDC client credentials on the identity VM
+  ansible.builtin.slurp:
+    src: '{{ homarr_oidc_credentials_path }}'
+  delegate_to: '{{ homarr_identity_host }}'
+  register: homarr_oidc
+  no_log: true
+
+- name: Check the OIDC client credentials
+  ansible.builtin.assert:
+    that:
+      - (homarr_oidc.content | b64decode | from_json).client_id | length > 0
+      - (homarr_oidc.content | b64decode | from_json).client_secret | length > 0
+    quiet: true
+  no_log: true
+
+- name: Install the OIDC client credentials
+  ansible.builtin.copy:
+    content: '{{ homarr_oidc.content | b64decode }}'
+    dest: '{{ homarr_project_dir }}/secrets/oidc_client.json'
+    mode: '0444'
+  register: homarr_oidc_installed
+  no_log: true
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ homarr_project_dir }}'
+  register: homarr_pinned
+  changed_when: "'CHANGED' in homarr_pinned.stdout"
+
+- name: Start Homarr and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ homarr_project_dir }}'
+  register: homarr_up
+  changed_when: "'Recreate' in homarr_up.stderr or 'Created' in homarr_up.stderr"
+
+# configure は公開名で入る（Secure Cookie のため）。証明書は tls_proxy が先に取る。
+- name: Wait for the public entry point
+  ansible.builtin.uri:
+    url: '{{ homarr_public_url }}/api/auth/csrf'
+    validate_certs: true
+  register: homarr_entry
+  retries: 20
+  delay: 3
+  until: homarr_entry.status == 200
+
+- name: Reconcile the board and permissions
+  ansible.builtin.command:
+    argv: [python3, manage.py, configure]
+    chdir: '{{ homarr_project_dir }}'
+  register: homarr_configured
+  changed_when: "'reconciled' in homarr_configured.stdout"
+
+- name: Check Homarr answers
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ homarr_port }}/api/auth/csrf'
+  register: homarr_health
+  retries: 10
+  delay: 3
+  until: homarr_health.status == 200

@@ -1,0 +1,3 @@
+services:
+  kavita:
+    image: ghcr.io/kareadita/kavita@sha256:31181a32f0dda73cae68721867028a7253d57881b58bea5754cd9e578e75421a

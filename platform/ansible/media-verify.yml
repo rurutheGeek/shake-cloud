@@ -1,0 +1,186 @@
+---
+# media-01 の配備後確認。media.yml の最後に自動で走り、単独でも実行できる。
+# 読み取り（manage.py status）と loopback 経由の HTTP 確認だけで、ホストの
+# 状態は変えない。変更系は一切実行しないので何度でも再実行できる。
+#
+#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-verify.yml
+#
+# media_units は確認するユニット。既定は4ユニットすべて。段階配備の途中で
+# 配備済みだけを確認したいときは -e で絞る。`key=["a"]` 形式は Ansible が
+# 文字列として扱うため、リストは JSON で渡す:
+#   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
+#     -e '{"media_units": ["kavita"]}'
+# music-tools を一部サービスだけ配備した場合は、配備側と同じ
+# music_tools_services（既定: metube, picard, convert）を JSON で渡す:
+#   -e '{"music_tools_services": ["picard"]}'
+#
+# すべて media-01 自身から 127.0.0.1 に対して確認する。ポートは各ユニットの
+# playbook と同じ変数（未定義なら compose.yaml と同じ既定値）を使う。
+- name: Verify the media-01 units are running and answering
+  hosts: media
+  become: true
+  gather_facts: false
+  vars:
+    media_units: [nextcloud, kavita, navidrome, music-tools]
+    music_tools_services: [metube, picard, convert]
+    media_unit_dirs:
+      nextcloud: '{{ project_dir }}/media/nextcloud'
+      kavita: '{{ project_dir }}/media/kavita'
+      navidrome: '{{ project_dir }}/media/navidrome'
+      music-tools: '{{ project_dir }}/music-tools'
+    # docker compose ps が既定で出す「起動中のコンテナ」の数。manage.py up は
+    # --wait で healthcheck 成功まで待つため、数が合わなければ配備が失敗している。
+    # music-tools は配備側の music_tools_services をそのまま期待値にするので、
+    # ここには書かない（assert で default として参照する）。
+    media_unit_services:
+      nextcloud: [postgres, redis, nextcloud, cron]
+      kavita: [kavita]
+      navidrome: [navidrome]
+    # そのうち healthcheck を持ち、STATUS に (healthy) と出るコンテナの数。
+    # music-tools は既定の convert だけが該当する（assert で計算する）。
+    media_unit_healthy:
+      nextcloud: 3
+      kavita: 0
+      navidrome: 1
+  tasks:
+    - name: Require a known, non-empty unit selection
+      ansible.builtin.assert:
+        that:
+          - media_units is not string
+          - music_tools_services is not string
+          - media_units | length > 0
+          - media_units | difference(media_unit_dirs.keys() | list) | length == 0
+        fail_msg: >-
+          media_units には {{ media_unit_dirs.keys() | list | join(', ') }} の
+          いずれかだけを、空でないリストで指定する。`key=["a"]` 形式は Ansible が
+          文字列として扱うため、-e '{"media_units": ["kavita"]}' のように JSON で
+          渡す。
+
+    - name: Read the Compose status of each unit
+      ansible.builtin.command:
+        argv: [python3, '{{ media_unit_dirs[item] }}/manage.py', status]
+      loop: '{{ media_units }}'
+      register: media_unit_status
+      changed_when: false
+
+    - name: Show the Compose status of each unit
+      ansible.builtin.debug:
+        msg: '{{ item.stdout_lines }}'
+      loop: '{{ media_unit_status.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    - name: Require every service of every unit to be running and healthy
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+          - "((item.stdout.count(' Up ') + item.stdout.count(' running ')) == ((media_unit_services[item.item] | default(music_tools_services)) | length))"
+          - "item.stdout.count('(healthy)') >= (media_unit_healthy[item.item] | default(1 if 'convert' in music_tools_services else 0))"
+          - "'unhealthy' not in item.stdout"
+          - "'health: starting' not in item.stdout"
+          - "'Restarting' not in item.stdout"
+          - "'Exited' not in item.stdout"
+        fail_msg: >-
+          {{ item.item }}: docker compose ps が全サービスの running/healthy を
+          示していない。{{ media_unit_dirs[item.item] }}/manage.py status の表示を
+          確認し、python3 {{ media_unit_dirs[item.item] }}/manage.py up を再実行する。
+        success_msg: '{{ item.item }}: every service is running and healthy'
+      loop: '{{ media_unit_status.results }}'
+      loop_control:
+        label: '{{ item.item }}'
+
+    - name: Wait for Nextcloud /status.php to answer
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ nextcloud_port | default(8080) }}/status.php'
+        return_content: true
+        status_code: [200]
+      register: media_nextcloud_status
+      retries: 24
+      delay: 5
+      until: media_nextcloud_status is succeeded
+      changed_when: false
+      when: "'nextcloud' in media_units"
+
+    - name: Require Nextcloud to report installed=true
+      ansible.builtin.assert:
+        that:
+          - media_nextcloud_status.status == 200
+          - "'\"installed\":true' in media_nextcloud_status.content"
+        fail_msg: >-
+          Nextcloud の /status.php が 127.0.0.1:{{ nextcloud_port | default(8080) }}
+          で "installed":true を返していない。セットアップ未完了か停止している。
+          {{ project_dir }}/media/nextcloud/manage.py status と up を確認する。
+        success_msg: 'Nextcloud: /status.php が installed=true'
+      when: "'nextcloud' in media_units"
+
+    - name: Wait for Kavita to answer over the loopback interface
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ kavita_port | default(5000) }}/'
+        follow_redirects: none
+        status_code: [200, 301, 302, 303, 307, 308]
+      register: media_kavita_http
+      retries: 24
+      delay: 5
+      until: media_kavita_http is succeeded
+      changed_when: false
+      when: "'kavita' in media_units"
+
+    - name: Require an HTTP answer from Kavita
+      ansible.builtin.assert:
+        that:
+          - media_kavita_http.status in [200, 301, 302, 303, 307, 308]
+        fail_msg: >-
+          Kavita が 127.0.0.1:{{ kavita_port | default(5000) }} で HTTP 応答を
+          返していない。{{ project_dir }}/media/kavita/manage.py status と up を
+          確認する。
+        success_msg: 'Kavita: HTTP 応答あり'
+      when: "'kavita' in media_units"
+
+    - name: Wait for Navidrome /ping to answer
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ navidrome_port | default(4533) }}/ping'
+        status_code: [200]
+      register: media_navidrome_http
+      retries: 24
+      delay: 5
+      until: media_navidrome_http is succeeded
+      changed_when: false
+      when: "'navidrome' in media_units"
+
+    - name: Require an HTTP answer from Navidrome
+      ansible.builtin.assert:
+        that:
+          - media_navidrome_http.status == 200
+        fail_msg: >-
+          Navidrome が 127.0.0.1:{{ navidrome_port | default(4533) }}/ping で
+          HTTP 200 を返していない。{{ project_dir }}/media/navidrome/manage.py
+          status と up を確認する。
+        success_msg: 'Navidrome: /ping が HTTP 200'
+      when: "'navidrome' in media_units"
+
+    - name: Wait for Picard to answer on 127.0.0.1:5800
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ music_tools_picard_port | default(5800) }}/'
+        status_code: [200]
+      register: media_picard_http
+      retries: 24
+      delay: 5
+      until: media_picard_http is succeeded
+      changed_when: false
+      when:
+        - "'music-tools' in media_units"
+        - "'picard' in music_tools_services"
+
+    - name: Require HTTP 200 from Picard
+      ansible.builtin.assert:
+        that:
+          - media_picard_http.status == 200
+        fail_msg: >-
+          Picard が 127.0.0.1:{{ music_tools_picard_port | default(5800) }} で
+          HTTP 200 を返していない。{{ project_dir }}/music-tools/manage.py status
+          を確認し、python3 {{ project_dir }}/music-tools/manage.py up --services
+          picard を再実行する。
+        success_msg: 'Picard: 127.0.0.1:5800 が HTTP 200'
+      when:
+        - "'music-tools' in media_units"
+        - "'picard' in music_tools_services"

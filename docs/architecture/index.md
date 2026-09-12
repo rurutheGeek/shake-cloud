@@ -1,15 +1,15 @@
 # ホームラボ／最小プライベートクラウド構成案
 
-更新日: 2026-09-12。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
+更新日: 2026-09-12。配置方針は[並列開発計画](../development/index.md)に合わせて更新しました。I02でmedia-01を作成済みで、アプリ移行・常用サービス追加は未完了です。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
 
 この文書は、現在のメディアスタックを、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。**構築が済んだ範囲（Proxmox、Kubernetes、クラウドAPIの4機能、identity、AWX）はこの文書より実機が先です。** 何が動いているかは[配備台帳](../operations/handover.md)と[接続先一覧](../operations/urls.md)を見てください。
 
 ## 前提と合意した範囲
 
-- K11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、RAM 64GB、SSD 1TB）を主ホストとする。
+- 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
 - 新しいルータ・スイッチは購入しない。既存のルータ、マネージドスイッチ、監視用ラズパイを利用する。
 - サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
-- Kubernetesはkubeadmで構築し、常用サービス・自作API・サーバレス実行・DBを実際に運用する。
+- 既存KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwardenはservices-01、メディアはmedia-01、ゲーム・AI一式はgame1へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
 - 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。**4機能とも実装済み・実機確認済み**（後者2つは Kubernetes 構築後に追加した）。
@@ -17,7 +17,7 @@
 - **変更（2026-09-11）**: **VMの一覧は全員に見せる。**当初は「自分のリソースだけが見える」としていましたが、2人で1台のホストを分け合うので、誰が何を動かしているかが見えないと容量の判断ができません。見えるのは所有者名・イメージ・割り当てリソース・状態までで、**操作（電源・削除・大きさの変更）は所有者と管理者だけ**です。
 - **変更**: Authentikをクラウドの統合認証にも使う。ブラウザはOIDCでポータルへログインし、そこで発行したアクセスキーをTerraformとCLIが使う。キーをSSOと分けるので、**Authentikが停止していてもTerraformは動く**。
 
-ミニPC到着後は、[Proxmox VE導入後の手順](bring-up.md)から進めてください。家電・ポケモンDBを含む具体的な配置先は[配備台帳](operations.md)を正とします。概要図は全サービスを列挙していません。
+初回構築の経緯は[Proxmox VE導入後の記録](bring-up.md)に残しています。今後は[作業ID一覧](../development/index.md)から独立した作業を選び、必要な切替条件だけを調整して並列に進めます。実機状態は[配備台帳](../operations/handover.md)、配置計画は[VM配分](operations.md)で区別します。
 
 ## 読む順序
 
@@ -38,24 +38,24 @@
 | 用途 | 推奨案 | 配置 |
 | --- | --- | --- |
 | 仮想化・VM提供 | Proxmox VE | K11 |
-| アプリ基盤 | kubeadm + containerd + Cilium | control plane VM×1、worker VM×2 |
-| API・アプリの配備 | Flux + Helm/Kustomize | Kubernetes |
+| 既存クラスタ基盤 | kubeadm + containerd + Cilium | control plane×1、worker-01。worker-02は必要量から起動判断 |
+| アプリの配備 | VMはCompose・Ansible、既存クラスタはFlux | services-01・media-01・game1・既存Kubernetes |
 | サーバレスHTTP実行 | Knative Serving + Kourier | Kubernetes |
 | S3互換ストレージ | Garage（当初は単一ノード） | 小型ストレージVM |
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
-| 自作クラウド | 小さなGo API + ジョブ処理、Go製Terraform Provider | APIはKubernetes、Providerは管理端末／開発VM |
+| 自作クラウド | Go API・ジョブ・管理DB、Terraform Provider | APIは既存cloud-01のCompose、Providerは開発VM |
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外の認証VM |
-| VPN・宅外からの監視 | セルフホストVPN＋Tailscale。NetBird第一検証候補 | vpn-01＋ラズパイの復旧経路。対象VMへagent |
+| VPN・宅外からの監視 | セルフホストVPN＋Tailscale。NetBird第一検証候補 | services-01＋ラズパイの復旧経路。対象VMへagent |
 | DNS | AdGuard Home | ラズパイの余力に応じて配置 |
 | 公開入口 | Caddy | 公開用VM |
-| 家電・自動化 | Home Assistant OS | 専用VM。SwitchBot・Echo・Eufyは機器別検証 |
-| ポケモンRDB・図鑑VDB | 専用PostgreSQL＋pgvector | worker-01。WebUI・agentと段階的移行 |
-| 自動音楽タグ | MusicBrainz Picard | 利用者PC。必要ならgame-01のGUI |
+| 家電・自動化 | Home Assistant Container | services-01。SwitchBot・Echo・Eufyは別の作業IDで検証 |
+| ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
+| 自動音楽タグ | MusicBrainz Picard（Web GUI） | media-01（GUIは利用者PCでも可）。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える |
 | LocalSend | 各端末アプリ | 専用VM不要 |
 | OpenHome | 製品・リポジトリ確認待ち | ゲームVMへの同居候補 |
 | ゲーム | Wolf + Azahar×2 + 非公開ルーム | 780Mを割り当てるゲームVM |
 
-KnativeのKourierは、通常アプリ用のCilium Gatewayとは別の役割です。Cilium Gatewayを設定しただけでKnativeのルーティングまで動くとは扱いません。[Knativeのネットワーク構成](https://knative.dev/docs/install/)
+既存KnativeのKourierは、クラスタ内の通常HTTP入口であるCilium Ingressとは別の役割です。[Knativeのネットワーク構成](https://knative.dev/docs/install/)
 
 ## 論理構成図
 
@@ -69,13 +69,13 @@ KnativeのKourierは、通常アプリ用のCilium Gatewayとは別の役割で�
 
 ## ホスト性能の見立て
 
-64GBで常用サービス、軽量な開発VM×2、3DSゲーム×2、小規模なクラウド機能を始めることは可能と見込みます。ただし同じCPU・RAM・SSDを共有するため、サーバレスの最大同時実行数、VM作成時の空き容量、バックアップ時間帯を制御します。[初期リソース配分](operations.md#resource-budget)は実測値ではありません。
+コード・設定作成は並列に進めます。全VMの上限合計は物理RAMを超え得るため、実機検証では同じCPU・RAM・SSDの使用量を測定し、重い処理と不要な常駐を改善します。VM作成・変更時の容量検査を維持し、作業中のVM停止は利用者と調整します。[初期リソース配分](operations.md#resource-budget)は実測値ではありません。
 
 780MのVRAMはシステムRAMとの共有です。「RAM 64GBにVRAM 16GBが追加される」計算はできません。最初から16GBをBIOSで固定予約せず、実際にProxmoxから利用できるRAMとゲストから使えるGPUメモリを確認します。GPUパススルー時のAPUメモリの見え方も実機検証対象です。
 
 Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証できません。まずCPU、次にVulkanを検証し、2人でゲームをするときは推論を止めます。[Ollamaのハードウェア対応](https://docs.ollama.com/gpu)
 
-SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断の目安にします。ゲーム、モデル、S3、VMイメージ、スナップショットをすべて無制限に置きません。単一SSDの故障への復旧には別ディスク・別機器のバックアップが必要です。
+現有SSDの実使用量を確認し、使用率80%程度で不要なコピー・保持期間・取り込み範囲を見直します。ゲーム、モデル、S3、VMイメージ、スナップショットをすべて無制限に置きません。単一SSDの故障への復旧には別ディスク・別機器のバックアップが必要です。
 
 ## 現在の実装との差
 
@@ -90,7 +90,7 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
 | 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは identity サービスで実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../operations/urls.md) |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
-| 公開Web統合・NAS移行 | 将来作業 |
+| 公開Web統合 | N04の独立計画。公開条件成立後にVM追加 |
 
 ## 構築前に確認する項目
 

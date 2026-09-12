@@ -1,0 +1,11 @@
+# Eufy Security アカウント。コピーして sops で暗号化し、実値を入れる。
+#   cp platform/sops/eufy-security.sops.yaml.example platform/sops/eufy-security.sops.yaml
+#   sops --encrypt --in-place platform/sops/eufy-security.sops.yaml
+#   sops platform/sops/eufy-security.sops.yaml   # 値を編集
+#
+# 2FA を有効にしている場合、初回起動時に確認コードが要る。TRUSTED_DEVICE_NAME の
+# 端末が信頼されると /srv/services/eufy-security-ws/data に保存される。
+EUFY_USERNAME: you@example.net
+EUFY_PASSWORD: ""
+EUFY_COUNTRY: JP
+EUFY_TRUSTED_DEVICE_NAME: shake-cloud

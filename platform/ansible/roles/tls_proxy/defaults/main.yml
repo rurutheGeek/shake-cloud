@@ -1,6 +1,7 @@
 ---
 # 各ホストの HTTPS の入口。受ける名前の正本は platform/terraform/dns.yaml で、
-# host がこのホスト（inventory_hostname）かつ upstream を持つレコードを受ける。
+# host がこのホスト（inventory_hostname、クラウドVMは inventory が渡す
+# cloud_name）と一致し upstream を持つレコードを受ける。
 # 名前ごとの Cloudflare のレコードは 20-dns が先に作っておく。
 tls_proxy_project_dir: /opt/tls-proxy
 tls_proxy_storage_root: /srv/tls-proxy/storage
@@ -8,3 +9,8 @@ tls_proxy_source_dir: '{{ playbook_dir }}/../../stacks/tls-proxy'
 tls_proxy_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
 # このゾーンの DNS 編集だけができるトークン。Caddy が証明書の取得と更新に使う。
 tls_proxy_sops_file: '{{ playbook_dir }}/../sops/cloudflare-dns.sops.yaml'
+# Forward Auth の問い合わせ先。dns.yaml で auth: true のサイトだけが使う。
+# Forward Auth の問い合わせ先（Authentik の埋め込み outpost）。outpost は
+# リクエストの Host（=アプリの外部名）でプロバイダを選ぶため、Caddy 側で
+# header_up Host {http.request.host} を付けている。
+tls_proxy_authentik_url: 'https://auth.apextox.dpdns.org'

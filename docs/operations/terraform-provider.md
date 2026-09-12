@@ -175,3 +175,5 @@ cd cloud/provider && go vet ./... && go test ./...
 実機での確認（2026-09-12）: `shakecloud_database` を apply し、`db-...`（CloudNativePG Cluster）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
 
 実機での確認（2026-09-12）: `shakecloud_function` を apply し、`fn-...`（Knative Service）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
+
+実機での確認（2026-09-12）: `platform/terraform/services/media` の apply で SG ルールを3件同時に作成したところ、**Create が並列に走って `findNewRule` が同じルールIDを3リソースへ記録する競合を発見・修正**しました。各 Create が同じ空の `before` を読み、API がグループ全体を返すため、IDだけで新ルールを選ぶと他人の作成物を選び得ます。IDに加えて属性（protocol・CIDR・ポート・説明）が一致するものを選ぶようにしました。重複した state は `terraform state rm` → `terraform import GROUP/RULE` で復旧し、再 plan は **No changes**。回帰は `security_group_rule_test.go` が防ぎます。

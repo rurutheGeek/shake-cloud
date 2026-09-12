@@ -10,5 +10,8 @@
     - docker
     # 先に HTTPS の入口を作る。identity ロールが Authentik を 127.0.0.1 に閉じても
     # 入口が途切れないように。
-    - tls_proxy
+    # catch-all は Forward Auth 用。各ホストの Caddy が元の Host を保って
+    # 認証問い合わせに来るので、outpost が Host でアプリを選べる。
+    - role: tls_proxy
+      tls_proxy_catchall_upstream: '127.0.0.1:9000'
     - identity

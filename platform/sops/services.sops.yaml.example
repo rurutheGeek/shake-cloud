@@ -1,0 +1,16 @@
+# サービスVM（platform/terraform/services/...）用の shakecloud アクセスキー。
+#
+#   cp platform/sops/services.sops.yaml.example platform/sops/services.sops.yaml
+#   # 実値へ編集してから
+#   sops --encrypt --in-place platform/sops/services.sops.yaml
+#
+# キーはポータルの「アクセスキー」で発行します（表示は一度だけ）。基盤の
+# ブートストラップ管理キーは使いません。1アカウント5本までなので、用途が
+# 分かる名前を付けます。
+#
+# `tools/tf` の services/* 分岐だけがこのファイルを読みます。Proxmox や
+# NetBox の資格情報をサービスstateへ渡さないための境界です（I05）。
+# ファイルが無い間は、呼び出し元が export した環境変数で動きます。
+SHAKECLOUD_ACCESS_KEY: sca_REPLACE_WITH_KEY_ID.REPLACE_WITH_SECRET
+# 省略すると Provider の既定（https://cloud.apextox.dpdns.org）を使います。
+SHAKECLOUD_ENDPOINT: https://cloud.apextox.dpdns.org

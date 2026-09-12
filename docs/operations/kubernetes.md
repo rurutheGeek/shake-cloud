@@ -4,7 +4,7 @@
 
 ## 何に使うか
 
-**すでに載っているもの:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作 cloud API 本体は cloud-01 の Compose のままで動くので、移すかは後で決めます。メディア系の移行は後回しです。
+**すでに構築済みのもの（現在の電源状態は[配備台帳](handover.md)参照）:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作cloud API本体はcloud-01のComposeに維持します。新しい配置方針では、Homarr・Vaultwardenはservices-01、メディアはmedia-01、AIはgame1です。[並列開発計画](../development/index.md)を参照してください。
 
 **使わないときは落とせます。** control plane と worker は別VMなので、worker だけ止めて control plane（etcd/API）を残す、全部止める、どちらもできます（[起動と停止](#起動と停止)）。
 
@@ -76,6 +76,7 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 
 **Flux/SOPS は導入済みです。** 次節のとおり `main` の `platform/flux` を監視し、AWX・CNPG・Knative を配っています。
 
+<a id="gitopsflux--sops"></a>
 ## GitOps（Flux + SOPS）
 
 クラスタ内のアプリは **Flux が Git から適用**します。監視先は `main` の `platform/flux` です。
@@ -107,6 +108,7 @@ sops platform/flux/apps/<name>.sops.yaml
 
 実機確認（2026-09-12）: 4コントローラが Running、`Kustomization/flux-system` が `Applied revision`。SOPS で暗号化した Secret が**復号されて作られる**こと、Git から消すと **prune される**ことを確認しました。
 
+<a id="アプリ-awx"></a>
 ## アプリ: AWX
 
 AWX（Ansible の実行基盤）を **worker-01** に Flux で配備しています。
@@ -135,7 +137,7 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 
 実機確認（2026-09-12）: `kubectl -n databases get cluster demo` が **INSTANCES 1 / READY 1 / Cluster in healthy state**、PVC `demo-1` が Bound、`psql -U postgres` が **PostgreSQL 18** を返すことを確認しました。
 
-**API から作れます。** `POST /v1/databases` が `databases` namespace に CNPG Cluster を作り、`GET /v1/databases`・`GET`/`DELETE /v1/databases/{id}`・`GET /v1/databases/{id}/credentials` があります。API は Flux で作った ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）のトークンで Kubernetes を操作します。トークンと CA は `platform/sops/k8s.sops.yaml` に置き、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。Provider `shakecloud_database` と CLI は次の段です。
+**API から作れます。** `POST /v1/databases` が `databases` namespace に CNPG Cluster を作り、`GET /v1/databases`・`GET`/`DELETE /v1/databases/{id}`・`GET /v1/databases/{id}/credentials` があります。API は Flux で作った ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）のトークンで Kubernetes を操作します。トークンと CA は `platform/sops/k8s.sops.yaml` に置き、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。Provider `shakecloud_database`・CLIも実装済みで、4機能の受入確認は[配備台帳](handover.md)に記録しています。
 
 ## アプリ: Knative（function）
 
@@ -149,6 +151,7 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 
 実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。`POST /v1/functions` でも同じ流れ（Provisioning → Ready、URL 発行、削除で Service ごと消える）を確認しました。
 
+<a id="起動と停止"></a>
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -160,7 +163,7 @@ tools/k8s down       # worker → cp の順に停止
 tools/k8s up --all   # worker-02 も含めて起動
 ```
 
-RAM が足りないときは `k8s-worker-02` を起動し、使わないときは落としておきます。
+Podを置く余力が必要な場合は、まずホストの空きRAM・割当量を確認してからworker-02の起動・joinを判断します。worker追加は物理RAMを増やしません。停止時は配置PodとローカルPVCの影響を確認します。
 
 ## 次のスライス
 

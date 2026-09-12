@@ -1,9 +1,34 @@
 flowchart TB
-  a["プレイヤーA / Moonlight"] --> wolf["Wolf / 1つのゲームVM"]
-  b["プレイヤーB / Moonlight"] --> wolf
-  wolf -->|画面・入力A| ea["Azahar A<br/>個別セーブ・設定"]
-  wolf -->|画面・入力B| eb["Azahar B<br/>個別セーブ・設定"]
-  ea <-->|仮想ローカル通信| room["VM内の非公開ルーム"]
-  eb <--> room
-  ea --> gpu["Radeon 780M<br/>描画・配信エンコード"]
-  eb --> gpu
+  a["プレイヤーA / Moonlight"]
+  b["プレイヤーB / Moonlight"]
+  user["AI利用者 / Discord"]
+  subgraph vm["既存game1内の開発計画：VM停止中はゲーム・AI・Botも停止"]
+    wolf["Wolf / G01"]
+    ea["Azahar A / G02<br/>個別セーブ・設定"]
+    eb["Azahar B / G02<br/>個別セーブ・設定"]
+    room["非公開ルーム / G02"]
+    romm["RomM / W07<br/>ROMの管理・連携を検証"]
+    pokemon["ポケモンAI / A01<br/>WebUI・agent・両DB・pgvector"]
+    rag["汎用RAG / A03<br/>ポケモンとデータ・権限を分離"]
+    bot["Discord Bot / A04"]
+    ollama["Ollama / A02"]
+    gpu["Radeon 780M<br/>既存パススルーを利用"]
+    profile["G03：負荷を調整<br/>ゲーム優先時は推論・取り込み停止"]
+    wolf -->|画面・入力A| ea
+    wolf -->|画面・入力B| eb
+    ea <-->|仮想ローカル通信| room
+    eb <--> room
+    ea --> gpu
+    eb --> gpu
+    romm -. 起動との連携は別途検証 .-> wolf
+    pokemon --> ollama
+    bot --> rag
+    rag --> ollama
+    ollama --> gpu
+    profile -.-> ollama
+    profile -.-> wolf
+  end
+  a --> wolf
+  b --> wolf
+  user --> pokemon
+  user --> bot

@@ -1,0 +1,58 @@
+name: game1-romm
+
+# RomM owns its MariaDB and application state.  The ROM library is an input
+# owned by game1 and is mounted read-only so a metadata scan cannot remove or
+# rewrite the original files.
+services:
+  romm-db:
+    image: ${ROMM_DB_IMAGE:-mariadb:11}
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: romm
+      MARIADB_USER: romm-user
+      MARIADB_PASSWORD: ${ROMM_DB_PASSWORD:?run manage.py up}
+      MARIADB_ROOT_PASSWORD: ${ROMM_DB_ROOT_PASSWORD:?run manage.py up}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/game1/romm}/mysql:/var/lib/mysql
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, 'mariadb-admin ping -h 127.0.0.1 -u root -p"$${MARIADB_ROOT_PASSWORD}"']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  romm:
+    image: ${ROMM_IMAGE:-rommapp/romm:5.1.0}
+    restart: unless-stopped
+    environment:
+      ROMM_DB_DRIVER: mariadb
+      DB_HOST: romm-db
+      DB_PORT: 3306
+      DB_NAME: romm
+      DB_USER: romm-user
+      DB_PASSWD: ${ROMM_DB_PASSWORD:?run manage.py up}
+      ROMM_AUTH_SECRET_KEY: ${ROMM_AUTH_SECRET_KEY:?run manage.py up}
+      ROMM_PORT: 8080
+      DISABLE_SETUP_WIZARD: ${ROMM_DISABLE_SETUP_WIZARD:-false}
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/game1/romm}/resources:/romm/resources
+      - ${STORAGE_ROOT:-/srv/game1/romm}/redis:/redis-data
+      - ${STORAGE_ROOT:-/srv/game1/romm}/assets:/romm/assets
+      - ${ROM_LIBRARY_ROOT:-/srv/game1/games}:/romm/library:ro
+    ports:
+      - 127.0.0.1:${ROMM_PORT:-8086}:8080
+    networks: [backend, romm]
+    depends_on:
+      romm-db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+networks:
+  backend:
+    internal: true
+  romm: {}

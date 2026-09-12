@@ -7,6 +7,8 @@ Proxmox VE 上への展開では、TerraformがProxmoxのプール・ロール�
 Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組み合わせています。[接続と配備手順](docs/operations/hub.md)、[SSO](docs/services/sso.md)、[音楽の取り込み](docs/services/music.md)を参照してください。
 **AWX 24.6.1 は構築済み**（2026-09-12）。kubeadm の Kubernetes 上に Flux で配備し、`https://awx.apextox.dpdns.org` で使えます（[Kubernetes クラスタ](docs/operations/kubernetes.md)・[AWXの使い方](docs/operations/awx.md)）。`platform/awx/` には移行用の EE・登録 Playbook 例があります。
 
+機能別の配置と40件の独立した作業計画は[並列開発計画](docs/development/index.md)にあります。番号は実施順ではなく、実装・移行・資料修正を別々に進めます。
+
 新しく開発へ参加する人は[開発参加ガイド](docs/onboarding.md)から読んでください。設計思想・制約・開発VMの使い方をまとめてあります。
 
 ## 開発方針・引き継ぎ
@@ -253,6 +255,7 @@ PDFは `library/books/作品名/作品名.pdf` のように作品別フォルダ
 - 日本語手順書: http://localhost:8090。Nextcloudの「docs」で編集し、正本は配備先の `LIBRARY_ROOT/docs`。Gitの `docs/` は初期テンプレート。
 - Authentik: https://login.localhost:9443。各サービスの認証連携は[SSO手順](docs/services/sso.md)を参照。
 - MeTube: http://localhost:8081。音声を `music/YouTube` へ保存。共有Cookieは画面から登録し、期限切れ時に更新。
+- Picard: media-01のWeb GUI（`jlesage/musicbrainz-picard`、`127.0.0.1:5800`）。SSH転送で接続し、共有musicをタグ付け。ライブラリ移行前は空。
 - BCSTM: `music` 内の原本を保持し、`music/Converted` へMP3を生成して原本削除も同期。
 - タグ: `stacks/music-tools/edit-tags.py` とJSONでMP3タグを変更。
 - 自動反映: `media-stack-music-sync.timer` が変更時にNextcloudとNavidromeを更新。

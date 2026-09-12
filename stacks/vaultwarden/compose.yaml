@@ -1,0 +1,52 @@
+# Vaultwarden（パスワード管理・SSO）を services-01 に単独で置く。
+#
+# 旧ハブの media-hub（Authentik・他サービス同居）とは別の Compose プロジェクト。
+# 旧ホストのデータは移行せず、このスタックの storage へ新規に構築する。
+# イメージは compose.lock.yaml でダイジェスト固定する。
+name: vaultwarden
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.2
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      # SSO のリダイレクトURIは DOMAIN から決まる。HTTPS 名と一致させる。
+      DOMAIN: https://vault.apextox.dpdns.org
+      # 一般登録は無効。初回作成は認可済み SSO の経路だけを使う。
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
+      # 組織招待も既定で無効。有効のままだと Vaultwarden の is_signup_disabled()
+      # が false を返し、Web UI に「Create account」が出る（実際の登録は拒否
+      # されるが紛らわしい）。SSOの初回作成には影響しない。
+      INVITATIONS_ALLOWED: ${VAULTWARDEN_INVITATIONS_ALLOWED:-false}
+      # 管理画面のトークンは secrets/ から Compose secret で渡す。
+      ADMIN_TOKEN_FILE: /run/secrets/admin_token
+      # SSO（Authentik）。クライアントIDと秘密値は manage.py が
+      # secrets/oidc_client.json（identity の oidc-vaultwarden.json）から
+      # 環境変数として渡す。値は 1.37.2 の公式環境変数名。
+      SSO_ENABLED: 'true'
+      SSO_ONLY: 'false'
+      SSO_SIGNUPS_MATCH_EMAIL: 'false'
+      SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: 'false'
+      SSO_AUTHORITY: https://auth.apextox.dpdns.org/application/o/vaultwarden/
+      SSO_CLIENT_ID: ${SSO_CLIENT_ID:-vaultwarden}
+      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET:-}
+      SSO_SCOPES: email profile offline_access
+      SSO_PKCE: 'true'
+    volumes:
+      - ${STORAGE_ROOT:-/srv/services/vaultwarden}/data:/data
+    ports:
+      # 既定は 127.0.0.1。LAN へ出すのは HTTPS 入口（Caddy）だけにする。
+      - '127.0.0.1:${VAULTWARDEN_PORT:-8222}:80'
+    secrets:
+      - admin_token
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1/alive]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+secrets:
+  admin_token:
+    file: ./secrets/admin_token

@@ -1,0 +1,18 @@
+---
+# Homarr（サービスの入口）を services-01 に単独で置く。
+homarr_project_dir: /opt/homarr-stack
+homarr_storage_root: /srv/homarr-stack/storage
+homarr_source_dir: '{{ playbook_dir }}/../../stacks/homarr'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://homarr.<ゾーン> で受ける。
+homarr_bind_address: 127.0.0.1
+homarr_port: 7575
+homarr_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+homarr_public_url: 'https://homarr.{{ homarr_dns.zone }}'
+# Authentik は受けた Host から issuer を組み立てるので、ブラウザと Homarr が同じ名前で叩く。
+homarr_oidc_issuer: 'https://auth.{{ homarr_dns.zone }}/application/o/homarr/'
+homarr_oidc_client_id: homarr
+# ボードの表示名。configure.py が pageTitle/metaTitle に使う。
+homarr_board_title: Shake Lab
+# OIDC クライアントの秘密値の正本は identity VM。配備のたびにここから写す。
+homarr_identity_host: "{{ (groups.get('identity_provider') or ['identity'])[0] }}"
+homarr_oidc_credentials_path: /opt/identity-stack/secrets/oidc-homarr.json

@@ -26,9 +26,9 @@ hosts:
     vm_id: 400
     pool: dev
     flavor: small
-    # 実機に合わせる。既定が小さかったので、バルーニング併用で広げてある。
-    memory_mib: 8192
-    memory_min_mib: 1024
+    # I01（2026-09-12）の実測に合わせる。実機は6GiBで、次回起動時に反映される。
+    memory_mib: 6144
+    memory_min_mib: 2048
     disk_gib: 40
     on_boot: false
     started: true
@@ -39,9 +39,9 @@ hosts:
     vm_id: 401
     pool: dev
     flavor: small
-    # 実機に合わせる。既定が小さかったので、バルーニング併用で広げてある。
-    memory_mib: 8192
-    memory_min_mib: 1024
+    # I01（2026-09-12）の実測に合わせる。実機は6GiB。
+    memory_mib: 6144
+    memory_min_mib: 2048
     disk_gib: 40
     on_boot: false
     started: true

@@ -1,0 +1,56 @@
+---
+# Nextcloud・Calendar・Tasks を media-01 の独立 Compose プロジェクトとして配備する。
+#   ansible-playbook -i <inventory> platform/ansible/media-nextcloud.yml
+- name: Deploy Nextcloud Calendar and Tasks
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Create Nextcloud deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/nextcloud'
+        state: directory
+        mode: '0750'
+    - name: Copy Nextcloud definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/{{ item }}'
+        dest: '{{ project_dir }}/media/nextcloud/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+    - name: Configure Nextcloud environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          LIBRARY_ROOT={{ library_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          BIND_ADDRESS={{ bind_address | default('127.0.0.1') }}
+          NEXTCLOUD_PORT={{ nextcloud_port | default(8080) }}
+          NEXTCLOUD_ADMIN_USER={{ nextcloud_admin_user | default('admin') }}
+          NEXTCLOUD_TRUSTED_DOMAINS={{ nextcloud_trusted_domains | default('localhost 127.0.0.1') }}
+        dest: '{{ project_dir }}/media/nextcloud/.env'
+        mode: '0600'
+    - name: Prepare Nextcloud directories and secrets
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
+      changed_when: true
+    - name: Deploy Nextcloud
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
+      changed_when: true
+    - name: Enable Nextcloud cron and shared external storage
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', setup]
+      register: nextcloud_setup
+      changed_when: "'CHANGED:' in nextcloud_setup.stdout"
+    - name: Install and enable configured Nextcloud apps
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ project_dir }}/media/nextcloud/manage.py'
+          - apps
+          - --apps
+          - "{{ nextcloud_apps | default([]) | join(',') }}"
+      register: nextcloud_apps_result
+      changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
+      when: nextcloud_apps | default([]) | length > 0

@@ -1,0 +1,30 @@
+---
+# media-01（クラウドVM）の土台。アプリの前に一度だけ通す。
+#
+# 現在のLANは IPv6 の default route を RA で配るが、インターネットへの IPv6 が
+# 通っていない。Docker は AAAA を先に引いてそのままタイムアウトし、docker pull が
+# 失敗する（2026-09-12、media-01 の tls-proxy ビルドで実測）。ルータのIPv6が
+# 直るまでの間、ゲスト側で IPv6 を無効にして getaddrinfo と Docker を IPv4 に
+# 揃える。DNS・SG・サービスはもともと IPv4 前提。
+#
+#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-base.yml
+- name: Prepare the media-01 base (IPv4 egress)
+  hosts: media
+  become: true
+  tasks:
+    - name: Prefer IPv4 so Docker does not pin an unreachable AAAA address
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-media-no-ipv6.conf
+        content: |
+          # The router advertises an IPv6 default route that does not reach the
+          # internet, and Docker then times out on AAAA. DNS and the security
+          # groups are IPv4-only today; revisit when the LAN actually routes IPv6.
+          net.ipv6.conf.all.disable_ipv6 = 1
+          net.ipv6.conf.default.disable_ipv6 = 1
+        mode: '0644'
+      register: media_base_ipv6
+
+    - name: Apply the sysctl drop-in
+      ansible.builtin.command: sysctl --system
+      when: media_base_ipv6 is changed
+      changed_when: media_base_ipv6 is changed

@@ -7,6 +7,7 @@
 #   tools/tf 00-bootstrap plan
 #   tools/tf 10-platform apply
 #   tools/tf 05-seed output
+#   tools/tf services/media plan
 #
 # 復号した値をファイルへ書き出さない。bucket と endpoint も事業者固有なので
 # コードに含めず、ここで渡す。
@@ -18,6 +19,10 @@
 #   05-seed      … state置き場 ＋ Proxmox の terraform@pve
 #   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
 #   20-dns       … state置き場 ＋ Cloudflare の DNS 編集トークン（Proxmox は触らない）
+#   services/*   … state置き場（s3.sops.yaml）＋ services.sops.yaml の shakecloud
+#                  アクセスキー（無ければ呼び出し元の環境変数）。DNS Provider を
+#                  宣言したモジュールだけ cloudflare-dns も足す。基盤の資格情報は
+#                  呼び出し元の環境に残っていても渡さない（I05）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -74,6 +79,34 @@ if [ "$module" = 20-dns ]; then
   # NetBox が採番したアドレスを 10-platform の state から読むのに bucket 名が要る。
   TF_VAR_state_bucket=$TF_STATE_BUCKET
   export CLOUDFLARE_API_TOKEN TF_VAR_state_bucket
+# --- サービスVM。state と shakecloud キーだけを渡し、基盤の資格情報は渡さない ---
+elif [[ "$module" == services/* ]]; then
+  # 呼び出し元の環境に基盤の資格情報が残っていても、子プロセスへ持ち込まない。
+  unset PROXMOX_VE_ENDPOINT PROXMOX_VE_API_TOKEN PROXMOX_VE_USERNAME PROXMOX_VE_PASSWORD PROXMOX_VE_INSECURE
+  unset NETBOX_SERVER_URL NETBOX_API_TOKEN CLOUDFLARE_API_TOKEN TF_VAR_cloudflare_dns_api_token
+  # 正本は services.sops.yaml。無い場合だけ呼び出し元の環境変数を使う（移行用）。
+  if [ -f platform/sops/services.sops.yaml ]; then
+    SHAKECLOUD_ACCESS_KEY=$(secret services.sops.yaml SHAKECLOUD_ACCESS_KEY)
+    SHAKECLOUD_ENDPOINT=$(optional services.sops.yaml SHAKECLOUD_ENDPOINT)
+    export SHAKECLOUD_ACCESS_KEY
+    [ -n "$SHAKECLOUD_ENDPOINT" ] && export SHAKECLOUD_ENDPOINT
+  fi
+  # init・fmt・validate は Provider API を呼ばないため、キーが無くても通す。
+  # plan・apply など API へ出るコマンドは Provider の 401 を待たず、ここで止める。
+  if [ -z "${SHAKECLOUD_ACCESS_KEY:-}" ]; then
+    case "${1:-}" in
+      plan|apply|destroy|import|refresh|console)
+        die "services の $1 には SHAKECLOUD_ACCESS_KEY が要る。platform/sops/services.sops.yaml に入れるか、環境変数で渡す（docs/operations/terraform.md）" ;;
+      *)
+        printf 'tf: SHAKECLOUD_ACCESS_KEY が無い。init・fmt・validate は続行できる\n' >&2 ;;
+    esac
+  fi
+  # Cloudflare Provider を宣言したサービスだけ、zone 限定の DNS 資格情報を足す。
+  if grep -ql cloudflare platform/terraform/"$module"/*.tf 2>/dev/null; then
+    require_file cloudflare-dns.sops.yaml
+    CLOUDFLARE_API_TOKEN=$(secret cloudflare-dns.sops.yaml CLOUDFLARE_DNS_API_TOKEN)
+    export CLOUDFLARE_API_TOKEN
+  fi
 else
   # --- Proxmox。00-bootstrap だけ root@pam を使う ---
   if [ "$module" = 00-bootstrap ]; then

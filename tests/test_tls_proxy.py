@@ -3,24 +3,52 @@ from pathlib import Path
 import re
 import unittest
 
+from jinja2 import Environment, FileSystemLoader
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DNS = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text())
+TLS_PROXY = ROOT / 'platform/ansible/roles/tls_proxy'
 # services-01 is created by 05-seed, not declared in hosts.yaml.
 SEED_HOST = 'services-01'
+# The cloud VM's inventory host name is its instance id; the display name
+# (tags.Name) arrives as cloud_name and is what dns.yaml records by.
+CLOUD_INSTANCE_ID = 'i-a06df9a2dfd1ce6db'
+CLOUD_NAME = 'media-01'
 
 
 def defaults(role):
     return yaml.safe_load((ROOT / f'platform/ansible/roles/{role}/defaults/main.yml').read_text())
 
 
+def caddyfile(sites):
+    # Ansible's templar enables trim_blocks; keep the same rendering here.
+    environment = Environment(
+        loader=FileSystemLoader(str(TLS_PROXY / 'templates')), trim_blocks=True)
+    return environment.get_template('Caddyfile.j2').render(
+        tls_proxy_sites=sites,
+        tls_proxy_dns=DNS,
+        tls_proxy_authentik_url=defaults('tls_proxy')['tls_proxy_authentik_url'],
+    )
+
+
+def site_block(rendered, name):
+    marker = f'{name}.{DNS["zone"]} {{'
+    start = rendered.index(marker)
+    next_header = re.search(r'^[^\s{}][^\s{}]* \{$', rendered[start + len(marker):], re.M)
+    end = len(rendered) if next_header is None else start + len(marker) + next_header.start()
+    return rendered[start:end]
+
+
 class DnsDeclarationTests(unittest.TestCase):
     def test_every_record_has_exactly_one_address_source(self):
         hosts = set(yaml.safe_load((ROOT / 'platform/terraform/hosts.yaml').read_text())['hosts']) | {SEED_HOST}
         for name, record in DNS['records'].items():
-            self.assertEqual(('host' in record) + ('address' in record), 1, name)
-            if 'host' in record:
+            self.assertTrue('host' in record or 'address' in record, name)
+            if 'address' not in record:
+                # Only a record without a literal address may point at the
+                # ledger; a cloud VM that is not in the ledger carries both
+                # host (the name the proxy serves) and a literal address.
                 self.assertIn(record['host'], hosts, name)
 
     def test_upstreams_stay_on_loopback(self):
@@ -38,6 +66,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['cloud']['upstream'], f"127.0.0.1:{defaults('cloud_api')['cloud_api_port']}")
         self.assertEqual(records['netbox']['upstream'], f"127.0.0.1:{defaults('netbox')['netbox_port']}")
         self.assertEqual(records['docs']['upstream'], f"127.0.0.1:{defaults('docs_site')['docs_site_port']}")
+        self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
 
     def test_comments_fit_cloudflare_free_plan(self):
         # Cloudflare's free plan rejects record comments over 100 characters.
@@ -65,13 +94,70 @@ class TlsProxyTests(unittest.TestCase):
         self.assertEqual(defaults('cloud_api')['cloud_api_bind_address'], '127.0.0.1')
 
     def test_every_host_with_upstreams_deploys_the_proxy(self):
-        playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'], SEED_HOST: ['netbox.yml', 'docs-site.yml']}
+        playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
+                     SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml'],
+                     CLOUD_NAME: ['media-tls.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
         self.assertEqual(served, set(playbooks))
         for host, files in playbooks.items():
             for name in files:
                 roles = yaml.safe_load((ROOT / 'platform/ansible' / name).read_text())[0]['roles']
-                self.assertIn('tls_proxy', roles, name)
+                names = [role.get('role') if isinstance(role, dict) else role for role in roles]
+                self.assertIn('tls_proxy', names, name)
+
+    def test_forward_auth_is_declared_for_the_browser_tools_only(self):
+        records = DNS['records']
+        behind_auth = {name for name, record in records.items() if record.get('auth')}
+        self.assertEqual(behind_auth, {'navidrome', 'metube', 'picard'})
+        for name in ('nextcloud', 'kavita'):
+            self.assertNotIn('auth', records[name], name)
+
+    def test_the_caddyfile_learns_the_forward_auth_endpoint(self):
+        template = (TLS_PROXY / 'templates/Caddyfile.j2').read_text()
+        self.assertIn('forward_auth {{ tls_proxy_authentik_url }}', template)
+        self.assertEqual(defaults('tls_proxy')['tls_proxy_authentik_url'],
+                         'https://auth.apextox.dpdns.org')
+        # The Authentik outpost picks the application by the request Host, so
+        # Caddy must pass the original name through to the auth upstream.
+        self.assertIn('header_up Host {http.request.host}', template)
+
+    def test_only_identity_gets_the_forward_auth_catchall(self):
+        # The Authentik outpost picks the application by the request Host, and
+        # Caddy answers unmatched hosts with an empty 200. identity therefore
+        # needs a catch-all that forwards the original Host to Authentik.
+        template = (TLS_PROXY / 'templates/Caddyfile.j2').read_text()
+        self.assertIn('tls_proxy_catchall_upstream', template)
+        identity = yaml.safe_load((ROOT / 'platform/ansible/identity.yml').read_text())
+        roles = identity[0]['roles']
+        tls = next(role for role in roles
+                   if (role.get('role') if isinstance(role, dict) else role) == 'tls_proxy')
+        self.assertEqual(tls['tls_proxy_catchall_upstream'], '127.0.0.1:9000')
+
+    def test_the_rendered_caddyfile_guards_only_the_three_auth_sites(self):
+        names = [CLOUD_INSTANCE_ID, CLOUD_NAME]
+        sites = [{'key': name, 'value': record} for name, record in DNS['records'].items()
+                 if record.get('host') in names and 'upstream' in record]
+        rendered = caddyfile(sites)
+
+        self.assertEqual(len(sites), 5)
+        self.assertEqual(rendered.count('forward_auth'), 3)
+        for name in ('navidrome', 'metube', 'picard'):
+            block = site_block(rendered, name)
+            self.assertIn('forward_auth', block, name)
+            self.assertIn('request_header -Remote-User', block, name)
+            self.assertIn('request_header -X-Authentik-Username', block, name)
+            self.assertIn('copy_headers X-Authentik-Username', block, name)
+            self.assertIn('header_up Remote-User sso_{http.request.header.X-Authentik-Username}', block, name)
+            self.assertIn('header_up -X-Authentik-Username', block, name)
+        for name in ('nextcloud', 'kavita'):
+            self.assertNotIn('forward_auth', site_block(rendered, name), name)
+            self.assertNotIn('request_header', site_block(rendered, name), name)
+
+    def test_the_rendered_caddyfile_keeps_the_plain_sites_unchanged(self):
+        sites = [{'key': 'cloud', 'value': DNS['records']['cloud']}]
+        rendered = caddyfile(sites)
+        self.assertIn('\treverse_proxy 127.0.0.1:8080\n', rendered)
+        self.assertNotIn('forward_auth', rendered)
 
     def test_the_cloud_api_trusts_only_local_proxies(self):
         environment = yaml.safe_load((ROOT / 'cloud/compose.yaml').read_text())['services']['api']['environment']

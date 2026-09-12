@@ -7,11 +7,11 @@
 | | 値 |
 | --- | --- |
 | 台数 | 2台（`dev-a`＝VMID 400、`dev-b`＝VMID 401） |
-| サイズ | 2vCPU / RAM 8GiB（バルーニング下限 1GiB）/ ディスク 40GiB |
+| サイズ | 2vCPU / RAM 6GiB（バルーニング下限 2GiB）/ ディスク 40GiB |
 | 自動起動 | しない。K11を再起動しても止まったまま |
 | 相手のVM | 見えない。操作もできない |
 
-`onboot: false` なのでK11を再起動しても止まったままです。RAMは全体で61GiBを分け合っており、設計上の配分は[配分表](../architecture/operations.md#resource-budget)にあります。
+`onboot: false` なのでK11を再起動しても止まったままです。RAMは全体で59.7GiBを分け合っており、設計上の配分は[配分表](../architecture/operations.md#resource-budget)にあります。
 
 ## 1. 何ができるか
 

@@ -16,6 +16,32 @@
 # {{ site.value.description }}
 {{ site.key }}.{{ tls_proxy_dns.zone }} {
 	import dns_challenge
+{% if site.value.auth | default(false) %}
+	request_header -Remote-User
+	request_header -X-Authentik-Username
+	forward_auth {{ tls_proxy_authentik_url }} {
+		uri /outpost.goauthentik.io/auth/caddy
+		copy_headers X-Authentik-Username
+		# Authentik の outpost は Host でアプリを選ぶ。Caddy は中継先の
+		# Host を upstream に書き換えないので、元の名前を明示して渡す。
+		header_up Host {http.request.host}
+	}
+	reverse_proxy {{ site.value.upstream }} {
+		header_up Remote-User sso_{http.request.header.X-Authentik-Username}
+		header_up -X-Authentik-Username
+	}
+{% else %}
 	reverse_proxy {{ site.value.upstream }}
+{% endif %}
 }
 {% endfor %}
+{% if tls_proxy_catchall_upstream | default('') %}
+
+# 未知の Host を Authentik へ渡す。Forward Auth のとき、各ホストの Caddy は
+# 元の Host（アプリの外部名）を保ったままここへ来る。Authentik の outpost は
+# その Host でプロバイダを選ぶので、identity だけがこの入口を持つ。
+:443 {
+	tls internal
+	reverse_proxy {{ tls_proxy_catchall_upstream }}
+}
+{% endif %}

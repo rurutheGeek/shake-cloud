@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
-更新: 2026-09-08。状態: **比較・初期設計、K11へのVPN配備は未実施**。
+更新: 2026-09-12。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
 
 方針は **K11にセルフホストVPNを置き、Tailscaleも併用する**。Windows・macOS・Linux・iOS・Androidからの使いやすさと、一般利用者がAuthentikの招待から参加できることを重視する。第一検証候補はNetBird、Tailscaleアプリへの統一を優先する場合の候補はHeadscaleとする。WireGuard単独には決め打ちしない。
 
@@ -32,12 +32,12 @@ Tailcatの接続アドレスは接続権を与える情報を含むため、公�
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
-| K11 / vpn-01 | 選定したセルフホストVPN管理サーバー。2vCPU・2GiB・16GiBから仮確保 | DB、設定、鍵、端末登録、アクセス方針をバックアップ。Kubernetes外で常時起動 |
+| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01全体4vCPU・8GiBの計画枠内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
 | ラズパイ | Tailscale SaaSのsubnet routerと既存監視 | K11外の管理経路。K11停止中も動くことを検証 |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
-NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。今回の2vCPU・2GiBは小規模な管理サーバー用の開始値で、ゲーム映像を集中中継して足りなければ再配分する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
+NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
 
 ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。
 
@@ -61,13 +61,13 @@ NetBird公式quickstartは公開ドメインとTCP 80/443・UDP 3478への到達
 
 ## 選定の合格条件
 
-まずNetBirdをvpn-01で試し、利用者のPCとスマホを各1台登録する。次の条件を確認し、満たせなければHeadscaleと比較する。
+まずNetBirdをservices-01の独立したCompose構成で試し、利用者のPCとスマホを各1台登録する。次の条件を確認し、満たせなければHeadscaleと比較する。
 
 - 一般利用者が招待から登録でき、管理者の操作なしで日常の再接続ができる。
 - 宅外からHome Assistant・Nextcloud・Vaultwardenへ入り、ゲーム映像も確認できる。
 - スマホのスリープ復帰、Wi-Fi↔モバイル切替、VPN切替後のDNSが正常。
-- vpn-01を止めても、予備Tailscaleで宅内のProxmox管理へ入れる。
+- VPNのComposeまたはservices-01を止めても、予備Tailscaleで宅内のProxmox管理へ入れる。
 - Authentik停止中の再認証・K11全停止時の復旧経路を確認できる。
 - 端末紛失時の失効・アクセス権変更・バックアップ復元を確認できる。
 
-最終製品はこの結果で決定し、VM枠は選定した1製品だけに使う。NetBird・Headscale・WireGuardを同時に常用追加する予算ではない。
+最終製品はこの結果で決定し、services-01へ常用追加するのは選定した1製品だけとする。NetBird・Headscale・WireGuardを同時に常用追加する予算ではない。

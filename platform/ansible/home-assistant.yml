@@ -1,0 +1,119 @@
+---
+# Home Assistant Container を services-01 の独立 Compose プロジェクトへ配備する。
+# 初回は静的な seed inventory、以後は services-01 を含む基盤 inventory を使う。
+- name: Deploy Home Assistant Container
+  hosts: netbox_bootstrap
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks/home-assistant'
+    home_assistant_project_dir: /opt/services/home-assistant
+    home_assistant_storage_root: /srv/services/home-assistant
+    home_assistant_port: 8123
+    home_assistant_tz: Asia/Tokyo
+    # compose.yaml で固定した homeassistant ネットワークのゲートウェイ。
+    # 127.0.0.1:8123 への Docker ポート公開では Caddy の送信元がこれに見える。
+    home_assistant_trusted_proxy: 172.31.254.1
+    home_assistant_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+    home_assistant_oidc_discovery: 'https://auth.{{ home_assistant_dns.zone }}/application/o/home-assistant/.well-known/openid-configuration'
+    # HAコアはOIDC非対応のため、コミュニティ統合を版とdigestで固定して入れる。
+    home_assistant_oidc_component_url: https://github.com/christiaangoossens/hass-oidc-auth/releases/download/v1.2.1/hass-oidc-auth.zip
+    home_assistant_oidc_component_sha256: e5badaaacaa63cfd6fe733924a05e76d75058836190398598fb24de57cd47ccd
+    home_assistant_eufy_component_url: https://github.com/fuatakgun/eufy_security/archive/refs/tags/v8.2.4.tar.gz
+    home_assistant_eufy_component_sha256: b744aac0ce03a8a75de5100c672957504173c20cbe2ac0fc4d09d5bc75c59411
+    home_assistant_eufy_component_member: eufy_security-8.2.4/custom_components/eufy_security
+  tasks:
+    - name: Install Docker Engine and Compose
+      ansible.builtin.include_role:
+        name: docker
+
+    - name: Create Home Assistant project and state directories
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        mode: '{{ item.mode }}'
+      loop:
+        - {path: '{{ home_assistant_project_dir }}', mode: '0750'}
+        - {path: '{{ home_assistant_storage_root }}/config', mode: '0750'}
+
+    - name: Copy Home Assistant definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/{{ item }}'
+        dest: '{{ home_assistant_project_dir }}/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, manage.py, .env.example]
+
+    - name: Copy reviewed image lock if present
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/compose.lock.yaml'
+        dest: '{{ home_assistant_project_dir }}/compose.lock.yaml'
+        mode: '0644'
+      when: lookup('ansible.builtin.fileglob', source_dir + '/compose.lock.yaml', wantlist=True) | length > 0
+
+    - name: Render Home Assistant environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ home_assistant_storage_root }}
+          HOME_ASSISTANT_PORT={{ home_assistant_port }}
+          TZ={{ home_assistant_tz }}
+        dest: '{{ home_assistant_project_dir }}/.env'
+        mode: '0600'
+
+    - name: Initialize Home Assistant state
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', init]
+      changed_when: false
+
+    - name: Start Home Assistant and wait for its healthcheck
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', up]
+      changed_when: true
+
+    # HA 2026.9 以降、HTTP の設定は .storage/http が正本で、YAML の取り込みは
+    # UI で承認するまで有効な pending（5分で自動撤回）にしかならない。
+    # 配備では stable 側へ直接入れ、コンテナを再起動して反映する。
+    - name: Trust the local reverse proxy in the Home Assistant HTTP config
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py',
+               ensure-http-proxy, '--proxy', '{{ home_assistant_trusted_proxy }}']
+      register: home_assistant_http_proxy
+      changed_when: "'CHANGED' in home_assistant_http_proxy.stdout"
+
+    # HAコアはOIDC非対応。コミュニティ統合とEufy統合をdigest固定で入れる。
+    - name: Install the pinned OIDC integration
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', install-integration,
+               '--name', 'auth_oidc',
+               '--url', '{{ home_assistant_oidc_component_url }}',
+               '--sha256', '{{ home_assistant_oidc_component_sha256 }}']
+      register: home_assistant_oidc_component
+      changed_when: "'CHANGED' in home_assistant_oidc_component.stdout"
+
+    - name: Install the pinned Eufy integration
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', install-integration,
+               '--name', 'eufy_security',
+               '--url', '{{ home_assistant_eufy_component_url }}',
+               '--sha256', '{{ home_assistant_eufy_component_sha256 }}',
+               '--member', '{{ home_assistant_eufy_component_member }}']
+      register: home_assistant_eufy_component
+      changed_when: "'CHANGED' in home_assistant_eufy_component.stdout"
+
+    - name: Offer Authentik login next to the local account
+      ansible.builtin.blockinfile:
+        path: '{{ home_assistant_storage_root }}/config/configuration.yaml'
+        marker: '# {mark} ANSIBLE MANAGED BLOCK: OIDC login'
+        block: |
+          auth_oidc:
+            client_id: home-assistant
+            discovery_url: {{ home_assistant_oidc_discovery }}
+            display_name: Authentik
+            roles:
+              admin: admins
+      register: home_assistant_oidc_yaml
+
+    # install-integration は変更時に自分で再起動する。YAML の変更だけここで
+    # 反映する（両方変わったときは前者の再起動で既に読み込まれている）。
+    - name: Restart Home Assistant after login configuration changes
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', restart]
+      when: home_assistant_oidc_yaml is changed

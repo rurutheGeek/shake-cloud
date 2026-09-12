@@ -1,0 +1,21 @@
+---
+# Vaultwarden（パスワード管理・SSO）を services-01 に単独で置く。
+vaultwarden_project_dir: /opt/services/vaultwarden
+vaultwarden_storage_root: /srv/services/vaultwarden
+vaultwarden_source_dir: '{{ playbook_dir }}/../../stacks/vaultwarden'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://vault.<ゾーン> で受ける。
+vaultwarden_bind_address: 127.0.0.1
+vaultwarden_port: 8222
+vaultwarden_tz: Asia/Tokyo
+vaultwarden_signups_allowed: 'false'
+# 組織招待を無効のままにする。Vaultwarden の is_signup_disabled() は
+# INVITATIONS_ALLOWED=true だと false になり、UI に新規作成が出る。
+vaultwarden_invitations_allowed: 'false'
+vaultwarden_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+vaultwarden_public_url: 'https://vault.{{ vaultwarden_dns.zone }}'
+# SSO。SSO_AUTHORITY は Authentik の issuer と末尾スラッシュまで一致させる。
+vaultwarden_oidc_authority: 'https://auth.{{ vaultwarden_dns.zone }}/application/o/vaultwarden/'
+vaultwarden_oidc_client_id: vaultwarden
+# OIDC クライアントの秘密値の正本は identity VM。配備のたびにここから写す。
+vaultwarden_identity_host: "{{ (groups.get('identity_provider') or ['identity'])[0] }}"
+vaultwarden_oidc_credentials_path: /opt/identity-stack/secrets/oidc-vaultwarden.json

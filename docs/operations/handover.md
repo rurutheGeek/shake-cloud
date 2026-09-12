@@ -1,8 +1,8 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-12。状態: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**すべて `main` に入っている。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、メディア系の認証統合。
+更新日: 2026-09-12。状態: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**すべて `main` に入っている。**media-01 は新規cloud VMとして作成済みで、アプリの移行（W03〜W06。RomMはgame1でW07）が残る。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、メディア系の認証統合。**2026-09-12のI01実測を反映し、k8s-cp-01・k8s-worker-01・probe-01は停止中、dev-a/dev-bの宣言RAMは6GiB。Homarrはservices-01へ新規配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC）。**
 
-**この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
+**この文書が、クラウドの実機配備状態と既存TODOの正本です。** 2026-09-12に[機能別の並列開発計画](../development/index.md)を追加しました。各作業IDの仕様・進捗は個別計画書を正本とし、実機配備後にこの台帳へ結果を記録します。2026-09-12に media-01 を新規cloud VMとして作成しました（I02。アプリはまだ配備していません）。2026-09-12に Home Assistant Container を services-01 へ配備し、AuthentikのOIDC（SSO）とEufy統合の入口まで追加しました（H01。初回セットアップと復元試験は未完、Eufyは資格情報待ち）。 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
 ## 1. 何を作っているか
 
@@ -83,7 +83,7 @@ v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG�
 | メモリとディスク | メモリはバルーニング、ディスクはシンプロビジョニングが既定。どちらも空き容量には数えない |
 | 秘密値 | すべて自動生成する。人に鍵を作らせたり、変えさせたりしない |
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
-| ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、旧ハブの「Nextcloud で編集する」仕組みは持ち込まない。Kubernetes ができたら設計どおり worker-01 へ移す |
+| ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、旧ハブの「Nextcloud で編集する」仕組みは持ち込まない。今回の方針ではservices-01に維持する。家電（H01）は2026-09-12に配備済み（初回セットアップ待ち）。Vaultwarden・VPNの同居は各計画の未完了作業 |
 | game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
 | メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。**2026-09-12 に Gmail（`shake.notify@gmail.com`、アプリパスワード）を設定済み・実送信確認済み。** SMTP の資格情報は `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](smtp.md)） |
 
@@ -96,14 +96,17 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
 | 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
-| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1〜7 + database/function）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
-| 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
-| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。**Ready**。kubeadm 1.36.4、Cilium 1.20.1 |
-| 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。**Ready**。join 済み |
+| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1〜7 + database/function）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約0.4GiB / 2GiB（2026-09-12） |
+| 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト、Homarr、Home Assistant Container（家電。初回セットアップ待ち）、eufy-security-ws（H04。資格情報待ち） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている）、`https://homarr.apextox.dpdns.org`（`:7575` は 127.0.0.1）、`https://ha.apextox.dpdns.org`（`:8123` は 127.0.0.1） |
+| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | **停止中（2026-09-12 12:46にrootが正常停止）**。kubeadm 1.36.4、Cilium 1.20.1 |
+| 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | **停止中（同日12:46）**。join 済み |
 | 211 | k8s-worker-02 | 192.168.10.208 | Kubernetes worker（予備） | **停止のまま**。`tools/k8s up --all` で起動し `--limit k8s-worker-02` で join |
-| 400 / 401 | dev-a / dev-b | .202 / .203 | 開発VM。dev-b が自動化の実行ホスト | 稼働 |
-| 900 | probe-01 | 192.168.10.201 | 検証用 | 稼働 |
+| 400 / 401 | dev-a / dev-b | .202 / .203 | 開発VM。dev-b が自動化の実行ホスト | 稼働。RAMは各6GiB（下限2GiB。2026-09-12に宣言を実機へ同期） |
+| 900 | probe-01 | 192.168.10.201 | 検証用 | **停止中**。未使用時は停止対象（2026-09-12時点） |
+| 5000 | i-a086e5d5c8d7fa02a（win11pro） | 192.168.10.100 | クラウド利用者VM（`ruruthegeek`、Windows 11、ISOインストール検証） | **停止中** |
 | 5997 | shakecloud-volumes | — | ボリュームのホルダー（デタッチしたディスクの待機先）。起動しない | 停止。API が初回のボリューム作成時に作る |
+
+I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../architecture/operations.md#measured-budget)にあります。この表の停止状態は再開すると変わります。通常の再開は容量確認後に `tools/k8s up` でcp・worker-01を起動します。`--all` は停止中のworker-02も含むため、追加の容量確認と配置計画が必要です。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP はクラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
 
@@ -119,6 +122,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | NetBox | `https://netbox.apextox.dpdns.org` | `admin` | services-01 の `/opt/netbox-stack/secrets/superuser_password` |
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | identity の `/opt/identity-stack/secrets/bootstrap_password` |
+| Homarr | `https://homarr.apextox.dpdns.org` | Authentik（`users`は閲覧、`admins`は編集） | SSO。ローカル復旧は services-01 の `/opt/homarr-stack/secrets/admin_password` |
 | クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`users` か `admins`） | Authentik 側。`akadmin` は `admins` に入っている |
 | クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用ブートストラップキーは 2026-09-11 に無効化（§6 Phase 5）。緊急時は cloud-01 で `manage.py rotate-bootstrap-key` |
 | 開発VM への SSH | `debian@192.168.10.202` / `.203` | パスワードまたは鍵 | `.local/devvm-passwords.yml`（**devbox の playbook を実行した作業機の手元にだけある平文**。dev-b には無い） |
@@ -126,6 +130,8 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | Terraform の state | Cloudflare R2 | アクセスキー | `platform/sops/s3.sops.yaml` |
 | DNS（`apextox.dpdns.org`） | Cloudflare ダッシュボード（ゾーンID `112734e967c919ddd9ec1fa5c4f2a320`） | 所有者の Cloudflare アカウント | 証明書用のトークン（このゾーンの DNS 編集だけ）: `platform/sops/cloudflare-dns.sops.yaml` |
 | ドキュメントサイト | `https://docs.apextox.dpdns.org` | 不要（LAN 内に公開） | 資格情報なし。原稿は Git の `docs/`、配備は `platform/ansible/docs-site.yml` |
+| Home Assistant | `https://ha.apextox.dpdns.org` | Authentik（`users` / `admins`）または初回に作成するローカルオーナー | HA 自身の config（`/srv/services/home-assistant/config`。`manage.py backup` の対象） |
+| Eufy Security（eufy-security-ws） | `eufy-security-ws:3000`（HA の Docker ネットワーク内だけ） | Eufy アカウント | `platform/sops/eufy-security.sops.yaml`（`EUFY_USERNAME`・`EUFY_PASSWORD`・`EUFY_COUNTRY`）。セッションは `/srv/services/eufy-security-ws/data` |
 | メディア系（Homarr、Nextcloud など） | 旧構成のハブ。SSH トンネル経由 | 旧 Authentik | この基盤の外。[ハブ運用](hub.md) |
 
 VM の中にある値の取り出し方（dev-b で実行）:
@@ -214,6 +220,10 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | 🟨 | 8 | **切替の宣言・安全装置・手順書を用意（2026-09-11）。** `network.yaml` の `vlan`、`10-platform` がそこから管理VLANを読む形、`managed-host` と `site.Validate` の「bridge が vlan-aware でないのに vlan_id を設定したら止める」precondition、API が作るVMへのタグ付け、[vlan.md](vlan.md) の段階手順とロールバック。**実機切替は物理スイッチ/ルータと Proxmox bridge の作業待ち** |
 | ✅ | Windows | **Windows 11 Pro の VM をポータルから作れるようにした（2026-09-12）。** 2経路ある。(1) **ISO方式**: `POST /v1/isos` で `.iso` をアップロード（`os: windows` 対応、`GET`/`DELETE /v1/isos`）、`RunInstances` の `install_iso_id`／`driver_iso_id` で空ディスク＋CD-ROM起動し、コンソールでインストール。(2) **共有イメージ方式**: `images.yaml` の `os: windows`・`provided: true` で、API が UEFI（OVMF）・TPM 2.0・q35 の VM を作る。どちらも Windows なら SSH鍵欄を隠しコンソールを案内。Proxmox 実機の `windows_devices` プローブと既存プローブは全 PASS。`go test ./...`（dev-b PostgreSQL）・ポータルの実ブラウザ検証も通過し、**cloud-01 へ配備済み**。**2026-09-12 に Proxmox `local` のISO 5本を `cloud-images` へ移動して台帳へ登録**（`mv` なので複製なし）。ポータルの「ISO」に全員共有で並び、アップロードしたものは誰でも削除できる。`local` に後から置いたISOも宣言なしで自動一覧される | [windows.md](windows.md) |
 | 🟨 | K8s | **スライス①〜⑦を実機で確認（2026-09-12）。** cp-01 と worker-01 が **Ready**、Cilium 1.20.1 が kube-proxy を置換、PVC 永続化・MetalLB・cert-manager・Flux 2.9.5 + SOPS の GitOps 同期まで動作。**AWX 24.6.1 を Flux で配備し `https://awx.apextox.dpdns.org/`（Let's Encrypt）で公開**。**CloudNativePG（`database`）と Knative（`function`）を API・Provider・CLI まで実装し、作成〜Ready/healthy〜削除を実機確認**（SA `databases/cloud-api` の最小 RBAC）。k8s ノードのバルーニングは無効化。**クラウドの4機能（VM・S3・DB・関数）が API・Provider・CLI・ポータルまで揃った**。関数 URL は DNS・**HTTPS**（namespace ワイルドカード証明書）済み。次は CNPG バックアップと VLAN | [kubernetes.md](kubernetes.md) |
+| ✅ | media | **media-01 を cloud VM として作成し、実機確認（2026-09-12、I02）。** `platform/terraform/services/media` の apply で `i-a06df9a2dfd1ce6db`・`192.168.10.101`・4vCPU／6GiB・OS32GiB＋データ64GiB（`vol-cff33af40771b2b74`）。SG は LAN から 22/80/443 だけ（8080 の遮断を実測）。データディスクは `/dev/disk/by-id/virtio-...` を systemd が `/srv/media-stack` へ ext4 でマウントし、**マウント完了まで Docker を起動しない**（未マウント時に原本領域へ書かない）。再 plan は No changes、再起動後もマウントと Docker が復帰。volume は `prevent_destroy`。**apply 中に Provider の SG ルール同時作成の競合を発見・修正**（§10）。PicardのWeb GUI（`jlesage/musicbrainz-picard`）をW06の一部として先行配備（`/opt/media-stack/music-tools`、`127.0.0.1:5800`、HTTP 200・healthy）。**2026-09-12: `media.yml`（クラウドinventory使用）で Nextcloud・Kavita・Navidrome をmedia-01へ配備し、`media-verify.yml` が Nextcloud `/status.php` `installed=true`・Kavita HTTP応答・Navidrome `/ping` 200・Picard 200 を確認。** music-toolsはPicardのみ（`music_tools_services`限定、同期タイマー停止）で、MeTube・変換の切替はW06。配備中にmusic-tools playが`/opt/media-stack/scripts`未作成で失敗したため、ディレクトリ作成タスクを追加して修正（実機で再実行成功）。**2026-09-12: HTTPSとSSOを実配備。** `nextcloud/kavita/navidrome/metube/picard.apextox.dpdns.org` をLet's Encrypt（DNS-01）で受けるCaddyをmedia-01へ配備し、証明書と応答を実測。Nextcloud `user_oidc`・Kavita組み込みOIDC・Navidrome/MeTube/Picard Forward Auth（未認証は `auth.apextox.dpdns.org` の authorize へ302）を設定し、Kavitaは `bootstrap.py` で初期管理者とBooksを作成。**旧環境からのデータ移行とブラウザでのログイン実測は未了**（W03〜W06。RomMはgame1側でW07） | [I02](../development/I02-media-vm.md)・[W03](../development/W03-nextcloud.md)・[W05](../development/W05-navidrome.md)・[W06](../development/W06-music-tools.md) |
+| 🟨 | H01 | **Home Assistant Containerをservices-01へ配備（2026-09-12）。** `stacks/home-assistant/`（Compose・`manage.py`・テスト）と `platform/ansible/home-assistant.yml`、イメージはdigest固定。`/opt/services/home-assistant`・`/srv/services/home-assistant/config`、`127.0.0.1:8123`、既存Caddyで `https://ha.apextox.dpdns.org`（Let's Encrypt、未認証は302）。HA 2026.9以降はHTTP設定が `.storage/http` の `stable` で、YAML取り込みはUI承認待ちの`pending`（5分で撤回）にしかならないため、`manage.py ensure-http-proxy` で `trusted_proxies`（compose固定サブネットのゲートウェイ `172.31.254.1`）を直接反映。コンテナ再起動後のhealthy復帰を確認。**SSO（2026-09-12）**: identityが公開OIDCクライアント `home-assistant`（`redirect_uri https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode user_uuid`、`users`/`admins`バインド）を冪等に作成し、HAは `hass-oidc-auth` v1.2.1をdigest固定で導入、`configuration.yaml` の `auth_oidc` 管理ブロックでAuthentikログインを併設（discovery 200・authorize 302を確認）。**Eufy（H04入口）**: `stacks/eufy-security-ws/` と `platform/ansible/eufy-security-ws.yml` を追加し、services-01へ配備。`eufy_security` v8.2.4もHAへ導入済み。**Eufyの資格情報（`platform/sops/eufy-security.sops.yaml`）が未記入でWSは未起動**。初回オーナー作成（ブラウザ）、未認証拒否・履歴、バックアップと復元試験は未完 | [H01](../development/H01-home-assistant.md) |
+| ✅ | W02 | **Vaultwardenをservices-01へ新規構築（2026-09-12）。** 旧ホストは検証用ステージングで実データが無いため移行せず、`stacks/vaultwarden/` の独立Compose（`vaultwarden/server:1.37.2`・digest固定・`127.0.0.1:8222`・`/srv/services/vaultwarden/data`・`secrets/admin_token` 0400）として配備。`https://vault.apextox.dpdns.org`（Let's Encrypt）で受け、identityにOIDCクライアント `vaultwarden`（redirect `https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` binding）を作成。`/alive` 200、一般登録は無効（登録APIが400、usersは0件）。Web UIに「Create account」が出る件は、Vaultwardenの`is_signup_disabled()`が`INVITATIONS_ALLOWED`既定trueだとfalseになるためで、`INVITATIONS_ALLOWED=false`を追加して非表示にした（`/api/config`の`disableUserRegistration=true`を実測）。**ブラウザでのSSO・マスターパスワード実測は未了** | [W02](../development/W02-vaultwarden.md) |
+| ✅ | I03 | **クラウドVMをAnsibleの配備対象にした（2026-09-12）。** `platform/ansible/inventory.cloud.py`（実行のたびに `GET /v1/instances` を読む読取専用の動的inventory、`--list`/`--host`、失敗時は非0でキャッシュ不使用）と `cloud-inventory.yml`（account_idとID→グループの宣言）。実キー（管理者ではない）で `account_id=934162309796` を確認。`ansible-inventory --graph` は `media` 群へ `i-a06df9a2dfd1ce6db` だけを出し、`ansible -m ping` は `pong`、`docker --version` は成功。`ansible_user=debian` を付与。**基盤NetBox inventoryと併用しない**（`media` 群が和集合になる）。AWX組込みはI06 | [I03](../development/I03-cloud-inventory.md) |
 
 各 Phase の詳しい中身と完了条件は[最小クラウドとProvider](../architecture/cloud.md)にあります。
 
@@ -224,12 +234,12 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用。手順は [identity.md](identity.md)。**パスキーだけのパスワードレスも有効化済み（2026-09-12）** | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。discoverable（resident key）でないと自動入力は出ない。[認証基盤（identity・Authentik）](identity.md)・[ネットワーク・SSO](../architecture/network-auth.md) |
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
-| public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
+| public-edge | N04で公開要件を検討。新規cloud VMとして追加予定 | VMIDはAPIの通常採番。game1の100は使わない |
 | `05-seed` の SSH 鍵 | **解決済み（2026-09-12）**: `access.yaml` の `seed_ssh_public_keys` へ移した。実機（VMID 150 の `sshkeys`）の順序＝admin 先頭2鍵の逆順と一致。`05-seed/main.tf` が access.yaml を読む（`tests/test_platform_inventory.py` が検査） | — |
-| cloud-01 のサイズ | `small`（2GiB）。Phase 1 の実測で使用 約500MiB（API 7MiB、PostgreSQL 65MiB） | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
+| cloud-01 のサイズ | `small`（2GiB）。2026-09-12の実測でゲスト使用 約0.4GiB（API 11MiB、PostgreSQL 26MiB）。ディスクは軽量化で40GiB中6.2GiB使用 | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
 | ポータルのフロント | `html/template` と素の JS。**2026-09-12 に[Web GUI監査・改善案](../audits/webgui-2026-09-12.md)を作成**（P1 6件・P2 10件）。同じ監査の指摘どおり、送信ロックとVMの `client_token`、ID単位の一覧更新と入力保持、選択IDの保持、日本語のエラーと操作箇所への表示、用途別ナビ、検索・絞り込み、履歴の検索・ページ送り・詳細、アップロードの段階表示と中断、S3権限の用途選択と owner 既定オフ、上限の差分確認を `index.html`・`portal.js`・新規 `portal-ui.js`・`portal.css` へ実装 | 模擬APIと実ブラウザ（Chrome Headless Shell 153）で機能28項目とキーボード操作、axe-coreの自動検査（一般利用者／管理者・ライト／ダークの3画面、違反0件）を確認し、**dev-bのPostgreSQLを使って`go vet ./...`と`go test ./...`（cloud/api全パッケージ）も通した**（連打・入力保持・選択保持・320/390px・コントラスト・502/401・S3権限・上限差分・雛形・アップロード段階／中断とサーバー側の接続断）。結果は監査の「改修後の確認」と[確認結果JSON](../audits/webgui-2026-09-12/after-results.json)に残した。**2026-09-12 に `cloud.yml` で cloud-01 へ配備**し、`/healthz` 200 と新規 `/static/portal-ui.js`・`portal.js`・`portal.css` の配信を確認。未確認は、Authentikログインで確立する認証済みポータルでの画面操作、実VM／実S3の作成・変更、実機のスクリーンリーダー。新しい JS ビルド基盤は増やさない前提 |
 | 管理DBのバックアップ | **定期実行を実装（2026-09-12）**: cloud-01 の `cloud-backup.timer` が毎日 `manage.py backup --keep 14` を `/var/backups/cloud-api` へ。**外部コピーは未着手**（Garage は単一ノードなので唯一の控えにしない） | 別ディスク／外部へのコピー先を決める（[cloud.md 3-18](cloud.md#3-18)） |
-| state の置き場 | Cloudflare R2（`platform/terraform` の基盤用） | Phase 7 は完了。Garage へ移すか、サービス用 state をどこへ置くかは未決（[services.md](services.md)）。クラウドが止まっていても読める場所という条件がある |
+| state の置き場 | Cloudflare R2。基盤は `shake-cloud/<module>/…`、サービスは `shake-cloud/services/<name>/terraform.tfstate`（I05で`tools/tf services/*`分岐とロックを実機確認済み） | 資格情報は`s3.sops.yaml`と`services.sops.yaml`。サービスの実キーは未投入（ポータルで発行してから）。Garageは復旧時にstateの唯一の保管先にしない |
 | AWX | **配備済み（2026-09-12）**: 24.6.1 を Flux で配備（[kubernetes.md](kubernetes.md)・[AWXの使い方](awx.md)） | ジョブテンプレート・プロジェクトの整備はこれから |
 | Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
 
@@ -266,6 +276,7 @@ VM の中にある秘密値は、次の場所で自動生成されています�
 | `platform/sops/netbox-inventory.sops.yaml` | NetBox 読み取りトークン（Ansible インベントリ用） |
 | `platform/sops/s3.sops.yaml` / `cloudflare.sops.yaml` | Terraform state の置き場 |
 | `platform/sops/cloudflare-dns.sops.yaml` | `apextox.dpdns.org` の DNS 編集トークン（証明書の DNS-01 用）。state 用の `cloudflare.sops.yaml` とは別 |
+| `platform/sops/eufy-security.sops.yaml` | Eufy アカウント（`EUFY_USERNAME`・`EUFY_PASSWORD`・`EUFY_COUNTRY`・`EUFY_TRUSTED_DEVICE_NAME`）。`eufy-security-ws.yml` が `.env` へ写す。**初期値は空で作成済み。値を入れるまでWSは起動しない** |
 | `platform/sops/pve-users.sops.yaml` | 開発VM用の Proxmox ユーザー |
 
 ## 9. 確認のしかた
@@ -394,3 +405,7 @@ tools/tf 20-dns plan -detailed-exitcode
 | 失敗した配備が成功したように見える | `... \| tail -30` のようにパイプへ繋ぐと、終了コードはパイプの**最後**のコマンドのものになる。`ansible-playbook` が起動すらしていなくても `tail` が 0 を返すので 0 になる。`${PIPESTATUS[0]}` を見るか、パイプを外す |
 | ドキュメントサイトの配備が「何もせずに」終わる | `docs-site.yml` は `hosts: netbox_bootstrap` で、このグループは**静的な `platform/ansible/seed.ini` にしか無い**（services-01 は `05-seed` の管轄で NetBox にVM記録が無いため、動的インベントリに入っていない）。動的インベントリで流すと `skipping: no hosts matched` になり、**そのとき ansible の終了コードは 0** なので成功に見える。`-i platform/ansible/seed.ini` で流し、`PLAY RECAP` に `services-01` が出ることを確かめる |
 | セキュリティグループのルールが正しいのに通信が遮断されない | **Proxmox は VM の `firewall/options` を書かないと、実行中VMの live ruleset を再構築しない。**最初のSG適用で `enable=1`・`policy_in=DROP` になった後は、ルールだけ変えても options の値は変わらないため、`setFilteredOptions` が PUT を省くと**ホスト側は前の（緩い）ルールのまま**になる。API の `firewall_state` は `in-sync`、`firewall/rules` も新ルールなのに、許可していないポートが開いたままになる（2026-09-11 実測）。修正: options を**毎回書く**（`compute/firewall.go` の `setFilteredOptions`）。`TestARuleOnlyChangeRewritesTheOptionsSoProxmoxReloads` が回帰を防ぐ。実機は `tools/verify-volumes.py` が実際の遮断まで見る |
+| 複数の `shakecloud_security_group_rule` が同じルールIDを state に持つ | **Provider の Create が並列に走ると、どれも同じ `before`（空）を読み、API はグループ全体を返すため、`findNewRule` が最初の新ルールを全部へ選んでいた**（2026-09-12、media-01 の apply で3ルールが同じ `sgr-...` になった）。属性（protocol・CIDR・ポート・説明）が一致するものを選ぶよう修正。重複した state は `terraform state rm` → `terraform import GROUP/RULE` で直し、再 plan を No changes にする。`cloud/provider/internal/provider/security_group_rule_test.go` が回帰を防ぐ |
+| クラウドVMが突然、SSHもHTTPも応答しない（ARPは解決する） | **クラウドのIPレンジ `.100-.180` がルーターのDHCP配布範囲と重なっている。**2026-09-12、Amazon端末がDHCPで `192.168.10.101` を取得し、本来の持ち主である media-01 がLANから見えなくなった（`ip neigh` に別MAC・ベンダーはAmazon Technologies）。cloud-01 から静的ARP（`ip neigh replace 192.168.10.101 lladdr <VMのMAC> nud permanent`）を入れるとVMは正常だった。ルーターで `.100-.180` をDHCPから除外するか、クラウドのレンジを移す。**VMを増やす前に解消する。**応急処置はVM再起動（gratuitous ARP）だが再発する |
+| クラウドVMの `docker pull` が `dial tcp [2600:...]:443: i/o timeout` で失敗する | **ルータがIPv6のdefault routeをRAで配るのに、インターネットへのIPv6が通っていない。**DockerはAAAAを先に引いてタイムアウトする（2026-09-12、media-01のtls-proxyビルドで実測）。`platform/ansible/media-base.yml` が `/etc/sysctl.d/99-media-no-ipv6.conf` でIPv6を無効にし、getaddrinfoとDockerをIPv4へ揃える。ルータのIPv6が直ったら外す |
+| Forward Authがアプリを素通しする（ログイン画面が出ない・404や空の200） | **Authentik 2026.8のoutpostはリクエストの `Host` でアプリを選ぶ。**Caddyの既定は中継先のHostに書き換えるため、`forward_auth` に `header_up Host {http.request.host}` を付ける。さらにidentityのCaddyは未知のHostに空の200を返すので、identityだけ `tls_proxy_catchall_upstream: 127.0.0.1:9000` のcatch-allを置き、AuthentikへHostごと渡す（2026-09-12実測。埋め込みoutpostを使い、別コンテナは要らない） |

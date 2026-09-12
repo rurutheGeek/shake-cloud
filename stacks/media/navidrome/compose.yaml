@@ -1,0 +1,33 @@
+name: media-navidrome
+
+services:
+  navidrome:
+    image: ${NAVIDROME_IMAGE:-deluan/navidrome:latest}
+    restart: unless-stopped
+    user: '${MEDIA_UID:-33}:${MEDIA_GID:-33}'
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      ND_MUSICFOLDER: /music
+      ND_DATAFOLDER: /data
+      ND_SCANSCHEDULE: '@every 1h'
+      ND_DEFAULTLANGUAGE: ja
+      # Forward Auth。Caddy は media-01 のホスト（host ネットワーク）で動き、
+      # コンテナからは 127.0.0.1 と docker bridge 経由で届く。公開ポートは
+      # 127.0.0.1 だけなので、この経路以外から Remote-User は付けられない。
+      # Caddy が認証後にこのヘッダーを上書きする前提で信頼する。
+      ND_EXTAUTH_USERHEADER: Remote-User
+      ND_EXTAUTH_TRUSTEDSOURCES: '127.0.0.1/32,172.16.0.0/12'
+    volumes:
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/navidrome:/data
+      - ${LIBRARY_ROOT:-/srv/media-stack/library}/music:/music:ro
+    ports: ['127.0.0.1:${NAVIDROME_PORT:-4533}:4533']
+    networks: [navidrome]
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:4533/ping]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  navidrome: {}

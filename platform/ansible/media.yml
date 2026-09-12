@@ -1,0 +1,43 @@
+---
+# media-01（クラウドVM）の配備入口。ユニットごとに独立した playbook を
+# Nextcloud → Kavita → Navidrome → music-tools の順で実行し、最後に
+# media-verify.yml で running/healthy と HTTP 応答を確認してから、
+# media-tls.yml で HTTPS の入口を張る。
+#
+#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
+#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media.yml
+#
+# 段階実行: import_playbook は when を持てないため、このファイルから特定の
+# ユニットだけを選んで実行することはできない。`--start-at-task` で途中から
+# 再開するのでもなく、配備したいユニットの playbook を直接実行する。
+#   ansible-playbook -i <inventory> platform/ansible/media-nextcloud.yml
+#   ansible-playbook -i <inventory> platform/ansible/media-kavita.yml
+#   ansible-playbook -i <inventory> platform/ansible/media-navidrome.yml
+#   ansible-playbook -i <inventory> platform/ansible/music-tools.yml
+# 確認は media-verify.yml の media_units で対象を絞る。`key=["a"]` 形式は
+# Ansible が文字列として扱うため、リストは JSON で渡す:
+#   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
+#     -e '{"media_units": ["kavita"]}'
+# music-tools の一部だけを配備する場合は playbook 自身の変数を使い、
+# 確認側も同じ変数を JSON で渡す:
+#   ansible-playbook -i <inventory> platform/ansible/music-tools.yml \
+#     -e '{"music_tools_services": ["picard"]}'
+#   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
+#     -e '{"music_tools_services": ["picard"]}'
+#
+# 注意: `media` グループは基盤の NetBox インベントリ（inventory.netbox.yml）
+# にも存在し、media-stack タグの付いた基盤ホストを含み得る。この playbook が
+# 対象にするのはクラウドVMの media-01 だけなので、クラウド用インベントリ
+# （inventory.cloud.py）を単独で使う。NetBox インベントリと併用するときは
+# `--limit <cloud-inventory.yml の media-01 のインスタンスID>` のように対象を
+# 明示し、基盤ホストへ誤配備しない。
+#
+# RomM（W07）は game1 側のユニットなので、ここには含めない。
+- import_playbook: media-base.yml
+- import_playbook: media-nextcloud.yml
+- import_playbook: media-kavita.yml
+- import_playbook: media-navidrome.yml
+- import_playbook: music-tools.yml
+- import_playbook: media-verify.yml
+# 最後にHTTPS入口（DNSは20-dnsが先。受け持つ名前は dns.yaml の host: media-01）。
+- import_playbook: media-tls.yml

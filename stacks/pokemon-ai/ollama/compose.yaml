@@ -1,0 +1,31 @@
+name: game1-ollama
+
+# Ollama is shared by the Pokémon AI and generic RAG projects on game1.  The
+# host port remains loopback-only; sibling projects can join the explicit
+# game1-ai network instead of opening a second host listener.
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
+      OLLAMA_VULKAN: ${OLLAMA_VULKAN:-0}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/game1/ollama}/models:/root/.ollama
+    ports:
+      - 127.0.0.1:${OLLAMA_PORT:-11434}:11434
+    networks: [game1-ai]
+    healthcheck:
+      test: [CMD, /bin/ollama, list]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+networks:
+  game1-ai:
+    name: game1-ai
+    external: true

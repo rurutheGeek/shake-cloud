@@ -84,3 +84,83 @@
         ask_limit_on_launch: true
         ask_variables_on_launch: true
         allow_simultaneous: false
+
+    # The cloud inventory is deliberately opt-in.  Existing controllers can
+    # continue to use the NetBox project until the read-only cloud credential
+    # and the explicit instance declaration have been reviewed.
+    - name: Require cloud inventory credentials when enabled
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'SHAKECLOUD_ACCESS_KEY') | length > 0
+          - lookup('env', 'SHAKECLOUD_ENDPOINT') | length > 0
+      no_log: true
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Register shake-cloud inventory credential type
+      awx.awx.credential_type:
+        name: Shake-cloud inventory API
+        kind: cloud
+        inputs:
+          fields:
+            - {id: endpoint, type: string, label: API endpoint}
+            - {id: access_key, type: string, label: Access key, secret: true}
+          required: [endpoint, access_key]
+        injectors:
+          env:
+            SHAKECLOUD_ENDPOINT: "{{ '{{ endpoint }}' }}"
+            SHAKECLOUD_ACCESS_KEY: "{{ '{{ access_key }}' }}"
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Store shake-cloud inventory credential
+      awx.awx.credential:
+        name: Shake-cloud inventory read
+        organization: '{{ awx_organization }}'
+        credential_type: Shake-cloud inventory API
+        inputs:
+          endpoint: "{{ lookup('env', 'SHAKECLOUD_ENDPOINT') }}"
+          access_key: "{{ lookup('env', 'SHAKECLOUD_ACCESS_KEY') }}"
+      no_log: true
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Create cloud service inventory
+      awx.awx.inventory:
+        name: '{{ awx_cloud_inventory_name | default("Cloud service hosts") }}'
+        organization: '{{ awx_organization }}'
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Add the read-only cloud inventory source
+      awx.awx.inventory_source:
+        name: Cloud service instances
+        inventory: '{{ awx_cloud_inventory_name | default("Cloud service hosts") }}'
+        source: scm
+        source_project: '{{ awx_project_name }}'
+        source_path: ansible/inventory.cloud.py
+        credential: Shake-cloud inventory read
+        execution_environment: Media stack EE
+        overwrite: true
+        overwrite_vars: true
+        update_on_launch: true
+        update_cache_timeout: 0
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Synchronize cloud service inventory
+      awx.awx.inventory_source_update:
+        name: Cloud service instances
+        inventory: '{{ awx_cloud_inventory_name | default("Cloud service hosts") }}'
+        wait: true
+      when: awx_enable_cloud_inventory | default(false) | bool
+
+    - name: Register the isolated media deployment job
+      awx.awx.job_template:
+        name: '{{ awx_media_job_name | default("Deploy media-01") }}'
+        organization: '{{ awx_organization }}'
+        inventory: '{{ awx_cloud_inventory_name | default("Cloud service hosts") }}'
+        project: '{{ awx_project_name }}'
+        playbook: ansible/media.yml
+        execution_environment: Media stack EE
+        credentials: ['{{ awx_machine_credential }}']
+        become_enabled: true
+        ask_limit_on_launch: true
+        ask_variables_on_launch: true
+        allow_simultaneous: false
+      when: awx_enable_cloud_inventory | default(false) | bool

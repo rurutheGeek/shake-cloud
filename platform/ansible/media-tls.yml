@@ -1,0 +1,13 @@
+---
+# media-01（クラウドVM）へ HTTPS の入口を付ける。受ける名前は
+# platform/terraform/dns.yaml の host: media-01 で、inventory.cloud.py が
+# tags.Name を cloud_name として渡すため一致するようになっている。
+# サービス自身のポートは 127.0.0.1 のまま、Caddy が証明書と Forward Auth を担う。
+#
+#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
+#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-tls.yml
+- name: Put the HTTPS entry in front of the media services
+  hosts: media
+  become: true
+  roles:
+    - tls_proxy

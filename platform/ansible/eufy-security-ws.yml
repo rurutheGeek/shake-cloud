@@ -1,0 +1,114 @@
+---
+# eufy-security-ws を services-01 の独立 Compose プロジェクトへ配備する。
+# HA の compose ネットワーク（services-home-assistant_homeassistant）へ入るので、
+# home-assistant.yml の後に実行する。
+- name: Deploy eufy-security-ws
+  hosts: netbox_bootstrap
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks/eufy-security-ws'
+    eufy_project_dir: /opt/services/eufy-security-ws
+    eufy_storage_root: /srv/services/eufy-security-ws
+    eufy_tz: Asia/Tokyo
+    eufy_sops_file: '{{ playbook_dir }}/../sops/eufy-security.sops.yaml'
+    eufy_keys: [EUFY_USERNAME, EUFY_PASSWORD, EUFY_COUNTRY, EUFY_TRUSTED_DEVICE_NAME]
+  tasks:
+    - name: Install Docker Engine and Compose
+      ansible.builtin.include_role:
+        name: docker
+
+    - name: Create the eufy-security-ws project and state directories
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        mode: '{{ item.mode }}'
+      loop:
+        - {path: '{{ eufy_project_dir }}', mode: '0750'}
+        - {path: '{{ eufy_storage_root }}/data', mode: '0750'}
+
+    - name: Copy the eufy-security-ws definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/{{ item }}'
+        dest: '{{ eufy_project_dir }}/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, manage.py, .env.example]
+
+    - name: Copy the reviewed image lock if present
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/compose.lock.yaml'
+        dest: '{{ eufy_project_dir }}/compose.lock.yaml'
+        mode: '0644'
+      when: lookup('ansible.builtin.fileglob', source_dir + '/compose.lock.yaml', wantlist=True) | length > 0
+
+    - name: Render the initial environment without replacing an existing one
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/.env.example'
+        dest: '{{ eufy_project_dir }}/.env'
+        mode: '0600'
+        force: false
+
+    - name: Converge deployment-specific settings
+      ansible.builtin.lineinfile:
+        path: '{{ eufy_project_dir }}/.env'
+        regexp: '^{{ item.key }}='
+        line: '{{ item.key }}={{ item.value }}'
+        mode: '0600'
+      loop:
+        - {key: STORAGE_ROOT, value: '{{ eufy_storage_root }}'}
+        - {key: TZ, value: '{{ eufy_tz }}'}
+
+    # Eufy のアカウントは platform/sops/eufy-security.sops.yaml が正本。
+    # 未記入の間は起動せず、次のステップを案内する。
+    - name: Look for Eufy credentials
+      ansible.builtin.stat:
+        path: '{{ eufy_sops_file }}'
+      delegate_to: localhost
+      become: false
+      register: eufy_sops
+
+    - name: Read the Eufy credentials
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json, '{{ eufy_sops_file }}']
+      delegate_to: localhost
+      become: false
+      register: eufy_values
+      changed_when: false
+      no_log: true
+      when: eufy_sops.stat.exists
+
+    - name: Converge the Eufy credentials
+      ansible.builtin.lineinfile:
+        path: '{{ eufy_project_dir }}/.env'
+        regexp: '^{{ item }}='
+        line: '{{ item }}={{ (eufy_values.stdout | from_json)[item] | default("") }}'
+        mode: '0600'
+      loop: '{{ eufy_keys }}'
+      no_log: true
+      when: eufy_sops.stat.exists
+
+    - name: Check whether the Eufy credentials are complete
+      ansible.builtin.set_fact:
+        eufy_configured: >-
+          {{ eufy_sops.stat.exists
+             and eufy_credentials.EUFY_USERNAME | default('') | length > 0
+             and eufy_credentials.EUFY_PASSWORD | default('') | length > 0 }}
+      vars:
+        eufy_credentials: "{{ (eufy_values.stdout | from_json) if eufy_sops.stat.exists else {} }}"
+
+    - name: Initialize the eufy-security-ws state
+      ansible.builtin.command:
+        argv: [python3, '{{ eufy_project_dir }}/manage.py', init]
+      changed_when: false
+
+    - name: Start eufy-security-ws and wait for its healthcheck
+      ansible.builtin.command:
+        argv: [python3, '{{ eufy_project_dir }}/manage.py', up]
+      changed_when: true
+      when: eufy_configured
+
+    - name: Report the remaining credential step
+      ansible.builtin.debug:
+        msg: >-
+          Eufy の資格情報が未記入です。sops {{ eufy_sops_file }} で
+          EUFY_USERNAME / EUFY_PASSWORD / EUFY_COUNTRY を入れて再実行してください。
+      when: not eufy_configured

@@ -111,7 +111,7 @@ tools/tf 10-platform  init -migrate-state
 
 プロンプトに `yes` と答えると、ローカルの `terraform.tfstate` がR2へコピーされます。以降はR2上のstateが正です。移行後、手元に残った `terraform.tfstate` は削除して構いませんが、**移行が成功したことを `plan` で確かめてから**にします。
 
-`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。条件付き書き込み（If-None-Match）を使うため、DynamoDBのような事業者固有の仕組みは要りません。保管先が条件付き書き込みに対応していない場合はこの行を外します。
+`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。条件付き書き込み（If-None-Match）を使うため、DynamoDBのような事業者固有の仕組みは要りません。**現在の保管先（Cloudflare R2）は条件付き書き込みに対応しており、2026-09-12に実機で確認済みです**（2本目のPUTが412 PreconditionFailed、同じstateへの同時planがロック拒否）。対応していない保管先へ移す場合は、この行を外す前にそう判断します（[I05](../development/I05-service-state.md)）。
 
 ### 実行はラッパー経由で
 
@@ -128,6 +128,36 @@ tools/tf 10-platform  plan     # 上記 ＋ NetBox
 ```bash
 ssh -N -L 8001:127.0.0.1:8000 debian@<services-01のIP>
 ```
+
+### サービスVM（services/*）のstate
+
+サービスVMは**1サービス・1ディレクトリ・1 state**です（`platform/terraform/services/<name>/`）。stateのキーは `shake-cloud/services/<name>/terraform.tfstate` で、同じバケット（R2）に置きます。基盤VMのstateとは別なので、サービスを`apply`しても基盤のplanへは出ません。
+
+資格情報は `tools/tf` の `services/*` 分岐が渡します。**渡すのはstateのS3資格情報（`platform/sops/s3.sops.yaml`）とshakecloudのアクセスキーだけです。Proxmox・NetBoxの資格情報は、呼び出し元の環境に残っていても取り除きます。**
+
+アクセスキーはポータルで発行します（1アカウント5本まで。表示は一度だけ）。`platform/sops/services.sops.yaml` に保存し、`tools/tf` が復号して渡します。**ファイルが無い間は、呼び出し元が`export`した`SHAKECLOUD_ACCESS_KEY`で動きます**（移行用）。
+
+```bash
+cp platform/sops/services.sops.yaml.example platform/sops/services.sops.yaml
+# 発行したキーを実値へ編集してから
+sops --encrypt --in-place platform/sops/services.sops.yaml
+
+tools/tf services/media init -migrate-state   # ローカルstateがあるときだけ
+tools/tf services/media plan
+tools/tf services/media apply
+```
+
+Cloudflare Providerを宣言したサービスモジュールだけ、zone限定のDNSトークン（`cloudflare-dns.sops.yaml`）を足します。それ以外のサービスへは渡しません。
+
+`init`・`fmt`・`validate` はProvider APIを呼ばないのでキー無しでも通ります。`plan`・`apply`・`destroy` などAPIへ出るコマンドは、キーが無ければ実行前に止まります。stateのbucketは `init` の `-backend-config` に従来どおり入ります。
+
+同じstateへの同時applyはロックで拒否されます（上記の条件付き書き込み）。ロックが残ったときは、**他に操作中の担当がいないことを確認してから**、エラーに出るロックIDで解除します。
+
+```bash
+tools/tf services/media force-unlock <ロックID>
+```
+
+stateには秘密値を置かない設計です（shakecloud Providerは資格情報をstateへ書きません）。それでもstateはGitへ入れず、bucketの権限は対象バケットの読み書きだけに絞ります。復旧は`s3.sops.yaml`と`services.sops.yaml`があればK11停止中でも管理端末から行えます。Garageをstateの唯一の保管先にしません（Garage自体の復旧でstateが要るため）。
 
 ## 5. 変更後の確認方法
 

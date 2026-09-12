@@ -1,17 +1,24 @@
 ---
+# クラウドVMの inventory はホスト名をインスタンスIDにし、表示名を cloud_name で
+# 渡す。dns.yaml の host は表示名なので、両方を候補にする。
+# set_fact は同じタスク内の新しい変数を見ないため、2つに分ける。
+- name: List the names this host answers to
+  ansible.builtin.set_fact:
+    tls_proxy_names: "{{ [inventory_hostname] + ([cloud_name] if cloud_name is defined and cloud_name else []) }}"
+
 - name: Work out the names this host serves
   ansible.builtin.set_fact:
     tls_proxy_sites: >-
       {{ tls_proxy_dns.records | dict2items
          | selectattr('value.host', 'defined')
-         | selectattr('value.host', 'equalto', inventory_hostname)
+         | selectattr('value.host', 'in', tls_proxy_names)
          | selectattr('value.upstream', 'defined')
          | list }}
 
 - name: Refuse a host that has nothing to serve
   ansible.builtin.assert:
     that: tls_proxy_sites | length > 0
-    fail_msg: platform/terraform/dns.yaml has no record with host {{ inventory_hostname }} and an upstream
+    fail_msg: platform/terraform/dns.yaml has no record with host in {{ tls_proxy_names }} and an upstream
     quiet: true
 
 - name: Read the Cloudflare DNS token

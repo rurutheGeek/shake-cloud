@@ -9,3 +9,9 @@ awx_ee_image: ghcr.io/YOUR_ORG/media-stack-ee:1
 awx_machine_credential: Media hosts SSH
 # Optional AWX Source Control credential for a private Git repository.
 awx_scm_credential: ''
+# Set true only after the cloud inventory declaration and read-only key are
+# reviewed. The configure playbook then registers a separate media-01 job;
+# it never starts that job.
+awx_enable_cloud_inventory: true
+awx_cloud_inventory_name: Cloud service hosts
+awx_media_job_name: Deploy media-01

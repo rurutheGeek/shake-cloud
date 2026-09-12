@@ -1,0 +1,68 @@
+---
+# media-01 の Nextcloud を identity（Authentik）へ ネイティブ OIDC で接続する。
+#
+# identity が configure.py で作った OIDC クライアント（正本は identity VM 上の
+# /opt/identity-stack/secrets/oidc-media.json）を slurp し、media-01 の
+# configure-oidc.py へ環境変数として渡す。secret はログへ出さない。
+#
+# identity は slurp の delegate_to のために同じインベントリへ必要。`media`
+# グループは基盤の NetBox インベントリ（inventory.netbox.yml）にも存在し得る
+# ため、クラウド用インベントリ（inventory.cloud.py）と併用し、cloud-inventory.yml
+# の media-01 のインスタンスIDで `--limit` して media-01 だけに当てる:
+#
+#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
+#   .venv/bin/ansible-playbook \
+#     -i platform/ansible/inventory.netbox.yml \
+#     -i platform/ansible/inventory.cloud.py \
+#     platform/ansible/media-sso.yml \
+#     --limit i-a06df9a2dfd1ce6db
+#
+# identity のホスト名が `identity` でない場合は -e media_sso_identity_host=... で
+# 上書きする。ゾーンは platform/terraform/dns.yaml から取る。
+- name: Connect media-01 Nextcloud to the identity provider
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    media_sso_zone: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml).zone }}"
+    media_sso_identity_secrets: /opt/identity-stack/secrets/oidc-media.json
+  tasks:
+    - name: Create the Nextcloud OIDC directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/nextcloud'
+        state: directory
+        mode: '0750'
+    - name: Copy the Nextcloud OIDC unit script
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/configure-oidc.py'
+        dest: '{{ project_dir }}/media/nextcloud/configure-oidc.py'
+        mode: '0644'
+    # 正本は identity VM 上の1か所。ここへ複製して食い違わせない。
+    - name: Read the media OIDC client credentials on the identity VM
+      ansible.builtin.slurp:
+        src: '{{ media_sso_identity_secrets | default("/opt/identity-stack/secrets/oidc-media.json", true) }}'
+      delegate_to: '{{ media_sso_identity_host | default("identity") }}'
+      register: media_sso_credentials
+      no_log: true
+    - name: Check the media OIDC client credentials
+      ansible.builtin.assert:
+        that:
+          - (media_sso_credentials.content | b64decode | from_json).nextcloud.client_id | length > 0
+          - (media_sso_credentials.content | b64decode | from_json).nextcloud.client_secret | length > 0
+        quiet: true
+      no_log: true
+    # secret は environment と no_log だけで渡し、argv には出さない。
+    - name: Connect Nextcloud to Authentik
+      ansible.builtin.command:
+        argv:
+          - python3
+          - '{{ project_dir }}/media/nextcloud/configure-oidc.py'
+        chdir: '{{ project_dir }}/media/nextcloud'
+      environment:
+        NEXTCLOUD_OIDC_CLIENT_ID: '{{ (media_sso_credentials.content | b64decode | from_json).nextcloud.client_id }}'
+        NEXTCLOUD_OIDC_CLIENT_SECRET: '{{ (media_sso_credentials.content | b64decode | from_json).nextcloud.client_secret }}'
+        NEXTCLOUD_OIDC_DISCOVERY_URL: 'https://auth.{{ media_sso_zone }}/application/o/nextcloud/.well-known/openid-configuration'
+        MEDIA_ZONE: '{{ media_sso_zone }}'
+      register: media_sso_configured
+      changed_when: "'CHANGED:' in media_sso_configured.stdout"
+      no_log: true

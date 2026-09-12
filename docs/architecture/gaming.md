@@ -1,10 +1,10 @@
 # ゲームと開発環境
 
-[構成案トップ](index.md)へ戻る。以下は実機検証前の構成案です。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-12。既存game1（Bazzite、VMID 100、cloud API所有）にGPUが割り当てられています。Wolf・Azahar・AI同居の開発と負荷検証は未完了です。[個別計画](../development/index.md)のG01–G03・A01–A05へ分割して進めます。
 
 ## ゲームVMで利用者ごとに分離する
 
-ゲームVMへ780MをPCIパススルーし、そのVM内でWolfとDockerを動かします。ユーザーA・Bに別プロフィールとAzaharコンテナを用意し、各自のMoonlightへ異なる画面・音声を配信します。
+既存game1の780Mパススルーを利用し、そのVM内でWolfとDockerを動かす計画です。ユーザーA・Bに別プロフィールとAzaharコンテナを用意し、各自のMoonlightへ異なる画面・音声を配信します。
 
 [![2人分のAzaharと通信プレイ](diagrams/gaming.svg)](diagrams/gaming.svg)
 
@@ -45,14 +45,14 @@ Azaharの対応版ではLinux実行ファイルの `--room` でルーム機能�
 
 | 項目 | 開始時の目安 |
 | --- | --- |
-| ゲームVM | 8vCPU、CPU type host、RAM 12GiB固定から。必要なら16GiB |
+| ゲームVM | 8vCPU、CPU type host、現行RAM 12GiB。AI同居負荷を実測して16GiBへの変更を判断。実際のballoon設定は配備前に確認 |
 | 内部解像度 | 1倍で確認し、余裕があれば2倍 |
 | 描画 | Vulkanから確認し、不具合があればOpenGLと比較 |
 | 実行速度 | 本来の100%。最初はFPS変更チートを使わない |
 | 配信 | 720p／60fps程度から。ゲーム本来のFPSとは別 |
 | 音声・シェーダー | キャッシュを永続化。初回生成による停止と継続的な性能不足を区別 |
 | CPU競合 | ゲームVMを優先し、関数実行・AWX・大量走査・バックアップを制限 |
-| AI | ゲーム中はOllamaの推論を停止／モデルを解放 |
+| AI | DB・WebUI・agent・汎用RAG・Botもgame1へ同居。ゲーム優先時は推論・大量取り込みを止める。VM停止時はAI一式も停止 |
 
 CPUの優先度は予約と同義ではありません。vCPUを8個割り当てても他VMと競合します。実測で問題があれば物理コアとSMTの対応を確認し、CPU affinityやバックグラウンド処理の上限を調整します。
 
@@ -70,17 +70,13 @@ Wolfの仮想画面機能をまず検証し、Sway＋VKMSの追加が必要か�
 
 この結果が出るまで「必ずカクつかない」「780Mのパススルーが確実に動く」とは扱いません。
 
-## MusicBrainz Picard
-
-自動タグ付けはまず利用者PC上のPicardを使います。サーバー側GUIが必要ならgame-01へ同居し、ゲーム利用中の音響指紋スキャンを避けます。専用VMは追加せず、作業コピーとPicard設定をユーザー別に保持します。[音楽の具体的な手順](../services/music.md)を参照してください。
-
 ## OpenHomeの同居候補
 
-OpenHomeもgame-01へ入れる希望として管理します。製品／リポジトリが未特定のため、実行方式・Linux対応・音声／GPU要件・常駐要否を確認後に追加します。現時点では動作保証や追加RAMの確定値を置きません。Wolf・Azahar・Ollamaと合計12GiB（増枠時16GiB）の中で収め、設定・データを専用ディレクトリへ分離します。家電自動化とポケモンRDBは別配置です。[全サービス配置](operations.md)
+OpenHomeもgame-01へ入れる希望として管理します。製品／リポジトリが未特定のため、実行方式・Linux対応・音声／GPU要件・常駐要否を確認後に追加します。現時点では動作保証や追加RAMの確定値を置きません。Wolf・Azahar・Ollamaと合計12GiB（増枠時16GiB）の中で収め、設定・データを専用ディレクトリへ分離します。家電自動化はservices-01、ポケモンRDBはgame1へ配置します。[全サービス配置](operations.md)
 
 ## 軽量な開発VM
 
-各自にGUIなしのDebian／Ubuntu cloud imageを用意します。初期値は2vCPU、RAM 2GiB、ディスク32〜40GiB。SSHやVS Code Remote SSHで使い、ビルド負荷に応じてRAMを増やします。
+各自にGUIなしのDebian／Ubuntu cloud imageを用意します。既存dev-a／dev-bの宣言値は各2vCPU、RAM 6GiB（バルーニング下限2GiB）、ディスク40GiBです。SSHやVS Code Remote SSHで使い、ビルド負荷を測って調整します。
 
 SSH鍵、ホームディレクトリ、APIキー、Terraform stateは個別に保持します。普段はCLI中心とし、必要なときだけDev Containersを使います。インフラ開発でDockerやネットワーク設定を触るため、特権やネストを増やしたLXCより小型VMを優先します。
 

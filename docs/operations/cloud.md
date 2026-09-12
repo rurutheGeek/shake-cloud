@@ -778,6 +778,7 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 
 招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行い、`stacks/identity/invitations.py` が管理します。**手順（`configure`/`invite`/`list`/`revoke`、1回限り・24時間、Gmail でのメール送信、`runtime/invitations/` への保存、実機確認）は[認証基盤（identity・Authentik）の「利用者の招待」](identity.md#利用者の招待管理者)にまとめました。** パスワード・パスキーの復旧も同じページにあります。
 
+<a id="3-18"></a>
 ### 3-18. 管理DBのバックアップ
 
 `cloud/manage.py backup` が管理DB（PostgreSQL）を **ライブのまま** `pg_dump -Fc` で取り、配備ファイル（`compose.yaml`・`.env`・`secrets/` など）と一緒に1世代ぶんのディレクトリへ保存します。ダンプ中も API は止まりません。

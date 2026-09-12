@@ -13,7 +13,7 @@
 | NetBoxの置き場 | Terraform `05-seed` | 最初の1台。NetBoxを使わず静的IP | S3互換ストレージ |
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
-| クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
+| クラスタ内の共通基盤・既存ワークロード | Flux | AWX・CNPG・KnativeのOperator、Helm、Kustomize | Gitとクラスタ |
 | 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ、既存VMの引き取り、バケット/S3キー、database、function**） | `cloud` プールのVM、バケット、DB、関数 | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
@@ -67,10 +67,12 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 
 | VMID | プール | 所有者 | 用途 |
 | --- | --- | --- | --- |
-| 100–399 | `platform` | 管理者Terraform | public-edge、vpn-01、identity、home-assistant、storage-s3、k8s、game |
+| 100–399 | `platform` | 管理者Terraform | identity、services-01（05-seed）、cloud-01、storage-s3、k8s。100は既存game1として予約 |
 | 400–499 | `dev` | 管理者Terraform | 開発VM。利用者は電源とコンソールのみ |
 | 900–999 | `lab` | 管理者Terraform | 検証・復元ドリル。使い捨て |
 | 5000–5999 | `cloud` | 自作クラウドAPI | 利用者がAPI・Providerで作るVM |
+
+現在の配置方針は[並列開発計画](../development/index.md)にあります。services-01への家電・VPN・Homarr・Vaultwarden同居は`05-seed`所有の既存VMに対するゲスト構成追加です。新しいstateでVMを再宣言しません。game1はVMID 100のままcloud APIへ引き取り済みです。新規media-01・必要時のpublic-edgeはサービス別stateでcloud API経由で作ります。
 
 `cloud` プールは**空のまま先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
 
@@ -103,7 +105,7 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 
 **ただし利用者側は名前から選ぶ必要はありません。**クラウドAPIは CPU・メモリ・ディスク・バルーニングの有無を直接受け取り、`flavors.yaml` の名前は値を埋める雛形として出すだけです。基盤VM側（`hosts.yaml`）はこれまでどおり名前で指定し、台ごとに上書きします。
 
-**将来のGo APIはこのモジュールを呼びません。** APIはProxmox APIを直接叩きます。揃えるのは入力の形だけで、TerraformをAPIの内側に隠しません。隠すと、APIの障害時にTerraformも使えなくなります。
+**実装済みのGo APIはこのモジュールを呼びません。** APIはProxmox APIを直接叩きます。揃えるのは入力の形だけで、TerraformをAPIの内側に隠しません。隠すと、APIの障害時にTerraformも使えなくなります。
 
 ## stateの分離
 

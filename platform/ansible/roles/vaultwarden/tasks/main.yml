@@ -1,0 +1,86 @@
+---
+- name: Create the Vaultwarden deployment directory
+  ansible.builtin.file:
+    path: '{{ vaultwarden_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the Vaultwarden stack
+  ansible.builtin.copy:
+    src: '{{ vaultwarden_source_dir }}/{{ item }}'
+    dest: '{{ vaultwarden_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# .env は宣言値だけを role が描画する（秘密値は secrets/ と環境変数へ）。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ vaultwarden_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize storage and the admin token
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ vaultwarden_project_dir }}'
+  register: vaultwarden_init
+  changed_when: "'CHANGED' in vaultwarden_init.stdout"
+
+- name: Read the Vaultwarden OIDC client credentials on the identity VM
+  ansible.builtin.slurp:
+    src: '{{ vaultwarden_oidc_credentials_path }}'
+  delegate_to: '{{ vaultwarden_identity_host }}'
+  register: vaultwarden_oidc
+  no_log: true
+
+- name: Check the OIDC client credentials
+  ansible.builtin.assert:
+    that:
+      - (vaultwarden_oidc.content | b64decode | from_json).client_id | length > 0
+      - (vaultwarden_oidc.content | b64decode | from_json).client_secret | length > 0
+    quiet: true
+  no_log: true
+
+- name: Install the OIDC client credentials
+  ansible.builtin.copy:
+    content: '{{ vaultwarden_oidc.content | b64decode }}'
+    dest: '{{ vaultwarden_project_dir }}/secrets/oidc_client.json'
+    mode: '0444'
+  register: vaultwarden_oidc_installed
+  no_log: true
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ vaultwarden_project_dir }}'
+  register: vaultwarden_pinned
+  changed_when: "'CHANGED' in vaultwarden_pinned.stdout"
+
+- name: Start Vaultwarden and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ vaultwarden_project_dir }}'
+  register: vaultwarden_up
+  changed_when: "'Recreate' in vaultwarden_up.stderr or 'Created' in vaultwarden_up.stderr"
+
+- name: Wait for Vaultwarden on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ vaultwarden_port }}/alive'
+  register: vaultwarden_health
+  retries: 20
+  delay: 3
+  until: vaultwarden_health.status == 200
+
+# tls_proxy が先に証明書を取る。HTTPS の名前でも /alive が返ることを確かめる。
+- name: Wait for the public entry point
+  ansible.builtin.uri:
+    url: '{{ vaultwarden_public_url }}/alive'
+    validate_certs: true
+  register: vaultwarden_entry
+  retries: 20
+  delay: 3
+  until: vaultwarden_entry.status == 200

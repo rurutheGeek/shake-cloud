@@ -1,0 +1,106 @@
+#cloud-config
+# media-01 の初回起動。VM の中のソフトは stacks/media/ から配る前提で、
+# ここはユーザー・guest agent・Docker・データディスクのマウントだけを行う。
+#
+# データディスクは VM の起動後に API が接続する。マウントが終わるまで
+# Docker を起動しない。未マウントのままデータ保存先へ書かせないため、
+# マウントに失敗したら Docker も起動しない（fail closed）。
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - ca-certificates
+  - curl
+  - e2fsprogs
+  - util-linux
+
+# パスワード認証は使わない。鍵は cloud API の meta-data 経由で入る。
+ssh_pwauth: false
+
+write_files:
+  - path: /etc/systemd/system/media-data-mount.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Mount the media data disk before Docker starts
+      Wants=network-online.target
+      After=network-online.target
+      Before=docker.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/local/sbin/media-data-mount
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/docker.service.d/10-media-data.conf
+    permissions: '0644'
+    content: |
+      [Unit]
+      # データディスクのマウントが済むまで Docker を起動しない。
+      Requires=media-data-mount.service
+      After=media-data-mount.service
+
+  - path: /usr/local/sbin/media-data-mount
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # データディスクを ${data_mount_path} へ接続する。既存の
+      # ファイルシステムは上書きしない。無いときだけ ext4 を作る。
+      set -eu
+
+      device="${data_device}"
+      mount_path="${data_mount_path}"
+
+      # ボリュームの接続は VM の起動後。最大10分待つ。
+      i=0
+      while [ ! -e "$device" ] && [ "$i" -lt 120 ]; do
+        sleep 5
+        i=$((i + 1))
+      done
+
+      if [ ! -e "$device" ]; then
+        echo "media-data-mount: $device did not appear; refusing to start Docker" >&2
+        exit 1
+      fi
+
+      # blkid はファイルシステムが無いと終了コード2。そのときだけ作る。
+      if ! blkid "$device" >/dev/null 2>&1; then
+        mkfs.ext4 -q -L media-data "$device"
+      fi
+
+      mkdir -p "$mount_path"
+      if ! mountpoint -q "$mount_path"; then
+        mount -o defaults "$device" "$mount_path"
+      fi
+
+  - path: /usr/local/sbin/install-docker
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # Docker 公式リポジトリを使う。platform/ansible/roles/docker と同じ出所。
+      set -eu
+
+      install -d -m 0755 /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $VERSION_CODENAME stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+      apt-get update -qq
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+runcmd:
+  # ここで失敗すると Docker は起動しない。データ保存先を守るため。
+  - systemctl daemon-reload
+  - systemctl enable --now media-data-mount.service
+  - /usr/local/sbin/install-docker
+  - systemctl daemon-reload
+  - systemctl enable --now docker
+
+final_message: "media-01 ready after $UPTIME seconds"

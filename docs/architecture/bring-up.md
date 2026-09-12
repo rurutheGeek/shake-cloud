@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md) / [VM配分・サービス配置](operations.md#resource-budget)
 
-状態: **手順の記録**。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。**現在の状態は[配備台帳](../operations/handover.md)を正とします。** 64GB／1TBのK11を想定します。全VMの一括作成や既存サービスの一括移行は行いません。
+状態: **手順の記録**。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。**現在の状態は[配備台帳](../operations/handover.md)を正とします。** 64GB／1TBのK11を想定します。以下の章番号は初回構築の経緯で、今後の実施順ではありません。配置変更と未完了作業は[並列開発計画](../development/index.md)に従います。
 
 ## 1. ホストの基礎を記録する
 
@@ -40,7 +40,7 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 
 非公開台帳へ、VMID・VM名・IP予約・用途・vCPU/RAM・ディスク／保存先・起動順・バックアップ対象・確認日を記録する。初期値は[VM配分表](operations.md#resource-budget)を転記し、未作成／検証中／稼働／移行済みを区別する。APIキーやパスワード自体は台帳へ直書きしない。
 
-別USBディスク・既存機器・NAS等のバックアップ先を1つ確保する。対象デバイスと既存データを確認してから設定する。同じ内蔵SSDの別パーティションやスナップショットだけを故障対策にしない。PBSは後から追加できる。
+利用可能な既存の外部バックアップ先を1つ確認する。今回の計画では新規ハード購入を前提にしない。対象デバイスと既存データを確認してから設定する。同じ内蔵SSDの別パーティションやスナップショットだけを故障対策にしない。PBSは後から追加できる。
 
 **完了条件:** バックアップ先への書き込みと容量確認が済み、管理PCにホスト設定の復旧メモと鍵がある。
 
@@ -90,25 +90,19 @@ pveum passwd dev-a@pve
 
 **完了条件:** 2人がそれぞれ `devvm start` → `ssh` → 作業 → `devvm stop` を一周できる。相手のVMが一覧に出ない。`terraform plan` が `No changes` のまま。
 
-### セルフホストVPN用の枠を確保する
+### セルフホストVPNを追加する
 
-`vpn-01`（2vCPU／2GiB／16GiB）を[VPN比較](vpn.md)に沿って準備する。NetBirdを第一検証候補とし、Tailscaleの独立した復旧経路を先に確認する。セルフホストVPNの外部到達・認証入口の条件が揃うまでは、宅内LAN／既存Tailscaleで後続作業を進める。公開用ドメイン・CGNAT・ルータ転送・スマホ対応の確認前に公開しない。
+専用vpn-01の旧案を変更し、services-01の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)でラズパイの独立した復旧経路を確認します。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
 
-## 4. Home Assistantを単独で立ち上げる
+## 4. Home Assistantをservices-01へ追加する
 
-公式のHAOS KVM用イメージを使用し、2vCPU・4GiB・32GiB以上、UEFI構成で専用VMを作る。イメージの元ディスクより小さくしない。公式VM手順に従ってSecure Boot等を設定し、LANへbridge接続する。VMへのインポート先ストレージ名は実機値を使う。[HAOS公式VM手順](https://www.home-assistant.io/installation/alternative/)
+HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)が構築計画です。Kubernetes・game1から分離できますが、services-01再起動時は家電とVPNも停止します。
 
-1. DHCPの割り当てを確認し、IP予約を設定する。LANの `http://<HAのIP>:8123` から初期設定する。
-2. SwitchBotの1台で操作と状態更新を確認する。Bluetooth利用時はVMへのデバイス割り当てと電波到達を先に確認する。
-3. 自動化を1つだけ作り、HAOS再起動後にも動くことを確認する。
-4. HAバックアップを外部保存し、復号に必要な情報も保管する。
-5. EchoのAlexa操作、EufyCam S4連携を[機器別の確認項目](operations.md#home-devices)に沿って追加する。
+SwitchBot・Echo・Eufyの調査はH02–H04で独立して進め、実機接続だけをH01の配備後に確認します。家電1台の操作・状態更新、再起動後の復帰、構成・履歴の復元を合格条件にします。機種未確認の連携を他の作業の着手条件にしません。
 
-**完了条件:** 家電1台を操作でき、再起動後も設定・状態が戻る。カメラ互換性の未解決を理由に他の基盤作業は止めない。
+## 5. 既存game1でゲームとAIを検証する
 
-## 5. game-01で780Mを先に検証する
-
-Linux VM（8vCPU、CPU type host、12GiB、OS48＋データ96GiB）を用意する。IOMMUグループとGPU／音声機能を調べ、管理NICや必要なUSBを巻き込まないことを確認してからPCIパススルーを設定する。ホストの画面が使えなくなる可能性があるため、手順1のSSH・管理GUI経路を先に確保する。実機のPCIアドレスや起動方式に依存する設定を推測でコピーしない。[PCIパススルー公式](https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_pci_passthrough)
+既存game1（Bazzite、8vCPU、現行12GiB、cloud API所有）を利用する。GPUは割り当て済みだが、Wolf・Azaharの2人利用は別途検証する。IOMMUグループとGPU／音声機能を調べ、管理NICや必要なUSBを巻き込まないことを確認してからPCIパススルーを設定する。ホストの画面が使えなくなる可能性があるため、手順1のSSH・管理GUI経路を先に確保する。実機のPCIアドレスや起動方式に依存する設定を推測でコピーしない。[PCIパススルー公式](https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_pci_passthrough)
 
 Wolf → 1人のAzahar → 2人の独立セッション → 交換・対戦の順に確認する。30〜60分のプレイとVM再起動後のGPU再利用を[ゲームの合格条件](gaming.md)で確認する。Ollamaは後から追加し、ゲーム中は推論を止める。
 
@@ -116,22 +110,22 @@ OpenHomeはgame-01への同居希望として台帳に残す。製品／リポ�
 
 **完了条件:** 2人プレイとセーブ永続化が確認できる。不具合がある間は既存ゲーム環境を残し、Home Assistantや他サービスの導入は進められる。
 
-## 6. 常用クラスタを組み、小さいサービスから移す
+## 6. 既存クラスタを維持し、移行先を機能ごとに選ぶ
 
-`identity`、`k8s-cp-01`、`k8s-worker-01`、`k8s-worker-02`を配分表の値で作成する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](../operations/kubernetes.md)）。
+identity・cp・worker-01は構築済み。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](../operations/kubernetes.md)）。
 
 1. OS・containerd・kubeadm・Ciliumの互換版を固定し、Pod／Service CIDRとLAN／VPNのアドレス重複を避ける。
 2. nodeがReadyになることを確認し、名前解決・Pod間通信・NetworkPolicyを確認する。
 3. ローカルPVC、MetalLB用の未使用IP範囲、cert-manager、Flux/SOPSを設定する。**完了（2026-09-12）**。Gateway の代わりに Cilium Ingress を使っている。
 4. 軽量HTTPアプリとテストPVCで、内部HTTPS・VM再起動後の永続化・バックアップ復元を確認する。
-5. Homarr／MkDocs、読み取り中心のメディアを移し、ポケモンDB・WebUI・agentは[移行単位と合格条件](operations.md#pokemon-db)に従って移す。
-6. Nextcloud／Vaultwardenを復元テスト後に切り替える。**AWX・Garage・Knative・自作API は追加済み（2026-09-12）。NetBox は services-01 のままで、Kubernetes への移行は未実施。** RAM・SSD・CPUを毎回測る。
+5. アプリの移行はW01–W07へ分割。Homarr・Vaultwardenはservices-01、メディアはmedia-01へ移す。MkDocsは現行配置を維持する。
+6. ポケモンDB・WebUI・agentはA01でgame1へ一式移行し、復元と接続を確認して切り替える。**AWX・Garage・Knative・自作APIは追加済み。NetBoxはservices-01に維持する。**
 
 **完了条件:** worker再起動後もデータを読め、別環境へのDB復元ができる。worker VMが2台でも単一K11の故障には耐えないことを運用へ反映する。
 
 ## 7. 自動起動と日常運用を仕上げる
 
-Proxmoxの自動起動順は、HAOS／identity／storage → vpn-01 → control plane → workers → 必要な入口を初期案とする。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
+Proxmoxの自動起動順は、identity／storage／services-01（家電・VPNを同居予定） → cloud-01／control plane → workers → 必要な入口を初期案とする。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
 
 初期バックアップ方針は重要DB・HA設定・セーブを日次、VMを週次＋大きな変更前とし、データ変更頻度・容量に応じて見直す。これは日次なら最大約1日分を失い得る目安であり、実際の取得成功を監視する。ゲームの利用時間とバックアップ／大量走査をずらす。復元所要時間を測り、必要な復旧時間に収まるか確認する。
 

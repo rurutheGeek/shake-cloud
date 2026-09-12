@@ -34,7 +34,13 @@ python3 music-tools/download.py 'https://www.youtube.com/watch?v=動画ID' --for
 
 ## MusicBrainz Picardで自動照合・タグ付け
 
-**Picardを音楽タグ付けの標準GUIにする方針です。** 初期配置は利用者のPCで、専用VMは不要です。サーバー側GUIが必要ならgame-01のデスクトップ／Wolfアプリへ同居できますが、ゲーム中の大量スキャンは避けます。現時点でPicard本体や無人実行ジョブは配備していません。
+**Picardを音楽タグ付けの標準GUIにする方針です。** Picardはメディアの音楽導線（MeTubeの取込 → Nextcloudの共有music → タグ付け → Navidromeの表示）に置きます。GUIは基本として利用者PCで動かし、サーバー側GUIはmedia-01のWeb GUIコンテナ（`jlesage/musicbrainz-picard`）を使います（ゲームVMには置きません）。**2026-09-12にmedia-01へ先行配備**しました。無人実行ジョブは未実装です。
+
+### media-01のWeb GUIへ入る
+
+media-01のPicardは <https://picard.apextox.dpdns.org>（LAN内）です。`tls_proxy` のCaddyがTLSを終端し、AuthentikのForward Authで保護します。初回は共通ログイン（`auth.apextox.dpdns.org`）へ移動し、認証後にPicardへ戻ります。アプリ自身のポート `127.0.0.1:5800` はLANに公開していません。
+
+共有musicはライブラリ移行（W03〜W06）まで空です。`/storage` に見えるのが共有musicで、`/config` はPicardの設定です。BCSTM原本と `music/Converted/` を直接編集しないでください。
 
 Picardの「Lookup」は既存タグを使う照合、「Scan」はAcoustIDの音響指紋を使う照合です。自動照合で曲名・アーティスト・アルバム等の候補を取得し、「Save」でファイルへ書き込みます。同じ曲でもアルバム版・シングル版・再発版があるため、曲を特定できても希望する版とは限りません。[Picard Scan](https://picard-docs.musicbrainz.org/en/latest/usage/retrieve_scan.html)
 

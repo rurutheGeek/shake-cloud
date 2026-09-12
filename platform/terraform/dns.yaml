@@ -27,10 +27,52 @@ records:
     host: cloud-01
     upstream: 127.0.0.1:8080
     description: クラウドのポータルとAPI
+  # media-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
+  # host は tls_proxy が受ける名前を選ぶのに使う（inventory の cloud_name）。
+  nextcloud:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:8080
+    description: Nextcloud（ファイル・カレンダー・タスク）
+  kavita:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:5000
+    description: Kavita（電子書籍リーダー）
+  navidrome:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:4533
+    description: Navidrome（音楽ストリーミング。Forward Auth）
+    auth: true
+  metube:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:8081
+    description: MeTube（動画ダウンローダー。Forward Auth）
+    auth: true
+  picard:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:5800
+    description: Picard（音楽タグ編集。Forward Auth）
+    auth: true
   netbox:
     host: services-01
     upstream: 127.0.0.1:8000
     description: NetBox
+  homarr:
+    host: services-01
+    upstream: 127.0.0.1:7575
+    description: Homarr（サービスの入口。OIDC）
+  vault:
+    host: services-01
+    upstream: 127.0.0.1:8222
+    description: Vaultwarden（パスワード管理・SSO）
+  ha:
+    host: services-01
+    upstream: 127.0.0.1:8123
+    description: Home Assistant（家電・自動化）
   docs:
     host: services-01
     upstream: 127.0.0.1:8090

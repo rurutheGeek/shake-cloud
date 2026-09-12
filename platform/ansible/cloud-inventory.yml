@@ -1,0 +1,19 @@
+---
+# クラウドVMをAnsibleの配備対象にする宣言（I03）。
+# platform/ansible/inventory.cloud.py が読み、GET /v1/instances の結果と
+# 突き合わせる。秘密値はここに書かない（鍵は環境変数から渡す）。
+#
+# account_id は配備対象の1アカウント。使うアクセスキーで
+#   curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" \
+#     https://cloud.apextox.dpdns.org/v1/caller-identity
+# を実行し、返る account_id に合わせる。違う値にすると一致するVMが無く、
+# inventory は空になる（誤ったVMを配備しない安全側）。
+# 2026-09-12: 実キー（ruruthegeek、管理者ではない）で確認した値。
+account_id: "934162309796"
+
+# インスタンスID -> 割り当てるAnsibleグループ。
+# グループ語彙は inventory.netbox.yml の groups: と同じものだけを使う。
+# 表示名（tags.Name）では絞らない。VMを置き換えてIDが変わったらここを直す。
+# 停止・削除・IP未確定・遷移中のものは inventory.cloud.py が出さない。
+instances:
+  i-a06df9a2dfd1ce6db: [media]

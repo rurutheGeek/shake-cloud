@@ -1,0 +1,7 @@
+{
+  "services": {
+    "homarr": {
+      "image": "ghcr.io/homarr-labs/homarr@sha256:7d87f7fdd35f8bbee1b922b9b74fad8ce9967a1a66b8c6db1a168780c03d693b"
+    }
+  }
+}

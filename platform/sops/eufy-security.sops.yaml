@@ -1,0 +1,19 @@
+EUFY_USERNAME: ENC[AES256_GCM,data:eSoHe19NJr3ErE6GnypcUh2/,iv:bGaJhHTkktR/Co7l1zTaasyNph6NdtqfQeMTgdsOo+o=,tag:03HItlyoR70QeAalQKglvQ==,type:str]
+EUFY_PASSWORD: ENC[AES256_GCM,data:ffZ2bQVDfhVf39ehTUE54Q==,iv:3n1XMHtAMnfPNxnOfoqZvdqnMyWMNAx6Vie90NdOJC0=,tag:tXdwsmSFD+3PENwQNtt+aw==,type:str]
+EUFY_COUNTRY: ENC[AES256_GCM,data:htA=,iv:YgBnMPP10JBhgJKyXcnFt2rcgjjZWkJGNjjfclIRFHQ=,tag:q7S8JOV7+AnZl7JinQpHOw==,type:str]
+EUFY_TRUSTED_DEVICE_NAME: ENC[AES256_GCM,data:b4ZcZI69FjpuQGw=,iv:5n9JfKOG0J+ZSQAUnblTHmYN+Mot4KGQic5/8rR5k0U=,tag:d9qhgSOgU9t47pYDesGmwA==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBWblMxOTQwejdWRkYrWEhy
+            UGdWVW9EcmhINHV4d2pFeklpTVdXZzJXOGxBCjdhbVFjWWEzZlZUeWtybHdRUUJ3
+            N0NpanBHVzg3MzV2ZXFJZHBXZWNFYUEKLS0tIFVmZ0N5UHVjc1JHd3g3U0R6MHlX
+            WnAvKzkxbkxTYUdTYkxndmtFTEpqSFkKimZ1r+DaPSrsWe2FR8P5pbAJ7fZnuyOa
+            Wh8d9fHLkzc1NymrmLfY6Exb0uXtHDOBiVV9jTuMpxTFIYQ+rhUw8A==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h
+    lastmodified: "2026-09-12T16:11:41Z"
+    mac: ENC[AES256_GCM,data:WWDlrE0KQzYhfSXOYURV866+g2VLCz97wGIpyFrRNtU6B74zzEBQRt3XmKKt0xwVX60O7UvV334w5QxKjsTrRHtsX9H/Mq507ZtfNScVTeXyaAs6SPFTb2QbzS3G8wM0eUJYzVgVBKVEsG6lxYKsfpLbbLQcjg8O8XCSvl6B3aY=,iv:n4Q7XFs9+/z+1sQ4NFGahuMR3yUCKQX7L0U/hwdtMCg=,tag:K1vtBQBKyA39K9eH2oSHTQ==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3

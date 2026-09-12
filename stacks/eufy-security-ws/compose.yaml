@@ -1,0 +1,35 @@
+name: services-eufy-security-ws
+
+services:
+  eufy-security-ws:
+    image: ${EUFY_WS_IMAGE:-bropat/eufy-security-ws:3.1.0}
+    restart: unless-stopped
+    environment:
+      USERNAME: ${EUFY_USERNAME:?EUFY_USERNAME is required}
+      PASSWORD: ${EUFY_PASSWORD:?EUFY_PASSWORD is required}
+      COUNTRY: ${EUFY_COUNTRY:-JP}
+      TRUSTED_DEVICE_NAME: ${EUFY_TRUSTED_DEVICE_NAME:-shake-cloud}
+      PORT: '3000'
+      EVENT_DURATION_SECONDS: ${EUFY_EVENT_DURATION_SECONDS:-10}
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/services/eufy-security-ws}/data:/data
+    networks: [homeassistant]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('net').connect(3000,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+networks:
+  # Home Assistant と同じユーザー定義ネットワークへ入れる。ポートは LAN へ
+  # 公開せず、HA からは `eufy-security-ws:3000` で届く。HA の compose が
+  # 先に作るネットワークなので、HA を止めて `down` した状態では起動しない。
+  homeassistant:
+    external: true
+    name: services-home-assistant_homeassistant

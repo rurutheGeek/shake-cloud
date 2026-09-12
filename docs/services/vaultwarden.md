@@ -1,5 +1,7 @@
 # Vaultwarden
 
+**新しい入口は <https://vault.apextox.dpdns.org>（services-01、Let's Encrypt・Authentik SSO）です。** 2026-09-12に新規構築しました。管理画面 `/admin` は公開せず、`ssh -N -L 8222:127.0.0.1:8222 debian@services-01` の転送で `http://localhost:8222/admin` を開きます（admin tokenは `/opt/services/vaultwarden/secrets/admin_token`、0400）。一般登録と組織招待は既定で無効で、Web UIに「Create account」は出ません（初回作成はSSO経由のみ）。以下は旧ステージング（`vault.localhost:8243`・SSH転送）で確認した内容を含みます。
+
 ## Web保管庫の日本語化
 
 Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではなく、Bitwarden互換Webクライアント側の設定です。利用者ごとに次の場所で変更します。

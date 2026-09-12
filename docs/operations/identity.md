@@ -17,6 +17,8 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - 配備のたびに `manage.py configure` が走り、**冪等**に次を整えます。
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
+  - OIDC クライアント `homarr`（services-01の入口。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
+  - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`。`users`と`admins`の両方を許可）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
 - 2 回目の実行はすべて `OK:` になります。
@@ -28,6 +30,9 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | `akadmin` の初期パスワード | `/opt/identity-stack/secrets/bootstrap_password` |
 | API 用ブートストラップトークン | `/opt/identity-stack/secrets/bootstrap_token` |
 | OIDC クライアント `cloud` の秘密 | `/opt/identity-stack/secrets/oidc-cloud.json` |
+| OIDC クライアント `homarr` の秘密 | `/opt/identity-stack/secrets/oidc-homarr.json` |
+
+`home-assistant` は公開クライアント（PKCE）のため秘密値を持ちません。HA側では `auth_oidc` の `client_id: home-assistant` だけを設定します。
 
 取得例（`akadmin` で管理画面に入れないときの初期パスワード確認）:
 
@@ -40,6 +45,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 バックアップは VM 上で `manage.py backup`（`storage/` と配備ファイルを 1 つの tar にまとめる。既定 `backups/`）を取ります。手順と保管先は[バックアップと復旧](../architecture/operations.md#バックアップと復旧)に沿って決めます。
 
+<a id="利用者の招待管理者"></a>
 ## 利用者の招待（管理者）
 
 **利用者の招待は、クラウド API でもポータルでもありません。** 認証基盤の管理者の仕事です。クラウドは、招待で作られた利用者が `users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません。
@@ -90,6 +96,7 @@ sudo python3 /opt/identity-stack/invitations.py list
 3. **利用者設定からパスキーと「メール」確認コードを登録します。** 片方だけだと、失ったときに詰まります（次節）。
 4. ポータルなど目的のアプリを開き、SSO でログインします。
 
+<a id="パスワードパスキーの復旧"></a>
 ## パスワード・パスキーの復旧
 
 ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**認証器を 1 つも登録していない利用者はこの段階を素通り**しますが、**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。
@@ -115,6 +122,7 @@ sudo python3 /opt/identity-stack/invitations.py list
 
 実機確認（2026-09-12）: `configure` を流し、`akadmin` の復旧先設定・Email 認証器フロー・復旧フロー作成を確認。復旧フローの executor で識別から `ak-stage-email` まで到達し、**Gmail から復旧メールが実送信**されることを確認しました。2 回目は全項目 `OK` で冪等です。
 
+<a id="パスキーだけでログインするパスワードレス"></a>
 ## パスキーだけでログインする（パスワードレス）
 
 **有効（2026-09-12）。** `configure.py` が認証フローの識別ステージの **WebAuthn Authenticator Validation Stage** を同じフローの検証ステージへ向けると、ログイン画面でブラウザーのパスキー自動入力（条件付き UI）が出ます。パスキーで入ったあとは Authentik の既定ポリシー（`auth_method == auth_webauthn_pwl`）がパスワード段階と検証段階を飛ばすので、パスワードなしでログインできます。設定は識別ステージの 1 か所だけで、再適用で戻ります。
