@@ -13,6 +13,9 @@ ipam:
 # DNS を固定できるよう .241 を指定する。
 ingressController:
   enabled: true
+  # 共有 LB（cilium-ingress）を1つだけ使う。Ingress ごとに IP が増えず、
+  # DNS を固定できる。
+  mode: shared
   service:
     annotations:
       metallb.universe.tf/loadBalancerIPs: 192.168.10.241
