@@ -51,6 +51,24 @@ class BootstrapKeyTests(unittest.TestCase):
             chown.assert_any_call(root / 'data/uploads', 65532, 65532)
 
 
+class BackupRetentionTests(unittest.TestCase):
+    def test_only_finished_backups_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory)
+            for name in ('20260101T000000000000Z', '20260102T000000000000Z', '20260103T000000000000Z'):
+                (destination / name).mkdir()
+            # A crash leaves a `.incomplete` staging directory behind. It is not
+            # yet a backup, so it must not be kept or pruned.
+            (destination / '20260104T000000000000Z.incomplete').mkdir()
+            (destination / 'deployment.tar').write_text('not a directory')
+            self.assertEqual([path.name for path in manage.expired_backups(destination, 2)],
+                             ['20260101T000000000000Z'])
+            self.assertEqual(manage.expired_backups(destination, 3), [])
+            self.assertEqual(manage.expired_backups(destination, 1)[0].name, '20260101T000000000000Z')
+            # keep <= 0 keeps everything.
+            self.assertEqual(manage.expired_backups(destination, 0), [])
+
+
 class ComposeTests(unittest.TestCase):
     services = yaml.safe_load((CLOUD / 'compose.yaml').read_text())['services']
 
@@ -127,6 +145,16 @@ class DeploymentTests(unittest.TestCase):
     def test_the_site_playbook_deploys_the_cloud_after_identity(self):
         order = [entry['import_playbook'] for entry in yaml.safe_load((ROOT / 'platform/ansible/site.yml').read_text())]
         self.assertLess(order.index('identity.yml'), order.index('cloud.yml'))
+
+    def test_the_management_database_backup_is_scheduled(self):
+        tasks = yaml.safe_load((ROOT / 'platform/ansible/roles/cloud_api/tasks/main.yml').read_text())
+        self.assertIn('cloud-backup.timer', json.dumps(tasks))
+        service = (CLOUD / 'cloud-backup.service.j2').read_text()
+        self.assertIn('manage.py backup', service)
+        self.assertIn('--keep', service)
+        timer = (CLOUD / 'cloud-backup.timer.j2').read_text()
+        self.assertIn('Persistent=true', timer)
+        self.assertIn('WantedBy=timers.target', timer)
 
 
 if __name__ == '__main__':

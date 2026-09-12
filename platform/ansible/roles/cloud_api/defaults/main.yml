@@ -23,3 +23,10 @@ cloud_api_cloudapi_sops_file: '{{ playbook_dir }}/../sops/cloudapi.sops.yaml'
 # API が読む配備先の事実と上限。platform/terraform の宣言から生成する。
 cloud_api_render_site: '{{ playbook_dir }}/../../cloud/render_site.py'
 cloud_api_terraform_dir: '{{ playbook_dir }}/../terraform'
+
+# 管理DBの定期バックアップ（systemd timer）。pg_dump はライブで取るので API は止めない。
+# 保持は最新 N 世代。**同じホストのディスクなので、ディスク故障対策にはならない。**
+# 別の場所（Garage か別ディスク）への外部コピーは別途。
+cloud_api_backup_dir: /var/backups/cloud-api
+cloud_api_backup_keep: 14
+cloud_api_backup_oncalendar: '*-*-* 03:40:00'

@@ -799,6 +799,33 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 
 実機確認（2026-09-12）: Gmail のアプリパスワードを `platform/sops/smtp.sops.yaml` に格納し、`identity.yml` を流して identity VM の `.env` へ反映・Authentik を再作成。`invitations.py` の `smtp_settings`／`deliver` を通して **Gmail から実送信**できることを確認しました。
 
+### 3-18. 管理DBのバックアップ
+
+`cloud/manage.py backup` が管理DB（PostgreSQL）を **ライブのまま** `pg_dump -Fc` で取り、配備ファイル（`compose.yaml`・`.env`・`secrets/` など）と一緒に1世代ぶんのディレクトリへ保存します。ダンプ中も API は止まりません。
+
+**定期実行**は cloud-01 の systemd timer `cloud-backup.timer` が行います。`cloud_api` ロールが配備し、既定で毎日 **03:40**（`Persistent=true`、最大30分のばらつき）に走ります。
+
+| 項目 | 値 |
+| --- | --- |
+| 保存先 | `/var/backups/cloud-api/`（既定。`cloud_api_backup_dir`） |
+| 保持 | 最新 **14** 世代。古いものは成功後に削除（`--keep`、既定 `cloud_api_backup_keep`） |
+| 失敗時 | `.incomplete` のまま残し、**世代を消さない**（唯一の正常コピーを失わないため） |
+
+手で取る:
+
+```bash
+sudo sh -c 'cd /opt/cloud-stack && python3 manage.py backup --destination /var/backups/cloud-api --keep 14'
+```
+
+戻す（`shakecloud.dump` は `pg_restore` の custom 形式）:
+
+```bash
+sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud.dump | \
+  docker compose -f compose.yaml exec -T postgres pg_restore -U shakecloud -d shakecloud --clean --if-exists'
+```
+
+各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（`storage-s3`）や別ディスクへの外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
+
 ## 4. 実機プローブ
 
 **設計の前提がこの Proxmox の版で成立するかを機械判定します。**結果が違えば設計を変えるので、実装より先に走らせてください。PVEを上げたあとにも走らせます。

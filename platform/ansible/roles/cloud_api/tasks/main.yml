@@ -204,6 +204,27 @@
   delay: 3
   until: cloud_api_health.status == 200
 
+# 管理DBの定期バックアップ。pg_dump はライブで取るので API を止めない。
+# 保持世代を過ぎたものは backup() が消す（失敗時は消さない）。
+- name: Install the management database backup service
+  ansible.builtin.template:
+    src: '{{ cloud_api_source_dir }}/cloud-backup.service.j2'
+    dest: /etc/systemd/system/cloud-backup.service
+    mode: '0644'
+
+- name: Install the management database backup timer
+  ansible.builtin.template:
+    src: '{{ cloud_api_source_dir }}/cloud-backup.timer.j2'
+    dest: /etc/systemd/system/cloud-backup.timer
+    mode: '0644'
+
+- name: Enable the management database backup timer
+  ansible.builtin.systemd:
+    name: cloud-backup.timer
+    daemon_reload: true
+    enabled: true
+    state: started
+
 - name: Remove the local build directory
   delegate_to: localhost
   become: false
