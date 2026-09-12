@@ -1,0 +1,9 @@
+[Unit]
+Description=Back up the shake-cloud management database
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ cloud_api_project_dir }}
+ExecStart=/usr/bin/python3 {{ cloud_api_project_dir }}/manage.py backup --destination {{ cloud_api_backup_dir }} --keep {{ cloud_api_backup_keep }}
