@@ -38,3 +38,6 @@ records:
   pve:
     address: 192.168.10.126
     description: Proxmoxの管理画面（ポート8006）
+  awx:
+    address: 192.168.10.241
+    description: AWX（Kubernetes の Cilium Ingress。TLS は cert-manager）

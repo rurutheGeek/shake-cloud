@@ -76,6 +76,79 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 
 **Flux/SOPS はまだ入れていません。** 作業ブランチを `main` へ取り込む時期と GitOps のディレクトリ構成を決めてから入れます。
 
+## GitOps（Flux + SOPS）
+
+クラスタ内のアプリは **Flux が Git から適用**します。監視先は `main` の `platform/flux` です。
+
+- **Flux 2.9.5** を bootstrap 済み。`flux-system` namespace で4コントローラが動き、リポジトリ専用の deploy key を使います。
+- 置き場: `platform/flux/flux-system/`（Flux 本体と同期設定）、`platform/flux/infra/`・`platform/flux/apps/`（追加していく場所。Flux は再帰的に読みます）。
+- **秘密値は SOPS**。`platform/flux/**/*.sops.yaml` を age で暗号化し、クラスタ内の Secret `flux-system/sops-age`（キー `age.agekey`）で復号します。ルート Kustomization に `decryption` を設定済みです。
+
+bootstrap（初回のみ。再実行すると Flux のマニフェストを作り直します）:
+
+```bash
+export KUBECONFIG=<クラスタの admin.conf>
+GITHUB_TOKEN=$(gh auth token) flux bootstrap github \
+  --owner=rurutheGeek --repository=shake-cloud --branch=main --path=platform/flux --personal
+```
+
+`sops-age` は**復号の鍵そのもの**なので Git に置けません。配備時に人が入れます（pod が落ちても消えません）:
+
+```bash
+kubectl -n flux-system create secret generic sops-age \
+  --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
+```
+
+新しい秘密値は `.sops.yaml` のルールで暗号化して置きます。コミットして push すれば Flux が復号して適用します:
+
+```bash
+sops platform/flux/apps/<name>.sops.yaml
+```
+
+実機確認（2026-09-12）: 4コントローラが Running、`Kustomization/flux-system` が `Applied revision`。SOPS で暗号化した Secret が**復号されて作られる**こと、Git から消すと **prune される**ことを確認しました。
+
+## アプリ: AWX
+
+AWX（Ansible の実行基盤）を **worker-01** に Flux で配備しています。
+
+| 項目 | 値 |
+| --- | --- |
+| 入口 | **`https://awx.apextox.dpdns.org/`**（Cilium Ingress。証明書は cert-manager が Let's Encrypt で発行） |
+| 管理者 | ユーザー `admin`。パスワードは `platform/flux/apps/awx-instance/admin-password.sops.yaml`（`sops -d ... \| grep password` で見る） |
+| DB | Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク） |
+| 版 | Operator **2.19.1** / AWX **24.6.1** |
+| 置き場 | `platform/flux/apps/`（Flux が Git から適用。`dependsOn` で Operator → AWX の順） |
+
+- Operator は上流リポジトリ（tag `2.19.1`）を Flux の `GitRepository` で取得し、`config/default` を kustomize で適用します。**`kube-rbac-proxy` は GCR から消えている**ため quay のミラーに差し替えています。
+- **HTTPS**: Cilium の Ingress（共有 LB `cilium-ingress` = **192.168.10.241**）が受け、cert-manager の `ClusterIssuer` **`letsencrypt-dns`**（Cloudflare DNS-01）が証明書を発行します。名前は `dns.yaml` の `awx` レコードで `.241` に向けています。AWX は `service_type: ClusterIP` で、Ingress(`cilium`) から `awx-service` へルーティングします。
+  - Ingress を有効化した直後は **`cilium-envoy` を作り直さないと共有 LB が待ち受けを始めません**（`k8s_control_plane` ロールが Cilium の値変更時に再起動します）。
+- **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB です。
+- `awx` namespace の `AWX/awx` は `Running: True`。`https://awx.apextox.dpdns.org/api/v2/ping/` が応答します。HTTP は 301 で HTTPS へ転送されます。
+
+## アプリ: CloudNativePG（database）
+
+クラウドの **`shakecloud_database`**（利用者に PostgreSQL を渡す機能）の実体です。Operator と最初の Cluster を Flux で配っています。
+
+- **Operator**: `platform/flux/apps/cnpg/`（Helm chart **0.29.0 → operator 1.30.0**、namespace `cnpg-system`）。CRD を先に入れる必要があるので子 Kustomization `cnpg` に分け、Cluster 側から `dependsOn` しています。
+- **Cluster `demo`**: `platform/flux/apps/databases/`（namespace `databases`、`instances: 1`、PVC は local-path **5Gi**）。
+- CNPG が作るもの: `demo-rw`（読み書き）/`demo-ro`（読み取り専用）/`demo-r` の Service、接続情報の Secret **`demo-app`**。レプリカ・バックアップ・フェイルオーバーは台数を増やしたときに効きます。
+
+実機確認（2026-09-12）: `kubectl -n databases get cluster demo` が **INSTANCES 1 / READY 1 / Cluster in healthy state**、PVC `demo-1` が Bound、`psql -U postgres` が **PostgreSQL 18** を返すことを確認しました。
+
+**API から作れます。** `POST /v1/databases` が `databases` namespace に CNPG Cluster を作り、`GET /v1/databases`・`GET`/`DELETE /v1/databases/{id}`・`GET /v1/databases/{id}/credentials` があります。API は Flux で作った ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）のトークンで Kubernetes を操作します。トークンと CA は `platform/sops/k8s.sops.yaml` に置き、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。Provider `shakecloud_database` と CLI は次の段です。
+
+## アプリ: Knative（function）
+
+クラウドの **`shakecloud_function`**（利用者にサーバレス HTTP を渡す機能）の実体です。Knative Operator と Serving（Kourier）を Flux で配っています。
+
+- **Knative Operator 1.23.1**（`platform/flux/apps/knative.yaml`）。上流 `config/default` を kustomize で適用しますが、**`ko://` のままなので release の digest に差し替え**ています。また、Operator が Serving 用の RBAC を委譲できるよう `cluster-admin` を束ねています（付けないと `attempting to grant RBAC permissions not currently held` で失敗します）。
+- **Knative Serving 1.23.0 + Kourier**（`platform/flux/apps/knative-serving/`）。ゲートウェイは `knative-serving/kourier` の LoadBalancer（MetalLB が IP を配る）。
+- **`config-network.ingress-class` は完全名 `kourier.ingress.networking.knative.dev`**。短縮名 `kourier` にすると Ingress の annotation が短縮名になり、net-kourier controller のフィルタ（完全名）に一致せず **Ingress が reconcile されません**（2026-09-12 に実際に踏みました）。
+- 関数 URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。DNS は未登録なので、いまは Host ヘッダで確認します。
+- **API から作れます。** `POST /v1/functions` が `functions` namespace に Knative Service を作ります。API は database と同じ ServiceAccount（`databases/cloud-api`）を使い、Flux が `functions` namespace の Role（Knative Service だけ）を与えています。
+
+実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。`POST /v1/functions` でも同じ流れ（Provisioning → Ready、URL 発行、削除で Service ごと消える）を確認しました。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -91,6 +164,6 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 ## 次のスライス
 
-1. Flux/SOPS（`main` への取り込み方とディレクトリ構成を決めてから）
-2. AWX
-3. CloudNativePG（`database`）・Knative（`function`）
+1. クラウドAPI に database を実装（CloudNativePG の Cluster を作る）→ Provider `shakecloud_database`
+2. Knative（`function`）→ Provider `shakecloud_function`
+3. CNPG のバックアップを Garage（S3）へ

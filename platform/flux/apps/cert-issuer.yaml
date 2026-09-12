@@ -1,0 +1,18 @@
+# cert-manager の発行体（Let's Encrypt DNS-01）。秘密値を復号する。
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cert-issuer
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./platform/flux/infra/cert-issuer
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

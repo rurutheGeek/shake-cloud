@@ -9,3 +9,13 @@ k8sServicePort: 6443
 # Pod の CIDR は kube-controller-manager が配る（kubeadm の podSubnet）。
 ipam:
   mode: kubernetes
+# HTTP の入口は Cilium 自身が処理する（Ingress）。MetalLB が IP を配るので、
+# DNS を固定できるよう .241 を指定する。
+ingressController:
+  enabled: true
+  # 共有 LB（cilium-ingress）を1つだけ使う。Ingress ごとに IP が増えず、
+  # DNS を固定できる（正しいキーは loadbalancerMode）。
+  loadbalancerMode: shared
+  service:
+    annotations:
+      metallb.universe.tf/loadBalancerIPs: 192.168.10.241

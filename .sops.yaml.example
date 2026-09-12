@@ -28,3 +28,6 @@
 creation_rules:
   - path_regex: platform[\\/]sops[\\/].*\.sops\.yaml$
     age: age1REPLACE_WITH_YOUR_AGE_PUBLIC_KEY
+  # Flux が復号する秘密値。クラスタ内の sops-age Secret と同じ鍵で暗号化する。
+  - path_regex: platform[\\/]flux[\\/].*\.sops\.yaml$
+    age: age1REPLACE_WITH_YOUR_AGE_PUBLIC_KEY

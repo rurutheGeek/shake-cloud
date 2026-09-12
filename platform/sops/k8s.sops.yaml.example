@@ -1,0 +1,12 @@
+# platform/sops/k8s.sops.yaml の中身の例。値は Kubernetes クラスタから取る。
+#
+#   export KUBECONFIG=~/.kube/shake.kubeconfig
+#   kubectl -n databases get secret cloud-api-token -o jsonpath='{.data.ca\.crt}'
+#     -> K8S_CA_BASE64（base64 のまま）
+#   kubectl -n databases get secret cloud-api-token -o jsonpath='{.data.token}' | base64 -d
+#     -> K8S_TOKEN（トークン本体）
+#
+# この ServiceAccount（databases/cloud-api）は CNPG Cluster と Secret だけ触れる。
+K8S_API_URL: https://192.0.2.10:6443
+K8S_CA_BASE64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+K8S_TOKEN: eyJhbGciOiJSUzI1NiIsImtpZCI6Ii4uLiJ9...

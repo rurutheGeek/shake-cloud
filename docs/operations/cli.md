@@ -59,6 +59,8 @@ shakecloud [--endpoint URL] [--json] <command> [args]
 | `bucket ls` / `bucket create NAME` / `bucket show NAME` / `bucket rm NAME` | S3バケット |
 | `bucket allow [--read] [--write] [--owner] NAME KEY_ID` / `bucket revoke NAME KEY_ID` | S3キーの権限 |
 | `s3-key ls` / `s3-key create NAME` / `s3-key rm KEY_ID` | S3アクセスキー（秘密値は作成時だけ） |
+| `database ls` / `database create [--storage-gib N] NAME` / `database show ID` / `database rm ID` / `database credentials ID` | PostgreSQL（CloudNativePG） |
+| `function ls` / `function create --image IMAGE NAME` / `function show ID` / `function rm ID` | サーバレス関数（Knative） |
 
 例:
 
@@ -80,6 +82,16 @@ shakecloud s3-key create laptop          # secret はここで一度だけ表示
 shakecloud bucket allow --read --write --owner photos <key_id>
 shakecloud bucket show photos
 shakecloud bucket rm photos
+
+shakecloud database create --storage-gib 5 shop
+shakecloud database ls
+shakecloud database credentials db-...   # 接続情報（保存はしない）
+shakecloud database rm db-...
+
+shakecloud function create --image gcr.io/knative-samples/helloworld-go greeter
+shakecloud function ls
+shakecloud function show fn-...
+shakecloud function rm fn-...
 ```
 
 ## 4. 実装の形

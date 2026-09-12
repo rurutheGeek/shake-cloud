@@ -124,6 +124,15 @@ func routes() []route {
 		{"GET", "/v1/s3-keys", "ListS3Keys", anyCredential, (*Server).listS3Keys},
 		{"POST", "/v1/s3-keys", "CreateS3Key", anyCredential, (*Server).createS3Key},
 		{"DELETE", "/v1/s3-keys/{key_id}", "DeleteS3Key", anyCredential, (*Server).deleteS3Key},
+		{"GET", "/v1/databases", "DescribeDatabases", anyCredential, (*Server).describeDatabases},
+		{"POST", "/v1/databases", "CreateDatabase", anyCredential, (*Server).createDatabase},
+		{"GET", "/v1/databases/{database_id}", "DescribeDatabase", anyCredential, (*Server).describeDatabase},
+		{"DELETE", "/v1/databases/{database_id}", "DeleteDatabase", anyCredential, (*Server).deleteDatabase},
+		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, (*Server).getDatabaseCredentials},
+		{"GET", "/v1/functions", "DescribeFunctions", anyCredential, (*Server).describeFunctions},
+		{"POST", "/v1/functions", "CreateFunction", anyCredential, (*Server).createFunction},
+		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, (*Server).describeFunction},
+		{"DELETE", "/v1/functions/{function_id}", "DeleteFunction", anyCredential, (*Server).deleteFunction},
 	}
 }
 

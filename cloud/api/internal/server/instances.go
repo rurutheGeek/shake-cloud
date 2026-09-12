@@ -24,14 +24,14 @@ type instanceBody struct {
 	InstallISOID string `json:"install_iso_id,omitempty"`
 	DriverISOID  string `json:"driver_iso_id,omitempty"`
 	// InstanceType is absent when the size was given as explicit numbers.
-	InstanceType     string            `json:"instance_type,omitempty"`
-	State string `json:"state"`
+	InstanceType string `json:"instance_type,omitempty"`
+	State        string `json:"state"`
 	// PendingAction is the power/lifecycle action the worker is still carrying
 	// out ("reboot", "stop", ...). Empty when the instance is settled. The
 	// portal shows it so a second click can explain "再起動中です" instead of
 	// returning a generic incorrect-state error.
-	PendingAction string            `json:"pending_action,omitempty"`
-	StateReason   string            `json:"state_reason,omitempty"`
+	PendingAction    string            `json:"pending_action,omitempty"`
+	StateReason      string            `json:"state_reason,omitempty"`
 	PrivateIPAddress string            `json:"private_ip_address,omitempty"`
 	MACAddress       string            `json:"mac_address"`
 	VCPUs            int               `json:"vcpus"`

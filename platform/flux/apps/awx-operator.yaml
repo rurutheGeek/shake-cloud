@@ -1,0 +1,35 @@
+# AWX Operator を上流リポジトリから kustomize で入れる（公式 Helm チャートは無い）。
+# 版は tag で固定する。
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: awx-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/ansible/awx-operator
+  ref:
+    tag: "2.19.1"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: awx-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./config/default
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: awx-operator
+  targetNamespace: awx
+  # 上流の既定イメージを差し替える。kube-rbac-proxy は GCR から消えたので
+  # quay のミラーへ。operator 本体は上流が :latest なので tag で固定する。
+  images:
+    - name: gcr.io/kubebuilder/kube-rbac-proxy
+      newName: quay.io/brancz/kube-rbac-proxy
+      newTag: v0.15.0
+    - name: quay.io/ansible/awx-operator
+      newTag: "2.19.1"

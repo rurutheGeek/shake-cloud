@@ -1,0 +1,38 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+  namespace: awx
+spec:
+  # 入口は Cilium の Ingress（HTTPS）。MetalLB が配る .241 が受ける。
+  service_type: ClusterIP
+  admin_user: admin
+  admin_password_secret: awx-admin-password
+  ingress_type: ingress
+  ingress_class_name: cilium
+  ingress_hosts:
+    - hostname: awx.apextox.dpdns.org
+      tls_secret: awx-tls
+  # この Ingress に証明書を発行させる（cert-manager → Let's Encrypt DNS-01）。
+  ingress_annotations: |
+    cert-manager.io/cluster-issuer: letsencrypt-dns
+  # DB は Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク）。
+  postgres_storage_class: local-path
+  postgres_storage_requirements:
+    requests:
+      storage: 8Gi
+  # 常時1レプリカ。worker-01 の RAM を守るため requests だけ置く（limits は付けない）。
+  web_replicas: 1
+  task_replicas: 1
+  web_resource_requirements:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  task_resource_requirements:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  ee_resource_requirements:
+    requests:
+      cpu: 50m
+      memory: 64Mi

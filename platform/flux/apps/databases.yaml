@@ -1,0 +1,16 @@
+# PostgreSQL の実体（CloudNativePG の Cluster）。Operator の後にする。
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: databases
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./platform/flux/apps/databases
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: cnpg

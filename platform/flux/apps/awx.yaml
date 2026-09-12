@@ -1,0 +1,21 @@
+# AWX 本体。Operator が CRD を入れた後に適用する（dependsOn）。
+# 秘密値を復号するので decryption を付ける。
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: awx
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./platform/flux/apps/awx-instance
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: awx-operator
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

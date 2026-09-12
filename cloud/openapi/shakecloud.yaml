@@ -1440,6 +1440,162 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
+  /v1/databases:
+    get:
+      operationId: DescribeDatabases
+      tags: [database]
+      summary: List database appliances. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Databases.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [databases]
+                properties:
+                  databases:
+                    type: array
+                    items: {$ref: '#/components/schemas/Database'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateDatabase
+      tags: [database]
+      summary: Create a PostgreSQL database appliance.
+      description: |
+        One CloudNativePG Cluster is created in the Kubernetes cluster. The call
+        returns immediately; `status` moves to healthy as the cluster comes up.
+        Repeating with a name the account already has returns the existing one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateDatabaseRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DatabaseEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/databases/{database_id}:
+    get:
+      operationId: DescribeDatabase
+      tags: [database]
+      summary: Describe one database appliance.
+      parameters:
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '200':
+          description: The database.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DatabaseEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteDatabase
+      tags: [database]
+      summary: Delete a database appliance and its data.
+      parameters:
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/databases/{database_id}/credentials:
+    get:
+      operationId: GetDatabaseCredentials
+      tags: [database]
+      summary: Read the database's connection credentials.
+      parameters:
+        - $ref: '#/components/parameters/DatabaseID'
+      responses:
+        '200':
+          description: Credentials.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentials]
+                properties:
+                  credentials: {$ref: '#/components/schemas/DatabaseCredentials'}
+        '401': {$ref: '#/components/responses/Error'}
+  /v1/functions:
+    get:
+      operationId: DescribeFunctions
+      tags: [function]
+      summary: List serverless functions. Users see their own; cloud-admins see every account's.
+      responses:
+        '200':
+          description: Functions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [functions]
+                properties:
+                  functions:
+                    type: array
+                    items: {$ref: '#/components/schemas/Function'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateFunction
+      tags: [function]
+      summary: Create a serverless function from a container image.
+      description: |
+        One Knative Service is created in the Kubernetes cluster. The call
+        returns immediately; `status` moves to Ready as the service comes up.
+        Repeating with a name the account already has returns the existing one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateFunctionRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FunctionEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/functions/{function_id}:
+    get:
+      operationId: DescribeFunction
+      tags: [function]
+      summary: Describe one serverless function.
+      parameters:
+        - $ref: '#/components/parameters/FunctionID'
+      responses:
+        '200':
+          description: The function.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FunctionEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteFunction
+      tags: [function]
+      summary: Delete a serverless function.
+      parameters:
+        - $ref: '#/components/parameters/FunctionID'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
 
 components:
   parameters:
@@ -1483,6 +1639,16 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^GK[0-9a-f]{24}$'}
+    DatabaseID:
+      name: database_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^db-[0-9a-f]{17}$'}
+    FunctionID:
+      name: function_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^fn-[0-9a-f]{17}$'}
   securitySchemes:
     accessKey:
       type: http
@@ -2141,3 +2307,65 @@ components:
       required: [name]
       properties:
         name: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9 ._:@-]{0,63}$'}
+    Database:
+      type: object
+      required: [database_id, name, account_id, engine, engine_version, storage_gib, status, instances, ready_instances, host, port, created_at]
+      properties:
+        database_id: {type: string, pattern: '^db-[0-9a-f]{17}$'}
+        name: {type: string}
+        account_id: {type: string}
+        owner_username: {type: string}
+        engine: {type: string}
+        engine_version: {type: string}
+        storage_gib: {type: integer}
+        status: {type: string, description: 'The CloudNativePG cluster phase, e.g. "Cluster in healthy state".'}
+        instances: {type: integer}
+        ready_instances: {type: integer}
+        host: {type: string}
+        port: {type: integer}
+        created_at: {type: string, format: date-time}
+    DatabaseEnvelope:
+      type: object
+      required: [database]
+      properties:
+        database: {$ref: '#/components/schemas/Database'}
+    CreateDatabaseRequest:
+      type: object
+      additionalProperties: false
+      required: [name, storage_gib]
+      properties:
+        name: {type: string, pattern: '^[a-z][a-z0-9-]{1,29}$'}
+        storage_gib: {type: integer, minimum: 1, maximum: 50}
+    DatabaseCredentials:
+      type: object
+      required: [username, password, host, port, database]
+      properties:
+        username: {type: string}
+        password: {type: string}
+        host: {type: string}
+        port: {type: string}
+        database: {type: string}
+    Function:
+      type: object
+      required: [function_id, name, account_id, image, status, created_at]
+      properties:
+        function_id: {type: string, pattern: '^fn-[0-9a-f]{17}$'}
+        name: {type: string}
+        account_id: {type: string}
+        owner_username: {type: string}
+        image: {type: string}
+        status: {type: string, description: 'Provisioning until the Knative Service is Ready.'}
+        url: {type: string, description: 'The function URL once Knative assigns it.'}
+        created_at: {type: string, format: date-time}
+    FunctionEnvelope:
+      type: object
+      required: [function]
+      properties:
+        function: {$ref: '#/components/schemas/Function'}
+    CreateFunctionRequest:
+      type: object
+      additionalProperties: false
+      required: [name, image]
+      properties:
+        name: {type: string, pattern: '^[a-z][a-z0-9-]{1,29}$'}
+        image: {type: string, minLength: 1, maxLength: 512}
