@@ -10,7 +10,12 @@ identity_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/d
 # ポータルの入口。OIDC の戻り先はこれに /auth/callback を足したもの。
 # cloud_api ロールの cloud_api_public_url と同じ値にする（tests/test_tls_proxy.py が検査）。
 identity_cloud_portal_url: 'https://cloud.{{ identity_dns.zone }}'
+# NetBox の入口。OIDC の戻り先はこれに /oauth/complete/oidc/ を足したもの。
+identity_netbox_url: 'https://netbox.{{ identity_dns.zone }}'
 # SMTP。事業者が決まったら platform/sops/smtp.sops.yaml を作る。無ければ何もしない
 # （招待リンクはファイル保存だけになる）。値は .env へ写し、招待ツールと Authentik が読む。
 identity_smtp_sops_file: '{{ playbook_dir }}/../sops/smtp.sops.yaml'
 identity_smtp_keys: [SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, SMTP_FROM_NAME, SMTP_SECURITY]
+# NetBox の OIDC クライアント秘密は SOPS が正本。identity と NetBox の両方が
+# 同じ値を読むので、片方だけ作り直して食い違うことがない。
+identity_netbox_sops_file: '{{ playbook_dir }}/../sops/netbox.sops.yaml'

@@ -17,7 +17,16 @@
     - seed_inventory.py
     - seed_terraform_identity.py
     - seed_cloudapi_identity.py
+    - seed_sso.py
+    - sso_pipeline.py
     - .env.example
+
+# 以前の版はパイプラインを configuration/ に置いていた。NetBox は設定
+# ディレクトリの .py を全部 import するので、残っていると起動に失敗する。
+- name: Remove the pipeline file from the NetBox config directory
+  ansible.builtin.file:
+    path: '{{ netbox_project_dir }}/configuration/sso_pipeline.py'
+    state: absent
 
 - name: Render initial NetBox environment without replacing existing configuration
   ansible.builtin.copy:
@@ -42,6 +51,27 @@
     - {key: NETBOX_PORT, value: '{{ netbox_port }}'}
     - {key: ALLOWED_HOSTS, value: '{{ netbox_allowed_hosts }}'}
     - {key: CSRF_TRUSTED_ORIGINS, value: '{{ netbox_csrf_trusted_origins }}'}
+    - {key: NETBOX_SSO_ENABLED, value: '{{ netbox_sso_enabled | lower }}'}
+    - {key: NETBOX_OIDC_ENDPOINT, value: '{{ netbox_oidc_endpoint }}'}
+    - {key: NETBOX_OIDC_KEY, value: '{{ netbox_oidc_key }}'}
+
+# OIDC クライアント秘密の正本は SOPS。identity ロールも同じ値を読む。
+- name: Read the NetBox OIDC client secret
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --extract, '["NETBOX_OIDC_CLIENT_SECRET"]', '{{ netbox_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: netbox_oidc_secret
+  changed_when: false
+  no_log: true
+
+- name: Install the NetBox OIDC client secret
+  ansible.builtin.copy:
+    content: '{{ netbox_oidc_secret.stdout }}'
+    dest: '{{ netbox_project_dir }}/secrets/oidc_client_secret'
+    mode: '0444'
+  no_log: true
+  register: netbox_oidc_installed
 
 - name: Initialize NetBox state and secrets
   ansible.builtin.command:
@@ -62,6 +92,21 @@
     argv: [python3, manage.py, up]
     chdir: '{{ netbox_project_dir }}'
   changed_when: true
+
+# 秘密を入れ替えたときは NetBox を作り直して読み直させる。
+- name: Recreate NetBox after the OIDC client secret changed
+  ansible.builtin.command:
+    argv: [python3, manage.py, restart]
+    chdir: '{{ netbox_project_dir }}'
+  when: netbox_oidc_installed is changed
+
+# SSO で入った人が閲覧だけできるようにする（admins は pipeline が superuser にする）。
+- name: Register the read-only group OIDC users land in
+  ansible.builtin.command:
+    argv: [python3, manage.py, seed-sso]
+    chdir: '{{ netbox_project_dir }}'
+  register: sso_seeded
+  changed_when: "'CHANGED' in sso_seeded.stdout"
 
 # Terraform が台帳を書くための書き込み用アイデンティティ。
 # Ansible 動的インベントリが使う読み取り専用トークンとは別にする。

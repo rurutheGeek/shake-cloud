@@ -42,6 +42,7 @@
     - {key: STORAGE_ROOT, value: '{{ identity_storage_root }}'}
     - {key: BIND_ADDRESS, value: '{{ identity_bind_address }}'}
     - {key: CLOUD_PORTAL_URL, value: '{{ identity_cloud_portal_url | trim }}'}
+    - {key: NETBOX_URL, value: '{{ identity_netbox_url | trim }}'}
 
 # SMTP は任意。platform/sops/smtp.sops.yaml があるときだけ .env へ写す。
 # 事業者が未定の間はファイルが無く、招待リンクはファイル保存だけになる。
@@ -71,6 +72,25 @@
   loop: '{{ identity_smtp_keys }}'
   no_log: true
   when: identity_smtp.stat.exists
+
+# NetBox の OIDC クライアント秘密は SOPS が正本。configure.py が
+# NETBOX_OIDC_CLIENT_SECRET を読んでプロバイダを作る。
+- name: Read the NetBox OIDC client secret
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ identity_netbox_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: identity_netbox_values
+  changed_when: false
+  no_log: true
+
+- name: Converge the NetBox OIDC client secret
+  ansible.builtin.lineinfile:
+    path: '{{ identity_project_dir }}/.env'
+    regexp: '^NETBOX_OIDC_CLIENT_SECRET='
+    line: 'NETBOX_OIDC_CLIENT_SECRET={{ (identity_netbox_values.stdout | from_json)["NETBOX_OIDC_CLIENT_SECRET"] | default("") }}'
+    mode: '0600'
+  no_log: true
 
 - name: Initialize storage and generated secrets
   ansible.builtin.command:

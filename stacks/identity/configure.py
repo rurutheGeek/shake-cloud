@@ -33,22 +33,23 @@ if len(data.get("password", "")) < 12:
 return True'''
 
 
-def redirect_uri(portal_url):
-    """Return the single strict redirect URI for the portal, refusing guesses."""
-    if not portal_url.startswith(('http://', 'https://')):
-        raise ValueError('CLOUD_PORTAL_URL must be an absolute http(s) URL')
-    return portal_url.rstrip('/') + '/auth/callback'
+def redirect_uri(base_url, path='/auth/callback'):
+    """Return one strict redirect URI, refusing guesses."""
+    if not base_url.startswith(('http://', 'https://')):
+        raise ValueError('the OIDC base URL must be an absolute http(s) URL')
+    return base_url.rstrip('/') + path
 
 
-def provider_body(flows, mappings, signing_key, credential, portal_url):
-    """Build the OAuth2 provider the cloud portal logs in through.
+def provider_body(flows, mappings, signing_key, credential, portal_url,
+                  callback='/auth/callback', name=CLIENT):
+    """Build the OAuth2 provider one application logs in through.
 
     sub_mode is user_uuid, not hashed_user_id: the hashed form is derived per
     provider, so recreating this provider would give every account a new sub
     and orphan all of their resources in the cloud API's database.
     """
     return {
-        'name': CLIENT,
+        'name': name,
         'authorization_flow': flows[AUTHORIZATION_FLOW],
         'invalidation_flow': flows[INVALIDATION_FLOW],
         'client_type': 'confidential',
@@ -56,7 +57,7 @@ def provider_body(flows, mappings, signing_key, credential, portal_url):
         'client_secret': credential['client_secret'],
         'grant_types': ['authorization_code', 'refresh_token'],
         # redirect_uri_type is echoed back by the API; omitting it reports drift forever.
-        'redirect_uris': [{'matching_mode': 'strict', 'url': redirect_uri(portal_url),
+        'redirect_uris': [{'matching_mode': 'strict', 'url': redirect_uri(portal_url, callback),
                            'redirect_uri_type': 'authorization'}],
         'property_mappings': sorted(mappings),
         'signing_key': signing_key,
@@ -124,13 +125,76 @@ def wait_until_ready(api, attempts=60):
     raise SystemExit('Authentik did not finish applying its default blueprints')
 
 
-def credential():
-    path = ROOT / 'secrets' / 'oidc-cloud.json'
+def credential(client=CLIENT):
+    """The OIDC client credentials for one application.
+
+    The cloud client is generated here and never leaves the identity VM except
+    through the deployment. NetBox keeps its secret in SOPS instead, because
+    both the identity and NetBox roles read the same value; `credential` takes
+    it from the environment when the deployment provides it.
+    """
+    external = os.environ.get(f'{client.upper()}_OIDC_CLIENT_SECRET', '').strip()
+    if external:
+        return {'client_id': client, 'client_secret': external}
+    path = ROOT / 'secrets' / f'oidc-{client}.json'
     if not path.exists():
         with path.open('x') as file:
-            json.dump({'client_id': CLIENT, 'client_secret': secrets.token_urlsafe(48)}, file)
+            json.dump({'client_id': client, 'client_secret': secrets.token_urlsafe(48)}, file)
         path.chmod(0o600)
     return json.loads(path.read_text())
+
+
+def ensure_oidc_client(api, client, display_name, base_url, callback,
+                       flows, mappings, signing_key, groups):
+    """Create or correct one OIDC provider and its application, and let the
+    shared groups use it.
+
+    `callback` is the application's own path (`/auth/callback` for the cloud
+    portal, `/oauth/complete/oidc/` for NetBox), so the strict redirect URI
+    stays exact per application.
+    """
+    desired = provider_body(flows, mappings, signing_key, credential(client), base_url,
+                            callback=callback, name=client)
+    existing = [row for row in api.rows('providers/oauth2/') if row['name'] == client]
+    if not existing:
+        provider = api.call('POST', 'providers/oauth2/', desired)
+        print(f'CHANGED: created OIDC provider {client}')
+    else:
+        provider = existing[0]
+        changes = drifted(provider, desired)
+        if changes:
+            provider = api.call('PATCH', f"providers/oauth2/{provider['pk']}/", desired)
+            print(f'CHANGED: corrected OIDC provider {client}: {changes}')
+        else:
+            print(f'OK: OIDC provider {client}')
+
+    applications = [row for row in api.rows('core/applications/') if row['slug'] == client]
+    app_body = {'name': display_name, 'slug': client, 'provider': provider['pk'],
+                'meta_launch_url': base_url, 'policy_engine_mode': 'any'}
+    if not applications:
+        application = api.call('POST', 'core/applications/', app_body)
+        print(f'CHANGED: created application {client}')
+    elif drifted(applications[0], app_body):
+        application = api.call('PATCH', f'core/applications/{client}/', app_body)
+        print(f'CHANGED: corrected application {client}')
+    else:
+        application = applications[0]
+        print(f'OK: application {client}')
+
+    # Only members of these groups may log in; an application with no binding
+    # would admit every Authentik user, including people invited for media only.
+    bindings = api.rows(f"policies/bindings/?target={application['pk']}")
+    for order, name in enumerate(GROUPS):
+        group = groups.get(name)
+        if group is None:
+            continue
+        if any(row.get('group') == group['pk'] for row in bindings):
+            print(f'OK: {name} may use {client}')
+        else:
+            api.call('POST', 'policies/bindings/', {'target': application['pk'],
+                                                    'group': group['pk'], 'order': order})
+            print(f'CHANGED: {name} may use {client}')
+    return application
 
 
 def configure_email_authenticator(api):
@@ -249,51 +313,22 @@ def main():
         print('CHANGED: akadmin joined admins')
 
     flows = {row['slug']: row['pk'] for row in api.rows('flows/instances/')}
-    # profile carries the groups claim the API uses to recognise admins.
+    # profile carries the groups claim the API and NetBox use to recognise admins.
     mappings = [row['pk'] for row in api.rows('propertymappings/provider/scope/')
                 if row.get('managed', '') and row['scope_name'] in ('openid', 'email', 'profile')]
     keys = [row['pk'] for row in api.rows('crypto/certificatekeypairs/') if row['name'] == SIGNING_KEY]
     if not keys:
         raise SystemExit(f'Signing key not found: {SIGNING_KEY}')
-    desired = provider_body(flows, mappings, keys[0], credential(), os.environ['CLOUD_PORTAL_URL'])
+    ensure_oidc_client(api, CLIENT, 'shake-cloud', os.environ['CLOUD_PORTAL_URL'], '/auth/callback',
+                       flows, mappings, keys[0], groups)
 
-    existing = [row for row in api.rows('providers/oauth2/') if row['name'] == CLIENT]
-    if not existing:
-        provider = api.call('POST', 'providers/oauth2/', desired)
-        print(f'CHANGED: created OIDC provider {CLIENT}')
+    # NetBox logs in through the same Authentik when NETBOX_URL is deployed.
+    netbox_url = os.environ.get('NETBOX_URL', '').strip()
+    if netbox_url:
+        ensure_oidc_client(api, 'netbox', 'NetBox', netbox_url, '/oauth/complete/oidc/',
+                           flows, mappings, keys[0], groups)
     else:
-        provider = existing[0]
-        changes = drifted(provider, desired)
-        if changes:
-            provider = api.call('PATCH', f"providers/oauth2/{provider['pk']}/", desired)
-            print(f'CHANGED: corrected OIDC provider {CLIENT}: {changes}')
-        else:
-            print(f'OK: OIDC provider {CLIENT}')
-
-    applications = [row for row in api.rows('core/applications/') if row['slug'] == CLIENT]
-    app_body = {'name': 'shake-cloud', 'slug': CLIENT, 'provider': provider['pk'],
-                'meta_launch_url': os.environ['CLOUD_PORTAL_URL'],
-                'policy_engine_mode': 'any'}
-    if not applications:
-        application = api.call('POST', 'core/applications/', app_body)
-        print(f'CHANGED: created application {CLIENT}')
-    elif drifted(applications[0], app_body):
-        application = api.call('PATCH', f'core/applications/{CLIENT}/', app_body)
-        print(f'CHANGED: corrected application {CLIENT}')
-    else:
-        application = applications[0]
-        print(f'OK: application {CLIENT}')
-
-    # Only members of these groups may log in; an application with no binding
-    # would admit every Authentik user, including people invited for media only.
-    bindings = api.rows(f"policies/bindings/?target={application['pk']}")
-    for order, name in enumerate(GROUPS):
-        if any(row.get('group') == groups[name]['pk'] for row in bindings):
-            print(f'OK: {name} may use {CLIENT}')
-        else:
-            api.call('POST', 'policies/bindings/', {'target': application['pk'],
-                                                    'group': groups[name]['pk'], 'order': order})
-            print(f'CHANGED: {name} may use {CLIENT}')
+        print('note: NETBOX_URL is not set; skipped the NetBox OIDC client')
 
     # Recovery needs an address on the administrator account; SMTP_FROM is the
     # mailbox we know reaches a human when the passkey is gone.

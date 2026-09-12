@@ -3,6 +3,7 @@
 #ENC[AES256_GCM,data:/PX5BDnHu3P/hA98kBPfq0+MltGBqN643Bm49HllAa3k0HIYufEPzcEmYgy6qH2YLQQRQZUh5sBJSK2oF1JKK9i5+qwf7bZFKhhnlKoFsaq7,iv:xNuZSLGW2pfynqikBAKrKagtiahxYr9x3ZrHZb8eHGk=,tag:ZB0H43OPbUY89IKRer4okQ==,type:comment]
 NETBOX_SERVER_URL: ENC[AES256_GCM,data:MIq9ZXxBM51jHjORPQpxAb9e7nRckFvutdk=,iv:iiNrgDZkP+AHdB7j9pIDv7+URNisrhr3qdzeDYb6mQ0=,tag:Tb/XedlggYROJy5JiYtIqw==,type:str]
 NETBOX_API_TOKEN: ENC[AES256_GCM,data:AqnAIMzbFSWgAha2WHOUjhRh3+WTo64+bMoMKrscMiNAmqmx7oamAyHiTlGgWj7PFSZma2QNeQ3g,iv:vmDXoBO8f/qEHw1iHHsoOksZxRtLJ0rugVI6Uw6qV/E=,tag:9EwU4wNX1VPaqEKH8EhleA==,type:str]
+NETBOX_OIDC_CLIENT_SECRET: ENC[AES256_GCM,data:3LMmUaRR8cpOWeMAs6MiputBdzl6rDDPEhChpf1d95NzYcMsMJs7lC2eXZfRABIjgNYjntjVHTIx04GPRgFL5A==,iv:r0C2OKlgRGCmpFZpFrbvJrfc4NoNM4YRIlyZlLnuPQM=,tag:Lbe7qRQBoNvEXUhTmVXh5Q==,type:str]
 sops:
     age:
         - enc: |
@@ -14,7 +15,7 @@ sops:
             Lq6/3OgklsyZebmi3wSklHOUNETSyUJOHs6WT1RL5znsG50qOLMNwg==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h
-    lastmodified: "2026-09-10T06:56:24Z"
-    mac: ENC[AES256_GCM,data:CjVlooRnl8rpT0PboyeySrNumXfhbOWIGt9Q+WSnyExgj2hPXAZrq36ixVIOvrobgo6iiQqUJCQ7ySAMh/1tBBk0lC8/BinLX564CF/EZaoauJEKOfJlI8FEDvSt0V5nYPkTaEeRyB/KmBE7e/23hyybBqdk8VkI38QGQpNEm5o=,iv:q+/msDd0xw6pJNUReBrD8bijsLZt5TwpwVZ11HXtbFo=,tag:PUe6T+IUB0TyDIijemL8WA==,type:str]
+    lastmodified: "2026-09-12T14:12:13Z"
+    mac: ENC[AES256_GCM,data:tAt2hncQPVY69q/RzO2daOd2DaS8lCvKaIFys0hPg+NgohD+6MS3T/RbqJu3BJH63qTZ4sXn1mmp7ELWn8EdVYTfM8UtANSKnu/m2KHgWMLSY99FwT9B3Mb4VZqnnSlFhy//wA5Bkxadt44yAHekq4BxMsREHBBfWP4GAMe7KrY=,iv:KQdLwyRoVK4Yo3xA9qS61sQ1WtldxMhvrBwd4lLegOI=,tag:XOuHVi8UVVSrm9O4Z5HCjw==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3

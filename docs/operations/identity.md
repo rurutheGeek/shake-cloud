@@ -17,6 +17,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - 配備のたびに `manage.py configure` が走り、**冪等**に次を整えます。
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
+  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso共通ログイン)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
 - 2 回目の実行はすべて `OK:` になります。

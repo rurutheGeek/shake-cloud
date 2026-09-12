@@ -13,9 +13,17 @@ x-netbox: &netbox
     SKIP_SUPERUSER: 'false'
     GRANIAN_WORKERS: '2'
     GRANIAN_BACKPRESSURE: '64'
-  secrets: [db_password, secret_key, api_token_pepper_1, superuser_password]
+    # SSO（OIDC）。有効なときだけ configuration.py が NETBOX_OIDC_ENDPOINT を読む。
+    NETBOX_SSO_ENABLED: ${NETBOX_SSO_ENABLED:-false}
+    NETBOX_OIDC_ENDPOINT: ${NETBOX_OIDC_ENDPOINT:-}
+    NETBOX_OIDC_KEY: ${NETBOX_OIDC_KEY:-netbox}
+  secrets: [db_password, secret_key, api_token_pepper_1, superuser_password, oidc_client_secret]
   volumes:
     - ./configuration:/etc/netbox/config:ro
+    # OIDC の groups クレームを NetBox のグループへ写すパイプライン。
+    # 設定ディレクトリには置かない（NetBox がそこにある .py を設定として
+    # 全部 import するため、Django 起動前にモデルを読んで落ちる）。
+    - ./sso_pipeline.py:/opt/netbox/netbox/netbox/sso_pipeline.py:ro
     - ${STORAGE_ROOT:-./storage}/media:/opt/netbox/netbox/media
     - ${STORAGE_ROOT:-./storage}/reports:/opt/netbox/netbox/reports
     - ${STORAGE_ROOT:-./storage}/scripts:/opt/netbox/netbox/scripts
@@ -94,3 +102,5 @@ secrets:
   secret_key: {file: ./secrets/secret_key}
   api_token_pepper_1: {file: ./secrets/api_token_pepper_1}
   superuser_password: {file: ./secrets/superuser_password}
+  # 正本は platform/sops/netbox.sops.yaml。identity ロールも同じ値を読む。
+  oidc_client_secret: {file: ./secrets/oidc_client_secret}
