@@ -125,6 +125,18 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 - **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB です。
 - `awx` namespace の `AWX/awx` は `Running: True`。`https://awx.apextox.dpdns.org/api/v2/ping/` が応答します。HTTP は 301 で HTTPS へ転送されます。
 
+## アプリ: CloudNativePG（database）
+
+クラウドの **`shakecloud_database`**（利用者に PostgreSQL を渡す機能）の実体です。Operator と最初の Cluster を Flux で配っています。
+
+- **Operator**: `platform/flux/apps/cnpg/`（Helm chart **0.29.0 → operator 1.30.0**、namespace `cnpg-system`）。CRD を先に入れる必要があるので子 Kustomization `cnpg` に分け、Cluster 側から `dependsOn` しています。
+- **Cluster `demo`**: `platform/flux/apps/databases/`（namespace `databases`、`instances: 1`、PVC は local-path **5Gi**）。
+- CNPG が作るもの: `demo-rw`（読み書き）/`demo-ro`（読み取り専用）/`demo-r` の Service、接続情報の Secret **`demo-app`**。レプリカ・バックアップ・フェイルオーバーは台数を増やしたときに効きます。
+
+実機確認（2026-09-12）: `kubectl -n databases get cluster demo` が **INSTANCES 1 / READY 1 / Cluster in healthy state**、PVC `demo-1` が Bound、`psql -U postgres` が **PostgreSQL 18** を返すことを確認しました。
+
+**まだ API からは作れません。** クラウドAPIに `databases` のエンドポイントを足し、Provider に `shakecloud_database` を実装するのは次の段です。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -140,5 +152,6 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 ## 次のスライス
 
-1. CloudNativePG（`database`）
-2. Knative（`function`）
+1. クラウドAPI に database を実装（CloudNativePG の Cluster を作る）→ Provider `shakecloud_database`
+2. Knative（`function`）→ Provider `shakecloud_function`
+3. CNPG のバックアップを Garage（S3）へ
