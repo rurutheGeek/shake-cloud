@@ -378,6 +378,26 @@
   const TRANSIENT_STATES = new Set(['pending', 'stopping', 'shutting-down']);
   const stateLabel = (state) => STATE_LABELS[state] || state;
 
+  // A lifecycle action a worker is still carrying out. The portal shows it and
+  // explains a second click with it, rather than disabling the buttons.
+  const PENDING_LABELS = { launch: '作成', start: '起動', stop: '停止', reboot: '再起動', terminate: '削除' };
+  const pendingLabel = (action) => PENDING_LABELS[action] || action;
+
+  function currentInstance(instance) {
+    return lastInstances.find((i) => i.instance_id === instance.instance_id) || instance;
+  }
+
+  // True (and explains what is in progress) when clicking now would race a
+  // pending action. Reading the freshest instance avoids a stale row.
+  function busyNotice(instance, action, scope) {
+    const pending = currentInstance(instance).pending_action;
+    if (!pending) return false;
+    announce(pending === action
+      ? `${pendingLabel(pending)}はすでに進行中です。完了までお待ちください。`
+      : `いま${pendingLabel(pending)}中です。完了まで待ってから操作してください。`, scope);
+    return true;
+  }
+
   function option(value, text) {
     const el = document.createElement('option');
     el.value = value;
@@ -611,12 +631,13 @@
     }
   }
 
-  function powerButton(label, path, enabled) {
+  function powerButton(label, action, path, enabled, instance) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
     button.disabled = !enabled;
     onAction(button, 'click', async (event, scope) => {
+      if (busyNotice(instance, action, scope)) return;
       try {
         $('error').hidden = true;
         await api('POST', path);
@@ -682,6 +703,7 @@
     button.disabled = instance.state === 'terminated';
     button.className = 'danger';
     onAction(button, 'click', async (event, scope) => {
+      if (busyNotice(instance, 'terminate', scope)) return;
       if (!await confirmAction({ title: 'インスタンスを削除',
         message: resourceDescription(instance) + '\n\nこのVMとルートディスクを削除します。追加ボリュームは切り離して保持します。この操作は取り消せません。',
         confirmLabel: 'このインスタンスを削除', danger: true })) return;
@@ -864,6 +886,12 @@
     state.className = `state state-${instance.state}`;
     state.textContent = stateLabel(instance.state);
     stateCell.append(state);
+    if (instance.pending_action) {
+      const pending = document.createElement('div');
+      pending.className = 'muted small';
+      pending.textContent = `${pendingLabel(instance.pending_action)}処理中…`;
+      stateCell.append(pending);
+    }
 
     const configCell = document.createElement('td');
     const typeLine = document.createElement('div');
@@ -915,9 +943,9 @@
     if (canAct) {
       const id = encodeURIComponent(instance.instance_id);
       actions.append(
-        powerButton('起動', `/v1/instances/${id}/start`, instance.state === 'stopped'),
-        powerButton('停止', `/v1/instances/${id}/stop`, instance.state === 'running'),
-        powerButton('再起動', `/v1/instances/${id}/reboot`, instance.state === 'running'),
+        powerButton('起動', 'start', `/v1/instances/${id}/start`, instance.state === 'stopped', instance),
+        powerButton('停止', 'stop', `/v1/instances/${id}/stop`, instance.state === 'running', instance),
+        powerButton('再起動', 'reboot', `/v1/instances/${id}/reboot`, instance.state === 'running', instance),
         consoleButton(instance),
         deleteInstanceButton(instance),
       );

@@ -25,8 +25,13 @@ type instanceBody struct {
 	DriverISOID  string `json:"driver_iso_id,omitempty"`
 	// InstanceType is absent when the size was given as explicit numbers.
 	InstanceType     string            `json:"instance_type,omitempty"`
-	State            string            `json:"state"`
-	StateReason      string            `json:"state_reason,omitempty"`
+	State string `json:"state"`
+	// PendingAction is the power/lifecycle action the worker is still carrying
+	// out ("reboot", "stop", ...). Empty when the instance is settled. The
+	// portal shows it so a second click can explain "再起動中です" instead of
+	// returning a generic incorrect-state error.
+	PendingAction string            `json:"pending_action,omitempty"`
+	StateReason   string            `json:"state_reason,omitempty"`
 	PrivateIPAddress string            `json:"private_ip_address,omitempty"`
 	MACAddress       string            `json:"mac_address"`
 	VCPUs            int               `json:"vcpus"`
@@ -62,7 +67,7 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []
 		InstanceID: i.ID, AccountID: i.AccountID, OwnerUsername: i.OwnerUsername,
 		ImageID: i.ImageID, ImageName: service.Site.Images[i.ImageID].Name, InstanceType: i.InstanceType,
 		GuestOS: i.GuestOS, InstallISOID: i.InstallISOID, DriverISOID: i.DriverISOID,
-		State: i.State, StateReason: i.StateReason,
+		State: i.State, PendingAction: i.PendingAction, StateReason: i.StateReason,
 		// The prefix length is the network's, not the instance's business.
 		PrivateIPAddress: strings.SplitN(i.IPAddress, "/", 2)[0],
 		MACAddress:       i.MACAddress, VCPUs: i.CPUCores, MemoryMiB: i.MemoryMiB, MemoryMinMiB: i.MemoryMinMiB,

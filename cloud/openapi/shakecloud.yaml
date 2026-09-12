@@ -1564,6 +1564,10 @@ components:
         state:
           type: string
           enum: [pending, running, stopping, stopped, shutting-down, terminated]
+        pending_action:
+          type: string
+          enum: [launch, start, stop, reboot, terminate]
+          description: The lifecycle action a worker is still carrying out; absent when the instance is settled.
         state_reason:
           type: string
           description: Why the instance is in this state, when it was not asked for.
