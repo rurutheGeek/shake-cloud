@@ -29,6 +29,6 @@ def sync_groups(backend, user, response, *args, **kwargs):
     names = _names(response)
     user.groups.set([Group.objects.get_or_create(name=name)[0] for name in sorted(names)])
     superusers = set(getattr(settings, 'REMOTE_AUTH_SUPERUSER_GROUPS', []))
+    # NetBox 4.7 dropped is_staff from the user model; is_superuser is the flag.
     user.is_superuser = bool(names & superusers)
-    user.is_staff = user.is_superuser
-    user.save(update_fields=['is_superuser', 'is_staff'])
+    user.save(update_fields=['is_superuser'])

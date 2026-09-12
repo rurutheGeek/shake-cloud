@@ -18,8 +18,15 @@
     - seed_terraform_identity.py
     - seed_cloudapi_identity.py
     - seed_sso.py
-    - sso_pipeline.py
     - .env.example
+
+# パイプラインはコンテナへ bind mount する。変更したら再起動して読み直させる。
+- name: Install the SSO pipeline
+  ansible.builtin.copy:
+    src: '{{ netbox_source_dir }}/sso_pipeline.py'
+    dest: '{{ netbox_project_dir }}/sso_pipeline.py'
+    mode: '0644'
+  register: netbox_sso_pipeline
 
 # 以前の版はパイプラインを configuration/ に置いていた。NetBox は設定
 # ディレクトリの .py を全部 import するので、残っていると起動に失敗する。
@@ -93,12 +100,12 @@
     chdir: '{{ netbox_project_dir }}'
   changed_when: true
 
-# 秘密を入れ替えたときは NetBox を作り直して読み直させる。
-- name: Recreate NetBox after the OIDC client secret changed
+# 秘密やパイプラインを入れ替えたときは NetBox を作り直して読み直させる。
+- name: Recreate NetBox after the OIDC secret or the SSO pipeline changed
   ansible.builtin.command:
     argv: [python3, manage.py, restart]
     chdir: '{{ netbox_project_dir }}'
-  when: netbox_oidc_installed is changed
+  when: netbox_oidc_installed is changed or netbox_sso_pipeline is changed
 
 # SSO で入った人が閲覧だけできるようにする（admins は pipeline が superuser にする）。
 - name: Register the read-only group OIDC users land in
