@@ -22,6 +22,18 @@
 | `docs/operations/<name>.md` | 管理者向けの構築・運用 | [identity.md](identity.md) |
 | `docs/services/<name>.md` | 利用者向けの使い方 | [usage.md](../services/usage.md) |
 
+### 開発コードはどこに書くか
+
+| 作るもの | 置き場所 | 例 |
+| --- | --- | --- |
+| VM 1台に載るサービスのコード | **`stacks/<name>/`** | `stacks/identity/`（Compose + `manage.py` + `.env.example` + テスト） |
+| 複数コンポーネントの大きなソフト | **トップレベルの専用ディレクトリ** | `cloud/`（API・CLI・Provider・client を1つに） |
+| Kubernetes に載せるアプリ | ソースは `stacks/<name>/` か専用ディレクトリ。配備は `platform/flux/apps/<name>.yaml` | [Flux にアプリを足す](flux-apps.md) |
+| 使い捨て・補助スクリプト | **`tools/`** | `tools/tf`、`tools/k8s` |
+| 設定値の宣言 | `platform/terraform/*.yaml` | `hosts.yaml`、`network.yaml` |
+
+迷ったら「**VM 1台に載る1サービス → `stacks/<name>/`**」「**複数コンポーネント → トップレベル**」で判断します。`stacks/identity/` と同じ形（`init` / `lock` / `up` / `status`）にそろえると、配備と再実行が同じ手順になります。
+
 `hosts.yaml` と `10-platform` は**基盤VM専用**です。サービス用のVMをここへ足さないでください。VMID とプールの境界が崩れ、クラウドAPIの到達範囲（`/pool/cloud` のみ）から外れて管理できなくなります。
 
 ## クラウドVMにサービスを作る手順

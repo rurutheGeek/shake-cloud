@@ -1,8 +1,18 @@
 # 初回セットアップの順番
 
-更新日: 2026-09-09。状態: **手順1〜7は実機（PVE 9.2.2）で確認済み**。
+更新日: 2026-09-12。状態: **手順1〜7は実機（PVE 9.2.2、2026-09-10）で確認済み。以降も実際にこの順で構築した。**
 
 ゼロから最初のVMまでの**順序と理由**だけを書きます。操作そのものはコードにあります。詳細は[Terraformの実行](terraform.md)、[秘密値の管理](secrets.md)、[IaCの所有境界](../architecture/iac.md)へ。
+
+## どのセットアップ文書を読むか
+
+| やりたいこと | 読む文書 |
+| --- | --- |
+| まっさらな状態から基盤（Proxmox・NetBox・identity・cloud-01・k8s）を立てる | **この文書**（初回のみ。以降は各 `*.yml` を再実行） |
+| クラウドVMに新しいサービスを作る | [サービスの置き場所とクラウドVMでの作り方](services.md) |
+| Kubernetes へアプリを足す | [Flux にアプリを足す](flux-apps.md) |
+| 開発に参加する（開発VMの使い方・作業機の準備） | [開発参加ガイド](../onboarding.md) |
+| 各サービスの使い方・接続先 | [接続先一覧](urls.md)・[運用ドキュメント](../overview.md) |
 
 ## 0. 作業機
 
@@ -88,12 +98,11 @@ cp platform/ansible/seed.ini.example platform/ansible/seed.ini
 
 ## 7. 基盤VMと利用者
 
-NetBoxは `services-01` のlocalhostにしか出ていないので、SSHポート転送を張ってから実行します。
+NetBox は `http://192.168.10.200:8000` で LAN に公開済みです（`netbox_bind_address`）。SSH ポート転送は不要で、`10-platform` と NetBox 動的インベントリの Ansible がそのまま動きます。
 
 ```bash
-ssh -N -L 8001:127.0.0.1:8000 debian@<services-01のIP>
 tools/tf 10-platform apply
-.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags pve-users
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/site.yml --tags pve-users
 ```
 
 `hosts.yaml` に書いたVMがNetBoxの採番付きで作られ、開発VMのパスワードが設定されます。利用者へ渡す値は `tools/tf 00-bootstrap output -json dev_credentials` と `sops --decrypt platform/sops/pve-users.sops.yaml` から取り出します。
