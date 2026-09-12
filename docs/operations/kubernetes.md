@@ -107,6 +107,22 @@ sops platform/flux/apps/<name>.sops.yaml
 
 実機確認（2026-09-12）: 4コントローラが Running、`Kustomization/flux-system` が `Applied revision`。SOPS で暗号化した Secret が**復号されて作られる**こと、Git から消すと **prune される**ことを確認しました。
 
+## アプリ: AWX
+
+AWX（Ansible の実行基盤）を **worker-01** に Flux で配備しています。
+
+| 項目 | 値 |
+| --- | --- |
+| 入口 | `http://192.168.10.240/`（MetalLB の LoadBalancer。TLS は未対応で、後で Ingress/Gateway を足す） |
+| 管理者 | ユーザー `admin`。パスワードは `platform/flux/apps/awx-instance/admin-password.sops.yaml`（`sops -d ... \| grep password` で見る） |
+| DB | Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク） |
+| 版 | Operator **2.19.1** / AWX **24.6.1** |
+| 置き場 | `platform/flux/apps/`（Flux が Git から適用。`dependsOn` で Operator → AWX の順） |
+
+- Operator は上流リポジトリ（tag `2.19.1`）を Flux の `GitRepository` で取得し、`config/default` を kustomize で適用します。**`kube-rbac-proxy` は GCR から消えている**ため quay のミラーに差し替えています。
+- **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB です。
+- `awx` namespace の `AWX/awx` は `Running: True`。`http://192.168.10.240/api/v2/ping/` が応答します。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -122,6 +138,6 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 ## 次のスライス
 
-1. AWX（Flux で配備）
-2. CloudNativePG（`database`）
-3. Knative（`function`）
+1. CloudNativePG（`database`）
+2. Knative（`function`）
+3. AWX の入口を HTTPS にする（Ingress/Gateway + cert-manager）
