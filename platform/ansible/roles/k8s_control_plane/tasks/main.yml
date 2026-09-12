@@ -93,6 +93,7 @@
     src: cilium-values.yaml.j2
     dest: /root/cilium-values.yaml
     mode: '0600'
+  register: k8s_cilium_values
 
 - name: Install or upgrade Cilium
   ansible.builtin.command:
@@ -115,3 +116,13 @@
     KUBECONFIG: /etc/kubernetes/admin.conf
   register: k8s_cilium
   changed_when: "'STATUS: deployed' in k8s_cilium.stdout"
+
+# Ingress の設定を変えたときは Envoy を作り直さないと共有 LB が待ち受けを
+# 始めない（有効化直後に .241 が接続拒否になった）。値が変わったときだけ回す。
+- name: Restart cilium-envoy to apply ingress changes
+  ansible.builtin.command:
+    argv: [kubectl, -n, kube-system, rollout, restart, ds/cilium-envoy]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: k8s_cilium_values.changed
+  changed_when: true

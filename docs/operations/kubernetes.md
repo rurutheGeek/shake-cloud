@@ -113,15 +113,17 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 
 | 項目 | 値 |
 | --- | --- |
-| 入口 | `http://192.168.10.240/`（MetalLB の LoadBalancer。TLS は未対応で、後で Ingress/Gateway を足す） |
+| 入口 | **`https://awx.apextox.dpdns.org/`**（Cilium Ingress。証明書は cert-manager が Let's Encrypt で発行） |
 | 管理者 | ユーザー `admin`。パスワードは `platform/flux/apps/awx-instance/admin-password.sops.yaml`（`sops -d ... \| grep password` で見る） |
 | DB | Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク） |
 | 版 | Operator **2.19.1** / AWX **24.6.1** |
 | 置き場 | `platform/flux/apps/`（Flux が Git から適用。`dependsOn` で Operator → AWX の順） |
 
 - Operator は上流リポジトリ（tag `2.19.1`）を Flux の `GitRepository` で取得し、`config/default` を kustomize で適用します。**`kube-rbac-proxy` は GCR から消えている**ため quay のミラーに差し替えています。
+- **HTTPS**: Cilium の Ingress（共有 LB `cilium-ingress` = **192.168.10.241**）が受け、cert-manager の `ClusterIssuer` **`letsencrypt-dns`**（Cloudflare DNS-01）が証明書を発行します。名前は `dns.yaml` の `awx` レコードで `.241` に向けています。AWX は `service_type: ClusterIP` で、Ingress(`cilium`) から `awx-service` へルーティングします。
+  - Ingress を有効化した直後は **`cilium-envoy` を作り直さないと共有 LB が待ち受けを始めません**（`k8s_control_plane` ロールが Cilium の値変更時に再起動します）。
 - **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB です。
-- `awx` namespace の `AWX/awx` は `Running: True`。`http://192.168.10.240/api/v2/ping/` が応答します。
+- `awx` namespace の `AWX/awx` は `Running: True`。`https://awx.apextox.dpdns.org/api/v2/ping/` が応答します。HTTP は 301 で HTTPS へ転送されます。
 
 ## 起動と停止
 
@@ -140,4 +142,3 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 1. CloudNativePG（`database`）
 2. Knative（`function`）
-3. AWX の入口を HTTPS にする（Ingress/Gateway + cert-manager）
