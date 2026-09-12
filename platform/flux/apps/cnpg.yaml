@@ -1,0 +1,15 @@
+# CloudNativePG Operator（Helm）。CRD を入れてから Cluster を適用するため、
+# 子 Kustomization に分けて databases から dependsOn する。
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cnpg
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./platform/flux/apps/cnpg
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system

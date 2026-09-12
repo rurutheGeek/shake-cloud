@@ -9,3 +9,5 @@ resources:
   - apps/cert-issuer.yaml
   - apps/awx-operator.yaml
   - apps/awx.yaml
+  - apps/cnpg.yaml
+  - apps/databases.yaml
