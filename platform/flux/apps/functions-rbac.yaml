@@ -5,6 +5,10 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: functions
+  labels:
+    # Knative の namespace 単位ワイルドカード証明書の対象にする
+    # （config-network の namespace-wildcard-cert-selector）。
+    shakecloud.io/knative-tls: "true"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

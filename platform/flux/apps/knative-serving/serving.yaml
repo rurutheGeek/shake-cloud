@@ -15,6 +15,18 @@ spec:
       # 完全名で指定する。net-kourier の controller はこの値で Ingress を
       # フィルタするので、短縮名 "kourier" だと一致せず無視される。
       ingress-class: kourier.ingress.networking.knative.dev
+      # 関数 URL を HTTPS にする。外側ドメインの TLS を有効にする。
+      external-domain-tls: Enabled
+      # namespace ごとにワイルドカード証明書を1枚だけ発行する。このセレクタに
+      # 合う namespace だけが対象（functions namespace にラベルを付ける）。
+      namespace-wildcard-cert-selector: |
+        matchLabels:
+          shakecloud.io/knative-tls: "true"
+    # cert-manager 連携。外部ドメインの証明書はこの発行体から取る。
+    certmanager:
+      issuerRef: |
+        kind: ClusterIssuer
+        name: letsencrypt-dns
     kourier:
       # ゲートウェイは knative-serving に置かれる（kourier-system ではない）。
       namespace: knative-serving
