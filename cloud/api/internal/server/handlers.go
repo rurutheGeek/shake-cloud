@@ -210,7 +210,7 @@ func (s *Server) lookupEvents(w http.ResponseWriter, r *http.Request, c *call) {
 	}
 	if requested := query.Get("account_id"); requested != "" && requested != p.account.ID {
 		if !p.account.IsAdmin {
-			writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only cloud-admins may read other accounts' events")
+			writeError(w, r, http.StatusForbidden, "UnauthorizedOperation", "only admins may read other accounts' events")
 			return
 		}
 		filter.AccountID = requested

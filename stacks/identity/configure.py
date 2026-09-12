@@ -14,7 +14,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 BASE = os.environ.get('AUTHENTIK_URL', 'http://localhost:9000') + '/api/v3/'
-GROUPS = ('cloud-users', 'cloud-admins')
+GROUPS = ('users', 'admins')
 CLIENT = 'cloud'
 AUTHORIZATION_FLOW = 'default-provider-authorization-implicit-consent'
 INVALIDATION_FLOW = 'default-provider-invalidation-flow'
@@ -210,13 +210,13 @@ def main():
             print(f'CHANGED: created group {name}')
 
     admin = api.rows('core/users/?username=akadmin')[0]
-    if groups['cloud-admins']['pk'] not in admin['groups']:
+    if groups['admins']['pk'] not in admin['groups']:
         api.call('PATCH', f"core/users/{admin['pk']}/",
-                 {'groups': admin['groups'] + [groups['cloud-admins']['pk']]})
-        print('CHANGED: akadmin joined cloud-admins')
+                 {'groups': admin['groups'] + [groups['admins']['pk']]})
+        print('CHANGED: akadmin joined admins')
 
     flows = {row['slug']: row['pk'] for row in api.rows('flows/instances/')}
-    # profile carries the groups claim the API uses to recognise cloud-admins.
+    # profile carries the groups claim the API uses to recognise admins.
     mappings = [row['pk'] for row in api.rows('propertymappings/provider/scope/')
                 if row.get('managed', '') and row['scope_name'] in ('openid', 'email', 'profile')]
     keys = [row['pk'] for row in api.rows('crypto/certificatekeypairs/') if row['name'] == SIGNING_KEY]

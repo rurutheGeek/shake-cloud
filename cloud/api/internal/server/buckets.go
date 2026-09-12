@@ -11,7 +11,7 @@ import (
 )
 
 // Buckets and S3 keys. Like security groups they are private to their account:
-// a bucket's keys and contents are the owner's business. cloud-admins see and
+// a bucket's keys and contents are the owner's business. admins see and
 // may change every account's.
 
 type bucketKeyBody struct {

@@ -65,7 +65,7 @@ func testServer(t *testing.T, adjust func(*config.Config)) *Server {
 
 	public, _ := url.Parse("http://portal.test")
 	cfg := config.Config{
-		PublicURL: public, UserGroup: "cloud-users", AdminGroup: "cloud-admins", SessionTTL: time.Hour,
+		PublicURL: public, UserGroup: "users", AdminGroup: "admins", SessionTTL: time.Hour,
 		OIDCIssuer: "http://127.0.0.1:1/unreachable/", OIDCClientID: "cloud", OIDCClientSecret: "client-secret",
 	}
 	if adjust != nil {
@@ -543,7 +543,7 @@ func withAuthentik(t *testing.T) (*Server, *fakeAuthentik) {
 
 func TestLoginCreatesTheAccountThenReusesIt(t *testing.T) {
 	s, idp := withAuthentik(t)
-	claims := map[string]any{"sub": "uuid-1", "preferred_username": "alice", "email": "alice@example.test", "groups": []string{"cloud-users"}}
+	claims := map[string]any{"sub": "uuid-1", "preferred_username": "alice", "email": "alice@example.test", "groups": []string{"users"}}
 	recorder := idp.login(t, s, claims)
 	expectStatus(t, recorder, http.StatusFound)
 	cookie := sessionCookieFrom(recorder)
@@ -556,7 +556,7 @@ func TestLoginCreatesTheAccountThenReusesIt(t *testing.T) {
 	}
 
 	// Promoted in Authentik: the next login picks it up, same account.
-	claims["groups"] = []string{"cloud-users", "cloud-admins"}
+	claims["groups"] = []string{"users", "admins"}
 	again := sessionCookieFrom(idp.login(t, s, claims))
 	second := decode[callerIdentity](t, do(t, s, req{method: "GET", path: "/v1/caller-identity", cookies: []*http.Cookie{again}}))
 	if second.AccountID != first.AccountID || !second.IsAdmin {
@@ -580,7 +580,7 @@ func TestLoginRequiresACloudGroup(t *testing.T) {
 
 func TestLoginRefusesAKnownEmailUnderANewSubject(t *testing.T) {
 	s, idp := withAuthentik(t)
-	claims := map[string]any{"sub": "uuid-old", "preferred_username": "alice", "email": "Alice@example.test", "groups": []string{"cloud-users"}}
+	claims := map[string]any{"sub": "uuid-old", "preferred_username": "alice", "email": "Alice@example.test", "groups": []string{"users"}}
 	expectStatus(t, idp.login(t, s, claims), http.StatusFound)
 	claims["sub"], claims["email"] = "uuid-new", "alice@example.test"
 	expectStatus(t, idp.login(t, s, claims), http.StatusForbidden)
@@ -592,7 +592,7 @@ func TestCallbackStateIsBoundToTheBrowserAndSingleUse(t *testing.T) {
 	location, _ := url.Parse(start.Header().Get("Location"))
 	query := location.Query()
 	idp.code, idp.challenge, idp.nonce = randomToken(), query.Get("code_challenge"), query.Get("nonce")
-	idp.claims = map[string]any{"sub": "uuid-3", "groups": []string{"cloud-users"}}
+	idp.claims = map[string]any{"sub": "uuid-3", "groups": []string{"users"}}
 	callback := "/auth/callback?" + url.Values{"code": {idp.code}, "state": {query.Get("state")}}.Encode()
 
 	// Someone else's browser (no login cookie) cannot complete this login.
@@ -607,7 +607,7 @@ func TestLoginRejectsATokenWithTheWrongNonce(t *testing.T) {
 	location, _ := url.Parse(start.Header().Get("Location"))
 	query := location.Query()
 	idp.code, idp.challenge, idp.nonce = randomToken(), query.Get("code_challenge"), "replayed-nonce"
-	idp.claims = map[string]any{"sub": "uuid-4", "groups": []string{"cloud-users"}}
+	idp.claims = map[string]any{"sub": "uuid-4", "groups": []string{"users"}}
 	callback := "/auth/callback?" + url.Values{"code": {idp.code}, "state": {query.Get("state")}}.Encode()
 	recorder := do(t, s, req{method: "GET", path: callback, cookies: start.Result().Cookies()})
 	expectStatus(t, recorder, http.StatusBadGateway)

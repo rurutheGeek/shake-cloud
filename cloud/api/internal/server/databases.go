@@ -11,7 +11,7 @@ import (
 )
 
 // Databases are PostgreSQL appliances backed by CloudNativePG, private to the
-// account that owns them. cloud-admins see every account's.
+// account that owns them. admins see every account's.
 
 type databaseBody struct {
 	DatabaseID     string    `json:"database_id"`

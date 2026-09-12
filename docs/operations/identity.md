@@ -15,7 +15,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 - 秘密値（DB パスワード、secret key、`akadmin` の初期パスワード、ブートストラップトークン、OIDC クライアント `cloud` の秘密）は**すべて VM 上で自動生成**され、`/opt/identity-stack/secrets/` に置かれます。再実行しても作り直しません。
 - 配備のたびに `manage.py configure` が走り、**冪等**に次を整えます。
-  - グループ `cloud-users`・`cloud-admins`（`akadmin` は `cloud-admins`）
+  - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
@@ -42,13 +42,26 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 ## 利用者の招待（管理者）
 
-**利用者の招待は、クラウド API でもポータルでもありません。** 認証基盤の管理者の仕事です。クラウドは、招待で作られた利用者が `cloud-users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません。
+**利用者の招待は、クラウド API でもポータルでもありません。** 認証基盤の管理者の仕事です。クラウドは、招待で作られた利用者が `users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません。
 
-招待専用エンロールフロー `cloud-invitation-enrollment` を `stacks/identity/invitations.py` が管理します。`configure` は配備でも毎回走ります。
+### GUI で発行する（ふつうはこちら）
+
+管理画面 → **Directory → Invitations → New Invitation**。
+
+1. **with Existing Enrollment Flow...** を選び、`cloud-invitation-enrollment` を指定します（招待ステージが付いた登録フローだけが並びます）。
+2. **Custom attributes** に `{"username": "alice", "email": "alice@example.org"}` を入れます（`name` も付けられます）。ここで入れた値が本人のユーザー名・メールになります。
+3. **Single use** を有効にし、**Expires** を設定して作成します。
+4. 招待を展開して **Link to use the invitation** を **Copy Link** するか、**Send via Email**（Authentik の SMTP。現在は Gmail で送信可）で送ります。
+
+グループは招待の属性では指定できず、**フローの User Write ステージ**（既定 `users`）で決まります。管理者にしたい人は、作成後に **Directory → Users → 対象 → Groups** で `admins` を追加します。
+
+### CLI で発行する（任意）
+
+日本語の招待メールとリンクの 0600 保存まで自動化したいときは、identity VM の `stacks/identity/invitations.py` を使います。フロー `cloud-invitation-enrollment` を管理し、`configure` は配備でも毎回走ります。
 
 | 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
 | --- | --- |
-| フローを作る・直す（冪等） | `python3 invitations.py configure [--group cloud-users]` |
+| フローを作る・直す（冪等） | `python3 invitations.py configure [--group users]` |
 | 招待を発行してリンクを保存・送信 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed] [--no-email]` |
 | 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
 | 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
@@ -66,7 +79,7 @@ sudo python3 /opt/identity-stack/invitations.py list
 
 - **1 回限り・24 時間有効。** リンクを開いても登録を終えなかった場合は期限切れになります。Authentik の Invitation Stage は**リンクを開いた時点で消費する**ため、途中でブラウザーを閉じた場合も `revoke` して再発行します。
 - **ユーザー名・メール・所属グループは招待が固定します。** 登録画面で入力できるのはパスワード（12 文字以上）だけです。管理者グループを自己指定する入口はありません。
-- **グループの既定は `cloud-users`。** 他のサービス（メディアなど）へも招待するようになったら `configure --group` と宛先で分けます。1 つのフローに複数グループを持たせず、サービスごとに分ける方針です。
+- **グループの既定は `users`。** 他のサービス（メディアなど）へも招待するようになったら `configure --group` と宛先で分けます。1 つのフローに複数グループを持たせず、サービスごとに分ける方針です。
 - **メールで送れます。** `.env` に `SMTP_HOST`・`SMTP_FROM`（必要なら `SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_PORT`/`SMTP_SECURITY`）があれば、`invite` は招待メールを SMTP（現在は Gmail `shake.notify@gmail.com`）へ投げます。無ければ送らず、リンクを `runtime/invitations/<name>.json`（0600）に保存して管理者が別経路で渡します。`--no-email` で送信を止められます。トークンは端末の履歴やログに出しません（[SMTPとメール送信](smtp.md)）。
 - **メール所有の確認は明示したときだけ。** 管理者が本人とアドレスを別経路で確認済みの場合に `--email-owner-confirmed` を付けると `email_verified=true` になります。付けなければ未確認のままです。
 

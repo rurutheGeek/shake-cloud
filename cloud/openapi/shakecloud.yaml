@@ -71,7 +71,7 @@ paths:
       tags: [auth]
       summary: Finish the OIDC login and start a session.
       description: |
-        Requires membership in cloud-users or cloud-admins. An unknown subject
+        Requires membership in users or admins. An unknown subject
         carrying the email of an existing account is refused rather than given
         a second account.
       security: []
@@ -177,7 +177,7 @@ paths:
       tags: [iam]
       summary: Delete (revoke) an access key.
       description: |
-        Owners may delete their own keys; cloud-admins may delete anyone's.
+        Owners may delete their own keys; admins may delete anyone's.
         The row is kept, inactive, so the audit log still names it.
       parameters:
         - name: access_key_id
@@ -263,12 +263,12 @@ paths:
       summary: Read the audit log, newest first.
       description: |
         Records every change, every login, and failed attempts with a real
-        access key ID. Users see their own account; cloud-admins see all.
+        access key ID. Users see their own account; admins see all.
         event_name is the operationId of the request.
       parameters:
         - name: account_id
           in: query
-          description: cloud-admins only.
+          description: admins only.
           schema: {type: string, pattern: '^[0-9]{12}$'}
         - {name: access_key_id, in: query, schema: {type: string}}
         - {name: event_name, in: query, schema: {type: string}}
@@ -498,7 +498,7 @@ paths:
         **Allotted figures are sums of ceilings, not measurements.** Memory is
         ballooned, so a guest may be holding far less than its `memory_mib`.
         The node's own figures and the allotted total will not agree, and both
-        are reported. cloud-admins also get a per-account breakdown.
+        are reported. admins also get a per-account breakdown.
       responses:
         '200':
           description: Capacity.
@@ -524,7 +524,7 @@ paths:
     put:
       operationId: UpdateLimits
       tags: [compute]
-      summary: Change the limits. cloud-admins only.
+      summary: Change the limits. admins only.
       description: |
         **Replaces every override at once.** A field left out of the request
         goes back to the deployment's default from
@@ -672,7 +672,7 @@ paths:
       parameters:
         - name: account_id
           in: query
-          description: Filter by account. Available to everyone, not only cloud-admins.
+          description: Filter by account. Available to everyone, not only admins.
           schema: {type: string, pattern: '^[0-9]{12}$'}
       responses:
         '200':
@@ -692,9 +692,9 @@ paths:
     post:
       operationId: AdoptInstance
       tags: [compute]
-      summary: Register a VM that already exists into the cloud. cloud-admins only.
+      summary: Register a VM that already exists into the cloud. admins only.
       description: |
-        cloud-admins only.
+        admins only.
 
         Takes over a VM the administrator has already moved into the cloud
         pool. It is registered under `account_id` and from then on behaves like
@@ -759,9 +759,9 @@ paths:
     patch:
       operationId: ModifyInstance
       tags: [compute]
-      summary: Change an instance's cpu, memory, ballooning or disk size. cloud-admins only.
+      summary: Change an instance's cpu, memory, ballooning or disk size. admins only.
       description: |
-        cloud-admins only.
+        admins only.
 
         `vcpus`, `memory_mib` and `ballooning` can only be changed while the
         instance is **stopped**; Proxmox applies them at the next start.
@@ -970,7 +970,7 @@ paths:
       tags: [volumes]
       summary: Grow a volume.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). A
+        Owner or admins only (403 UnauthorizedOperation otherwise). A
         volume can only grow, never shrink; size_gib must exceed the current
         size_gib (400 InvalidParameterValue otherwise) and stay within
         `limits.volume_size_gib` and the account quota.
@@ -1003,7 +1003,7 @@ paths:
       tags: [volumes]
       summary: Delete a volume.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). The
+        Owner or admins only (403 UnauthorizedOperation otherwise). The
         volume must be detached (409 VolumeInUse otherwise); detach it
         first. Deleting an already-deleted volume is not an error. Deleted
         volumes stay listed for an hour.
@@ -1025,7 +1025,7 @@ paths:
       tags: [volumes]
       summary: Attach a volume to an instance.
       description: |
-        Owner or cloud-admins only, and the instance must belong to the same
+        Owner or admins only, and the instance must belong to the same
         account as the volume (403 UnauthorizedOperation otherwise). The
         volume must be `available` (409 IncorrectState otherwise) and the
         instance must be running or stopped (409 IncorrectInstanceState
@@ -1060,7 +1060,7 @@ paths:
       tags: [volumes]
       summary: Detach a volume from its instance.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        Owner or admins only (403 UnauthorizedOperation otherwise).
         The volume must be `in-use` (409 IncorrectState otherwise). Detaching
         expects the guest to have already unmounted the device; the API does
         not ask the guest to unmount it first.
@@ -1086,7 +1086,7 @@ paths:
       operationId: DescribeSecurityGroups
       tags: [security-groups]
       summary: List the caller's security groups.
-      description: Callers see their own groups; cloud-admins see every account's.
+      description: Callers see their own groups; admins see every account's.
       responses:
         '200':
           description: Security groups.
@@ -1128,7 +1128,7 @@ paths:
       operationId: DescribeSecurityGroup
       tags: [security-groups]
       summary: Read one security group.
-      description: Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+      description: Owner or admins only (403 UnauthorizedOperation otherwise).
       parameters:
         - $ref: '#/components/parameters/GroupID'
       responses:
@@ -1145,7 +1145,7 @@ paths:
       tags: [security-groups]
       summary: Delete a security group.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise). The
+        Owner or admins only (403 UnauthorizedOperation otherwise). The
         account's default group cannot be deleted (409 CannotDelete). A
         group still attached to a live instance cannot be deleted (409
         DependencyViolation); remove it from every instance's
@@ -1165,7 +1165,7 @@ paths:
       tags: [security-groups]
       summary: Add ingress rules to a security group.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        Owner or admins only (403 UnauthorizedOperation otherwise).
         from_port and to_port are required for tcp and udp and rejected for
         every other protocol (400 InvalidParameterValue). A rule identical to
         one that already exists is rejected (409
@@ -1221,7 +1221,7 @@ paths:
       operationId: RevokeSecurityGroupRule
       tags: [security-groups]
       summary: Remove one rule (ingress or egress) from a security group.
-      description: Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+      description: Owner or admins only (403 UnauthorizedOperation otherwise).
       parameters:
         - $ref: '#/components/parameters/GroupID'
         - $ref: '#/components/parameters/RuleID'
@@ -1241,7 +1241,7 @@ paths:
       tags: [security-groups]
       summary: Replace the security groups an instance uses.
       description: |
-        Owner or cloud-admins only (403 UnauthorizedOperation otherwise).
+        Owner or admins only (403 UnauthorizedOperation otherwise).
         **Replaces the whole set.** 1 to 5 groups (409
         SecurityGroupsPerInstanceLimitExceeded beyond 5), every one belonging
         to the instance's own account (404 InvalidGroup.NotFound otherwise).
@@ -1272,7 +1272,7 @@ paths:
     get:
       operationId: DescribeBuckets
       tags: [storage]
-      summary: List buckets. Users see their own; cloud-admins see every account's.
+      summary: List buckets. Users see their own; admins see every account's.
       responses:
         '200':
           description: Buckets.
@@ -1389,7 +1389,7 @@ paths:
     get:
       operationId: ListS3Keys
       tags: [storage]
-      summary: List S3 access keys. Users see their own; cloud-admins see every account's.
+      summary: List S3 access keys. Users see their own; admins see every account's.
       responses:
         '200':
           description: Keys. The secret is never returned here.
@@ -1444,7 +1444,7 @@ paths:
     get:
       operationId: DescribeDatabases
       tags: [database]
-      summary: List database appliances. Users see their own; cloud-admins see every account's.
+      summary: List database appliances. Users see their own; admins see every account's.
       responses:
         '200':
           description: Databases.
@@ -1531,7 +1531,7 @@ paths:
     get:
       operationId: DescribeFunctions
       tags: [function]
-      summary: List serverless functions. Users see their own; cloud-admins see every account's.
+      summary: List serverless functions. Users see their own; admins see every account's.
       responses:
         '200':
           description: Functions.
@@ -2049,7 +2049,7 @@ components:
         limits: {$ref: '#/components/schemas/Limits'}
         accounts:
           type: array
-          description: Per account, largest first. cloud-admins only.
+          description: Per account, largest first. admins only.
           items: {$ref: '#/components/schemas/Usage'}
     Volume:
       type: object

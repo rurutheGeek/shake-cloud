@@ -224,7 +224,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 | 対象 | 内容 |
 | --- | --- |
-| グループ | `cloud-users`、`cloud-admins`（`akadmin` は `cloud-admins`） |
+| グループ | `users`、`admins`（`akadmin` は `admins`） |
 | OIDC クライアント `cloud` | redirect は `http://192.168.10.205:8080/auth/callback` の完全一致。`sub` は `user_uuid` |
 | 利用許可 | 上の2グループだけ。メディア用に招待された人はポータルに入れない |
 
@@ -285,13 +285,13 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 - **アクセスキーでアクセスキーは作れません。** 発行はポータルのログインからだけです。漏れたキーが自分の複製を作って居座れないようにするためです。一覧と削除はキーからもできます。
 - 1アカウント5本まで。期限は任意（30日・90日・1年・無期限）です。
 - 削除したキーは行を残して無効にします。監査ログがキーIDを指したままにするためです。
-- 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。cloud-admins は誰のキーでも削除できます。
+- 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。admins は誰のキーでも削除できます。
 
 #### ブートストラップ管理キー（2026-09-11 に無効化済み）
 
-ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。持ち主は `bootstrap-admin` という専用アカウントで、cloud-admins と同じく全体が見えます。
+ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。持ち主は `bootstrap-admin` という専用アカウントで、admins と同じく全体が見えます。
 
-**セルフサービスが実利用できるようになったので、2026-09-11 に無効化しました**（ファイルは空、DBのキーは失効）。以後の機械アクセスは、ポータルにログインして発行するアクセスキーを使ってください。`akadmin` は `cloud-admins` に入っているので、`https://cloud.apextox.dpdns.org` からログインしてキーを発行できます。
+**セルフサービスが実利用できるようになったので、2026-09-11 に無効化しました**（ファイルは空、DBのキーは失効）。以後の機械アクセスは、ポータルにログインして発行するアクセスキーを使ってください。`akadmin` は `admins` に入っているので、`https://cloud.apextox.dpdns.org` からログインしてキーを発行できます。
 
 再び管理用キーが要る場合（ポータルに入れない等の緊急時）:
 
@@ -326,12 +326,12 @@ curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpd
 - 記録するもの: すべての変更、ログイン（拒否も含む）、**実在する**キーIDでの認証失敗。存在しないキーIDでの失敗はアプリのログだけに出します。誰でも作れる値で DB を埋めさせないためです。
 - `event_name` は OpenAPI の operationId です。項目名は CloudTrail の LookupEvents に揃えています。
 - テーブルは追記専用です。UPDATE・DELETE・TRUNCATE はトリガーが拒否します。
-- `GET /v1/audit-events` で読めます。利用者は自分のアカウントの分だけ、cloud-admins は全体です。
+- `GET /v1/audit-events` で読めます。利用者は自分のアカウントの分だけ、admins は全体です。
 
 #### ログインの扱い
 
-- Authentik 側で `cloud-users` / `cloud-admins` 以外は弾いていますが、API でも `groups` を確認します。Authentik の設定を誤って外しても、全員に開かないようにするためです。
-- 管理者かどうかはログインのたびに `groups` から読み直します。`cloud-admins` から外した人は、次のログインで一般利用者になります。
+- Authentik 側で `users` / `admins` 以外は弾いていますが、API でも `groups` を確認します。Authentik の設定を誤って外しても、全員に開かないようにするためです。
+- 管理者かどうかはログインのたびに `groups` から読み直します。`admins` から外した人は、次のログインで一般利用者になります。
 - **知らない `sub` が既存アカウントのメールアドレスで来たら、ログインを拒否します。** Authentik のユーザーを作り直したときに起きます。別アカウントを黙って作ると、その人のリソースが2つに分かれるためです。起きたら監査ログに `AccountConflict` が残るので、管理DBの `accounts.subject` を新しい値へ直します。
 
 #### 開発とテスト
@@ -399,7 +399,7 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | 雛形の一覧 | `GET /v1/instance-types`（`flavors.yaml` と同じ名前）。**選ばなくてもよい** |
 | 作成 | `POST /v1/instances`（`image_id` と、`vcpus`＋`memory_mib`。任意で `memory_min_mib`・`ballooning`・`root_disk_gib`・`user_data`・`client_token`・`tags`。`instance_type` を使えば値が埋まる） |
 | 一覧・1台 | `GET /v1/instances`、`GET /v1/instances/{id}`。**一覧はクラウドの全VM**（所有者名・イメージ名つき） |
-| 大きさの変更 | `PATCH /v1/instances/{id}`（`cloud-admins` だけ） |
+| 大きさの変更 | `PATCH /v1/instances/{id}`（`admins` だけ） |
 | 電源 | `POST /v1/instances/{id}/start`・`/stop`・`/reboot` |
 | 削除 | `DELETE /v1/instances/{id}` |
 
@@ -491,7 +491,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 | --- | --- |
 | いまの容量（CPU・メモリ・ストレージ・配った合計） | `GET /v1/capacity`、ポータルの「容量」 |
 | 上限を読む（実効値・既定値・管理者が変えた分） | `GET /v1/limits` |
-| 上限を変える（`cloud-admins` だけ） | `PUT /v1/limits` |
+| 上限を変える（`admins` だけ） | `PUT /v1/limits` |
 
 ```bash
 curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpdns.org/v1/capacity
@@ -701,7 +701,7 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 <a id="3-15"></a>
 ### 3-15. 既存VMの引き取り（Phase 5）
 
-`POST /v1/instances/adopt`（**cloud-admins のみ**）で、既にあるVMを管理下へ登録します。
+`POST /v1/instances/adopt`（**admins のみ**）で、既にあるVMを管理下へ登録します。
 
 **プールへ入れる操作はAPIの外です。** `cloudapi@pve` は既に `cloud` プールに居るVMしか見えず、外のVMをプールへ入れる権限を持ちません。管理者が先に移します（Proxmox の画面、`qm set <vmid> --pool cloud`、または Terraform）。
 
@@ -774,7 +774,7 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 <a id="3-17"></a>
 ### 3-17. 利用者の招待（identity サービスの仕事）
 
-**利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `cloud-users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
+**利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
 
 招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行い、`stacks/identity/invitations.py` が管理します。**手順（`configure`/`invite`/`list`/`revoke`、1回限り・24時間、Gmail でのメール送信、`runtime/invitations/` への保存、実機確認）は[認証基盤（identity・Authentik）の「利用者の招待」](identity.md#利用者の招待管理者)にまとめました。** パスワード・パスキーの復旧も同じページにあります。
 
