@@ -36,6 +36,7 @@
     <a href="#ssh-view">SSH鍵</a>
     <a href="#keys-view">アクセスキー</a>
     <a href="#events-view">操作履歴</a>
+    <a href="#help-view">ヘルプ</a>
     {{if .Account.IsAdmin}}<a href="#settings">管理設定</a>{{end}}
   </nav>
   <div class="toolbar"><button id="refresh-all" type="button">表示を更新</button><span id="refresh-status" class="muted" role="status"></span></div>
@@ -404,6 +405,36 @@
       </table>
     </div>
     <button id="more-events" type="button" hidden>さらに20件表示</button>
+  </section>
+  <section id="help-view" data-view>
+    <h2 tabindex="-1">ヘルプ</h2>
+    <p class="muted">よく使う操作の手順です。詳しい運用は管理者の手順書も参照してください。</p>
+    <details open>
+      <summary>Windows 11 をISOからインストールする</summary>
+      <ol>
+        <li>「ISO」に <strong>Win11 のISO（OS=Windows 11）</strong> と <strong>virtio-win のISO</strong> があるのを確認します（共有ISOにあればそのまま使えます）。</li>
+        <li>「インスタンスを作成」→ 作成方法<strong>「ISOからインストール」</strong>。インストールISO=Win11、ゲストOS=Windows 11、ドライバISO=virtio-win、ルートディスクは<strong>64 GiB以上</strong>、メモリは<strong>4096 MiB以上</strong>にします。</li>
+        <li>起動したら一覧の「コンソール」を開きます。インストール先の一覧が空のときは<strong>「ドライバーの読み込み」</strong>→ virtio-win のCDの <code>viostor\w11\amd64</code> を開き、<strong>「Red Hat VirtIO SCSI controller」</strong>を選んでインストールします（このポータルが作るディスクは <code>virtio0</code> のため。<code>vioscsi</code> は <code>scsi0</code> のディスク用で、こちらでは見つかりません）。</li>
+        <li>ネットワークも使うなら、同じ手順で <code>NetKVM\w11\amd64</code> も読み込みます。</li>
+        <li>インストール後、一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します。または「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動するとホスト名とIPが自動設定されます。</li>
+      </ol>
+    </details>
+    <details>
+      <summary>電源操作ができない／再起動が終わらない</summary>
+      <p>作成・起動・停止・再起動・削除のいずれかが処理中の間は、一覧の状態に「〜処理中…」と表示され、別の電源操作は受け付けません。処理中にボタンを押すと理由を案内します。完了まで待ってください。Windowsなどguest agentが無いゲストでACPIに応答しない場合は、再起動は自動で強制リセットに切り替わります。</p>
+    </details>
+    <details>
+      <summary>コンソールが開かない</summary>
+      <p>ブラウザがポップアップをブロックした場合、画面に表示される「〜のコンソールを開く」リンクを押してください。リンクは5分で無効になります。その場合はもう一度「コンソール」を押して発行し直します。</p>
+    </details>
+    <details>
+      <summary>IPアドレスはどこ？／ネットワークにつながらない</summary>
+      <p>一覧の「IP」列が割り当てられた固定IPです。Linuxのイメージは起動時に自動設定されます。WindowsやISOから入れたゲストは、そのIPをゲスト側で設定してください（「Windows 11をISOからインストールする」の手順5）。SSHやRDPで入るには、そのポートを許可するセキュリティグループをVMに付けてください。</p>
+    </details>
+    <details>
+      <summary>削除する前に</summary>
+      <p> VMを削除するとルートディスクも消えます。接続済みの追加ボリュームは切り離されて残ります。消したくないデータはボリュームかS3へ。削除の確認画面に対象の名前・ID・所有者が出ます。</p>
+    </details>
   </section>
 {{- else}}
   <section>

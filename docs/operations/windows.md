@@ -29,7 +29,7 @@ Windows 11 Pro の入れ方は2とおりあります。
 0. **ISOを確認する**: Proxmox の `local:iso` に置いたISOは、**そのままポータルのISO一覧に「共有」として自動で並びます**（yaml編集・配備は不要。ファイルは1実体のままで複製しません）。ポータルからアップロードしたISOも同じ一覧に並び、こちらは誰でも削除できます（使用中のインスタンスがある間は拒否）。ISOはアカウントの持ち物ではなく全員で共有します。
 1. **無ければアップロードする**: ポータルの「ISO」→ 名前、OS（Windows 11 のISOなら「Windows 11」）、ファイル（`.iso`）を選んでアップロード。Windows 11 のISOと `virtio-win.iso` の両方が必要です（`virtio-win.iso` のOSは空で構いません）。
 2. **作成する**: 「インスタンス」→「インスタンスを作成」→ 作成方法を**「ISOからインストール」**にする。インストールISOにWin11、ドライバISOに `virtio-win.iso` を選び、名前・vCPU・メモリ・ルートディスク（Windows 11は**64 GiB以上**）を決めて作成。
-3. **インストールする**: 一覧の「コンソール」を開き、Windowsのインストーラーを進める。**インストール先が見えないときは「ドライバーの読み込み」から `vioscsi\w11\amd64` を選ぶ**（`virtio-win` のCD内）。`NetKVM\w11\amd64` も入れるとネットワークが使えます。
+3. **インストールする**: 一覧の「コンソール」を開き、Windowsのインストーラーを進める。**インストール先が見えないときは「ドライバーの読み込み」から `viostor\w11\amd64` を選ぶ**（`virtio-win` のCD内。このポータルが作るディスクは `virtio0`＝virtio-blk のため。`vioscsi` は `scsi0` 用で見つかりません）。`NetKVM\w11\amd64` も入れるとネットワークが使えます。
 4. **初期設定**: 地域・アカウント・プロダクトキーを設定する。割り当てられたIPはインスタンス一覧に表示されるので、そのIPをWindows側に設定するか、`cloudbase-init` を入れて再起動すると seed ISO（NoCloud、network config v1）からホスト名とIPが自動設定されます。
 5. **後片付け**: インストールに使ったISOは、そのインスタンスが生きている間は削除できません（削除APIが使用中を拒否します）。不要になったら「ISO」画面から削除してください。
 
@@ -140,7 +140,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | 症状 | 原因 | 対応 |
 | --- | --- | --- |
 | 「この PC では Windows 11 を実行できません」 | OVMF・TPM が無い、または `machine` が q35 でない | イメージ宣言の `os: windows` を確認し、配備し直す |
-| ディスクが見えずインストールできない | virtio ドライバ未導入 | セットアップ時に `vioscsi\w11\amd64` を読み込む |
+| ディスクが見えずインストールできない | virtio ドライバ未導入、または種類違い | ポータル作成（`virtio0`）は `viostor\w11\amd64`、共有イメージ/Proxmoxビルド（`scsi0`）は `vioscsi\w11\amd64` を読み込む |
 | 起動後ネットワークが無い | cloudbase-init が NoCloud を読めていない | `cloudbase-init.log` を確認。`metadata_services` を NoCloud だけにする |
 | 同じ IP が二重に付く | イメージ側に固定 IP が残っている | sysprep 前に DHCP へ戻す |
 | `import-from` が失敗する | `cloud-images` にファイルが無い/名前違い | `file_name` と `/srv/cloud-images/import/` の名前を一致させる |
