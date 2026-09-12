@@ -776,28 +776,7 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 
 **利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `cloud-users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
 
-招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行います。`stacks/identity/invitations.py` が管理します。
-
-| 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
-| --- | --- |
-| フローを作る・直す（冪等） | `python3 invitations.py configure [--group cloud-users]` |
-| 招待を発行してリンクを保存・送信 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed] [--no-email]` |
-| 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
-| 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
-
-`configure` は配備（`platform/ansible/identity.yml` → `manage.py configure`）で毎回走ります。
-
-設計上のポイント:
-
-- **招待は1回限り・24時間有効。** リンクを開いても登録を終えなかった場合は期限切れになるので、`revoke` して再発行します。Authentik の Invitation Stage は**リンクを開いた時点で消費する**ため、途中でブラウザを閉じた場合も再発行です。
-- **ユーザー名・メール・所属グループは招待が固定します。** 登録画面で入力できるのはパスワード（12文字以上）だけ。管理者グループを自己指定する入口はありません。
-- **グループの既定は `cloud-users`。** 他のサービス（メディア等）へも招待するようになったら、`configure --group` と招待の宛先で分けます。1つのフローに複数グループを持たせるのではなく、サービスごとに分ける方針です。
-- **メールで送れます。** `stacks/identity/.env` に `SMTP_HOST`・`SMTP_FROM`（必要なら `SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_PORT`/`SMTP_SECURITY`）があれば、`invite` は招待メールを SMTP へ投げます。無ければ送らず、リンクを `runtime/invitations/<name>.json`（0600）に保存して管理者が別経路で渡します。`--no-email` で送信を止められます。トークンは端末の履歴やログに出しません。SMTP の正本は `platform/sops/smtp.sops.yaml`（現在は Gmail `shake.notify@gmail.com`）で、identity ロールが `.env` へ写します（[SMTPとメール送信](smtp.md)）。Authentik 自身（パスワード再設定など）も同じ `SMTP_*` を `AUTHENTIK_EMAIL__*` として使います。
-- **メール所有の確認は明示したときだけ。** 管理者が本人とアドレスを別経路で確認済みの場合に `--email-owner-confirmed` を付けると `email_verified=true` になります。付けなければ未確認のままです。
-
-実機確認（2026-09-11）: `identity.yml` 配備でフロー作成を確認。`invite` で招待を発行 → `list` に未使用として表示 → 外部URL `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` が **200** で招待ページを返すこと、`revoke` で消えることを確認。user_write ステージが `cloud-users` に作ること、Invitation Stage が「招待なしは拒否」であることも API で確認しました。**メール送信**は、identity VM 上に一時的な SMTP シンク（127.0.0.1:2525）を立てて `invite` を実行し、リンク入りのメッセージが届くことを確認しました（シンクとテスト招待は削除済み）。
-
-実機確認（2026-09-12）: Gmail のアプリパスワードを `platform/sops/smtp.sops.yaml` に格納し、`identity.yml` を流して identity VM の `.env` へ反映・Authentik を再作成。`invitations.py` の `smtp_settings`／`deliver` を通して **Gmail から実送信**できることを確認しました。
+招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行い、`stacks/identity/invitations.py` が管理します。**手順（`configure`/`invite`/`list`/`revoke`、1回限り・24時間、Gmail でのメール送信、`runtime/invitations/` への保存、実機確認）は[認証基盤（identity・Authentik）の「利用者の招待」](identity.md#利用者の招待管理者)にまとめました。** パスワード・パスキーの復旧も同じページにあります。
 
 ### 3-18. 管理DBのバックアップ
 

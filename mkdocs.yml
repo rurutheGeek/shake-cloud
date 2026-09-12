@@ -19,6 +19,7 @@ nav:
       - Nextcloudと追加アプリ: services/nextcloud.md
       - Vaultwardenの管理: services/vaultwarden.md
       - 共通ログイン: services/sso.md
+      - 認証基盤（identity・Authentik）: operations/identity.md
       - メール設定: operations/smtp.md
       - 初回セットアップの順番: operations/bootstrap.md
       - 秘密値の管理: operations/secrets.md

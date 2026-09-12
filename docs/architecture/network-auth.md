@@ -98,12 +98,7 @@ OIDC対応アプリへさらに一律Forward Authを重ねない構成を優先�
 
 AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で登録し、予備の認証器と復旧方法を用意します。クラウドAPI用のユーザー管理を省くことと、普段使うNextcloud等のアカウントをなくすことは別です。[Authentikパスキー](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_webauthn/)
 
-ログインフローはパスワードの後に認証器検証段階を持ち、`webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。認証器を1つも登録していない利用者はこの段階を素通りしますが、**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。そこで `stacks/identity/configure.py` が次の2つを用意し、`manage.py configure` の再適用で直します（2026-09-12 実装・実機確認）。
-
-- **メール確認コード（`default-authenticator-email-setup`）:** 利用者設定から登録できる第二の認証器。SMTP（Gmail）で届くコードで検証段階を通過でき、**パスキーを失ったときの本線**になります。パスキーと一緒に先に登録しておきます。
-- **パスワード再設定フロー（`default-recovery-flow`）:** ログイン画面の「パスワードを忘れた」から、メールで本人確認して新しいパスワードを設定します。これは**パスワードだけ**を戻すので、認証器を登録済みの人はメール確認コードか、管理者によるデバイス削除が別途必要です。
-
-`akadmin` の復旧先は `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き可）です。すべての認証器を失った場合は、管理者が Authentik の管理画面（Directory → Users → 対象 → MFA Devices）で失ったデバイスを削除するか、bootstrap トークンで `GET /api/v3/authenticators/admin/webauthn/?user=<pk>` → `DELETE` します。デバイスが無くなれば検証段階は素通りし、パスワードで戻れます。オフライン時は identity VM の `docker compose exec worker ak shell` から `WebAuthnDevice.objects.filter(user__username=...).delete()` を使います。
+ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。`configure.py` が **メール確認コード**（第二の認証器）と**パスワード再設定フロー**を用意し、`akadmin` の復旧先を `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き）にします。運用と非常口（デバイス削除、`ak shell`）の手順は[認証基盤（identity・Authentik）](../operations/identity.md)にまとめています。パスキーだけで入るパスワードレスは未実施です。
 
 認証VMはKubernetesの外へ置き、クラスタ更新中にもWeb認証を使える構成を推奨します。ただしK11故障には一緒に影響されます。Proxmoxのローカル管理者、SSH鍵、復旧用kubeconfig、秘密鍵の外部コピーを残し、AuthentikやVaultwardenだけを復旧情報の保存先にしません。
 

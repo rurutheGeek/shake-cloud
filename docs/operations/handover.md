@@ -168,7 +168,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ⬜ | NetBox を使うツール（Terraform・Ansible・クラウドAPI）の接続先を `https://netbox.apextox.dpdns.org` へ移し、`:8000` と `:8090` を閉じる | `netbox.sops.yaml`・`netbox-inventory.sops.yaml`・`cloudapi.sops.yaml` の URL を変える |
 | ⬜ | 外出先（Tailscale）から名前で使えるようにする | Tailscale の DNS がどの名前にも SERVFAIL を返す件と、LAN へのサブネットルートが未設定 |
 | ✅ | OIDC クライアントの秘密値を cloud-01 へ渡す | SOPS へ入れる予定だったが、identity VM から直接写す方式に変えた（§3） |
-| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。**メール送信に対応**（`smtp.sops.yaml` の `SMTP_*` を `.env` 経由で読み、現在は Gmail。無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
+| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。**メール送信に対応**（`smtp.sops.yaml` の `SMTP_*` を `.env` 経由で読み、現在は Gmail。無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[identity.md](identity.md)・[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
 | ✅ | データセンターのファイアウォール有効化 | Phase 4 の前提。`platform/terraform/00-bootstrap/firewall.tf` で安全に自動化し、**2026-09-11 に適用済み**（再 plan は No changes）。ノードFWは無効、DC FWは有効・既定ACCEPT、`nf_conntrack_allow_invalid=1`。既存の基盤VM・game1 への通信に影響がないこと、`nf_conntrack_allow_invalid=1` が入っていることを実機で確認。次に触る場合は物理コンソール/IPMI を用意する |
 | 🟨 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。**宣言と安全装置・手順書は用意済み**（`network.yaml` の `vlan`、`managed-host` と `site.Validate` の precondition、[vlan.md](vlan.md)）。実機切替は人の物理作業待ち |
 
@@ -221,7 +221,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 | 項目 | 現状 | 決めるときの材料 |
 | --- | --- | --- |
-| パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用 | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。予備の認証器と復旧方法を先に決める。[ネットワーク・SSO](../architecture/network-auth.md) |
+| パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用。手順は [identity.md](identity.md) | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。パスキーだけのパスワードレスは未実施。[認証基盤（identity・Authentik）](identity.md)・[ネットワーク・SSO](../architecture/network-auth.md) |
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
 | public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
