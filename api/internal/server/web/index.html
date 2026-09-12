@@ -29,6 +29,8 @@
     <a href="#volumes-view">ボリューム</a>
     <a href="#security-view">セキュリティグループ</a>
     <a href="#s3-view">S3ストレージ</a>
+    <a href="#databases-view">データベース</a>
+    <a href="#functions-view">関数</a>
     <a href="#images-view">イメージ</a>
     <a href="#isos-view">ISO</a>
     <a href="#ssh-view">SSH鍵</a>
@@ -260,6 +262,35 @@
         <thead><tr><th>キーID</th><th>名前</th><th>作成</th><th><span class="visually-hidden">操作</span></th></tr></thead>
         <tbody id="s3-keys"></tbody>
       </table>
+    </div>
+  </section>
+  <section id="databases-view" data-view>
+    <h2 tabindex="-1">データベース</h2>
+    <p class="muted">PostgreSQL のアプライアンスです。作成には少し時間がかかり、準備できると接続情報を取得できます。</p>
+    <form id="create-database">
+      <label>名前 <input name="name" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="例: shop"></label>
+      <label>容量(GiB) <input name="storage_gib" type="number" min="1" max="50" value="5" required></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="database-credentials" class="notice" hidden>
+      <p><strong>接続情報</strong>（この値は API に保存されません。必要なら今控えてください）</p>
+      <pre id="database-credentials-value" tabindex="0"></pre>
+      <button id="dismiss-database-credentials" type="button">閉じる</button>
+    </div>
+    <div id="databases-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="databases"></div>
+    </div>
+  </section>
+  <section id="functions-view" data-view>
+    <h2 tabindex="-1">関数</h2>
+    <p class="muted">コンテナイメージをサーバレス HTTP として動かします。使われていないときは 0 個まで縮退します。</p>
+    <form id="create-function">
+      <label>名前 <input name="name" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="例: greeter"></label>
+      <label>イメージ <input name="image" required maxlength="512" placeholder="例: gcr.io/knative-samples/helloworld-go"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="functions-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="functions"></div>
     </div>
   </section>
   <section id="images-view" data-view>

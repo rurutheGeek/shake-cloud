@@ -2081,9 +2081,188 @@
     });
   }
 
+  // Databases (CloudNativePG) and functions (Knative).
+  function databaseCard(database, viewerAccountId, isAdmin) {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    const title = document.createElement('strong');
+    title.textContent = database.name;
+    head.append(title);
+    const owner = document.createElement('span');
+    owner.className = 'muted';
+    owner.textContent = database.owner_username || database.account_id;
+    head.append(owner);
+    const status = document.createElement('span');
+    status.className = 'muted';
+    status.textContent = database.status || '準備中';
+    head.append(status);
+    card.append(head);
+
+    const detail = document.createElement('p');
+    detail.className = 'muted small';
+    detail.textContent = `PostgreSQL ${database.engine_version} · ${database.storage_gib}GiB · 接続先 ${database.host}:${database.port}`;
+    card.append(detail);
+
+    const canManage = database.account_id === viewerAccountId || isAdmin;
+    if (canManage) {
+      const credentials = document.createElement('button');
+      credentials.type = 'button';
+      credentials.textContent = '接続情報を表示';
+      onAction(credentials, 'click', async (event, scope) => {
+        try {
+          $('error').hidden = true;
+          const result = await api('GET', `/v1/databases/${encodeURIComponent(database.database_id)}/credentials`);
+          const c = result.credentials;
+          $('database-credentials-value').textContent =
+            `host     ${c.host}\nport     ${c.port}\ndatabase ${c.database}\nusername ${c.username}\npassword ${c.password}`;
+          $('database-credentials').hidden = false;
+          announce(`データベース「${database.name}」の接続情報を表示しました。`, scope);
+        } catch (error) {
+          showError(error, scope);
+        }
+      });
+      card.append(credentials);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = 'データベースを削除';
+      del.className = 'danger';
+      onAction(del, 'click', async (event, scope) => {
+        if (!await confirmAction({ title: 'データベースを削除',
+          message: `データベース「${database.name}」を削除します。中のデータも消えます。取り消せません。`,
+          confirmLabel: 'このデータベースを削除', danger: true })) return;
+        try {
+          $('error').hidden = true;
+          await api('DELETE', `/v1/databases/${encodeURIComponent(database.database_id)}`);
+          await loadDatabases();
+        } catch (error) {
+          showError(error, scope);
+        }
+      });
+      card.append(del);
+    }
+    return card;
+  }
+
+  async function loadDatabases() {
+    const wrap = $('databases-wrap');
+    if (!wrap) return;
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const { databases } = await api('GET', '/v1/databases');
+      $('databases').replaceChildren(...databases.map((database) => databaseCard(database, viewerAccountId, isAdmin)));
+    } catch (error) {
+      $('databases').replaceChildren(note(error.message));
+    }
+  }
+
+  const createDatabaseForm = $('create-database');
+  if (createDatabaseForm) {
+    onAction(createDatabaseForm, 'submit', async (submit, scope) => {
+      submit.preventDefault();
+      const data = new FormData(createDatabaseForm);
+      try {
+        $('error').hidden = true;
+        await api('POST', '/v1/databases', { name: data.get('name'), storage_gib: Number(data.get('storage_gib')) });
+        createDatabaseForm.reset();
+        await loadDatabases();
+      } catch (error) {
+        showError(error, scope);
+      }
+    });
+  }
+
+  const dismissCredentials = $('dismiss-database-credentials');
+  if (dismissCredentials) {
+    dismissCredentials.addEventListener('click', () => { $('database-credentials').hidden = true; });
+  }
+
+  function functionCard(fn, viewerAccountId, isAdmin) {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    const title = document.createElement('strong');
+    title.textContent = fn.name;
+    head.append(title);
+    const owner = document.createElement('span');
+    owner.className = 'muted';
+    owner.textContent = fn.owner_username || fn.account_id;
+    head.append(owner);
+    const status = document.createElement('span');
+    status.className = 'muted';
+    status.textContent = fn.status || '準備中';
+    head.append(status);
+    card.append(head);
+
+    const detail = document.createElement('p');
+    detail.className = 'muted small';
+    detail.textContent = `image ${fn.image}`;
+    card.append(detail);
+    if (fn.url) {
+      const url = document.createElement('p');
+      url.className = 'muted small';
+      url.textContent = `URL ${fn.url}`;
+      card.append(url);
+    }
+
+    const canManage = fn.account_id === viewerAccountId || isAdmin;
+    if (canManage) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '関数を削除';
+      del.className = 'danger';
+      onAction(del, 'click', async (event, scope) => {
+        if (!await confirmAction({ title: '関数を削除',
+          message: `関数「${fn.name}」を削除します。取り消せません。`,
+          confirmLabel: 'この関数を削除', danger: true })) return;
+        try {
+          $('error').hidden = true;
+          await api('DELETE', `/v1/functions/${encodeURIComponent(fn.function_id)}`);
+          await loadFunctions();
+        } catch (error) {
+          showError(error, scope);
+        }
+      });
+      card.append(del);
+    }
+    return card;
+  }
+
+  async function loadFunctions() {
+    const wrap = $('functions-wrap');
+    if (!wrap) return;
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const { functions } = await api('GET', '/v1/functions');
+      $('functions').replaceChildren(...functions.map((fn) => functionCard(fn, viewerAccountId, isAdmin)));
+    } catch (error) {
+      $('functions').replaceChildren(note(error.message));
+    }
+  }
+
+  const createFunctionForm = $('create-function');
+  if (createFunctionForm) {
+    onAction(createFunctionForm, 'submit', async (submit, scope) => {
+      submit.preventDefault();
+      const data = new FormData(createFunctionForm);
+      try {
+        $('error').hidden = true;
+        await api('POST', '/v1/functions', { name: data.get('name'), image: data.get('image') });
+        createFunctionForm.reset();
+        await loadFunctions();
+      } catch (error) {
+        showError(error, scope);
+      }
+    });
+  }
+
   const refresh = () => Promise.all([
     loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
-    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(),
+    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(),
   ]);
 
   onAction($('refresh-all'), 'click', async () => {
