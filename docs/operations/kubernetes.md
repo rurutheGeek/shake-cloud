@@ -137,6 +137,17 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 
 **API から作れます。** `POST /v1/databases` が `databases` namespace に CNPG Cluster を作り、`GET /v1/databases`・`GET`/`DELETE /v1/databases/{id}`・`GET /v1/databases/{id}/credentials` があります。API は Flux で作った ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）のトークンで Kubernetes を操作します。トークンと CA は `platform/sops/k8s.sops.yaml` に置き、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。Provider `shakecloud_database` と CLI は次の段です。
 
+## アプリ: Knative（function）
+
+クラウドの **`shakecloud_function`**（利用者にサーバレス HTTP を渡す機能）の実体です。Knative Operator と Serving（Kourier）を Flux で配っています。
+
+- **Knative Operator 1.23.1**（`platform/flux/apps/knative.yaml`）。上流 `config/default` を kustomize で適用しますが、**`ko://` のままなので release の digest に差し替え**ています。また、Operator が Serving 用の RBAC を委譲できるよう `cluster-admin` を束ねています（付けないと `attempting to grant RBAC permissions not currently held` で失敗します）。
+- **Knative Serving 1.23.0 + Kourier**（`platform/flux/apps/knative-serving/`）。ゲートウェイは `knative-serving/kourier` の LoadBalancer（MetalLB が IP を配る）。
+- **`config-network.ingress-class` は完全名 `kourier.ingress.networking.knative.dev`**。短縮名 `kourier` にすると Ingress の annotation が短縮名になり、net-kourier controller のフィルタ（完全名）に一致せず **Ingress が reconcile されません**（2026-09-12 に実際に踏みました）。
+- 関数 URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。DNS は未登録なので、いまは Host ヘッダで確認します。
+
+実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
