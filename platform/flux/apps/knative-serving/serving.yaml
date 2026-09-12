@@ -1,0 +1,17 @@
+# Knative Serving。ネットワークは Kourier（MetalLB が IP を配る）。
+# 関数の URL は <name>.<namespace>.k8s.apextox.dpdns.org になる。
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  version: "1.23.0"
+  ingress:
+    kourier:
+      enabled: true
+  config:
+    network:
+      ingress-class: kourier
+    domain:
+      "k8s.apextox.dpdns.org": ""

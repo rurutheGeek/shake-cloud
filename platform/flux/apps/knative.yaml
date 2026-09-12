@@ -1,0 +1,25 @@
+# Knative Operator。上流リポジトリを tag で固定して kustomize で入れる。
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: knative-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/knative/operator
+  ref:
+    tag: "knative-v1.23.1"
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: knative-operator
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./config/default
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: knative-operator

@@ -11,3 +11,5 @@ resources:
   - apps/awx.yaml
   - apps/cnpg.yaml
   - apps/databases.yaml
+  - apps/knative.yaml
+  - apps/knative-serving.yaml
