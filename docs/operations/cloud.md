@@ -849,6 +849,27 @@ curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/databases/db-...
 - Kubernetes を操作するトークンは Flux が作る ServiceAccount **`databases/cloud-api`**（CNPG Cluster と Secret だけ触れる最小 RBAC）。正本は `platform/sops/k8s.sops.yaml` で、cloud_api ロールが cloud-01 の `secrets/k8s_ca`・`secrets/k8s_token` へ写します。
 - 実機確認（2026-09-12）: POST で `db-...` が作られ、`Setting up primary` → `Cluster in healthy state` に遷移、`/credentials` が app の資格情報を返し、DELETE で Cluster も消えることを確認しました。
 
+### 3-20. 関数（Knative）
+
+管理クラウドの「サーバレス実行」です。`POST /v1/functions` が Kubernetes の `functions` namespace に Knative Service を1つ作ります。実体と配置は [Kubernetes クラスタ](kubernetes.md) を参照。
+
+```bash
+BASE=https://cloud.apextox.dpdns.org
+# 作成（image は OCI イメージ参照）
+curl -X POST -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d '{"name":"greeter","image":"gcr.io/knative-samples/helloworld-go"}' $BASE/v1/functions
+# 一覧・詳細
+curl -H "Authorization: Bearer $KEY" $BASE/v1/functions
+curl -H "Authorization: Bearer $KEY" $BASE/v1/functions/fn-...
+# 削除（Knative Service ごと消える）
+curl -X DELETE -H "Authorization: Bearer $KEY" $BASE/v1/functions/fn-...
+```
+
+- 1アカウント **10個**まで。名前は 2〜30 文字の小文字英数字とハイフン（先頭は英字）。
+- 呼び出し URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。**DNS はまだ未登録**なので、現状は Host ヘッダで Kourier の LB IP に投げて確認します。使わないときは 0 レプリカまで縮退します。
+- Kubernetes を操作するトークンは database と同じ ServiceAccount `databases/cloud-api`（`functions` namespace の Knative Service だけ触れる）。
+- 実機確認（2026-09-12）: POST で `fn-...` が作られ、`Provisioning` → `Ready`（URL 発行）に遷移、Kourier 経由で `Hello World!` が返り、DELETE で Service も消えることを確認しました。
+
 ## 4. 実機プローブ
 
 **設計の前提がこの Proxmox の版で成立するかを機械判定します。**結果が違えば設計を変えるので、実装より先に走らせてください。PVEを上げたあとにも走らせます。

@@ -61,6 +61,7 @@ provider "shakecloud" {
 | `shakecloud_key_pair` | `aws_key_pair` | SSH公開鍵の登録 |
 | `shakecloud_image` | `aws_ami`（自作） | ローカルのディスクイメージをアップロード。`.qcow2`/`.raw`/`.img`/`.vmdk`、既定12GiBまで |
 | `shakecloud_database` | `aws_db_instance` | PostgreSQL（CloudNativePG）。`name`・`storage_gib` で作る。資格情報は state に置かない |
+| `shakecloud_function` | `aws_lambda_function` | サーバレス関数（Knative）。`name`・`image` で作る |
 | `shakecloud_bucket` | `aws_s3_bucket` | S3バケット（Garage）。オブジェクト本体はAPIを通らない |
 
 データソース:
@@ -126,6 +127,11 @@ resource "shakecloud_database" "shop" {
   storage_gib = 5
 }
 
+resource "shakecloud_function" "greeter" {
+  name  = "greeter"
+  image = "gcr.io/knative-samples/helloworld-go"
+}
+
 # 自分のディスクイメージを上げて、そこから起動する。
 resource "shakecloud_image" "custom" {
   name = "custom-debian"
@@ -167,3 +173,5 @@ cd cloud/provider && go vet ./... && go test ./...
 実機での確認（2026-09-12）: `shakecloud_image` を dev override で `apply` し、`img-...`（`format=raw`・`size_mib=1`・`state=available`）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
 
 実機での確認（2026-09-12）: `shakecloud_database` を apply し、`db-...`（CloudNativePG Cluster）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。
+
+実機での確認（2026-09-12）: `shakecloud_function` を apply し、`fn-...`（Knative Service）が作成され、再 plan が **No changes**、`terraform destroy` で消えることを確認しました。

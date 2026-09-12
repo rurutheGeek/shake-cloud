@@ -145,8 +145,9 @@ AWX（Ansible の実行基盤）を **worker-01** に Flux で配備していま
 - **Knative Serving 1.23.0 + Kourier**（`platform/flux/apps/knative-serving/`）。ゲートウェイは `knative-serving/kourier` の LoadBalancer（MetalLB が IP を配る）。
 - **`config-network.ingress-class` は完全名 `kourier.ingress.networking.knative.dev`**。短縮名 `kourier` にすると Ingress の annotation が短縮名になり、net-kourier controller のフィルタ（完全名）に一致せず **Ingress が reconcile されません**（2026-09-12 に実際に踏みました）。
 - 関数 URL は `<name>.<namespace>.k8s.apextox.dpdns.org`。DNS は未登録なので、いまは Host ヘッダで確認します。
+- **API から作れます。** `POST /v1/functions` が `functions` namespace に Knative Service を作ります。API は database と同じ ServiceAccount（`databases/cloud-api`）を使い、Flux が `functions` namespace の Role（Knative Service だけ）を与えています。
 
-実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。
+実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。`POST /v1/functions` でも同じ流れ（Provisioning → Ready、URL 発行、削除で Service ごと消える）を確認しました。
 
 ## 起動と停止
 
