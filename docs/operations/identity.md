@@ -41,6 +41,20 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 バックアップは VM 上で `manage.py backup`（`storage/` と配備ファイルを 1 つの tar にまとめる。既定 `backups/`）を取ります。手順と保管先は[バックアップと復旧](../architecture/operations.md#バックアップと復旧)に沿って決めます。
 
+## グループ
+
+`configure.py` が作るのは2つです。**アプリへの許可はこの2つに紐づきます。**
+
+| グループ | 何のため | 主なアプリでの扱い |
+| --- | --- | --- |
+| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ） |
+| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、AWX など |
+
+- `akadmin` は `admins` に入ります。**招待で作られた人は `users` に入ります。**
+- 管理者の追加や既存ユーザーの移行は GUI で行います（**Directory → Users → 対象 → Groups**）。
+- **グループ名を変えたら、既存ユーザーを新しいグループへ入れ直してください。** 旧グループを消しただけでは移りません。2026-09-12 の改名（`cloud-users`/`cloud-admins` → `users`/`admins`）で実際に起き、`ruruthegeek` を `admins`、`shunyazhiyuan97` を `users` へ移して解決しました。
+- `gaming-users` / `gaming-admins` は、ゲームポータルが `game_identity` スコープの `groups` クレームで使うため残しています。
+
 ## 利用者の招待（管理者）
 
 **利用者の招待は、クラウド API でもポータルでもありません。** 認証基盤の管理者の仕事です。クラウドは、招待で作られた利用者が `users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません。
