@@ -1,0 +1,82 @@
+{
+  "scope": "Local template with synthetic API data; no authenticated production requests",
+  "source_commit": "15d491b",
+  "checks": {
+    "s3_permission_default": [
+      {
+        "name": "read",
+        "checked": false
+      },
+      {
+        "name": "write",
+        "checked": false
+      },
+      {
+        "name": "owner",
+        "checked": true
+      }
+    ],
+    "unlabelled_selects": [
+      {
+        "name": "",
+        "section": "ボリューム"
+      },
+      {
+        "name": "key_id",
+        "section": "S3バケット"
+      }
+    ],
+    "selection_after_key_creation": {
+      "image": "img-a",
+      "key": "",
+      "sg": false
+    },
+    "double_submit": [
+      {
+        "method": "POST",
+        "path": "/v1/instances",
+        "body": "{\"image_id\":\"img-a\",\"ballooning\":true,\"vcpus\":2,\"memory_mib\":2048}"
+      },
+      {
+        "method": "POST",
+        "path": "/v1/instances",
+        "body": "{\"image_id\":\"img-a\",\"ballooning\":true,\"vcpus\":2,\"memory_mib\":2048}"
+      }
+    ],
+    "error_position": {
+      "top": 3333.3125,
+      "viewport": 1000,
+      "role": null,
+      "live": null
+    },
+    "page_errors": [],
+    "poll_discards_edit": {
+      "before": 1,
+      "after": 0,
+      "errors": []
+    },
+    "firewall_poll": {
+      "before": 2,
+      "after": 2,
+      "text": "demo-vm\taudit-user\t稼働中\t192.0.2.10\tUbuntu demo\t\nカスタム\n2 vCPU / 2.0 GiB ・ 最小 512 MiB\n\t20 GiB\tdefault\n反映中\n変更\t起動停止再起動コンソール削除編集"
+    },
+    "mobile_390": {
+      "viewport": 390,
+      "scroll": 390
+    },
+    "mobile_320": {
+      "viewport": 320,
+      "scroll": 339
+    },
+    "live_login": {
+      "status": 200,
+      "login_link": 1,
+      "headers": {
+        "cache-control": "no-store",
+        "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "x-content-type-options": "nosniff"
+      }
+    }
+  },
+  "browser": "151.0.7922.34"
+}

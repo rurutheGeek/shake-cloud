@@ -24,6 +24,7 @@ nav:
       - 秘密値の管理: operations/secrets.md
       - Terraformの実行: operations/terraform.md
       - クラウド開発の引き継ぎとTODO: operations/handover.md
+      - Web GUI監査・改善案: audits/webgui-2026-09-12.md
       - クラウドAPIの構築: operations/cloud.md
       - shakecloud CLI: operations/cli.md
       - shakecloud Terraform Provider: operations/terraform-provider.md
