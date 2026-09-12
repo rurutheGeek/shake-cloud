@@ -3,7 +3,7 @@
 
 This belongs to the **identity service** (Authentik), not to any one application.
 The administrator issues a single-use link; the person opens it, sets a password,
-and lands in the groups the invitation names (the cloud's `cloud-users` by
+and lands in the groups the invitation names (the shared `users` group by
 default). Applications then create their own account on first SSO login.
 
     python3 invitations.py configure                 # create/repair the flow
@@ -33,7 +33,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent
 BASE = os.environ.get('AUTHENTIK_URL', 'http://localhost:9000') + '/api/v3/'
 SLUG = 'cloud-invitation-enrollment'
-DEFAULT_GROUP = 'cloud-users'
+DEFAULT_GROUP = 'users'
 # The link must be openable from outside the identity VM. The flow runs at the
 # same Authentik by name or by 127.0.0.1, but only the name works for a browser.
 EXTERNAL = os.environ.get('AUTHENTIK_EXTERNAL_URL', 'https://auth.apextox.dpdns.org').rstrip('/')

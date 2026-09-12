@@ -1,6 +1,6 @@
 # NetBoxの初回構築
 
-NetBoxもこのリポジトリから構築します。AWXは保留、将来の基盤はkubeadmです。
+NetBoxもこのリポジトリから構築します。このディレクトリは旧メディアスタックの配備用です。**新しい基盤の Kubernetes（kubeadm）と AWX 24.6.1 は稼働済み**で、NetBox は services-01 のままです（[配備台帳](../../docs/operations/handover.md)）。
 
 起動順序は **Docker → NetBox → 配備先登録 → NetBox動的インベントリ → アプリ配備** です。NetBox本体を作る初回だけ静的なSSH指定を使用します。
 

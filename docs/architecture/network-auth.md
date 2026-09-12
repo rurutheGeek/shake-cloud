@@ -62,7 +62,9 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `cloud.apextox.dpdns.org` | クラウドのポータルと API |
 | `netbox.apextox.dpdns.org` | NetBox |
 | `docs.apextox.dpdns.org` | ドキュメントサイト |
-| `pve.apextox.dpdns.org` | Proxmox（ポート 8006。証明書は未設定） |
+| `pve.apextox.dpdns.org` | Proxmox（ポート 8006。Let's Encrypt） |
+| `awx.apextox.dpdns.org` | AWX（Cilium Ingress・Let's Encrypt） |
+| `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
 - **名前の引き方:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。家のルーターも Tailscale の端末も、DNS の設定を足さずに引けます。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。ルーターが内部IPを返す応答を捨てないことは確認済みです。
 - **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。サービス自身のポートは 127.0.0.1 に閉じ、入口は HTTPS だけにしました。
@@ -97,6 +99,8 @@ OIDC対応アプリへさらに一律Forward Authを重ねない構成を優先�
 ## パスキーと復旧
 
 AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で登録し、予備の認証器と復旧方法を用意します。クラウドAPI用のユーザー管理を省くことと、普段使うNextcloud等のアカウントをなくすことは別です。[Authentikパスキー](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_webauthn/)
+
+ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。`configure.py` が **メール確認コード**（第二の認証器）と**パスワード再設定フロー**を用意し、`akadmin` の復旧先を `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き）にします。運用と非常口（デバイス削除、`ak shell`）の手順は[認証基盤（identity・Authentik）](../operations/identity.md)にまとめています。**パスキーだけで入るパスワードレスも有効です**（2026-09-12）。
 
 認証VMはKubernetesの外へ置き、クラスタ更新中にもWeb認証を使える構成を推奨します。ただしK11故障には一緒に影響されます。Proxmoxのローカル管理者、SSH鍵、復旧用kubeconfig、秘密鍵の外部コピーを残し、AuthentikやVaultwardenだけを復旧情報の保存先にしません。
 

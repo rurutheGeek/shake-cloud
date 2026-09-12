@@ -2,7 +2,21 @@
 
 本・音楽・ファイル・パスワード・予定・TODOを、一つの入口から開けます。
 
-普段の操作は[利用者向け：全サービスの使い方](services/usage.md)から始めてください。管理者向けの設定やサーバー作業は、目次の[管理者向け]から選びます。
+普段の操作は[利用者向け：全サービスの使い方](services/usage.md)から始めてください。管理者向けの設定やサーバー作業は、目次の[管理者向け]から選びます。**すべての接続先は[接続先一覧](operations/urls.md)にまとめています。**
+
+## 新しい基盤（`*.apextox.dpdns.org`・LAN 内）
+
+| サービス | 開く | 用途 |
+| --- | --- | --- |
+| クラウド | <https://cloud.apextox.dpdns.org> | VM・S3・DB・関数のポータル |
+| 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（招待・パスキー・復旧） |
+| AWX | <https://awx.apextox.dpdns.org> | Ansible の実行基盤 |
+| NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM） |
+| ドキュメント | <https://docs.apextox.dpdns.org> | このサイト |
+
+**これらは家庭内 LAN からのみ届きます。** 旧メディアスタック（下の表）は SSH トンネル経由で、別の Authentik を使っています。
+
+## 旧メディアスタック（SSH トンネル）
 
 | サービス | 開く | 用途 |
 | --- | --- | --- |

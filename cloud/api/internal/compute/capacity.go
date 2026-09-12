@@ -29,7 +29,7 @@ type Capacity struct {
 	Cloud   db.Usage
 	Account db.Usage
 	Limits  site.Limits
-	// Accounts is filled in for cloud-admins only.
+	// Accounts is filled in for admins only.
 	Accounts []db.PerAccountUsage
 }
 

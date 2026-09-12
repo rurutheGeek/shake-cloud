@@ -1,6 +1,6 @@
 # IaCの所有境界
 
-更新日: 2026-09-11。状態: **00-bootstrap・10-platform は実機へ適用済み。クラウドAPI は Phase 4（ボリューム・セキュリティグループ）まで実装済み・実機検証済み**。
+更新日: 2026-09-12。状態: **00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み**。
 
 [配備・Git管理・ストレージ・復旧](operations.md)の「Gitと構成の所有者」は「**同じオブジェクトをFluxと自作API、または2つのTerraform stateで管理しません**」と定めています。この文書は、その原則をProxmoxの権限とVMIDの分割で**構造として**保証する方法を書きます。運用規約ではなく、権限が無いから触れない、という形にします。
 
@@ -14,7 +14,7 @@
 | 基盤VMとIP台帳 | Terraform `10-platform` | NetBoxのVM・IP採番、ProxmoxのVM | S3互換ストレージ |
 | ゲストOS | Ansible | ユーザー、SSH、containerd、kubeadm、Compose配備 | 冪等な再実行 |
 | クラスタ内の共通基盤・常用アプリ | Flux | Operator、Helm、Kustomize | Gitとクラスタ |
-| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ、既存VMの引き取り。未実装: バケット**） | `cloud` プールのVM、バケット | API自身の永続化（cloud-01 の PostgreSQL） |
+| 利用者が作る動的リソース | 自作クラウドAPI（**実装済み・実機検証済み: VM の作成・電源操作・削除、IP の採番、イメージのアップロード、SSH鍵、Webコンソール、ボリューム、セキュリティグループ、既存VMの引き取り、バケット/S3キー、database、function**） | `cloud` プールのVM、バケット、DB、関数 | API自身の永続化（cloud-01 の PostgreSQL） |
 
 ## 宣言ファイルと機構の分離
 
@@ -36,7 +36,7 @@
 
 ### 例外: 実行中に変わる値は1か所だけ
 
-`cloud.yaml` の上限は**既定値**で、`cloud-admins` が `PUT /v1/limits` で上書きできます。上書きは API の管理DBに入ります。ここだけ「Gitの宣言が唯一の正本」から外れるので、形を決めてあります。
+`cloud.yaml` の上限は**既定値**で、`admins` が `PUT /v1/limits` で上書きできます。上書きは API の管理DBに入ります。ここだけ「Gitの宣言が唯一の正本」から外れるので、形を決めてあります。
 
 **管理DBには、管理者が実際に変えた項目だけが入ります。**触っていない上限の行は存在せず、読み出しのたびに `cloud.yaml` の既定値と重ね合わせます。同じ上限が2か所に書かれることは無く、`GET /v1/limits` は実効値・既定値・上書きぶんを別々に返すので、どちらが効いているかが常に分かります。上書きを消せば既定値へ戻ります。
 
@@ -110,7 +110,7 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 - **stateはK11の外のS3互換ストレージに置きます。** K11は単一SSDなので、そこにstateを置くとディスク1枚の故障で「Terraformが現状を把握できない」状態になります。またK11が停止していてもstateを読める必要があります（`cloud.md`「クラウド停止中も使える場所へ保持」）。現在の実体はCloudflare R2ですが、`backend "s3"` に事業者固有の設定を書いていないので、`cloud.md` が計画しているGarageへ移すときも endpoint と bucket の差し替えだけで済みます。
 - ルートモジュールごとに別のstateです（`shake-cloud/<モジュール>/terraform.tfstate`）。`00-bootstrap` は `root@pam`、それ以外は `terraform@pve` で実行します。
 - 自作APIはTerraform stateを共有しません。APIは自分のジョブ・バックエンドIDを持ちます。
-- 利用者側の `homelab` Provider のstateは各自の開発VM上に置きます。クラウドが停止していても手元に残る場所である必要があります。
+- 利用者側の `shakecloud` Provider のstateは各自の開発VM上に置きます。クラウドが停止していても手元に残る場所である必要があります。サービスのVMを `platform/terraform/services/<name>/` で管理する場合の置き場は未決です（[サービスの置き場所](../operations/services.md)）。
 
 ## 秘密値
 

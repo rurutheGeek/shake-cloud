@@ -108,6 +108,18 @@ SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
 認証情報は Secret として identity VM の `.env`（0600）にだけ置き、リポジトリには
 暗号化した `smtp.sops.yaml` だけを置きます。
 
+`manage.py configure` は SMTP を使って次の2つを整えます（`configure.py`、2026-09-12）。
+
+- **パスワード再設定フロー**（`default-recovery-flow`）: ログイン画面の「パスワードを忘れた」
+  から、識別 → メール送信 → 新パスワード設定 → ログインの順に進みます。`akadmin` には
+  `SMTP_FROM`（`ADMIN_EMAIL` で上書き）を復旧先として設定します。
+- **メール確認コード**（`default-authenticator-email-setup`）: 利用者設定から登録できる
+  第二の認証器。パスキーを失った人が、メールに届くコードでログインの検証段階を
+  通過できます。
+
+送信できないときは `.env` の `SMTP_*` と Gmail のアプリパスワードを見直し、
+`identity.yml` を流し直します。
+
 2026-09-11 に identity VM 上へ**一時的な SMTP シンク**を立てて送信経路
 （STARTTLS/SSL/PLAIN、認証、送信）を確認し、2026-09-12 に **Gmail の実設定を配備して
 実送信を確認**しました（`invitations.py` の `smtp_settings`／`deliver` が `.env` を

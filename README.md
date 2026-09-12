@@ -1,11 +1,11 @@
 # Nextcloud × Kavita × Navidrome × Vaultwarden
 
-将来の構成は[ホームラボ／最小プライベートクラウド構成案](docs/architecture/index.md)にまとめています。VM・サーバレス・S3・DB、2人用ゲーム、VPNと公開Web、SSO、Git管理を整理した設計資料です。[ローカルサイトで読む](http://localhost:8090/architecture/)。
+将来の構成は[ホームラボ／最小プライベートクラウド構成案](docs/architecture/index.md)にまとめています。VM・サーバレス・S3・DB、2人用ゲーム、VPNと公開Web、SSO、Git管理を整理した設計資料です。**いまの接続先は[接続先一覧](docs/operations/urls.md)、進捗の正本は[配備台帳](docs/operations/handover.md)です。** ドキュメントサイトは `https://docs.apextox.dpdns.org`（LAN 内）。旧メディアスタックの `http://localhost:8090` は SSH トンネル経由の別物です。
 
 NetBoxで配備先を管理し、AnsibleからDocker Composeを配備する構成です。
 Proxmox VE 上への展開では、TerraformがProxmoxのプール・ロールとVMを作り、IPの採番はNetBoxのIPAMに任せます。誰が何を所有するかは[IaCの所有境界](docs/architecture/iac.md)、実機での進め方は[Proxmox導入後の手順](docs/architecture/bring-up.md)にあります。
 Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組み合わせています。[接続と配備手順](docs/operations/hub.md)、[SSO](docs/services/sso.md)、[音楽の取り込み](docs/services/music.md)を参照してください。
-**AWX本体の構築は今回保留**。将来はkubeadmのKubernetes上に構築し、同じPlaybook・NetBoxインベントリを使います。AWX移行用のEE・登録Playbook例だけを `platform/awx/` に置いています。
+**AWX 24.6.1 は構築済み**（2026-09-12）。kubeadm の Kubernetes 上に Flux で配備し、`https://awx.apextox.dpdns.org` で使えます（[Kubernetes クラスタ](docs/operations/kubernetes.md)・[AWXの使い方](docs/operations/awx.md)）。`platform/awx/` には移行用の EE・登録 Playbook 例があります。
 
 新しく開発へ参加する人は[開発参加ガイド](docs/onboarding.md)から読んでください。設計思想・制約・開発VMの使い方をまとめてあります。
 
@@ -35,8 +35,10 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 | --- | --- |
 | `platform/terraform/` | Proxmoxのプール・ロール・VMと、NetBox台帳の宣言 |
 | `platform/ansible/`、`ansible.cfg` | Docker導入、NetBox動的インベントリ、配備順序・ホスト変数、ゲストOSのロール |
-| `platform/kubernetes/` | Fluxが反映するクラスタ構成。未構築 |
-| `platform/awx/` | 将来のAWX移行用の例。AWX本体は未構築 |
+| `platform/flux/` | Fluxが反映するクラスタ構成（`main` を監視）。AWX・CNPG・Knative などを配る |
+| `platform/awx/` | AWX移行用のEE・Playbook例（AWX本体は `platform/flux/apps/` で配備済み） |
+| `cloud/` | 自作クラウドAPI・CLI・Terraform Provider・共通クライアント |
+| `stacks/identity/` | 新しい Authentik（招待・復旧・パスキー、`platform/ansible/identity.yml`） |
 | `stacks/compose.yaml`、`stacks/scripts/` | 基本サービス、初期化、スキャン、バックアップ |
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
 | `stacks/hub/` | Homarr、メディア系が使う検証用Authentik、リンク一覧、SSO利用者の宣言的管理、ドキュメント配信 |
@@ -76,10 +78,10 @@ Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platfor
 ### 現状と未完了事項
 
 - 単一ホストのCompose構成です。複数ノードへのサービス分散・HAは未実装です。NetBoxへホストを増やすと各ホストへ独立した一式を配備します。
-- ドメイン未取得のため、現在はSSH転送とローカルCAで利用します。端末ごとのCA登録が必要です。公開ドメインへ移行するときはサービスURL・OIDC issuer・redirect URI・証明書・プロキシ設定をまとめて変更します。ローカルSSOには固定サブネットもあり、移設時はネットワーク衝突を確認します。
-- SMTPは事業者・認証情報の決定待ちです。共有Cookie未提供のため、実際のYouTubeダウンロードは未確認です。SSOの実利用者は `stacks/hub/users.example.json` をもとに非公開マニフェストで管理し、メール確認は事実に基づいて設定します。検証用Authentikアカウントは無効化済みです。
-- AWX本体は後回しです。導入時のKubernetesは **kubeadm** を使用し、既存PlaybookとNetBoxインベントリを引き継ぎます。
-- 別ホストへのSSH配備、公開ACME証明書の発行、バックアップからの復元、実際のゲーム由来BCSTMの網羅的互換性は未検証です。移設・公開前に該当部分を検証してください。
+- 旧メディアスタックは `apextox.dpdns.org` 取得後も SSH 転送とローカル CA のままです（端末ごとの CA 登録が必要）。**新しい基盤（identity・cloud・NetBox・AWX・docs）は `*.apextox.dpdns.org` の HTTPS へ移行済み**です（[接続先一覧](docs/operations/urls.md)）。
+- 旧メディアスタックの SMTP は未設定のままです。**新しい identity は Gmail SMTP で招待・復旧メールを送っています**（[SMTP](docs/operations/smtp.md)）。共有Cookie未提供のため、実際のYouTubeダウンロードは未確認です。
+- **AWX 24.6.1 は構築済み**です（kubeadm の Kubernetes へ Flux で配備）。既存PlaybookとNetBoxインベントリを引き継ぎます（[AWXの使い方](docs/operations/awx.md)）。
+- 別ホストへのSSH配備と、実際のゲーム由来BCSTMの網羅的互換性は未検証です。公開ACME証明書は新基盤で発行済み（Let's Encrypt）、バックアップからの復元は drill を継続します。
 
 ## データの分離
 
@@ -224,7 +226,7 @@ sudo python3 scripts/stack.py up
 
 `python3 -m unittest discover -s tests -v` で原本のマウント分離、秘密値の保持、外部ストレージ登録、digest保持、バックアップ失敗時のサービス復帰を確認します。Compose展開・Ansible構文も検証対象です。
 
-このホストへDocker EngineとComposeを導入し、基本サービス・NetBox・ハブ・SSO・音楽ツールを実起動しました。HTTP応答、管理者認証、原本の共有と読み取り専用制約、Nextcloud cron、NetBox動的インベントリ、Ansibleによるlocal接続での配備・再配備を確認済みです。追加構成では各サービスのSSO（Vaultwardenは初回マスターパスワード設定画面まで）、NetBoxの一般利用者のアクセス拒否、BCSTMテストデータからのMP3変換・原本削除同期を確認しました。別ホストへのSSH配備・ACME発行・バックアップからの復元は未検証です。AWXは構築保留です。
+このホストへDocker EngineとComposeを導入し、基本サービス・NetBox・ハブ・SSO・音楽ツールを実起動しました。HTTP応答、管理者認証、原本の共有と読み取り専用制約、Nextcloud cron、NetBox動的インベントリ、Ansibleによるlocal接続での配備・再配備を確認済みです。追加構成では各サービスのSSO（Vaultwardenは初回マスターパスワード設定画面まで）、NetBoxの一般利用者のアクセス拒否、BCSTMテストデータからのMP3変換・原本削除同期を確認しました。別ホストへのSSH配備・バックアップからの復元は未検証です。ACME（Let's Encrypt）は新基盤で発行済み、AWXは構築済みです（[配備台帳](docs/operations/handover.md)）。
 
 ## 参照
 

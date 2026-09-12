@@ -1,0 +1,94 @@
+# クラウドの使い方（ポータル・CLI・Terraform）
+
+更新日: 2026-09-12。状態: **4機能（VM・S3・database・function）実装済み・実機確認済み。**
+
+クラウドは Proxmox の上に次を払い出す仕組みです。入口は**ポータル（ブラウザ）・CLI・Terraform Provider**の3つで、裏の API は同じです。
+
+| 機能 | 何が作れる | AWS の対応物 |
+| --- | --- | --- |
+| インスタンス | VM（電源・コンソール・サイズ変更・削除） | EC2 |
+| ボリューム / セキュリティグループ | 追加ディスク、受信/送信ルール | EBS / セキュリティグループ |
+| バケット | S3 互換のバケットとキー（Garage） | S3 |
+| データベース | PostgreSQL（CloudNativePG） | RDS |
+| 関数 | サーバレス HTTP（Knative） | Lambda |
+
+## はじめに
+
+1. **アカウント:** 新しい共通ログイン（[はじめる](identity.md)）の招待で作ります。所属は既定で `users`、管理者は `admins`。招待は管理者が発行します。
+2. **ログイン:** <https://cloud.apextox.dpdns.org> → 「Authentik でログイン」。
+3. **アクセスキー:** CLI・Terraform にはポータルの**アクセスキー**画面で発行します。**秘密値は作成時に一度だけ表示**されるので、なくしたら作り直します。ブラウザ操作は SSO のままでキーは不要です。
+
+## ポータルでできること
+
+<https://cloud.apextox.dpdns.org>
+
+| 画面 | 内容 |
+| --- | --- |
+| インスタンス | 作成・電源（起動/停止/再起動）・コンソール・サイズ変更・削除。**一覧は全員に見え、操作は所有者と管理者だけ** |
+| ボリューム | 追加ディスクの作成・接続・拡張・削除 |
+| セキュリティグループ | ルールの作成。既定SGが付きます |
+| イメージ / ISO | 共有イメージの一覧、ISO のアップロード（Windows 用も） |
+| SSH鍵 | 公開鍵の登録 |
+| アクセスキー | CLI・Terraform 用のキーを発行・失効 |
+| バケット / S3キー | バケットの作成、用途別キーの発行とバケット許可 |
+| データベース | PostgreSQL の作成、接続情報（資格情報）の表示 |
+| 関数 | コンテナイメージから関数を作成、URL の発行 |
+| 容量 / 上限 | 空き容量の確認、上限の変更（`admins`） |
+| 履歴 | 監査ログ（操作の記録） |
+
+作成・削除は**非同期**です。ポータルの状態表示が `running` / `Ready` になるまで待ちます。
+
+## CLI でできること
+
+```bash
+cd cloud/cli && go build -o ~/.local/bin/shakecloud .
+export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'   # ポータルで発行
+shakecloud caller-identity
+shakecloud instances list
+shakecloud buckets list
+shakecloud databases list
+shakecloud functions list
+```
+
+全体は[shakecloud CLI](../operations/cli.md)を参照してください。
+
+## Terraform（Provider `shakecloud`）でできること
+
+Registry には公開していないので **dev override** でローカルビルドを使います。10リソース（`instance`・`volume`・`volume_attachment`・`security_group`・`security_group_rule`・`key_pair`・`image`・`bucket`・`database`・`function`）とデータソース `caller_identity` があります。
+
+```hcl
+resource "shakecloud_instance" "dev" {
+  image_id           = "img-debian13"
+  instance_type      = "small"
+  key_name           = shakecloud_key_pair.me.key_name
+  security_group_ids = [shakecloud_security_group.ssh.id]
+  tags               = { Name = "dev" }
+}
+```
+
+詳しくは[shakecloud Terraform Provider](../operations/terraform-provider.md)と、**サービスを載せるVMの置き場所**を示した[サービスの置き場所とクラウドVMでの作り方](../operations/services.md)を参照してください。
+
+**S3キーとDB資格情報は Provider では作りません。** どちらも作成時に一度だけ返る秘密値で、state に置くと漏れるためです。ポータルか CLI で発行します。
+
+## 権限
+
+| グループ | できること |
+| --- | --- |
+| `users` | 自分のリソースを作る・見る・消す。VM 一覧は全員見える |
+| `admins` | 全アカウントのリソース、サイズ変更、上限の変更、既存VMの引き取り |
+
+グループは共通ログインの管理者が付けます（[認証基盤](../operations/identity.md#利用者の招待管理者)）。
+
+## 困ったとき
+
+- **ポータルが 502/503:** クラウドAPI か管理DB が落ちている、または機能が未設定（例: Garage や Kubernetes の URL が空ならバケット/DB/関数の画面が 503）。`/healthz` を確認します。
+- **VM の状態が進まない:** 履歴に理由が出ます。容量不足・Proxmox のエラーなど。管理者は cloud-01 の API ログを見ます。
+- **操作の記録:** ポータルの履歴、または `GET /v1/audit-events`（[クラウドAPIの構築](../operations/cloud.md)）。
+
+## 関連
+
+- [サービスの置き場所とクラウドVMでの作り方](../operations/services.md)
+- [クラウドAPIの構築](../operations/cloud.md)（管理者向け）
+- [shakecloud CLI](../operations/cli.md)
+- [shakecloud Terraform Provider](../operations/terraform-provider.md)
+- [接続先一覧](../operations/urls.md)

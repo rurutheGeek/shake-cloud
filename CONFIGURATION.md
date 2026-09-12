@@ -4,7 +4,7 @@
 
 ## 現在の構成
 
-単一ホストのDocker Compose環境です。NetBoxをAnsibleの動的インベントリとして利用しています。AWX・Kubernetesは未導入です。AWXを構築する段階ではkubeadmを使う方針です。
+単一ホストのDocker Compose環境です（旧メディアスタック）。NetBoxをAnsibleの動的インベントリとして利用しています。**新しい基盤では kubeadm の Kubernetes と Flux、AWX 24.6.1、identity VM の Authentik が稼働しています**（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
 
 ## 設定する場所
 

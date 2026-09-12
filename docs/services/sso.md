@@ -1,4 +1,6 @@
-# 認証基盤と共通ログイン
+# 認証基盤と共通ログイン（旧メディアスタック）
+
+> **この文書は旧メディアスタック（`stacks/hub`）の Authentik の説明です。** 新しい基盤の認証は identity VM の Authentik（`https://auth.apextox.dpdns.org`）で、グループは `users` / `admins`、招待は `cloud-invitation-enrollment` です。管理者向けの運用（招待・復旧・パスキー）は[認証基盤（identity・Authentik）](../operations/identity.md)、接続先は[URL一覧](../operations/urls.md)を参照してください。**2つの Authentik は別物です。**
 
 Authentikを共通のアカウント台帳にします。利用者は各サービスで新規登録せず、Authentikのアカウントでログインします。SSO利用時は [接続手順](../operations/hub.md) に従ってSSH転送とローカルCAを設定してください。
 

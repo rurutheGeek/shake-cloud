@@ -224,13 +224,13 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 | 対象 | 内容 |
 | --- | --- |
-| グループ | `cloud-users`、`cloud-admins`（`akadmin` は `cloud-admins`） |
-| OIDC クライアント `cloud` | redirect は `http://192.168.10.205:8080/auth/callback` の完全一致。`sub` は `user_uuid` |
+| グループ | `users`、`admins`（`akadmin` は `admins`） |
+| OIDC クライアント `cloud` | redirect は `https://cloud.apextox.dpdns.org/auth/callback` の完全一致。`sub` は `user_uuid` |
 | 利用許可 | 上の2グループだけ。メディア用に招待された人はポータルに入れない |
 
 `sub` を `user_uuid` にしたのは、既定の `hashed_user_id` だとプロバイダを作り直したときに**全員の `sub` が変わり**、クラウドAPI側の持ち主が分からなくなるためです。
 
-入口は `http://192.168.10.204:9000`（HTTP）と `https://192.168.10.204:9443`（Authentik 自身の自己署名証明書）です。所有ドメインが決まったら固定名と正規の証明書へ移します。パスキーは固定の HTTPS 名が要るので、それまで使えません。
+入口は現在 **`https://auth.apextox.dpdns.org`**（Caddy が Let's Encrypt で TLS 終端。Authentik 自身の `:9000`・`:9443` は 127.0.0.1 に閉じた）です。**パスキーとパスワードレスも有効**です（[認証基盤](identity.md#パスキーだけでログインするパスワードレス)）。
 
 インベントリ上のグループ名は `identity_provider` です。ホスト名 `identity` と同じ名前にすると、Ansible が「グループを自分自身へ足す」例外でインベントリ全体を読めなくなります（`tests/test_identity_stack.py` が検査）。
 
@@ -270,7 +270,7 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 | `cloud.yml` の再実行 | `changed=0` |
 | コンテナ | `api`・`postgres` とも healthy。メモリは API 7MiB、PostgreSQL 65MiB、VM 全体で約500MiB / 2GiB |
 | `/healthz` | 200 |
-| `/auth/login` | Authentik の authorize へ 302。`redirect_uri` は `http://192.168.10.205:8080/auth/callback`、PKCE は S256。Authentik はエラーでなくログイン画面へ進んだ |
+| `/auth/login` | Authentik の authorize へ 302。`redirect_uri` は現在 `https://cloud.apextox.dpdns.org/auth/callback`、PKCE は S256（当時は IP 直だった） |
 | ブートストラップ管理キーで `GET /v1/caller-identity` | 200、`bootstrap-admin`（管理者） |
 | アクセスキーで `POST /v1/access-keys` | 403 `UnauthorizedOperation` |
 | 秘密値だけ違うキー | 401。監査ログに `AuthFailure`（`secret_mismatch`） |
@@ -285,13 +285,13 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 - **アクセスキーでアクセスキーは作れません。** 発行はポータルのログインからだけです。漏れたキーが自分の複製を作って居座れないようにするためです。一覧と削除はキーからもできます。
 - 1アカウント5本まで。期限は任意（30日・90日・1年・無期限）です。
 - 削除したキーは行を残して無効にします。監査ログがキーIDを指したままにするためです。
-- 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。cloud-admins は誰のキーでも削除できます。
+- 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。admins は誰のキーでも削除できます。
 
 #### ブートストラップ管理キー（2026-09-11 に無効化済み）
 
-ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。持ち主は `bootstrap-admin` という専用アカウントで、cloud-admins と同じく全体が見えます。
+ポータルでログインしなくても、Authentik が止まっていても、管理者が API を叩けるキーです。持ち主は `bootstrap-admin` という専用アカウントで、admins と同じく全体が見えます。
 
-**セルフサービスが実利用できるようになったので、2026-09-11 に無効化しました**（ファイルは空、DBのキーは失効）。以後の機械アクセスは、ポータルにログインして発行するアクセスキーを使ってください。`akadmin` は `cloud-admins` に入っているので、`https://cloud.apextox.dpdns.org` からログインしてキーを発行できます。
+**セルフサービスが実利用できるようになったので、2026-09-11 に無効化しました**（ファイルは空、DBのキーは失効）。以後の機械アクセスは、ポータルにログインして発行するアクセスキーを使ってください。`akadmin` は `admins` に入っているので、`https://cloud.apextox.dpdns.org` からログインしてキーを発行できます。
 
 再び管理用キーが要る場合（ポータルに入れない等の緊急時）:
 
@@ -326,12 +326,12 @@ curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpd
 - 記録するもの: すべての変更、ログイン（拒否も含む）、**実在する**キーIDでの認証失敗。存在しないキーIDでの失敗はアプリのログだけに出します。誰でも作れる値で DB を埋めさせないためです。
 - `event_name` は OpenAPI の operationId です。項目名は CloudTrail の LookupEvents に揃えています。
 - テーブルは追記専用です。UPDATE・DELETE・TRUNCATE はトリガーが拒否します。
-- `GET /v1/audit-events` で読めます。利用者は自分のアカウントの分だけ、cloud-admins は全体です。
+- `GET /v1/audit-events` で読めます。利用者は自分のアカウントの分だけ、admins は全体です。
 
 #### ログインの扱い
 
-- Authentik 側で `cloud-users` / `cloud-admins` 以外は弾いていますが、API でも `groups` を確認します。Authentik の設定を誤って外しても、全員に開かないようにするためです。
-- 管理者かどうかはログインのたびに `groups` から読み直します。`cloud-admins` から外した人は、次のログインで一般利用者になります。
+- Authentik 側で `users` / `admins` 以外は弾いていますが、API でも `groups` を確認します。Authentik の設定を誤って外しても、全員に開かないようにするためです。
+- 管理者かどうかはログインのたびに `groups` から読み直します。`admins` から外した人は、次のログインで一般利用者になります。
 - **知らない `sub` が既存アカウントのメールアドレスで来たら、ログインを拒否します。** Authentik のユーザーを作り直したときに起きます。別アカウントを黙って作ると、その人のリソースが2つに分かれるためです。起きたら監査ログに `AccountConflict` が残るので、管理DBの `accounts.subject` を新しい値へ直します。
 
 #### 開発とテスト
@@ -399,7 +399,7 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | 雛形の一覧 | `GET /v1/instance-types`（`flavors.yaml` と同じ名前）。**選ばなくてもよい** |
 | 作成 | `POST /v1/instances`（`image_id` と、`vcpus`＋`memory_mib`。任意で `memory_min_mib`・`ballooning`・`root_disk_gib`・`user_data`・`client_token`・`tags`。`instance_type` を使えば値が埋まる） |
 | 一覧・1台 | `GET /v1/instances`、`GET /v1/instances/{id}`。**一覧はクラウドの全VM**（所有者名・イメージ名つき） |
-| 大きさの変更 | `PATCH /v1/instances/{id}`（`cloud-admins` だけ） |
+| 大きさの変更 | `PATCH /v1/instances/{id}`（`admins` だけ） |
 | 電源 | `POST /v1/instances/{id}/start`・`/stop`・`/reboot` |
 | 削除 | `DELETE /v1/instances/{id}` |
 
@@ -491,7 +491,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 | --- | --- |
 | いまの容量（CPU・メモリ・ストレージ・配った合計） | `GET /v1/capacity`、ポータルの「容量」 |
 | 上限を読む（実効値・既定値・管理者が変えた分） | `GET /v1/limits` |
-| 上限を変える（`cloud-admins` だけ） | `PUT /v1/limits` |
+| 上限を変える（`admins` だけ） | `PUT /v1/limits` |
 
 ```bash
 curl -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.apextox.dpdns.org/v1/capacity
@@ -701,7 +701,7 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 <a id="3-15"></a>
 ### 3-15. 既存VMの引き取り（Phase 5）
 
-`POST /v1/instances/adopt`（**cloud-admins のみ**）で、既にあるVMを管理下へ登録します。
+`POST /v1/instances/adopt`（**admins のみ**）で、既にあるVMを管理下へ登録します。
 
 **プールへ入れる操作はAPIの外です。** `cloudapi@pve` は既に `cloud` プールに居るVMしか見えず、外のVMをプールへ入れる権限を持ちません。管理者が先に移します（Proxmox の画面、`qm set <vmid> --pool cloud`、または Terraform）。
 
@@ -774,30 +774,9 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 <a id="3-17"></a>
 ### 3-17. 利用者の招待（identity サービスの仕事）
 
-**利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `cloud-users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
+**利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
 
-招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行います。`stacks/identity/invitations.py` が管理します。
-
-| 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
-| --- | --- |
-| フローを作る・直す（冪等） | `python3 invitations.py configure [--group cloud-users]` |
-| 招待を発行してリンクを保存・送信 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed] [--no-email]` |
-| 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
-| 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
-
-`configure` は配備（`platform/ansible/identity.yml` → `manage.py configure`）で毎回走ります。
-
-設計上のポイント:
-
-- **招待は1回限り・24時間有効。** リンクを開いても登録を終えなかった場合は期限切れになるので、`revoke` して再発行します。Authentik の Invitation Stage は**リンクを開いた時点で消費する**ため、途中でブラウザを閉じた場合も再発行です。
-- **ユーザー名・メール・所属グループは招待が固定します。** 登録画面で入力できるのはパスワード（12文字以上）だけ。管理者グループを自己指定する入口はありません。
-- **グループの既定は `cloud-users`。** 他のサービス（メディア等）へも招待するようになったら、`configure --group` と招待の宛先で分けます。1つのフローに複数グループを持たせるのではなく、サービスごとに分ける方針です。
-- **メールで送れます。** `stacks/identity/.env` に `SMTP_HOST`・`SMTP_FROM`（必要なら `SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_PORT`/`SMTP_SECURITY`）があれば、`invite` は招待メールを SMTP へ投げます。無ければ送らず、リンクを `runtime/invitations/<name>.json`（0600）に保存して管理者が別経路で渡します。`--no-email` で送信を止められます。トークンは端末の履歴やログに出しません。SMTP の正本は `platform/sops/smtp.sops.yaml`（現在は Gmail `shake.notify@gmail.com`）で、identity ロールが `.env` へ写します（[SMTPとメール送信](smtp.md)）。Authentik 自身（パスワード再設定など）も同じ `SMTP_*` を `AUTHENTIK_EMAIL__*` として使います。
-- **メール所有の確認は明示したときだけ。** 管理者が本人とアドレスを別経路で確認済みの場合に `--email-owner-confirmed` を付けると `email_verified=true` になります。付けなければ未確認のままです。
-
-実機確認（2026-09-11）: `identity.yml` 配備でフロー作成を確認。`invite` で招待を発行 → `list` に未使用として表示 → 外部URL `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` が **200** で招待ページを返すこと、`revoke` で消えることを確認。user_write ステージが `cloud-users` に作ること、Invitation Stage が「招待なしは拒否」であることも API で確認しました。**メール送信**は、identity VM 上に一時的な SMTP シンク（127.0.0.1:2525）を立てて `invite` を実行し、リンク入りのメッセージが届くことを確認しました（シンクとテスト招待は削除済み）。
-
-実機確認（2026-09-12）: Gmail のアプリパスワードを `platform/sops/smtp.sops.yaml` に格納し、`identity.yml` を流して identity VM の `.env` へ反映・Authentik を再作成。`invitations.py` の `smtp_settings`／`deliver` を通して **Gmail から実送信**できることを確認しました。
+招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行い、`stacks/identity/invitations.py` が管理します。**手順（`configure`/`invite`/`list`/`revoke`、1回限り・24時間、Gmail でのメール送信、`runtime/invitations/` への保存、実機確認）は[認証基盤（identity・Authentik）の「利用者の招待」](identity.md#利用者の招待管理者)にまとめました。** パスワード・パスキーの復旧も同じページにあります。
 
 ### 3-18. 管理DBのバックアップ
 

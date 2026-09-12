@@ -365,7 +365,7 @@ func (g globals) instanceModify(args []string) error {
 func (g globals) instanceAdopt(args []string) error {
 	flags := flag.NewFlagSet("shakecloud instance adopt", flag.ContinueOnError)
 	vmid := flags.Int("vmid", 0, "VMID of the existing VM in the cloud pool (required)")
-	account := flags.String("account", "", "owner account id (required, cloud-admins only)")
+	account := flags.String("account", "", "owner account id (required, admins only)")
 	name := flags.String("name", "", "display name; defaults to the VM's own")
 	ip := flags.String("ip", "", "the VM's address, so security groups can filter")
 	disk := flags.Int("disk", 0, "root disk GiB when storage cannot report it")

@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md) / [VM配分・サービス配置](operations.md#resource-budget)
 
-状態: **実機未確認の作業手順**。64GB／1TBのK11を想定する。まず「管理PCから再接続できる」「1台のVMを別媒体から復元できる」を達成し、Home Assistantとゲームを試す。全VMの一括作成や既存サービスの一括移行は行わない。
+状態: **手順の記録**。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。**現在の状態は[配備台帳](../operations/handover.md)を正とします。** 64GB／1TBのK11を想定します。全VMの一括作成や既存サービスの一括移行は行いません。
 
 ## 1. ホストの基礎を記録する
 
@@ -118,14 +118,14 @@ OpenHomeはgame-01への同居希望として台帳に残す。製品／リポ�
 
 ## 6. 常用クラスタを組み、小さいサービスから移す
 
-`identity`、`k8s-cp-01`、`k8s-worker-01`、`k8s-worker-02`を配分表の値で作成する。管理PCからAnsibleを実行できる状態を正とし、AWXは後で載せる。
+`identity`、`k8s-cp-01`、`k8s-worker-01`、`k8s-worker-02`を配分表の値で作成する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](../operations/kubernetes.md)）。
 
 1. OS・containerd・kubeadm・Ciliumの互換版を固定し、Pod／Service CIDRとLAN／VPNのアドレス重複を避ける。
 2. nodeがReadyになることを確認し、名前解決・Pod間通信・NetworkPolicyを確認する。
-3. ローカルPVC、MetalLB用の未使用IP範囲、Gateway、cert-manager、Flux/SOPSを設定する。
+3. ローカルPVC、MetalLB用の未使用IP範囲、cert-manager、Flux/SOPSを設定する。**完了（2026-09-12）**。Gateway の代わりに Cilium Ingress を使っている。
 4. 軽量HTTPアプリとテストPVCで、内部HTTPS・VM再起動後の永続化・バックアップ復元を確認する。
 5. Homarr／MkDocs、読み取り中心のメディアを移し、ポケモンDB・WebUI・agentは[移行単位と合格条件](operations.md#pokemon-db)に従って移す。
-6. Nextcloud／Vaultwardenを復元テスト後に切り替える。AWX・NetBox・Garage・Knative・自作APIは順次追加し、RAM・SSD・CPUを毎回測る。
+6. Nextcloud／Vaultwardenを復元テスト後に切り替える。**AWX・Garage・Knative・自作API は追加済み（2026-09-12）。NetBox は services-01 のままで、Kubernetes への移行は未実施。** RAM・SSD・CPUを毎回測る。
 
 **完了条件:** worker再起動後もデータを読め、別環境へのDB復元ができる。worker VMが2台でも単一K11の故障には耐えないことを運用へ反映する。
 

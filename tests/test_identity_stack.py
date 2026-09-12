@@ -46,7 +46,7 @@ class ProviderTests(unittest.TestCase):
 class FakeIdentityAPI:
     """Enough of the Authentik API for the invitation tool."""
 
-    def __init__(self, users=(), pending=(), groups=('cloud-users',)):
+    def __init__(self, users=(), pending=(), groups=('users',)):
         self.users = list(users)
         self.pending = list(pending)
         self.groups = [{'name': name, 'pk': 'group-' + name} for name in groups]
@@ -124,9 +124,9 @@ class InvitationTests(unittest.TestCase):
             invitations.invite(api, 'alice', 'other@example.org')
 
     def test_configure_needs_the_target_group_to_exist(self):
-        api = FakeIdentityAPI(groups=('cloud-admins',))
+        api = FakeIdentityAPI(groups=('admins',))
         with self.assertRaises(SystemExit):
-            invitations.configure(api, 'cloud-users')
+            invitations.configure(api, 'users')
 
     def test_revoke_deletes_the_invitation_and_its_saved_link(self):
         api = FakeIdentityAPI(pending=[{'pk': 'itok-1', 'name': 'cloud-abc', 'used_by': [],

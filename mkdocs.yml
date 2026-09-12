@@ -10,15 +10,20 @@ nav:
   - 開発参加ガイド: onboarding.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
+      - 共通ログインの使い方: services/identity.md
+      - クラウドの使い方: services/cloud.md
       - Homarrハブ: services/homarr.md
       - 音楽・取り込み・タグ: services/music.md
       - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:
       - 運用の基本: overview.md
+      - 接続先一覧（URL）: operations/urls.md
+      - サービスの置き場所とクラウドVM: operations/services.md
       - Nextcloudと追加アプリ: services/nextcloud.md
       - Vaultwardenの管理: services/vaultwarden.md
       - 共通ログイン: services/sso.md
+      - 認証基盤（identity・Authentik）: operations/identity.md
       - メール設定: operations/smtp.md
       - 初回セットアップの順番: operations/bootstrap.md
       - 秘密値の管理: operations/secrets.md
@@ -26,6 +31,8 @@ nav:
       - クラウド開発の引き継ぎとTODO: operations/handover.md
       - Web GUI監査・改善案: audits/webgui-2026-09-12.md
       - クラウドAPIの構築: operations/cloud.md
+      - AWXの使い方: operations/awx.md
+      - NetBoxの使い方: operations/netbox.md
       - Windows 11 ProのVMを作る: operations/windows.md
       - shakecloud CLI: operations/cli.md
       - shakecloud Terraform Provider: operations/terraform-provider.md

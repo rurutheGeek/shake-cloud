@@ -76,7 +76,7 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 
 キーをSSOと分けるのは、依存を一方向にするためです。**Authentik が停止していても Terraform は動きます。**逆にすると、認証基盤の障害が復旧作業そのものを止めます。
 
-- Authentikユーザー1人が1アカウントです。自分の作ったリソースだけが見え、消せます。`cloud-admins` グループだけが全体を見られます。
+- Authentikユーザー1人が1アカウントです。自分の作ったリソースだけが見え、消せます。`admins` グループだけが全体を見られます。
 - 秘密値は発行時に一度だけ表示し、保存するのは検証用ハッシュ・キーID・期限・失効状態だけです。
 - キーIDごとに操作履歴を残します。
 - クラウドのアクセスキー、S3 access key/secret、DBパスワードは別のものです。混ぜません。
@@ -223,7 +223,7 @@ APIキーの利用量課金は不要ですが、ホストの空きRAM、ディ�
 
 ## 土台の実装状況
 
-API は Phase 1 から Phase 4 まで実装済み・実機確認済みです（Phase 1〜3 は 2026-09-10〜11、Phase 4 は 2026-09-11）。手順は[クラウドAPIの構築](../operations/cloud.md)を参照してください。
+API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と function（Knative）まで実装済み・実機確認済みです（Phase 1〜4 は 2026-09-10〜11、Phase 5〜7 と database/function は 2026-09-11〜12）。手順は[クラウドAPIの構築](../operations/cloud.md)を参照してください。
 
 | もの | 値 | 状態 |
 | --- | --- | --- |
@@ -238,7 +238,8 @@ API は Phase 1 から Phase 4 まで実装済み・実機確認済みです（P
 | API（Phase 1〜3） | `https://cloud.apextox.dpdns.org`（cloud-01。API 自身の `:8080` は 127.0.0.1 に閉じた）。管理DBは同居の PostgreSQL 18 | **配備済み**。Authentik ログイン、アクセスキー、監査ログ、**インスタンスの作成・電源操作・削除**（2026-09-10 に実機で確認）。開発用のブートストラップ管理キーは Phase 5 で無効化済み |
 | API（Phase 4） | ボリューム、セキュリティグループ、データセンターFW有効化 | **実機検証済み（2026-09-11）**。ボリュームの作成→アタッチ→ゲスト認識→拡張→デタッチ→削除、SSH のみ許可した SG による遮断/許容、DC FW 適用後も既存VMに影響なしを確認 |
 | API（Phase 5） | 既存VMの引き取り、セルフサービスポータル、ブートストラップ管理キーの無効化 | **完了（2026-09-11）**。`POST /v1/instances/adopt` で **game1（VMID 100）を `shunyazhiyuan97` として引き取り済み**。ポータルはVM・ボリューム・SG・イメージ・鍵・容量・上限・履歴を扱える。管理用ブートストラップキーは無効化し、ポータル発行のアクセスキーへ移行 |
-| CLI・Provider（Phase 6） | `cloud/cli`（`shakecloud`）、`cloud/provider`（Terraform）、共通の `cloud/client` | **実機確認済み（2026-09-11）**。CLIは主要操作を網羅。Providerは6リソース＋1データソースで、apply・再plan‑no‑changes・import・destroyを確認 |
+| CLI・Provider（Phase 6） | `cloud/cli`（`shakecloud`）、`cloud/provider`（Terraform）、共通の `cloud/client` | **実機確認済み（2026-09-11）**。CLIは主要操作を網羅。Providerは10リソース＋1データソース（image・database・function を含む）で、apply・再plan‑no‑changes・import・destroyを確認 |
+| API（database・function） | CloudNativePG（PostgreSQL）と Knative（サーバレス関数） | **実機確認済み（2026-09-12）**。`POST /v1/databases` で作成〜healthy〜資格情報〜削除、`POST /v1/functions` で作成〜Ready〜URL〜削除を確認。Provider・CLI・ポータルからも扱える |
 
 `terraform@pve` は `/pool/cloud` に権限を持たず、`cloudapi@pve` は `/pool/platform` に権限を持ちません。利用者向けの削除APIが基盤VMへ届かないことを、運用規約ではなくACLで保証します。この枠の存在は、APIやProviderが動くことを意味しません。
 
@@ -260,7 +261,7 @@ API は Phase 1 から Phase 4 まで実装済み・実機確認済みです（P
 - **台帳は「引き取った」ことを覚える。** 作成時の記録（元イメージ、user-data、seed ISO）が無いインスタンスがあり得るので、それらを必須にしない。
 - **差分リコンサイラが引き取ったVMを孤児と誤認しない。** APIが作った覚えのないVMが `cloud` プールに居ること自体は、この経路では正常。
 
-引き取りは**実装済みで、2026-09-11 に使い捨てVMで実機確認済み**です。`POST /v1/instances/adopt`（cloud-admins のみ）に `vmid` と所有者の `account_id` を渡すと、管理DBへ `adopted=true` のインスタンスとして登録され、以後は他のインスタンスと同じに扱われます。VMの大きさ（vCPU・メモリ・バルーニング・ルートディスク）は Proxmox の設定から読み取り、MAC も `net0` から取ります。ルートディスクの大きさがストレージから読めないときだけ `root_disk_gib` を明示します。SGを効かせるにはアドレスが要るので、既知なら `private_ip_address` も渡します。
+引き取りは**実装済みで、2026-09-11 に使い捨てVMで実機確認済み**です。`POST /v1/instances/adopt`（admins のみ）に `vmid` と所有者の `account_id` を渡すと、管理DBへ `adopted=true` のインスタンスとして登録され、以後は他のインスタンスと同じに扱われます。VMの大きさ（vCPU・メモリ・バルーニング・ルートディスク）は Proxmox の設定から読み取り、MAC も `net0` から取ります。ルートディスクの大きさがストレージから読めないときだけ `root_disk_gib` を明示します。SGを効かせるにはアドレスが要るので、既知なら `private_ip_address` も渡します。
 
 **プールへ入れる操作はAPIの外です。** `cloudapi@pve` は既にプールに居るVMしか見えず、外のVMをプールへ入れる権限を持たないためです。管理者（またはTerraform）が先に移し、それから adopt します。`game1`（VMID 100）は 2026-09-11 に `qm set` 相当で `cloud` プールへ移して adopt 済みで、VMID 100 は `platform/terraform/pools.yaml` の `reserved_vmids` で引き続き確保しています。
 
@@ -278,7 +279,7 @@ API は Phase 1 から Phase 4 まで実装済み・実機確認済みです（P
 
 ## v1に入れるものと入れないもの
 
-Kubernetesクラスタが未構築なので、**サーバレスとDBアプライアンスはK8s構築後**です。v1はVMとS3に絞ります。
+**4機能とも実装済みです。** VM・S3（Garage）に加え、Kubernetes 構築後に database（CloudNativePG）と function（Knative）を追加しました。
 
 | 入れる | 入れない |
 | --- | --- |
@@ -292,11 +293,11 @@ Kubernetesクラスタが未構築なので、**サーバレスとDBアプライ
 | クォータと空き容量検査 | 課金 |
 | 差分リコンサイラ | IAMポリシー言語（ロールは admin/user の2つ） |
 | 監査ログ | EC2ワイヤ互換シム |
-| S3バケットとキー（Garage） | サーバレス・DBアプライアンス（K8s後） |
+| S3バケットとキー（Garage）、サーバレス関数（Knative）、DBアプライアンス（CloudNativePG） | DB・関数の外部バックアップ（未構築） |
 
 **空き容量検査は省けません。**上限が無ければ1人がホストを埋めて基盤VM（認証・API・台帳）ごと倒せます。
 
-**ただしクォータの数値は固定しません。**当初は[初期リソース配分](operations.md#resource-budget)の「余白は約7GiB」に合わせて 8GiB に絞っていましたが、それでは 16GiB のゲームVMをクラウドの管轄に置けませんでした。いまは**既定値を `cloud.yaml` に置き、`cloud-admins` が実行中に変更できます**（0 で無制限）。ホストを守るのは、無制限にしても残る2つの検査（ノードの実際の空き、ディスクの実使用率）です。実測と代償は[配備台帳](operations.md#measured-budget)にあります。
+**ただしクォータの数値は固定しません。**当初は[初期リソース配分](operations.md#resource-budget)の「余白は約7GiB」に合わせて 8GiB に絞っていましたが、それでは 16GiB のゲームVMをクラウドの管轄に置けませんでした。いまは**既定値を `cloud.yaml` に置き、`admins` が実行中に変更できます**（0 で無制限）。ホストを守るのは、無制限にしても残る2つの検査（ノードの実際の空き、ディスクの実使用率）です。実測と代償は[配備台帳](operations.md#measured-budget)にあります。
 
 ## 最初の実装順
 
@@ -313,6 +314,6 @@ Kubernetesクラスタが未構築なので、**サーバレスとDBアプライ
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 
-**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に完了しました。**次は Phase 8（VLAN 分離への切替）です。
+**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に、**database（CloudNativePG）と function（Knative）は 2026-09-12 に完了しました。次は Phase 8（VLAN 分離への切替）と、CNPG の外部バックアップです。
 
 VM、通常の関数HTTP呼出し、S3オブジェクト転送、SQL通信は利用先へ直接接続します。自作クラウドAPIにデータ転送を集約せず、APIはリソース管理を担当します。

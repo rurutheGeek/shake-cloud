@@ -1,6 +1,6 @@
 # Terraformの実行手順
 
-更新日: 2026-09-10。状態: **00-bootstrap・10-platform は実機へ適用済み**。
+更新日: 2026-09-12。状態: **00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み**。Terraform CLI は `.terraform-version`（1.15.8）に固定。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 

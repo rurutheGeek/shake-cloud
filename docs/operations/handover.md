@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。**Phase 6 の CLI と Terraform Provider を実装し、実機で確認した**。Phase 7 は storage-s3 VM と Garage を構築し、バケット・S3キーを扱うクラウドAPI・CLI・Terraform Provider・ポータル画面を実装、APIが発行した鍵で実クライアント（awscli）から PUT/LIST/GET/削除まで確認した。利用者の招待フロー（identity サービスの `invitations.py`）も実装した。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
+更新日: 2026-09-12。状態: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**すべて `main` に入っている。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、メディア系の認証統合。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -14,7 +14,7 @@ Proxmox VE の上に、**AWS の語彙で操作できる小さなプライベー
 2. ポータル・Terraform・CLI のどれからでも自分のVMを作る
 3. Webコンソールで入り、要らなくなったら消す
 
-v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。
+v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG）・function（Knative）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。**サービスを載せるVMの置き場所と作り方は[サービスの置き場所とクラウドVMでの作り方](services.md)、接続先は[URL一覧](urls.md)。**
 
 ## 2. 読む順番
 
@@ -40,19 +40,19 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | 認証 | ブラウザは Authentik の OIDC。機械は、ポータルで発行するアクセスキーを `Authorization: Bearer sca_<keyid>.<secret>` で送る |
 | アクセスキーの発行 | **ポータルのログインからだけ。** アクセスキーで別のアクセスキーは作れない（漏れたキーが複製を作って居座れないように）。1アカウント5本まで。削除は行を残して無効化 |
 | テナント | Authentik ユーザー1人 = 1アカウント |
-| VM の見え方と権限 | **クラウドのVMは全員が見られる**（所有者名・イメージ・リソース・状態）。1台のホストを分け合うので、誰が何を動かしているか分からないと容量の判断ができないため。ただし**操作できるのは所有者と `cloud-admins` だけ**（他人のVMへの電源操作・削除は 403）。他人の `client_token` は返さない。`user_data` は一覧に出さない |
+| VM の見え方と権限 | **クラウドのVMは全員が見られる**（所有者名・イメージ・リソース・状態）。1台のホストを分け合うので、誰が何を動かしているか分からないと容量の判断ができないため。ただし**操作できるのは所有者と `admins` だけ**（他人のVMへの電源操作・削除は 403）。他人の `client_token` は返さない。`user_data` は一覧に出さない |
 | VM の大きさ | **自由入力**。`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定する。`instance_type`（`flavors.yaml` の名前）は**任意の近道**で、指定すると値が埋まるだけ。1つでも数値を上書きしたらその型名は外れる（カスタム扱い） |
 | バルーニング | **VMごとに選べる。** `ballooning: false` なら固定メモリ（Proxmox の `balloon=0`）。`true` のとき `memory_min_mib` が回収の下限で、省略すると上限の 1/4（最低 512MiB） |
-| 大きさの変更 | `PATCH /v1/instances/{id}`、**`cloud-admins` だけ**。vCPU・メモリ・バルーニングは**停止中のみ**（Proxmox は次回起動時にしか反映しないので、動作中に変えると台帳と実物が食い違う）。ディスクは稼働中でも**拡大のみ**。変更後の大きさでクォータと空き容量を再検査する |
+| 大きさの変更 | `PATCH /v1/instances/{id}`、**`admins` だけ**。vCPU・メモリ・バルーニングは**停止中のみ**（Proxmox は次回起動時にしか反映しないので、動作中に変えると台帳と実物が食い違う）。ディスクは稼働中でも**拡大のみ**。変更後の大きさでクォータと空き容量を再検査する |
 | イメージのアップロード経路 | **API を通した直接アップロードだけ。**`download-url`（URL から Proxmox に取りに行かせる）は `cloudapi@pve` に **403**、`upload` は `content=import` を受ける（どちらも実測）。**Proxmox はチャンク転送を 501 で拒否する**ので本文の長さを先に宣言する必要があり、**「一切溜めずに流す」は成立しない**。cloud-01 の実ディスク（`storage/uploads`）へ一旦書いて大きさを確定させ、そこから流す。**`/tmp` は tmpfs なので使えない**。**中身の検査は Proxmox が qemu-img で行う**ので、壊れたファイルは弾かれ、何も残らない |
 | イメージの上限 | 1イメージ **12GiB**（`max_image_gib`、管理者が変更可、0 は無制限）。置き場（Proxmox のルートFS 約94GiB）と cloud-01 のディスク（空き約31GiB）の**両方**に同じ大きさが要るので、小さい方に合わせてある。加えて置き場の空き（`image_store_min_free_mib`）を必ず残す |
-| イメージの削除 | 所有者と `cloud-admins`。**共有イメージは API から消せない**（Terraform の宣言物）。既にそのイメージから作った VM は無関係（作成時にディスクへ複製済み）。**作成中の VM がある間だけ**削除を断る |
+| イメージの削除 | 所有者と `admins`。**共有イメージは API から消せない**（Terraform の宣言物）。既にそのイメージから作った VM は無関係（作成時にディスクへ複製済み）。**作成中の VM がある間だけ**削除を断る |
 | SSH鍵 | 公開鍵だけを保存する。**`user-data` には触らず、NoCloud の `meta-data` の `public-keys` で渡す**（`user-data` はシェルスクリプトでもよい自由書式なので、他人の文書を書き換えないため）。鍵の本文は**承認時に**インスタンスへ複製するので、直後に鍵ペアを消されても入れない VM は生まれない。鍵ペアを後から消しても既存の VM は動き続ける |
 | Webコンソール | **noVNC 1.7.0 を同梱する**（`web/static/novnc/`、npm の sha512 と照合した tarball から `core/`・`vendor/`・`LICENSE.txt` を無改変で。MPL-2.0。出所と更新手順は同じ場所の `PROVENANCE.md`）。**CDN は使わない**。ビルド無しの ES モジュールとして読み、CSP の `script-src 'self'` に収まる |
 | コンソールの経路 | ブラウザは WebSocket に `Authorization` を付けられず、`vncwebsocket` はそれを要求するので、**API が自分の `cloudapi@pve` トークンで中継する**。**WebSocket のライブラリは足さない**。ハンドシェイクだけ双方と行い、以後はフレームを解釈せずバイト列を双方向にコピーする（ブラウザのマスク付きフレームは Proxmox が期待する形、Proxmox の非マスクのフレームはブラウザが期待する形なので、そのまま正しい）。圧縮などの拡張はどちら側とも交渉しない |
 | コンソールの手順と期限 | ①`POST /v1/instances/{id}/console`（所有者と管理者だけ、稼働中だけ）が**5分有効・アカウントに結び付いた URL** を返す。**この時点では Proxmox に何も頼まない**。②その**ページを開くたびに** Proxmox の新しいチケットと使い捨てパスワードを発行する（Proxmox の VNC プロキシは数秒しか WebSocket を待たないので、接続の直前まで遅らせる。再読み込みがそのまま再接続になる）。③WebSocket は**1回のページ表示につき1本だけ** |
 | コンソールの防御 | **Cookie で認証された WebSocket は Origin が自サイトでなければ断る**（`CrossOriginProtection` は GET を見ないので、他サイトからのクロスサイト WebSocket 乗っ取りはここで止める）。アクセスキーは他サイトのページから送れないので Origin は問わない（CLI 用）。URL のトークンは**アクセスログに出さず**（`/console/{token}` と記録）、メモリ上も**ハッシュで持つ**。ページは `Cache-Control: no-store`（パスワードを含むため） |
-| v1 の範囲 | EC2相当 + S3（Garage）。サーバレス・RDB は Kubernetes 構築後 |
+| v1 の範囲 | EC2相当（VM）+ S3（Garage）+ database（CloudNativePG）+ function（Knative）。4機能とも実装済み |
 | EC2 の追加機能 | 追加ボリューム、セキュリティグループ。スナップショットと IMDS は作らない |
 | 運用機能 | クォータと空き容量検査、差分リコンサイラ、監査ログ。削除保護は作らない |
 | Web UI | フルのセルフサービスポータル |
@@ -71,7 +71,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | ドメイン | **`apextox.dpdns.org`**（DigitalPlat の無料ドメイン。DNS は Cloudflare に委任）。**インターネットには公開しない。** グローバルIPも使わず、HTTPS の証明書を DNS-01 で取るためにだけ使う。`home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるため |
 | OIDC クライアントの秘密値 | **SOPS へ複製しない。** 正本は identity VM の `oidc-cloud.json` で、`cloud.yml` が配備のたびに直接写す。2か所に持つと、作り直したときに食い違うため |
 | ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。**2026-09-11 に無効化した**（以後はポータルでログインして発行するアクセスキーを使う。緊急時は `rotate-bootstrap-key` で作り直す） |
-| インスタンスの上限 | **既定値は `platform/terraform/cloud.yaml`、変更は `cloud-admins` が実行中に行う**（`PUT /v1/limits` かポータルの「上限」）。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねる（同じ事実を2か所に持たない）。既定は1アカウント 8台・32vCPU・32GiB・ディスク計 1000GiB、クラウド全体のメモリ枠 32GiB、ノードに 4GiB 残す、ディスク実使用率 85%。**0 は無制限。**停止中も数える |
+| インスタンスの上限 | **既定値は `platform/terraform/cloud.yaml`、変更は `admins` が実行中に行う**（`PUT /v1/limits` かポータルの「上限」）。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねる（同じ事実を2か所に持たない）。既定は1アカウント 8台・32vCPU・32GiB・ディスク計 1000GiB、クラウド全体のメモリ枠 32GiB、ノードに 4GiB 残す、ディスク実使用率 85%。**0 は無制限。**停止中も数える |
 | 上限とホストの保護の関係 | **上限の合計が物理メモリを超えることを許す**（バルーニング前提）。物理を見ているのは「ノードの `available` が指定量残るか」と「ディスクの実使用率」の2つだけで、これは上限を無制限にしても残る。この2つを 0 にすると基盤VMごと倒せる。[配備台帳の実測](../architecture/operations.md#measured-budget) |
 | VMID | API が 5000–5999 から採番する。**他が使っていた VMID は隔離し、二度と払い出さない**。プローブ用の 5998・5999 は使わない |
 | VM の識別 | 作った VM の description に instance ID を書く。**それが無い VM には触らない**（削除も電源操作もしない） |
@@ -96,7 +96,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
 | 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
-| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
+| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1〜7 + database/function）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
 | 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。**Ready**。kubeadm 1.36.4、Cilium 1.20.1 |
 | 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。**Ready**。join 済み |
@@ -119,7 +119,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | NetBox | `https://netbox.apextox.dpdns.org` | `admin` | services-01 の `/opt/netbox-stack/secrets/superuser_password` |
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | identity の `/opt/identity-stack/secrets/bootstrap_password` |
-| クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`cloud-users` か `cloud-admins`） | Authentik 側。`akadmin` は `cloud-admins` に入っている |
+| クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`users` か `admins`） | Authentik 側。`akadmin` は `admins` に入っている |
 | クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用ブートストラップキーは 2026-09-11 に無効化（§6 Phase 5）。緊急時は cloud-01 で `manage.py rotate-bootstrap-key` |
 | 開発VM への SSH | `debian@192.168.10.202` / `.203` | パスワードまたは鍵 | `.local/devvm-passwords.yml`（**devbox の playbook を実行した作業機の手元にだけある平文**。dev-b には無い） |
 | 基盤VM への SSH（services-01、identity、cloud-01、probe-01） | `debian@<IP>` | 鍵のみ | 鍵は `platform/terraform/access.yaml`。dev-b からは `~/.ssh/id_ed25519_pve` |
@@ -161,14 +161,14 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | `10-platform` 適用（identity、cloud-01、NetBox の IP Range） | 再 plan で差分なし |
 | ✅ | NetBox の書き込みアイデンティティ `cloudapi` | `virtualization` と `ipam` にだけ書ける。実測済み |
 | ✅ | NetBox の LAN 公開 | `platform/ansible/roles/netbox` |
-| ✅ | Authentik の新規構築、`cloud-users` / `cloud-admins`、OIDC クライアント `cloud` | `stacks/identity/`、`platform/ansible/identity.yml`。再実行で変更ゼロ |
+| ✅ | Authentik の新規構築、`users` / `admins`、OIDC クライアント `cloud` | `stacks/identity/`、`platform/ansible/identity.yml`。再実行で変更ゼロ |
 | ✅ | ドメイン `apextox.dpdns.org` を取得し、DNS を Cloudflare へ委任 | 2026-09-10。ゾーンは有効、レコードはまだ無い。DNS 編集トークンは SOPS に格納し、動作を確認済み |
 | ✅ | 名前を決めて HTTPS にする（Authentik・ポータル・API・NetBox・ドキュメントサイト） | 2026-09-10。Terraform `20-dns` と各ホストの Caddy。証明書は Let's Encrypt。Authentik と API の平文ポートは 127.0.0.1 に閉じた。[cloud.md 3-9](cloud.md) |
 | ✅ | Proxmox 本体の証明書（`pve.apextox.dpdns.org`） | 2026-09-10 に取得（Let's Encrypt、`CN=pve.apextox.dpdns.org`、期限 12/9）。ACME アカウント・Cloudflare プラグイン・証明書のすべてを `00-bootstrap` の `acme.tf` が作る。**ACME アカウントの作成だけ API トークンでは通らない**（root のトークンでも `user != root@pam`）ので、`proxmox-root.sops.yaml` の `root@pam` のパスワードで ticket 認証に切り替えて流す（`tools/tf` が自動で判断）。**画面での手作業は無い** |
 | ⬜ | NetBox を使うツール（Terraform・Ansible・クラウドAPI）の接続先を `https://netbox.apextox.dpdns.org` へ移し、`:8000` と `:8090` を閉じる | `netbox.sops.yaml`・`netbox-inventory.sops.yaml`・`cloudapi.sops.yaml` の URL を変える |
 | ⬜ | 外出先（Tailscale）から名前で使えるようにする | Tailscale の DNS がどの名前にも SERVFAIL を返す件と、LAN へのサブネットルートが未設定 |
 | ✅ | OIDC クライアントの秘密値を cloud-01 へ渡す | SOPS へ入れる予定だったが、identity VM から直接写す方式に変えた（§3） |
-| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`cloud-users` へ**。**メール送信に対応**（`smtp.sops.yaml` の `SMTP_*` を `.env` 経由で読み、現在は Gmail。無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
+| ✅ | 新しい Authentik での利用者の作り方（招待フロー） | identity サービスの `stacks/identity/invitations.py`（`configure`/`invite`/`list`/`revoke`、標準ライブラリのみ）。**招待専用フロー・1回限り・24時間・`users` へ**。**メール送信に対応**（`smtp.sops.yaml` の `SMTP_*` を `.env` 経由で読み、現在は Gmail。無ければリンクを 0600 で保存）。配備（`identity.yml`）で `configure` が走る。実機確認済み（[identity.md](identity.md)・[cloud.md 3-17](cloud.md#3-17)・[smtp.md](smtp.md)） |
 | ✅ | データセンターのファイアウォール有効化 | Phase 4 の前提。`platform/terraform/00-bootstrap/firewall.tf` で安全に自動化し、**2026-09-11 に適用済み**（再 plan は No changes）。ノードFWは無効、DC FWは有効・既定ACCEPT、`nf_conntrack_allow_invalid=1`。既存の基盤VM・game1 への通信に影響がないこと、`nf_conntrack_allow_invalid=1` が入っていることを実機で確認。次に触る場合は物理コンソール/IPMI を用意する |
 | 🟨 👤 | VLAN 工事（ルータ、スイッチ、`vmbr0` を VLAN 対応に） | 物理機器の作業を含む。**宣言と安全装置・手順書は用意済み**（`network.yaml` の `vlan`、`managed-host` と `site.Validate` の precondition、[vlan.md](vlan.md)）。実機切替は人の物理作業待ち |
 
@@ -221,7 +221,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 | 項目 | 現状 | 決めるときの材料 |
 | --- | --- | --- |
-| パスキー | 2026-09-10 に `akadmin` が登録した。予備の認証器と、失くしたときの復旧方法は未決 | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。予備の認証器と復旧方法を先に決める。[ネットワーク・SSO](../architecture/network-auth.md) |
+| パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用。手順は [identity.md](identity.md)。**パスキーだけのパスワードレスも有効化済み（2026-09-12）** | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。discoverable（resident key）でないと自動入力は出ない。[認証基盤（identity・Authentik）](identity.md)・[ネットワーク・SSO](../architecture/network-auth.md) |
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | 旧 `stacks/hub` の Authentik のまま | 新しい identity へ寄せるかは未決 |
 | public-edge の VMID | 設計上は 100 だが、game1 が使用中 | public-edge を作るときに別の番号を決める |
@@ -229,8 +229,8 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | cloud-01 のサイズ | `small`（2GiB）。Phase 1 の実測で使用 約500MiB（API 7MiB、PostgreSQL 65MiB） | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
 | ポータルのフロント | `html/template` と素の JS。**2026-09-12 に[Web GUI監査・改善案](../audits/webgui-2026-09-12.md)を作成**（P1 6件・P2 10件）。同じ監査の指摘どおり、送信ロックとVMの `client_token`、ID単位の一覧更新と入力保持、選択IDの保持、日本語のエラーと操作箇所への表示、用途別ナビ、検索・絞り込み、履歴の検索・ページ送り・詳細、アップロードの段階表示と中断、S3権限の用途選択と owner 既定オフ、上限の差分確認を `index.html`・`portal.js`・新規 `portal-ui.js`・`portal.css` へ実装 | 模擬APIと実ブラウザ（Chrome Headless Shell 153）で機能28項目とキーボード操作、axe-coreの自動検査（一般利用者／管理者・ライト／ダークの3画面、違反0件）を確認し、**dev-bのPostgreSQLを使って`go vet ./...`と`go test ./...`（cloud/api全パッケージ）も通した**（連打・入力保持・選択保持・320/390px・コントラスト・502/401・S3権限・上限差分・雛形・アップロード段階／中断とサーバー側の接続断）。結果は監査の「改修後の確認」と[確認結果JSON](../audits/webgui-2026-09-12/after-results.json)に残した。**2026-09-12 に `cloud.yml` で cloud-01 へ配備**し、`/healthz` 200 と新規 `/static/portal-ui.js`・`portal.js`・`portal.css` の配信を確認。未確認は、Authentikログインで確立する認証済みポータルでの画面操作、実VM／実S3の作成・変更、実機のスクリーンリーダー。新しい JS ビルド基盤は増やさない前提 |
 | 管理DBのバックアップ | **定期実行を実装（2026-09-12）**: cloud-01 の `cloud-backup.timer` が毎日 `manage.py backup --keep 14` を `/var/backups/cloud-api` へ。**外部コピーは未着手**（Garage は単一ノードなので唯一の控えにしない） | 別ディスク／外部へのコピー先を決める（[cloud.md 3-18](cloud.md#3-18)） |
-| state の置き場 | Cloudflare R2 | Phase 7 で Garage へ移すか。クラウドが止まっていても読める場所という条件がある |
-| AWX | 未構築 | Kubernetes が前提。できるまでは dev-b から人が実行する |
+| state の置き場 | Cloudflare R2（`platform/terraform` の基盤用） | Phase 7 は完了。Garage へ移すか、サービス用 state をどこへ置くかは未決（[services.md](services.md)）。クラウドが止まっていても読める場所という条件がある |
+| AWX | **配備済み（2026-09-12）**: 24.6.1 を Flux で配備（[kubernetes.md](kubernetes.md)・[AWXの使い方](awx.md)） | ジョブテンプレート・プロジェクトの整備はこれから |
 | Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
 
 ## 8. 引き継ぐ人のアクセス
@@ -242,7 +242,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | SOPS の復号（age 鍵） | dev-b の `~/.config/sops/age/keys.txt` | 新しい人が自分の age 鍵を作り、**公開鍵だけ**を渡す。保持者が `.sops.yaml` へ足し、`sops updatekeys platform/sops/*.sops.yaml` を実行する（[秘密値の管理](secrets.md)） |
 | 基盤VMへの SSH | `platform/terraform/access.yaml` の公開鍵 | 公開鍵を `admin_ssh_public_keys` の**末尾に**足す（順序を変えない）。新しく作るVMにはこれで入る。既にあるVMには、入れる人が `ssh-copy-id` か Ansible で足す |
 | Proxmox ホストへの SSH | 人が管理（dev-b の鍵は未登録） | ホストの `authorized_keys` へ公開鍵を足す |
-| クラウドの管理者権限 | Authentik の `cloud-admins` グループ | 新しい人の Authentik アカウントを `cloud-admins` に入れる。ブートストラップ管理キーは共有しない |
+| クラウドの管理者権限 | Authentik の `admins` グループ | 新しい人の Authentik アカウントを `admins` に入れる。ブートストラップ管理キーは共有しない |
 | 手元にしか無い設定 | `platform/ansible/pve.ini`、`seed.ini`、`.local/pve-readonly.env` | `.example` から作る。`pve-readonly.env` は `site.yaml` を作り直すときだけ要る |
 | Go のツールチェーン | dev-b の `~/.local/go`（1.27.1。apt の版は古い） | `https://go.dev/dl/` から取得して `PATH` に足す。版は `cloud/api/go.mod` に合わせる |
 

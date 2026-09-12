@@ -49,7 +49,7 @@ func GetAccount(ctx context.Context, q Querier, id string) (Account, error) {
 
 // RecordLogin creates or refreshes the account for an Authentik subject and
 // reports whether it was created. Group membership is re-read on every login,
-// so removing someone from cloud-admins takes effect at their next login.
+// so removing someone from admins takes effect at their next login.
 //
 // A subject never seen before that carries a known email address is refused
 // rather than given a second account. It usually means the Authentik user was
