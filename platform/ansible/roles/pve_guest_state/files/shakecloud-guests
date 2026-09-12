@@ -22,9 +22,10 @@ STATE = pathlib.Path('/var/lib/shakecloud/guests-running')
 def running():
     result = subprocess.run(['qm', 'list'], capture_output=True, text=True, check=True)
     guests = []
+    # qm list columns are: VMID NAME STATUS MEM(MB) BOOTDISK(GB) PID.
     for line in result.stdout.splitlines()[1:]:
         parts = line.split()
-        if len(parts) >= 2 and parts[1] == 'running':
+        if len(parts) >= 3 and parts[2] == 'running':
             guests.append(parts[0])
     return guests
 
