@@ -77,16 +77,22 @@ class RenderSiteTests(unittest.TestCase):
                 render_site.render(directory)
 
     def test_shared_isos_keep_the_admin_volume(self):
-        # A shared ISO is used where the administrator put it; copying it into
-        # the cloud store would double the space for no benefit.
-        iso = self.site['shared_isos']['iso-win11-25h2']
-        self.assertEqual(iso['volume'], 'local:iso/Win11_25H2_Japanese_x64_v2.iso')
-        self.assertEqual(iso['os'], 'windows')
+        # A declared shared ISO is used where the administrator put it; copying
+        # it into the cloud store would double the space for no benefit.
+        with tempfile.TemporaryDirectory() as directory:
+            def add(isos):
+                isos['isos']['win11'] = {'name': 'Win11', 'volume': 'local:iso/Win11.iso', 'os': 'windows'}
+            self.edit_declarations(directory, {'isos.yaml': add})
+            site = render_site.render(directory)
+            self.assertEqual(site['shared_isos']['iso-win11']['volume'], 'local:iso/Win11.iso')
+            self.assertEqual(site['shared_isos']['iso-win11']['os'], 'windows')
 
     def test_a_shared_iso_outside_the_admin_store_stops_rendering(self):
+        # The cloud token can only attach files from the admin image store; a
+        # declaration pointing elsewhere would fail at launch, not at render.
         with tempfile.TemporaryDirectory() as directory:
             def break_it(isos):
-                isos['isos']['win11-25h2']['volume'] = 'cloud-images:iso/Win11.iso'
+                isos['isos']['win11'] = {'name': 'Win11', 'volume': 'cloud-images:iso/Win11.iso'}
             self.edit_declarations(directory, {'isos.yaml': break_it})
             with self.assertRaises(SystemExit):
                 render_site.render(directory)

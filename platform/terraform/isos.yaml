@@ -1,17 +1,11 @@
 ---
-# 共有ISO。管理者が Proxmox の admin_images（site.yaml の storage.admin_images）へ
-# 置いた既存ファイルを、クラウドの利用者へインストールメディアとして公開する。
+# 共有ISOの上書き宣言（任意）。
 #
-# **複製しない。** API はこのボリュームを CD-ROM として直接付ける。ストレージには
-# 読み取り専用ACL（CloudApiSharedISO = Datastore.Audit）だけを与えるので、クラウド
-# からファイルを消したり上書きしたりはできない。
+# 通常はここに何も書かなくてよい。
+#   - ポータルからアップロードしたISOは、そのまま全員共有で一覧に出る。
+#   - Proxmox の admin_images（site.yaml の storage.admin_images）に置いた
+#     ISO も、自動で「共有」として一覧に出る（複製なし・読み取り専用）。
 #
-# os: windows はそのISOで作るVMを UEFI・TPM 2.0・q35 にする。削除はAPIからできない。
-isos:
-  win11-25h2:
-    name: Win11 25H2 Japanese
-    volume: local:iso/Win11_25H2_Japanese_x64_v2.iso
-    os: windows
-  virtio-win:
-    name: virtio-win 0.1.302
-    volume: local:iso/virtio-win-0.1.302.iso
+# ここに書くのは、Proxmox に置いたファイルへ表示名や os（windows など）を
+# 付けたいときだけ。volume は admin_images のストレージでなければならない。
+isos: {}
