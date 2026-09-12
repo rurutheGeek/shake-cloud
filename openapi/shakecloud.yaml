@@ -381,6 +381,80 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
+  /v1/isos:
+    get:
+      operationId: DescribeISOs
+      tags: [compute]
+      summary: List every account's uploaded installation ISOs.
+      description: 'ISO media is attached as a CD-ROM; it never becomes a root disk. Everyone sees the list, as with images.'
+      responses:
+        '200':
+          description: ISOs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [isos]
+                properties:
+                  isos:
+                    type: array
+                    items: {$ref: '#/components/schemas/ISO'}
+        '401': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: ImportISO
+      tags: [compute]
+      summary: Upload an installation ISO.
+      description: |
+        The ISO is streamed to the node's image store under `:iso/`, never
+        buffered in the API. It is attached as a CD-ROM when an instance is
+        created with `install_iso_id`.
+
+        The size is bounded by `capacity.max_image_gib` and by the free space
+        the image store must keep (`capacity.image_store_min_free_mib`).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, file]
+              properties:
+                name: {type: string, maxLength: 128}
+                os:
+                  type: string
+                  enum: ['', linux, windows]
+                  description: 'windows selects the Windows 11 virtual hardware when this ISO is installed.'
+                file: {type: string, format: binary}
+            encoding:
+              file:
+                contentType: application/octet-stream
+      responses:
+        '201':
+          description: Uploaded.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ISOEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/isos/{iso_id}:
+    delete:
+      operationId: DeleteISO
+      tags: [compute]
+      summary: Delete an uploaded ISO.
+      description: An owner or a cloud-admin may delete it. Refused while a live instance still attaches it.
+      parameters:
+        - $ref: '#/components/parameters/ISOID'
+      responses:
+        '204':
+          description: Deleted.
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
   /v1/instance-types:
     get:
       operationId: DescribeInstanceTypes
@@ -514,9 +588,23 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [image_id]
               properties:
-                image_id: {type: string, pattern: '^img-[a-z0-9-]+$'}
+                image_id:
+                  type: string
+                  pattern: '^img-[a-z0-9-]+$'
+                  description: 'Launch by copying this image to the root disk. Give either image_id or install_iso_id, not both.'
+                install_iso_id:
+                  type: string
+                  pattern: '^iso-[0-9a-f]{17}$'
+                  description: 'Install instead of launch: the VM boots this ISO with an empty root disk. Give either image_id or install_iso_id, not both.'
+                driver_iso_id:
+                  type: string
+                  pattern: '^iso-[0-9a-f]{17}$'
+                  description: 'Optional second CD-ROM, e.g. the virtio-win driver disc, attached when install_iso_id is used.'
+                guest_os:
+                  type: string
+                  enum: ['', linux, windows]
+                  description: 'Defaults from the image or ISO. windows selects UEFI, a TPM 2.0 and the q35 chipset.'
                 instance_type:
                   type: string
                   description: A named preset from GET /v1/instance-types, used as a starting point.
@@ -1365,6 +1453,11 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^img-[a-z0-9-]+$'}
+    ISOID:
+      name: iso_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^iso-[0-9a-f]{17}$'}
     VolumeID:
       name: volume_id
       in: path
@@ -1458,8 +1551,13 @@ components:
         owner_username:
           type: string
           description: The account's username, so a viewer can tell whose instance this is.
-        image_id: {type: string}
+        image_id:
+          type: string
+          description: Empty for an instance that installs itself from ISO media instead of launching from an image.
         image_name: {type: string, description: The human name of the image.}
+        guest_os: {type: string, enum: ['', linux, windows], description: 'windows for a Windows guest. Empty for a Linux guest.'}
+        install_iso_id: {type: string, description: 'Set when the instance was created from install media.'}
+        driver_iso_id: {type: string, description: 'The optional second CD-ROM, e.g. the virtio-win disc.'}
         instance_type:
           type: string
           description: Absent when the instance was created with explicit cpu/memory rather than a named preset.
@@ -1553,6 +1651,22 @@ components:
       required: [image]
       properties:
         image: {$ref: '#/components/schemas/Image'}
+    ISO:
+      type: object
+      required: [iso_id, name, created_at]
+      properties:
+        iso_id: {type: string, pattern: '^iso-[0-9a-f]{17}$'}
+        name: {type: string}
+        os: {type: string, enum: ['', linux, windows], description: 'windows for a Windows installer, empty for a Linux one.'}
+        account_id: {type: string}
+        owner_username: {type: string}
+        size_mib: {type: integer}
+        created_at: {type: string, format: date-time}
+    ISOEnvelope:
+      type: object
+      required: [iso]
+      properties:
+        iso: {$ref: '#/components/schemas/ISO'}
     ConsoleSession:
       type: object
       required: [url, expires_at]

@@ -37,6 +37,14 @@ type Instance struct {
 	RequestSHA256 []byte
 	Name          string
 	ImageID       string
+	// GuestOS is "windows" for a Windows guest and "" or "linux" otherwise.
+	// It decides the virtual hardware the worker creates.
+	GuestOS string
+	// InstallISOID and DriverISOID are set for an instance that installs
+	// itself from ISO media instead of launching from an image. The driver ISO
+	// (the virtio-win disc) is optional.
+	InstallISOID string
+	DriverISOID  string
 	// InstanceType is empty when the size was given as explicit numbers rather
 	// than a named preset.
 	InstanceType string
@@ -83,7 +91,8 @@ type Instance struct {
 const instanceColumns = `i.instance_id, i.account_id,
 	coalesce((SELECT a.username FROM accounts a WHERE a.id = i.account_id), ''),
 	coalesce(i.client_token, ''), i.request_sha256, i.name,
-	i.image_id, i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.ballooning, i.root_disk_gib,
+	i.image_id, i.guest_os, coalesce(i.install_iso_id, ''), coalesce(i.driver_iso_id, ''),
+	i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.ballooning, i.root_disk_gib,
 	i.user_data, coalesce(i.key_name, ''), coalesce(i.key_public_key, ''), i.tags,
 	i.state, coalesce(i.pending_action, ''), i.state_reason, i.last_error, i.attempts, i.next_attempt_at,
 	i.vmid, i.vm_created, i.mac_address, coalesce(i.ip_address, ''), i.netbox_ip_id, coalesce(i.seed_volume, ''),
@@ -93,7 +102,8 @@ const instanceColumns = `i.instance_id, i.account_id,
 func scanInstance(row pgx.Row) (Instance, error) {
 	var i Instance
 	err := row.Scan(&i.ID, &i.AccountID, &i.OwnerUsername, &i.ClientToken, &i.RequestSHA256, &i.Name,
-		&i.ImageID, &i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.Ballooning, &i.RootDiskGiB,
+		&i.ImageID, &i.GuestOS, &i.InstallISOID, &i.DriverISOID,
+		&i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.Ballooning, &i.RootDiskGiB,
 		&i.UserData, &i.KeyName, &i.KeyPublicKey, &i.Tags,
 		&i.State, &i.PendingAction, &i.StateReason, &i.LastError, &i.Attempts, &i.NextAttemptAt,
 		&i.VMID, &i.VMCreated, &i.MACAddress, &i.IPAddress, &i.NetBoxIPID, &i.SeedVolume,
@@ -115,13 +125,17 @@ func InsertInstance(ctx context.Context, q Querier, i Instance) (Instance, error
 		i.Tags = map[string]string{}
 	}
 	return scanInstance(q.QueryRow(ctx, `INSERT INTO instances AS i
-		(instance_id, account_id, client_token, request_sha256, name, image_id, instance_type,
+		(instance_id, account_id, client_token, request_sha256, name, image_id, guest_os,
+		 install_iso_id, driver_iso_id, instance_type,
 		 cpu_cores, memory_mib, memory_min_mib, ballooning, root_disk_gib, user_data,
 		 key_name, key_public_key, tags, state, pending_action, vmid, mac_address)
-		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-		        nullif($14::text, ''), nullif($15::text, ''), $16, 'pending', 'launch', $17, $18)
+		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, $7,
+		        nullif($8::text, ''), nullif($9::text, ''), $10,
+		        $11, $12, $13, $14, $15, $16,
+		        nullif($17::text, ''), nullif($18::text, ''), $19, 'pending', 'launch', $20, $21)
 		RETURNING `+instanceColumns,
-		i.ID, i.AccountID, i.ClientToken, i.RequestSHA256, i.Name, i.ImageID, i.InstanceType,
+		i.ID, i.AccountID, i.ClientToken, i.RequestSHA256, i.Name, i.ImageID, i.GuestOS,
+		i.InstallISOID, i.DriverISOID, i.InstanceType,
 		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.Ballooning, i.RootDiskGiB, i.UserData,
 		i.KeyName, i.KeyPublicKey, i.Tags, i.VMID, i.MACAddress))
 }
