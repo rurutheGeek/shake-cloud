@@ -6,6 +6,18 @@
 
 基盤側の作業（Terraform / Ansible / NetBox / 秘密値の管理）はこの文書の範囲外です。そちらは[初回セットアップの順番](operations/bootstrap.md)と[IaCの所有境界](architecture/iac.md)にあります。
 
+## 読む順番
+
+1. **[共通ログインの使い方](services/identity.md)** — 招待を受けてアカウントを作り、パスキーを登録します（`users` グループ）。
+2. **[接続先一覧](operations/urls.md)** — クラウド・AWX・NetBox・ドキュメントの URL。
+3. **この文書** — 開発VMへの入り方・鍵・電源。
+4. **[開発VMの使い方](services/devvm.md)** — VM の詳細と `tools/devvm`。
+5. **[クラウドの使い方](services/cloud.md)** — ポータル・アクセスキー・CLI・Terraform で VM/S3/DB/関数を作る。
+6. **[shakecloud CLI](operations/cli.md)** と **[Terraform Provider](operations/terraform-provider.md)** — 開発で使う道具。
+7. **[サービスの置き場所とクラウドVMでの作り方](operations/services.md)** — 開発コードをどこに置くか。
+
+設計・進捗（[IaCの所有境界](architecture/iac.md)・[配備台帳](operations/handover.md)）は開発には必須ではありません。
+
 ## 1. 使えるもの
 
 ミニPC1台（Ryzen 9 8945HS / 61GiB RAM / 1TB NVMe）の Proxmox VE 上です。
@@ -17,7 +29,7 @@
 
 中身は Debian 13。Terraform・Docker・git・age が入っています。ホームディレクトリの `~/tf` は各自の作業場所です。
 
-Proxmox の画面は `https://192.168.10.126:8006` です。自己署名証明書なのでブラウザが警告を出します。
+Proxmox の画面は **`https://pve.apextox.dpdns.org:8006`** です（Let's Encrypt 証明書）。IP 直（`https://192.168.10.126:8006`）は名前が合わず警告が出ます。
 
 ## 2. 入る
 
@@ -92,7 +104,7 @@ CLIから操作したい場合は、リポジトリの `tools/devvm` が同じ�
 
 ## 5. 今後
 
-いまは構成管理者がVMを作って渡す形です。最終的には**プライベートクラウドのAPIから自分で払い出し・構成変更ができる**ようにします。設計は[最小クラウドとProvider](architecture/cloud.md)にあります。
+開発VM（dev-a / dev-b）はいまも構成管理者が作って渡します。**自分用のサービスVM・S3・DB・関数が欲しくなったら、クラウドポータルから自分で作れます**（[クラウドの使い方](services/cloud.md)）。設計は[最小クラウドとProvider](architecture/cloud.md)にあります。
 
 ## 6. 詰まったら
 
@@ -101,5 +113,5 @@ CLIから操作したい場合は、リポジトリの `tools/devvm` が同じ�
 | SSHがつながらない | VMが止まっている可能性。ブラウザから Start する |
 | `Permission denied` | ユーザー名は `debian`。パスワードは構成管理者へ確認 |
 | SSHで入れなくなった | ブラウザの Console から入って直す |
-| ブラウザが証明書を警告する | 自己署名証明書のため。例外として進む |
+| ブラウザが証明書を警告する | IP 直で開いていないか確認する（`pve.apextox.dpdns.org` を使う） |
 | 自分のVMが一覧に出ない | ログインした利用者に紐づくVMだけが見える。構成管理者へ確認 |
