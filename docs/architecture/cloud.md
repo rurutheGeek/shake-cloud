@@ -1,6 +1,6 @@
 # 最小クラウドとTerraform Provider
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-11。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者招待は未実装**。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-11。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み**。
 
 実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
 

@@ -1,11 +1,16 @@
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / 'stacks/identity'
 SPEC = importlib.util.spec_from_file_location('identity_configure', SOURCE / 'configure.py')
 configure = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(configure)
+
+INVITE_SPEC = importlib.util.spec_from_file_location('identity_invitations', SOURCE / 'invitations.py')
+invitations = importlib.util.module_from_spec(INVITE_SPEC)
+INVITE_SPEC.loader.exec_module(invitations)
 
 FLOWS = {configure.AUTHORIZATION_FLOW: 'auth', configure.INVALIDATION_FLOW: 'inval'}
 CREDENTIAL = {'client_id': 'cloud', 'client_secret': 's'}
@@ -36,6 +41,102 @@ class ProviderTests(unittest.TestCase):
     def test_a_loosened_redirect_is_detected_as_drift(self):
         current = dict(self.body(), redirect_uris=[{'matching_mode': 'regex', 'url': '.*'}])
         self.assertEqual(configure.drifted(current, self.body()), ['redirect_uris'])
+
+
+class FakeIdentityAPI:
+    """Enough of the Authentik API for the invitation tool."""
+
+    def __init__(self, users=(), pending=(), groups=('cloud-users',)):
+        self.users = list(users)
+        self.pending = list(pending)
+        self.groups = [{'name': name, 'pk': 'group-' + name} for name in groups]
+        self.flows = [{'slug': invitations.SLUG, 'pk': 'flow'}]
+        self.calls = []
+
+    def rows(self, path):
+        if path.startswith('core/groups/'):
+            return self.groups
+        if path.startswith('core/users/'):
+            return self.users
+        if path.startswith('stages/invitation/invitations/'):
+            return self.pending
+        if path.startswith('flows/instances/'):
+            return self.flows
+        return []
+
+    def call(self, method, path, body=None):
+        self.calls.append((method, path, body))
+        if method == 'POST' and path == 'stages/invitation/invitations/':
+            return {'name': body['name'], 'pk': 'itok-1', 'used_by': [], 'fixed_data': body['fixed_data']}
+        return {'pk': 'obj'}
+
+    def ensure(self, path, identifiers, values):
+        return {'pk': identifiers.get('name') or identifiers.get('slug') or 'obj',
+                'slug': identifiers.get('slug', 'obj')}
+
+
+class InvitationTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.original_root = invitations.ROOT
+        invitations.ROOT = Path(self.directory.name)
+        self.addCleanup(lambda: setattr(invitations, 'ROOT', self.original_root))
+
+    def created(self, api):
+        return next(body for method, path, body in api.calls
+                    if method == 'POST' and path == 'stages/invitation/invitations/')
+
+    def test_an_invitation_fixes_the_identity_and_is_unverified_by_default(self):
+        api = FakeIdentityAPI()
+        path = invitations.invite(api, 'alice', 'alice@example.org', name='Alice')
+        created = self.created(api)
+        # The username and email come from the invitation, not the invitee.
+        self.assertEqual(created['fixed_data']['username'], 'alice')
+        self.assertEqual(created['fixed_data']['email'], 'alice@example.org')
+        self.assertFalse(created['fixed_data']['attributes']['email_verified'])
+        self.assertTrue(created['single_use'])
+        # The link is saved to a 0600 file, not printed.
+        saved = path.read_text()
+        self.assertIn('/if/flow/' + invitations.SLUG + '/?itoken=itok-1', saved)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_email_verified_only_with_explicit_confirmation(self):
+        api = FakeIdentityAPI()
+        invitations.invite(api, 'bob', 'bob@example.org', email_owner_confirmed=True)
+        self.assertTrue(self.created(api)['fixed_data']['attributes']['email_verified'])
+
+    def test_a_bad_username_or_email_is_refused(self):
+        api = FakeIdentityAPI()
+        for username, email in [('has space', 'a@b.org'), ('ok', 'not-an-email')]:
+            with self.assertRaises(ValueError):
+                invitations.invite(api, username, email)
+
+    def test_an_existing_account_is_refused(self):
+        api = FakeIdentityAPI(users=[{'username': 'alice', 'email': 'alice@example.org'}])
+        with self.assertRaises(ValueError):
+            invitations.invite(api, 'alice', 'other@example.org')
+
+    def test_an_unused_invitation_for_the_same_person_is_refused(self):
+        api = FakeIdentityAPI(pending=[{'pk': 'x', 'used_by': [],
+                                            'fixed_data': {'username': 'alice', 'email': 'alice@example.org'}}])
+        with self.assertRaises(ValueError):
+            invitations.invite(api, 'alice', 'other@example.org')
+
+    def test_configure_needs_the_target_group_to_exist(self):
+        api = FakeIdentityAPI(groups=('cloud-admins',))
+        with self.assertRaises(SystemExit):
+            invitations.configure(api, 'cloud-users')
+
+    def test_revoke_deletes_the_invitation_and_its_saved_link(self):
+        api = FakeIdentityAPI(pending=[{'pk': 'itok-1', 'name': 'cloud-abc', 'used_by': [],
+                                            'fixed_data': {}}])
+        directory = Path(self.directory.name) / 'runtime' / 'invitations'
+        directory.mkdir(parents=True)
+        (directory / 'cloud-abc.json').write_text('{}')
+        invitations.revoke(api, 'cloud-abc')
+        self.assertTrue(any(method == 'DELETE' for method, _, _ in api.calls))
+        self.assertFalse((directory / 'cloud-abc.json').exists())
 
 
 class InventoryNameTests(unittest.TestCase):

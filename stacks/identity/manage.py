@@ -103,9 +103,12 @@ def lock(refresh=False):
 
 
 def configure():
-    run([sys.executable, str(ROOT / 'configure.py')],
-        env=dict(os.environ, AUTHENTIK_TOKEN=secret('bootstrap_token'),
-                 CLOUD_PORTAL_URL=settings().get('CLOUD_PORTAL_URL', '')))
+    env = dict(os.environ, AUTHENTIK_TOKEN=secret('bootstrap_token'),
+               CLOUD_PORTAL_URL=settings().get('CLOUD_PORTAL_URL', ''))
+    run([sys.executable, str(ROOT / 'configure.py')], env=env)
+    # Invitation-only enrollment is part of the identity service. The cloud API
+    # and portal do not manage it; the identity administrator does.
+    run([sys.executable, str(ROOT / 'invitations.py'), 'configure'], env=env)
 
 
 def backup(destination):
@@ -123,7 +126,7 @@ def backup(destination):
         run(['tar', '--numeric-owner', '-cpf', str(target / 'state.tar'), '-C', str(source), '.'])
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
              'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'secrets',
-             'manage.py', 'configure.py'])
+             'manage.py', 'configure.py', 'invitations.py'])
     finally:
         if running:
             compose('start', *running)

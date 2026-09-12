@@ -88,7 +88,7 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
 | クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | この文書では採用候補と配置を整理。未構築 |
-| 自作クラウドAPI・Terraform Provider・ポータル・CLI | API は Phase 7（Garage と バケット・S3キー）まで実装し、2026-09-11 に実機で確認。Terraform Provider と CLI も実装済み。VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者招待は未実装。手順は[クラウドAPIの構築](../operations/cloud.md) |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | API は Phase 7（Garage と バケット・S3キー）まで実装し、2026-09-11 に実機で確認。Terraform Provider と CLI も実装済み。VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。手順は[クラウドAPIの構築](../operations/cloud.md) |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
 | 公開Web統合・NAS移行 | 将来作業 |
 

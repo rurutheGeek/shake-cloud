@@ -25,7 +25,7 @@
 | Phase 6（CLI と Terraform Provider） | `cloud/client`（型付きクライアント）、`cloud/cli`（`shakecloud`）、`cloud/provider`（`shakecloud_*`）。CLI は標準ライブラリのみ（[CLI](cli.md)・[Provider](terraform-provider.md)） |
 | Phase 7（Garage と バケット・S3キー API） | `platform/ansible/roles/garage`（[Garage](garage.md)）、`cloud/api/internal/garage/`（管理APIクライアント）、`cloud/api/internal/compute/buckets.go`、DBマイグレーション `0008`（3-16） |
 
-**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）。
+**まだ無いもの**: VLAN分離の実機切替（宣言・安全装置・手順は用意済み）。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 
@@ -770,6 +770,32 @@ CLI は `shakecloud bucket ...` と `shakecloud s3-key ...`（[shakecloud CLI](c
 - `GET /v1/buckets` はアカウントのバケットだけを返し、他アカウントの鍵を付与しようとすると `NoSuchKey` で断る（単体テストで担保）。
 
 **はまりどころ**: 権限付与（`PUT .../keys/{key_id}`）の応答に鍵一覧を含めるため、`SetBucketPermission`／`RevokeBucketPermission` は監査コールバックより**先に**一覧を読んでから返します。順序を逆にすると応答の `keys` が空になります。
+
+<a id="3-17"></a>
+### 3-17. 利用者の招待（identity サービスの仕事）
+
+**利用者の招待は、クラウドAPIでもポータルでもありません。** 認証基盤（identity サービスの Authentik）の管理者の仕事です。クラウドは、招待で作られた利用者が `cloud-users` に入っていることを前提に動きます。クラウド側に「招待」という資源は持たせません（役割の混同を避けるため）。
+
+招待は **Authentik の招待専用エンロールフロー** `cloud-invitation-enrollment` で行います。`stacks/identity/invitations.py` が管理します。
+
+| 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
+| --- | --- |
+| フローを作る・直す（冪等） | `python3 invitations.py configure [--group cloud-users]` |
+| 招待を発行してリンクを保存 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed]` |
+| 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
+| 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
+
+`configure` は配備（`platform/ansible/identity.yml` → `manage.py configure`）で毎回走ります。
+
+設計上のポイント:
+
+- **招待は1回限り・24時間有効。** リンクを開いても登録を終えなかった場合は期限切れになるので、`revoke` して再発行します。Authentik の Invitation Stage は**リンクを開いた時点で消費する**ため、途中でブラウザを閉じた場合も再発行です。
+- **ユーザー名・メール・所属グループは招待が固定します。** 登録画面で入力できるのはパスワード（12文字以上）だけ。管理者グループを自己指定する入口はありません。
+- **グループの既定は `cloud-users`。** 他のサービス（メディア等）へも招待するようになったら、`configure --group` と招待の宛先で分けます。1つのフローに複数グループを持たせるのではなく、サービスごとに分ける方針です。
+- **メールは送りません。** SMTP 未設定のため、リンクは `runtime/invitations/<name>.json`（0600）に保存し、管理者が本人へ別経路で渡します。リンクのトークンは端末の履歴やログに出しません。
+- **メール所有の確認は明示したときだけ。** 管理者が本人とアドレスを別経路で確認済みの場合に `--email-owner-confirmed` を付けると `email_verified=true` になります。付けなければ未確認のままです。
+
+実機確認（2026-09-11）: `identity.yml` 配備でフロー作成を確認。`invite` で招待を発行 → `list` に未使用として表示 → 外部URL `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` が **200** で招待ページを返すこと、`revoke` で消えることを確認。user_write ステージが `cloud-users` に作ること、Invitation Stage が「招待なしは拒否」であることも API で確認しました。
 
 ## 4. 実機プローブ
 
