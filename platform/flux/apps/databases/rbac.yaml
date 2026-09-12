@@ -1,0 +1,45 @@
+# クラウドAPI（cloud-01 の Compose）が Kubernetes を操作するための最小権限。
+# databases namespace の CNPG Cluster と、接続情報の Secret だけ触れる。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloud-api
+  namespace: databases
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cloud-api
+  namespace: databases
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloud-api
+  namespace: databases
+subjects:
+  - kind: ServiceAccount
+    name: cloud-api
+    namespace: databases
+roleRef:
+  kind: Role
+  name: cloud-api
+  apiGroup: rbac.authorization.k8s.io
+---
+# 長期トークン。値は Kubernetes が入れる（Git には平文が入らない）。
+# API 側はこのトークンを SOPS 経由で受け取る。
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-api-token
+  namespace: databases
+  annotations:
+    kubernetes.io/service-account.name: cloud-api
+type: kubernetes.io/service-account-token
