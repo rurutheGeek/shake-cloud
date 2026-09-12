@@ -41,3 +41,6 @@ records:
   awx:
     address: 192.168.10.241
     description: AWX（Kubernetes の Cilium Ingress。TLS は cert-manager）
+  "*.functions.k8s":
+    address: 192.168.10.240
+    description: Knative の関数 URL（Kourier の LoadBalancer）
