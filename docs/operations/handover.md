@@ -226,7 +226,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | 管理DBのバックアップ | `manage.py backup`（pg_dump）はあるが、定期実行も外部コピーも無い | Phase 2 で利用者のリソースが入る前に決める |
 | state の置き場 | Cloudflare R2 | Phase 7 で Garage へ移すか。クラウドが止まっていても読める場所という条件がある |
 | AWX | 未構築 | Kubernetes が前提。できるまでは dev-b から人が実行する |
-| Terraform の版 | 手元 1.16.2、CI 1.15.8 | 保存した plan は別の版では apply できない。揃えるか、plan を作り直す |
+| Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
 
 ## 8. 引き継ぐ人のアクセス
 

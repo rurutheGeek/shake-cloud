@@ -35,10 +35,13 @@ jobs:
               if name.endswith(('.yaml','.yml')):
                   yaml.safe_load(pathlib.Path(name).read_text())
           PY
+      - name: Read the pinned Terraform version
+        id: terraform
+        run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.15.8
+          terraform_version: ${{ steps.terraform.outputs.version }}
           terraform_wrapper: false
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive platform/terraform

@@ -4,6 +4,14 @@
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
+## Terraform の版
+
+CLI の版はリポジトリ直下の `.terraform-version` が唯一の出所です（現在 `1.15.8`）。保存した plan は別の版では apply できないため、CI と開発VMで揃えます。
+
+- **CI** は `.terraform-version` を読んで `hashicorp/setup-terraform` に渡します（`tests/test_terraform_version.py` が、リテラルを書かず同ファイルを読むことを検査）。
+- **開発VM** は `devbox` ロールが同じ版の配布バイナリを検証（SHA256SUMS）して `/usr/local/bin` へ入れます。
+- 手元の `terraform version` が `.terraform-version` と一致していることを確認してから plan/apply します。
+
 ## 1. 何ができるか
 
 Proxmoxのプール・ロール・自動化ユーザー・ACLを宣言的に作ります。GUIで作った権限設定と違い、差分がGitに残り、再実行しても同じ状態になります。

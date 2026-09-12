@@ -6,35 +6,50 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Configure the HashiCorp repository and install Terraform
+- name: Install the pinned Terraform
   when: devbox_install_terraform | bool
   block:
-    # tasks/docker.yml と同じ形。鍵は keyring へ置き、signed-by で縛る。
-    - name: Create apt keyring directory
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
-
-    - name: Fetch the HashiCorp repository signing key
-      ansible.builtin.get_url:
-        url: https://apt.releases.hashicorp.com/gpg
-        dest: /etc/apt/keyrings/hashicorp.asc
-        mode: '0644'
-
-    - name: Configure the signed HashiCorp repository
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [signed-by=/etc/apt/keyrings/hashicorp.asc]
-          https://apt.releases.hashicorp.com {{ devbox_hashicorp_release }} main
-        filename: hashicorp
-        state: present
-
-    - name: Install Terraform
+    # 版はリポジトリ直下の .terraform-version と揃える（CI も同じファイルを読む）。
+    # apt の最新版は版が動いてしまうので、配布バイナリを版指定で置く。
+    - name: Remove a distribution Terraform if one is present
       ansible.builtin.apt:
         name: terraform
-        state: present
-        update_cache: true
+        state: absent
+
+    - name: Download the Terraform release
+      ansible.builtin.get_url:
+        url: >-
+          https://releases.hashicorp.com/terraform/{{ devbox_terraform_version }}/
+          terraform_{{ devbox_terraform_version }}_linux_{{ devbox_terraform_arch }}.zip
+        dest: /tmp/terraform_{{ devbox_terraform_version }}_linux_{{ devbox_terraform_arch }}.zip
+        mode: '0644'
+
+    - name: Download the Terraform checksums
+      ansible.builtin.get_url:
+        url: >-
+          https://releases.hashicorp.com/terraform/{{ devbox_terraform_version }}/
+          terraform_{{ devbox_terraform_version }}_SHA256SUMS
+        dest: /tmp/terraform_{{ devbox_terraform_version }}_SHA256SUMS
+        mode: '0644'
+
+    - name: Verify the Terraform archive
+      ansible.builtin.command:
+        argv:
+          - sha256sum
+          - --check
+          - --ignore-missing
+          - /tmp/terraform_{{ devbox_terraform_version }}_SHA256SUMS
+        chdir: /tmp
+      changed_when: false
+
+    - name: Install the Terraform binary
+      ansible.builtin.unarchive:
+        src: /tmp/terraform_{{ devbox_terraform_version }}_linux_{{ devbox_terraform_arch }}.zip
+        dest: /usr/local/bin
+        remote_src: true
+        mode: '0755'
+        owner: root
+        group: root
 
 # 各自の state とAPIキーは分けて持つ。gaming.md「SSH鍵、ホームディレクトリ、
 # APIキー、Terraform state は個別に保持します」。
