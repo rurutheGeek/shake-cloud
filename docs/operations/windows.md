@@ -30,10 +30,29 @@ Windows 11 Pro の入れ方は2とおりあります。
 1. **無ければアップロードする**: ポータルの「ISO」→ 名前、OS（Windows 11 のISOなら「Windows 11」）、ファイル（`.iso`）を選んでアップロード。Windows 11 のISOと `virtio-win.iso` の両方が必要です（`virtio-win.iso` のOSは空で構いません）。
 2. **作成する**: 「インスタンス」→「インスタンスを作成」→ 作成方法を**「ISOからインストール」**にする。インストールISOにWin11、ドライバISOに `virtio-win.iso` を選び、名前・vCPU・メモリ・ルートディスク（Windows 11は**64 GiB以上**）を決めて作成。
 3. **インストールする**: 一覧の「コンソール」を開き、Windowsのインストーラーを進める。**インストール先が見えないときは「ドライバーの読み込み」から `viostor\w11\amd64` を選ぶ**（`virtio-win` のCD内。このポータルが作るディスクは `virtio0`＝virtio-blk のため。`vioscsi` は `scsi0` 用で見つかりません）。`NetKVM\w11\amd64` も入れるとネットワークが使えます。
-4. **初期設定**: 地域・アカウント・プロダクトキーを設定する。割り当てられたIPはインスタンス一覧に表示されるので、そのIPをWindows側に設定するか、`cloudbase-init` を入れて再起動すると seed ISO（NoCloud、network config v1）からホスト名とIPが自動設定されます。
+4. **初期設定**: 地域・アカウント・プロダクトキーを設定する。割り当てられたIPはインスタンス一覧に表示されるので、そのIPをWindows側に設定するか、`cloudbase-init` を入れて再起動すると seed ISO（NoCloud、network config v1）からホスト名とIPが自動設定されます。ネットワーク必須で先に進めないときは Shift+F10 → `oobe\bypassnro`（`BypassNRO.cmd` と同じ）→ Enter で再起動し、ローカルアカウントを作れます。
 5. **後片付け**: インストールに使ったISOは、そのインスタンスが生きている間は削除できません（削除APIが使用中を拒否します）。不要になったら「ISO」画面から削除してください。
 
 ISOはCD-ROMとして渡され、ルートディスクには複製されません。起動順はインストールISO→ルートディスクなので、インストール後の再起動ではWindows ISOの「Press any key」でキーを押さなければディスクから起動します。
+
+## OEMのWindows 11ライセンスを使う（管理者・任意）
+
+GMKtec K11 のように、このPVEホストへOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（[Qiita: OEMのWindows11ライセンスをProxmoxVEに移行する](https://qiita.com/tachiki__/items/67be59e5d98a2dfe7097)）。**同一の物理機内でのみ**可、1ライセンス1台です。
+
+1. ポータルでWindows VMを作成し、VMIDを確認する（Proxmoxで `qm list | grep i-`）。
+2. ホスト（root）でOEM情報をVMへ渡す:
+   ```
+   mkdir -p /etc/pve/qemu-server/<vmid>
+   cat /sys/firmware/acpi/tables/MSDM > /etc/pve/qemu-server/<vmid>/slic_table
+   qm set <vmid> --args "-acpitable file=/etc/pve/qemu-server/<vmid>/slic_table"
+   ```
+3. `dmidecode -s system-manufacturer / system-product-name / system-uuid / system-serial-number` をVMのSMBIOSへ合わせる。**PVE 9はスペース入りを拒否するので値はbase64にし、`base64=1`を付ける**（GMKtec / NucBox K11 / Default string の例）:
+   ```
+   qm set <vmid> --smbios1 'uuid=<UUID>,manufacturer=R01LdGVj,product=TnVjQm94IEsxMQ==,serial=RGVmYXVsdCBzdHJpbmc=,base64=1'
+   ```
+4. VMを**停止→起動**（`args`/`smbios1` は起動時に反映。リセットでは反映されない）。Windowsをインストールするとプロダクトキーを聞かれず、OEM認証が効く。既存インストールなら `slmgr /ato`。
+
+`args` はroot専用でクラウドAPIからは設定できません（`smbios1` は設定可。実機で確認済み）。VMを削除したら `/etc/pve/qemu-server/<vmid>/` を掃除します。
 
 ## 管理者の作業（一度きり・共有イメージ方式）
 

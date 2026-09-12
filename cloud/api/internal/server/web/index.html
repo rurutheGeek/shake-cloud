@@ -416,8 +416,28 @@
         <li>「インスタンスを作成」→ 作成方法<strong>「ISOからインストール」</strong>。インストールISO=Win11、ゲストOS=Windows 11、ドライバISO=virtio-win、ルートディスクは<strong>64 GiB以上</strong>、メモリは<strong>4096 MiB以上</strong>にします。</li>
         <li>起動したら一覧の「コンソール」を開きます。インストール先の一覧が空のときは<strong>「ドライバーの読み込み」</strong>→ virtio-win のCDの <code>viostor\w11\amd64</code> を開き、<strong>「Red Hat VirtIO SCSI controller」</strong>を選んでインストールします（このポータルが作るディスクは <code>virtio0</code> のため。<code>vioscsi</code> は <code>scsi0</code> のディスク用で、こちらでは見つかりません）。</li>
         <li>ネットワークも使うなら、同じ手順で <code>NetKVM\w11\amd64</code> も読み込みます。</li>
-        <li>インストール後、一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します。または「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動するとホスト名とIPが自動設定されます。</li>
+        <li>インストール後、一覧の「IP」列にある<strong>割り当てIP</strong>をWindows側に設定します。セットアップ中なら Shift+F10 → <code>ncpa.cpl</code> か、次のコマンドで設定できます（例: 192.168.10.100）。<br>
+          <code>netsh interface ip set address "Ethernet" static 192.168.10.100 255.255.255.0 192.168.10.1</code><br>
+          <code>netsh interface ip set dns "Ethernet" static 192.168.10.1</code></li>
+        <li>「インターネットに接続していません」で先に進めないときは、Shift+F10 → <code>oobe\bypassnro</code> → Enter。自動で再起動し、ローカルアカウントを作れます（<code>BypassNRO.cmd</code> と同じ）。</li>
+        <li>IPやホスト名を自動でしたい場合は、「ISO」の <code>cloudbase-init</code> をCDで開いてMSIを実行し、再起動します（seed ISOのNoCloud設定が効きます）。</li>
       </ol>
+      <p class="muted small">コンソールへの貼り付けはWindows側が対応しておらず使えないことがあります。短いコマンドを入力してください。</p>
+    </details>
+    <details>
+      <summary>OEMのWindows 11ライセンスをこのPVEへ持ち込む（管理者）</summary>
+      <p>GMKtec K11 など、このPVEホストにOEMのWindowsがプリインストールされていた場合、そのライセンスをVMへ引き継げます（<strong>同一の物理機内のみ</strong>。1ライセンス1台）。</p>
+      <ol>
+        <li>ポータルでWindows VMを作成し、VMIDを確認します（Proxmoxで <code>qm list | grep i-</code>）。</li>
+        <li>PVEのシェル（root）で、ホストのOEM情報をVMへ渡します。<br>
+          <code>mkdir -p /etc/pve/qemu-server/&lt;vmid&gt;</code><br>
+          <code>cat /sys/firmware/acpi/tables/MSDM &gt; /etc/pve/qemu-server/&lt;vmid&gt;/slic_table</code><br>
+          <code>qm set &lt;vmid&gt; --args "-acpitable file=/etc/pve/qemu-server/&lt;vmid&gt;/slic_table"</code></li>
+        <li><code>dmidecode -s system-manufacturer / system-product-name / system-uuid / system-serial-number</code> の値でSMBIOSを合わせます。PVE 9はスペース入りを拒否するため、値はbase64にして<code>base64=1</code>を付けます（例: GMKtec / NucBox K11 / Default string）。<br>
+          <code>qm set &lt;vmid&gt; --smbios1 'uuid=&lt;UUID&gt;,manufacturer=R01LdGVj,product=TnVjQm94IEsxMQ==,serial=RGVmYXVsdCBzdHJpbmc=,base64=1'</code></li>
+        <li>VMを<strong>停止→起動</strong>（リセットでは反映されません）。Windowsをインストールすると、プロダクトキーを聞かれずOEM認証が効きます。インストール済みなら <code>slmgr /ato</code>。</li>
+      </ol>
+      <p class="muted small">この操作はホストのrootが要るためポータルからは実行できません。<code>args</code>はroot専用、<code>smbios1</code>はAPIでも設定可（確認済み）。VMを削除したら <code>/etc/pve/qemu-server/&lt;vmid&gt;/</code> を掃除してください。</p>
     </details>
     <details>
       <summary>電源操作ができない／再起動が終わらない</summary>
