@@ -76,6 +76,37 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 
 **Flux/SOPS はまだ入れていません。** 作業ブランチを `main` へ取り込む時期と GitOps のディレクトリ構成を決めてから入れます。
 
+## GitOps（Flux + SOPS）
+
+クラスタ内のアプリは **Flux が Git から適用**します。監視先は `main` の `platform/flux` です。
+
+- **Flux 2.9.5** を bootstrap 済み。`flux-system` namespace で4コントローラが動き、リポジトリ専用の deploy key を使います。
+- 置き場: `platform/flux/flux-system/`（Flux 本体と同期設定）、`platform/flux/infra/`・`platform/flux/apps/`（追加していく場所。Flux は再帰的に読みます）。
+- **秘密値は SOPS**。`platform/flux/**/*.sops.yaml` を age で暗号化し、クラスタ内の Secret `flux-system/sops-age`（キー `age.agekey`）で復号します。ルート Kustomization に `decryption` を設定済みです。
+
+bootstrap（初回のみ。再実行すると Flux のマニフェストを作り直します）:
+
+```bash
+export KUBECONFIG=<クラスタの admin.conf>
+GITHUB_TOKEN=$(gh auth token) flux bootstrap github \
+  --owner=rurutheGeek --repository=shake-cloud --branch=main --path=platform/flux --personal
+```
+
+`sops-age` は**復号の鍵そのもの**なので Git に置けません。配備時に人が入れます（pod が落ちても消えません）:
+
+```bash
+kubectl -n flux-system create secret generic sops-age \
+  --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
+```
+
+新しい秘密値は `.sops.yaml` のルールで暗号化して置きます。コミットして push すれば Flux が復号して適用します:
+
+```bash
+sops platform/flux/apps/<name>.sops.yaml
+```
+
+実機確認（2026-09-12）: 4コントローラが Running、`Kustomization/flux-system` が `Applied revision`。SOPS で暗号化した Secret が**復号されて作られる**こと、Git から消すと **prune される**ことを確認しました。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -91,6 +122,6 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 ## 次のスライス
 
-1. Flux/SOPS（`main` への取り込み方とディレクトリ構成を決めてから）
-2. AWX
-3. CloudNativePG（`database`）・Knative（`function`）
+1. AWX（Flux で配備）
+2. CloudNativePG（`database`）
+3. Knative（`function`）
