@@ -83,6 +83,8 @@ func run(args []string) error {
 		return g.s3Keys(rest[1:])
 	case "database", "databases":
 		return g.databases(rest[1:])
+	case "function", "functions":
+		return g.functions(rest[1:])
 	default:
 		return fmt.Errorf("unknown command %q; run shakecloud help", rest[0])
 	}
@@ -140,6 +142,8 @@ Commands:
   s3-key ls | s3-key create NAME | s3-key rm KEY_ID
   database ls | database create [--storage-gib N] NAME
   database show ID | database rm ID | database credentials ID
+  function ls | function create --image IMAGE NAME
+  function show ID | function rm ID
 
 Set SHAKECLOUD_ACCESS_KEY to the key issued by the portal. The endpoint defaults
 to %s.
