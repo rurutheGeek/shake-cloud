@@ -22,12 +22,23 @@ type Site struct {
 	ProbeVMIDs []int  `json:"probe_vmids"`
 	// VolumeHolderVMID is the never-started VM that owns detached volumes:
 	// Proxmox keeps every disk under some VM, and only move_disk changes which.
-	VolumeHolderVMID int                     `json:"volume_holder_vmid"`
-	Storage          Storage                 `json:"storage"`
-	Network          Network                 `json:"network"`
-	Images           map[string]Image        `json:"images"`
-	InstanceTypes    map[string]InstanceType `json:"instance_types"`
-	Limits           Limits                  `json:"limits"`
+	VolumeHolderVMID int              `json:"volume_holder_vmid"`
+	Storage          Storage          `json:"storage"`
+	Network          Network          `json:"network"`
+	Images           map[string]Image `json:"images"`
+	// SharedISOs are admin-placed ISO files the API attaches to instances as
+	// CD-ROMs. They are not copied into the cloud's own store.
+	SharedISOs    map[string]ISO          `json:"shared_isos"`
+	InstanceTypes map[string]InstanceType `json:"instance_types"`
+	Limits        Limits                  `json:"limits"`
+}
+
+// ISO is a shared installation image. Volume is the Proxmox volume ID in the
+// admin image store, used as-is.
+type ISO struct {
+	Name   string `json:"name"`
+	Volume string `json:"volume"`
+	OS     string `json:"os,omitempty"`
 }
 
 type Storage struct {
@@ -101,6 +112,7 @@ type Quota struct {
 }
 
 var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
+var sharedISOID = regexp.MustCompile(`^iso-[a-z0-9-]+$`)
 
 // Load reads and checks the rendered file. A half-rendered site is refused at
 // startup rather than discovered when the first instance fails.
@@ -146,6 +158,12 @@ func (s Site) Validate() error {
 		check(image.Volume != "", "site: image %s has no volume", id)
 		check(image.OS == "" || image.OS == "linux" || image.OS == "windows",
 			"site: image %s has unknown os %q (use linux or windows)", id, image.OS)
+	}
+	for id, iso := range s.SharedISOs {
+		check(sharedISOID.MatchString(id), "site: shared ISO ID %q does not look like iso-<name>", id)
+		check(iso.Volume != "", "site: shared ISO %s has no volume", id)
+		check(iso.OS == "" || iso.OS == "linux" || iso.OS == "windows",
+			"site: shared ISO %s has unknown os %q", id, iso.OS)
 	}
 	check(len(s.InstanceTypes) > 0, "site: no instance types")
 	for name, t := range s.InstanceTypes {

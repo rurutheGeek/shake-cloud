@@ -7,6 +7,7 @@ import (
 
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
 )
 
 func uploadISO(t *testing.T, s *Service, accountID, name, guestOS, fileName, content string) db.ISO {
@@ -36,6 +37,25 @@ func TestAnUploadedISOIsStoredAndListed(t *testing.T) {
 	isos, err := s.ISOs(context.Background())
 	if err != nil || len(isos) != 1 || isos[0].OwnerUsername != "alice" {
 		t.Fatalf("ISOs = %+v, %v", isos, err)
+	}
+}
+
+func TestASharedISOIsUsedWhereItAlreadyIs(t *testing.T) {
+	s, _, _ := testService(t)
+	s.Site.SharedISOs = map[string]site.ISO{
+		"iso-win11": {Name: "Win11", Volume: "local:iso/Win11.iso", OS: seed.OSWindows},
+	}
+	iso, err := s.ResolveISO(context.Background(), s.Pool, "iso-win11")
+	if err != nil || !iso.Public || iso.Volume != "local:iso/Win11.iso" || iso.OS != seed.OSWindows {
+		t.Fatalf("shared ISO = %+v, %v", iso, err)
+	}
+	isos, err := s.ISOs(context.Background())
+	if err != nil || len(isos) != 1 || !isos[0].Public {
+		t.Fatalf("ISOs = %+v, %v", isos, err)
+	}
+	// A shared ISO belongs to the administrator's storage, not the API's order.
+	if err := s.DeleteISO(context.Background(), "iso-win11", nil, nil); err == nil {
+		t.Fatal("a shared ISO was deletable through the API")
 	}
 }
 

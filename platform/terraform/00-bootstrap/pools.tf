@@ -19,8 +19,9 @@ locals {
 
   # NICへ bridge を割り当てるのに要る SDN.Use のパス。
   # 素の Linux bridge は既定ゾーンに入る。ゾーン名は site.yaml が正本。
-  sdn_acl_path        = "/sdn/zones/${local.site.network.sdn_zone}"
-  vm_storage_acl_path = "/storage/${local.site.storage.vm_disks}"
+  sdn_acl_path          = "/sdn/zones/${local.site.network.sdn_zone}"
+  vm_storage_acl_path   = "/storage/${local.site.storage.vm_disks}"
+  admin_images_acl_path = "/storage/${local.site.storage.admin_images}"
 
   pool_spec = yamldecode(file("${path.module}/../pools.yaml"))
   pools     = local.pool_spec.pools

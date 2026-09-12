@@ -129,6 +129,16 @@ resource "proxmox_acl" "cloudapi_image_storage" {
   propagate = true
 }
 
+# 共有ISO（管理者が admin_images に置いた既存ファイル）を、複製せずに
+# CD-ROM として使うための読み取り専用ACL。Datastore.Audit だけなので、
+# ストレージの一覧は読めるが、書き込み・削除はできない。
+resource "proxmox_acl" "cloudapi_shared_iso_storage" {
+  path      = local.admin_images_acl_path
+  role_id   = proxmox_virtual_environment_role.cloud_api_shared_iso.role_id
+  user_id   = proxmox_virtual_environment_user.cloudapi.user_id
+  propagate = true
+}
+
 # NICに bridge を割り当てるための SDN.Use。terraform@pve と同じロールを
 # 同じパスへ与える。ゾーンは共有の物理ネットワークなので分けられない。
 resource "proxmox_acl" "cloudapi_network" {

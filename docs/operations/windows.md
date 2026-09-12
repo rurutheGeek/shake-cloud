@@ -26,7 +26,8 @@ Windows 11 Pro の入れ方は2とおりあります。
 
 ## ポータルからISOでインストールする（推奨）
 
-1. **ISOをアップロードする**: ポータルの「ISO」→ 名前、OS（Windows 11 のISOなら「Windows 11」）、ファイル（`.iso`）を選んでアップロード。Windows 11 のISOと `virtio-win.iso` の両方を上げておきます（`virtio-win.iso` のOSは空で構いません）。
+0. **共有ISOを確認する**: 管理者が `platform/terraform/isos.yaml` で宣言したISO（例: `Win11 25H2 Japanese`、`virtio-win 0.1.302`）は、最初からISO一覧に「共有」として並びます。**アップロードは不要**で、ファイルは `local` にある1つの実体をそのまま使います（複製しません）。
+1. **ISOをアップロードする（共有ISOに無い場合）**: ポータルの「ISO」→ 名前、OS（Windows 11 のISOなら「Windows 11」）、ファイル（`.iso`）を選んでアップロード。Windows 11 のISOと `virtio-win.iso` の両方を上げておきます（`virtio-win.iso` のOSは空で構いません）。
 2. **作成する**: 「インスタンス」→「インスタンスを作成」→ 作成方法を**「ISOからインストール」**にする。インストールISOにWin11、ドライバISOに `virtio-win.iso` を選び、名前・vCPU・メモリ・ルートディスク（Windows 11は**64 GiB以上**）を決めて作成。
 3. **インストールする**: 一覧の「コンソール」を開き、Windowsのインストーラーを進める。**インストール先が見えないときは「ドライバーの読み込み」から `vioscsi\w11\amd64` を選ぶ**（`virtio-win` のCD内）。`NetKVM\w11\amd64` も入れるとネットワークが使えます。
 4. **初期設定**: 地域・アカウント・プロダクトキーを設定する。割り当てられたIPはインスタンス一覧に表示されるので、そのIPをWindows側に設定するか、`cloudbase-init` を入れて再起動すると seed ISO（NoCloud、network config v1）からホスト名とIPが自動設定されます。

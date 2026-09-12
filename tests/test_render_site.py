@@ -46,7 +46,7 @@ class RenderSiteTests(unittest.TestCase):
             self.assertIn(images[image['name']]['file_name'], image['volume'])
 
     def edit_declarations(self, directory, edits):
-        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
             (Path(directory) / name).write_text((TERRAFORM / name).read_text())
         for name, change in edits.items():
             loaded = yaml.safe_load((TERRAFORM / name).read_text())
@@ -75,6 +75,21 @@ class RenderSiteTests(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 render_site.render(directory)
 
+    def test_shared_isos_keep_the_admin_volume(self):
+        # A shared ISO is used where the administrator put it; copying it into
+        # the cloud store would double the space for no benefit.
+        iso = self.site['shared_isos']['iso-win11-25h2']
+        self.assertEqual(iso['volume'], 'local:iso/Win11_25H2_Japanese_x64_v2.iso')
+        self.assertEqual(iso['os'], 'windows')
+
+    def test_a_shared_iso_outside_the_admin_store_stops_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def break_it(isos):
+                isos['isos']['win11-25h2']['volume'] = 'cloud-images:iso/Win11.iso'
+            self.edit_declarations(directory, {'isos.yaml': break_it})
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
+
     def test_limits_come_from_cloud_yaml(self):
         cloud = self.yaml('cloud.yaml')
         self.assertEqual(self.site['limits']['account_quota'], cloud['account_quota'])
@@ -99,7 +114,7 @@ class RenderSiteTests(unittest.TestCase):
 
     def test_an_unmeasured_site_stops_instead_of_guessing(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'site.yaml').read_text())
             broken['storage']['vm_disks'] = 'UNMEASURED'
@@ -111,7 +126,7 @@ class RenderSiteTests(unittest.TestCase):
         # A holder outside 5000-5999 would sit where the cloud API's ACLs
         # cannot reach it; catch that at render time, not at first volume detach.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = 1
@@ -123,7 +138,7 @@ class RenderSiteTests(unittest.TestCase):
         # The probe script deletes and recreates its VMIDs; a holder sharing
         # one would lose its volumes the next time a probe runs.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = broken['probe_vmids'][0]

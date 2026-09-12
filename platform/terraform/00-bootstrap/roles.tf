@@ -35,6 +35,13 @@ resource "proxmox_virtual_environment_role" "cloud_api_images" {
   privileges = var.cloud_api_image_privileges
 }
 
+# 共有ISO（admin_images に置いた既存ファイル）の読み取り専用ロール。
+# cloud-images の CloudApiImages（Allocate付き）とは分ける。
+resource "proxmox_virtual_environment_role" "cloud_api_shared_iso" {
+  role_id    = "CloudApiSharedISO"
+  privileges = var.cloud_api_shared_iso_privileges
+}
+
 resource "proxmox_virtual_environment_role" "network" {
   role_id    = "TerraformNetwork"
   privileges = var.sdn_privileges

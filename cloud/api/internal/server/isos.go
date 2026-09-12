@@ -14,18 +14,24 @@ import (
 // ISO installation media, uploaded and attached as a CD-ROM. It is separate
 // from an image because it never becomes a root disk.
 type isoBody struct {
-	ISOID         string    `json:"iso_id"`
-	Name          string    `json:"name"`
-	OS            string    `json:"os,omitempty"`
-	AccountID     string    `json:"account_id,omitempty"`
-	OwnerUsername string    `json:"owner_username,omitempty"`
-	SizeMiB       int64     `json:"size_mib,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	ISOID         string     `json:"iso_id"`
+	Name          string     `json:"name"`
+	OS            string     `json:"os,omitempty"`
+	Public        bool       `json:"public,omitempty"`
+	AccountID     string     `json:"account_id,omitempty"`
+	OwnerUsername string     `json:"owner_username,omitempty"`
+	SizeMiB       int64      `json:"size_mib,omitempty"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
 }
 
 func isoJSON(i compute.ISO) isoBody {
-	return isoBody{ISOID: i.ID, Name: i.Name, OS: i.OS, AccountID: i.AccountID,
-		OwnerUsername: i.OwnerUsername, SizeMiB: sizeMiB(i.SizeBytes), CreatedAt: i.CreatedAt.UTC()}
+	body := isoBody{ISOID: i.ID, Name: i.Name, OS: i.OS, Public: i.Public, AccountID: i.AccountID,
+		OwnerUsername: i.OwnerUsername, SizeMiB: sizeMiB(i.SizeBytes)}
+	if !i.CreatedAt.IsZero() {
+		created := i.CreatedAt.UTC()
+		body.CreatedAt = &created
+	}
+	return body
 }
 
 func (s *Server) describeISOs(w http.ResponseWriter, r *http.Request, c *call) {
