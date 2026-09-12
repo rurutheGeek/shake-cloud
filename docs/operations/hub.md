@@ -77,4 +77,4 @@ sudo journalctl -u media-stack-docs-build.service -n 50 --no-pager
 
 `hub/oidc-secrets.json`、各 `.env`、`secrets/`、生成済み `compose.integrations.yaml`・`compose.sso.yaml`、`runtime/access.json` も非公開バックアップへ含めます。GitHubは実データや秘密値のバックアップ先ではありません。復元訓練は移設先の隔離環境で別途実施してください。
 
-AWXは保留中です。導入時はkubeadmのKubernetesを使います。
+AWXは構築済みです（kubeadmのKubernetesへFluxで配備、[AWXの使い方](awx.md)）。このハブのメディア系は移行していません。

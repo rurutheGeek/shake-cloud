@@ -1,6 +1,6 @@
 # 秘密値の管理（SOPS + age）
 
-更新日: 2026-09-08。状態: **導入手順。実鍵は未生成**。
+更新日: 2026-09-12。状態: **運用中**。age鍵は生成済み（`~/.config/sops/age/keys.txt` と外部コピー）。`platform/sops/*.sops.yaml`（Proxmox root・NetBox・Cloudflare・smtp・k8s・s3）と、Flux の `sops-age` Secret で実際に復号しています。
 
 これまでの秘密値は配備先で生成し、Gitへ入れない方針でした（リポジトリのREADME「GitHubへ置くもの」）。Proxmox・NetBox・Kubernetesを足すと、**配備する前に必要な資格情報**（Proxmox APIトークン、NetBoxの書き込みトークン、SSH鍵）が増えます。これらを暗号化した状態でGitに置くためにSOPSとageを使います。
 

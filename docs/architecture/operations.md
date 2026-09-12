@@ -2,6 +2,8 @@
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
+更新日: 2026-09-12。状態: **設計資料。実機のVM・配置は[配備台帳](../operations/handover.md)を正とする。** 下の表は初期設計で、VMID候補と役割の一部は実機と異なります（100 は game1 が使用、worker-01/02 の役割は構築時に変わっています）。
+
 <a id="resource-budget"></a>
 ## VM/LXCと初期リソース配分
 
@@ -10,15 +12,15 @@
 | VMID候補 / 配置 | 形式 | vCPU | RAM | 初期ディスク（GiB） | 内容・起動方針 |
 | --- | --- | --- | --- | --- | --- |
 | Proxmox | ホスト | — | 6GiB枠 | OS 64 | ホストとキャッシュの予算。実消費は監視 |
-| 100 / public-edge | VM | 1 | 1GiB | 16 | 公開Caddy。公開Web統合時に作成 |
+| 未定 / public-edge | VM | 1 | 1GiB | 16 | 公開Caddy。公開Web統合時に作成（VMID 100 は game1 が使用中） |
 | 105 / vpn-01 | VM | 2 | 2GiB | 16 | セルフホストVPN。NetBird第一検証候補、製品選定中。常時 |
 | 110 / identity | VM + Compose | 2 | 4GiB | 32 | Authentikと専用DB。常時 |
 | 120 / home-assistant | HAOS VM | 2 | 4GiB | 32 | 家電連携・自動化・履歴。常時 |
 | 130 / storage-s3 | VM | 2 | 1GiB | OS 16 + データ32 | Garage。利用開始後は常時 |
 | 200 / k8s-cp-01 | VM | 2 | 3GiB | 32 | control plane、etcd。常時 |
-| 210 / k8s-worker-01 | VM | 4 | 8GiB | OS 32 + データ64 | メディア・ポケモンRDB/VDB・AI API。常時 |
-| 211 / k8s-worker-02 | VM | 4 | 8GiB | OS 32 + データ48 | AWX・NetBox・クラウドAPI・Knative。常時 |
-| 300 / game-01 | VM + Docker | 8 | 12GiB（最大16） | OS 48 + データ96 | Wolf、Azahar×2、必要時Ollama、OpenHome候補。利用時 |
+| 210 / k8s-worker-01 | VM | 4 | 8GiB | OS 32 + データ64 | AWX 24.6.1・CloudNativePG・Knative/Kourier。常時 |
+| 211 / k8s-worker-02 | VM | 4 | 8GiB | OS 32 + データ48 | 予備。今は停止のまま（必要時に join） |
+| 100 / game1 | VM + Docker | 8 | 12GiB（最大16） | OS 48 + データ96 | Wolf、Azahar×2、必要時Ollama、OpenHome候補。`cloud` プールでクラウド管理下 |
 | 400・401 / dev-a・dev-b | VM×2 | 各2 | 各8GiB（実機。当初計画は各2GiB） | 各32 | 個別インフラ開発。利用時 |
 | DNS・VPN・監視 | 既存ラズパイ | — | K11枠外 | 既存容量を確認 | K11停止時も管理経路を維持 |
 | **K11合計** | | **31 vCPU** | **53GiB（ゲーム16時57）** | **計724GiB（ホストOS込み）** | iGPU予約と未配分領域は別 |

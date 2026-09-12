@@ -1,3 +1,5 @@
+> **2026-09-12 追記:** AWX 24.6.1 は **kubeadm の Kubernetes へ Flux で配備済み**です。使い方と管理者の入口は [docs/operations/kubernetes.md](../../docs/operations/kubernetes.md) と [docs/operations/awx.md](../../docs/operations/awx.md) を参照してください。**このディレクトリの設定例（EE・Project・Job Template 登録）はまだ実APIへ適用していません。**
+
 AWX本体の構築は今回は対象外です。将来構築する場合は **kubeadmで作成したKubernetes** にAWX Operatorを配置します。K3s用の構築処理は含めません。
 
 今は ../ansible/inventory.netbox.yml と ../ansible/deploy.yml をCLIから実行できます。後で同じGitリポジトリをAWX Projectに登録して利用します。

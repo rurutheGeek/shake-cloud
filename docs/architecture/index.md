@@ -1,8 +1,8 @@
 # ホームラボ／最小プライベートクラウド構成案
 
-更新日: 2026-09-10。状態: **設計案・未構築部分を含む**。
+更新日: 2026-09-12。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
 
-この文書は、現在のメディアスタックを、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。この文書の追加は、Proxmox・Kubernetes・クラウドAPIの構築やサービス移行を実行したことを意味しません。
+この文書は、現在のメディアスタックを、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。**構築が済んだ範囲（Proxmox、Kubernetes、クラウドAPIの4機能、identity、AWX）はこの文書より実機が先です。** 何が動いているかは[配備台帳](../operations/handover.md)と[接続先一覧](../operations/urls.md)を見てください。
 
 ## 前提と合意した範囲
 
@@ -12,7 +12,7 @@
 - Kubernetesはkubeadmで構築し、常用サービス・自作API・サーバレス実行・DBを実際に運用する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
-- 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。ただし後者2つはKubernetes前提なので、**v1はVMとS3に絞る**。
+- 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。**4機能とも実装済み・実機確認済み**（後者2つは Kubernetes 構築後に追加した）。
 - **変更**: クラウドの利用者管理と利用者ポータルを初期範囲に**含める**。Authentikユーザー1人が1アカウント。クォータと所有権を成立させるために必要だったため。組織・プロジェクト・課金は引き続き含めない。
 - **変更（2026-09-11）**: **VMの一覧は全員に見せる。**当初は「自分のリソースだけが見える」としていましたが、2人で1台のホストを分け合うので、誰が何を動かしているかが見えないと容量の判断ができません。見えるのは所有者名・イメージ・割り当てリソース・状態までで、**操作（電源・削除・大きさの変更）は所有者と管理者だけ**です。
 - **変更**: Authentikをクラウドの統合認証にも使う。ブラウザはOIDCでポータルへログインし、そこで発行したアクセスキーをTerraformとCLIが使う。キーをSSOと分けるので、**Authentikが停止していてもTerraformは動く**。
@@ -82,13 +82,13 @@ SSD 1TBは開始用として使い、使用率80%程度を増設・整理判断�
 | 項目 | 文書作成時点 |
 | --- | --- |
 | メディア・認証・ハブ | 既存Compose構成と運用手順あり。詳細は既存ドキュメントを参照 |
-| ドキュメントサイト | 旧ハブの localhost:8090 に加え、2026-09-10 から services-01 の `http://192.168.10.200:8090` で LAN に公開。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
+| ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する。旧ハブの `localhost:8090` は SSH トンネル経由の別物 |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
 | ホストの読み取り | Ansible `site.yml --tags survey` として実装済み。読み取りのみ |
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
 | クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
-| 常用Kubernetes・Knative・Garage・CloudNativePG | この文書では採用候補と配置を整理。未構築 |
-| 自作クラウドAPI・Terraform Provider・ポータル・CLI | API は Phase 7（Garage と バケット・S3キー）まで実装し、2026-09-11 に実機で確認。Terraform Provider と CLI も実装済み。VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。手順は[クラウドAPIの構築](../operations/cloud.md) |
+| 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは identity サービスで実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../operations/urls.md) |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
 | 公開Web統合・NAS移行 | 将来作業 |
 

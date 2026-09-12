@@ -1,10 +1,10 @@
 # Kubernetes クラスタ
 
-更新日: 2026-09-12。状態: **スライス③（共通基盤: local-path・MetalLB・cert-manager）まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書が動いています。**Flux/SOPS だけは Git の取り込み方を決めてから**入れます。
+更新日: 2026-09-12。状態: **クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
 
 ## 何に使うか
 
-近い将来に載せるのは **AWX** と、**クラウドの function（Knative）／database（CloudNativePG）**です。自作 cloud API 本体は cloud-01 の Compose のままで動くので、移すかは後で決めます。メディア系の移行は後回しです。
+**すでに載っているもの:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作 cloud API 本体は cloud-01 の Compose のままで動くので、移すかは後で決めます。メディア系の移行は後回しです。
 
 **使わないときは落とせます。** control plane と worker は別VMなので、worker だけ止めて control plane（etcd/API）を残す、全部止める、どちらもできます（[起動と停止](#起動と停止)）。
 
@@ -70,11 +70,11 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 | --- | --- | --- |
 | 永続ストレージ | local-path-provisioner **v0.0.37** | worker のデータディスク（`/dev/vdb`）を `/srv/k8s` にマウントし、PV は `/srv/k8s/local-path` に置く。`local-path` を既定 StorageClass にする |
 | LoadBalancer | MetalLB **0.16.1**（L2） | `network.yaml` の `metallb` レンジ `.240-.249`。NetBox の管理レンジ（`.201-.239`）から切り出してある |
-| 証明書 | cert-manager **v1.21.2** | 自前 CA の `ClusterIssuer` **`shakecloud-ca`**（`shakecloud-selfsigned` から発行）。外部 DNS が要らない。Let's Encrypt は後で足す |
+| 証明書 | cert-manager **v1.21.2** | 自前 CA の `ClusterIssuer` **`shakecloud-ca`**（`shakecloud-selfsigned` から発行）と、Cloudflare DNS-01 の **`letsencrypt-dns`**。AWX は Let's Encrypt |
 
 実機確認（2026-09-12）: PVC に書いたファイルが Pod を作り直しても残ること、`LoadBalancer` が `.240` を得て `curl` が **200**、`ClusterIssuer` `shakecloud-ca` と CA `Certificate` が **Ready** であることを確認しました。
 
-**Flux/SOPS はまだ入れていません。** 作業ブランチを `main` へ取り込む時期と GitOps のディレクトリ構成を決めてから入れます。
+**Flux/SOPS は導入済みです。** 次節のとおり `main` の `platform/flux` を監視し、AWX・CNPG・Knative を配っています。
 
 ## GitOps（Flux + SOPS）
 

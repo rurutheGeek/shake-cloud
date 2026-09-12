@@ -1,6 +1,6 @@
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-11。状態: **土台（Proxmox・NetBox・Authentik）、クラウドAPI の Phase 1（ログイン・アクセスキー・監査ログ）、LAN の中の HTTPS（`*.apextox.dpdns.org`）、**Phase 2（API から VM が作れる）**、上限の変更と容量の表示、**大きさの自由指定・バルーニングの選択・GUI での一覧と編集**を実機で構築・確認済み。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）も実機で確認済み。**Phase 4（ボリュームとセキュリティグループ）も 2026-09-11 に実機で確認済み（データセンターFW有効化・ボリュームの attach/detach・SG の遮断/許容まで）**。Phase 5 のセルフサービスポータルを完成させ（既存VMの引き取りを実装し、2026-09-11 に game1 を `shunyazhiyuan97` として実機引き取り済み。プール移動・既定SG適用・稼働継続を確認）、**ブートストラップ管理キーを無効化した**（以後はポータル発行のアクセスキー）。**Phase 6 の CLI と Terraform Provider を実装し、実機で確認した**。Phase 7 は storage-s3 VM と Garage を構築し、バケット・S3キーを扱うクラウドAPI・CLI・Terraform Provider・ポータル画面を実装、APIが発行した鍵で実クライアント（awscli）から PUT/LIST/GET/削除まで確認した。利用者の招待フロー（identity サービスの `invitations.py`）も実装した。Phase 2 の最初の部分までは [PR #2](https://github.com/rurutheGeek/shake-cloud/pull/2) でマージ済みで、それ以降の作業はまだ main に入っていない（Git の取り込みの時期は所有者が決める）。
+更新日: 2026-09-12。状態: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**すべて `main` に入っている。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、メディア系の認証統合。
 
 **この文書が、クラウド開発の進捗とTODOの正本です。** 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
@@ -14,7 +14,7 @@ Proxmox VE の上に、**AWS の語彙で操作できる小さなプライベー
 2. ポータル・Terraform・CLI のどれからでも自分のVMを作る
 3. Webコンソールで入り、要らなくなったら消す
 
-v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。
+v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG）・function（Knative）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。**サービスを載せるVMの置き場所と作り方は[サービスの置き場所とクラウドVMでの作り方](services.md)、接続先は[URL一覧](urls.md)。**
 
 ## 2. 読む順番
 
@@ -52,7 +52,7 @@ v1 の範囲は **EC2相当（VM）と S3（Garage）** です。オートスケ
 | コンソールの経路 | ブラウザは WebSocket に `Authorization` を付けられず、`vncwebsocket` はそれを要求するので、**API が自分の `cloudapi@pve` トークンで中継する**。**WebSocket のライブラリは足さない**。ハンドシェイクだけ双方と行い、以後はフレームを解釈せずバイト列を双方向にコピーする（ブラウザのマスク付きフレームは Proxmox が期待する形、Proxmox の非マスクのフレームはブラウザが期待する形なので、そのまま正しい）。圧縮などの拡張はどちら側とも交渉しない |
 | コンソールの手順と期限 | ①`POST /v1/instances/{id}/console`（所有者と管理者だけ、稼働中だけ）が**5分有効・アカウントに結び付いた URL** を返す。**この時点では Proxmox に何も頼まない**。②その**ページを開くたびに** Proxmox の新しいチケットと使い捨てパスワードを発行する（Proxmox の VNC プロキシは数秒しか WebSocket を待たないので、接続の直前まで遅らせる。再読み込みがそのまま再接続になる）。③WebSocket は**1回のページ表示につき1本だけ** |
 | コンソールの防御 | **Cookie で認証された WebSocket は Origin が自サイトでなければ断る**（`CrossOriginProtection` は GET を見ないので、他サイトからのクロスサイト WebSocket 乗っ取りはここで止める）。アクセスキーは他サイトのページから送れないので Origin は問わない（CLI 用）。URL のトークンは**アクセスログに出さず**（`/console/{token}` と記録）、メモリ上も**ハッシュで持つ**。ページは `Cache-Control: no-store`（パスワードを含むため） |
-| v1 の範囲 | EC2相当 + S3（Garage）。サーバレス・RDB は Kubernetes 構築後 |
+| v1 の範囲 | EC2相当（VM）+ S3（Garage）+ database（CloudNativePG）+ function（Knative）。4機能とも実装済み |
 | EC2 の追加機能 | 追加ボリューム、セキュリティグループ。スナップショットと IMDS は作らない |
 | 運用機能 | クォータと空き容量検査、差分リコンサイラ、監査ログ。削除保護は作らない |
 | Web UI | フルのセルフサービスポータル |
@@ -96,7 +96,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 | 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
 | 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
-| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
+| 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1〜7 + database/function）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約500MiB / 2GiB |
 | 150 | services-01 | 192.168.10.200 | NetBox、ドキュメントサイト（台帳・共有サービスの過渡的な置き場） | 稼働。`https://netbox.apextox.dpdns.org`（`:8000` も開いている）、`https://docs.apextox.dpdns.org`（`:8090` も開いている） |
 | 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 稼働。**Ready**。kubeadm 1.36.4、Cilium 1.20.1 |
 | 210 | k8s-worker-01 | 192.168.10.209 | Kubernetes worker（AWX・クラウドなど） | 稼働。**Ready**。join 済み |
@@ -229,8 +229,8 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | cloud-01 のサイズ | `small`（2GiB）。Phase 1 の実測で使用 約500MiB（API 7MiB、PostgreSQL 65MiB） | Phase 2 以降の負荷を見て、足りなければ `medium`。その分、利用者VMに回せる余白が減る |
 | ポータルのフロント | `html/template` と素の JS。**2026-09-12 に[Web GUI監査・改善案](../audits/webgui-2026-09-12.md)を作成**（P1 6件・P2 10件）。同じ監査の指摘どおり、送信ロックとVMの `client_token`、ID単位の一覧更新と入力保持、選択IDの保持、日本語のエラーと操作箇所への表示、用途別ナビ、検索・絞り込み、履歴の検索・ページ送り・詳細、アップロードの段階表示と中断、S3権限の用途選択と owner 既定オフ、上限の差分確認を `index.html`・`portal.js`・新規 `portal-ui.js`・`portal.css` へ実装 | 模擬APIと実ブラウザ（Chrome Headless Shell 153）で機能28項目とキーボード操作、axe-coreの自動検査（一般利用者／管理者・ライト／ダークの3画面、違反0件）を確認し、**dev-bのPostgreSQLを使って`go vet ./...`と`go test ./...`（cloud/api全パッケージ）も通した**（連打・入力保持・選択保持・320/390px・コントラスト・502/401・S3権限・上限差分・雛形・アップロード段階／中断とサーバー側の接続断）。結果は監査の「改修後の確認」と[確認結果JSON](../audits/webgui-2026-09-12/after-results.json)に残した。**2026-09-12 に `cloud.yml` で cloud-01 へ配備**し、`/healthz` 200 と新規 `/static/portal-ui.js`・`portal.js`・`portal.css` の配信を確認。未確認は、Authentikログインで確立する認証済みポータルでの画面操作、実VM／実S3の作成・変更、実機のスクリーンリーダー。新しい JS ビルド基盤は増やさない前提 |
 | 管理DBのバックアップ | **定期実行を実装（2026-09-12）**: cloud-01 の `cloud-backup.timer` が毎日 `manage.py backup --keep 14` を `/var/backups/cloud-api` へ。**外部コピーは未着手**（Garage は単一ノードなので唯一の控えにしない） | 別ディスク／外部へのコピー先を決める（[cloud.md 3-18](cloud.md#3-18)） |
-| state の置き場 | Cloudflare R2 | Phase 7 で Garage へ移すか。クラウドが止まっていても読める場所という条件がある |
-| AWX | 未構築 | Kubernetes が前提。できるまでは dev-b から人が実行する |
+| state の置き場 | Cloudflare R2（`platform/terraform` の基盤用） | Phase 7 は完了。Garage へ移すか、サービス用 state をどこへ置くかは未決（[services.md](services.md)）。クラウドが止まっていても読める場所という条件がある |
+| AWX | **配備済み（2026-09-12）**: 24.6.1 を Flux で配備（[kubernetes.md](kubernetes.md)・[AWXの使い方](awx.md)） | ジョブテンプレート・プロジェクトの整備はこれから |
 | Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
 
 ## 8. 引き継ぐ人のアクセス

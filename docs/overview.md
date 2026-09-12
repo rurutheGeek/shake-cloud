@@ -1,43 +1,55 @@
 # 運用ドキュメント
 
-このディレクトリは、設定変数の一覧ではなく「何をしたいときに、どこを変更し、何が起きるか」を説明するための日本語ドキュメントです。
+このディレクトリは、設定変数の一覧ではなく「何をしたいときに、どこを変更し、何が起きるか」を説明するための日本語ドキュメントです。**どのサービスがどこにあるかは、まず[接続先一覧](operations/urls.md)を見てください。**
 
-## サービス別
+## 新しい基盤（Proxmox・Kubernetes・クラウド・identity）
 
+| 目的 | 文書 |
+| --- | --- |
+| どこに何があるか知る | [接続先一覧（URL・アドレス）](operations/urls.md) |
+| サービスを載せるVMをクラウドに作る | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) |
+| 共通アカウントを運用する（招待・復旧・パスキー） | [認証基盤（identity・Authentik）](operations/identity.md) |
+| クラウドを使う（ポータル・CLI・Terraform） | [クラウドの使い方](services/cloud.md)・[CLI](operations/cli.md)・[Terraform Provider](operations/terraform-provider.md) |
+| クラウドAPI を配備・運用する | [クラウドAPIの構築](operations/cloud.md) |
+| Kubernetes を運用する | [Kubernetes クラスタ](operations/kubernetes.md)・[Flux にアプリを足す](operations/flux-apps.md) |
+| AWX を使う | [AWX の使い方](operations/awx.md) |
+| NetBox（台帳）を使う | [NetBox の使い方](operations/netbox.md) |
+| S3 互換ストレージを使う | [Garage（S3互換ストレージ）](operations/garage.md) |
+| Windows の VM を作る | [Windows 11 ProのVMを作る](operations/windows.md) |
+| VLAN 分離へ切り替える | [VLAN 分離への切替](operations/vlan.md) |
+
+## メディア系（旧スタック）
+
+- [共通ログイン（旧メディア）](services/sso.md)（**新しい認証基盤とは別物**）
 - [Nextcloudと追加アプリ](services/nextcloud.md)
 - [Vaultwarden](services/vaultwarden.md)
-- [SSOの設計](services/sso.md)
+- [ハブ運用](operations/hub.md)
+- [Nextcloud権限変更](operations/nextcloud-permissions.md)
+- [音楽の取り込み](services/music.md)
+- [Homarrハブ](services/homarr.md)
+- [日本語表示](services/language.md)
+- [ディスク増設](operations/disk.md)
 
 ## 作業別
 
 - [秘密値の管理（SOPS + age）](operations/secrets.md)
 - [Terraformの実行](operations/terraform.md)
 - [SMTPとメール送信](operations/smtp.md)
+- [初回セットアップの順番](operations/bootstrap.md)
+- [クラウド開発の引き継ぎとTODO](operations/handover.md)（**進捗の正本**）
 
 ## 基盤
 
-Proxmox VE 上への展開は[IaCの所有境界](architecture/iac.md)と[Proxmox導入後の手順](architecture/bring-up.md)を先に読みます。誰が何を作るか（Terraform / Ansible / Flux / 将来のクラウドAPI）と、VMIDとプールの分割が書いてあります。
+Proxmox VE 上への展開は[IaCの所有境界](architecture/iac.md)と[Proxmox導入後の手順](architecture/bring-up.md)を先に読みます。誰が何を作るか（Terraform / Ansible / Flux / クラウドAPI）と、VMIDとプールの分割が書いてあります。
 
 ## まず理解すること
 
 - Composeはサービス本体、管理画面はアプリ内の状態、Ansibleは配備と初期設定を主に管理します。
 - Proxmox上のVMとNetBoxの台帳はTerraformが作ります。ゲストOSの中はAnsibleです。境界は[IaCの所有境界](architecture/iac.md)を正とします。
+- **これからのサービスは原則クラウドVM（`cloud` プール、VMID 5000–5999）に作ります。** 基盤そのものだけが `platform` プールの基盤VMです（[サービスの置き場所](operations/services.md)）。
 - **コードで管理できるものはすべてコードにします。** 手順書に一度きりのGUI操作を書いて済ませません。残っている手作業は[初回セットアップの順番](operations/bootstrap.md)に理由付きで列挙してあります。
-- Nextcloudのユーザー・グループ権限は、KavitaやNavidromeへ自動では伝わりません。
 - 秘密値はこのドキュメントへ書かず、`.env`または`secrets/`などGit管理外へ置きます。
 - 変更前にバックアップを取得し、変更後にログイン・閲覧・再生・同期を確認します。
-
-## 現在の構成でできること
-
-| 目的 | 主な手段 | まだ追加が必要なもの |
-| --- | --- | --- |
-| 一つの入口からサービスを開く | Homarrなどのポータル | ポータル用ComposeサービスとCaddyのホスト名 |
-| 一つのアカウントでログインする | AuthentikなどのOIDCプロバイダー | IdP、各アプリのOIDC設定、ユーザー移行 |
-| PDFを家族・技術書などに分けて公開する | NextcloudのグループとKavitaのライブラリ | 両サービスで個別に権限設定 |
-| 招待・確認メールを送る | 外部SMTPリレーまたはローカルsendmail | SMTPサービスとDNS・送信者設定 |
-| 配備先を増やす | NetBoxの対象追加とAnsible | ホストごとの接続・容量・バックアップ設計 |
-| VMを増やす | `platform/terraform/hosts.yaml` への追記とTerraform | 実機のストレージ名・bridge名・IP枠の確定（実機の読み取り） |
-| 開発用のVMを渡す | Proxmoxのプールとロール、[開発VMの使い方](services/devvm.md) | 宅外から使うためのVPN |
 
 ## ドキュメントの書き方
 

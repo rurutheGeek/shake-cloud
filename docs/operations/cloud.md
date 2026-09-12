@@ -225,12 +225,12 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | 対象 | 内容 |
 | --- | --- |
 | グループ | `users`、`admins`（`akadmin` は `admins`） |
-| OIDC クライアント `cloud` | redirect は `http://192.168.10.205:8080/auth/callback` の完全一致。`sub` は `user_uuid` |
+| OIDC クライアント `cloud` | redirect は `https://cloud.apextox.dpdns.org/auth/callback` の完全一致。`sub` は `user_uuid` |
 | 利用許可 | 上の2グループだけ。メディア用に招待された人はポータルに入れない |
 
 `sub` を `user_uuid` にしたのは、既定の `hashed_user_id` だとプロバイダを作り直したときに**全員の `sub` が変わり**、クラウドAPI側の持ち主が分からなくなるためです。
 
-入口は `http://192.168.10.204:9000`（HTTP）と `https://192.168.10.204:9443`（Authentik 自身の自己署名証明書）です。所有ドメインが決まったら固定名と正規の証明書へ移します。パスキーは固定の HTTPS 名が要るので、それまで使えません。
+入口は現在 **`https://auth.apextox.dpdns.org`**（Caddy が Let's Encrypt で TLS 終端。Authentik 自身の `:9000`・`:9443` は 127.0.0.1 に閉じた）です。**パスキーとパスワードレスも有効**です（[認証基盤](identity.md#パスキーだけでログインするパスワードレス)）。
 
 インベントリ上のグループ名は `identity_provider` です。ホスト名 `identity` と同じ名前にすると、Ansible が「グループを自分自身へ足す」例外でインベントリ全体を読めなくなります（`tests/test_identity_stack.py` が検査）。
 
@@ -270,7 +270,7 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 | `cloud.yml` の再実行 | `changed=0` |
 | コンテナ | `api`・`postgres` とも healthy。メモリは API 7MiB、PostgreSQL 65MiB、VM 全体で約500MiB / 2GiB |
 | `/healthz` | 200 |
-| `/auth/login` | Authentik の authorize へ 302。`redirect_uri` は `http://192.168.10.205:8080/auth/callback`、PKCE は S256。Authentik はエラーでなくログイン画面へ進んだ |
+| `/auth/login` | Authentik の authorize へ 302。`redirect_uri` は現在 `https://cloud.apextox.dpdns.org/auth/callback`、PKCE は S256（当時は IP 直だった） |
 | ブートストラップ管理キーで `GET /v1/caller-identity` | 200、`bootstrap-admin`（管理者） |
 | アクセスキーで `POST /v1/access-keys` | 403 `UnauthorizedOperation` |
 | 秘密値だけ違うキー | 401。監査ログに `AuthFailure`（`secret_mismatch`） |
