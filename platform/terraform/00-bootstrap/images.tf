@@ -28,7 +28,7 @@ resource "proxmox_download_file" "cloud_image" {
 # local へ権限を広げないのは、そこにバックアップや管理者のイメージも載っているため。
 resource "proxmox_download_file" "cloud_shared_image" {
   for_each = { for name, image in local.images : name => image
-               if try(image.shared_with_cloud, false) && !try(image.provided, false) }
+  if try(image.shared_with_cloud, false) && !try(image.provided, false) }
 
   node_name           = local.site.node_name
   datastore_id        = proxmox_storage_directory.cloud_images.id
