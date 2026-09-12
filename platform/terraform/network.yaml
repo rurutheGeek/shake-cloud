@@ -27,3 +27,21 @@ cloud:
   # Terraform は範囲を作るだけで、個々のアドレスは state に入らない。
   range_start: 192.168.10.100/24
   range_end: 192.168.10.180/24
+
+# VLAN。**切替はここを埋めるだけで行う。**
+#
+# 前提: 物理スイッチ/ルータでトランクを用意し、Proxmox の bridge を VLAN 対応
+# （`bridge-vlan-aware yes`。site.yaml の `network.bridge_vlan_aware` が true）に
+# すること。10-platform は、ここに vlan_id を書いたのに bridge が未対応なら
+# **plan を止める**（半端な状態で作らないため）。
+#
+# `vlan_id: null` の間は、そのネットワークはタグなし（今までどおり管理LAN）。
+# 切替手順は docs/operations/vlan.md。
+vlan:
+  management:
+    # 基盤VM（platform / lab / dev プール）と Proxmox 本体が載る VLAN。
+    vlan_id: null
+  cloud:
+    # 利用者VM（cloud プール）が載る VLAN。APIが作るVMはこのタグで接続する。
+    # 切替時は cloud.prefix と cloud.range_* もこのVLANのサブネットへ変える。
+    vlan_id: null

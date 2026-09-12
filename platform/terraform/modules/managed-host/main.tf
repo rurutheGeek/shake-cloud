@@ -124,5 +124,18 @@ resource "proxmox_virtual_environment_vm" "this" {
       condition     = var.vm_id >= var.pool_vmid_range.from && var.vm_id <= var.pool_vmid_range.to
       error_message = "VMID ${var.vm_id} is outside the ${var.pool_id} pool range ${var.pool_vmid_range.from}-${var.pool_vmid_range.to}. See docs/architecture/iac.md."
     }
+
+    # VLAN を設定したのに bridge が未対応なら、タグが通らずゲストが到達不能に
+    # なる。半端な状態で作らないよう、ここで止める。
+    precondition {
+      condition     = var.network_vlan_id == null || var.bridge_vlan_aware
+      error_message = <<-EOT
+        network_vlan_id (${coalesce(var.network_vlan_id, "null")}) が設定されていますが、
+        bridge ${var.network_bridge} が VLAN 対応ではありません。先に物理スイッチ/ルータの
+        トランクと Proxmox の ${var.network_bridge} を vlan-aware にしてください。
+        site.yaml を作り直すと network.bridge_vlan_aware が更新されます。
+        手順: docs/operations/vlan.md
+      EOT
+    }
   }
 }

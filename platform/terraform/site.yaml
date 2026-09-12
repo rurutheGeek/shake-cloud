@@ -1,7 +1,7 @@
 ---
 # 実機の事実。**このファイルが正本**で、Terraform の全モジュールが読む。
 #
-# **手で書かない。** tools/site-yaml.py が実機の読み取りの出力から生成する。
+# **手で書かない。** tools/site-yaml.py が実機の読み取り結果から生成する。
 #
 #   ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
 #   python3 tools/site-yaml.py .survey/<ホスト名>.facts.json
@@ -25,6 +25,9 @@ storage:
 
 network:
   bridge: vmbr0
+  # この bridge が VLAN タグを通すか（実測）。VLAN 切替の前提で、
+  # 10-platform が「vlan_id を設定したのに bridge が未対応」を plan で止める。
+  bridge_vlan_aware: false
   # 素の Linux bridge が入る既定ゾーン。SDN を使っていなければ localnetwork。
   sdn_zone: localnetwork
   # ゲストが載るネットワーク。ホストの bridge のアドレスから導出した。

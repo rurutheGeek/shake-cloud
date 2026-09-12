@@ -83,9 +83,19 @@ variable "network_bridge" {
 }
 
 variable "network_vlan_id" {
-  description = "VLAN を使わない場合は null。"
+  description = "VLAN を使わない場合は null。network.yaml の vlan.management.vlan_id から来る。"
   type        = number
   default     = null
+}
+
+variable "bridge_vlan_aware" {
+  description = <<-EOT
+    選んだ bridge が VLAN タグを通すか（site.yaml の実測）。
+    network_vlan_id を設定したのにこれが false だと、タグが通らずゲストが
+    到達不能になるので、plan の precondition で止める。
+  EOT
+  type        = bool
+  default     = false
 }
 
 variable "gateway" {
