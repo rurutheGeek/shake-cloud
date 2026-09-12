@@ -334,7 +334,9 @@ func vlanTag(id int) string {
 func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume, guestOS string) url.Values {
 	values := url.Values{
 		"vmid":        {strconv.Itoa(vmid)},
-		"name":        {instance.ID},
+		// The Proxmox name is what a person sees in the Proxmox UI; the
+		// instance ID is not readable. The guest hostname is a good name.
+		"name":        {seed.Hostname(instance.Name, instance.ID)},
 		"pool":        {s.Site.Pool},
 		"ostype":      {"l26"},
 		"cores":       {strconv.Itoa(instance.CPUCores)},
@@ -375,7 +377,9 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 	installVolume, driverVolume string) url.Values {
 	values := url.Values{
 		"vmid":    {strconv.Itoa(vmid)},
-		"name":    {instance.ID},
+		// The Proxmox name is what a person sees in the Proxmox UI; the
+		// instance ID is not readable. The guest hostname is a good name.
+		"name":    {seed.Hostname(instance.Name, instance.ID)},
 		"pool":    {s.Site.Pool},
 		"ostype":  {"l26"},
 		"cores":   {strconv.Itoa(instance.CPUCores)},
