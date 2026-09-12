@@ -108,6 +108,12 @@ type Service struct {
 	// S3Endpoint and S3Region are what a bucket's owner points a client at.
 	S3Endpoint string
 	S3Region   string
+	// Databases is the Kubernetes API for CloudNativePG clusters. Nil when this
+	// deployment has no Kubernetes connection, and the database endpoints 503.
+	Databases DatabaseStore
+	// DatabaseNamespace and DatabaseStorageClass say where a new cluster goes.
+	DatabaseNamespace    string
+	DatabaseStorageClass string
 	// MaxAttempts is how often a launch or power action is tried before it is
 	// abandoned. Terminates are retried until they succeed: giving up would
 	// leak a VM, an address or an ISO.

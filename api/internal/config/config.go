@@ -61,6 +61,17 @@ type Config struct {
 	GarageAdminToken string
 	GarageS3Endpoint string
 	GarageS3Region   string
+
+	// Kubernetes (database). Optional as a group: without all of them the
+	// database endpoints answer 503.
+	K8sURL   string
+	K8sCA    string
+	K8sToken string
+}
+
+// KubernetesConfigured reports whether the database endpoints can run.
+func (c Config) KubernetesConfigured() bool {
+	return c.K8sURL != "" && c.K8sCA != "" && c.K8sToken != ""
 }
 
 // StorageConfigured reports whether the bucket endpoints can run.
@@ -153,6 +164,8 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.GarageAdminURL = strings.TrimRight(getenv("SHAKECLOUD_GARAGE_ADMIN_URL"), "/")
 	cfg.GarageS3Endpoint = strings.TrimRight(getenv("SHAKECLOUD_GARAGE_S3_ENDPOINT"), "/")
 	cfg.GarageS3Region = withDefault(getenv("SHAKECLOUD_GARAGE_S3_REGION"), "garage")
+	// Kubernetes (database). Optional: without it the database endpoints 503.
+	cfg.K8sURL = strings.TrimRight(getenv("SHAKECLOUD_K8S_URL"), "/")
 	if raw := getenv("SHAKECLOUD_PROXMOX_INSECURE"); raw != "" {
 		insecure, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
@@ -164,6 +177,8 @@ func Load(getenv func(string) string) (Config, error) {
 		"SHAKECLOUD_PROXMOX_TOKEN_FILE":      &cfg.ProxmoxToken,
 		"SHAKECLOUD_NETBOX_TOKEN_FILE":       &cfg.NetBoxToken,
 		"SHAKECLOUD_GARAGE_ADMIN_TOKEN_FILE": &cfg.GarageAdminToken,
+		"SHAKECLOUD_K8S_CA_FILE":             &cfg.K8sCA,
+		"SHAKECLOUD_K8S_TOKEN_FILE":          &cfg.K8sToken,
 	} {
 		if path := getenv(name); path != "" {
 			value, err := readSecret(path)
