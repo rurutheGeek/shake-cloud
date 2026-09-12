@@ -10,7 +10,7 @@
   let sessionExpired = false;
   let effectiveLimits = null;
   let maxImageGiB = 0;
-  const readiness = { images: false, keys: false, groups: false, limits: false };
+  const readiness = { images: false, isos: false, keys: false, groups: false, limits: false };
 
   const when = (value) => (value ? new Date(value).toLocaleString('ja-JP') : '—');
   const cell = (text) => {
@@ -103,14 +103,24 @@
     listStatus(id, `${error.message} 最後に取得した表示と入力を保持しています。`, true);
   }
 
+  function instanceSource() {
+    const select = $('instance-source');
+    return select ? select.value : 'image';
+  }
+
   function updateReadiness() {
-    const ready = Object.values(readiness).every(Boolean);
+    const fromISO = instanceSource() === 'iso';
+    const sourceReady = fromISO ? readiness.isos : readiness.images;
+    const ready = sourceReady && readiness.keys && readiness.groups && readiness.limits;
     blockForm($('create-instance'), !ready);
     $('create-instance-readiness').textContent = ready
       ? '作成内容を確認してから送信します。'
-      : '作成に必要なイメージ・SSH鍵・グループ・上限を取得できていません。「表示を更新」で再取得してください。';
+      : fromISO
+        ? '作成に必要なISO・SSH鍵・グループ・上限を取得できていません。「表示を更新」で再取得してください。'
+        : '作成に必要なイメージ・SSH鍵・グループ・上限を取得できていません。「表示を更新」で再取得してください。';
     blockForm($('create-volume'), !readiness.limits);
     blockForm($('upload-image'), !readiness.limits);
+    blockForm($('upload-iso'), !readiness.limits);
   }
 
   function resourceDescription(resource, kind = 'インスタンス') {
@@ -425,13 +435,29 @@
   const isWindowsImage = () => imageOS.get(document.querySelector('#create-instance select[name="image_id"]').value) === 'windows';
 
   function updateGuestOS() {
-    const windows = isWindowsImage();
-    $('key-name-field').hidden = windows;
+    const windows = instanceSource() === 'image' && isWindowsImage();
+    $('key-name-field').hidden = windows || instanceSource() === 'iso';
     $('image-os-note').hidden = !windows;
     $('image-os-note').textContent = windows
       ? 'Windows 11 のイメージです。SSH鍵は使われません。初回起動後、コンソールでセットアップしてください（ネットワークとホスト名は自動設定されます）。'
       : '';
     if (windows) document.querySelector('#create-instance select[name="key_name"]').value = '';
+  }
+
+  // Switching between launching from an image and installing from ISO media.
+  // The form keeps both selects; only the relevant one is shown and required.
+  function updateSource() {
+    const fromISO = instanceSource() === 'iso';
+    $('image-field').hidden = fromISO;
+    $('install-iso-field').hidden = !fromISO;
+    $('driver-iso-field').hidden = !fromISO;
+    $('iso-note').hidden = !fromISO;
+    const image = document.querySelector('#create-instance select[name="image_id"]');
+    if (image) image.disabled = fromISO;
+    const install = document.querySelector('#create-instance select[name="install_iso_id"]');
+    if (install) install.required = fromISO;
+    updateGuestOS();
+    updateReadiness();
   }
 
   async function loadImages() {
@@ -454,6 +480,61 @@
       readiness.images = false;
       updateReadiness();
       loadProblem('images', error);
+    }
+  }
+
+  // ISO installation media. An ISO is attached as a CD-ROM, never as the root
+  // disk, so it is listed and used separately from images.
+  function isoRow(iso, viewerAccountId, isAdmin) {
+    const row = document.createElement('tr');
+    row.dataset.resource = 'iso:' + iso.iso_id;
+    const osCell = document.createElement('td');
+    osCell.textContent = iso.os === 'windows' ? 'Windows 11' : 'Linux';
+    const actions = document.createElement('td');
+    if (iso.account_id === viewerAccountId || isAdmin) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = '削除';
+      button.className = 'danger';
+      onAction(button, 'click', async (event, scope) => {
+        if (!await confirmAction({ title: 'ISOを削除',
+          message: `ISO「${iso.name}」を削除します。これでインストール中のVMがあると失敗します。`,
+          confirmLabel: 'このISOを削除', danger: true })) return;
+        try {
+          $('error').hidden = true;
+          await api('DELETE', `/v1/isos/${encodeURIComponent(iso.iso_id)}`);
+          await loadISOs();
+        } catch (error) {
+          showError(error, scope);
+        }
+      });
+      actions.append(button);
+    }
+    row.append(cell(iso.name), osCell, cell(iso.owner_username || iso.account_id || '—'),
+      cell(iso.size_mib ? mib(iso.size_mib) : '—'), cell(when(iso.created_at)), actions);
+    return row;
+  }
+
+  async function loadISOs() {
+    const install = document.querySelector('#create-instance select[name="install_iso_id"]');
+    const driver = document.querySelector('#create-instance select[name="driver_iso_id"]');
+    const wrap = $('images-wrap');
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const { isos } = await api('GET', '/v1/isos');
+      const labelled = (iso) => option(iso.iso_id, iso.os === 'windows' ? `${iso.name}（Windows 11）` : iso.name);
+      replaceOptions(install, [option('', 'インストールISOを選んでください'), ...isos.map(labelled)]);
+      const placeholder = driver.querySelector('option[value=""]') || option('', '使わない');
+      replaceOptions(driver, [placeholder, ...isos.map(labelled)]);
+      readiness.isos = isos.length > 0;
+      updateReadiness();
+      tableRows($('isos'), isos.map((iso) => isoRow(iso, viewerAccountId, isAdmin)), 'ISOがありません。上のフォームからアップロードしてください。');
+      listStatus('isos', `登録 ${isos.length}件`);
+    } catch (error) {
+      readiness.isos = false;
+      updateReadiness();
+      loadProblem('isos', error);
     }
   }
 
@@ -948,6 +1029,8 @@
 
   const createInstanceForm = $('create-instance');
   createInstanceForm.querySelector('select[name="image_id"]').addEventListener('change', updateGuestOS);
+  $('instance-source').addEventListener('change', () => { updateSource(); });
+  updateSource();
   createInstanceForm.querySelector('select[name="preset"]').addEventListener('change', (event) => {
     const preset = presetTypes.get(event.target.value);
     if (!preset) { $('instance-preset-status').textContent = 'カスタム構成です。'; return; }
@@ -971,14 +1054,21 @@
   let uncertainLaunch = false;
   onAction(createInstanceForm, 'submit', async (submit, scope) => {
     submit.preventDefault();
-    const windows = isWindowsImage();
+    const fromISO = instanceSource() === 'iso';
+    const windows = !fromISO && isWindowsImage();
     const data = new FormData(createInstanceForm);
     const vcpus = data.get('vcpus');
     const memoryMib = data.get('memory_mib');
     const body = {
-      image_id: data.get('image_id'),
       ballooning: createInstanceForm.querySelector('input[name="ballooning"]').checked,
     };
+    if (fromISO) {
+      body.install_iso_id = data.get('install_iso_id');
+      const driverISO = data.get('driver_iso_id');
+      if (driverISO) body.driver_iso_id = driverISO;
+    } else {
+      body.image_id = data.get('image_id');
+    }
     if (vcpus) body.vcpus = Number(vcpus);
     if (memoryMib) body.memory_mib = Number(memoryMib);
     const memoryMinMib = data.get('memory_min_mib');
@@ -987,8 +1077,9 @@
     if (rootDiskGib) body.root_disk_gib = Number(rootDiskGib);
     const userData = data.get('user_data');
     if (userData) body.user_data = userData;
-    // A Windows image is configured by cloudbase-init, not by an SSH key.
-    const keyName = windows ? '' : data.get('key_name');
+    // A Windows image and any ISO install are configured at the console, not
+    // by an SSH key.
+    const keyName = (windows || fromISO) ? '' : data.get('key_name');
     if (keyName) body.key_name = keyName;
     const name = data.get('name');
     if (name) body.tags = { Name: name };
@@ -996,7 +1087,11 @@
     // the API falls back to the account's default group.
     const groupIds = data.getAll('security_group_ids');
     if (groupIds.length > 0) body.security_group_ids = groupIds;
-    if (!Object.values(readiness).every(Boolean)) throw new Error('作成に必要な情報を再取得してください。');
+    const sourceReady = fromISO ? readiness.isos : readiness.images;
+    if (!sourceReady || !readiness.keys || !readiness.groups || !readiness.limits) {
+      throw new Error('作成に必要な情報を再取得してください。');
+    }
+    if (fromISO && !body.install_iso_id) throw new Error('インストールISOを選んでください。');
     if (body.ballooning && body.memory_min_mib > body.memory_mib) {
       fieldError(createInstanceForm.elements.memory_min_mib, '最小メモリは最大メモリ以下にしてください。');
       return;
@@ -1016,10 +1111,12 @@
     if (uncertainLaunch && !launchTokens.has(digest)) {
       if (!await confirmAction({ title: '前の作成結果が不明です', message: '前の要求でVMが作成されている可能性があります。一覧と履歴を確認してから、変更した構成で別のVMを作成してください。', confirmLabel: '別の作成として続ける' })) return;
     }
-    const imageName = createInstanceForm.elements.image_id.selectedOptions[0]?.textContent;
+    const sourceName = fromISO
+      ? `ISO: ${createInstanceForm.elements.install_iso_id.selectedOptions[0]?.textContent}\n方式: ISOからインストール（コンソールでセットアップ）`
+      : `イメージ: ${createInstanceForm.elements.image_id.selectedOptions[0]?.textContent}`;
     const selectedGroups = groupIds.length ? groupIds.map((id) => lastSecurityGroups.find((g) => g.group_id === id)?.group_name || id).join('、') : '既定グループ（全通信を許可）';
     if (!await confirmAction({ title: 'インスタンスの作成内容', confirmLabel: 'この構成で作成',
-      message: `名前: ${name || '未指定'}\nゲストOS: ${windows ? 'Windows 11' : 'Linux'}\nイメージ: ${imageName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : `SSH鍵: ${keyName || '使わない'}`}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
+      message: `名前: ${name || '未指定'}\nゲストOS: ${windows ? 'Windows 11' : (fromISO ? 'ISOのOS' : 'Linux')}\n${sourceName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : (fromISO ? 'SSH鍵: 使いません' : `SSH鍵: ${keyName || '使わない'}`)}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
     if (!launchTokens.has(digest)) launchTokens.set(digest, crypto.randomUUID());
     body.client_token = launchTokens.get(digest);
     try {
@@ -1028,6 +1125,7 @@
       uncertainLaunch = false;
       createInstanceForm.reset();
       createInstanceForm.querySelector('input[name="memory_min_mib"]').disabled = false;
+      updateSource();
       announce(`作成を受け付けました。${result.instance.instance_id} の状態を一覧で確認できます。`, scope);
       await Promise.all([loadInstances(), loadCapacity()]);
       location.hash = 'instances-view';
@@ -1947,7 +2045,7 @@
   }
 
   const refresh = () => Promise.all([
-    loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances(), loadImages(), loadKeyPairs(),
+    loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
     loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(),
   ]);
 
@@ -2093,6 +2191,84 @@
     xhr.addEventListener('abort', () => {
       finish();
       status.textContent = '転送を中断しました。サーバー側で検証が続いている場合があります。一覧を更新して確認してください。';
+    });
+    xhr.send(data);
+  });
+
+  // ISO upload. The same XHR pattern as an image, with the os field that
+  // decides the hardware when the ISO is used to install.
+  let isoUploadXHR = null;
+  $('cancel-iso-upload').addEventListener('click', () => { isoUploadXHR?.abort(); });
+  $('upload-iso').addEventListener('submit', (submit) => {
+    submit.preventDefault();
+    if (isoUploadXHR) return;
+    const form = submit.target;
+    const file = form.elements.file.files[0];
+    if (!file) return;
+    const data = new FormData();
+    data.append('name', form.elements.name.value);
+    data.append('os', form.elements.os.value);
+    data.append('file', file);
+    const progress = $('iso-upload-progress');
+    const status = $('iso-upload-status');
+    const cancel = $('cancel-iso-upload');
+    const submitButton = form.querySelector('button[type="submit"]');
+    $('error').hidden = true;
+    progress.value = 0;
+    progress.hidden = false;
+    cancel.hidden = false;
+    submitButton.disabled = true;
+    status.textContent = '転送中… 0%';
+    const xhr = new XMLHttpRequest();
+    isoUploadXHR = xhr;
+    xhr.open('POST', '/v1/isos');
+    xhr.withCredentials = true;
+    const finish = () => {
+      isoUploadXHR = null;
+      cancel.hidden = true;
+      progress.hidden = true;
+      submitButton.disabled = !readiness.limits;
+    };
+    xhr.upload.addEventListener('progress', (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      progress.value = percent;
+      status.textContent = `転送中… ${percent}%`;
+    });
+    xhr.upload.addEventListener('load', () => {
+      progress.value = 100;
+      status.textContent = '転送が完了しました。サーバーで登録しています…';
+    });
+    xhr.addEventListener('load', async () => {
+      finish();
+      if (xhr.status === 401) {
+        sessionExpired = true;
+        $('session-expired').hidden = false;
+        return;
+      }
+      if (xhr.status === 201) {
+        status.textContent = '登録しました。';
+        form.reset();
+        await loadISOs();
+        return;
+      }
+      const error = new Error(`アップロードに失敗しました（HTTP ${xhr.status}）。${xhr.status === 413 ? '大きさを確認してください。' : ''}`);
+      try {
+        const body = JSON.parse(xhr.responseText);
+        error.detail = body.error?.message ? `${body.error.message}（${body.error.code || xhr.status}）` : `HTTP ${xhr.status}`;
+        error.requestID = body.request_id;
+      } catch (_) {
+        error.detail = `HTTP ${xhr.status}`;
+      }
+      showError(error, form);
+    });
+    xhr.addEventListener('error', () => {
+      finish();
+      showError(new Error('転送中に通信エラーが発生しました。一覧を更新して確認してください。'), form);
+    });
+    xhr.addEventListener('abort', () => {
+      finish();
+      status.textContent = '転送を中断しました。一覧を更新して確認してください。';
     });
     xhr.send(data);
   });

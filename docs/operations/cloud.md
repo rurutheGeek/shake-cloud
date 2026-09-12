@@ -830,7 +830,9 @@ sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud
 
 イメージに `os: windows` を宣言すると、API はそのイメージから **UEFI（OVMF）・TPM 2.0・q35** の VM を作り、初回設定を **cloudbase-init の NoCloud**（network config v1）へ渡します。ポータルではイメージ選択時に SSH鍵の欄が消え、初回はコンソールでセットアップする案内が出ます。ディスク・NIC・seed ISO の形は Linux と同じで、イメージ側に virtio ドライバと cloudbase-init が必要です。
 
-Windows のインストールメディアとプロダクトキーは自動取得できないため、**ゴールデンイメージの作成だけが管理者の手作業**です。作り方と `images.yaml` への登録、利用者の作成手順は [Windows 11 ProのVMを作る](windows.md) にあります。
+イメージを使わず、**ISOをインストールメディアとして起動する経路**もあります。`POST /v1/isos` で `.iso` をアップロード（`os: windows` でWindows 11のハードウェア）、`RunInstances` に `install_iso_id`（と任意の `driver_iso_id`）を渡すと、空のルートディスク＋CD-ROMで起動し、コンソールでインストールします。ポータルの「ISO」画面と作成方法「ISOからインストール」がこの経路です。ISOは使用中インスタンスがあると削除できません。
+
+Windows のインストールメディアとプロダクトキーは自動取得できないため、**メディアの用意だけが人の手作業**です。ISO方式の使い方と、ゴールデンイメージを共有イメージにする方式は [Windows 11 ProのVMを作る](windows.md) にあります。
 
 ## 4. 実機プローブ
 

@@ -18,6 +18,11 @@ type instanceBody struct {
 	OwnerUsername string `json:"owner_username,omitempty"`
 	ImageID       string `json:"image_id"`
 	ImageName     string `json:"image_name,omitempty"`
+	// GuestOS is "windows" for a Windows guest. InstallISOID is set when the
+	// instance installs itself from ISO media instead of an image.
+	GuestOS      string `json:"guest_os,omitempty"`
+	InstallISOID string `json:"install_iso_id,omitempty"`
+	DriverISOID  string `json:"driver_iso_id,omitempty"`
 	// InstanceType is absent when the size was given as explicit numbers.
 	InstanceType     string            `json:"instance_type,omitempty"`
 	State            string            `json:"state"`
@@ -56,6 +61,7 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []
 	body := instanceBody{
 		InstanceID: i.ID, AccountID: i.AccountID, OwnerUsername: i.OwnerUsername,
 		ImageID: i.ImageID, ImageName: service.Site.Images[i.ImageID].Name, InstanceType: i.InstanceType,
+		GuestOS: i.GuestOS, InstallISOID: i.InstallISOID, DriverISOID: i.DriverISOID,
 		State: i.State, StateReason: i.StateReason,
 		// The prefix length is the network's, not the instance's business.
 		PrivateIPAddress: strings.SplitN(i.IPAddress, "/", 2)[0],

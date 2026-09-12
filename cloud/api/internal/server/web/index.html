@@ -30,6 +30,7 @@
     <a href="#security-view">セキュリティグループ</a>
     <a href="#s3-view">S3ストレージ</a>
     <a href="#images-view">イメージ</a>
+    <a href="#isos-view">ISO</a>
     <a href="#ssh-view">SSH鍵</a>
     <a href="#keys-view">アクセスキー</a>
     <a href="#events-view">操作履歴</a>
@@ -151,10 +152,19 @@
   </section>
   <section id="instance-create-view" data-view>
     <h2 tabindex="-1">インスタンスを作成</h2>
-    <p><a href="#instances-view">一覧へ戻る</a> · <a href="#ssh-view">SSH鍵を登録</a> · <a href="#images-view">イメージを追加</a></p>
+    <p><a href="#instances-view">一覧へ戻る</a> · <a href="#ssh-view">SSH鍵を登録</a> · <a href="#images-view">イメージを追加</a> · <a href="#isos-view">ISOを追加</a></p>
     <form id="create-instance">
-      <label>イメージ <select name="image_id" required></select></label>
+      <label>作成方法
+        <select id="instance-source">
+          <option value="image">イメージから</option>
+          <option value="iso">ISOからインストール</option>
+        </select>
+      </label>
+      <label id="image-field">イメージ <select name="image_id" required></select></label>
       <p id="image-os-note" class="muted small wide" hidden></p>
+      <label id="install-iso-field" hidden>インストールISO <select name="install_iso_id"></select></label>
+      <label id="driver-iso-field" hidden>ドライバISO（任意） <select name="driver_iso_id"><option value="">使わない</option></select></label>
+      <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
       <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>
       <label>構成の雛形
         <select name="preset">
@@ -265,6 +275,31 @@
           <tbody id="images"></tbody>
         </table>
       </div>
+    </div>
+  </section>
+  <section id="isos-view" data-view>
+    <h2 tabindex="-1">ISO</h2>
+    <p class="muted">インストーラーのISOを保管し、「ISOからインストール」で仮想マシンにCDとして渡します。Windows 11 のISOはOSで「Windows」を選ぶと、UEFI・TPM 2.0 の仮想マシンになります。</p>
+    <form id="upload-iso">
+      <label>名前 <input name="name" required maxlength="128" placeholder="例: Win11_25H2"></label>
+      <label>OS
+        <select name="os">
+          <option value="">Linux</option>
+          <option value="windows">Windows 11</option>
+        </select>
+      </label>
+      <label>ファイル <input name="file" type="file" required accept=".iso"></label>
+      <button type="submit" disabled>アップロード</button>
+      <button id="cancel-iso-upload" type="button" hidden>転送を中断</button>
+      <progress id="iso-upload-progress" aria-label="ISO転送の進捗" max="100" value="0" hidden></progress>
+      <span id="iso-upload-status" class="muted" role="status"></span>
+    </form>
+    <p id="isos-status" class="muted" role="status">読み込み中…</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>名前</th><th>OS</th><th>所有者</th><th>大きさ</th><th>作成</th><th>操作</th></tr></thead>
+        <tbody id="isos"></tbody>
+      </table>
     </div>
   </section>
   <section id="ssh-view" data-view>

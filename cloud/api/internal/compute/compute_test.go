@@ -232,6 +232,26 @@ func (f *fakePVE) UploadISO(ctx context.Context, storage, filename string, conte
 	return f.task(nil), nil
 }
 
+func (f *fakePVE) UploadISOStream(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	if int64(len(content)) != size {
+		return "", fmt.Errorf("upload said %d bytes but sent %d", size, len(content))
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failUpload > 0 {
+		f.failUpload--
+		return "", errors.New("upload interrupted")
+	}
+	volid := storage + ":iso/" + filename
+	f.volumes[volid] = true
+	f.sizes[volid] = size
+	return f.task(nil), nil
+}
+
 func (f *fakePVE) UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
 	// Read it all and check the promised length: the real node is told the size
 	// up front and a mismatch there is a broken request, not a short read.

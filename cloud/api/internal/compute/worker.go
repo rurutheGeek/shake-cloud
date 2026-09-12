@@ -235,14 +235,20 @@ func (s *Service) uploadSeed(ctx context.Context, instance db.Instance, ipAddres
 	if err != nil {
 		return "", fmt.Errorf("address %q from NetBox: %w", ipAddress, err)
 	}
-	image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
-	if err != nil {
-		return "", err
+	guestOS := instance.GuestOS
+	if guestOS == "" && instance.ImageID != "" {
+		// Instances created before guest_os was recorded still derive it from
+		// the image they launched from.
+		image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
+		if err != nil {
+			return "", err
+		}
+		guestOS = image.OS
 	}
 	config := seed.Config{
 		InstanceID: instance.ID, Hostname: seed.Hostname(instance.Name, instance.ID), MACAddress: instance.MACAddress,
 		Address: address, Gateway: netip.MustParseAddr(s.Site.Network.Gateway), UserData: instance.UserData,
-		GuestOS: image.OS,
+		GuestOS: guestOS,
 	}
 	if instance.KeyPublicKey != "" {
 		config.PublicKeys = []string{instance.KeyPublicKey}
@@ -336,16 +342,53 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s). Managed by cloud/api; do not edit.", instance.ID, instance.AccountID)},
 	}
 	if guestOS == seed.OSWindows {
-		// Windows 11 needs UEFI, a TPM 2.0 and the q35 chipset. The image
-		// already carries the virtio storage and network drivers plus
-		// cloudbase-init, so the rest of the layout (virtio disk and NIC,
-		// NoCloud seed ISO) matches the Linux guests.
-		values.Set("ostype", "win11")
-		values.Set("bios", "ovmf")
-		values.Set("machine", "q35")
-		values.Set("efidisk0", s.Site.Storage.VMDisks+":0,efitype=4m,pre-enrolled-keys=1")
-		values.Set("tpmstate0", s.Site.Storage.VMDisks+":4,version=v2.0")
-		values.Set("agent", "enabled=1")
+		s.windowsParams(values)
+	}
+	return values
+}
+
+// windowsParams adds what Windows 11 requires from the virtual hardware. It is
+// shared by an image launch and an ISO install.
+func (s *Service) windowsParams(values url.Values) {
+	values.Set("ostype", "win11")
+	values.Set("bios", "ovmf")
+	values.Set("machine", "q35")
+	values.Set("efidisk0", s.Site.Storage.VMDisks+":0,efitype=4m,pre-enrolled-keys=1")
+	values.Set("tpmstate0", s.Site.Storage.VMDisks+":4,version=v2.0")
+	values.Set("agent", "enabled=1")
+}
+
+// installVmParams boots installation media instead of copying an image: the
+// root disk starts empty, the install ISO is the first CD and the boot order
+// prefers it. The seed ISO stays attached as a second CD so a Linux installer
+// (or cloudbase-init after a Windows install) can read the hostname and address.
+func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.Resources,
+	installVolume, driverVolume string) url.Values {
+	values := url.Values{
+		"vmid":    {strconv.Itoa(vmid)},
+		"name":    {instance.ID},
+		"pool":    {s.Site.Pool},
+		"ostype":  {"l26"},
+		"cores":   {strconv.Itoa(instance.CPUCores)},
+		"cpu":     {"host"},
+		"memory":  {strconv.Itoa(instance.MemoryMiB)},
+		"balloon": {strconv.Itoa(instance.MemoryMinMiB)},
+		"scsihw":  {"virtio-scsi-single"},
+		"virtio0": {fmt.Sprintf("%s:%d,discard=on", s.Site.Storage.VMDisks, instance.RootDiskGiB)},
+		"ide0":    {resources.SeedVolume + ",media=cdrom"},
+		"ide2":    {installVolume + ",media=cdrom"},
+		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
+		"boot":    {"order=ide2;virtio0"},
+		"serial0": {"socket"},
+		"tags":    {"shakecloud"},
+		"description": {fmt.Sprintf("shake-cloud instance %s (account %s, ISO install). Managed by cloud/api; do not edit.",
+			instance.ID, instance.AccountID)},
+	}
+	if driverVolume != "" {
+		values.Set("ide3", driverVolume+",media=cdrom")
+	}
+	if instance.GuestOS == seed.OSWindows {
+		s.windowsParams(values)
 	}
 	return values
 }
@@ -354,9 +397,27 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 	vmid := *resources.VMID
 	// Resolved now rather than at admission: an uploaded image lives in the
 	// ledger, and this is the moment its file is actually needed.
-	image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
-	if err != nil {
-		return err
+	var params url.Values
+	if instance.InstallISOID != "" {
+		install, err := s.ResolveISO(ctx, s.Pool, instance.InstallISOID)
+		if err != nil {
+			return err
+		}
+		driverVolume := ""
+		if instance.DriverISOID != "" {
+			driver, err := s.ResolveISO(ctx, s.Pool, instance.DriverISOID)
+			if err != nil {
+				return err
+			}
+			driverVolume = driver.Volume
+		}
+		params = s.installVmParams(instance, vmid, *resources, install.Volume, driverVolume)
+	} else {
+		image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
+		if err != nil {
+			return err
+		}
+		params = s.vmParams(instance, vmid, *resources, image.Volume, image.OS)
 	}
 	vms, err := s.PVE.ListVMs(ctx)
 	if err != nil {
@@ -371,7 +432,7 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 		return s.moveVMID(ctx, instance, resources, vms, "occupied by a VM the API did not create")
 	}
 	err = s.task(ctx, func() (string, error) {
-		return s.PVE.CreateVM(ctx, s.vmParams(instance, vmid, *resources, image.Volume, image.OS))
+		return s.PVE.CreateVM(ctx, params)
 	})
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		// Taken by a VM outside the cloud pool, which the token cannot list.

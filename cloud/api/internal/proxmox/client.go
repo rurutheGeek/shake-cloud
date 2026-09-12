@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
@@ -282,25 +281,16 @@ func (c *Client) DeleteVM(ctx context.Context, vmid int) (string, error) {
 }
 
 // UploadISO stores content as <storage>:iso/<filename> and returns the task's UPID.
+// It is for small files (seed ISOs); a large ISO uses UploadISOStream.
 func (c *Client) UploadISO(ctx context.Context, storage, filename string, content []byte) (string, error) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	if err := writer.WriteField("content", "iso"); err != nil {
-		return "", err
-	}
-	part, err := writer.CreateFormFile("filename", filename)
-	if err != nil {
-		return "", err
-	}
-	if _, err := part.Write(content); err != nil {
-		return "", err
-	}
-	if err := writer.Close(); err != nil {
-		return "", err
-	}
-	var upid string
-	err = c.do(ctx, http.MethodPost, c.nodePath("/storage/%s/upload", url.PathEscape(storage)), &body, -1, writer.FormDataContentType(), &upid)
-	return upid, err
+	return c.uploadContent(ctx, storage, "iso", filename, bytes.NewReader(content), int64(len(content)))
+}
+
+// UploadISOStream is UploadISO for an installer ISO measured in gigabytes: the
+// bytes are streamed with the envelope's exact length declared, as UploadImage
+// does.
+func (c *Client) UploadISOStream(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	return c.uploadContent(ctx, storage, "iso", filename, body, size)
 }
 
 // UploadImage stores a disk image as <storage>:import/<filename> and returns
@@ -317,6 +307,13 @@ func (c *Client) UploadISO(ctx context.Context, storage, filename string, conten
 // on anything it cannot open, leaving nothing stored, so a corrupt upload needs
 // no cleanup.
 func (c *Client) UploadImage(ctx context.Context, storage, filename string, body io.Reader, size int64) (string, error) {
+	return c.uploadContent(ctx, storage, "import", filename, body, size)
+}
+
+// uploadContent is the streaming multipart uploader behind UploadImage and
+// UploadISOStream. content_type is the Proxmox storage content type ("import"
+// or "iso").
+func (c *Client) uploadContent(ctx context.Context, storage, contentType, filename string, body io.Reader, size int64) (string, error) {
 	boundary := make([]byte, 16)
 	if _, err := rand.Read(boundary); err != nil {
 		return "", err
@@ -324,7 +321,7 @@ func (c *Client) UploadImage(ctx context.Context, storage, filename string, body
 	mark := "shakecloud" + hex.EncodeToString(boundary)
 
 	var prefix bytes.Buffer
-	fmt.Fprintf(&prefix, "--%s\r\nContent-Disposition: form-data; name=\"content\"\r\n\r\nimport\r\n", mark)
+	fmt.Fprintf(&prefix, "--%s\r\nContent-Disposition: form-data; name=\"content\"\r\n\r\n%s\r\n", mark, contentType)
 	fmt.Fprintf(&prefix, "--%s\r\nContent-Disposition: form-data; name=\"filename\"; filename=%q\r\n", mark, filename)
 	fmt.Fprint(&prefix, "Content-Type: application/octet-stream\r\n\r\n")
 	suffix := fmt.Sprintf("\r\n--%s--\r\n", mark)
