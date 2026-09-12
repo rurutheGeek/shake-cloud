@@ -46,6 +46,9 @@ type Storage struct {
 	VMDisks string `json:"vm_disks"`
 	// Images holds shared images and per-instance seed ISOs.
 	Images string `json:"images"`
+	// AdminImages is the administrator's store. The API only lists its ISOs,
+	// so an ISO dropped there from Proxmox is usable without a declaration.
+	AdminImages string `json:"admin_images"`
 }
 
 type Network struct {
@@ -138,7 +141,7 @@ func (s Site) Validate() error {
 	check(s.Node != "", "site: node is empty")
 	check(s.Pool != "", "site: pool is empty")
 	check(s.VMIDFrom >= 100 && s.VMIDTo > s.VMIDFrom, "site: bad VMID range %d-%d", s.VMIDFrom, s.VMIDTo)
-	check(s.Storage.VMDisks != "" && s.Storage.Images != "", "site: storage names are empty")
+	check(s.Storage.VMDisks != "" && s.Storage.Images != "" && s.Storage.AdminImages != "", "site: storage names are empty")
 	check(s.Network.Bridge != "", "site: bridge is empty")
 	_, err := netip.ParseAddr(s.Network.Gateway)
 	check(err == nil, "site: gateway %q is not an address", s.Network.Gateway)

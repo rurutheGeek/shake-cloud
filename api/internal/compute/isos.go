@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,7 +52,37 @@ func isoOf(i db.ISO) ISO {
 		AccountID: i.AccountID, OwnerUsername: i.OwnerUsername, SizeBytes: i.SizeBytes, CreatedAt: i.CreatedAt}
 }
 
-// ResolveISO finds an ISO by ID.
+// autoISOID is a stable ID for an ISO the administrator placed in the admin
+// image store. It is derived from the volume, so no ledger row is needed and
+// the file stays where the administrator put it.
+func autoISOID(volume string) string {
+	sum := sha256.Sum256([]byte(volume))
+	return "iso-" + hex.EncodeToString(sum[:])[:17]
+}
+
+// adminISOs lists the ISO files already in the administrator's store. They are
+// read-only: the API has Datastore.Audit there, not Allocate.
+func (s *Service) adminISOs(ctx context.Context) ([]ISO, error) {
+	store := s.Site.Storage.AdminImages
+	if store == "" {
+		return nil, nil
+	}
+	volumes, err := s.PVE.ListVolumes(ctx, store, "iso")
+	if err != nil {
+		return nil, s.unavailable(err)
+	}
+	isos := make([]ISO, 0, len(volumes))
+	for _, v := range volumes {
+		isos = append(isos, ISO{
+			ID: autoISOID(v.VolID), Name: strings.TrimSuffix(path.Base(v.VolID), path.Ext(v.VolID)),
+			Volume: v.VolID, Public: true, SizeBytes: v.Size,
+		})
+	}
+	return isos, nil
+}
+
+// ResolveISO finds an ISO by ID: a declared shared one, an uploaded one, or a
+// file already in the administrator's store.
 func (s *Service) ResolveISO(ctx context.Context, q db.Querier, isoID string) (ISO, error) {
 	if shared, ok := s.Site.SharedISOs[isoID]; ok {
 		return ISO{ID: isoID, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true}, nil
@@ -59,30 +91,53 @@ func (s *Service) ResolveISO(ctx context.Context, q db.Querier, isoID string) (I
 		q = s.Pool
 	}
 	stored, err := db.GetISO(ctx, q, isoID)
-	if errors.Is(err, db.ErrNotFound) {
-		return ISO{}, refuse(http.StatusBadRequest, "InvalidISOID.NotFound",
-			"ISO %q does not exist; see GET /v1/isos", isoID)
+	if err == nil {
+		return isoOf(stored), nil
 	}
+	if !errors.Is(err, db.ErrNotFound) {
+		return ISO{}, err
+	}
+	isos, err := s.adminISOs(ctx)
 	if err != nil {
 		return ISO{}, err
 	}
-	return isoOf(stored), nil
+	for _, iso := range isos {
+		if iso.ID == isoID {
+			return iso, nil
+		}
+	}
+	return ISO{}, refuse(http.StatusBadRequest, "InvalidISOID.NotFound",
+		"ISO %q does not exist; see GET /v1/isos", isoID)
 }
 
-// ISOs lists the administrator's shared ISOs and every account's uploaded
-// ones, newest first, as images do.
+// ISOs lists every usable ISO: the administrator's files (declared or just
+// present in the store) and every account's uploaded ones. ISOs are shared, not
+// per-account, so the listing is the same for everyone.
 func (s *Service) ISOs(ctx context.Context) ([]ISO, error) {
 	stored, err := db.ListISOs(ctx, s.Pool)
 	if err != nil {
 		return nil, err
 	}
+	seen := map[string]bool{}
 	isos := make([]ISO, 0, len(s.Site.SharedISOs)+len(stored))
 	for id, shared := range s.Site.SharedISOs {
 		isos = append(isos, ISO{ID: id, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true})
+		seen[shared.Volume] = true
 	}
 	for _, i := range stored {
 		isos = append(isos, isoOf(i))
+		seen[i.Volume] = true
 	}
+	admin, err := s.adminISOs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, iso := range admin {
+		if !seen[iso.Volume] {
+			isos = append(isos, iso)
+		}
+	}
+	sort.Slice(isos, func(i, j int) bool { return isos[i].Name < isos[j].Name })
 	return isos, nil
 }
 

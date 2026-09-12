@@ -12,7 +12,7 @@ import (
 func sample() Site {
 	s := Site{
 		Node: "apextox", Pool: "cloud", VMIDFrom: 5000, VMIDTo: 5999, ProbeVMIDs: []int{5998, 5999}, VolumeHolderVMID: 5997,
-		Storage: Storage{VMDisks: "local-lvm", Images: "cloud-images"},
+		Storage: Storage{VMDisks: "local-lvm", Images: "cloud-images", AdminImages: "local"},
 		Network: Network{Bridge: "vmbr0", Gateway: "192.168.10.1", DNSServers: []string{"192.168.10.1"}, IPRangeStart: "192.168.10.100/24"},
 		Images:  map[string]Image{"img-debian13": {Name: "debian13", Volume: "cloud-images:import/debian-13.qcow2"}},
 		InstanceTypes: map[string]InstanceType{
