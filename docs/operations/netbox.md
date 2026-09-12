@@ -36,6 +36,7 @@ NetBox は新しい Authentik で **SSO できます**（ログイン画面の *
 - **ローカルの `admin` ログインは残しています**（SSO が壊れたときの非常口）。
 - NetBox 標準のグループ同期（`REMOTE_AUTH_GROUP_SYNC_*`）は **HTTP ヘッダー認証でしか動かず OIDC では効きません**。`stacks/netbox/sso_pipeline.py` の pipeline で `groups` クレームから同期しています（`configuration.py` の `SOCIAL_AUTH_PIPELINE`）。
 - 変更時は **`identity.yml`（クライアント作成・更新）→ `netbox.yml`（秘密の配布・再作成・権限 seed）** の順で流します。
+- **SSO は `https://netbox.apextox.dpdns.org/` から使います。** リダイレクト URI はこの名前で厳密一致で登録しているため、IP 直（`http://192.168.10.200:8000`）からの SSO は `redirect_uri_no_match` で失敗します。IP 直は API・Terraform 用で、ブラウザのログインは名前を使ってください（IP 直でもローカル `admin` は使えます）。
 
 ## 主な画面
 
