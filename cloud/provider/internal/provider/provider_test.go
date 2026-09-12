@@ -40,7 +40,7 @@ func TestEveryResourceAndDataSourceHasItsOwnTypeName(t *testing.T) {
 	}
 	slices.Sort(got)
 	want := []string{
-		"shakecloud_instance", "shakecloud_key_pair", "shakecloud_security_group",
+		"shakecloud_bucket", "shakecloud_instance", "shakecloud_key_pair", "shakecloud_security_group",
 		"shakecloud_security_group_rule", "shakecloud_volume", "shakecloud_volume_attachment",
 	}
 	if !slices.Equal(got, want) {

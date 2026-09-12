@@ -25,7 +25,7 @@
 | Phase 6（CLI と Terraform Provider） | `cloud/client`（型付きクライアント）、`cloud/cli`（`shakecloud`）、`cloud/provider`（`shakecloud_*`）。CLI は標準ライブラリのみ（[CLI](cli.md)・[Provider](terraform-provider.md)） |
 | Phase 7（Garage と バケット・S3キー API） | `platform/ansible/roles/garage`（[Garage](garage.md)）、`cloud/api/internal/garage/`（管理APIクライアント）、`cloud/api/internal/compute/buckets.go`、DBマイグレーション `0008`（3-16） |
 
-**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）、Terraform Provider のバケット対応、ポータルのバケット画面。
+**まだ無いもの**: VLAN分離、利用者アカウント（招待の仕組み）。
 
 ## 1-2. 実機の現状（2026-09-10 に API から実測）
 

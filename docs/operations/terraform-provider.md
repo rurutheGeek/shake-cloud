@@ -59,6 +59,7 @@ provider "shakecloud" {
 | `shakecloud_security_group` | `aws_security_group` | ルールの入れ物 |
 | `shakecloud_security_group_rule` | `aws_security_group_rule` | 受信/送信ルールを1つずつ |
 | `shakecloud_key_pair` | `aws_key_pair` | SSH公開鍵の登録 |
+| `shakecloud_bucket` | `aws_s3_bucket` | S3バケット（Garage）。オブジェクト本体はAPIを通らない |
 
 データソース:
 
@@ -113,9 +114,15 @@ resource "shakecloud_volume_attachment" "data" {
   volume_id   = shakecloud_volume.data.id
   instance_id = shakecloud_instance.dev.id
 }
+
+resource "shakecloud_bucket" "photos" {
+  bucket_name = "photos"
+}
 ```
 
 `shakecloud_instance` の作成と削除は、ワーカーが終わるまで**待ちます**。`terraform apply` が終わった時点で `running`（または `terminated`）です。
+
+**S3キーは Provider で作りません。** 作成時にだけ秘密値が返り、それを state に置くと漏れるためです。鍵はポータルか `shakecloud s3-key create` で発行し、バケットへの権限もそちらで付けます（`shakecloud bucket allow`）。Terraform はバケットそのものと、その `s3_endpoint`・`s3_region` を持ちます。
 
 ## 5. 実装の約束
 
@@ -131,4 +138,4 @@ resource "shakecloud_volume_attachment" "data" {
 cd cloud/provider && go vet ./... && go test ./...
 ```
 
-実機での確認（2026-09-11）: dev override で `terraform apply` し、`shakecloud_key_pair`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_volume` を作成、`data.shakecloud_caller_identity` を読み、再 plan が **No changes**、SGを `terraform import` して再 plan も **No changes**、最後に `terraform destroy` で残骸なし、を確認しました。
+実機での確認（2026-09-11）: dev override で `terraform apply` し、`shakecloud_key_pair`・`shakecloud_security_group`・`shakecloud_security_group_rule`・`shakecloud_volume`・`shakecloud_bucket` を作成、`data.shakecloud_caller_identity` を読み、再 plan が **No changes**、SG と バケットを `terraform import` して再 plan も **No changes**、最後に `terraform destroy` で残骸なし、を確認しました。
