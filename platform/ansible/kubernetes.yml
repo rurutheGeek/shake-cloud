@@ -29,3 +29,10 @@
   vars_files: [k8s-vars.yml]
   roles:
     - k8s_join
+
+- name: Install the common platform add-ons
+  hosts: k8s_cp
+  become: true
+  vars_files: [k8s-vars.yml]
+  roles:
+    - k8s_addons

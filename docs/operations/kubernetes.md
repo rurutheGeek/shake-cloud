@@ -1,6 +1,6 @@
 # Kubernetes クラスタ
 
-更新日: 2026-09-12。状態: **スライス②（`kubeadm init`/join と Cilium）を実機で確認済み**。2ノードが Ready で、Pod間通信と NetworkPolicy が効いています。次は storage・MetalLB・cert-manager・Flux/SOPS。
+更新日: 2026-09-12。状態: **スライス③（共通基盤: local-path・MetalLB・cert-manager）まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書が動いています。**Flux/SOPS だけは Git の取り込み方を決めてから**入れます。
 
 ## 何に使うか
 
@@ -62,6 +62,20 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 
 実機確認（2026-09-12）: 2ノードが **Ready**、`cilium status` が **OK**。テスト用の client→server で **ClusterIP 通信が 200**、`default-deny` の NetworkPolicy で **遮断（000）**、client からの allow で **200** に戻ることを確認しました（テスト namespace は削除済み）。cp には control-plane の taint を残しているので Pod は worker-01 に載ります。
 
+## 共通基盤
+
+`k8s_addons` ロールが cp から入れます（再実行可）。版は `platform/ansible/roles/k8s_addons/defaults/main.yml`。
+
+| 役割 | 何を入れる | 設定 |
+| --- | --- | --- |
+| 永続ストレージ | local-path-provisioner **v0.0.37** | worker のデータディスク（`/dev/vdb`）を `/srv/k8s` にマウントし、PV は `/srv/k8s/local-path` に置く。`local-path` を既定 StorageClass にする |
+| LoadBalancer | MetalLB **0.16.1**（L2） | `network.yaml` の `metallb` レンジ `.240-.249`。NetBox の管理レンジ（`.201-.239`）から切り出してある |
+| 証明書 | cert-manager **v1.21.2** | 自前 CA の `ClusterIssuer` **`shakecloud-ca`**（`shakecloud-selfsigned` から発行）。外部 DNS が要らない。Let's Encrypt は後で足す |
+
+実機確認（2026-09-12）: PVC に書いたファイルが Pod を作り直しても残ること、`LoadBalancer` が `.240` を得て `curl` が **200**、`ClusterIssuer` `shakecloud-ca` と CA `Certificate` が **Ready** であることを確認しました。
+
+**Flux/SOPS はまだ入れていません。** 作業ブランチを `main` へ取り込む時期と GitOps のディレクトリ構成を決めてから入れます。
+
 ## 起動と停止
 
 `tools/k8s` で、k8s の VM だけを順番に起こしたり落としたりできます（ACPI で綺麗に落とすので、etcd も正しく停止します）。
@@ -77,6 +91,6 @@ RAM が足りないときは `k8s-worker-02` を起動し、使わないとき�
 
 ## 次のスライス
 
-1. 永続ストレージ（local-path PVC）・MetalLB の IP 範囲・cert-manager・Flux/SOPS
+1. Flux/SOPS（`main` への取り込み方とディレクトリ構成を決めてから）
 2. AWX
 3. CloudNativePG（`database`）・Knative（`function`）

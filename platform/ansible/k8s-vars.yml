@@ -7,7 +7,7 @@ k8s_package_revision: "1.1"
 k8s_minor: "1.36"
 k8s_containerd_package: "containerd.io=2.3.5-1~debian.13~trixie"
 k8s_keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-k8s_prerequisite_packages: [ca-certificates, curl, gnupg, conntrack, socat]
+k8s_prerequisite_packages: [ca-certificates, curl, gnupg, conntrack, socat, e2fsprogs]
 
 # Pod / Service の CIDR。LAN(192.168.10.0/24) と重ならないこと。
 k8s_pod_cidr: "10.244.0.0/16"

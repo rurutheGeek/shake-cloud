@@ -12,7 +12,15 @@
 management:
   # 基盤VMの静的割り当て。既存: .200 services-01（05-seed が静的に持つ）、
   # .201 probe-01、.202 dev-a、.203 dev-b。
+  # 末尾 .240-.249 は MetalLB 用に切り出してある（下の metallb）。
   range_start: 192.168.10.201/24
+  range_end: 192.168.10.239/24
+
+metallb:
+  # Kubernetes の LoadBalancer に配る IP（L2 モード）。management の末尾から
+  # 切り出す。**ルータの DHCP 配布範囲と重ならないこと。** NetBox の管理レンジは
+  # ここを含まないので、Terraform が誤って静的割り当てしない。
+  range_start: 192.168.10.240/24
   range_end: 192.168.10.249/24
 
 cloud:

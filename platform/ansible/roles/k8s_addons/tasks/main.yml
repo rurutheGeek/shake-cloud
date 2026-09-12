@@ -1,0 +1,160 @@
+---
+# 共通基盤は cp から入れる。helm と /etc/kubernetes/admin.conf は
+# k8s_control_plane が用意済み。root 実行なので KUBECONFIG を明示する。
+- name: Download the local-path provisioner manifest
+  ansible.builtin.get_url:
+    url: >-
+      https://raw.githubusercontent.com/rancher/local-path-provisioner/{{ k8s_local_path_version }}/deploy/local-path-storage.yaml
+    dest: /root/local-path-storage.yaml
+    mode: '0644'
+
+- name: Install the local-path provisioner
+  ansible.builtin.command:
+    argv: [kubectl, apply, -f, /root/local-path-storage.yaml]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_local_path_install
+  changed_when: "'unchanged' not in k8s_local_path_install.stdout"
+
+- name: Render the local-path configuration
+  ansible.builtin.template:
+    src: local-path-patch.yaml.j2
+    dest: /root/local-path-patch.yaml
+    mode: '0600'
+
+# パスだけ差し替える。setup/teardown など他のキーは上流のまま残す（merge patch）。
+- name: Point local-path at the data disk
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - -n
+      - local-path-storage
+      - patch
+      - configmap
+      - local-path-config
+      - --type
+      - merge
+      - --patch-file
+      - /root/local-path-patch.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Restart the local-path provisioner to read the path
+  ansible.builtin.command:
+    argv: [kubectl, -n, local-path-storage, rollout, restart, deployment/local-path-provisioner]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Wait for the local-path provisioner
+  ansible.builtin.command:
+    argv: [kubectl, -n, local-path-storage, rollout, status, deployment/local-path-provisioner, --timeout=180s]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+# 上流は既定クラスを付けないので、ここで付ける。付けないと
+# storageClassName を書いていない PVC がいつまでも Pending になる。
+- name: Make local-path the default StorageClass
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - annotate
+      - storageclass
+      - local-path
+      - storageclass.kubernetes.io/is-default-class=true
+      - --overwrite
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+# --- MetalLB（LoadBalancer） -------------------------------------------------
+- name: Add the MetalLB Helm repository
+  ansible.builtin.command: helm repo add metallb https://metallb.github.io/metallb
+  register: k8s_metallb_repo
+  changed_when: false
+  failed_when: k8s_metallb_repo.rc != 0 and 'already exists' not in k8s_metallb_repo.stdout
+
+- name: Install MetalLB
+  ansible.builtin.command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - metallb
+      - metallb/metallb
+      - --version
+      - '{{ k8s_metallb_version }}'
+      - --namespace
+      - metallb-system
+      - --create-namespace
+      - --wait
+      - --timeout
+      - 10m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_metallb
+  changed_when: "'STATUS: deployed' in k8s_metallb.stdout"
+
+- name: Render the MetalLB address pool
+  ansible.builtin.template:
+    src: metallb-pool.yaml.j2
+    dest: /root/metallb-pool.yaml
+    mode: '0600'
+
+- name: Apply the MetalLB address pool
+  ansible.builtin.command:
+    argv: [kubectl, apply, -f, /root/metallb-pool.yaml]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_metallb_pool
+  changed_when: "'unchanged' not in k8s_metallb_pool.stdout"
+
+# --- cert-manager -----------------------------------------------------------
+- name: Add the cert-manager Helm repository
+  ansible.builtin.command: helm repo add jetstack https://charts.jetstack.io
+  register: k8s_jetstack_repo
+  changed_when: false
+  failed_when: k8s_jetstack_repo.rc != 0 and 'already exists' not in k8s_jetstack_repo.stdout
+
+- name: Install cert-manager
+  ansible.builtin.command:
+    argv:
+      - helm
+      - upgrade
+      - --install
+      - cert-manager
+      - jetstack/cert-manager
+      - --version
+      - '{{ k8s_cert_manager_version }}'
+      - --namespace
+      - cert-manager
+      - --create-namespace
+      - --set
+      - crds.enabled=true
+      - --wait
+      - --timeout
+      - 10m
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_cert_manager
+  changed_when: "'STATUS: deployed' in k8s_cert_manager.stdout"
+
+- name: Render the self-signed CA issuers
+  ansible.builtin.template:
+    src: cert-manager-issuer.yaml.j2
+    dest: /root/cert-manager-issuer.yaml
+    mode: '0600'
+
+- name: Apply the CA issuers
+  ansible.builtin.command:
+    argv: [kubectl, apply, -f, /root/cert-manager-issuer.yaml]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_cert_issuer
+  changed_when: "'unchanged' not in k8s_cert_issuer.stdout"
+
+- name: Wait for the CA certificate
+  ansible.builtin.command:
+    argv: [kubectl, -n, cert-manager, wait, --for=condition=Ready, certificate/shakecloud-ca, --timeout=180s]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false

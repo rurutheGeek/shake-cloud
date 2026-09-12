@@ -1,0 +1,16 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: shakecloud
+  namespace: metallb-system
+spec:
+  addresses:
+    - {{ k8s_network.metallb.range_start | regex_replace('/.*$', '') }}-{{ k8s_network.metallb.range_end | regex_replace('/.*$', '') }}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: shakecloud
+  namespace: metallb-system
+spec:
+  ipAddressPools: [shakecloud]

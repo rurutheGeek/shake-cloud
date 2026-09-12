@@ -65,6 +65,21 @@ class KubernetesTests(unittest.TestCase):
         self.assertIn('kubeProxyReplacement: true', values)
         self.assertIn('ipam:', values)
 
+    def test_the_addons_are_version_pinned(self):
+        defaults = yaml.safe_load((ROOT / 'platform/ansible/roles/k8s_addons/defaults/main.yml').read_text())
+        self.assertRegex(defaults['k8s_local_path_version'], r'^v0\.0\.\d+$')
+        self.assertRegex(defaults['k8s_metallb_version'], r'^\d+\.\d+\.\d+$')
+        self.assertRegex(defaults['k8s_cert_manager_version'], r'^v\d+\.\d+\.\d+$')
+
+    def test_metallb_uses_the_declared_network_range(self):
+        network = yaml.safe_load((ROOT / 'platform/terraform/network.yaml').read_text())
+        self.assertIn('metallb', network)
+        defaults = (ROOT / 'platform/ansible/roles/k8s_addons/defaults/main.yml').read_text()
+        self.assertIn('network.yaml', defaults)
+        pool = (ROOT / 'platform/ansible/roles/k8s_addons/templates/metallb-pool.yaml.j2').read_text()
+        self.assertIn('IPAddressPool', pool)
+        self.assertIn('L2Advertisement', pool)
+
     def test_the_power_helper_reads_the_declaration(self):
         # It must not hardcode VMIDs; reading hosts.yaml keeps the two in step.
         helper = (ROOT / 'tools/k8s').read_text()

@@ -148,3 +148,53 @@
   ansible.builtin.systemd:
     name: kubelet
     enabled: true
+
+# worker のデータディスク（OS とは別の /dev/vdb）を local-path 用に用意する。
+# cp にはこのディスクが無いので、stat で存在を確認してから進める。
+- name: Look for a data disk
+  ansible.builtin.stat:
+    path: /dev/vdb
+  register: k8s_data_disk
+
+- name: Read the data disk filesystem type
+  ansible.builtin.command: blkid -s TYPE -o value /dev/vdb
+  register: k8s_data_fs
+  failed_when: false
+  changed_when: false
+  when: k8s_data_disk.stat.exists
+
+- name: Create the filesystem on the data disk
+  ansible.builtin.command: mkfs.ext4 -q -L k8s-data /dev/vdb
+  when:
+    - k8s_data_disk.stat.exists
+    - k8s_data_fs.stdout | trim == ''
+  changed_when: true
+
+- name: Create the mount point
+  ansible.builtin.file:
+    path: /srv/k8s
+    state: directory
+    mode: '0755'
+  when: k8s_data_disk.stat.exists
+
+- name: Add the data disk to fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^/dev/vdb\s'
+    line: '/dev/vdb /srv/k8s ext4 defaults 0 2'
+    state: present
+  when: k8s_data_disk.stat.exists
+
+- name: Check whether the data disk is mounted
+  ansible.builtin.command: mountpoint -q /srv/k8s
+  register: k8s_mountpoint
+  changed_when: false
+  failed_when: false
+  when: k8s_data_disk.stat.exists
+
+- name: Mount the data disk
+  ansible.builtin.command: mount /srv/k8s
+  when:
+    - k8s_data_disk.stat.exists
+    - k8s_mountpoint.rc != 0
+  changed_when: true

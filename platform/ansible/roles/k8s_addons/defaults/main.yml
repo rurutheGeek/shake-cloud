@@ -1,0 +1,9 @@
+---
+# Kubernetes の共通基盤。**版はここが唯一の出所。**
+# 永続ストレージ（local-path）、LoadBalancer（MetalLB）、証明書（cert-manager）。
+k8s_local_path_version: "v0.0.37"
+k8s_local_path_dir: /srv/k8s/local-path
+k8s_metallb_version: "0.16.1"
+k8s_cert_manager_version: "v1.21.2"
+# MetalLB の IP 範囲は network.yaml が正本。宣言を写し持たない。
+k8s_network: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/network.yaml') | from_yaml }}"
