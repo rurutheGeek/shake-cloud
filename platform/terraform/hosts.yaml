@@ -83,3 +83,41 @@ hosts:
     started: true
     tags: [storage, managed-by-terraform-admin]
     description: Garage（S3互換オブジェクトストア）。OS16+データ32。利用開始後は常時起動。
+
+  k8s-cp-01:
+    vm_id: 200
+    pool: platform
+    # 常時起動の control plane。実行時は etcd と API が載る。
+    flavor: small
+    memory_mib: 3072
+    memory_min_mib: 1024
+    disk_gib: 32
+    on_boot: true
+    started: true
+    tags: [k8s-cp, managed-by-terraform-admin]
+    description: Kubernetes control plane と etcd。常時起動。
+
+  k8s-worker-01:
+    vm_id: 210
+    pool: platform
+    # メディア・DB・AI API を載せる想定。データは別ディスクへ。
+    flavor: large
+    disk_gib: 32
+    data_disk_gib: 64
+    on_boot: true
+    started: true
+    tags: [k8s-worker, managed-by-terraform-admin]
+    description: Kubernetes worker。OS32+データ64。常時起動。
+
+  k8s-worker-02:
+    vm_id: 211
+    pool: platform
+    # RAM が足りないので止めたまま作る。使うときは人が起動する
+    # （lifecycle が started を追わないので Terraform では変えない）。
+    flavor: large
+    disk_gib: 32
+    data_disk_gib: 48
+    on_boot: false
+    started: false
+    tags: [k8s-worker, managed-by-terraform-admin]
+    description: Kubernetes worker。OS32+データ48。RAM 確保まで停止。

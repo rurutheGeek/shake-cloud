@@ -1,0 +1,11 @@
+---
+# Kubernetes ノードを準備する（クラスタ作成の前段。kubeadm は次のスライス）。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+#        -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml'
+- name: Prepare the Kubernetes nodes
+  hosts: k8s_cp:k8s_worker
+  become: true
+  roles:
+    - common
+    - k8s_node

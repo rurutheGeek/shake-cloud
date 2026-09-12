@@ -1,0 +1,16 @@
+---
+# Kubernetes ノードの版。**ここが唯一の出所。**
+# Cilium 1.20 が e2e で保証する Kubernetes は 1.36 までなので、1.37 ではなく
+# 1.36 に固定する。上げる前に Cilium の対応表を確認すること。
+k8s_version: "1.36.4"
+k8s_package_revision: "1.1"
+k8s_minor: "1.36"
+# containerd は LTS の 2.3 系。Docker の apt リポジトリから版を指定して入れる。
+k8s_containerd_package: "containerd.io=2.3.5-1~debian.13~trixie"
+# クラスタの CIDR。LAN(192.168.10.0/24) と重ならないこと。kubeadm 設定は
+# クラスタ作成時（次のスライス）に使うが、決定を1か所で持つ。
+k8s_pod_cidr: "10.244.0.0/16"
+k8s_service_cidr: "10.96.0.0/12"
+k8s_keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+# kubeadm の preflight と kubelet が使う。
+k8s_prerequisite_packages: [ca-certificates, curl, gnupg, conntrack, socat]

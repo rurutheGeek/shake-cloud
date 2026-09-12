@@ -195,5 +195,7 @@ ssh debian@<IP> 'sudo apt-get install -y qemu-guest-agent && sudo systemctl star
 
 **agent を入れる前に plan を打つと、起動中の VM の読み取りで同じ待ちに入って終わりません。**2026-09-10 に identity (110) と cloud-01 (140) で実際に起きた手順です。
 
+2026-09-12 には k8s の3台（200/210/211）で実際に起き、NetBox の VM・IP・タグは作成済み、Proxmox の VM も作成済み・稼働中で、state にはタグしか無い状態から、残りを `import` して復旧しました。`netbox_primary_ip` だけは import が効かないため、`netbox_available_ip_address` と Proxmox VM を取り込んだうえで `apply` で作り直しています（既に設定済みの primary IP を再設定するだけなので実害はありません）。
+
 根本対策は、作成時の cloud-init で agent を入れることです。ただし `managed-host` は Proxmox 内蔵の cloud-init ドライブを使っており、任意の user-data を渡すには snippets 対応ストレージが要ります。クラウドAPI側（seed ISO 方式）ではこの問題は起きません。
 

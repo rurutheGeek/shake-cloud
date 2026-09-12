@@ -29,6 +29,7 @@ nav:
       - shakecloud Terraform Provider: operations/terraform-provider.md
       - Garage（S3互換ストレージ）: operations/garage.md
       - VLAN 分離への切替: operations/vlan.md
+      - Kubernetes クラスタ: operations/kubernetes.md
       - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md
