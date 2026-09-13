@@ -4,7 +4,7 @@
 
 ## 現在の構成
 
-Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは独立したDocker Composeプロジェクト群で、Kubernetes（kubeadm + Cilium + Flux）とその上のAWX・CloudNativePG・Knativeも稼働しています。NetBoxをAnsibleの動的インベントリとして利用しています（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
+Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは独立したDocker Composeプロジェクト群です。Kubernetes（kubeadm + Cilium + Flux）とその上のAWX・CloudNativePG・Knativeは構築済みです（2026-09-12時点で k8s-cp-01・k8s-worker-01 は停止中）。NetBoxをAnsibleの動的インベントリとして利用しています（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
 
 | VM | 役割 |
 | --- | --- |
@@ -17,8 +17,6 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
 | dev-a / dev-b | 開発VM |
 | game1 | ゲームサーバ（クラウド管理下） |
-
-旧メディアスタック（`stacks/` 直下のCompose・`stacks/hub`・`stacks/sso`）はデータ移行元として残っています。
 
 ## 設定する場所
 

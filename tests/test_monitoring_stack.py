@@ -30,7 +30,7 @@ class ComposeTests(unittest.TestCase):
     def test_the_expected_services_are_present(self):
         services = set(self.compose()['services'])
         self.assertEqual(services, {'prometheus', 'alertmanager', 'grafana',
-                                    'blackbox', 'pve-exporter', 'nut-exporter'})
+                                    'blackbox', 'pve-exporter', 'nut-exporter', 'peanut'})
 
     def test_every_published_port_stays_on_loopback(self):
         for name, service in self.compose()['services'].items():

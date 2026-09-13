@@ -15,9 +15,9 @@
 ## 実装手順
 
 1. 既存lockと変換コードを再利用し、music原本・Converted・動画・一時領域・変換状態・Cookieの配置と権限を移す。再開時の重複変換・原本上書きを防ぐ。
-2. Picard（`jlesage/musicbrainz-picard`、digest固定）を同じComposeに追加する。共有musicだけを書き込み可能でマウントし、`/config` は `storage/picard` へ分離する。GUIは `127.0.0.1:${PICARD_PORT:-5800}` に閉じ、SSH転送または既存SSOの認証プロキシ経由で使う。BCSTM原本と `music/Converted/` を直接編集しない。
-3. 既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。MeTubeは共有キュー・共有Cookieとして運用し、秘密値は対象ホストへ配る。Nextcloud/Navidromeへの同期処理とPicardの入口を新配置に合わせる。
-4. 旧キューを止め、未完了ジョブと変換状態を保全して復元する。旧同期タイマーを停止し、新タイマーを一つだけ有効にして少数ファイルから切り替える。Picardのタグ保存と変換・同期が同じファイルを同時に触らない順序にする。
+2. Picard（`jlesage/musicbrainz-picard`、digest固定）を同じComposeに追加する。共有musicだけを書き込み可能でマウントし、`/config` は `storage/picard` へ分離する。GUIは `127.0.0.1:${PICARD_PORT:-5800}` に閉じ、SSH転送または[identity](../operations/identity.md)の認証プロキシ経由で使う。BCSTM原本と `music/Converted/` を直接編集しない。
+3. 認証は[identity](../operations/identity.md)のOIDCへ統合する。既存アカウントを引き継ぐ場合は `users` / `admins` への紐付けを検証し、メール一致だけで別人のデータを結び付けない。MeTubeは共有キュー・共有Cookieとして運用し、秘密値は対象ホストへ配る。Nextcloud/Navidromeへの同期処理とPicardの入口を新配置に合わせる。
+4. 既存環境のキューを止め、未完了ジョブと変換状態を保全して復元する。既存環境の同期タイマーを停止し、新タイマーを一つだけ有効にして少数ファイルから切り替える。Picardのタグ保存と変換・同期が同じファイルを同時に触らない順序にする。
 
 ## 依存と並列作業
 

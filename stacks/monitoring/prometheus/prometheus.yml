@@ -21,7 +21,7 @@ scrape_configs:
   - job_name: blackbox
     metrics_path: /probe
     params:
-      module: [https_2xx]
+      module: [https_reachable]
     file_sd_configs:
       - files: ['/etc/prometheus/blackbox-targets.yml']
     relabel_configs:

@@ -1,6 +1,6 @@
 # 最小クラウドとTerraform Provider
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。**Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み**（イメージ作成は[windows.md](../operations/windows.md)）。media-01・monitor-01などサービスVMもこのAPIで作成済み**。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・monitor-01などサービスVMもこのAPIで作成済み**。
 
 実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
 
@@ -71,7 +71,7 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 
 **この節は方針を変更しました。** 以前は「利用者アカウントを作らず、用途別のキーだけを発行する」と書いていました。それではクォータも所有権（どのVMが誰のものか）も成立せず、利用者が自分でキーを発行する経路もありません。homelab統合認証アカウントへ寄せます。
 
-- **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります（メディア系が使う検証用の `stacks/hub` とは別に新規構築）。
+- **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります。
 - **Terraform と CLI はアクセスキー**を使います。ポータルで発行し、`Authorization: Bearer sca_<キーID>.<秘密値>` で送ります。AWSのIAMアクセスキーと同じモデルです。
 
 キーをSSOと分けるのは、依存を一方向にするためです。**Authentik が停止していても Terraform は動きます。**逆にすると、認証基盤の障害が復旧作業そのものを止めます。

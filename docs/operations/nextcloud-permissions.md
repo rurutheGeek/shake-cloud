@@ -60,18 +60,13 @@ sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
 `applicable_groups` を確認します。**両方が空なら全員**に見えています。対象の
 ユーザーでログインし直し、フォルダーが見えることも確認してください。
 
-## 8090の閲覧権限との違い
+## ドキュメントサイトとの関係
 
-Nextcloudのアクセス権限は、原本の閲覧・編集権限です。`docs`へアクセスできない
-ユーザーでも、生成済みの手順書サイト（`https://docs.apextox.dpdns.org`）は
-読めます。逆に、`docs`へ書き込めるユーザーは、保存した内容を手順書サイトへ
-反映できます。編集者を絞りたい場合は、このページの手順で適用先を制限するか、
-`manage.py` 側で固定してください。
+Nextcloudのアクセス権限は、原本の閲覧・編集権限です。**手順書サイト（`https://docs.apextox.dpdns.org`）の正本はGitの`docs/`で、`platform/ansible/docs-site.yml`が配備します。** Nextcloudの`docs`へ保存した内容はサイトへは反映されません。サイトを更新するときはGitの`docs/`を編集して配備します。
 
 ## 注意点
 
 - **手動で変えた適用先は再配備で上書きされます**（`setup()` が全員に戻す）。
-- TextでMarkdownを保存すると、通常1分以内にドキュメントサイトへ反映されます。
 - `docs`の原本は `LIBRARY_ROOT/docs` にあり、バックアップにも含まれます。
 - 4つのフォルダーは共有ディスク上の実フォルダーです。削除はNextcloudのゴミ箱を
   経由しますが、ゴミ箱を空にすると元へ戻せません。

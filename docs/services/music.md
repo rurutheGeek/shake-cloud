@@ -2,7 +2,7 @@
 
 ## URLから音声を追加
 
-MeTubeを開き、動画URLを貼り付け、音声形式MP3を選んで追加します。**MeTubeはmedia-01への移行が進行中です（W06）。移行が終わるまでは旧メディアスタックのMeTube（SSHトンネル内の `http://localhost:8081`、旧Authentikで保護）を使います。** 移行後は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）になります。ダウンロードできる権利のある音源を指定してください。
+**MeTubeはmedia-01への移行が未了です（W06）。配備後は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。** ダウンロードできる権利のある音源を指定してください。
 
 音声は `${LIBRARY_ROOT}/music/YouTube/投稿者/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
 
@@ -17,7 +17,7 @@ MeTubeはmedia-01ではまだ稼働していません（W06で移行）。共有
 共有用のYouTubeアカウントのCookieを一度登録し、一般利用者はURLを貼るだけで使う方式です。サーバーの管理者権限やSSH操作は不要です。
 
 1. 共有用アカウントでYouTubeにログインしたブラウザーから、Netscape形式の `cookies.txt` を書き出します。具体的な手順は [yt-dlp公式のCookie書き出し手順](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) を参照してください。
-2. [MeTube](http://localhost:8081) の **Advanced Options → Upload Cookies** から、そのファイルを選びます。
+2. [MeTube](https://metube.apextox.dpdns.org)（media-01への配備後）の **Advanced Options → Upload Cookies** から、そのファイルを選びます。
 3. Cookie登録済みの表示を確認し、失敗していたURLを再投入します。通常の利用者はログイン情報を入力せず、URL・MP3形式を選んで追加します。
 
 CookieはMeTube全体で共有されます。履歴やダウンロード先も利用者別ではありません。MeTube自体にはCookie更新の役割分離がないため、この画面を使える人は共有Cookieを更新・削除できます。個人の主アカウントのCookieではなく、合意した共有用アカウントを使ってください。
@@ -97,7 +97,7 @@ FFmpegのPCM BCSTM最終ブロック処理で音声が短くなるケースを�
 
 ## ハートがFavouritesに見えない
 
-左メニューのAlbums配下にあるFavouritesは、お気に入りの**アルバム**です。曲のハートはSongsのStarredフィルターで表示します。旧ハブのボードには「お気に入りの曲」への直接リンクがあり、新しいHomarrのボードにはまだありません。
+左メニューのAlbums配下にあるFavouritesは、お気に入りの**アルバム**です。曲のハートはSongsのStarredフィルターで表示します。Homarrのボードには「お気に入りの曲」への直接リンクはまだありません。
 
 お気に入りはユーザー別です。既存のローカルユーザーのお気に入りは維持します。新しいSSOユーザーには自動移行されません。
 

@@ -184,32 +184,44 @@ def apps(names):
             print(f'CHANGED: Nextcloud app installed: {name}')
 
 
-def config_print():
-    """Point the shake_print app at the services-01 print API.
+def config_app(app, values):
+    """Reconcile app config values and report only real changes.
 
     The token is a shared secret from SOPS and reaches this script through the
     environment; it is stored in Nextcloud's app config for the controller.
     """
-    url = os.environ['PRINT_API_URL']
-    token = os.environ['PRINT_API_TOKEN']
-    for key, value in (('print_api_url', url), ('print_api_token', token)):
+    for key, value in values:
         try:
-            current = occ('config:app:get', 'shake_print', key,
+            current = occ('config:app:get', app, key,
                           capture_output=True).stdout.strip()
         except subprocess.CalledProcessError:
             current = ''
         if current == value:
-            print(f'OK: shake_print {key}')
+            print(f'OK: {app} {key}')
         else:
-            occ('config:app:set', 'shake_print', key, f'--value={value}')
-            print(f'CHANGED: shake_print {key}')
+            occ('config:app:set', app, key, f'--value={value}')
+            print(f'CHANGED: {app} {key}')
+
+
+def config_print():
+    config_app('shake_print', (
+        ('print_api_url', os.environ['PRINT_API_URL']),
+        ('print_api_token', os.environ['PRINT_API_TOKEN']),
+    ))
+
+
+def config_localsend():
+    config_app('shake_localsend', (
+        ('send_api_url', os.environ['SEND_API_URL']),
+        ('send_api_token', os.environ['SEND_API_TOKEN']),
+    ))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
                         choices=['init', 'lock', 'up', 'setup', 'apps', 'config-print',
-                                 'status', 'down'])
+                                 'config-localsend', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
@@ -226,6 +238,8 @@ def main():
         apps(args.app_names)
     elif args.action == 'config-print':
         config_print()
+    elif args.action == 'config-localsend':
+        config_localsend()
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

@@ -4,23 +4,23 @@
 
 ## 目的・現状
 
-状態: **services-01へ新規構築済み（2026-09-12）**。旧ホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザでのSSO・マスターパスワードと独立バックアップ復元は未確認**。
+状態: **services-01へ新規構築済み（2026-09-12）**。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザでのSSO・マスターパスワードと独立バックアップ復元は未確認**。
 
-`stacks/compose.yaml` に本体、`stacks/compose.integrations.example.yaml` とhub設定処理にOIDCがある。[利用・SSO手順](../services/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
+`stacks/vaultwarden/compose.yaml` に本体とOIDC（identityの`vaultwarden`クライアント）の定義がある。[利用・SSO手順](../services/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
 
 配備先: **services-01**。開発先は `stacks/vaultwarden/`。保管庫を独立した単位で移行・復元できるようにする。
 
 ## 実装手順
 
 1. 固定イメージ、DBの実形式、添付・鍵・`config.json`・SMTP・OIDC設定を棚卸しする。管理画面設定と環境変数の優先順位を保持して専用Composeへ切り出す。
-2. 既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。 マスターパスワードと保管庫暗号鍵はSSOで代替しない。一般登録無効・ローカル復旧認証を維持する。
-3. 旧環境の書き込みを止め、整合したDB・添付・鍵・設定を取得して隔離先へ復元する。Web・拡張・モバイルで合格後にURLを切り替える。切替後の書き込み差分を保全する切戻し手順も作る。
+2. 認証は[identity](../operations/identity.md)のOIDCクライアント `vaultwarden` を使う。既存アカウントを引き継ぐ場合は `users` への紐付けを検証し、メール一致だけで別人のデータを結び付けない。 マスターパスワードと保管庫暗号鍵はSSOで代替しない。一般登録無効・ローカル復旧認証を維持する。
+3. 既存環境の書き込みを止め、整合したDB・添付・鍵・設定を取得して隔離先へ復元する。Web・拡張・モバイルで合格後にURLを切り替える。切替後の書き込み差分を保全する切戻し手順も作る。
 
 ## 依存と並列作業
 
 - 開発開始: なし。実データを使わないテスト保管庫で専用構成を作れる。
 - 配備・切替: [I01](I01-resources.md)、[N05](N05-https.md)、対象本人による既存保管庫の確認とバックアップ。
-- 競合調整: 旧共通Composeからの除外と専用Composeへの追加を一担当が同一切替で行う。旧新への二重書き込み、SSO/TLSの同時変更を避ける。
+- 競合調整: services-01内の他Composeと保存先・ポートを分離し、SSO/TLSの同時変更を避ける。
 
 ## 検証・完了条件
 

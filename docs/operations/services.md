@@ -12,7 +12,7 @@
 
 - services-01にはNetBox・MkDocsを残し、Home Assistant Container・eufy-security-ws（HAとは別Compose）・VPN・Homarr・Vaultwarden・CUPSを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません（VPNは未配備）。
 - game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
-- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・MeTube・Picard・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、旧環境からのデータ移行が未完です。**RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
+- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・MeTube・Picard・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
 - monitor-01は新規cloud VMにPrometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-09-12に配備済みで、Grafanaは `https://grafana.apextox.dpdns.org`（identity OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
@@ -191,6 +191,6 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 ## まだ無いもの
 
 - クラウドVMへの DNS **自動**登録（`dns.yaml` へ手で宣言する）。
-- 旧環境（ハブ）からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
+- 既存環境からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
 
 クラウドVMは Ansible のクラウド動的インベントリ（`platform/ansible/inventory.cloud.py`・`cloud-inventory.yml`。I03 で実機確認済み）で配備できます。`media.yml` がこの方式を使います。**基盤の NetBox インベントリとは併用しません**（`media` 群が和集合になるため）。

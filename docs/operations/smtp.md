@@ -12,7 +12,7 @@
 
 Vaultwardenは、少なくとも送信元とSMTPホストを設定します。ユーザー名を設定する場合はパスワードも必要です。通常は587番ポートのSTARTTLSを使います。465番ポートの暗黙TLSを使うサービスでは`force_tls`を指定します。[Vaultwarden公式SMTP設定](https://github.com/dani-garcia/vaultwarden/blob/main/.env.template)
 
-旧ハブ（media-stack）では `stacks/compose.integrations.example.yaml` をコピーして使っていました。変数例です。値は実際のサービスの情報へ置き換え、Gitへ登録しません。
+Vaultwardenで有効化するときは、次の変数名を `stacks/vaultwarden/.env` へ足し、`compose.yaml` の `environment` で Vaultwarden 本来の `SMTP_*` へ渡します。値は実際のサービスの情報へ置き換え、Gitへ登録しません。
 
 ```dotenv
 VAULTWARDEN_SMTP_HOST=smtp.example.net
@@ -24,19 +24,9 @@ VAULTWARDEN_SMTP_USERNAME=vaultwarden@example.net
 VAULTWARDEN_SMTP_PASSWORD=write-this-in-the-untracked-env-only
 ```
 
-このリポジトリの連携例には、Nextcloud用SMTPとVaultwarden用SMTPを分けて記載しています。両者は同じSMTPサービスを使えても、環境変数名と設定場所は別です。
+Nextcloud側へSMTPを入れるときも、Nextcloudスタックの `.env` と `compose.yaml` に別途設定します。両者は同じSMTPサービスを使えても、環境変数名と設定場所は別です。
 
-旧ハブで有効化する場合は、次のように連携Composeを作成してから再配備します。
-
-```bash
-cd stacks
-cp -n compose.integrations.example.yaml compose.integrations.yaml
-# .envへSMTP_HOSTなどの実値を追加する
-sudo python3 scripts/stack.py lock
-sudo python3 scripts/stack.py up
-```
-
-`stacks/scripts/stack.py`は`compose.integrations.yaml`が存在すると自動的に読み込みます。SMTPパスワードはGitへ追加せず、root専用の`.env`または別のSecret配備で管理します。
+SMTPパスワードはGitへ追加せず、VM上の `.env`（0600）で管理します。設定後は `stacks/vaultwarden/manage.py up` で再配備します。
 
 ## メール送信で確認すること
 
@@ -85,7 +75,7 @@ SMTP_FROM: shake.notify@gmail.com
 SMTP_FROM_NAME: shake-cloud
 ```
 
-## 新しい identity（Authentik）での設定
+## identity（Authentik）での設定
 
 SMTP は `platform/sops/smtp.sops.yaml`（上記 Gmail の例を参照）で設定します。キーは:
 

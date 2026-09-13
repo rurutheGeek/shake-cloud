@@ -1,0 +1,17 @@
+[Unit]
+Description=LocalSend sender for the Nextcloud send action
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {{ localsend_send_dir }}/localsend_send.py
+EnvironmentFile={{ localsend_send_dir }}/localsend-send.env
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

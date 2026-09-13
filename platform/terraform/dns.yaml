@@ -71,6 +71,11 @@ records:
     address: 192.168.10.102
     upstream: 127.0.0.1:3000
     description: Grafana（監視ポータル。OIDC）
+  peanut:
+    host: monitor-01
+    address: 192.168.10.102
+    upstream: 127.0.0.1:8080
+    description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:
     host: services-01
     upstream: 127.0.0.1:8222

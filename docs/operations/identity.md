@@ -4,7 +4,6 @@ identity VM の Authentik は、**利用者の共通アカウント（誰であ�
 
 - **入口:** `https://auth.apextox.dpdns.org`（`:9000` と `:9443` は 127.0.0.1 に閉じています）
 - **VM:** identity（VMID 110、192.168.10.204）。Kubernetes の外に置き、クラスタ更新中でもログインできます。
-- 作業機の検証用 `stacks/hub` の Authentik とは**別物**です。そこから移行していません。
 
 ## 配備
 

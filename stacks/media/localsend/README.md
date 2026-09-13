@@ -1,6 +1,6 @@
 # LocalSend受信機（media-01）
 
-状態: **2026-09-12にmedia-01へ配備済み（healthy、`/api/localsend/v2/info` が `media-01` を返す）。端末アプリからの実送受信とNextcloud `inbox` への着地は未確認**（[D06](../../docs/development/D06-localsend.md)）。
+状態: **2026-09-12にmedia-01へ配備済み（healthy、`/api/localsend/v2/info` が `media-01` を返す）。端末アプリからの実送受信とNextcloud `inbox` への着地は未確認**（[D06](../../../docs/development/D06-localsend.md)）。
 
 スマホ・PCの公式LocalSendアプリから、media-01へファイルを送るための常設の受信機です。送られたファイルは共有ライブラリの `inbox`（Nextcloudの「inbox」）に着地し、そこからmusic/books/docsへ移動できます。LocalSendは本来サーバーを持たないP2Pなので、これは**非公式のヘッドレス受信機**です。
 
@@ -27,6 +27,8 @@
 4. ファイルを送る
 
 着地先は `inbox/<送信元fingerprint>/<YYYY>/<MM>/` です。Nextcloudの「inbox」からmusic/books/docsへ移動してください。
+
+**この受信機は受け取る専用です**（LocalSend protocol v2のupload APIのみ。download APIは無効）。Nextcloudのファイルを端末へ送るのは、隣の送信サービス [`stacks/localsend-send/`](../localsend-send/) の役割です（Nextcloudの「…」→「LocalSendで送る」）。
 
 通常はアプリの自動検出（デバイス一覧の `media-01`）を使います。手動でURLを指定する場合は `https://localsend.apextox.dpdns.org:53317`（`platform/terraform/dns.yaml` の `localsend` レコード。IP直は `192.168.10.101:53317`）を使えます。
 

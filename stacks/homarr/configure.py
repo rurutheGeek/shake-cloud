@@ -94,10 +94,14 @@ class Homarr:
         if not content:
             return None
         try:
-            return json.loads(content)
+            parsed = json.loads(content)
         except json.JSONDecodeError:
             # The auth callback answers with HTML; the session cookie is the result.
             return content.decode('utf-8', 'replace')
+        # tRPC returns application errors with HTTP 200 and an `error` field.
+        if isinstance(parsed, dict) and parsed.get('error'):
+            raise RuntimeError(f'{method} {path}: {parsed["error"].get("json", parsed["error"])}')
+        return parsed
 
     def trpc(self, path, data=None, post=False):
         if post:

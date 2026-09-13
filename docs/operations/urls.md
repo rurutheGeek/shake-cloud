@@ -2,7 +2,7 @@
 
 更新日: 2026-09-13。**サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](handover.md)です。
 
-## 新しい基盤（`*.apextox.dpdns.org`・家庭内LANから）
+## サービス入口（`*.apextox.dpdns.org`・家庭内LANから）
 
 `apextox.dpdns.org` は Cloudflare の公開 DNS に**内部IPをそのまま**書いています。名前は外からも引けますが、**インターネットには公開していません**（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
 
@@ -43,7 +43,7 @@
 
 ### media-01 のメディア入口（`*.apextox.dpdns.org`・家庭内LANから）
 
-media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud と Kavita はアプリ自身の OIDC、Navidrome・MeTube・Picard は Authentik Forward Auth です。**認証は新しい `auth.apextox.dpdns.org`** を使います。
+media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud と Kavita はアプリ自身の OIDC、Navidrome・MeTube・Picard は Authentik Forward Auth です。**認証は `auth.apextox.dpdns.org`** を使います。
 
 | サービス | URL | 認証 |
 | --- | --- | --- |
@@ -92,19 +92,6 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | monitor-01 | `debian@192.168.10.102` | Prometheus・Alertmanager・Grafana・exporter（M01。クラウド管理下） |
 
 VM の正本は[配備台帳](handover.md)と `platform/terraform/hosts.yaml` です。
-
-## 旧メディアスタック（SSH トンネル経由）
-
-**`localhost` の URL は SSH トンネルを張ったときだけ使えます**（[接続手順](hub.md)）。ポート一覧は `hub.md` を参照してください。`login.localhost:9443` は**旧 Authentik**で、新しい `auth.apextox.dpdns.org` とは別物です。
-
-| サービス | URL | 用途 |
-| --- | --- | --- |
-| Nextcloud | `https://nextcloud.localhost:8443` | ファイル |
-| Kavita | `https://kavita.localhost:5443` | 書籍 |
-| Navidrome | `http://localhost:4533` | 音楽 |
-| MeTube | `http://localhost:8081` | 音声取り込み |
-| Vaultwarden | `https://vault.localhost:8243` | パスワード |
-| 旧 Authentik | `https://login.localhost:9443` | 旧メディアのSSO |
 
 ## 外部サービス
 

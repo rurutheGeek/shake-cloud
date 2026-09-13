@@ -18,7 +18,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 | Deck | カンバン形式のタスク管理 | 「やること」「作業中」「完了」の管理 | 高機能なプロジェクト管理製品の代替ではない |
 | Tasks | 個人・共有タスク | バックアップや本の整理のTODO | Calendarと連携できる |
 | Notes | Markdownに近い簡易メモ | サーバー運用メモや買い物メモ | 本格的なドキュメント管理は別途検討 |
-| Text | テキスト・Markdownファイルの編集 | docsの手順書をブラウザーから更新 | 保存後のサイト生成は自動処理に任せる |
+| Text | テキスト・Markdownファイルの編集 | `docs`共有置き場のMarkdownをブラウザーから編集 | 手順書サイトはGitの`docs/`が正本。保存だけではサイトへ反映されない |
 | Mail | 外部メールを読む・送る画面 | 既存のIMAPメールをNextcloudで読む | メールサーバーそのものではない |
 | Group folders | グループ専用フォルダ | `family`だけに見える共有領域 | アプリ側の共有設定が別に必要 |
 | Files external storage (`files_external`) | 外部ストレージをFilesに表示 | `/library/books`やNFSを表示 | ホスト側のマウントと権限が必要 |
@@ -31,7 +31,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 
 ## 現在の構成でのインストール例
 
-この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を[media-nextcloud.yml](../../platform/ansible/media-nextcloud.yml)から呼び出します。既定ではAnsibleの`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定しています。新しいメディアスタック（media-01）の配備では、これに自作の`shake_print`を足し、SOPSのトークンを`occ config:app:set`で設定します。旧メディアスタックの`stacks/scripts/stack.py apps`は移行元の手順です。
+この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`shake_print`を足します。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
 
 Ansible配備時は、サービスが正常起動した後に自動で次を実行します。
 

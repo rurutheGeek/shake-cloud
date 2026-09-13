@@ -1,8 +1,8 @@
 # ホームラボ／最小プライベートクラウド構成案
 
-更新日: 2026-09-13。配置方針は[並列開発計画](../development/index.md)に合わせて更新しました。media-01を作成し、Homarr・Vaultwarden・Home Assistant（SSO）と、Nextcloud・Kavita・Navidrome、監視（monitor-01）を配備済みです。旧環境からのメディアデータ移行とVPNは未完了です。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
+更新日: 2026-09-13。配置方針は[並列開発計画](../development/index.md)に合わせて更新しました。media-01を作成し、Homarr・Vaultwarden・Home Assistant（SSO）と、Nextcloud・Kavita・Navidrome、監視（monitor-01）を配備済みです。既存環境からのメディアデータ移行とVPNは未完了です。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
 
-この文書は、現在のメディアスタックを、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。**構築が済んだ範囲（Proxmox、Kubernetes、クラウドAPIの4機能、identity、AWX）はこの文書より実機が先です。** 何が動いているかは[配備台帳](../operations/handover.md)と[接続先一覧](../operations/urls.md)を見てください。
+この文書は、現在のメディア基盤を、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。**構築が済んだ範囲（Proxmox、Kubernetes、クラウドAPIの4機能、identity、AWX）はこの文書より実機が先です。** 何が動いているかは[配備台帳](../operations/handover.md)と[接続先一覧](../operations/urls.md)を見てください。
 
 ## 前提と合意した範囲
 
@@ -83,8 +83,8 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 | 項目 | 現状（2026-09-13） |
 | --- | --- |
-| メディア・認証・ハブ | Homarr・Vaultwarden・Home Assistantはservices-01、Nextcloud・Kavita・Navidromeはmedia-01で新基盤へ配備済み。旧環境からのデータ移行（W03–W06）が残る |
-| ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する。旧ハブの `localhost:8090` は SSH トンネル経由の別物 |
+| メディア・認証 | Homarr・Vaultwarden・Home Assistantはservices-01、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
+| ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
 | ホストの読み取り | Ansible `survey-pve.yml` として実装済み。読み取りのみ |
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
@@ -106,4 +106,4 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 ## この文書の管理
 
-Gitの `docs/` が正本です。この資料は `docs/architecture/` に置き、`mkdocs.yml` と Ansible（`platform/ansible/docs-site.yml`）で `https://docs.apextox.dpdns.org` へ配備します。旧ハブの `LIBRARY_ROOT/docs` とNextcloudでの編集は別環境の手順で、この資料の正本にはしません。更新・公開方法は[運用文書](operations.md#document-publishing)を参照してください。
+Gitの `docs/` が正本です。この資料は `docs/architecture/` に置き、`mkdocs.yml` と Ansible（`platform/ansible/docs-site.yml`）で `https://docs.apextox.dpdns.org` へ配備します。更新・公開方法は[運用文書](operations.md#document-publishing)を参照してください。

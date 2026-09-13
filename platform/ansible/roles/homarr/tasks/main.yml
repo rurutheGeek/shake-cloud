@@ -15,6 +15,7 @@
     - compose.lock.yaml
     - manage.py
     - configure.py
+    - configure-integrations.py
     - apps.json
     - .env.example
 
@@ -71,6 +72,41 @@
     mode: '0444'
   register: homarr_oidc_installed
   no_log: true
+
+# Proxmox と PeaNUT の読み取り用資格情報。無ければウィジェットは作られない。
+- name: Look for the monitoring secrets
+  ansible.builtin.stat:
+    path: '{{ homarr_monitoring_sops_file }}'
+  delegate_to: localhost
+  become: false
+  register: homarr_monitoring
+
+- name: Read the Proxmox and PeaNUT credentials
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ homarr_monitoring_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: homarr_integration_secrets
+  changed_when: false
+  no_log: true
+  when: homarr_monitoring.stat.exists
+
+- name: Install the integration values
+  ansible.builtin.copy:
+    content: "{{ {
+      'PVE_URL': 'https://pve.' ~ homarr_dns.zone ~ ':8006',
+      'PVE_USERNAME': 'monitoring',
+      'PVE_REALM': 'pve',
+      'PVE_TOKEN_ID': 'monitoring',
+      'PVE_TOKEN_SECRET': (homarr_integration_secrets.stdout | from_json).PVE_TOKEN_VALUE,
+      'PEANUT_URL': 'https://peanut.' ~ homarr_dns.zone,
+      'PEANUT_USERNAME': 'admin',
+      'PEANUT_PASSWORD': (homarr_integration_secrets.stdout | from_json).PEANUT_WEB_PASSWORD
+    } | to_json }}"
+    dest: '{{ homarr_project_dir }}/secrets/integration_values.json'
+    mode: '0400'
+  no_log: true
+  when: homarr_monitoring.stat.exists
 
 - name: Pin images
   ansible.builtin.command:

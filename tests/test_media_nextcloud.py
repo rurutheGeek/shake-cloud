@@ -272,9 +272,9 @@ class AnsibleTests(unittest.TestCase):
         self.assertEqual(len(apps), 1)
         self.assertGreater(commands.index(apps[0]), actions['up'])
 
-    def test_apps_use_the_group_var_and_always_add_the_print_app(self):
+    def test_apps_use_the_group_var_and_always_add_the_custom_apps(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
-        self.assertIn("nextcloud_apps | default([]) + ['shake_print']", text)
+        self.assertIn("nextcloud_apps | default([]) + ['shake_print', 'shake_localsend']", text)
 
     def test_change_detection_uses_the_manage_py_status_lines(self):
         text = PLAYBOOK.read_text(encoding='utf-8')

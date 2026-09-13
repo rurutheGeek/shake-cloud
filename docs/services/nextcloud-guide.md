@@ -61,6 +61,51 @@ Talk・Deck・Notes・連絡先などのアプリはまだ入っていません�
 - ルーターの「端末間通信の遮断（プライバシーセパレーター）」が有効だと見つかりません。無効にしてください。
 - URLを手で指定する必要はありません（自動検出です）。どうしても手動の場合は `localsend.apextox.dpdns.org:53317` を使います（ブラウザーで開いても404で正常です）。
 
+## Nextcloudからファイルを送る（共有・保存）
+
+### 同じNextcloudの人へ共有する
+
+1. ファイルのメニュー（**…**）→ **共有**
+2. 相手の名前を入れて選びます（同じNextcloudのアカウントを持つ人だけ）
+3. 閲覧だけか、編集もできるかを選んで共有します
+
+### リンクで共有する
+
+1. 共有メニュー → **リンク共有** → **リンクをコピー**
+2. 必要ならパスワードや有効期限を付けます
+3. **このリンクが開けるのは家庭内LANの中だけです。** 名前が内部IPを指しているため、メールやLINEで家の外の人へ送っても開けません（インターネット公開の入口は未構築）
+
+### スマホ・パソコンへ保存する
+
+- スマホ（公式アプリ）: ファイルを開いて **共有 → 保存／ダウンロード**、または他アプリへ送ります（LINE・メール添付など）
+- パソコン（ブラウザー）: ファイルの **ダウンロード**。フォルダーはZIPでまとめて取れます
+- パソコン（デスクトップアプリ）: 同期したいフォルダーを選ぶと、変更が自動で手元に反映されます
+
+### 家の中の端末へ送る（「LocalSendで送る」）
+
+Nextcloudのファイル一覧から、同じLANにいる端末のLocalSendへ直接送れます。media-01の送信機能が相手を探して送ります。
+
+1. 送り先の端末で **LocalSendアプリを開きます**（受信できる状態にしておく）。
+2. Nextcloudのファイル一覧で、送りたいファイルの **…** → **LocalSendで送る** を選びます。
+3. 表示された端末の一覧から、送り先を選びます。
+4. 送り先の端末に受信の確認が出ます。**受け取る**を押すと保存されます。
+
+| うまくいかないとき | 確認すること |
+| --- | --- |
+| 端末が一覧に出ない | 送り先でLocalSendを開いているか、同じWi-Fiか。少し待って再試行 |
+| 送信が失敗する | 送り先のLocalSendで受信の確認を押したか。もう一度試す |
+| 送り先がパソコンの場合 | LocalSendアプリを起動し、受信できる状態にする（同じ手順） |
+
+逆向き（端末 → Nextcloud）は、上の「スマホからファイルを送る（LocalSend）」で `inbox` に着きます。
+
+### 向きの整理
+
+| やりたいこと | 使うもの |
+| --- | --- |
+| 端末 → Nextcloudへ入れる | 上の「スマホからファイルを送る（LocalSend）」、またはアプリ/ブラウザーのアップロード |
+| Nextcloud → 家の中の人・端末へ | 共有（リンク／相手指定）・ダウンロード・**端末のLocalSendへ共有** |
+| 家の外の人へ送る | 今は不可（公開の入口は準備中）。リンクはLANの中だけで開きます |
+
 ## 他のサービスとの連携
 
 Nextcloudは単体で使えますが、同じ保存領域・同じアカウントで次のサービスとつながっています。
@@ -71,9 +116,9 @@ Nextcloudは単体で使えますが、同じ保存領域・同じアカウン�
 | [Homarr](https://homarr.apextox.dpdns.org) | サービスの入口。Nextcloudのタイルあり | 最初に開く場所 |
 | [Kavita](https://kavita.apextox.dpdns.org) | `books`フォルダーを読む | 本・PDF・電子書籍 |
 | [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生 | 音楽 |
-| [MeTube](https://metube.apextox.dpdns.org) | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
+| [MeTube](https://metube.apextox.dpdns.org)（media-01への配備は未了） | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
 | Picard（[音楽の取り込み](music.md)） | `music`のタグ編集 | 曲名・アルバム名の整理 |
-| [LocalSend](../development/D06-localsend.md) | スマホから送ったファイルが`inbox`に着地 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
+| [LocalSend](../development/D06-localsend.md) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
 | [プリンター](printer.md)（CUPS） | ファイルの「…」→「印刷」 | Nextcloudのファイルを印刷 |
 | [Vaultwarden](vaultwarden.md) | 同じ共通ログインで使うパスワード管理 | Nextcloudのログイン情報も保管 |
 | [Shake Lab Docs](https://docs.apextox.dpdns.org) | Gitの`docs/`をサイトとして公開 | 手順書の閲覧 |
@@ -122,7 +167,6 @@ Nextcloudアプリでファイルを開き、**共有 → 印刷** を選びま�
 | --- | --- |
 | ログイン画面が出ない・ループする | 先にパソコンで `https://nextcloud.apextox.dpdns.org` にログインできるか確認。できなければ管理者へ |
 | 接続できない | 家のWi-Fiにつないでいるか。外出先からはまだ使えません |
-| 「nextcloud.localhost」を案内された | それはパソコン用の古いURLです。スマホでは `https://nextcloud.apextox.dpdns.org` を使います |
 | `books`・`music`・`docs`・`inbox` が見えない | 一度ログインし直す。それでも出ない場合は管理者へ（再配備が必要） |
 | アプリパスワードを作れない | 共通ログインの方式によっては作成できないことがあります。管理者へ |
 

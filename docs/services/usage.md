@@ -12,7 +12,7 @@
 | 台帳（IP・VM）を見る | [NetBox の使い方](../operations/netbox.md) |
 | 家電を操作する・自動化する | [Home Assistantと家電の使い方](home-assistant.md) |
 
-メディア系は media-01 の新しい基盤へ移行済みです（旧環境からのデータ移行は進行中）。**移行済みのサービスは `*.apextox.dpdns.org`、まだ移行していないサービスは旧メディアスタック（SSHトンネル）の `localhost` を使います。**
+メディア系は media-01 の新しい基盤へ移行済みで、入口はすべて `*.apextox.dpdns.org` です（旧環境からのデータ移行は進行中）。**MeTube は media-01 への配備が未了です（W06）。**
 
 ## まず開く場所
 
@@ -25,7 +25,7 @@
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
 | 本・PDFを読む | [Kavita](https://kavita.apextox.dpdns.org) |
 | 音楽を聴く | [Navidrome](https://navidrome.apextox.dpdns.org) |
-| URLから音声を取り込む | [MeTube](http://localhost:8081)（旧メディア。media-01への移行はW06で進行中） |
+| URLから音声を取り込む | MeTube（準備中。media-01への配備はW06で進行中） |
 | パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
@@ -33,7 +33,7 @@
 
 ## Nextcloudを使う
 
-**Nextcloudは新しい基盤へ移行済みです。機能・他のサービスとの連携・Androidアプリの設定は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** 旧メディアスタックのNextcloud（`https://nextcloud.localhost:8443`）はデータ移行元として残っています。
+**Nextcloudは新しい基盤へ移行済みです。機能・他のサービスとの連携・Androidアプリの設定は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** データ移行は進行中です。
 
 ### ファイルを保存・共有する
 
@@ -97,20 +97,9 @@ Navidrome公式の[Androidクライアント一覧](https://www.navidrome.org/ap
 
 ## 音声を取り込む（MeTube）
 
-**MeTubeはmedia-01への移行が進行中です（W06）。移行が終わるまでは、旧メディアスタックのMeTube（SSHトンネル内の `http://localhost:8081`）を使います。**
+**MeTubeはmedia-01への配備が未了です（W06）。配備後の入口は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）になります。**
 
-権利のある音源だけを取り込んでください。
-
-1. MeTubeを開きます。
-2. 動画のURLを貼り付けます。
-3. 音声形式で **MP3** を選びます。
-4. **追加** または **Download** を押して待ちます。
-
-完了した音声はNextcloudの`music/YouTube`へ入り、Navidromeで聴けるようになります。反映には少し時間がかかります。
-
-Cookieの登録・更新は管理作業です。ダウンロードに失敗したときは、同じURLを何度も繰り返す前に管理者へ伝えてください。[音楽の取り込み手順](music.md)
-
-Android専用アプリは使わず、移行後はブラウザーでMeTubeを開きます。
+権利のある音源だけを取り込んでください。取り込みの準備・Cookie・タグ付けの手順は[音楽の取り込み手順](music.md)を参照してください。
 
 ## パスワードを使う（Vaultwarden）
 
@@ -125,7 +114,7 @@ Vaultwardenでは、Webサイトやアプリのログイン情報を保管しま
 
 公式Bitwardenアプリをインストールし、ログイン画面で **Self-hosted** を選びます。**Server URL** には `https://vault.apextox.dpdns.org` を入力します。[Bitwarden公式のセルフホスト接続手順](https://bitwarden.com/en-gb/help/change-client-environment/)
 
-このURLは家庭内LANの名前です。外出先からはVPN（準備中）が必要です。`vault.localhost` のSSH転送はパソコン用の旧手順で、Androidからは使えません。
+このURLは家庭内LANの名前です。外出先からはVPN（準備中）が必要です。
 
 ## 手順書を読む・更新する
 
@@ -143,7 +132,7 @@ AndroidではNextcloud公式アプリでファイルを開けます。短い修�
 
 ## Androidで使えるもの
 
-Androidから使うには、まずサーバーへ到達できるネットワークが必要です。パソコンで`ssh -L`を実行しても、その`localhost`はパソコンだけの入口であり、Androidには共有されません。Android用には、HTTPSドメイン、VPN、またはTailscaleなどを用意します。
+Androidから使うには、家庭内LANで名前解決できる `*.apextox.dpdns.org` のHTTPS入口を使います。外出先からはVPN（準備中）です。
 
 | 目的 | Androidで使うもの | 使い方 |
 | --- | --- | --- |
@@ -163,5 +152,6 @@ Nextcloud公式マニュアルも、Androidのファイル利用には公式ア�
 
 - [Homarrのタイル編集](homarr.md)
 - [Nextcloudのアクセス権限変更](../operations/nextcloud-permissions.md)
-- [共通ログイン・アカウント管理](sso.md)
-- [接続・配備・バックアップ](../operations/hub.md)
+- [共通ログイン・アカウント管理](../operations/identity.md)
+- [接続先一覧](../operations/urls.md)
+- [配備の引き継ぎ](../operations/handover.md)

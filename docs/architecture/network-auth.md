@@ -1,6 +1,6 @@
 # ネットワーク・公開範囲・SSO
 
-[構成案トップ](index.md)へ戻る。ここでは将来の構成を説明します。現在のURL、SSH転送、ローカルCAは[既存のハブ運用](../operations/hub.md)、現行のSSO設定は[共通ログイン](../services/sso.md)を参照してください。
+[構成案トップ](index.md)へ戻る。ここでは将来の構成を説明します。現在のURLは[接続先一覧](../operations/urls.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
 
 ## 既存機器の使い方
 
@@ -49,7 +49,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 - 管理API、DBの管理ポート、S3管理APIは公開しない。
 - IPv6がある場合もIPv4と同じ公開範囲に制限する。
 
-クラスタのCilium Ingressとは別にKnativeのKourierが稼働しています。関数は初期状態で内部向けとし、公開する関数だけを公開経路へ追加します。Gatewayの存在だけで関数の認証が実装されるわけではありません。
+クラスタのCilium Ingressとは別にKnativeのKourierを構築済みです。関数は初期状態で内部向けとし、公開する関数だけを公開経路へ追加します。Gatewayの存在だけで関数の認証が実装されるわけではありません。
 
 ## DNSとHTTPS
 
@@ -86,7 +86,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 ## SSOを使う範囲
 
-アカウント作成はAuthentikの招待を標準とします。利用者向けの説明・招待手順・既存アカウントの扱いは[認証基盤と共通ログイン](../services/sso.md)を参照してください。
+アカウント作成はAuthentikの招待を標準とします。利用者向けの説明・招待手順・既存アカウントの扱いは[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
 
 VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範囲です。VPN接続できることやSSOに成功することだけで、管理者権限を与えません。
 

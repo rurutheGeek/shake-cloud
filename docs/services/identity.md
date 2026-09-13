@@ -4,7 +4,6 @@
 
 - **入口:** <https://auth.apextox.dpdns.org>（家庭内 LAN からだけ）
 - **対象:** クラウドポータル・AWX・NetBox など新しい基盤のサービス
-- **注意:** 旧メディアスタックの `https://login.localhost:9443` は**別の Authentik**です（[SSO](sso.md)）。
 
 ## はじめる（招待から）
 

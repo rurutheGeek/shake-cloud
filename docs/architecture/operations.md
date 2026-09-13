@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
-更新日: 2026-09-13。状態: **配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、旧環境からのメディアデータ移行とVPNは未完了**。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
+更新日: 2026-09-13。状態: **配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了**。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
 
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
@@ -130,7 +130,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 
 | サービス／構成要素 | 計画上の配置先 | 永続化・担当計画 |
 | --- | --- | --- |
-| Nextcloud、Calendar、Tasks | media-01 | 配備済み（2026-09-12、`https://nextcloud.apextox.dpdns.org`）。DB・Redis・cronを含む一組の復元と旧環境からの移行はW03 |
+| Nextcloud、Calendar、Tasks | media-01 | 配備済み（2026-09-12、`https://nextcloud.apextox.dpdns.org`）。DB・Redis・cronを含む一組の復元と既存環境からの移行はW03 |
 | Kavita、Navidrome、MeTube | media-01 | Kavita・Navidromeは配備済み。MeTubeの切替はW06。原本は共有し、アプリ状態・固有DBは分離。W04–W06 |
 | Homarr、MkDocs | services-01 | Homarrは新規スタックで配備済み（W01、`https://homarr.apextox.dpdns.org`）。MkDocsは現行のまま |
 | Vaultwarden | services-01 | 配備済み（2026-09-12、`https://vault.apextox.dpdns.org`）。DB・添付・鍵を独立して復元。W02 |
@@ -142,7 +142,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | AWXと専用DB | k8s-worker-01 | ローカルPVC、並列数・ジョブ整備。I06 |
 | 利用者向けDB・関数 | 常用Kubernetes | CNPG・Knative。API所有の動的リソースとFlux所有物を分離。O02 |
 | 自作クラウドAPI・管理DB | cloud-01 | 現行Composeを維持。利用者DBと分離。O01 |
-| Authentikと専用DB | identity | 現行構成を維持。旧メディア認証の移行はアプリごとに確認 |
+| Authentikと専用DB | identity | 現行構成を維持。アプリごとの認証統合は各計画で確認 |
 | Garage | storage-s3 | メタデータとオブジェクト。O03 |
 | Home Assistant、SwitchBot Cloud、Eufy中継 | services-01 | 配備済み（2026-09-12）。HAはAuthentik OIDCと緊急用ローカルオーナーを併用。構成・履歴・鍵を独立保存。H01・H02・H04（H03 Echoは見送り） |
 | Prometheus・Alertmanager・Grafana・exporter | monitor-01 | 配備済み（2026-09-13、M01）。時系列は専用データディスク。Homarr連携・低電池シャットダウンはM01の残作業 |
@@ -263,8 +263,8 @@ python3 -m playwright install chromium --only-shell
 python3 tools/render-architecture-diagrams.py
 ```
 
-Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。現行のservices-01サイトはGitの `docs/` を入力に `platform/ansible/docs-site.yml` で配備します。旧メディアハブの `LIBRARY_ROOT/docs` と `hub/manage.py build` は別環境の手順です。今回の計画・README追加ではサイトへの配備を実行しません。
+Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。現行のservices-01サイトはGitの `docs/` を入力に `platform/ansible/docs-site.yml` で配備します。今回の計画・README追加ではサイトへの配備を実行しません。
 
-Gitの `docs/` を正本とし、Nextcloudで構成案を編集する旧ハブの運用は持ち込みません。旧ハブで編集した資料を取り込む場合だけ、Gitの `docs/architecture/` へ移してレビューしてから同じ版をサイトへ反映し、自動双方向同期は設けません。生成された `stacks/hub/site/` を編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
+Gitの `docs/` を正本とします。レビューを経ない外部編集や自動双方向同期は設けず、変更はGitの `docs/architecture/` へ集約してから同じ版をサイトへ反映します。生成物を直接編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
 
 公開前にステージした差分と `tools/check-publication.py` を確認します。GitHub公開用の資料には、実際のAPIキー、個人用IP台帳、DB接続文字列、セーブ、Secretを入れません。

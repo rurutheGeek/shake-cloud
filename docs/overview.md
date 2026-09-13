@@ -20,8 +20,9 @@
 | 電源を安全に切る・UPS を入れる | [電源とUPS](operations/power.md) |
 | 家電を操作・自動化する | [Home Assistantと家電の使い方](services/home-assistant.md) |
 | 印刷する | [プリンター（Canon TS8430）](services/printer.md) |
+| サービス一覧の入口を編集する | [Homarr](services/homarr.md) |
 
-## メディア・家電系
+## メディア・家電・利用者向け
 
 - [Nextcloudと追加アプリ](services/nextcloud.md)
 - [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md)
@@ -29,15 +30,10 @@
 - [プリンター（Canon TS8430）](services/printer.md)
 - [Vaultwarden](services/vaultwarden.md)
 - [音楽の取り込み](services/music.md)
-- [Homarrハブ](services/homarr.md)
+- [Homarr](services/homarr.md)
 - [日本語表示](services/language.md)
 - [Nextcloud権限変更](operations/nextcloud-permissions.md)
 - [ディスク増設](operations/disk.md)
-
-旧メディアスタック（`*.localhost`。SSHトンネル経由）の手順:
-
-- [ハブ運用](operations/hub.md)
-- [共通ログイン（旧メディア）](services/sso.md)（**新しい認証基盤とは別物**）
 
 ## 作業別
 

@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent
-GENERATED_SECRETS = ('grafana_admin_password', 'nut_password')
+GENERATED_SECRETS = ('grafana_admin_password', 'nut_password', 'peanut_web_password')
 # The Proxmox read-only token is copied from SOPS by the Ansible role.
 PVE_TOKEN = 'pve_token'
 OIDC_SECRET = 'oidc_client.json'
@@ -52,7 +52,8 @@ def compose(*args, locked=True, **kwargs):
     env = dict(os.environ,
                GRAFANA_ADMIN_PASSWORD=secret('grafana_admin_password'),
                GRAFANA_OIDC_CLIENT_SECRET=oidc_client_secret(),
-               NUT_PASSWORD=secret('nut_password'))
+               NUT_PASSWORD=secret('nut_password'),
+               PEANUT_WEB_PASSWORD=secret('peanut_web_password'))
     return run(cmd + list(args), env=env, **kwargs)
 
 
@@ -78,6 +79,30 @@ def render_pve_config():
         f'  token_value: {token}\n'
         '  verify_ssl: false\n')
     (target / 'pve.yml').chmod(0o600)
+
+
+def render_peanut_config():
+    """Write PeaNUT's settings.yml with the NUT server and credentials.
+
+    PeaNUT is configured through /config/settings.yml. The container runs as
+    UID 1000, so the directory and file are owned by that user.
+    """
+    values = settings()
+    nut_password = secret('nut_password')
+    if not nut_password:
+        raise SystemExit('secrets/nut_password is missing; run manage.py init first')
+    target = storage() / 'peanut'
+    target.mkdir(parents=True, exist_ok=True)
+    os.chown(target, 1000, 1000)
+    path = target / 'settings.yml'
+    path.write_text(
+        'NUT_SERVERS:\n'
+        f"  - HOST: {values.get('NUT_SERVER', '192.168.10.126')}\n"
+        '    PORT: 3493\n'
+        f"    USERNAME: {values.get('NUT_USERNAME', 'monitor')}\n"
+        f'    PASSWORD: {nut_password}\n')
+    os.chown(path, 1000, 1000)
+    path.chmod(0o600)
 
 
 def render_alertmanager_config():
@@ -107,7 +132,7 @@ def init():
         shutil.copyfile(ROOT / '.env.example', ROOT / '.env')
         changed = True
     (ROOT / '.env').chmod(0o600)
-    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter'):
+    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter', 'peanut'):
         path = storage() / name
         if not path.exists():
             path.mkdir(parents=True, mode=0o750)
@@ -193,6 +218,7 @@ def main():
         init()
         render_pve_config()
         render_alertmanager_config()
+        render_peanut_config()
     elif args.action == 'lock':
         lock(args.refresh_images)
     elif args.action == 'up':
@@ -200,6 +226,7 @@ def main():
             raise SystemExit('Run lock first')
         render_pve_config()
         render_alertmanager_config()
+        render_peanut_config()
         compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300')
     elif args.action == 'reload':
         # Prometheus と Alertmanager は設定を起動時にしか読まない。
@@ -208,6 +235,7 @@ def main():
         compose('restart', 'prometheus', 'alertmanager')
     elif args.action == 'restart':
         # 保存先の所有権を直したときなど、設定は同じでもコンテナを作り直す。
+        render_peanut_config()
         compose('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '300')
     elif args.action == 'status':
         compose('ps')

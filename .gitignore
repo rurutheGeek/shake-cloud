@@ -20,6 +20,7 @@ platform/ansible/netbox.env
 platform/awx/controller.yml
 platform/awx/context/
 
+stacks/docs/site/
 stacks/hub/site/
 stacks/hub/oidc-secrets.json
 stacks/hub/compose.smtp.yaml

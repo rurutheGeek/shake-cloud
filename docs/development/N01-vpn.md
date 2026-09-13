@@ -4,7 +4,7 @@
 
 ## 目的・現状・配備先
 
-普段の宅外接続をセルフホストVPNで提供する。配備先は **services-01内の独立Compose**。VPN専用VMは追加しない。[VPN比較](../architecture/vpn.md)はNetBirdを第一検証候補としているが、回線・ルータの外部到達と認証入口は未確認。[SSO](../services/sso.md)と既存identityを再利用し、別の認証基盤は作らない。
+普段の宅外接続をセルフホストVPNで提供する。配備先は **services-01内の独立Compose**。VPN専用VMは追加しない。[VPN比較](../architecture/vpn.md)はNetBirdを第一検証候補としているが、回線・ルータの外部到達と認証入口は未確認。[identity](../operations/identity.md)を再利用し、別の認証基盤は作らない。
 
 ## 変更範囲と実装
 

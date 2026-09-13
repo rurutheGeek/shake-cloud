@@ -72,7 +72,7 @@
 
 2026-09-11 に **VMを作り直さず**、`cloud` プールへ移してクラウドAPIの管理下へ入れ、`shunyazhiyuan97` のインスタンスとして引き取りました。ACLは `/pool/cloud` に付いていてVMIDには付いていないので、プールへ入れるだけで `cloudapi@pve` の到達範囲に入ります。詳細は[最小クラウドとProvider](../architecture/cloud.md)の「既にあるVMをクラウド管理下へ移す」と、この文書の 3-15。
 
-**`public-edge` は VMID 100 を使いません。** 配備台帳のとおり、公開要件が揃ったら API の通常採番（5000–5999）で新規cloud VMとして追加します（[配備台帳の未決事項](handover.md#7-未決事項と後回しにしたこと)）。
+**`public-edge` は VMID 100 を使いません。** 配備台帳のとおり、公開要件が揃ったら API の通常採番（5000–5999）で新規cloud VMとして追加します（[配備台帳](handover.md)の「未決事項と後回しにしたこと」）。
 
 ### イメージ置き場の容量に注意
 
@@ -211,7 +211,7 @@ NetBox は 2026-09-10 から **LAN に公開**しています（`http://192.168.
 
 ### 3-7. 共通ログイン（Authentik）
 
-identity VM に Authentik を**新しく**建てました。作業機上の `stacks/hub` は検証用なので移行していません。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・Navidrome・MeTube・Picard）は、この新しい Authentik の OIDC / Forward Auth を使います。** 旧 `stacks/hub` は旧環境（データ移行元）です。
+identity VM の Authentik が共通ログインを担います。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・Navidrome・MeTube・Picard）は、この Authentik の OIDC / Forward Auth を使います。**
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
@@ -275,7 +275,7 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 | アクセスキーで `POST /v1/access-keys` | 403 `UnauthorizedOperation` |
 | 秘密値だけ違うキー | 401。監査ログに `AuthFailure`（`secret_mismatch`） |
 | 資格情報なし／クロスサイトの POST | 401／403 `CrossOriginRequestBlocked` |
-| ブラウザで Authentik にログインする | **未確認。**パスワード入力が要るので人が行う |
+| ブラウザで Authentik にログインする | 2026-09-10 に `akadmin` で確認済み。監査ログに `CompleteLogin`（アカウント作成、管理者）が残った（[配備台帳](handover.md) Phase 1） |
 
 初回の失敗: PostgreSQL 18 のイメージは、postgres ユーザー（uid 70）になってから `<マウント先>/18/docker` を作ります。マウント元が root 所有の 0700 だと入れず、`mkdir: can't create directory '/var/lib/postgresql/18/'` で再起動を繰り返しました。`manage.py init` がマウント元を uid 70 にするよう直しました。
 

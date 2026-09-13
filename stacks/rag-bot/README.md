@@ -10,7 +10,7 @@
 
 ## 再利用するもの
 
-[AIの配置・権限方針](../../docs/architecture/operations.md)が既存設計。汎用RAG・Bot・Ollamaの配備実装はこのリポジトリには未収録。ポケモンAIの外部コードはA01で取得確認し、共通化できる箇所だけを参照する。
+[AIの配置・権限方針](../../docs/architecture/operations.md)が既存設計。汎用RAG・Botの配備実装はこのリポジトリには未収録。共用Ollamaは[`stacks/pokemon-ai/ollama/`](../pokemon-ai/ollama/README.md)に実装済み（game1実機確認は未実施）。ポケモンAIの外部コードはA01で取得確認し、共通化できる箇所だけを参照する。
 
 ## 実装時の境界
 

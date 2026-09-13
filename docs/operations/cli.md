@@ -96,7 +96,7 @@ shakecloud function rm fn-...
 
 ## 4. 実装の形
 
-- `cloud/client` … APIの型付きクライアント。`Authorization: Bearer sca_...`。エラーは `*client.APIError`（`code`・`message`・`request_id`）として返します。Terraform Provider もこれを使う予定です。
+- `cloud/client` … APIの型付きクライアント。`Authorization: Bearer sca_...`。エラーは `*client.APIError`（`code`・`message`・`request_id`）として返します。Terraform Provider もこれを使っています。
 - `cloud/cli` … コマンド。`flag`（標準ライブラリ）でサブコマンドを捌き、表は `text/tabwriter` で出します。設定ファイルは持ちません。
 
 **ワイヤ互換（SigV4、本物の `aws` CLI）ではありません。** 語彙と状態遷移を EC2 に揃えた自作 API です（[最小クラウドとProvider](../architecture/cloud.md)）。

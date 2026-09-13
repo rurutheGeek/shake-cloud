@@ -108,3 +108,17 @@ services:
       - --nut.vars_enable=battery.charge,battery.runtime,ups.status,ups.load,input.voltage,output.voltage
     ports:
       - '${BIND_ADDRESS:-127.0.0.1}:9199:9199'
+
+  # HomarrのUPSウィジェットはNUTを直接読めず、PeaNUT（NUTのRESTラッパー）を経由する。
+  peanut:
+    image: ${PEANUT_IMAGE:-brandawg93/peanut}:${PEANUT_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      WEB_PORT: '8080'
+      WEB_USERNAME: ${PEANUT_WEB_USERNAME:-admin}
+      WEB_PASSWORD: ${PEANUT_WEB_PASSWORD:?run manage.py up}
+    volumes:
+      # settings.yml（NUTサーバーと資格情報）は manage.py が描画する。
+      - ${STORAGE_ROOT:-./storage}/peanut:/config
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:8080:8080'

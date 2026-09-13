@@ -100,6 +100,14 @@
   register: monitoring_pve_token
   no_log: true
 
+- name: Install the PeaNUT web password
+  ansible.builtin.copy:
+    content: '{{ (monitoring_secrets.stdout | from_json).PEANUT_WEB_PASSWORD }}'
+    dest: '{{ monitoring_project_dir }}/secrets/peanut_web_password'
+    mode: '0400'
+  register: monitoring_peanut_password
+  no_log: true
+
 - name: Install the NUT monitor password
   ansible.builtin.copy:
     content: '{{ (monitoring_secrets.stdout | from_json).NUT_MONITOR_PASSWORD }}'

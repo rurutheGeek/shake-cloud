@@ -1,6 +1,6 @@
 # 電源と UPS
 
-更新日: 2026-09-13。状態: **手順書。実機はまだ UPS 経由にしていない。**
+更新日: 2026-09-13。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の状態取得は NUT で配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`、読み取り専用）。K11 の電源を UPS のバッテリー側へ入れる作業と、低電池時の自動シャットダウン（upsmon）は未実施。**
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 
@@ -91,14 +91,14 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 
 ## 停電で自動停止させる（任意・推奨）
 
-UPS を USB でホストにつなぎ、**NUT**（Network UPS Tools）で監視すると、バッテリー低下時に自動で `shutdown -h now` をかけられます。手順の骨子:
+**NUT の読み取り（`upsd` と読み取り専用ユーザー）は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.126:3493` を読んで Grafana に出します（M01）。低電池時に自動で落とす `upsmon` はまだ有効にしていません。
 
-1. `apt install nut nut-server nut-client`、`nut-scanner -U` で UPS を見つける。
-2. `/etc/nut/ups.conf` にドライバとポート、`/etc/nut/upsd.conf`、`/etc/nut/upsd.users` に監視ユーザーを書く。
-3. `/etc/nut/nut.conf` を `MODE=standalone`、`/etc/nut/upsmon.conf` に
+**残りの作業（低電池での自動シャットダウン）の骨子:**
+
+1. `nut-client`（`upsmon`）を入れ、`/etc/nut/upsmon.conf` に
    `MONITOR <ups>@localhost 1 <user> <pass> master` と
    `SHUTDOWNCMD "/sbin/shutdown -h +0"`、`MINSUPPLIES 1`、`FINALDELAY 5` を書く。
-4. `systemctl enable --now nut-server nut-client` と `upsc <ups>` で確認。
+2. `systemctl enable --now nut-monitor` と `upsc <ups>` で確認。
 
 あわせて **BIOS の "Restore on AC Power Loss" を Power On** にすると、復電後に自動で起動します。VM の起動順は `hosts.yaml` の `on_boot` と Proxmox の Startup order で決めます。
 

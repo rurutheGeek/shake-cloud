@@ -1,6 +1,6 @@
 # Flux にアプリを足す手順
 
-更新日: 2026-09-12。`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
+更新日: 2026-09-13。`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
 
 ## 決まり
 

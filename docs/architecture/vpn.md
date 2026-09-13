@@ -26,7 +26,7 @@ OSの対応だけでなく、実際の端末のOS版・CPU・アプリ配布方�
 
 スマホのHome Assistant・Nextcloud・Bitwarden・Moonlightをまとめてつなぐ日常用VPNには、現時点ではNetBird／Tailscale系の端末アプリを優先する。Tailcatのブラウザーデモはスマホ用の全端末VPNアプリと同義ではなく、デモの通信はDERP中継である。通常は外部DERPを利用し、自前DERPも選べるため「管理サーバー不要＝外部中継も不要」ではない。CLI/API安定性の保証もないため、版を固定して必要時だけ試す。[Tailcat公式](https://github.com/tailscale/tailcat)
 
-Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Git・ハブに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
+Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Gitに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
 
 ## K11とラズパイの配置
 
@@ -53,7 +53,7 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 
 ## Authentik連携と外部到達
 
-通常のVPN利用者もAuthentik招待を入口にする。NetBirdでは公式のAuthentik連携を使い、VPN利用許可グループ・端末承認・アクセス先を別途設定する。`media-users`に入っただけでProxmoxやDBへ管理アクセスを与えない。NetBirdのローカル管理者は復旧用とし、一般利用者の別台帳を増やさない。[NetBirdとAuthentik](https://docs.netbird.io/selfhosted/identity-providers/authentik)
+通常のVPN利用者もAuthentik招待を入口にする。NetBirdでは公式のAuthentik連携を使い、VPN利用許可グループ・端末承認・アクセス先を別途設定する。`users`に入っただけでProxmoxやDBへ管理アクセスを与えない。NetBirdのローカル管理者は復旧用とし、一般利用者の別台帳を増やさない。[NetBirdとAuthentik](https://docs.netbird.io/selfhosted/identity-providers/authentik)
 
 **初回VPN接続に必要な管理サーバーとAuthentikが、そのVPNに接続しないと開けない構成は避ける。** 宅外で新規接続・再認証できるように、限定したHTTPS認証入口を外部到達可能にするか、登録・再認証を宅内LAN／予備Tailscaleで行う運用を明記する。前者を採るなら、既存の「内部WebはVPNのみ」方針に対する明示的な例外として設計・確認してから公開する。
 

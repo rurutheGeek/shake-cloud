@@ -1,60 +1,45 @@
 # Shake Lab Docs
 
-本・音楽・ファイル・パスワード・予定・TODOを、一つの入口から開けます。
+本・音楽・ファイル・パスワード・家電を、家庭内LANの一つの入口から開けます。
 
-普段の操作は[利用者向け：全サービスの使い方](services/usage.md)から始めてください。管理者向けの設定やサーバー作業は、目次の[管理者向け]から選びます。**すべての接続先は[接続先一覧](operations/urls.md)にまとめています。**
+普段の操作は[利用者向け：全サービスの使い方](services/usage.md)から始めてください。管理者向けの設定やサーバー作業は[運用ドキュメント](overview.md)から選びます。**すべての接続先は[接続先一覧](operations/urls.md)にまとめています。**
 
-## 新しい基盤（`*.apextox.dpdns.org`・LAN 内）
+## 主なサービス（`*.apextox.dpdns.org`・家庭内LANから）
 
 | サービス | 開く | 用途 |
 | --- | --- | --- |
-| Homarr | <https://homarr.apextox.dpdns.org> | サービス一覧の入口（閲覧は全員、編集は管理者） |
-| Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理 |
-| プリンター | <https://cups.apextox.dpdns.org> | 印刷の状況（印刷自体はAirPrintかIPP） |
-| Home Assistant | <https://ha.apextox.dpdns.org> | 家電の状態確認・操作・自動化（[使い方](services/home-assistant.md)） |
-| ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口 |
-| クラウド | <https://cloud.apextox.dpdns.org> | VM・S3・DB・関数のポータル |
+| Homarr | <https://homarr.apextox.dpdns.org> | サービス一覧の入口（閲覧は全員、編集は `admins`） |
+| クラウド | <https://cloud.apextox.dpdns.org> | VM・S3・DB・関数のポータルとAPI |
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（招待・パスキー・復旧） |
-| AWX | <https://awx.apextox.dpdns.org> | Ansible の実行基盤 |
+| Nextcloud | <https://nextcloud.apextox.dpdns.org> | ファイル・共有・予定（Calendar）・TODO（Tasks） |
+| Kavita | <https://kavita.apextox.dpdns.org> | PDF・電子書籍 |
+| Navidrome | <https://navidrome.apextox.dpdns.org> | 音楽再生 |
+| Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理 |
+| Home Assistant | <https://ha.apextox.dpdns.org> | 家電の状態確認・操作・自動化（[使い方](services/home-assistant.md)） |
+| プリンター | <https://cups.apextox.dpdns.org> | 印刷の状況（[使い方](services/printer.md)） |
+| Grafana | <https://grafana.apextox.dpdns.org> | 監視（稼働・資源・UPS） |
+| AWX | <https://awx.apextox.dpdns.org> | Ansible の実行基盤（Kubernetes） |
 | NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM） |
-| ドキュメント | <https://docs.apextox.dpdns.org> | このサイト |
+| Shake Lab Docs | <https://docs.apextox.dpdns.org> | このサイト |
 
-**これらは家庭内 LAN からのみ届きます。** メディア系（Nextcloud・Kavita・Navidrome・
-MeTube）は media-01 へ移行中で、新しい入口（`*.apextox.dpdns.org`・新しい共通ログイン）と、
-下の旧メディアスタック（SSH トンネル経由・別の Authentik）が併存しています。
-**いま使う入口は[接続先一覧](operations/urls.md)で確認してください。**
-
-## 旧メディアスタック（SSH トンネル）
-
-| サービス | 開く | 用途 |
-| --- | --- | --- |
-| Nextcloud | [ファイル](https://nextcloud.localhost:8443) | ファイルと共有 |
-| Calendar | Nextcloud内 | 予定・共有カレンダー |
-| Tasks | Nextcloud内 | 個人・共有タスク |
-| Kavita | [書籍](https://kavita.localhost:5443) | PDF・電子書籍 |
-| Navidrome | [音楽](http://localhost:4533) | 音楽再生 |
-| MeTube | [音声取り込み](http://localhost:8081) | URLからMP3を音楽フォルダへ |
-| お気に入りの曲 | [曲のハート一覧](http://localhost:4533/app/#/song?filter=%7B%22starred%22%3Atrue%7D) | アルバムのFavouritesとは別 |
-| Vaultwarden | [保管庫](https://vault.localhost:8243) | パスワード管理 |
-| Authentik | ログイン時に表示 | 共通ログイン。アカウント管理は管理者向け |
-
-これらはSSHトンネル接続時のURLです。接続できない場合は管理者へ連絡してください。[接続手順](operations/hub.md)は管理者向けです。
+**これらは家庭内LANからのみ届きます。** ログインが必要なサービスは、共通ログイン（Authentik）のアカウントを使います。アカウントが無い場合は管理者に招待を依頼してください。
 
 ## 最初に使う
 
-- 本: Nextcloudのbooks内に作品フォルダを作り、その中へPDFを置きます。Kavitaへの自動反映は約10分、即時反映はScanです。
-- 音楽: Nextcloudのmusicへ追加します。Navidromeは定期スキャンで取り込みます。
-- 予定: NextcloudのCalendarでカレンダーを作り、必要な相手に共有します。
-- TODO: Tasksでリストを作り、タスクを追加します。
-- 家電: Home Assistant（<https://ha.apextox.dpdns.org>）で状態を見たり操作します。詳細は[Home Assistantと家電の使い方](services/home-assistant.md)。
-- パスワード: Vaultwardenの招待を受け、自分だけが知るマスターパスワードで登録します。
+- ファイル: Nextcloudに保存・共有します。予定は Calendar、TODO は Tasks です（[Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md)）。
+- 本: Nextcloudの `books` に作品フォルダを作り、PDFを入れます。Kavitaが変更を検知して取り込みます。即時反映はKavitaのScanです。
+- 音楽: Nextcloudの `music` に追加します。Navidromeが定期スキャンで取り込みます。
+- パスワード: Vaultwardenの招待を受け、自分だけが知るマスターパスワードを設定します。
+- 家電: Home Assistantで状態を見たり操作します（[使い方](services/home-assistant.md)）。
+- 印刷: 端末から直接（AirPrint / IPP）か、Nextcloudの「…」→「印刷」を使います（[プリンター](services/printer.md)）。
+- 端末からファイルを送る: LocalSendでmedia-01へ送ると、Nextcloudの `inbox` に届きます（接続先は[接続先一覧](operations/urls.md)）。
 
-[音楽の取り込み・タグ編集・BCSTM](services/music.md)も参照してください。日常の操作は[全サービスの使い方](services/usage.md)にまとめています。
+日常の操作は[全サービスの使い方](services/usage.md)、音楽の取り込み・タグ編集は[音楽の取り込み・タグ編集・BCSTM](services/music.md)にまとめています。
 
-## 将来の構成案
+## 基盤と開発
 
-[ホームラボ／最小プライベートクラウド構成案](architecture/index.md)では、Proxmox・常用Kubernetes・VM／サーバレス／S3／DBの提供、2人用ゲーム、VPNと公開Web、認証、Git管理を整理しています。稼働中サービスの操作手順とは別の設計資料です。
-
-機能ごとの開発・移行・資料修正は[並列開発計画](development/index.md)から選べます。VMの配置計画と実機の状態は区別して記録しています。
-
-開発へ参加する場合は[開発参加ガイド](onboarding.md)を先に読んでください。
+- クラウド（VM・S3・DB・関数）を使う: [クラウドの使い方](services/cloud.md)・[shakecloud CLI](operations/cli.md)・[Terraform Provider](operations/terraform-provider.md)
+- 新しいサービスを載せる/VMを作る: [サービスの置き場所とクラウドVMでの作り方](operations/services.md)
+- 実機の状態・残りの作業: [配備台帳](operations/handover.md)（進捗の正本）
+- 基盤の設計: [ホームラボ／最小プライベートクラウド構成案](architecture/index.md)・[IaCの所有境界](architecture/iac.md)
+- 開発に参加する: [開発参加ガイド](onboarding.md)・[並列開発計画](development/index.md)
