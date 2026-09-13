@@ -187,7 +187,7 @@ class PlaybookTests(unittest.TestCase):
 
     def test_the_default_is_still_every_service(self):
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'picard', 'convert'])
+                         ['metube', 'picard', 'convert', 'tag-api'])
 
     def test_picard_alone_can_be_selected(self):
         argv = self.tasks['Deploy selected music tools']['ansible.builtin.command']['argv']
@@ -198,7 +198,9 @@ class PlaybookTests(unittest.TestCase):
         content = self.tasks['Configure environment']['ansible.builtin.copy']['content']
         self.assertIn('LIBRARY_ROOT={{ library_root }}', content)
         self.assertIn('TZ={{ music_tools_tz }}', content)
-        self.assertIn('PICARD_PORT={{ music_tools_picard_port }}', content)
+        # picard と tag-api は選択時にだけ環境変数を出す。
+        self.assertIn("PICARD_PORT=' ~ music_tools_picard_port", content)
+        self.assertIn("TAG_API_PORT=' ~ music_tools_tag_port", content)
 
     def test_the_sync_timer_is_on_by_default_and_can_be_disabled(self):
         self.assertIs(self.vars['music_tools_sync_enabled'], True)
