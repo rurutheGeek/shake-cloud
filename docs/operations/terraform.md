@@ -1,6 +1,6 @@
 # Terraformの実行手順
 
-更新日: 2026-09-12。状態: **00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み**。Terraform CLI は `.terraform-version`（1.15.8）に固定。
+更新日: 2026-09-13。状態: **00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み**。Terraform CLI は `.terraform-version`（1.15.8）に固定。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
@@ -123,11 +123,7 @@ tools/tf 05-seed      apply    # stateの保管先 ＋ Proxmox の terraform@pve
 tools/tf 10-platform  plan     # 上記 ＋ NetBox
 ```
 
-`10-platform` はNetBoxへ到達する必要があります。NetBoxは `services-01` のlocalhostにしか出ていないので、SSHポート転送を張ってから実行します。
-
-```bash
-ssh -N -L 8001:127.0.0.1:8000 debian@<services-01のIP>
-```
+`10-platform` はNetBoxへ到達する必要があります。NetBox は 2026-09-10 から **LAN に公開済み**（`http://192.168.10.200:8000`）なので、SSHポート転送は要りません。
 
 ### サービスVM（services/*）のstate
 
@@ -135,7 +131,7 @@ ssh -N -L 8001:127.0.0.1:8000 debian@<services-01のIP>
 
 資格情報は `tools/tf` の `services/*` 分岐が渡します。**渡すのはstateのS3資格情報（`platform/sops/s3.sops.yaml`）とshakecloudのアクセスキーだけです。Proxmox・NetBoxの資格情報は、呼び出し元の環境に残っていても取り除きます。**
 
-アクセスキーはポータルで発行します（1アカウント5本まで。表示は一度だけ）。`platform/sops/services.sops.yaml` に保存し、`tools/tf` が復号して渡します。**ファイルが無い間は、呼び出し元が`export`した`SHAKECLOUD_ACCESS_KEY`で動きます**（移行用）。
+アクセスキーはポータルで発行します（1アカウント5本まで。表示は一度だけ）。`platform/sops/services.sops.yaml` に保存し、`tools/tf` が復号して渡します。**ファイルが無い間は、呼び出し元が`export`した`SHAKECLOUD_ACCESS_KEY`で動きます**（移行用）。`services.sops.yaml` は作成済みです（2026-09-13時点。キーの有効性・権限は未確認）。
 
 ```bash
 cp platform/sops/services.sops.yaml.example platform/sops/services.sops.yaml

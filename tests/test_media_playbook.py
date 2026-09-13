@@ -1,6 +1,6 @@
 """Guard the single media-01 entry point and the post-deploy verification.
 
-media.yml is what makes the four independently developed units (W03-W06)
+media.yml is what makes the five independently developed units (W03-W06・LocalSend)
 reproducible in one run; media-verify.yml is what turns "deployed" from a
 memory into a check. These are source-text and YAML assertions in the same
 spirit as test_media_nextcloud.py. The only thing executed is
@@ -20,8 +20,8 @@ ANSIBLE = ROOT / 'platform/ansible'
 ENTRY = ANSIBLE / 'media.yml'
 VERIFY = ANSIBLE / 'media-verify.yml'
 GROUP_VARS = ANSIBLE / 'group_vars/media.yml'
-UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-navidrome.yml',
-                  'music-tools.yml']
+UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-localsend.yml',
+                  'media-navidrome.yml', 'music-tools.yml']
 COMPOSE_FILES = {
     'nextcloud': ROOT / 'stacks/media/nextcloud/compose.yaml',
     'kavita': ROOT / 'stacks/media/kavita/compose.yaml',
@@ -52,14 +52,14 @@ class EntryPointTests(unittest.TestCase):
         self.imports = [entry['import_playbook'] for entry in yaml.safe_load(self.text)
                         if isinstance(entry, dict) and 'import_playbook' in entry]
 
-    def test_the_base_then_the_four_units_run_in_order(self):
+    def test_the_base_then_the_five_units_run_in_order(self):
         self.assertEqual(self.imports[0], 'media-base.yml')
-        self.assertEqual(self.imports[1:5], UNIT_PLAYBOOKS)
+        self.assertEqual(self.imports[1:6], UNIT_PLAYBOOKS)
 
     def test_verification_and_the_https_entrypoint_run_last(self):
         self.assertEqual(self.imports[-2:], ['media-verify.yml', 'media-tls.yml'])
 
-    def test_only_the_base_the_four_units_the_verifier_and_tls_are_imported(self):
+    def test_only_the_base_the_units_the_verifier_and_tls_are_imported(self):
         self.assertEqual(self.imports,
                          ['media-base.yml'] + UNIT_PLAYBOOKS + ['media-verify.yml', 'media-tls.yml'])
 

@@ -1,0 +1,17 @@
+PVE_TOKEN_VALUE: ENC[AES256_GCM,data:IPgBFrtSSEqQKkjncbxjgRgIIxs252WMD+zhwu2GwyHwBhhZ,iv:+udHDcdH3fJTwbALSaOhaWSfxhrfN0abCSQ48hdEmcQ=,tag:8449XJkyO9ei7yGykgtlmg==,type:str]
+NUT_MONITOR_PASSWORD: ENC[AES256_GCM,data:gLGAsjlFBRuJ7PD7UmhmcYnSeuv53kWCCD394AnF1Ew=,iv:PgILURrby3CzNrg5GqxRkCrvNepdt1Br12Or/pftVhg=,tag:BMFrawOQkXTBic0Prtkb2Q==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAvVy9RSDNhbzBrc0cyYlh3
+            K002UjY2SEhHZmVJSzhVYW1kRVJXd2NqYXh3CmI2YkQ1YWpTbWpMaHJKVkpFVjlU
+            SXF6Y2hNM295M3YzSzlNT2tIdjlmcmcKLS0tIFJJeFlZTHRWOWVxNkIyL2RkaE53
+            cnE1Z3VIMHBRTmplM0pWYTM3Z3FzSm8K0fEsy8kdaWtBibv7U1WcECZW63Cs8zrq
+            nc6JZ5i/IfIb3T9o9R80vgLIBlbIz3W5WMF1EAldeFpoAIrL+kMkOQ==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h
+    lastmodified: "2026-09-13T06:46:46Z"
+    mac: ENC[AES256_GCM,data:RxdqrtLBwEZzwD9zdjFz7Q2gM7C/wOpQUPEMRDV5LPCeAhOhzbjHIQkf2T6xAYy821wXTZBVSR2npA/bj8jWM72m3k1F/yx8Q1K2bGTtdxn08vwBRP+5bBiUwNu6HKDglSHnR54qwFfQ8ZU4yKmZTysdu8m35xRY8+wXktaEXTU=,iv:mqJZhvXCCU1sR3mTwrfQAYK4IOVOJYBEGw1WpGsPaCI=,tag:K6ygyjP302/pxpKO4cUMDQ==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.13.3

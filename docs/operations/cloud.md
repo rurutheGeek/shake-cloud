@@ -1,6 +1,6 @@
 # クラウドAPIの構築
 
-更新日: 2026-09-11。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）**。
+更新日: 2026-09-13。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）。database（3-20）・function（3-21）も実機で確認済み**。
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -47,20 +47,20 @@
 
 ロール（`TerraformAdmin` / `TerraformStorage` / `TerraformNetwork` / `DevVMOperator` / `CloudApiOperator`）と `terraform@pve` のACLが実機に存在します。複数の文書にある「実機への適用は未実施」は**古い記述**です。
 
-`cloudapi@pve` は未作成で、`CloudApiOperator` は**未割り当て**のまま、権限も `TerraformAdmin` と同一の古い定義です。次の apply でここが置き換わります。
+`cloudapi@pve` はこの実測の時点では未作成で、`CloudApiOperator` も未割り当てでした。**その後 3-3・3-4 で作成・トークン投入済みで、`CloudApiOperator` も適用済みです**（§4 のプローブが 6/6 PASS、3-14 で実測）。
 
-### 食い違い2: 開発VMのメモリ（解決済み・台帳を実機へ合わせた）
+### 食い違い2: 開発VMのメモリ（解決済み。I01 の軽量化で6GiBへ）
 
-`dev-a` / `dev-b` は実機が 8192 MiB（balloon 1024）で、`hosts.yaml` の宣言は `small` = 2048 MiB でした。**手で広げたものが正**なので、台帳を実機へ合わせました。
+2026-09-10 時点では、`dev-a` / `dev-b` は実機が 8192 MiB（balloon 1024）で、`hosts.yaml` の宣言は `small` = 2048 MiB でした。**手で広げたものが正**として台帳を実機へ合わせました。その後 2026-09-12 の I01（資源の実測と軽量化）で、実機・宣言とも **6144 MiB（下限 2048）** になっています。
 
 ```yaml
   dev-a:
     flavor: small
-    memory_mib: 8192        # flavor の既定を上書き
-    memory_min_mib: 1024
+    memory_mib: 6144        # I01（2026-09-12）の実測に合わせる。flavor の既定を上書き
+    memory_min_mib: 2048
 ```
 
-`flavor` はサイズの既定で、`hosts.yaml` が台ごとに上書きできます。手で広げた基盤VMを台帳が縮めに行かないための逃げ道で、利用者向けの語彙（flavor）は歪めません。
+`flavor` はサイズの既定で、`hosts.yaml` が台ごとに上書きできます。手で広げた基盤VMを台帳が縮めに行かないための逃げ道で、利用者向けの語彙（flavor）は歪めません。I01 の実測は[配分と運用設計](../architecture/operations.md#measured-budget)にあります。
 
 あわせて**メモリはバルーニングを既定**にしました（`flavors.yaml` の各サイズに `memory_min_mib` を追加）。`probe-01` は balloon が 0 なので、次の apply で下限 512 が付く差分が出ます。無害ですが差分としては出ます。
 
@@ -72,7 +72,7 @@
 
 2026-09-11 に **VMを作り直さず**、`cloud` プールへ移してクラウドAPIの管理下へ入れ、`shunyazhiyuan97` のインスタンスとして引き取りました。ACLは `/pool/cloud` に付いていてVMIDには付いていないので、プールへ入れるだけで `cloudapi@pve` の到達範囲に入ります。詳細は[最小クラウドとProvider](../architecture/cloud.md)の「既にあるVMをクラウド管理下へ移す」と、この文書の 3-15。
 
-**配備台帳は VMID 100 を `public-edge` と計画しているので、そちらへ別のVMIDを割り当ててください。**
+**`public-edge` は VMID 100 を使いません。** 配備台帳のとおり、公開要件が揃ったら API の通常採番（5000–5999）で新規cloud VMとして追加します（[配備台帳の未決事項](handover.md#7-未決事項と後回しにしたこと)）。
 
 ### イメージ置き場の容量に注意
 
@@ -211,7 +211,7 @@ NetBox は 2026-09-10 から **LAN に公開**しています（`http://192.168.
 
 ### 3-7. 共通ログイン（Authentik）
 
-identity VM に Authentik を**新しく**建てました。作業機上の `stacks/hub` は検証用なので移行していません。メディア系サービスは今もそちらを使います。
+identity VM に Authentik を**新しく**建てました。作業機上の `stacks/hub` は検証用なので移行していません。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・Navidrome・MeTube・Picard）は、この新しい Authentik の OIDC / Forward Auth を使います。** 旧 `stacks/hub` は旧環境（データ移行元）です。
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
@@ -247,7 +247,7 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 
 | 入口 | 中身 |
 | --- | --- |
-| `https://cloud.apextox.dpdns.org/` | Phase 1 の最小ページ。Authentik でログインし、アクセスキーの発行・削除と操作履歴の閲覧ができる。Phase 5 でセルフサービスポータルに置き換える |
+| `https://cloud.apextox.dpdns.org/` | セルフサービスポータル。Authentik でログインし、VM・ボリューム・SG・イメージ・SSH鍵・S3バケット・database・function・容量・上限・操作履歴を扱える（Phase 5 で完成） |
 | `https://cloud.apextox.dpdns.org/v1/…` | JSON API。正本は `cloud/openapi/shakecloud.yaml`。Go のルート表と食い違うとテストが落ちる |
 | `https://cloud.apextox.dpdns.org/healthz` | 管理DBに届くか。**Authentik は見ない**（Authentik が止まっていても API は正常） |
 
@@ -360,7 +360,7 @@ LAN の中の管理画面に `*.apextox.dpdns.org` の名前を付け、Let's En
 tools/tf 20-dns apply
 ```
 
-そのあと、そのホストの playbook を流すと Caddy が名前を受けるようになります。identity は `identity.yml`、cloud-01 は `cloud.yml`、services-01 は `netbox.yml` か `docs-site.yml` です。**services-01 の2つは静的インベントリ `platform/ansible/seed.ini` で流します**（NetBox の動的インベントリに services-01 は居ません。動的インベントリで流すと何もせずに成功したように終わります）。
+そのあと、そのホストの playbook を流すと Caddy が名前を受けるようになります。identity は `identity.yml`、cloud-01 は `cloud.yml`、services-01 は `netbox.yml`・`docs-site.yml`・`home-assistant.yml`・`vaultwarden.yml`・`cups.yml` など、media-01 は `media.yml` です。**services-01 のものは静的インベントリ `platform/ansible/seed.ini` で流します**（NetBox の動的インベントリに services-01 は居ません。動的インベントリで流すと何もせずに成功したように終わります）。
 
 Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops.yaml` にあり、**ゾーンの読み取りと DNS の編集**の2つの権限が要ります。テンプレート「ゾーン DNS を編集する」で作れば、両方が付きます。
 
@@ -692,7 +692,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" https://cloud.ape
 再実行するときは §4 のプローブと §9 のインスタンス検証に加え、`tools/verify-volumes.py` を使ってください。このスクリプトは、使い捨てインスタンスを作り、**実際にポートが遮断・許可されるか**（ルールの見た目ではなく）まで見てから、ボリュームの attach/detach と後片付けを確認します。判定は `tests/test_verify_volumes.py` が実機なしで検査します。
 
 ```bash
-export SHAKECLOUD_ACCESS_KEY=$(ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key)
+export SHAKECLOUD_ACCESS_KEY='sca_...'   # ポータルで発行したアクセスキー（ブートストラップ管理キーは無効化済み）
 sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 ```
 
@@ -920,8 +920,8 @@ Proxmox は `192.168.10.126`、NATの内側で、外から届かせる方法は�
 
 | 案 | 状態 |
 | --- | --- |
-| セルフホストのGitHub Actionsランナー | `cloud-01` に同居できる。ただし cloud-01 自体が未作成 |
-| AWX | [配備台帳](../architecture/operations.md)で既に「Ansibleの実行基盤」として計画済み。ただしKubernetes前提で、クラスタが未構築 |
+| セルフホストのGitHub Actionsランナー | `cloud-01` に同居できる（cloud-01 は稼働中）。ただしランナーは未構築 |
+| AWX | **配備済み（2026-09-12）**: `https://awx.apextox.dpdns.org`。ジョブテンプレート・プロジェクトの整備はこれから（[AWXの使い方](awx.md)） |
 | `cloud-01` 上のpull型エージェント | 一番軽い。`git pull` して `tools/tf plan` を定期実行し、適用は承認制にする |
 
 ### 最初の実行主体は人が作る
@@ -933,7 +933,7 @@ Proxmox は `192.168.10.126`、NATの内側で、外から届かせる方法は�
 `.sops.yaml` は**カンマ区切りで複数の受信者**を取れるようにしてあります。ただし今すぐ足すものはありません。
 
 - **2人目の鍵**は、その人が自分で作って公開鍵を渡すものです。他人の身元を代わりに作ることはできません。
-- **無人実行用の鍵**は、その秘密鍵を置く場所（`cloud-01`）がまだ無いので、いま作っても保管先がありません。作るのは cloud-01 ができてからです。
+- **無人実行用の鍵**は、保管先の cloud-01 ができたので、必要になったら作れます（まだ作っていません）。
 
 **いま効くのは1つだけです。** 現在 `platform/sops/` の中身を復号できる鍵は1本しかなく、**それを失うと全ての秘密値が復元できません。**リポジトリの外・別の機器へバックアップしてください。
 

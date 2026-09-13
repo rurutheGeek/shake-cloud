@@ -46,6 +46,8 @@ nav:
           - I04 DNS登録: development/I04-cloud-dns.md
           - I05 サービス用state管理: development/I05-service-state.md
           - I06 AWXのジョブ整備: development/I06-awx.md
+      - M：監視:
+          - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
       - O：復旧・運用:
           - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
           - O02 CNPGバックアップ: development/O02-cnpg-backup.md
@@ -58,12 +60,16 @@ nav:
           - D05 Picard: development/D05-picard.md
           - D06 LocalSend: development/D06-localsend.md
           - D07 Tailcat: development/D07-tailcat.md
+          - D08 Nextcloudからの印刷: development/D08-nextcloud-print.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
+      - Nextcloudの使い方: services/nextcloud-guide.md
       - 共通ログインの使い方: services/identity.md
       - クラウドの使い方: services/cloud.md
       - Homarrハブ: services/homarr.md
+      - Home Assistantと家電の使い方: services/home-assistant.md
       - 音楽・取り込み・タグ: services/music.md
+      - プリンター（Canon TS8430）: services/printer.md
       - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:

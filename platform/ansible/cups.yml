@@ -1,0 +1,14 @@
+---
+# Canon TS8430シリーズへのプリント中継（CUPS）を services-01 へ入れる。
+# 端末は LAN/VPN からキュー `ts8430` を使う。印刷状況のWeb UIは
+# https://cups.apextox.dpdns.org（Caddy＋Authentik）で、/admin は入口で閉じる。
+#
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/cups.yml
+- name: Deploy the CUPS print relay
+  hosts: netbox_bootstrap
+  become: true
+  roles:
+    - cups
+    # cups.<zone> のTLSとForward Auth。dns.yaml の cups レコードが正本。
+    - tls_proxy

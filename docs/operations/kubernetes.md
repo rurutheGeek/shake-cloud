@@ -1,6 +1,6 @@
 # Kubernetes クラスタ
 
-更新日: 2026-09-12。状態: **クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
+更新日: 2026-09-13。状態: **クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
 
 ## 何に使うか
 
@@ -27,11 +27,11 @@
 
 | VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | Ready（control-plane taint あり） |
-| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | Ready |
+| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | **停止中（2026-09-12）**。稼働時は Ready（control-plane taint あり） |
+| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | **停止中（2026-09-12）**。稼働時は Ready |
 | 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
 
-宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せず（taint を外さない）、worker に載せます。
+宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せず（taint を外さない）、worker に載せます。**現在の電源状態は[配備台帳](handover.md)が正本です**（この表の「Ready」はクラスタが稼働しているときの状態）。
 
 ## 準備とクラスタ作成
 
@@ -82,7 +82,7 @@ ssh debian@192.168.10.207 'kubectl get nodes'
 クラスタ内のアプリは **Flux が Git から適用**します。監視先は `main` の `platform/flux` です。
 
 - **Flux 2.9.5** を bootstrap 済み。`flux-system` namespace で4コントローラが動き、リポジトリ専用の deploy key を使います。
-- 置き場: `platform/flux/flux-system/`（Flux 本体と同期設定）、`platform/flux/infra/`・`platform/flux/apps/`（追加していく場所。Flux は再帰的に読みます）。
+- 置き場: `platform/flux/flux-system/`（Flux 本体と同期設定）、`platform/flux/infra/`・`platform/flux/apps/`（追加していく場所）。ルート `platform/flux/kustomization.yaml` が**列挙したものだけ**を適用し、サブディレクトリを再帰的に拾いません。各アプリの中身は子 Kustomization が `path` で適用します。
 - **秘密値は SOPS**。`platform/flux/**/*.sops.yaml` を age で暗号化し、クラスタ内の Secret `flux-system/sops-age`（キー `age.agekey`）で復号します。ルート Kustomization に `decryption` を設定済みです。
 
 bootstrap（初回のみ。再実行すると Flux のマニフェストを作り直します）:
@@ -165,6 +165,7 @@ tools/k8s up --all   # worker-02 も含めて起動
 
 Podを置く余力が必要な場合は、まずホストの空きRAM・割当量を確認してからworker-02の起動・joinを判断します。worker追加は物理RAMを増やしません。停止時は配置PodとローカルPVCの影響を確認します。
 
+<a id="止めると何が止まるか"></a>
 ### 止めると何が止まるか
 
 `tools/k8s down` は worker → control plane の順に **ACPI の shutdown** を投げます（強制停止ではありません）。次が止まります。

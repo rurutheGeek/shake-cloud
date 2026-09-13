@@ -54,9 +54,13 @@ class DnsDeclarationTests(unittest.TestCase):
     def test_upstreams_stay_on_loopback(self):
         # The service ports are closed to the LAN; only Caddy on the same host
         # may reach them, so the only way in is HTTPS.
+        # CUPS is the exception: its 631 is the print relay that LAN and VPN
+        # clients dial directly, and CUPS rejects a non-localhost Host on
+        # loopback connections, so Caddy dials the LAN address and keeps Host.
         for name, record in DNS['records'].items():
-            if 'upstream' in record:
+            if 'upstream' in record and name != 'cups':
                 self.assertRegex(record['upstream'], r'^127\.0\.0\.1:\d+$', name)
+        self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.200:631')
 
     def test_upstream_ports_match_the_services(self):
         records = DNS['records']
@@ -67,6 +71,8 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['netbox']['upstream'], f"127.0.0.1:{defaults('netbox')['netbox_port']}")
         self.assertEqual(records['docs']['upstream'], f"127.0.0.1:{defaults('docs_site')['docs_site_port']}")
         self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
+        # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
+        self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
 
     def test_comments_fit_cloudflare_free_plan(self):
         # Cloudflare's free plan rejects record comments over 100 characters.
@@ -95,8 +101,9 @@ class TlsProxyTests(unittest.TestCase):
 
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
-                     SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml'],
-                     CLOUD_NAME: ['media-tls.yml']}
+                     SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml', 'cups.yml'],
+                     CLOUD_NAME: ['media-tls.yml'],
+                     'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
         self.assertEqual(served, set(playbooks))
         for host, files in playbooks.items():
@@ -108,9 +115,23 @@ class TlsProxyTests(unittest.TestCase):
     def test_forward_auth_is_declared_for_the_browser_tools_only(self):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
-        self.assertEqual(behind_auth, {'navidrome', 'metube', 'picard'})
+        self.assertEqual(behind_auth, {'navidrome', 'metube', 'picard', 'cups'})
         for name in ('nextcloud', 'kavita'):
             self.assertNotIn('auth', records[name], name)
+
+    def test_blocked_paths_are_answered_before_forward_auth(self):
+        # Caddy 経由だと CUPS から見た接続元は 127.0.0.1 になる。管理画面を
+        # localhost 限定のまま保つため、入口の respond で閉じる。
+        cups = [{'key': 'cups', 'value': DNS['records']['cups']}]
+        block = site_block(caddyfile(cups), 'cups')
+        # route が内側を書いた順に評価させる（forward_auth が先に走るのを防ぐ）。
+        self.assertIn('route {', block)
+        self.assertIn('@blocked path /admin /admin/*', block)
+        self.assertIn('respond @blocked 403', block)
+        self.assertLess(block.index('respond @blocked 403'), block.index('forward_auth https://'))
+
+        media = [{'key': 'navidrome', 'value': DNS['records']['navidrome']}]
+        self.assertNotIn('@blocked', site_block(caddyfile(media), 'navidrome'))
 
     def test_the_caddyfile_learns_the_forward_auth_endpoint(self):
         template = (TLS_PROXY / 'templates/Caddyfile.j2').read_text()
@@ -140,7 +161,7 @@ class TlsProxyTests(unittest.TestCase):
         rendered = caddyfile(sites)
 
         self.assertEqual(len(sites), 5)
-        self.assertEqual(rendered.count('forward_auth'), 3)
+        self.assertEqual(rendered.count('forward_auth https://'), 3)
         for name in ('navidrome', 'metube', 'picard'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)

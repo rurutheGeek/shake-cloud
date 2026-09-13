@@ -1,6 +1,6 @@
 # ゲームと開発環境
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-12。既存game1（Bazzite、VMID 100、cloud API所有）にGPUが割り当てられています。Wolf・Azahar・AI同居の開発と負荷検証は未完了です。[個別計画](../development/index.md)のG01–G03・A01–A05へ分割して進めます。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。既存game1（Bazzite、VMID 100、cloud API管理下・引き取り済み）にGPUが割り当てられています。Wolf・Azahar・AI同居の開発と負荷検証は未完了です。[個別計画](../development/index.md)のG01–G03・A01–A05へ分割して進めます。
 
 ## ゲームVMで利用者ごとに分離する
 
@@ -20,7 +20,7 @@ Wolfは複数ユーザーの同時セッションとオンデマンドの仮想�
 | Moonlight×2 | スマホ／PCでの映像受信と操作 |
 | Azahar×2 | それぞれ独立した仮想3DS |
 | 非公開ルーム | Azahar間の仮想ローカル通信 |
-| RomM | ライブラリ管理。エミュレータ起動や通信設定との連携は別途検証 |
+| RomM | ライブラリ管理。独立Compose・状態管理は実装済みで、game1実機確認と認証統合はW07 |
 | Sunshine | 別途共用デスクトップ配信が必要になったときに検討 |
 | Proton | Windows用PCゲームで使用。Linux版Azaharには不要 |
 | Dolphin | 対応する別のエミュレーション用途に追加。Azaharと同じセッション設計を検証 |
@@ -72,7 +72,7 @@ Wolfの仮想画面機能をまず検証し、Sway＋VKMSの追加が必要か�
 
 ## OpenHomeの同居候補
 
-OpenHomeもgame-01へ入れる希望として管理します。製品／リポジトリが未特定のため、実行方式・Linux対応・音声／GPU要件・常駐要否を確認後に追加します。現時点では動作保証や追加RAMの確定値を置きません。Wolf・Azahar・Ollamaと合計12GiB（増枠時16GiB）の中で収め、設定・データを専用ディレクトリへ分離します。家電自動化はservices-01、ポケモンRDBはgame1へ配置します。[全サービス配置](operations.md)
+OpenHomeもgame1へ入れる希望として管理します。製品／リポジトリが未特定のため、実行方式・Linux対応・音声／GPU要件・常駐要否を確認後に追加します。現時点では動作保証や追加RAMの確定値を置きません。Wolf・Azahar・Ollamaと合計12GiB（増枠時16GiB）の中で収め、設定・データを専用ディレクトリへ分離します。家電自動化はservices-01、ポケモンRDBはgame1へ配置します。[全サービス配置](operations.md)
 
 ## 軽量な開発VM
 

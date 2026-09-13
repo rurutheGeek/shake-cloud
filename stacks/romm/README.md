@@ -10,7 +10,7 @@
 
 ## 再利用するもの
 
-[配置設計](../../docs/architecture/operations.md)と[ゲーム設計](../../docs/architecture/gaming.md)に要件があるが、RomMのComposeは未実装。[identity/manage.py](../identity/manage.py)は管理手順の設計例として参照できる。
+[配置設計](../../docs/architecture/operations.md)と[ゲーム設計](../../docs/architecture/gaming.md)に要件がある。RomMのCompose・`manage.py`はこのディレクトリに実装済み（下の「実装済みの構成」）。game1への配備はまだ発動していない。[identity/manage.py](../identity/manage.py)は管理手順の設計例として参照できる。
 
 ## 実装時の境界
 

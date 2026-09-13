@@ -1,6 +1,6 @@
 # 共通ログインの使い方（新しい認証基盤）
 
-更新日: 2026-09-12。**利用者向け**です。管理者の仕事（招待・復旧・パスキー運用）は[認証基盤（identity・Authentik）](../operations/identity.md)にあります。
+更新日: 2026-09-13。**利用者向け**です。管理者の仕事（招待・復旧・パスキー運用）は[認証基盤（identity・Authentik）](../operations/identity.md)にあります。
 
 - **入口:** <https://auth.apextox.dpdns.org>（家庭内 LAN からだけ）
 - **対象:** クラウドポータル・AWX・NetBox など新しい基盤のサービス
@@ -43,6 +43,7 @@
 | クラウド | <https://cloud.apextox.dpdns.org> |
 | AWX | <https://awx.apextox.dpdns.org> |
 | NetBox | <https://netbox.apextox.dpdns.org> |
+| Home Assistant | <https://ha.apextox.dpdns.org> |
 | ドキュメント | <https://docs.apextox.dpdns.org> |
 
 すべての接続先は[接続先一覧](../operations/urls.md)にあります。

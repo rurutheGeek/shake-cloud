@@ -1,10 +1,12 @@
 # ディスク増設
 
-## 現在の保存場所
+> **このページは旧ハブ（media-stack）のディスク増設手順です。** 2026-09-12 以降のメディア系は media-01 の専用データディスク（`/srv/media-stack`）へ配備済みで、増設・拡張はクラウドのボリュームAPI（`shakecloud volume resize`）か `platform/terraform/services/media` で行います。旧環境からのデータ移行が済むまでは、パス・マウント・UUIDの対応表として残します。
 
-容量・デバイス名・マウント先は環境によって異なります。`lsblk -f` と `df -hT` で確認してください。現在の配備は単一ホストで、原本の場所は `.env` の `LIBRARY_ROOT` で管理します。
+## 旧ハブの保存場所
 
-| 保存対象 | 現在の場所 |
+容量・デバイス名・マウント先は環境によって異なります。`lsblk -f` と `df -hT` で確認してください。旧ハブは単一ホストで、原本の場所は `.env` の `LIBRARY_ROOT` で管理していました。
+
+| 保存対象 | 旧ハブでの場所 |
 | --- | --- |
 | 書籍・音楽原本 | library/books、library/music |
 | Nextcloudで編集する手順書 | library/docs |

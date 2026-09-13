@@ -36,6 +36,7 @@
 - import_playbook: media-base.yml
 - import_playbook: media-nextcloud.yml
 - import_playbook: media-kavita.yml
+- import_playbook: media-localsend.yml
 - import_playbook: media-navidrome.yml
 - import_playbook: music-tools.yml
 - import_playbook: media-verify.yml

@@ -131,8 +131,9 @@ class ManageTests(unittest.TestCase):
         self.text = (UNIT / 'manage.py').read_text(encoding='utf-8')
 
     def test_the_required_actions_are_available(self):
-        self.assertIn("choices=['init', 'lock', 'up', 'setup', 'apps', 'status', 'down']",
-                      self.text)
+        for action in ('init', 'lock', 'up', 'setup', 'apps', 'config-print',
+                       'status', 'down'):
+            self.assertIn(f"'{action}'", self.text)
 
     def test_it_uses_only_the_standard_library(self):
         modules = set()
@@ -189,11 +190,19 @@ class ManageTests(unittest.TestCase):
     def test_external_storage_paths_match_the_compose_mounts(self):
         for name, datadir in (('books', '/library/books'),
                               ('music', '/library/music'),
-                              ('docs', '/docs')):
+                              ('docs', '/docs'),
+                              ('inbox', '/library/inbox')):
             self.assertIn(f"('{name}', '{datadir}')", self.text, name)
         self.assertIn("occ('files_external:create', '/' + name, 'local', 'null::null'",
                       self.text)
-        self.assertIn("'--applicable-user', admin", self.text)
+
+    def test_the_library_is_open_to_every_user(self):
+        # 適用先を指定しない = ログインできる全員（招待したAuthentikユーザーを含む）。
+        self.assertNotIn("'--applicable-user'", self.text)
+        self.assertIn('--remove-user=', self.text)
+        self.assertIn('--remove-group=', self.text)
+        self.assertIn('external storage available to every user', self.text)
+        self.assertIn('external storage opened to every user', self.text)
 
     def test_existing_mounts_are_preserved_and_conflicts_are_rejected(self):
         self.assertIn('files_external:list', self.text)
@@ -263,10 +272,9 @@ class AnsibleTests(unittest.TestCase):
         self.assertEqual(len(apps), 1)
         self.assertGreater(commands.index(apps[0]), actions['up'])
 
-    def test_apps_use_the_group_var_and_fall_back_to_empty(self):
+    def test_apps_use_the_group_var_and_always_add_the_print_app(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
-        self.assertIn('nextcloud_apps | default([])', text)
-        self.assertIn('when: nextcloud_apps | default([]) | length > 0', text)
+        self.assertIn("nextcloud_apps | default([]) + ['shake_print']", text)
 
     def test_change_detection_uses_the_manage_py_status_lines(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
@@ -295,8 +303,10 @@ class SecretTests(unittest.TestCase):
     def test_the_playbook_never_carries_credentials(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertNotIn('PASSWORD', text)
-        self.assertNotIn('TOKEN', text)
         self.assertNotIn('PRIVATE KEY', text)
+        # トークンは SOPS から register で受け取るだけで、値は書かない。
+        self.assertNotRegex(text, r'(?im)^\s*(TOKEN|SECRET|API_KEY):\s*\S')
+        self.assertIn('print-api.sops.yaml', text)
 
     def test_the_readme_links_the_work_item_and_the_source(self):
         readme = (UNIT / 'README.md').read_text(encoding='utf-8')

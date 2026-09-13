@@ -14,3 +14,6 @@ nextcloud_apps:
   - tasks
   - text
   - user_oidc
+# shake_print（自作の印刷アプリ）の送り先。アプリ本体は media-nextcloud.yml が
+# 一緒に配る（旧スタックの deploy.yml は store から入れる前提なので触らない）。
+nextcloud_print_api_url: 'http://192.168.10.200:6320'

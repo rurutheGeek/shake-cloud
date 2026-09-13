@@ -123,25 +123,41 @@ def occ(*args, **kwargs):
 
 
 def setup():
-    """Enable files_external and cron, then reconcile the shared library mounts."""
+    """Enable files_external and cron, then reconcile the shared library mounts.
+
+    The library lives on the shared data disk, so it is opened to every account
+    that can log in: inviting someone in Authentik is the access decision. The
+    mount is created without an applicable list (empty = everyone) and any
+    leftover user/group restriction is removed on redeploy.
+    """
     occ('app:enable', 'files_external')
     occ('background:cron')
     raw = json.loads(occ('files_external:list', '--output=json', capture_output=True).stdout)
     mounts = list(raw.values()) if isinstance(raw, dict) else raw
-    admin = settings().get('NEXTCLOUD_ADMIN_USER', 'admin')
     for name, datadir in (('books', '/library/books'),
                           ('music', '/library/music'),
-                          ('docs', '/docs')):
+                          ('docs', '/docs'),
+                          ('inbox', '/library/inbox')):
         matching = [m for m in mounts if m['mount_point'].strip('/') == name]
         if not matching:
             occ('files_external:create', '/' + name, 'local', 'null::null',
-                '--config', f'datadir={datadir}', '--applicable-user', admin)
+                '--config', f'datadir={datadir}')
             print(f'CHANGED: external storage created: /{name}')
-        elif len(matching) != 1 or matching[0]['configuration'].get('datadir') != datadir:
+            continue
+        if len(matching) != 1 or matching[0]['configuration'].get('datadir') != datadir:
             raise RuntimeError(f'Conflicting external storage mount: {name}; inspect in Nextcloud')
+        mount = matching[0]
+        changed = False
+        for user in mount.get('applicable_users') or []:
+            occ('files_external:applicable', str(mount['mount_id']), f'--remove-user={user}')
+            changed = True
+        for group in mount.get('applicable_groups') or []:
+            occ('files_external:applicable', str(mount['mount_id']), f'--remove-group={group}')
+            changed = True
+        if changed:
+            print(f'CHANGED: external storage opened to every user: /{name}')
         else:
-            # Preserve intentionally edited access rules on subsequent deployments.
-            print(f'OK: external storage preserved: /{name}')
+            print(f'OK: external storage available to every user: /{name}')
 
 
 def apps(names):
@@ -168,10 +184,32 @@ def apps(names):
             print(f'CHANGED: Nextcloud app installed: {name}')
 
 
+def config_print():
+    """Point the shake_print app at the services-01 print API.
+
+    The token is a shared secret from SOPS and reaches this script through the
+    environment; it is stored in Nextcloud's app config for the controller.
+    """
+    url = os.environ['PRINT_API_URL']
+    token = os.environ['PRINT_API_TOKEN']
+    for key, value in (('print_api_url', url), ('print_api_token', token)):
+        try:
+            current = occ('config:app:get', 'shake_print', key,
+                          capture_output=True).stdout.strip()
+        except subprocess.CalledProcessError:
+            current = ''
+        if current == value:
+            print(f'OK: shake_print {key}')
+        else:
+            occ('config:app:set', 'shake_print', key, f'--value={value}')
+            print(f'CHANGED: shake_print {key}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
-                        choices=['init', 'lock', 'up', 'setup', 'apps', 'status', 'down'])
+                        choices=['init', 'lock', 'up', 'setup', 'apps', 'config-print',
+                                 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
@@ -186,6 +224,8 @@ def main():
         if args.app_names is None:
             raise ValueError('Use --apps app1,app2 with the apps action')
         apps(args.app_names)
+    elif args.action == 'config-print':
+        config_print()
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

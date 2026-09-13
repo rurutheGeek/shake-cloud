@@ -34,6 +34,28 @@
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
       changed_when: true
+    # 自作の印刷アプリは、Nextcloud の html ボリューム内 custom_apps へ置く。
+    # イメージは固定のままで、コンテナには既存のボリューム越しに見える。
+    - name: Create the print app directory
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '0755'
+    - name: Copy the print app
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/apps/shake_print/{{ item }}/'
+        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}/'
+        owner: '33'
+        group: '33'
+        mode: preserve
+      loop: [appinfo, lib, js]
+    - name: Drop build-only files from the deployed print app
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}'
+        state: absent
+      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
@@ -50,7 +72,24 @@
           - '{{ project_dir }}/media/nextcloud/manage.py'
           - apps
           - --apps
-          - "{{ nextcloud_apps | default([]) | join(',') }}"
+          - "{{ (nextcloud_apps | default([]) + ['shake_print']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
-      when: nextcloud_apps | default([]) | length > 0
+    - name: Read the print API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --extract, '["PRINT_API_TOKEN"]',
+               '{{ playbook_dir }}/../sops/print-api.sops.yaml']
+      register: nextcloud_print_token
+      changed_when: false
+      no_log: true
+    - name: Point the print app at the services-01 relay
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-print]
+      environment:
+        PRINT_API_URL: '{{ nextcloud_print_api_url }}'
+        PRINT_API_TOKEN: '{{ nextcloud_print_token.stdout }}'
+      register: nextcloud_print_config
+      changed_when: "'CHANGED:' in nextcloud_print_config.stdout"
+      no_log: true

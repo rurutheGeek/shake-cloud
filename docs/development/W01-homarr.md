@@ -8,13 +8,13 @@
 
 `stacks/hub/compose.yaml` にHomarr、永続 `/appdata`、暗号鍵、OIDCの定義がある。`stacks/hub/configure-homarr.py` と `apps.json` がリンクの管理元である。[利用手順](../services/homarr.md)のボード・管理者権限を維持する。
 
-**旧hubの実装・データは流用せず、`stacks/homarr/` に新規構築する**（2026-09-12の利用者判断）。`media-hub` のAuthentik・docs・他サービス同居を持ち込まない。実装済みの内容: Homarr単独Compose（ダイジェスト固定）、`manage.py`（init/lock/up/configure/status/backup、秘密値は`secrets/`生成）、`configure.py`（標準ライブラリのみ、ボード・タイル・権限を冪等反映、既存タイルを削除・移動しない）、`apps.json`、テスト17件。残りは下の「依存と並列作業」に書く配備側。
+**旧hubの実装・データは流用せず、`stacks/homarr/` に新規構築する**（2026-09-12の利用者判断）。`media-hub` のAuthentik・docs・他サービス同居を持ち込まない。実装済みの内容: Homarr単独Compose（ダイジェスト固定）、`manage.py`（init/lock/up/configure/status/backup、秘密値は`secrets/`生成）、`configure.py`（標準ライブラリのみ、ボード・タイル・権限を冪等反映、既存タイルを削除・移動しない）、`apps.json`、テスト27件。残りは下の「依存と並列作業」に書く配備側。
 
 配備先: **services-01**。開発先は `stacks/homarr/`。専用Composeと保存先へ切り出す。
 
 ## 実装手順
 
-**2026-09-12の利用者判断で旧hubからの移行は行わない。** 以下は新規構築として読む（旧データの棚卸し・保全・切戻しは対象外）。実装済みは`stacks/homarr/`一式（Compose・`manage.py`・`configure.py`・`apps.json`・テスト21件）と配備IaC（`platform/ansible/roles/homarr`・`platform/ansible/homarr.yml`・`dns.yaml`の`homarr`レコード・identityの`homarr` OIDCクライアント）。残りは実配備と実機確認（SSO・閲覧/管理者権限・再実行・再起動）。
+**2026-09-12の利用者判断で旧hubからの移行は行わない。** 以下は新規構築として読む（旧データの棚卸し・保全・切戻しは対象外）。実装済みは`stacks/homarr/`一式（Compose・`manage.py`・`configure.py`・`apps.json`・テスト27件）と配備IaC（`platform/ansible/roles/homarr`・`platform/ansible/homarr.yml`・`dns.yaml`の`homarr`レコード・identityの`homarr` OIDCクライアント）。残りは実配備と実機確認（SSO・閲覧/管理者権限・再実行・再起動）。
 
 1. 旧hubのボード・アプリ・暗号鍵・ログイン方式は棚卸しのみ行い、持ち込まない。`stacks/homarr/`はHomarr単独のComposeとし、旧hubの認証DBやdocsを配備しない。
 2. 設定反映スクリプトの配備先・URLをパラメータ化し、同じデータに再実行してもタイル位置を壊さない構成にする。既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。

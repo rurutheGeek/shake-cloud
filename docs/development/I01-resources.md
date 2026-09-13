@@ -22,7 +22,7 @@
 - k8s-cp-01・k8s-worker-01・probe-01・win11pro（VM 5000）は計測時点で停止中。k8sは2026-09-12 12:46にrootが正常停止した。
 - dev-a/dev-bの宣言（Git 8GiB・下限1GiB）と実機（6GiB・下限2GiB）が食い違い、dev-aには6,140MiBへの保留変更もあった。利用者の決定で`hosts.yaml`を実機（6GiB・下限2GiB）へ同期し、`10-platform`を適用した（dev-aは適用時に再起動）。以後の`plan`は差分なし。
 - 軽量化: ビルドキャッシュ削除と`apt`掃除でthin poolを15.1GiB回収（cloud-01 17.0→6.2GiB、services-01 5.7→3.5GiB、identity 6.1→3.8GiB）。同じ処理は`tools/trim-vms.py`で再実行できる（既定は確認のみ、`--apply`で実行。dev VMは`--include-dev`を付けたときだけ対象）。dev-aの未使用イメージ7.98GiBとビルドキャッシュ6.0GiBは利用者と調整のうえ残した。
-- 個別最適化の確認: NetBoxはgunicorn 2ワーカーとrqworkerで、コンテナのメモリ使用はnetboxとworkerを合わせて約0.9GiB（`docker stats`）。現時点ではプロセス数を削減しない。AWXの並列数・履歴はKubernetes停止中のため未実施（[I06](I06-awx.md)）。メディア走査・変換はmedia-01未作成、Ollama常駐は[A02](A02-ollama.md)未実装のため対象外。検証環境はprobe-01・k8s-worker-02・win11proが停止済み。
+- 個別最適化の確認: NetBoxはgunicorn 2ワーカーとrqworkerで、コンテナのメモリ使用はnetboxとworkerを合わせて約0.9GiB（`docker stats`）。現時点ではプロセス数を削減しない。AWXの並列数・履歴はKubernetes停止中のため未実施（[I06](I06-awx.md)）。メディア走査・変換はmedia-01未作成、Ollama常駐は[A02](A02-ollama.md)未配備のため対象外。検証環境はprobe-01・k8s-worker-02・win11proが停止済み。
 - クラウドの上限上書きは無く、実効値は`cloud.yaml`の既定。media-01 6GiBの作成はKubernetes停止中に行う。game1 16GiBはmedia-01作成後でもKubernetes停止中なら可能。k8s-worker-02は起動しない。
 - 負荷を掛けた組合せ（ゲーム・AI取り込み・AWX）は未測定。[G03](G03-game-ai-resources.md)・[A02](A02-ollama.md)・[I06](I06-awx.md)と窓を調整して実施する。
 

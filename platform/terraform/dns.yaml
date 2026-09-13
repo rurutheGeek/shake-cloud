@@ -65,6 +65,12 @@ records:
     host: services-01
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
+  # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
+  grafana:
+    host: monitor-01
+    address: 192.168.10.102
+    upstream: 127.0.0.1:3000
+    description: Grafana（監視ポータル。OIDC）
   vault:
     host: services-01
     upstream: 127.0.0.1:8222
@@ -77,6 +83,23 @@ records:
     host: services-01
     upstream: 127.0.0.1:8090
     description: ドキュメントサイト
+  # LocalSend の受信機はアプリ自身のTLSをそのまま使う（Caddyを通さない）ため
+  # upstream は持たず、名前だけ引けるようにする。
+  localsend:
+    host: media-01
+    address: 192.168.10.101
+    description: LocalSend受信機（media-01・53317）
+  cups:
+    host: services-01
+    # loopback でつなぐと CUPS は Host を localhost に限定して 400 を返す
+    # （valid_host）。631 は印刷クライアントへ意図的に開けた中継なので、
+    # Caddy は LAN 側アドレスへつなぎ、実Hostをそのまま渡す。
+    upstream: 192.168.10.200:631
+    description: CUPS（印刷状況。Forward Auth）
+    auth: true
+    # CUPS の /admin は localhost 限定。Caddy 経由だと接続元が 127.0.0.1 に
+    # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
+    block: ['/admin', '/admin/*']
   pve:
     address: 192.168.10.126
     description: Proxmoxの管理画面（ポート8006）

@@ -23,6 +23,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
   sudo cat /opt/netbox-stack/secrets/superuser_password
 ```
 
+<a id="sso"></a>
 ## SSO（共通ログイン）
 
 NetBox は新しい Authentik で **SSO できます**（ログイン画面の **OpenID**）。OIDC クライアント `netbox` は identity 側の `configure.py` が作り、クライアント秘密は `platform/sops/netbox.sops.yaml` の `NETBOX_OIDC_CLIENT_SECRET` を**正本**として identity と NetBox の両方が読みます。

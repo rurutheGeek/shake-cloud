@@ -52,6 +52,18 @@ resource "shakecloud_security_group_rule" "https" {
   description = "HTTPS from the LAN"
 }
 
+# LocalSend の受信機（stacks/media/localsend）。公式アプリはHTTPS 53317で送る。
+# 発見に使うUDP multicast（224.0.0.167）はCIDRで表現できないのでここには無い。
+resource "shakecloud_security_group_rule" "localsend" {
+  group_id    = shakecloud_security_group.media.id
+  direction   = "ingress"
+  protocol    = "tcp"
+  from_port   = 53317
+  to_port     = 53317
+  cidr        = local.lan_cidr
+  description = "LocalSend HTTPS and TCP discovery from the LAN"
+}
+
 resource "shakecloud_instance" "media" {
   image_id = var.image_id
 

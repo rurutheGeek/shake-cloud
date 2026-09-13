@@ -17,21 +17,22 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 
 この環境はVaultwarden 1.37.2 / Web Vault 2026.7.0で、組み込みOIDCを有効化しています。通常の新規アカウント作成は[Authentikからの招待](sso.md)を使います。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
 
-1. [接続手順](../operations/hub.md)に従い、SSH転送の8243・9443とローカルCAを準備する。
-2. ブラウザーで `https://vault.localhost:8243/` を開く。8222の直接HTTPポートやBitwardenのクラウドサイトから始めない。
-3. 画面に見えるメール欄へAuthentikに登録したメールを入力し、「シングルサインオンを使用する」を押す。
-4. Authentikの画面で共通アカウントへログインする。
-5. 初回は保管庫用のマスターパスワードを設定する。既存の保管庫ならそのマスターパスワードで解除する。
+1. ブラウザーで `https://vault.apextox.dpdns.org/` を開く（services-01。Let's Encrypt。`8222` の直接HTTPポートやBitwardenのクラウドサイトから始めない）。
+2. 画面に見えるメール欄へAuthentikに登録したメールを入力し、「シングルサインオンを使用する」を押す。
+3. Authentik（`https://auth.apextox.dpdns.org`）の画面で共通アカウントへログインする。
+4. 初回は保管庫用のマスターパスワードを設定する。既存の保管庫ならそのマスターパスワードで解除する。
+
+旧ステージングの `https://vault.localhost:8243`・SSH転送・ローカルCAは現在の入口ではありません。管理画面の `/admin` は `ssh -N -L 8222:127.0.0.1:8222 debian@services-01` の転送から開きます（文書冒頭）。
 
 ### 「SSO識別子」を求められたら
 
-これはAuthentikのユーザー名やパスワード、OIDCのclient secretではありません。現在のサーバーが返す共通の識別子は次です。
+これはAuthentikのユーザー名やパスワード、OIDCのclient secretではありません。旧ステージングで確認した、導入版（1.37.2）が返す共通の識別子は次です。**新しいservices-01のサーバーではブラウザーでのSSO実測がまだのため、同じ値になるか画面の表示で確認してから使ってください。**
 
 ```text
 00000000-01DC-01DC-01DC-000000000000
 ```
 
-通常のメール入力から進む画面では自動取得されます。`/#/sso`の直接アクセスやクライアントによって手入力を求められた場合に使います。任意の文字列で進める版もありますが、初回保管庫作成時に組織識別子との不一致を起こす可能性があるため、この環境の返す値へ揃えます。これは公開値で、認証用秘密値ではありません。[導入版のSSO識別子実装](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/sso.rs)、[組織識別子応答](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/api/core/organizations.rs)
+通常のメール入力から進む画面では自動取得されます。`/#/sso`の直接アクセスやクライアントによって手入力を求められた場合に使います。任意の文字列で進める版もありますが、初回保管庫作成時に組織識別子との不一致を起こす可能性があるため、画面に表示される値へ揃えます。これは公開値で、認証用秘密値ではありません。[導入版のSSO識別子実装](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/sso.rs)、[組織識別子応答](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/api/core/organizations.rs)
 
 ### 今回確認したエラーと対応
 
@@ -43,7 +44,7 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 | SSO識別子を要求 | 上記の共通識別子を入力。秘密値は入力しない |
 | メール未確認エラー | Authentikでメール所有確認後、真偽値`email_verified: true`を設定 |
 | 既存non-SSOユーザーと同じメールで失敗 | 既存保管庫との自動紐付けは無効。既存ログインを使い、バックアップと本人確認の上で個別移行を計画 |
-| 証明書／issuer／discoveryエラー | HTTPS入口、CA信頼、9443転送、Vaultwarden内部からのissuer到達を確認 |
+| 証明書／issuer／discoveryエラー | HTTPS入口、CA信頼、Vaultwarden内部からのissuer到達を確認 |
 | マスターパスワードを求められる | 通常の復号手順。Authentikのパスワードを入れる場面ではない |
 | 最初は入れるがしばらくすると失敗 | OIDCセッション・refresh token・時刻を確認。今回`offline_access`を追加 |
 
@@ -51,7 +52,7 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 
 緊急時・既存アカウント向けのローカルログインを残すため、`SSO_ONLY=false`としています。Web保管庫の「Other／その他」からローカル認証へ切り替えます。全利用者へSSOのみを強制する場合は、既存保管庫・ブラウザー拡張・スマホの移行確認後に別途変更します。[公式SSO設定](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect)
 
-SSOはマスターパスワードや保管庫の暗号鍵を代替しません。Authentikのアカウントを復旧できても、忘れたマスターパスワードだけで保管庫を復号できるようにはなりません。Bitwarden拡張・モバイルでは自己ホストのサーバーURLを設定し、その端末から両HTTPS入口に接続できることも確認します。現在のlocalhost＋SSH転送構成をそのままスマホから使えるとは扱いません。
+SSOはマスターパスワードや保管庫の暗号鍵を代替しません。Authentikのアカウントを復旧できても、忘れたマスターパスワードだけで保管庫を復号できるようにはなりません。Bitwarden拡張・モバイルでは自己ホストのサーバーURLに `https://vault.apextox.dpdns.org` を設定します。`vault.localhost` のSSH転送はパソコン用の旧手順で、スマホからは使えません。
 
 ## SMTPと招待
 

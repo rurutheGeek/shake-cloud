@@ -2,15 +2,15 @@
 
 ## URLから音声を追加
 
-ハブのMeTubeを開き、動画URLを貼り付け、音声形式MP3を選んで追加します。ダウンロードできる権利のある音源を指定してください。
+MeTubeを開き、動画URLを貼り付け、音声形式MP3を選んで追加します。**MeTubeはmedia-01への移行が進行中です（W06）。移行が終わるまでは旧メディアスタックのMeTube（SSHトンネル内の `http://localhost:8081`、旧Authentikで保護）を使います。** 移行後は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）になります。ダウンロードできる権利のある音源を指定してください。
 
-音声は `library/music/YouTube/投稿者/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video` に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
+音声は `${LIBRARY_ROOT}/music/YouTube/投稿者/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
 
-yt-dlp・FFmpeg・MeTubeはコンテナに含まれます。設定は `music-tools/compose.yaml`、固定バージョンは `music-tools/compose.lock.yaml` で管理します。既定でメタデータと、取得可能ならサムネイルを埋め込みます。元動画の情報だけではアーティスト・アルバムが正確にならないことがあるため、必要なタグは後で補正します。
+yt-dlp・FFmpeg・MeTubeはコンテナに含まれます。設定は `stacks/music-tools/compose.yaml`、固定バージョンは `stacks/music-tools/compose.lock.yaml` で管理します。既定でメタデータと、取得可能ならサムネイルを埋め込みます。元動画の情報だけではアーティスト・アルバムが正確にならないことがあるため、必要なタグは後で補正します。
 
 ダウンロード完了後、1分周期のホストタイマーが音楽の変更を検出し、NextcloudのファイルキャッシュとNavidromeのスキャンを更新します。大量ファイルではスキャン完了までさらに時間がかかります。KavitaとNavidromeの原本マウントは引き続き読み取り専用です。
 
-MeTubeはSSHトンネル内のlocalhost:8081で稼働し、Authentikの共通ログインで保護しています。共有Cookieと取り込み履歴は全利用者で共通です。
+MeTubeはmedia-01ではまだ稼働していません（W06で移行）。共有Cookieと取り込み履歴は全利用者で共通です。
 
 ### 共有Cookieの登録（初回・期限切れ時）
 
@@ -29,12 +29,12 @@ Cookieはセッション情報です。チャットやGitHubへ貼らず、上�
 GUIを使わず、次のコマンドでも音声を追加できます。
 
 ```bash
-python3 music-tools/download.py 'https://www.youtube.com/watch?v=動画ID' --format mp3
+python3 stacks/music-tools/download.py 'https://www.youtube.com/watch?v=動画ID' --format mp3
 ```
 
 ## MusicBrainz Picardで自動照合・タグ付け
 
-**Picardを音楽タグ付けの標準GUIにする方針です。** Picardはメディアの音楽導線（MeTubeの取込 → Nextcloudの共有music → タグ付け → Navidromeの表示）に置きます。GUIは基本として利用者PCで動かし、サーバー側GUIはmedia-01のWeb GUIコンテナ（`jlesage/musicbrainz-picard`）を使います（ゲームVMには置きません）。**2026-09-12にmedia-01へ先行配備**しました。無人実行ジョブは未実装です。
+**Picardを音楽タグ付けの標準GUIにする方針です。** Picardはメディアの音楽導線（MeTubeの取込 → Nextcloudの共有music → タグ付け → Navidromeの表示）に置きます。GUIは基本として利用者PCで動かし、サーバー側GUIはmedia-01のWeb GUIコンテナ（`jlesage/musicbrainz-picard`）を使います（ゲームVMには置きません）。**2026-09-12にmedia-01へ配備**しました（MeTube・変換・同期の移行はW06で進行中）。無人実行ジョブは未実装です。
 
 ### media-01のWeb GUIへ入る
 
@@ -66,7 +66,7 @@ MeTubeの音源やゲームBGMには一致候補がない場合があります�
 
 ## MP3タグをコードで編集
 
-Navidromeは設計上、原本ファイルへタグを書き込みません。Nextcloudの標準ファイル画面もMP3タグ編集画面ではありません。自動照合には上記Picardを使います。特定タグだけを明示的に直す用途には、既存のJSONタグ編集コマンドも維持します。
+Navidromeは設計上、原本ファイルへタグを書き込みません。Nextcloudの標準ファイル画面もMP3タグ編集画面ではありません。自動照合には上記Picardを使います。特定タグだけを明示的に直す用途には、既存のJSONタグ編集コマンドも維持します。以下は配備先（media-01では `/opt/media-stack`）で実行します。
 
 ```bash
 cp music-tools/tags.example.json music-tools/tags.local.json
@@ -97,13 +97,13 @@ FFmpegのPCM BCSTM最終ブロック処理で音声が短くなるケースを�
 
 ## ハートがFavouritesに見えない
 
-左メニューのAlbums配下にあるFavouritesは、お気に入りの**アルバム**です。曲のハートはSongsのStarredフィルターで表示します。ハブに「お気に入りの曲」への直接リンクを追加しました。
+左メニューのAlbums配下にあるFavouritesは、お気に入りの**アルバム**です。曲のハートはSongsのStarredフィルターで表示します。旧ハブのボードには「お気に入りの曲」への直接リンクがあり、新しいHomarrのボードにはまだありません。
 
 お気に入りはユーザー別です。既存のローカルユーザーのお気に入りは維持します。新しいSSOユーザーには自動移行されません。
 
 ## 運用とコード
 
-`ansible/music-tools.yml`で配備します。`media-stack-music-sync.timer`がNextcloudとNavidromeの反映を担当し、`scripts/sync-music.py`を実行します。サービス状態は次で確認できます。
+`platform/ansible/music-tools.yml`で配備します。同playbookが`stacks/scripts/sync-music.py`を配備先の`scripts/sync-music.py`（例: `/opt/media-stack/scripts/sync-music.py`）へ置き、`media-stack-music-sync.timer`がNextcloudとNavidromeの反映を担当します。サービス状態は次で確認できます（配備先で実行）。
 
 ```bash
 sudo python3 music-tools/manage.py status
@@ -111,6 +111,6 @@ systemctl status media-stack-music-sync.timer
 sudo docker compose --env-file music-tools/.env -f music-tools/compose.yaml -f music-tools/compose.lock.yaml logs --tail 30 convert
 ```
 
-音楽原本は既存のバックアップ対象です。MeTubeの履歴・動画・タグバックアップは `music-tools/storage` にあるため、このComposeを停止して別途バックアップしてください。取り込み前に `df -h` で原本領域の空き容量を確認してください。
+音楽原本は既存のバックアップ対象です。MeTubeの履歴・動画・タグバックアップは配備先の `music-tools/storage` にあるため、このComposeを停止して別途バックアップしてください。取り込み前に `df -h` で原本領域の空き容量を確認してください。
 
 参考: [MeTube](https://github.com/alexta69/metube)、[Navidromeのタグ編集方針](https://www.navidrome.org/docs/faq/)、[FFmpegのBCSTM対応](https://ffmpeg.org/pipermail/ffmpeg-cvslog/2015-June/091035.html)。

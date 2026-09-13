@@ -1,0 +1,175 @@
+---
+- name: Create the monitoring deployment directory
+  ansible.builtin.file:
+    path: '{{ monitoring_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the monitoring stack
+  ansible.builtin.copy:
+    src: '{{ monitoring_source_dir }}/{{ item }}'
+    dest: '{{ monitoring_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - manage.py
+    - .env.example
+    - prometheus
+    - alertmanager
+    - grafana
+    - blackbox
+  register: monitoring_stack_files
+
+- name: Copy the reviewed image lock when the repository has one
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '{{ monitoring_project_dir }}/compose.lock.yaml'
+    mode: '0644'
+  with_fileglob: ['{{ monitoring_source_dir }}/compose.lock.yaml']
+
+- name: Render the initial environment without replacing an existing one
+  ansible.builtin.copy:
+    src: '{{ monitoring_source_dir }}/.env.example'
+    dest: '{{ monitoring_project_dir }}/.env'
+    mode: '0600'
+    force: false
+
+- name: Converge deployment-specific settings
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^{{ item.key }}='
+    line: '{{ item.key }}={{ item.value }}'
+    mode: '0600'
+  loop:
+    - {key: STORAGE_ROOT, value: '{{ monitoring_storage_root }}'}
+    - {key: BIND_ADDRESS, value: '{{ monitoring_bind_address }}'}
+    - {key: GRAFANA_ROOT_URL, value: '{{ monitoring_public_url }}'}
+    - {key: GRAFANA_OIDC_ENABLED, value: 'true'}
+    - {key: PVE_USER, value: 'monitoring@pve'}
+    - {key: PVE_TOKEN_NAME, value: 'monitoring'}
+    - {key: NUT_SERVER, value: '192.168.10.126'}
+    - {key: NUT_USERNAME, value: 'monitor'}
+
+# SMTP は identity と同じ smtp.sops.yaml。無ければ通知だけが無効になる。
+- name: Read the SMTP credentials
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ monitoring_smtp_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: monitoring_smtp
+  changed_when: false
+  no_log: true
+
+- name: Converge the SMTP settings
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^{{ item }}='
+    line: '{{ item }}={{ (monitoring_smtp.stdout | from_json)[item] | default("") }}'
+    mode: '0600'
+  loop: '{{ monitoring_smtp_keys }}'
+  no_log: true
+
+- name: Point alerts at the notification mailbox
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^ALERT_EMAIL='
+    line: 'ALERT_EMAIL={{ (monitoring_smtp.stdout | from_json).SMTP_FROM | default("") }}'
+    mode: '0600'
+  no_log: true
+
+- name: Create the secrets directory
+  ansible.builtin.file:
+    path: '{{ monitoring_project_dir }}/secrets'
+    state: directory
+    mode: '0700'
+
+- name: Read the Proxmox and NUT secrets
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ monitoring_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: monitoring_secrets
+  changed_when: false
+  no_log: true
+
+- name: Install the Proxmox read-only token
+  ansible.builtin.copy:
+    content: '{{ (monitoring_secrets.stdout | from_json).PVE_TOKEN_VALUE }}'
+    dest: '{{ monitoring_project_dir }}/secrets/pve_token'
+    mode: '0400'
+  register: monitoring_pve_token
+  no_log: true
+
+- name: Install the NUT monitor password
+  ansible.builtin.copy:
+    content: '{{ (monitoring_secrets.stdout | from_json).NUT_MONITOR_PASSWORD }}'
+    dest: '{{ monitoring_project_dir }}/secrets/nut_password'
+    mode: '0400'
+  register: monitoring_nut_password
+  no_log: true
+
+- name: Read the Grafana OIDC client credentials on the identity VM
+  ansible.builtin.slurp:
+    src: '{{ monitoring_oidc_credentials_path }}'
+  delegate_to: '{{ monitoring_identity_host }}'
+  register: monitoring_oidc
+  no_log: true
+
+- name: Install the Grafana OIDC client credentials
+  ansible.builtin.copy:
+    content: '{{ monitoring_oidc.content | b64decode }}'
+    dest: '{{ monitoring_project_dir }}/secrets/oidc_client.json'
+    mode: '0444'
+  register: monitoring_oidc_installed
+  no_log: true
+
+# node_exporter は Debian のパッケージを使う。Grafana のダッシュボードが読む。
+- name: Install node_exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: present
+
+- name: Initialize storage and generated secrets
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ monitoring_project_dir }}'
+  register: monitoring_init
+  changed_when: "'CHANGED' in monitoring_init.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ monitoring_project_dir }}'
+  register: monitoring_pinned
+  changed_when: "'CHANGED' in monitoring_pinned.stdout"
+
+- name: Recreate the stack after storage ownership changed
+  ansible.builtin.command:
+    argv: [python3, manage.py, restart]
+    chdir: '{{ monitoring_project_dir }}'
+  changed_when: true
+  when: monitoring_init is changed
+
+- name: Start the monitoring stack and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ monitoring_project_dir }}'
+  register: monitoring_up
+  changed_when: "'Recreate' in monitoring_up.stderr or 'Created' in monitoring_up.stderr"
+  when: not (monitoring_init is changed)
+
+- name: Reload Prometheus and Alertmanager after config changes
+  ansible.builtin.command:
+    argv: [python3, manage.py, reload]
+    chdir: '{{ monitoring_project_dir }}'
+  changed_when: true
+  when: monitoring_stack_files is changed
+
+- name: Wait for the public Grafana entry point
+  ansible.builtin.uri:
+    url: '{{ monitoring_public_url }}/api/health'
+    validate_certs: true
+  register: monitoring_health
+  retries: 20
+  delay: 3
+  until: monitoring_health.status == 200

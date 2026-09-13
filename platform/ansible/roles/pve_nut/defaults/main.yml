@@ -1,0 +1,9 @@
+---
+# ProxmoxホストのUPS（CyberPower）をNUTで読めるようにする。読み取り専用。
+pve_nut_ups_name: cyberpower
+pve_nut_vendorid: '0764'
+pve_nut_productid: '0601'
+# monitor-01 から読めるよう、管理LANのアドレスで待ち受ける。
+pve_nut_listen_address: 192.168.10.126
+pve_nut_monitor_user: monitor
+pve_nut_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'

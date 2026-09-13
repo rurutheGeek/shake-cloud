@@ -18,8 +18,11 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
   - OIDC クライアント `homarr`（services-01の入口。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
-  - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`。`users`と`admins`の両方を許可）
-  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso共通ログイン)）
+  - OIDC クライアント `grafana`（monitor-01の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
+  - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`。`users`と`admins`の両方を許可）
+  - OIDC クライアント `vaultwarden`（`https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` を許可）
+  - media-01 の入口（Nextcloud・Kavita は OIDC クライアント、Navidrome・MeTube・Picard は Forward Auth）と CUPS（Forward Auth）のクライアント
+  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
 - 2 回目の実行はすべて `OK:` になります。
@@ -52,8 +55,8 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 | グループ | 何のため | 主なアプリでの扱い |
 | --- | --- | --- |
-| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ） |
-| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、AWX など |
+| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ）、Homarr、Home Assistant、Vaultwarden、media-01 の各入口、CUPS |
+| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、Homarr（編集）、Home Assistant（管理者）、AWX など |
 
 - `akadmin` は `admins` に入ります。**招待で作られた人は `users` に入ります。**
 - 管理者の追加や既存ユーザーの移行は GUI で行います（**Directory → Users → 対象 → Groups**）。

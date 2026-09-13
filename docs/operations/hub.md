@@ -1,10 +1,11 @@
 # ハブの運用
 
 > **Homarrは新しい基盤（services-01、`https://homarr.apextox.dpdns.org`）へ移行済みです。**
-> このページのHomarr（`localhost:7575`）と旧Authentikは、まだ移行していないメディア系
-> （Nextcloud・Kavita・Navidrome・MeTube・Vaultwarden）のための旧環境です。新しい基盤の
-> 接続先は[URL一覧](urls.md)、Homarrは[Homarrの使い方](../services/homarr.md)を参照して
-> ください。
+> このページは旧ハブ（旧 media-stack・旧 Authentik）の環境と、そこからのデータ移行のための
+> 手順です。新しいメディア基盤は media-01 で、Nextcloud・Kavita・Navidrome・MeTube・Picard は
+> 新しい `auth.apextox.dpdns.org` の OIDC / Forward Auth で動いています。接続先は
+> [URL一覧](urls.md)、Homarrは[Homarrの使い方](../services/homarr.md)を参照してください。
+> **旧環境からのデータ移行（W03〜W06）は未完了です。**
 
 ## ドメインなしで接続
 
@@ -40,21 +41,23 @@ Nextcloud・KavitaのOIDCとVaultwardenのWeb保管庫にはHTTPSが必要なた
 
 ## コードから配備
 
-基本スタック・NetBox・管理者の初期化後、次の順で実行します。
+> **パスの読み替え:** このページのコマンドは旧ハブ当時のリポジトリ配置で書かれています。現在のコードは **`stacks/` 配下**（`stacks/hub/`・`stacks/sso/`・`stacks/music-tools/`・`stacks/netbox/`・`stacks/scripts/`）へ移っています。`.hub-venv` は旧ホストで使っていた仮想環境で、このリポジトリにはありません。
+
+基本スタック・NetBox・管理者の初期化後、次の順で実行します（旧ホストでの実行例。パスは現在の配置）。
 
 ```bash
-sudo .hub-venv/bin/python hub/manage.py up
-sudo python3 music-tools/manage.py up
-sudo .hub-venv/bin/python sso/manage.py
+sudo .hub-venv/bin/python stacks/hub/manage.py up
+sudo python3 stacks/music-tools/manage.py up
+sudo .hub-venv/bin/python stacks/sso/manage.py
 ```
 
-AnsibleではNetBoxインベントリを読み込み、`platform/ansible/deploy.yml` → `platform/ansible/hub.yml` → `platform/ansible/music-tools.yml` → `platform/ansible/sso.yml` の順です。Dockerは基本Playbookが導入します。`sso/manage.py` はNetBoxも存在する場合にOIDC設定を適用します。
+AnsibleではNetBoxインベントリを読み込み、`platform/ansible/deploy.yml` → `platform/ansible/hub.yml` → `platform/ansible/music-tools.yml` → `platform/ansible/sso.yml` の順です。Dockerは基本Playbookが導入します。`stacks/sso/manage.py` はNetBoxも存在する場合にOIDC設定を適用します。
 
 リポジトリ側では `stacks/hub/apps.json` がサービスリンク、`docs/` が日本語手順の初期テンプレート、`mkdocs.yml` がサイト構成です。配備後の手順書原本は `LIBRARY_ROOT/docs` で、Nextcloudの「docs」から編集します。生成済みサイトを直接編集しません。初回配備時だけ初期テンプレートをコピーし、その後のAnsible再配備ではNextcloud側の追加・変更・削除を保持します。
 
 ```bash
-sudo .hub-venv/bin/python hub/configure-homarr.py
-sudo .hub-venv/bin/python hub/manage.py build
+sudo .hub-venv/bin/python stacks/hub/configure-homarr.py
+sudo .hub-venv/bin/python stacks/hub/manage.py build
 ```
 
 ## Nextcloudから手順書を更新
@@ -70,17 +73,17 @@ sudo journalctl -u media-stack-docs-build.service -n 50 --no-pager
 
 ## データと移設
 
-原本と手順書は `.env` の `LIBRARY_ROOT`、アプリ状態は `STORAGE_ROOT` です。加えて `hub/storage`、`netbox/storage`、`music-tools/storage`、`sso/storage` を保存します。NetBoxの状態パスを変更している場合は `netbox/.env` の設定を使います。`LIBRARY_ROOT/docs` は基本スタックの `library.tar` に含まれます。
+原本と手順書は `.env` の `LIBRARY_ROOT`、アプリ状態は `STORAGE_ROOT` です。加えて `stacks/hub/storage`、`stacks/netbox/storage`、`stacks/music-tools/storage`、`stacks/sso/storage` を保存します。NetBoxの状態パスを変更している場合は `stacks/netbox/.env` の設定を使います。`LIBRARY_ROOT/docs` は基本スタックの `library.tar` に含まれます。
 
-移設ではサービスを停止して原本・各状態領域・秘密値を所有者/権限ごと移し、移設先の `.env` でパスを合わせます。CAを維持する場合は `sso/storage` も必要です。再生成した場合は利用端末で新しいCAを信頼し直します。
+移設ではサービスを停止して原本・各状態領域・秘密値を所有者/権限ごと移し、移設先の `.env` でパスを合わせます。CAを維持する場合は `stacks/sso/storage` も必要です。再生成した場合は利用端末で新しいCAを信頼し直します。
 
 既存のバックアップコマンドは担当範囲が分かれています。
 
-- `scripts/stack.py backup`：基本スタックの状態・原本・設定
-- `hub/manage.py backup`：Homarr・Authentikの状態と秘密値
-- `netbox/manage.py backup`：NetBoxの状態と秘密値
-- `music-tools/storage`、`sso/storage`：対象Composeを停止して別途コピー
+- `stacks/scripts/stack.py backup`：基本スタックの状態・原本・設定
+- `stacks/hub/manage.py backup`：Homarr・Authentikの状態と秘密値
+- `stacks/netbox/manage.py backup`：NetBoxの状態と秘密値
+- `stacks/music-tools/storage`、`stacks/sso/storage`：対象Composeを停止して別途コピー
 
-`hub/oidc-secrets.json`、各 `.env`、`secrets/`、生成済み `compose.integrations.yaml`・`compose.sso.yaml`、`runtime/access.json` も非公開バックアップへ含めます。GitHubは実データや秘密値のバックアップ先ではありません。復元訓練は移設先の隔離環境で別途実施してください。
+`stacks/hub/oidc-secrets.json`、各 `.env`、`secrets/`、生成済み `compose.integrations.yaml`・`compose.sso.yaml`、`stacks/runtime/access.json` も非公開バックアップへ含めます。GitHubは実データや秘密値のバックアップ先ではありません。復元訓練は移設先の隔離環境で別途実施してください。
 
-AWXは構築済みです（kubeadmのKubernetesへFluxで配備、[AWXの使い方](awx.md)）。このハブのメディア系は移行していません。
+AWXは構築済みです（kubeadmのKubernetesへFluxで配備、[AWXの使い方](awx.md)）。このハブのメディア系からのデータ移行は未完了です（新しい配備先は [URL一覧](urls.md) の media-01 です）。

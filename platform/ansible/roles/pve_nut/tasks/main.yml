@@ -1,0 +1,94 @@
+---
+# UPS を USB で持つ Proxmox ホストで NUT を動かす。低電池時のシャットダウン
+# （upsmon）は別の手順で有効化する。ここでは状態を読めるようにするだけ。
+- name: Install NUT
+  ansible.builtin.apt:
+    name: nut
+    state: present
+
+- name: Read the NUT monitor password
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ pve_nut_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: pve_nut_secrets
+  changed_when: false
+  no_log: true
+
+- name: Configure the UPS driver
+  ansible.builtin.template:
+    src: ups.conf.j2
+    dest: /etc/nut/ups.conf
+    owner: root
+    group: nut
+    mode: '0640'
+  register: pve_nut_ups_conf
+
+- name: Configure upsd
+  ansible.builtin.template:
+    src: upsd.conf.j2
+    dest: /etc/nut/upsd.conf
+    owner: root
+    group: nut
+    mode: '0640'
+  register: pve_nut_upsd_conf
+
+- name: Configure the read-only monitor user
+  ansible.builtin.template:
+    src: upsd.users.j2
+    dest: /etc/nut/upsd.users
+    owner: root
+    group: nut
+    mode: '0640'
+  no_log: true
+  register: pve_nut_users_conf
+
+- name: Run NUT as a network server
+  ansible.builtin.template:
+    src: nut.conf.j2
+    dest: /etc/nut/nut.conf
+    owner: root
+    group: nut
+    mode: '0640'
+  register: pve_nut_nut_conf
+
+# 既に挿さっているUSB機器には udev ルールが後から効かない。再読込と
+# trigger で /dev/bus/usb/... を nut グループにする。
+- name: Reload udev rules
+  ansible.builtin.command:
+    argv: [udevadm, control, --reload-rules]
+  changed_when: false
+
+- name: Trigger udev for USB devices
+  ansible.builtin.command:
+    argv: [udevadm, trigger, --action=add, --subsystem-match=usb]
+  changed_when: false
+
+- name: Enable and start upsd
+  ansible.builtin.systemd:
+    name: nut-server
+    enabled: true
+    state: restarted
+  when: pve_nut_ups_conf is changed or pve_nut_upsd_conf is changed or pve_nut_users_conf is changed or pve_nut_nut_conf is changed
+
+- name: Start the UPS driver
+  ansible.builtin.command:
+    argv: [upsdrvctl, start]
+  register: pve_nut_driver
+  changed_when: "'started' in pve_nut_driver.stdout"
+  failed_when: false
+
+- name: Restart the UPS driver unit
+  ansible.builtin.systemd:
+    name: 'nut-driver@{{ pve_nut_ups_name }}'
+    state: restarted
+  failed_when: false
+
+- name: Wait for the UPS to answer
+  ansible.builtin.command:
+    argv: [upsc, '{{ pve_nut_ups_name }}@localhost', ups.status]
+  register: pve_nut_status
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: pve_nut_status.rc == 0

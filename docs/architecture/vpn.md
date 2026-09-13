@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
-更新: 2026-09-12。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
+更新: 2026-09-13。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
 
 方針は **K11にセルフホストVPNを置き、Tailscaleも併用する**。Windows・macOS・Linux・iOS・Androidからの使いやすさと、一般利用者がAuthentikの招待から参加できることを重視する。第一検証候補はNetBird、Tailscaleアプリへの統一を優先する場合の候補はHeadscaleとする。WireGuard単独には決め打ちしない。
 
@@ -32,9 +32,9 @@ Tailcatの接続アドレスは接続権を与える情報を含むため、公�
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
-| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01全体4vCPU・8GiBの計画枠内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
+| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
-| ラズパイ | Tailscale SaaSのsubnet routerと既存監視 | K11外の管理経路。K11停止中も動くことを検証 |
+| ラズパイ | Tailscale SaaSのsubnet routerとDNS（監視はmonitor-01へ分離） | K11外の管理経路。K11停止中も動くことを検証 |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
 NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)

@@ -1,0 +1,37 @@
+---
+# Canon TS8430シリーズへのプリント中継（services-01）。
+# 端末は CUPS のキュー `ts8430` を使う。プリンター自体はドライバーレスの
+# IPP Everywhere（AirPrint）なので `-m everywhere` で登録する。
+cups_printer_name: ts8430
+# 予備のアドレス。プリンターがDHCPで引っ越していても、応答がなければ
+# mDNS (_ipp._tcp) で現在地を探してキューを作り直す。
+cups_printer_uri: ipp://192.168.10.9/ipp/print
+cups_printer_mdns_model: TS8430
+cups_printer_description: Canon TS8430 series
+cups_printer_location: Home
+
+# ブラウザで開くHTTPS名（platform/terraform/dns.yaml の cups レコードと同じ）。
+# CUPS は未知の Host ヘッダを 400 で拒否するため、ServerAlias で受け入れる。
+# 整合は tests/test_cups.py が検査する。
+cups_server_alias: cups.apextox.dpdns.org
+
+# Nextcloudの「印刷」アクション用の小さなAPI。トークンと送信元IPで縛る。
+# 実体は stacks/print-api/（音楽同期などと同じ「stacks/<機能>/」の型）。
+cups_print_api_source_dir: '{{ playbook_dir }}/../../stacks/print-api'
+cups_print_api_dir: /opt/print-api
+cups_print_api_port: 6320
+cups_print_api_allowed: 192.168.10.101
+cups_print_api_max_bytes: 52428800
+cups_print_api_sops_file: '{{ playbook_dir }}/../sops/print-api.sops.yaml'
+
+# 印刷を許可するネットワーク。管理画面（/admin）は localhost だけに残す。
+cups_lan_cidr: 192.168.10.0/24
+# Tailscale の CGNAT 帯。VPN 越しの端末（N02）から同じキューを使えるようにする。
+cups_vpn_cidr: 100.64.0.0/10
+
+# lpadmin は cups-client、ipptool は cups-ipp-utils に入る。
+cups_packages:
+  - cups
+  - cups-client
+  - cups-filters
+  - cups-ipp-utils

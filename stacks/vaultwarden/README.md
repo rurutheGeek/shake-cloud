@@ -1,7 +1,7 @@
 # Vaultwarden
 
-パスワード管理です。**services-01 に単独の Compose プロジェクトとして置きます。**
-旧ホスト（検証用ステージング）のデータは移行せず、新規に構築します。認証は
+パスワード管理です。**services-01 に単独の Compose プロジェクトとして置いています。**
+旧ホスト（検証用ステージング）のデータは移行せず、新規に構築しました。認証は
 新しい identity（Authentik）の OIDC へ接続し、HTTPS 名は
 `vault.apextox.dpdns.org` です。
 
@@ -82,8 +82,11 @@ DB・添付・鍵・`config.json` は `${STORAGE_ROOT}/data`（`/data`）です�
 管理画面で保存した設定は `config.json` に入り、環境変数より優先される場合が
 あります。環境変数を変えたのに反映されないときは `config.json` を確認します。
 
-## まだやっていないこと
+## 実配備の状態（2026-09-12）
 
-- services-01 への実配備（上のコマンドは未実行）と実機確認（SSO・マスターパスワード・
-  再起動）
-- 旧ホストからのデータ移行（実データは使わず、検証用の新規構築のみ）
+- services-01 へ配備済み。`https://vault.apextox.dpdns.org`（Let's Encrypt）、`/alive` 200、
+  一般登録無効（登録 API は 400）・`INVITATIONS_ALLOWED=false` で Web UI に
+  「Create account」が出ないことを実機で確認済み。
+- 未確認: ブラウザーでの SSO ログイン、マスターパスワードの設定・保管庫の作成、
+  独立バックアップからの復元。
+- 旧ホストは検証用ステージングで実データが無いため、データ移行は行わない。

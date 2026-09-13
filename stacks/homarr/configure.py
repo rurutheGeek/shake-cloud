@@ -150,7 +150,7 @@ def configure(homarr, options):
                                     'isPublic': False}, post=True)['boardId']}
     homarr.trpc('board.savePartialBoardSettings',
                 {'id': board['id'], 'pageTitle': options['title'],
-                 'metaTitle': options['title'], 'disableStatus': True}, post=True)
+                 'metaTitle': options['title'], 'disableStatus': False}, post=True)
 
     known = {row['name']: row for row in homarr.trpc('app.all')}
     # 同じURLのアプリが別名で残っていたら、新規作成せず名前を直す（タイルの重複を防ぐ）。
@@ -160,7 +160,9 @@ def configure(homarr, options):
     for row in load_apps(options['apps_file']):
         data = {key: row[key] for key in ('name', 'description', 'href') if key in row}
         data.update(iconUrl=row.get('iconUrl') or icon_data_uri(
-            row.get('iconText', 'APP'), row.get('iconColor', DEFAULT_COLOR)), pingUrl=None)
+            row.get('iconText', 'APP'), row.get('iconColor', DEFAULT_COLOR)),
+            # タイルの緑/赤はこのURLへの疎通で決まる。指定が無ければ開くURLを使う。
+            pingUrl=row.get('pingUrl') or row['href'])
         existing_app = known.get(row['name']) or by_href.get(row['href'])
         if existing_app:
             app_id = existing_app['id']

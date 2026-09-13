@@ -8,9 +8,11 @@
 
 ## Vaultwardenで使う設定
 
+**現在の Vaultwarden（services-01、`stacks/vaultwarden/`）は SMTP をまだ設定していません。** W02 で新規構築した際、メール依存の機能を使わない前提で `stacks/vaultwarden/compose.yaml` に SMTP 変数を入れていないためです。有効にするときは、下の変数名を同スタックの Compose と `.env` へ足します。
+
 Vaultwardenは、少なくとも送信元とSMTPホストを設定します。ユーザー名を設定する場合はパスワードも必要です。通常は587番ポートのSTARTTLSを使います。465番ポートの暗黙TLSを使うサービスでは`force_tls`を指定します。[Vaultwarden公式SMTP設定](https://github.com/dani-garcia/vaultwarden/blob/main/.env.template)
 
-`compose.integrations.example.yaml`をコピーして使う場合の変数例です。値は実際のサービスの情報へ置き換え、Gitへ登録しません。
+旧ハブ（media-stack）では `stacks/compose.integrations.example.yaml` をコピーして使っていました。変数例です。値は実際のサービスの情報へ置き換え、Gitへ登録しません。
 
 ```dotenv
 VAULTWARDEN_SMTP_HOST=smtp.example.net
@@ -24,17 +26,17 @@ VAULTWARDEN_SMTP_PASSWORD=write-this-in-the-untracked-env-only
 
 このリポジトリの連携例には、Nextcloud用SMTPとVaultwarden用SMTPを分けて記載しています。両者は同じSMTPサービスを使えても、環境変数名と設定場所は別です。
 
-有効化する場合は、次のように連携Composeを作成してから再配備します。
+旧ハブで有効化する場合は、次のように連携Composeを作成してから再配備します。
 
 ```bash
-cd media-stack
+cd stacks
 cp -n compose.integrations.example.yaml compose.integrations.yaml
 # .envへSMTP_HOSTなどの実値を追加する
 sudo python3 scripts/stack.py lock
 sudo python3 scripts/stack.py up
 ```
 
-`scripts/stack.py`は`compose.integrations.yaml`が存在すると自動的に読み込みます。SMTPパスワードはGitへ追加せず、root専用の`.env`または別のSecret配備で管理します。
+`stacks/scripts/stack.py`は`compose.integrations.yaml`が存在すると自動的に読み込みます。SMTPパスワードはGitへ追加せず、root専用の`.env`または別のSecret配備で管理します。
 
 ## メール送信で確認すること
 

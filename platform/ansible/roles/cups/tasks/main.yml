@@ -1,0 +1,236 @@
+---
+- name: Install CUPS and the client tools
+  ansible.builtin.apt:
+    name: '{{ cups_packages }}'
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Write the CUPS configuration
+  ansible.builtin.template:
+    src: cupsd.conf.j2
+    dest: /etc/cups/cupsd.conf
+    owner: root
+    group: lp
+    mode: '0640'
+    backup: true
+  notify: Restart cups
+
+# Debian 13 の cups.service は Requires=cups.socket の socket activation で動く。
+# 中継は listen するソケットを localhost から LAN へ広げる。以前の
+# localhost 固定 drop-in が残っていれば消す。
+- name: Drop the old localhost-only service override
+  ansible.builtin.file:
+    path: /etc/systemd/system/cups.service.d/10-listen.conf
+    state: absent
+  register: cups_service_override
+
+- name: Create the socket drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/cups.socket.d
+    state: directory
+    mode: '0755'
+
+- name: Listen on the LAN through the socket unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cups.socket.d/10-listen.conf
+    mode: '0644'
+    content: |
+      # platform/ansible/roles/cups が置く。既定は 127.0.0.1:631 だけ。
+      [Socket]
+      ListenStream=
+      ListenStream=0.0.0.0:631
+  notify: Restart cups socket
+
+- name: Make sure the socket unit is not masked
+  ansible.builtin.systemd:
+    name: cups.socket
+    masked: false
+
+- name: Enable and start the CUPS socket
+  ansible.builtin.systemd:
+    name: cups.socket
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Enable and start CUPS
+  ansible.builtin.systemd:
+    name: cups
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for the CUPS scheduler
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 631
+    delay: 1
+    timeout: 60
+
+- name: Install the mDNS discovery tools
+  ansible.builtin.apt:
+    name: avahi-utils
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Remember the configured printer URI
+  ansible.builtin.set_fact:
+    cups_printer_uri_default: '{{ cups_printer_uri }}'
+
+- name: Probe the configured printer
+  ansible.builtin.wait_for:
+    host: "{{ cups_printer_uri | regex_replace('^[a-z]+://([^/:]+).*$', '\\1') }}"
+    port: 631
+    timeout: 2
+  register: cups_direct_probe
+  ignore_errors: true
+
+- name: Discover the printer over mDNS
+  # 既定のアドレスが変わっていても、AirPrint の広告から現在地を拾う。
+  ansible.builtin.command:
+    argv: [avahi-browse, -rpt4, _ipp._tcp]
+  register: cups_mdns
+  changed_when: false
+  failed_when: false
+  when: cups_direct_probe is failed
+
+- name: Point the queue at the address the printer advertises
+  ansible.builtin.set_fact:
+    cups_printer_uri: 'ipp://{{ item.split(";")[6] }}/ipp/print'
+  when:
+    - item.startswith('=;')
+    - item.split(';')[2] == 'IPv4'
+    - cups_printer_mdns_model in item.split(';')[3]
+    # CUPS 自身の広告（名前が "@ services-01" で終わる）は拾わない。
+    - "'services-01' not in item.split(';')[3]"
+  loop: '{{ cups_mdns.stdout_lines | default([]) }}'
+
+- name: Make sure the printer is reachable before building the queue
+  ansible.builtin.fail:
+    msg: >-
+      Canon {{ cups_printer_mdns_model }} がLANで見つからない。{{ cups_printer_uri_default }}
+      にも応答がない。プリンターの電源（自動電源オフを含む）を確認して再実行する。
+  when:
+    - cups_direct_probe is failed
+    - cups_printer_uri == cups_printer_uri_default
+
+- name: Look up the print queue
+  ansible.builtin.command:
+    argv: [lpstat, -v, '{{ cups_printer_name }}']
+  register: cups_queue
+  changed_when: false
+  failed_when: false
+
+- name: Check for a generated driverless PPD
+  ansible.builtin.stat:
+    path: '/etc/cups/ppd/{{ cups_printer_name }}.ppd'
+  register: cups_ppd
+
+- name: Drop a raw queue so the driverless one can be rebuilt
+  # -m everywhere asks the printer for its attributes. When the printer is
+  # asleep that fails and CUPS can leave a raw queue behind; drop it so the
+  # next run builds the driverless queue properly.
+  ansible.builtin.command:
+    argv: [lpadmin, -x, '{{ cups_printer_name }}']
+  when: cups_queue.rc == 0 and not cups_ppd.stat.exists
+  changed_when: true
+  notify: Restart cups
+  register: cups_drop
+
+- name: Create the print queue
+  ansible.builtin.command:
+    argv:
+      - lpadmin
+      - -p
+      - '{{ cups_printer_name }}'
+      - -E
+      - -v
+      - '{{ cups_printer_uri }}'
+      - -m
+      - everywhere
+      - -D
+      - '{{ cups_printer_description }}'
+      - -L
+      - '{{ cups_printer_location }}'
+  when: cups_queue.rc != 0 or (cups_drop is defined and cups_drop is changed)
+  changed_when: true
+  notify: Restart cups
+
+- name: Fix a drifted queue URI
+  ansible.builtin.command:
+    argv: [lpadmin, -p, '{{ cups_printer_name }}', -v, '{{ cups_printer_uri }}']
+  when:
+    - cups_queue.rc == 0
+    - cups_ppd.stat.exists
+    - cups_printer_uri not in cups_queue.stdout
+  changed_when: true
+  notify: Restart cups
+
+- name: Require the queue to exist
+  ansible.builtin.command:
+    argv: [lpstat, -p, '{{ cups_printer_name }}']
+  register: cups_queue_state
+  changed_when: false
+  failed_when: cups_queue_state.rc != 0
+
+# Nextcloud（shake_print）から印刷するための小さなAPI。トークンと送信元IPで
+# 縛り、受けた本文を lp でキューへ流すだけの役割。
+- name: Read the print API token
+  delegate_to: localhost
+  become: false
+  run_once: true
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --extract, '["PRINT_API_TOKEN"]', '{{ cups_print_api_sops_file }}']
+  register: cups_print_api_token
+  changed_when: false
+  no_log: true
+
+- name: Create the print API directory
+  ansible.builtin.file:
+    path: '{{ cups_print_api_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Install the print API
+  ansible.builtin.copy:
+    src: '{{ cups_print_api_source_dir }}/print_api.py'
+    dest: '{{ cups_print_api_dir }}/print_api.py'
+    mode: '0755'
+  notify: Restart print api
+
+- name: Write the print API environment
+  ansible.builtin.copy:
+    content: |
+      PRINT_API_TOKEN={{ cups_print_api_token.stdout }}
+      PRINT_API_BIND=0.0.0.0
+      PRINT_API_PORT={{ cups_print_api_port }}
+      PRINT_API_ALLOWED={{ cups_print_api_allowed }}
+      PRINT_API_MAX_BYTES={{ cups_print_api_max_bytes }}
+      PRINT_QUEUE={{ cups_printer_name }}
+    dest: '{{ cups_print_api_dir }}/print-api.env'
+    mode: '0400'
+  no_log: true
+  notify: Restart print api
+
+- name: Install the print API unit
+  ansible.builtin.template:
+    src: '{{ cups_print_api_source_dir }}/print-api.service.j2'
+    dest: /etc/systemd/system/print-api.service
+    mode: '0644'
+  notify: Restart print api
+
+- name: Enable and start the print API
+  ansible.builtin.systemd:
+    name: print-api
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for the print API
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ cups_print_api_port }}'
+    delay: 1
+    timeout: 30

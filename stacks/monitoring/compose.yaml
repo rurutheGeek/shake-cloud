@@ -1,0 +1,110 @@
+# 監視スタック（Prometheus・Alertmanager・Grafana・exporter）を monitor-01 に単独で置く。
+#
+# サービス自身のポートは 127.0.0.1 に閉じ、入口は Caddy（tls_proxy）の
+# https://grafana.<zone> だけにする。イメージは compose.lock.yaml で固定する。
+name: monitoring
+
+services:
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus}:${PROMETHEUS_TAG:-latest}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - ${STORAGE_ROOT:-./storage}/prometheus:/prometheus
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:9090:9090'
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://localhost:9090/-/ready]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE:-prom/alertmanager}:${ALERTMANAGER_TAG:-latest}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
+      ALERT_EMAIL: ${ALERT_EMAIL:-}
+    volumes:
+      # alertmanager.yml は manage.py が secrets/ と .env から描画する。
+      - ${STORAGE_ROOT:-./storage}/alertmanager-config:/etc/alertmanager:ro
+      - ${STORAGE_ROOT:-./storage}/alertmanager:/alertmanager
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:9093:9093'
+
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana}:${GRAFANA_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run manage.py up}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
+      # Authentik OIDC。秘密値は manage.py が secrets/ から渡す。
+      GF_AUTH_GENERIC_OAUTH_ENABLED: ${GRAFANA_OIDC_ENABLED:-false}
+      GF_AUTH_GENERIC_OAUTH_NAME: Authentik
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: grafana
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: ${GRAFANA_OIDC_CLIENT_SECRET:-}
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid email profile
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: ${GRAFANA_OIDC_AUTH_URL:-}
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: ${GRAFANA_OIDC_TOKEN_URL:-}
+      GF_AUTH_GENERIC_OAUTH_API_URL: ${GRAFANA_OIDC_API_URL:-}
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: contains(groups[*], 'admins') && 'Admin' || 'Viewer'
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: 'true'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${STORAGE_ROOT:-./storage}/grafana:/var/lib/grafana
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:3000:3000'
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://localhost:3000/api/health]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  blackbox:
+    image: ${BLACKBOX_IMAGE:-prom/blackbox-exporter}:${BLACKBOX_TAG:-latest}
+    restart: unless-stopped
+    command: [--config.file=/etc/blackbox/blackbox.yml]
+    volumes:
+      - ./blackbox:/etc/blackbox:ro
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:9115:9115'
+
+  pve-exporter:
+    image: ${PVE_EXPORTER_IMAGE:-prompve/prometheus-pve-exporter}:${PVE_EXPORTER_TAG:-latest}
+    restart: unless-stopped
+    # pve.yml は 0600 のトークンを含む。読めるよう root で動かす（読み取り専用）。
+    user: root
+    command: [--config.file=/etc/pve/pve.yml]
+    volumes:
+      # pve.yml は manage.py が secrets/ から描画する。トークンを Git に置かない。
+      - ${STORAGE_ROOT:-./storage}/pve-exporter:/etc/pve:ro
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:9221:9221'
+
+  nut-exporter:
+    image: ${NUT_EXPORTER_IMAGE:-ghcr.io/druggeri/nut_exporter}:${NUT_EXPORTER_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # この exporter はパスワードだけ環境変数で受ける。
+      NUT_EXPORTER_PASSWORD: ${NUT_PASSWORD:-}
+    command:
+      - --nut.server=${NUT_SERVER:-192.168.10.126}
+      - --nut.username=${NUT_USERNAME:-monitor}
+      - --nut.vars_enable=battery.charge,battery.runtime,ups.status,ups.load,input.voltage,output.voltage
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:9199:9199'

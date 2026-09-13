@@ -1,0 +1,51 @@
+# platform/ansible/roles/cups が描画する。ホスト上で直さない。
+LogLevel warn
+MaxLogSize 0
+ErrorLog /var/log/cups/error_log
+AccessLog /var/log/cups/access_log
+PageLog /var/log/cups/page_log
+
+# LAN/VPN の端末から直接 631/tcp へつなぐ。localhost だけでは中継にならない。
+Listen 0.0.0.0:631
+Listen /run/cups/cups.sock
+
+Browsing On
+BrowseLocalProtocols dnssd
+DefaultAuthType Basic
+WebInterface Yes
+
+# Caddy 越しの Host（cups.<ゾーン>）を受け入れる。既定では未知の Host を
+# 400 Bad Request で拒否するため、ServerAlias に同じ名前を置く。
+ServerAlias {{ cups_server_alias }}
+
+# 印刷は LAN と VPN へ許可する。認証はプリンター側/端末側の指定に任せ、
+# CUPS は中継に徹する。
+<Location />
+  Order allow,deny
+  Allow 127.0.0.1
+  Allow {{ cups_lan_cidr }}
+  Allow {{ cups_vpn_cidr }}
+</Location>
+
+# 管理画面と設定ファイルは localhost だけ。認証なしでプリンターを追加・変更
+# できないようにする。
+<Location /admin>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+
+<Location /admin/conf>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>
+
+<Location /admin/log>
+  AuthType Default
+  Require user @SYSTEM
+  Order allow,deny
+  Allow localhost
+</Location>

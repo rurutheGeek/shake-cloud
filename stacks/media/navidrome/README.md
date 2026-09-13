@@ -12,7 +12,7 @@
 
 ## 認証の前提（注意）
 
-Navidrome は**前段の認証プロキシ（既存メディア SSO）配下で使う前提**です。バックエンドを直接公開したり、認証ヘッダーを偽装して迂回できる経路を作ったりしないでください。HTTPS と SSO は [N05](../../../docs/development/N05-https.md) と [W05](../../../docs/development/W05-navidrome.md) の条件に従います。Subsonic 互換クライアントの認証は別途確認が必要です。
+Navidrome は**前段の認証プロキシ（新しい identity の Authentik Forward Auth）配下で使う前提**です。バックエンドを直接公開したり、認証ヘッダーを偽装して迂回できる経路を作ったりしないでください。HTTPS と SSO は [N05](../../../docs/development/N05-https.md) と [W05](../../../docs/development/W05-navidrome.md) の条件に従います。media-01 では `https://navidrome.apextox.dpdns.org` が入口です。Subsonic 互換クライアントの認証は別途確認が必要です。
 
 Forward Auth は compose.yaml の環境変数で有効にします。
 

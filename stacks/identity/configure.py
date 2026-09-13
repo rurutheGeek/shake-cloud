@@ -29,6 +29,9 @@ MEDIA_OUTPOST = 'Embedded'
 # OIDC client of the same identity and is reachable by every invited person.
 HOMARR = 'homarr'
 HOMARR_REDIRECT_PATH = '/api/auth/callback/oidc'
+# The monitoring portal. Grafana maps the groups claim to Admin/Viewer itself.
+GRAFANA = 'grafana'
+GRAFANA_REDIRECT_PATH = '/login/generic_oauth'
 # Vaultwarden is a native OIDC client. The callback is generated from its
 # DOMAIN (https://vault.<zone>), and offline_access/refresh tokens keep the
 # Bitwarden session alive.
@@ -40,6 +43,10 @@ VAULTWARDEN_REDIRECT_PATH = '/identity/connect/oidc-signin'
 HOME_ASSISTANT = 'home-assistant'
 HOME_ASSISTANT_HOST = 'ha'
 HOME_ASSISTANT_REDIRECT_PATH = '/auth/oidc/callback'
+# CUPS runs on services-01. The status page is a browser tool like the media
+# proxies, so it goes through Forward Auth too; printing itself stays on the
+# plain IPP port (631) and the /admin paths are blocked at the proxy.
+CUPS = 'cups'
 AUTHORIZATION_FLOW = 'default-provider-authorization-implicit-consent'
 INVALIDATION_FLOW = 'default-provider-invalidation-flow'
 SIGNING_KEY = 'authentik Self-signed Certificate'
@@ -83,6 +90,11 @@ def media_redirect(name, zone):
 def homarr_redirect(zone):
     """Return the Homarr OIDC redirect URI (its NextAuth callback)."""
     return f'https://{HOMARR}.{zone}{HOMARR_REDIRECT_PATH}'
+
+
+def grafana_redirect(zone):
+    """Return the Grafana OIDC redirect URI (generic_oauth)."""
+    return f'https://{GRAFANA}.{zone}{GRAFANA_REDIRECT_PATH}'
 
 
 def vaultwarden_redirect(zone):
@@ -244,6 +256,18 @@ def homarr_credential():
     if path.exists():
         return json.loads(path.read_text())
     credential = {'client_id': HOMARR, 'client_secret': secrets.token_urlsafe(48)}
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.write_text(json.dumps(credential))
+    path.chmod(0o600)
+    return credential
+
+
+def grafana_credential():
+    """Load or create the Grafana OIDC client, keeping the stored secret."""
+    path = ROOT / 'secrets' / 'oidc-grafana.json'
+    if path.exists():
+        return json.loads(path.read_text())
+    credential = {'client_id': GRAFANA, 'client_secret': secrets.token_urlsafe(48)}
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(json.dumps(credential))
     path.chmod(0o600)
@@ -489,6 +513,20 @@ def outpost_body(current, provider_pks, zone):
     return {'providers': providers, 'config': config}
 
 
+def ensure_outpost(api, provider_pks, zone, label):
+    """Union the embedded outpost's providers and report what changed."""
+    outposts = [row for row in api.rows('outposts/instances/')
+                if MEDIA_OUTPOST in (row.get('name') or '')]
+    if not outposts:
+        raise SystemExit(f'Authentik outpost containing {MEDIA_OUTPOST} was not found')
+    desired = outpost_body(outposts[0], provider_pks, zone)
+    if drifted(outposts[0], desired):
+        api.call('PATCH', f"outposts/instances/{outposts[0]['pk']}/", desired)
+        print(f'CHANGED: embedded outpost serves the {label}')
+    else:
+        print('OK: embedded outpost')
+
+
 def configure_media(api, groups, flows, mappings, signing_key, portal_url):
     """Reconcile the media SSO clients, the Forward Auth providers and access."""
     zone = media_zone(portal_url)
@@ -508,17 +546,8 @@ def configure_media(api, groups, flows, mappings, signing_key, portal_url):
         })
         providers[name] = provider['pk']
 
-    outposts = [row for row in api.rows('outposts/instances/')
-                if MEDIA_OUTPOST in (row.get('name') or '')]
-    if not outposts:
-        raise SystemExit(f'Authentik outpost containing {MEDIA_OUTPOST} was not found')
-    desired = outpost_body(outposts[0],
-                           (providers[name] for name in MEDIA_PROXY_PROVIDERS), zone)
-    if drifted(outposts[0], desired):
-        api.call('PATCH', f"outposts/instances/{outposts[0]['pk']}/", desired)
-        print('CHANGED: embedded outpost serves the media forward-auth providers')
-    else:
-        print('OK: embedded outpost')
+    ensure_outpost(api, (providers[name] for name in MEDIA_PROXY_PROVIDERS), zone,
+                   'media forward-auth providers')
 
     # Media is for every invited person, not only administrators: the users
     # group alone gets access, and admins keep the access the cloud app owns.
@@ -548,6 +577,23 @@ def configure_homarr(api, groups, flows, mappings, signing_key, portal_url):
         print(f'CHANGED: users may use {HOMARR}')
     else:
         print(f'OK: users may use {HOMARR}')
+
+
+def configure_grafana(api, groups, flows, mappings, signing_key, portal_url):
+    """Reconcile the Grafana monitoring portal: OIDC provider, app, access."""
+    zone = media_zone(portal_url)
+    provider = ensure_oauth2_provider(api, GRAFANA, oidc_provider_body(
+        GRAFANA, grafana_redirect(zone), flows, mappings, signing_key, grafana_credential()))
+    application = ensure_application(api, GRAFANA, {
+        'name': 'Grafana', 'slug': GRAFANA, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{GRAFANA}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    for order, name in enumerate(GROUPS):
+        if bind_group(api, application['pk'], groups[name]['pk'], order=order):
+            print(f'CHANGED: {name} may use {GRAFANA}')
+        else:
+            print(f'OK: {name} may use {GRAFANA}')
 
 
 def configure_vaultwarden(api, groups, flows, mappings, signing_key, portal_url):
@@ -587,6 +633,30 @@ def configure_home_assistant(api, groups, flows, mappings, signing_key, portal_u
             print(f'CHANGED: {name} may use {HOME_ASSISTANT}')
         else:
             print(f'OK: {name} may use {HOME_ASSISTANT}')
+
+
+def configure_cups(api, groups, flows, portal_url):
+    """Reconcile the CUPS status page: Forward Auth provider, access, outpost.
+
+    Printing itself stays on IPP 631; only the browser UI goes through SSO.
+    """
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, CUPS, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{CUPS}.{zone}',
+    })
+    application = ensure_application(api, CUPS, {
+        'name': 'CUPS', 'slug': CUPS, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{CUPS}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['users']['pk']):
+        print(f'CHANGED: users may use {CUPS}')
+    else:
+        print(f'OK: users may use {CUPS}')
+    ensure_outpost(api, [provider['pk']], zone, 'CUPS forward-auth provider')
 
 
 def main():
@@ -642,8 +712,10 @@ def main():
     configure_passkey_login(api)
     configure_media(api, groups, flows, mappings, keys[0], portal_url)
     configure_homarr(api, groups, flows, mappings, keys[0], portal_url)
+    configure_grafana(api, groups, flows, mappings, keys[0], portal_url)
     configure_vaultwarden(api, groups, flows, mappings, keys[0], portal_url)
     configure_home_assistant(api, groups, flows, mappings, keys[0], portal_url)
+    configure_cups(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

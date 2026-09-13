@@ -1,8 +1,8 @@
 # Homarr
 
 サービスの入口（ダッシュボード）です。**services-01 に単独の Compose
-プロジェクトとして置きます。** 旧ハブの `media-hub`（Authentik・docs・他サービス
-同居）は流用せず、認証は新しい identity の OIDC へ接続します。
+プロジェクトとして置いています。** 旧ハブの `media-hub`（Authentik・docs・他サービス
+同居）は流用せず、認証は新しい identity の OIDC へ接続しています。
 
 - 担当計画: [W01 Homarr](../../docs/development/W01-homarr.md)
 - 利用案内: [Homarrの使い方](../../docs/services/homarr.md)
@@ -67,7 +67,11 @@ sudo python3 manage.py status
 を失うと保存済みの認証情報を復号できないため、`manage.py backup` は
 `state.tar` と `deployment.tar` を分けて取ります。
 
-## まだやっていないこと
+## 実配備の状態（2026-09-12）
 
-- services-01 への実配備（上のコマンドは未実行）と実機確認（SSO・閲覧/管理者権限・再実行・再起動）
-- 旧ハブからのデータ移行（ユーザーの判断で流用しない。新規に構築する）
+- services-01 へ配備済み。`https://homarr.apextox.dpdns.org`（Let's Encrypt・identity の OIDC）。
+- `manage.py configure` がボード `home`・タイル・`admins` 権限・`users` 閲覧許可を
+  反映し、再実行してもタイルが増えないことを実配備で確認済み。
+- 未確認: ブラウザーでの SSO ログイン、閲覧/管理者権限の実操作、コンテナ再作成・
+  VM 再起動後の保持。
+- 旧ハブからのデータ移行は行わない（ユーザーの判断で流用せず、新規に構築）。

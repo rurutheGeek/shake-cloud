@@ -2,6 +2,8 @@
 
 media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → Picard でタグ付け → Navidrome 表示）を担うスタックです。仕様・進捗の正本は [W06](../../docs/development/W06-music-tools.md)、Picard の位置づけは [D05](../../docs/development/D05-picard.md) です。
 
+状態: **media-01 は Picard のみ配備済み（2026-09-12。`https://picard.apextox.dpdns.org`・Forward Auth）。MeTube・変換・同期の移行は W06 で進行中**。共有 Cookie の実物は未登録です。
+
 ## 構成
 
 | サービス | 内容 | 入口 |
@@ -72,7 +74,9 @@ sudo python3 manage.py backup --destination /srv/backups/music-tools
 
 ## Picard の使い方
 
-GUI は 127.0.0.1 に閉じているため、利用者 PC から SSH ポート転送で開きます。
+media-01 では `https://picard.apextox.dpdns.org`（Let's Encrypt・Authentik Forward Auth）から開きます。初回は `auth.apextox.dpdns.org` のログインへ移動し、認証後に Picard へ戻ります。
+
+アプリ自身の 5800 は 127.0.0.1 に閉じているため、直接確認する場合は SSH ポート転送も使えます。
 
 ```sh
 ssh -N -L 5800:127.0.0.1:5800 <user>@media-01
@@ -82,7 +86,7 @@ ssh -N -L 5800:127.0.0.1:5800 <user>@media-01
 1. 対象アルバムを作業コピーとして `/storage`（共有 music）から読み込む。
 2. Lookup（クラスタ単位）または Scan（ファイル単位）で照合する。
 3. 内容を確認して Save。BCSTM 原本と生成物 `music/Converted/` は編集しない。
-4. 保存後は同期タイマー `media-stack-music-sync.timer` が Nextcloud のキャッシュと Navidrome へ反映する。今すぐ反映したい場合は `sudo systemctl start media-stack-music-sync.service` を使う。
+4. 保存後は同期タイマー `media-stack-music-sync.timer` が Nextcloud のキャッシュと Navidrome へ反映する。今すぐ反映したい場合は `sudo systemctl start media-stack-music-sync.service` を使う。**media-01 では移行中（W06）のためタイマーは停止している。**
 
 変換・同期と同じファイルを同時に触らないよう、Picard の保存中は変換や同期の手動実行を重ねません。
 

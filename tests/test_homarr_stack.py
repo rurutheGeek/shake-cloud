@@ -163,6 +163,22 @@ class ReconcileTests(unittest.TestCase):
         culture = homarr.calls_to('serverSettings.saveSettings')[-1]
         self.assertEqual(culture['value'], {'defaultLocale': 'ja'})
 
+    def test_the_board_shows_the_reachability_status(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options(APPS))
+        settings = homarr.calls_to('board.savePartialBoardSettings')[-1]
+        self.assertFalse(settings['disableStatus'])
+
+    def test_a_declared_ping_url_is_used_and_defaults_to_href(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options([
+            {'name': 'A', 'href': 'https://a.example', 'pingUrl': 'https://a.example/healthz'},
+            {'name': 'B', 'href': 'https://b.example'},
+        ]))
+        created = {row['name']: row for row in homarr.calls_to('app.create')}
+        self.assertEqual(created['A']['pingUrl'], 'https://a.example/healthz')
+        self.assertEqual(created['B']['pingUrl'], 'https://b.example')
+
 
 class InputTests(unittest.TestCase):
     def test_an_absolute_url_is_required(self):
@@ -238,6 +254,8 @@ class StackTests(unittest.TestCase):
         self.assertEqual(len(apps), len({row['href'] for row in apps}))
         for row in apps:
             self.assertTrue(row['href'].startswith('https://'), row['href'])
+            if 'pingUrl' in row:
+                self.assertTrue(row['pingUrl'].startswith('https://'), row['pingUrl'])
 
 
 class IacTests(unittest.TestCase):

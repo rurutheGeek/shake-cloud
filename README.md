@@ -6,8 +6,10 @@ NetBoxで配備先を管理し、AnsibleからDocker Composeを配備する構�
 Proxmox VE 上への展開では、TerraformがProxmoxのプール・ロールとVMを作り、IPの採番はNetBoxのIPAMに任せます。誰が何を所有するかは[IaCの所有境界](docs/architecture/iac.md)、実機での進め方は[Proxmox導入後の手順](docs/architecture/bring-up.md)にあります。
 Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組み合わせています。[接続と配備手順](docs/operations/hub.md)、[SSO](docs/services/sso.md)、[音楽の取り込み](docs/services/music.md)を参照してください。
 **AWX 24.6.1 は構築済み**（2026-09-12）。kubeadm の Kubernetes 上に Flux で配備し、`https://awx.apextox.dpdns.org` で使えます（[Kubernetes クラスタ](docs/operations/kubernetes.md)・[AWXの使い方](docs/operations/awx.md)）。`platform/awx/` には移行用の EE・登録 Playbook 例があります。
+**Home Assistant Container は services-01 で稼働中**（`https://ha.apextox.dpdns.org`、Authentik SSO + 緊急用ローカルオーナー）。SwitchBot Cloud（Hub Mini 経由）と Eufy（`eufy-security-ws`。イベント・通知まで）を連携し、Eufy のライブ映像は新 WebRTC 方式のため不可、Alexa/Echo 連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H01](docs/development/H01-home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
+**印刷は services-01 の CUPS**（`https://cups.apextox.dpdns.org`）が中継し、Nextcloudの「印刷」からも出せます（[プリンター](docs/services/printer.md)・[D08](docs/development/D08-nextcloud-print.md)）。
 
-機能別の配置と40件の独立した作業計画は[並列開発計画](docs/development/index.md)にあります。番号は実施順ではなく、実装・移行・資料修正を別々に進めます。
+機能別の配置と独立した作業計画は[並列開発計画](docs/development/index.md)にあります。番号は実施順ではなく、実装・移行・資料修正を別々に進めます。
 
 新しく開発へ参加する人は[開発参加ガイド](docs/onboarding.md)から読んでください。設計思想・制約・開発VMの使い方をまとめてあります。
 
@@ -31,7 +33,7 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 
 ### コードの担当範囲
 
-リポジトリは基盤（`platform/`）、サービス（`stacks/`）、リポジトリ用ツール（`tools/`）に分かれています。**`stacks/` の直下が配備先 `/opt/media-stack` の構成にそのまま対応します。** Ansibleの `source_dir` だけがこの対応点なので、リポジトリ側を再編しても配備先の構成は変わりません。
+リポジトリは基盤（`platform/`）、サービス（`stacks/`）、リポジトリ用ツール（`tools/`）に分かれています。**旧メディアスタックは `stacks/` の直下が配備先 `/opt/media-stack` の構成にそのまま対応します。** 新しい基盤のサービスは `stacks/<name>/` の独立Composeとしてホストごとに配備します（例: `stacks/home-assistant/` → services-01、`stacks/monitoring/` → monitor-01）。Ansibleの `source_dir` が対応点なので、リポジトリ側を再編しても配備先の構成は変わりません。
 
 | 場所 | 変更する内容 |
 | --- | --- |
@@ -50,6 +52,7 @@ Homarrを入口に、Authentik SSO・日本語Markdown手順書・MeTubeを組�
 | `stacks/tls-proxy/` | 各ホストの HTTPS の入口（Caddy と Cloudflare の DNS モジュール）。受ける名前は `platform/terraform/dns.yaml`、配備はロール `tls_proxy` |
 | `stacks/sso/` | Caddy、OIDC・認証プロキシ、ローカルTLS、アプリへの信頼設定 |
 | `stacks/music-tools/` | MeTube、BCSTM変換・削除同期、タグ編集、定期反映 |
+| `stacks/<name>/`（例: `home-assistant`・`eufy-security-ws`・`vaultwarden`・`homarr`・`print-api`・`monitoring`） | 新しい基盤のサービス（ホストごとの独立Compose） |
 | `docs/`、`mkdocs.yml` | 日本語の利用・運用手順とサイト構成 |
 | `tools/` | 公開前チェック、構成図の再生成 |
 | `tests/`、`.github/workflows/validate.yml` | 回帰テスト、公開対象チェック、ドキュメント検証 |
@@ -79,11 +82,12 @@ Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platfor
 
 ### 現状と未完了事項
 
-- 単一ホストのCompose構成です。複数ノードへのサービス分散・HAは未実装です。NetBoxへホストを増やすと各ホストへ独立した一式を配備します。
-- 旧メディアスタックは `apextox.dpdns.org` 取得後も SSH 転送とローカル CA のままです（端末ごとの CA 登録が必要）。**新しい基盤（identity・cloud・NetBox・AWX・docs）は `*.apextox.dpdns.org` の HTTPS へ移行済み**です（[接続先一覧](docs/operations/urls.md)）。
+- メディア系（media-01）は単一ホストのCompose構成です。複数ノードへのサービス分散・HAは未実装です。基盤は identity・cloud-01・services-01・storage-s3 と Kubernetes の各VMに分かれ、NetBoxへホストを増やすと各ホストへ独立した一式を配備します。
+- メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と新しい identity の認証を使います。**データ移行とブラウザでのログイン実測は未完で、旧メディアスタック（SSH 転送・ローカル CA）も併存**します（[接続先一覧](docs/operations/urls.md)）。
+- **Home Assistant Container は services-01 へ配備済み**です。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、Alexa/Echo連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H01](docs/development/H01-home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
 - 旧メディアスタックの SMTP は未設定のままです。**新しい identity は Gmail SMTP で招待・復旧メールを送っています**（[SMTP](docs/operations/smtp.md)）。共有Cookie未提供のため、実際のYouTubeダウンロードは未確認です。
 - **AWX 24.6.1 は構築済み**です（kubeadm の Kubernetes へ Flux で配備）。既存PlaybookとNetBoxインベントリを引き継ぎます（[AWXの使い方](docs/operations/awx.md)）。
-- 別ホストへのSSH配備と、実際のゲーム由来BCSTMの網羅的互換性は未検証です。公開ACME証明書は新基盤で発行済み（Let's Encrypt）、バックアップからの復元は drill を継続します。
+- 実際のゲーム由来BCSTMの網羅的互換性は未検証です。公開ACME証明書は Let's Encrypt で発行済み、クラウドVM（media-01）へのAnsible配備は実機確認済み、バックアップからの復元は drill を継続します。
 
 ## データの分離
 
@@ -228,7 +232,7 @@ sudo python3 scripts/stack.py up
 
 `python3 -m unittest discover -s tests -v` で原本のマウント分離、秘密値の保持、外部ストレージ登録、digest保持、バックアップ失敗時のサービス復帰を確認します。Compose展開・Ansible構文も検証対象です。
 
-このホストへDocker EngineとComposeを導入し、基本サービス・NetBox・ハブ・SSO・音楽ツールを実起動しました。HTTP応答、管理者認証、原本の共有と読み取り専用制約、Nextcloud cron、NetBox動的インベントリ、Ansibleによるlocal接続での配備・再配備を確認済みです。追加構成では各サービスのSSO（Vaultwardenは初回マスターパスワード設定画面まで）、NetBoxの一般利用者のアクセス拒否、BCSTMテストデータからのMP3変換・原本削除同期を確認しました。別ホストへのSSH配備・バックアップからの復元は未検証です。ACME（Let's Encrypt）は新基盤で発行済み、AWXは構築済みです（[配備台帳](docs/operations/handover.md)）。
+このホストへDocker EngineとComposeを導入し、基本サービス・NetBox・ハブ・SSO・音楽ツールを実起動しました。HTTP応答、管理者認証、原本の共有と読み取り専用制約、Nextcloud cron、NetBox動的インベントリ、Ansibleによるlocal接続での配備・再配備を確認済みです。追加構成では各サービスのSSO（Vaultwardenは初回マスターパスワード設定画面まで）、NetBoxの一般利用者のアクセス拒否、BCSTMテストデータからのMP3変換・原本削除同期を確認しました。バックアップからの復元は未検証です。ACME（Let's Encrypt）は新基盤で発行済み、AWXは構築済み、クラウドVM（media-01）へのAnsible配備も確認済みです（[配備台帳](docs/operations/handover.md)）。
 
 ## 参照
 

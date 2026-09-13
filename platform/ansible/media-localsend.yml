@@ -1,0 +1,52 @@
+---
+# LocalSend の常設受信機を media-01 の独立 Compose プロジェクトとして配備する。
+# 端末から送ったファイルは Nextcloud が見る inbox へ着地する。
+#   ansible-playbook -i <inventory> platform/ansible/media-localsend.yml
+- name: Deploy the LocalSend receiver
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Create LocalSend deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/localsend'
+        state: directory
+        mode: '0750'
+    - name: Copy LocalSend definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/localsend/{{ item }}'
+        dest: '{{ project_dir }}/media/localsend/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+    - name: Configure LocalSend environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          LIBRARY_ROOT={{ library_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          MEDIA_UID={{ media_uid | default(33) }}
+          MEDIA_GID={{ media_gid | default(33) }}
+          LOCALSEND_PORT={{ localsend_port | default(53317) }}
+          LOCALSEND_ADMIN_PORT={{ localsend_admin_port | default(53318) }}
+          LOCALSEND_DEVICE_NAME={{ localsend_device_name | default('media-01') }}
+        dest: '{{ project_dir }}/media/localsend/.env'
+        mode: '0600'
+    - name: Prepare LocalSend storage and the PIN secret
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', init]
+      changed_when: true
+    - name: Deploy LocalSend
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', up]
+      changed_when: true
+    # 受信機は自己署名TLSなので、証明書検証を外して info を確認する。
+    - name: Wait for the LocalSend receiver
+      ansible.builtin.uri:
+        url: 'https://127.0.0.1:{{ localsend_port | default(53317) }}/api/localsend/v2/info'
+        validate_certs: false
+        status_code: [200]
+      register: localsend_info
+      retries: 20
+      delay: 3
+      until: localsend_info is succeeded

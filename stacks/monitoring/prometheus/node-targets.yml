@@ -1,0 +1,10 @@
+# node_exporter を入れたVM。media-01 と game1 は SG/OS の都合で入れず、
+# Proxmox 側（pve-exporter）の資源で見る。monitor-01 自身は作成後に追記する。
+- targets:
+    - 192.168.10.200:9100
+    - 192.168.10.204:9100
+    - 192.168.10.205:9100
+    - 192.168.10.206:9100
+    - 192.168.10.102:9100
+  labels:
+    group: platform

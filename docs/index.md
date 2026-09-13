@@ -10,6 +10,8 @@
 | --- | --- | --- |
 | Homarr | <https://homarr.apextox.dpdns.org> | サービス一覧の入口（閲覧は全員、編集は管理者） |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理 |
+| プリンター | <https://cups.apextox.dpdns.org> | 印刷の状況（印刷自体はAirPrintかIPP） |
+| Home Assistant | <https://ha.apextox.dpdns.org> | 家電の状態確認・操作・自動化（[使い方](services/home-assistant.md)） |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口 |
 | クラウド | <https://cloud.apextox.dpdns.org> | VM・S3・DB・関数のポータル |
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（招待・パスキー・復旧） |
@@ -18,8 +20,9 @@
 | ドキュメント | <https://docs.apextox.dpdns.org> | このサイト |
 
 **これらは家庭内 LAN からのみ届きます。** メディア系（Nextcloud・Kavita・Navidrome・
-MeTube・Vaultwarden）は移行中で、まだ旧メディアスタック（下の表、SSH トンネル経由・
-別の Authentik）です。
+MeTube）は media-01 へ移行中で、新しい入口（`*.apextox.dpdns.org`・新しい共通ログイン）と、
+下の旧メディアスタック（SSH トンネル経由・別の Authentik）が併存しています。
+**いま使う入口は[接続先一覧](operations/urls.md)で確認してください。**
 
 ## 旧メディアスタック（SSH トンネル）
 
@@ -43,6 +46,7 @@ MeTube・Vaultwarden）は移行中で、まだ旧メディアスタック（下
 - 音楽: Nextcloudのmusicへ追加します。Navidromeは定期スキャンで取り込みます。
 - 予定: NextcloudのCalendarでカレンダーを作り、必要な相手に共有します。
 - TODO: Tasksでリストを作り、タスクを追加します。
+- 家電: Home Assistant（<https://ha.apextox.dpdns.org>）で状態を見たり操作します。詳細は[Home Assistantと家電の使い方](services/home-assistant.md)。
 - パスワード: Vaultwardenの招待を受け、自分だけが知るマスターパスワードで登録します。
 
 [音楽の取り込み・タグ編集・BCSTM](services/music.md)も参照してください。日常の操作は[全サービスの使い方](services/usage.md)にまとめています。
