@@ -191,6 +191,12 @@ def configure(homarr, options):
         admin = next(row for row in homarr.trpc('group.getAll')
                      if row['name'] == options['admin_group'])
     homarr.trpc('group.savePermissions', {'groupId': admin['id'], 'permissions': ['admin']}, post=True)
+    # 管理者グループにもボード編集を明示（全体管理者でも編集できるが、意図を残す）。
+    homarr.trpc('board.saveGroupBoardPermissions', {
+        'entityId': board['id'],
+        'permissions': [{'principalId': everyone['id'], 'permission': 'view'},
+                        {'principalId': admin['id'], 'permission': 'modify'}],
+    }, post=True)
     print(f"Homarr board '{options['board']}' reconciled "
           f"({len(existing)} items before, {len(known)} apps known)")
 

@@ -2,7 +2,7 @@
 
 ## URLから音声を追加
 
-**MeTubeはmedia-01への移行が未了です（W06）。配備後は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。** ダウンロードできる権利のある音源を指定してください。
+**MeTubeはmedia-01で稼働中です。** <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。ダウンロードできる権利のある音源を指定してください。
 
 音声は `${LIBRARY_ROOT}/music/YouTube/投稿者/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
 
@@ -10,7 +10,7 @@ yt-dlp・FFmpeg・MeTubeはコンテナに含まれます。設定は `stacks/mu
 
 ダウンロード完了後、1分周期のホストタイマーが音楽の変更を検出し、NextcloudのファイルキャッシュとNavidromeのスキャンを更新します。大量ファイルではスキャン完了までさらに時間がかかります。KavitaとNavidromeの原本マウントは引き続き読み取り専用です。
 
-MeTubeはmedia-01ではまだ稼働していません（W06で移行）。共有Cookieと取り込み履歴は全利用者で共通です。
+MeTubeはmedia-01で稼働しています。共有Cookieと取り込み履歴は全利用者で共通です。
 
 ### 共有Cookieの登録（初回・期限切れ時）
 
@@ -32,9 +32,13 @@ GUIを使わず、次のコマンドでも音声を追加できます。
 python3 stacks/music-tools/download.py 'https://www.youtube.com/watch?v=動画ID' --format mp3
 ```
 
-## MusicBrainz Picardで自動照合・タグ付け
+## タグ付け（Nextcloudの「タグを編集」）
 
-**Picardを音楽タグ付けの標準GUIにする方針です。** Picardはメディアの音楽導線（MeTubeの取込 → Nextcloudの共有music → タグ付け → Navidromeの表示）に置きます。GUIは基本として利用者PCで動かし、サーバー側GUIはmedia-01のWeb GUIコンテナ（`jlesage/musicbrainz-picard`）を使います（ゲームVMには置きません）。**2026-09-12にmedia-01へ配備**しました（MeTube・変換・同期の移行はW06で進行中）。無人実行ジョブは未実装です。
+**通常のタグ付けはNextcloudで行います。** `music` のMP3の **…** → **タグを編集** で、曲名・アーティスト・アルバムなどをフォームで直せます。**MusicBrainzで検索** を押すと候補が出て、選ぶと入力欄に入ります。変更前のタグはmedia-01の `/opt/media-stack/music-tools/storage/tags/tag-backups/` にバックアップされます。手順は[Nextcloudの使い方](nextcloud-guide.md)を参照してください。Navidromeへの反映は通常1時間以内です。
+
+## MusicBrainz Picard（重い照合に使う任意のGUI）
+
+大量のアルバムをまとめて照合したいときだけ、Picardも使えます。Picardはデスクトップアプリしかなく、サーバーでは `jlesage/musicbrainz-picard` が**ブラウザー内デスクトップ**として動きます（`https://picard.apextox.dpdns.org`・Forward Auth。ゲームVMには置きません）。**2026-09-12にmedia-01へ配備**しました。無人実行ジョブは未実装です。
 
 ### media-01のWeb GUIへ入る
 

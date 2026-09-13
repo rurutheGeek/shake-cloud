@@ -4,7 +4,7 @@
 
 ## 目的・現状
 
-状態: **PicardのWeb GUIをmedia-01へ先行配備済み（2026-09-12）。MeTube・変換・同期の移行は未了**。Picardは `https://picard.apextox.dpdns.org`（Let's Encrypt・Authentik Forward Auth）で公開済み。
+状態: **media-01 で MeTube・Picard・変換が稼働し、タグAPI（`:5810`・Nextcloudの「タグを編集」＋MusicBrainz検索）も配備済み（2026-09-13）。同期タイマーは停止中で、切替が残る**。Picardは `https://picard.apextox.dpdns.org`（Let's Encrypt・Authentik Forward Auth）で公開済み。
 
 `stacks/music-tools/compose.yaml` にMeTube・変換・タグ編集があり、`platform/ansible/music-tools.yml` と同期タイマーが存在する。[音楽手順](../services/music.md)では共有Cookieの実物未登録・対象URL取得未確認を区別している。Picardはメディアの音楽導線（MeTubeの取込 → Nextcloudの共有music → タグ付け → Navidromeの表示）のGUIとして、同じComposeへWeb GUIコンテナ（`jlesage/musicbrainz-picard`）で追加する。導線の資料は[D05](D05-picard.md)。
 
@@ -36,3 +36,4 @@
 
 - 2026-09-12: Picard Web GUI（`jlesage/musicbrainz-picard`、digest固定、`127.0.0.1:5800`）を media-01 へ手動SSHで先行配備。HTTP 200・healthy。MeTube・変換・同期・共有Cookieは未移行。
 - 2026-09-12: `platform/ansible/music-tools.yml` を拡張し、Ansibleで再現可能にした。`music_tools_services` でサービスの段階配備（例: `-e music_tools_services=picard`。複数はカンマ区切りかJSONリスト）、`music_tools_sync_enabled` で同期タイマーの有効/無効を制御する。既定は全サービス・同期有効で、既存ホストの再実行の挙動を変えない。手動SSHは先行配備の一時手段であり、media-01の状態は playbook を再適用して収束させる。配備・Picardの使い方は `stacks/music-tools/README.md` を参照。
+- 2026-09-13: **タグAPI（`stacks/music-tools/tag_api.py`、`:5810`、トークン認証）とNextcloudアプリ `shake_tags`（ファイルの「…」→「タグを編集」、MusicBrainz検索つき）を配備。** 実MP3でタグの読み書き・冪等性・バックアップ（`storage/tags/tag-backups/`）を実機確認。トークンは `platform/sops/music-tags.sops.yaml`。コード変更はconvertと同じハッシュラベルでコンテナ再作成される。デスクトップ風のPicardは任意の重い照合に残す。

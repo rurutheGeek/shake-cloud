@@ -182,8 +182,10 @@ class ReconcileTests(unittest.TestCase):
         homarr = FakeHomarr()
         configure.configure(homarr, options(APPS))
         permission = homarr.calls_to('board.saveGroupBoardPermissions')[-1]
-        self.assertEqual(permission['permissions'],
-                         [{'principalId': 'everyone', 'permission': 'view'}])
+        permissions = permission['permissions']
+        self.assertIn({'principalId': 'everyone', 'permission': 'view'}, permissions)
+        self.assertTrue(any(row['permission'] == 'modify' for row in permissions),
+                        'the admins group needs modify access')
 
     def test_the_culture_is_set(self):
         homarr = FakeHomarr()
@@ -297,7 +299,7 @@ class IntegrationTests(unittest.TestCase):
     def test_the_widget_options_match_the_widgets(self):
         health = integrations.widget_options('healthMonitoring')
         self.assertTrue(health['cpu'] and health['memory'])
-        self.assertEqual(health['visibleClusterSections'], ['node'])
+        self.assertEqual(health['visibleClusterSections'], ['node', 'qemu', 'lxc', 'storage'])
         self.assertTrue(health['fileSystem'])
         ups = integrations.widget_options('ups')
         self.assertTrue(ups['showBattery'])
@@ -319,11 +321,11 @@ class IntegrationTests(unittest.TestCase):
         sizes = integrations.widget_sizes(8)
         packed = integrations.pack_layouts(items, 8, sizes)
         by_id = {item['id']: item['layouts'][0] for item in packed}
-        self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 3))
+        self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 4))
         self.assertEqual((by_id['u']['xOffset'], by_id['u']['yOffset'], by_id['u']['width']), (4, 0, 4))
         self.assertEqual((by_id['a1']['width'], by_id['a1']['height']), (1, 1))
         self.assertEqual(by_id['a1']['xOffset'], 0)
-        self.assertEqual(by_id['a1']['yOffset'], 3)
+        self.assertEqual(by_id['a1']['yOffset'], 4)
         cells = []
         for layout in by_id.values():
             cells += [(layout['xOffset'] + dx, layout['yOffset'] + dy)

@@ -2,7 +2,7 @@
 
 media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → Picard でタグ付け → Navidrome 表示）を担うスタックです。仕様・進捗の正本は [W06](../../docs/development/W06-music-tools.md)、Picard の位置づけは [D05](../../docs/development/D05-picard.md) です。
 
-状態: **media-01 は Picard のみ配備済み（2026-09-12。`https://picard.apextox.dpdns.org`・Forward Auth）。MeTube・変換・同期の移行は W06 で進行中**。共有 Cookie の実物は未登録です。
+状態: **media-01 で MeTube・Picard・変換・タグAPIが稼働中（2026-09-13）。タグAPIはNextcloudの「タグを編集」が使う。同期タイマーは停止中（W06の残り）**。共有 Cookie の実物は未登録です。
 
 ## 構成
 
@@ -11,6 +11,7 @@ media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → Picard �
 | metube | 音源・動画の取込 | `127.0.0.1:${METUBE_PORT:-8081}` |
 | picard | MusicBrainz Picard の Web GUI | `127.0.0.1:${PICARD_PORT:-5800}` |
 | convert | BCSTM 変換ワーカー | なし（常駐） |
+| tag-api | タグの読み書きとMusicBrainz検索（Nextcloudの「タグを編集」用、[tag_api.py](tag_api.py)） | `0.0.0.0:${TAG_API_PORT:-5810}`（トークン認証） |
 | tagger | 手動タグ付け（profile: tools） | なし |
 
 共有 music の実体は `${LIBRARY_ROOT}/music`。Picard はそこを `/storage` へ読み書き（rw）でマウントし、設定・作業状態は `storage/picard`（コンテナ内 `/config`）へ分離しています。BCSTM 原本と `music/Converted/` は直接編集しません。

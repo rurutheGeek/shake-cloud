@@ -36,12 +36,12 @@ def peanut_secrets(values):
 def widget_options(kind):
     """Return the widget options; the widget definition fills the rest."""
     if kind == 'healthMonitoring':
-        # ノード1行だけなら3行の高さに収まり、内部スクロールにならない。
-        # VM一覧は行数が多くスクロールの原因になるため出さない（Grafanaで見る）。
+        # 情報は減らさない。一覧が長いときはウィジェット内スクロールになるので、
+        # 大きさはGUIのEdit modeで調整する。
         return {
-            'fahrenheit': False, 'cpu': True, 'memory': True, 'gpu': False,
+            'fahrenheit': False, 'cpu': True, 'memory': True, 'gpu': True,
             'showUptime': True, 'fileSystem': True,
-            'visibleClusterSections': ['node'],
+            'visibleClusterSections': ['node', 'qemu', 'lxc', 'storage'],
             'defaultTab': 'system', 'sectionIndicatorRequirement': 'all',
         }
     if kind == 'ups':
@@ -55,9 +55,9 @@ DEFAULT_COLUMNS = 12
 
 
 def widget_sizes(width):
-    """ウィジェットは半幅・3行。リングが読める大きさにする。"""
+    """ウィジェットは半幅・4行。一覧が入る余裕を持たせる。"""
     half = max(1, width // 2)
-    return {'healthMonitoring': (half, 3), 'ups': (half, 3)}
+    return {'healthMonitoring': (half, 4), 'ups': (half, 4)}
 
 
 def desired_columns():
