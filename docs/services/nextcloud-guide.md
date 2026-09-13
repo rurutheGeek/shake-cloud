@@ -119,7 +119,6 @@ Nextcloudは単体で使えますが、同じ保存領域・同じアカウン�
 | [Kavita](https://kavita.apextox.dpdns.org) | `books`フォルダーを読む | 本・PDF・電子書籍 |
 | [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生 | 音楽 |
 | [MeTube](https://metube.apextox.dpdns.org)（media-01への配備は未了） | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
-| Picard（[音楽の取り込み](music.md)） | `music`のタグ編集 | 曲名・アルバム名の整理 |
 | [LocalSend](../development/D06-localsend.md) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
 | [プリンター](printer.md)（CUPS） | ファイルの「…」→「印刷」 | Nextcloudのファイルを印刷 |
 | [Vaultwarden](vaultwarden.md) | 同じ共通ログインで使うパスワード管理 | Nextcloudのログイン情報も保管 |

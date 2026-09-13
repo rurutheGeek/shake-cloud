@@ -21,7 +21,6 @@
     - https://kavita.apextox.dpdns.org/
     - https://navidrome.apextox.dpdns.org/ping
     - https://metube.apextox.dpdns.org/
-    - https://picard.apextox.dpdns.org/
   labels:
     group: media
 - targets:

@@ -51,12 +51,6 @@ records:
     upstream: 127.0.0.1:8081
     description: MeTube（動画ダウンローダー。Forward Auth）
     auth: true
-  picard:
-    host: media-01
-    address: 192.168.10.101
-    upstream: 127.0.0.1:5800
-    description: Picard（音楽タグ編集。Forward Auth）
-    auth: true
   netbox:
     host: services-01
     upstream: 127.0.0.1:8000

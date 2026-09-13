@@ -16,7 +16,7 @@ nav:
           - W03 Nextcloud・Calendar・Tasks: development/W03-nextcloud.md
           - W04 Kavita: development/W04-kavita.md
           - W05 Navidrome: development/W05-navidrome.md
-          - W06 MeTube・音楽変換・Picard: development/W06-music-tools.md
+          - W06 MeTube・音楽変換・タグ編集: development/W06-music-tools.md
           - W07 RomM: development/W07-romm.md
       - A：AI:
           - A01 ポケモンDB・WebUI・agent: development/A01-pokemon-ai.md

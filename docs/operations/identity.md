@@ -60,7 +60,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 - `akadmin` は `admins` に入ります。**招待で作られた人は `users` に入ります。**
 - 管理者の追加や既存ユーザーの移行は GUI で行います（**Directory → Users → 対象 → Groups**）。
 - **グループ名を変えたら、既存ユーザーを新しいグループへ入れ直してください。** 旧グループを消しただけでは移りません。2026-09-12 の改名（`cloud-users`/`cloud-admins` → `users`/`admins`）で実際に起きました。旧 `cloud-users` にいた `ruruthegeek` と `shunyazhiyuan97` は**どちらも利用者アカウント**なので `users` へ移して解決しています（管理者は `akadmin` だけ。Authentik のイベントログの `add_user` 記録で確認）。
-- `gaming-users` / `gaming-admins` は、ゲームポータルが `game_identity` スコープの `groups` クレームで使うため残しています。
+- ゲームポータルも `users` / `admins` を使います。用途別にグループを分けません（旧 `gaming-users` / `gaming-admins` は廃止し、メンバーを統合しました）。`game_identity` スコープは所属グループ名を `groups` クレームで返します。
 
 <a id="利用者の招待管理者"></a>
 ## 利用者の招待（管理者）

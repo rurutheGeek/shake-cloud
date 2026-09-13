@@ -1,8 +1,8 @@
 """Static checks for the music-tools stack and its Ansible playbook (W06).
 
-The first Picard rollout was done by hand over SSH. platform/ansible/music-tools.yml
-is now the reproducible path, so these tests read the checked-in files: nothing
-here contacts media-01 or Docker.
+platform/ansible/music-tools.yml is the reproducible path, so these tests read
+the checked-in files: nothing here contacts media-01 or Docker. Picard was
+removed on 2026-09-13 (tag editing moved to the Nextcloud shake_tags app).
 """
 import importlib.util
 import json
@@ -25,27 +25,21 @@ def read(path):
 
 
 class ComposeTests(unittest.TestCase):
-    """Picard must stay loopback-only and able to tag the shared music tree."""
+    """The tag API must be able to read and write the shared music tree."""
 
     def setUp(self):
         self.compose = yaml.safe_load(read(STACK / 'compose.yaml'))
         self.lock = yaml.safe_load(read(STACK / 'compose.lock.yaml'))
 
-    def test_picard_is_declared_with_a_pinned_digest(self):
-        self.assertIn('picard', self.compose['services'])
-        self.assertIn('picard', self.lock['services'])
-        self.assertRegex(self.lock['services']['picard']['image'],
-                         r'^jlesage/musicbrainz-picard@sha256:[0-9a-f]{64}$')
-
-    def test_the_web_gui_is_closed_to_localhost(self):
-        self.assertEqual(self.compose['services']['picard']['ports'],
-                         ['127.0.0.1:${PICARD_PORT:-5800}:5800'])
+    def test_picard_is_no_longer_part_of_the_stack(self):
+        # 2026-09-13: タグ編集はNextcloudの shake_tags へ移し、Picardは撤去した。
+        self.assertNotIn('picard', self.compose['services'])
+        self.assertNotIn('picard', self.lock['services'])
 
     def test_the_shared_music_tree_is_mounted_read_write_for_tagging(self):
-        volumes = self.compose['services']['picard']['volumes']
-        self.assertIn('${LIBRARY_ROOT:-../library}/music:/storage', volumes)
-        self.assertNotIn('${LIBRARY_ROOT:-../library}/music:/storage:ro', volumes)
-        self.assertIn('./storage/picard:/config', volumes)
+        volumes = self.compose['services']['tag-api']['volumes']
+        self.assertIn('${LIBRARY_ROOT:-../library}/music:/music', volumes)
+        self.assertNotIn('${LIBRARY_ROOT:-../library}/music:/music:ro', volumes)
 
 
 class ManageTests(unittest.TestCase):
@@ -54,14 +48,17 @@ class ManageTests(unittest.TestCase):
     def setUp(self):
         self.source = read(STACK / 'manage.py')
 
-    def test_init_creates_the_picard_config_directory(self):
+    def test_init_creates_the_tag_api_state_directory(self):
         line = next(line for line in self.source.splitlines()
                     if "'storage'/x for x in" in line)
-        self.assertIn("'picard'", line)
+        self.assertIn("'tags'", line)
+        self.assertNotIn("'picard'", line)
 
     def test_up_can_be_limited_to_selected_services(self):
         self.assertIn("'--services'", self.source)
         self.assertIn('*services', self.source)
+        # 廃止したサービスのコンテナも片付けられる。
+        self.assertIn('--remove-orphans', self.source)
 
     def test_backup_is_available_with_a_default_destination(self):
         self.assertIn("'backup'", self.source)
@@ -187,20 +184,21 @@ class PlaybookTests(unittest.TestCase):
 
     def test_the_default_is_still_every_service(self):
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'picard', 'convert', 'tag-api'])
+                         ['metube', 'convert', 'tag-api'])
 
-    def test_picard_alone_can_be_selected(self):
+    def test_a_subset_can_be_selected(self):
         argv = self.tasks['Deploy selected music tools']['ansible.builtin.command']['argv']
         self.assertIn('--services', argv)
         self.assertTrue(any('music_tools_services' in str(part) for part in argv))
 
-    def test_the_generated_env_carries_tz_and_the_picard_port(self):
+    def test_the_generated_env_carries_tz_and_the_tag_api_settings(self):
         content = self.tasks['Configure environment']['ansible.builtin.copy']['content']
         self.assertIn('LIBRARY_ROOT={{ library_root }}', content)
         self.assertIn('TZ={{ music_tools_tz }}', content)
-        # picard と tag-api は選択時にだけ環境変数を出す。
-        self.assertIn("PICARD_PORT=' ~ music_tools_picard_port", content)
+        # tag-api は選択時にだけ環境変数を出す。
+        self.assertIn("TAG_API_TOKEN=' ~ (music_tools_tag_secrets.stdout | from_json).TAG_API_TOKEN", content)
         self.assertIn("TAG_API_PORT=' ~ music_tools_tag_port", content)
+        self.assertNotIn('PICARD_PORT', content)
 
     def test_the_sync_timer_is_on_by_default_and_can_be_disabled(self):
         self.assertIs(self.vars['music_tools_sync_enabled'], True)

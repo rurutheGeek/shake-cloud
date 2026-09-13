@@ -211,11 +211,6 @@ class VerifyTests(unittest.TestCase):
         uri = self.uri_for('navidrome_port')['ansible.builtin.uri']
         self.assertIn(200, uri['status_code'])
 
-    def test_picard_requires_http_200_on_5800(self):
-        uri = self.uri_for('music_tools_picard_port')['ansible.builtin.uri']
-        self.assertIn('5800', uri['url'])
-        self.assertEqual(uri['status_code'], [200])
-
     def test_the_expected_service_and_health_counts_match_the_compose_projects(self):
         # The runtime check is an equality on the number of running services;
         # here it is enough that the expectations name real services and the
@@ -231,16 +226,16 @@ class VerifyTests(unittest.TestCase):
     def test_music_tools_expectations_follow_the_deploy_selection(self):
         # W06 deploys a subset with -e music_tools_services=[...]; the verifier
         # reads the same variable instead of hard-coding the full list.
-        self.assertEqual(self.vars['music_tools_services'], ['metube', 'picard', 'convert'])
+        self.assertEqual(self.vars['music_tools_services'], ['metube', 'convert', 'tag-api'])
         self.assertNotIn('music-tools', self.vars['media_unit_services'])
         self.assertIn('default(music_tools_services)', self.conditions())
         compose = yaml.safe_load(read(COMPOSE_FILES['music-tools']))
         self.assertLessEqual(set(self.vars['music_tools_services']), set(compose['services']))
-        # The verifier counts one healthy container for music-tools, which is
-        # only correct while convert is the single healthchecked service.
+        # The verifier counts the healthchecked music-tools services; convert
+        # and the tag API both have one.
         healthchecked = [service for service in self.vars['music_tools_services']
                          if 'healthcheck' in compose['services'][service]]
-        self.assertEqual(healthchecked, ['convert'])
+        self.assertEqual(healthchecked, ['convert', 'tag-api'])
 
 
 class SyntaxTests(unittest.TestCase):

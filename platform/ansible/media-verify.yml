@@ -11,8 +11,8 @@
 #   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
 #     -e '{"media_units": ["kavita"]}'
 # music-tools を一部サービスだけ配備した場合は、配備側と同じ
-# music_tools_services（既定: metube, picard, convert）を JSON で渡す:
-#   -e '{"music_tools_services": ["picard"]}'
+# music_tools_services（既定: metube, convert, tag-api）を JSON で渡す:
+#   -e '{"music_tools_services": ["tag-api"]}'
 #
 # すべて media-01 自身から 127.0.0.1 に対して確認する。ポートは各ユニットの
 # playbook と同じ変数（未定義なら compose.yaml と同じ既定値）を使う。
@@ -22,7 +22,7 @@
   gather_facts: false
   vars:
     media_units: [nextcloud, kavita, navidrome, music-tools]
-    music_tools_services: [metube, picard, convert]
+    music_tools_services: [metube, convert, tag-api]
     media_unit_dirs:
       nextcloud: '{{ project_dir }}/media/nextcloud'
       kavita: '{{ project_dir }}/media/kavita'
@@ -37,7 +37,7 @@
       kavita: [kavita]
       navidrome: [navidrome]
     # そのうち healthcheck を持ち、STATUS に (healthy) と出るコンテナの数。
-    # music-tools は既定の convert だけが該当する（assert で計算する）。
+    # music-tools は convert と tag-api が該当する（assert で計算する）。
     media_unit_healthy:
       nextcloud: 3
       kavita: 0
@@ -158,29 +158,3 @@
         success_msg: 'Navidrome: /ping が HTTP 200'
       when: "'navidrome' in media_units"
 
-    - name: Wait for Picard to answer on 127.0.0.1:5800
-      ansible.builtin.uri:
-        url: 'http://127.0.0.1:{{ music_tools_picard_port | default(5800) }}/'
-        status_code: [200]
-      register: media_picard_http
-      retries: 24
-      delay: 5
-      until: media_picard_http is succeeded
-      changed_when: false
-      when:
-        - "'music-tools' in media_units"
-        - "'picard' in music_tools_services"
-
-    - name: Require HTTP 200 from Picard
-      ansible.builtin.assert:
-        that:
-          - media_picard_http.status == 200
-        fail_msg: >-
-          Picard が 127.0.0.1:{{ music_tools_picard_port | default(5800) }} で
-          HTTP 200 を返していない。{{ project_dir }}/music-tools/manage.py status
-          を確認し、python3 {{ project_dir }}/music-tools/manage.py up --services
-          picard を再実行する。
-        success_msg: 'Picard: 127.0.0.1:5800 が HTTP 200'
-      when:
-        - "'music-tools' in media_units"
-        - "'picard' in music_tools_services"

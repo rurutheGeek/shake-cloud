@@ -43,7 +43,7 @@
 
 ### media-01 のメディア入口（`*.apextox.dpdns.org`・家庭内LANから）
 
-media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud と Kavita はアプリ自身の OIDC、Navidrome・MeTube・Picard は Authentik Forward Auth です。**認証は `auth.apextox.dpdns.org`** を使います。
+media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud と Kavita はアプリ自身の OIDC、Navidrome・MeTube は Authentik Forward Auth です。**認証は `auth.apextox.dpdns.org`** を使います。
 
 | サービス | URL | 認証 |
 | --- | --- | --- |
@@ -51,7 +51,6 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | Kavita | <https://kavita.apextox.dpdns.org> | Authentik OIDC（組み込み） |
 | Navidrome | <https://navidrome.apextox.dpdns.org> | Authentik Forward Auth |
 | MeTube | <https://metube.apextox.dpdns.org> | Authentik Forward Auth（本体はW06で配備） |
-| Picard | <https://picard.apextox.dpdns.org> | Authentik Forward Auth |
 
 ### LocalSend（端末 → media-01 の受け渡し）
 
@@ -88,7 +87,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | dev-a / dev-b | `debian@192.168.10.202` / `.203` | 開発VM |
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
-| media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・Picard・LocalSend（クラウド管理下） |
+| media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・LocalSend（クラウド管理下） |
 | monitor-01 | `debian@192.168.10.102` | Prometheus・Alertmanager・Grafana・exporter（M01。クラウド管理下） |
 
 VM の正本は[配備台帳](handover.md)と `platform/terraform/hosts.yaml` です。

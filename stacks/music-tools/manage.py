@@ -44,7 +44,7 @@ def main():
   env=ROOT/'.env'
   if not env.exists():env.write_text('LIBRARY_ROOT='+str(Path(a.library_root).resolve())+'\n');env.chmod(0o600)
   lib=Path(dict(x.split('=',1) for x in env.read_text().splitlines() if '=' in x)['LIBRARY_ROOT'])
-  for path in [lib/'music/YouTube',lib/'music/Converted']+[ROOT/'storage'/x for x in ['video','state','temp','convert','picard','tags']]:
+  for path in [lib/'music/YouTube',lib/'music/Converted']+[ROOT/'storage'/x for x in ['video','state','temp','convert','tags']]:
    if not path.exists():path.mkdir(parents=True,mode=0o750);os.chown(path,33,33)
   if not (lib/'music/.media-library-id').exists():
    marker=lib/'music/.media-library-id';marker.write_text(str(uuid.uuid4()));os.chown(marker,33,33);marker.chmod(0o640)
@@ -57,7 +57,9 @@ def main():
  if a.action=='up':
   # --services はPicardだけの段階配備のため。未指定なら従来どおり全サービス。
   services=[x for x in (a.services or '').split(',') if x]
-  compose('up','-d','--wait','--wait-timeout','120',*services)
+  # --remove-orphans で、compose から消えたサービス（例: 廃止した picard）の
+  # コンテナも片付ける。
+  compose('up','-d','--wait','--wait-timeout','120','--remove-orphans',*services)
  if a.action=='down':
   # A unit-level stop keeps Nextcloud/Kavita/Navidrome Compose projects alone.
   compose('down')

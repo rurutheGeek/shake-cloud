@@ -1,7 +1,7 @@
 ---
-# music-tools（MeTube・Picard・変換・同期）を media ホストへ配備する。
-# この playbook が再現手順の正本。先行配備した Picard だけを対象にする場合は
-#   -e music_tools_services=picard
+# music-tools（MeTube・変換・タグAPI・同期）を media ホストへ配備する。
+# この playbook が再現手順の正本。一部のサービスだけを対象にする場合は
+#   -e music_tools_services=tag-api
 # のようにサービスを限定して再適用し、手作業の結果を playbook に収束させる。
 # 複数指定はカンマ区切り。JSONリスト（-e '{"music_tools_services":["picard"]}'）も受け付ける。
 - name: Deploy music ingestion and tagging tools
@@ -14,7 +14,6 @@
     # -e music_tools_services=picard で限定する。
     music_tools_services:
       - metube
-      - picard
       - convert
       - tag-api
     # 既定は有効のまま（現行配備の挙動を変えない）。切替中に旧タイマーと
@@ -24,7 +23,6 @@
     # してもコンテナの設定は変わらない。変更したい場合はホスト変数ではなく
     # これらの変数を -e で上書きする。
     music_tools_tz: 'Asia/Tokyo'
-    music_tools_picard_port: 5800
     music_tools_tag_port: 5810
   tasks:
     - name: Create tool directory
@@ -54,9 +52,9 @@
       changed_when: false
       no_log: true
     - name: Configure environment
-      # 既存ホストの .env は LIBRARY_ROOT だけだった。TZ と PICARD_PORT は
-      # compose.yaml の既定値と同じ値で追記するので再実行しても挙動は変わらない。
-      # PICARD_PORT / TAG_API_* はそのサービスを配備対象にしたときだけ書く。
+      # 既存ホストの .env は LIBRARY_ROOT だけだった。TZ は compose.yaml の
+      # 既定値と同じ値で追記するので再実行しても挙動は変わらない。
+      # TAG_API_* はそのサービスを配備対象にしたときだけ書く。
       # TAG_API_TOKEN は SOPS から渡し、ログには残さない。
       # 行はテキスト＋式で組む（{% if %} ブロックの直後は trim_blocks で
       # 改行が消え、値が連結してしまうため）。
@@ -64,7 +62,6 @@
         content: |
           LIBRARY_ROOT={{ library_root }}
           TZ={{ music_tools_tz }}
-          {{ ('PICARD_PORT=' ~ music_tools_picard_port) if 'picard' in music_tools_services else '' }}
           {{ ('TAG_API_TOKEN=' ~ (music_tools_tag_secrets.stdout | from_json).TAG_API_TOKEN) if 'tag-api' in music_tools_services else '' }}
           {{ ('TAG_API_PORT=' ~ music_tools_tag_port) if 'tag-api' in music_tools_services else '' }}
         dest: '{{ project_dir }}/music-tools/.env'

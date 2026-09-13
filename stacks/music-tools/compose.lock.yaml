@@ -1,8 +1,6 @@
 services:
   metube:
     image: ghcr.io/alexta69/metube@sha256:397778fccf13d83adf9325fe813b260617a082d1772aff6d678c5b9256dd01fb
-  picard:
-    image: jlesage/musicbrainz-picard@sha256:4bafd2aedffd844f53c1727932aaa52ad6614d51d22dd9f73a3565665ea4728e
   convert: &id001
     image: ghcr.io/alexta69/metube@sha256:397778fccf13d83adf9325fe813b260617a082d1772aff6d678c5b9256dd01fb
   tagger: *id001

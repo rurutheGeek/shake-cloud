@@ -38,7 +38,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [W03 Nextcloud・Calendar・Tasks](W03-nextcloud.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
 | [W04 Kavita](W04-kavita.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
 | [W05 Navidrome](W05-navidrome.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
-| [W06 MeTube・音楽変換・Picard](W06-music-tools.md) | 移行・新規 | media-01 | 一部完了（Picardのみ） |
+| [W06 MeTube・音楽変換・タグ編集](W06-music-tools.md) | 移行・新規 | media-01 | 一部完了（同期切替が残り） |
 | [W07 RomM](W07-romm.md) | 新規 | game1 | 一部完了（実装済み・実機未） |
 | [A01 ポケモンDB・WebUI・agent](A01-pokemon-ai.md) | 移行・参照元取得待ち | game1 | 外部待ち |
 | [A02 Ollama](A02-ollama.md) | 新規・実機検証 | game1 | 一部完了（実装済み・実機未） |
@@ -71,7 +71,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [D02 配置・配分表・構成図](D02-placement.md) | 資料更新 | docs | 進行中（SVG最終描画未） |
 | [D03 サービス配置とIaC所有境界](D03-service-boundaries.md) | 資料更新 | docs | 完了（文書） |
 | [D04 実装状況の訂正](D04-status.md) | 資料更新 | docs | 完了（文書） |
-| [D05 Picard](D05-picard.md) | 資料のみ | docs・media（音楽導線） | 未着手 |
+| [D05 Picard](D05-picard.md) | 資料のみ | docs・media（音楽導線） | 見送り（Nextcloudのタグ編集へ統合） |
 | [D06 LocalSend](D06-localsend.md) | 実装＋資料 | docs・media-01 | 一部完了（実送受信未） |
 | [D07 Tailcat](D07-tailcat.md) | 資料のみ | docs | 未着手 |
 | [D08 Nextcloudからの印刷](D08-nextcloud-print.md) | 実装＋資料 | services-01・media-01 | 一部完了（ブラウザー操作のみ未確認） |

@@ -36,41 +36,13 @@ python3 stacks/music-tools/download.py 'https://www.youtube.com/watch?v=動画ID
 
 **通常のタグ付けはNextcloudで行います。** `music` のMP3の **…** → **タグを編集** で、曲名・アーティスト・アルバムなどをフォームで直せます。**MusicBrainzで検索** を押すと候補が出て、選ぶと入力欄に入ります。変更前のタグはmedia-01の `/opt/media-stack/music-tools/storage/tags/tag-backups/` にバックアップされます。手順は[Nextcloudの使い方](nextcloud-guide.md)を参照してください。Navidromeへの反映は通常1時間以内です。
 
-## MusicBrainz Picard（重い照合に使う任意のGUI）
+## Picardは廃止しました（2026-09-13）
 
-大量のアルバムをまとめて照合したいときだけ、Picardも使えます。Picardはデスクトップアプリしかなく、サーバーでは `jlesage/musicbrainz-picard` が**ブラウザー内デスクトップ**として動きます（`https://picard.apextox.dpdns.org`・Forward Auth。ゲームVMには置きません）。**2026-09-12にmedia-01へ配備**しました。無人実行ジョブは未実装です。
-
-### media-01のWeb GUIへ入る
-
-media-01のPicardは <https://picard.apextox.dpdns.org>（LAN内）です。`tls_proxy` のCaddyがTLSを終端し、AuthentikのForward Authで保護します。初回は共通ログイン（`auth.apextox.dpdns.org`）へ移動し、認証後にPicardへ戻ります。アプリ自身のポート `127.0.0.1:5800` はLANに公開していません。
-
-共有musicはライブラリ移行（W03〜W06）まで空です。`/storage` に見えるのが共有musicで、`/config` はPicardの設定です。BCSTM原本と `music/Converted/` を直接編集しないでください。
-
-Picardの「Lookup」は既存タグを使う照合、「Scan」はAcoustIDの音響指紋を使う照合です。自動照合で曲名・アーティスト・アルバム等の候補を取得し、「Save」でファイルへ書き込みます。同じ曲でもアルバム版・シングル版・再発版があるため、曲を特定できても希望する版とは限りません。[Picard Scan](https://picard-docs.musicbrainz.org/en/latest/usage/retrieve_scan.html)
-
-### 最初は1アルバムで試す
-
-1. [公式配布](https://picard.musicbrainz.org/downloads/)から利用PC用のPicardを導入する。使った版を記録する。
-2. Nextcloudの共有musicから対象アルバムをPCの作業フォルダへコピーする。元の音声ファイルをバックアップし、同じファイルを2人で同時編集しない。
-3. Picardの「Add Folder」で作業コピーを追加し、「Cluster → Lookup」を試す。タグが不足している曲は「Scan」で照合する。
-4. 右側の候補で、曲順・曲数・演奏時間・アルバムの版・日本語表記・ジャケットを確認する。未一致や不一致は手動で選び直す。
-5. 初回は自動リネーム／移動と既存タグの一括削除を無効にし、変更候補を確認して「Save」する。
-6. 保存したファイルをNextcloudから同じ共有musicへアップロード／置換する。競合があれば上書き前に差分を確認する。
-7. 現行の音楽同期タイマーによるNextcloud／Navidrome反映を待ち、曲名・アルバム・ジャケットと再生を確認する。
-
-PCからNextcloud経由で戻す場合は共有musicへの書き込み権限が必要です。サーバー上の原本をPicardから直接更新する構成にする場合は、対象musicだけを書き込み可能にし、更新後のスキャンを実行します。Navidrome／Kavitaの原本マウントは読み取り専用のままにします。
-
-### 全自動にする範囲
-
-まず自動照合＋確認後保存で運用し、誤同定率を見て自動保存対象を決めます。全自動保存を追加する場合は、**取り込み用コピー → バッチ照合 → 一致ファイルだけ保存 → 未一致は保留 → 共有musicへ反映**とし、原本の全件上書きを既定にしません。
-
-公式の最新ドキュメントには `LOAD`、`CLUSTER`、`LOOKUP_CLUSTERED`、`SCAN`、`SAVE_MATCHED`等のバッチ処理がありますが、導入する版で対応を確認してから実行ファイルと手順を固定します。CLI対応だけで画面環境が不要とは扱いません。AcoustIDやMusicBrainzへの照合には外向き通信が必要です。照合と外部DBへの指紋投稿は別操作で、投稿処理は自動化に含めません。[Picardバッチ処理](https://picard-docs.musicbrainz.org/en/latest/usage/command_processing.html)
-
-MeTubeの音源やゲームBGMには一致候補がない場合があります。BCSTM原本はPicardで直接処理せず、再生成される `music/Converted/` のMP3を直接編集することも避けます。必要な曲を別の管理フォルダへコピーしてタグ付けし、変換ワーカーによる上書きと二重登録を管理します。全自動化時にはダウンロード／変換／タグ保存の同時書き込みを止める制御も追加します。
+タグ編集はNextcloudの「タグを編集」へ統合したため、サーバーのPicard（`jlesage/musicbrainz-picard` のブラウザー内デスクトップ）は撤去し、`https://picard.apextox.dpdns.org` も閉じました。PCでPicardを使いたい場合は、Nextcloudからファイルを取り出して[公式配布](https://picard.musicbrainz.org/downloads/)のデスクトップ版を使い、終わったらNextcloudへアップロードし直します（サーバー側のデータ `storage/picard` は残してあるので、戻す場合はcomposeとDNSを戻します）。
 
 ## MP3タグをコードで編集
 
-Navidromeは設計上、原本ファイルへタグを書き込みません。Nextcloudの標準ファイル画面もMP3タグ編集画面ではありません。自動照合には上記Picardを使います。特定タグだけを明示的に直す用途には、既存のJSONタグ編集コマンドも維持します。以下は配備先（media-01では `/opt/media-stack`）で実行します。
+Navidromeは設計上、原本ファイルへタグを書き込みません。通常は上のNextcloudの「タグを編集」（`shake_tags`）を使います。サーバー上でまとめて処理したい場合のために、JSONマニフェスト式のコマンド（`edit-tags.py`）も残しています。以下は配備先（media-01では `/opt/media-stack`）で実行します。
 
 ```bash
 cp music-tools/tags.example.json music-tools/tags.local.json

@@ -115,7 +115,7 @@ class TlsProxyTests(unittest.TestCase):
     def test_forward_auth_is_declared_for_the_browser_tools_only(self):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
-        self.assertEqual(behind_auth, {'navidrome', 'metube', 'picard', 'cups'})
+        self.assertEqual(behind_auth, {'navidrome', 'metube', 'cups'})
         for name in ('nextcloud', 'kavita'):
             self.assertNotIn('auth', records[name], name)
 
@@ -160,9 +160,9 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 5)
-        self.assertEqual(rendered.count('forward_auth https://'), 3)
-        for name in ('navidrome', 'metube', 'picard'):
+        self.assertEqual(len(sites), 4)
+        self.assertEqual(rendered.count('forward_auth https://'), 2)
+        for name in ('navidrome', 'metube'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
             self.assertIn('request_header -Remote-User', block, name)
