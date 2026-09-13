@@ -36,20 +36,21 @@ def peanut_secrets(values):
 def widget_options(kind):
     """Return the widget options; the widget definition fills the rest."""
     if kind == 'healthMonitoring':
+        # 一覧（Nodes/VMs/ストレージ）は1行に収まらず内部スクロールになるため出さない。
         return {
-            'fahrenheit': False, 'cpu': True, 'memory': True, 'gpu': True,
-            'showUptime': True, 'fileSystem': True,
-            'visibleClusterSections': ['node', 'qemu', 'lxc', 'storage'],
+            'fahrenheit': False, 'cpu': True, 'memory': True, 'gpu': False,
+            'showUptime': True, 'fileSystem': False,
+            'visibleClusterSections': [],
             'defaultTab': 'system', 'sectionIndicatorRequirement': 'all',
         }
     if kind == 'ups':
-        return {'showBattery': True, 'showLoad': True, 'showVoltage': True}
+        return {'showBattery': True, 'showLoad': True, 'showVoltage': False}
     raise ValueError(f'unknown widget: {kind}')
 
 
 # ウィジェットの大きさ（列数は8）。アプリのタイルは2x2で見やすくする。
 # 1画面に収める。ウィジェットは半幅、アプリは1x1。
-WIDGET_SIZES = {'healthMonitoring': (4, 2), 'ups': (4, 2)}
+WIDGET_SIZES = {'healthMonitoring': (4, 1), 'ups': (4, 1)}
 DEFAULT_SIZE = (1, 1)
 
 
@@ -91,7 +92,12 @@ def pack_layouts(items, width, sizes=None):
 def arrange_board(homarr, board):
     """Save the packed layout through board.saveBoard."""
     width = next(layout['columnCount'] for layout in board['layouts'] if layout['breakpoint'] == 0)
-    items = pack_layouts(board['items'], width)
+    managed = set(WIDGET_SIZES)
+    items = [
+        {**item, 'options': widget_options(item['kind'])} if item['kind'] in managed else item
+        for item in board['items']
+    ]
+    items = pack_layouts(items, width)
     homarr.trpc('board.saveBoard',
                 {'id': board['id'], 'sections': board['sections'], 'items': items}, post=True)
 
