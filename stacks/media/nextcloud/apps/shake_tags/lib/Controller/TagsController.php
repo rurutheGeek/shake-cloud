@@ -7,6 +7,7 @@ namespace OCA\ShakeTags\Controller;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
@@ -28,6 +29,7 @@ class TagsController extends Controller {
 		parent::__construct($appName, $request);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/tags')]
 	public function read(int $fileId): DataResponse {
 		$relative = $this->libraryPath($fileId);
@@ -37,6 +39,7 @@ class TagsController extends Controller {
 		return $this->relay('get', '/tags', ['query' => ['path' => $relative]]);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/tags')]
 	public function write(int $fileId, array $tags = []): DataResponse {
 		$relative = $this->libraryPath($fileId);
@@ -49,6 +52,7 @@ class TagsController extends Controller {
 		]);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/search')]
 	public function search(string $artist = '', string $title = '', string $album = ''): DataResponse {
 		return $this->relay('get', '/musicbrainz', [

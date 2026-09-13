@@ -74,6 +74,9 @@ class ComposeTests(unittest.TestCase):
         self.assertIn('${LIBRARY_ROOT:-/srv/media-stack/library}/books:/library/books', volumes)
         self.assertIn('${LIBRARY_ROOT:-/srv/media-stack/library}/music:/library/music', volumes)
         self.assertIn('${LIBRARY_ROOT:-/srv/media-stack/library}/docs:/docs', volumes)
+        # setup() が登録する /inbox の実体。無いと Files ページが
+        # StorageNotAvailableException を吐き続ける（2026-09-13修正）。
+        self.assertIn('${LIBRARY_ROOT:-/srv/media-stack/library}/inbox:/library/inbox', volumes)
 
     def test_dependencies_wait_for_health(self):
         depends = COMPOSE['services']['nextcloud']['depends_on']
@@ -131,7 +134,8 @@ class ManageTests(unittest.TestCase):
         self.text = (UNIT / 'manage.py').read_text(encoding='utf-8')
 
     def test_the_required_actions_are_available(self):
-        for action in ('init', 'lock', 'up', 'setup', 'apps', 'config-print',
+        for action in ('init', 'lock', 'up', 'upgrade', 'setup', 'apps',
+                       'config-print', 'config-localsend', 'config-tags',
                        'status', 'down'):
             self.assertIn(f"'{action}'", self.text)
 
@@ -266,8 +270,10 @@ class AnsibleTests(unittest.TestCase):
         actions = {argv[-1]: index for index, argv in enumerate(commands)
                    if len(argv) > 1 and argv[-2].endswith('manage.py')}
         self.assertIn('up', actions)
+        self.assertIn('upgrade', actions)
         self.assertIn('setup', actions)
-        self.assertGreater(actions['setup'], actions['up'])
+        self.assertGreater(actions['upgrade'], actions['up'])
+        self.assertGreater(actions['setup'], actions['upgrade'])
         apps = [argv for argv in commands if '--apps' in argv]
         self.assertEqual(len(apps), 1)
         self.assertGreater(commands.index(apps[0]), actions['up'])

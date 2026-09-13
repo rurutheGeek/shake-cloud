@@ -19,7 +19,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | identity | Authentik（共通ログイン。招待・復旧・パスキー） |
 | cloud-01 | クラウドAPI・ポータル・管理DB（PostgreSQL） |
 | services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、Home Assistant、CUPS、eufy-security-ws、print-api |
-| media-01 | Nextcloud、Kavita、Navidrome、Picard、LocalSend受信機（クラウド管理下） |
+| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、Picard、LocalSend受信機（クラウド管理下） |
 | storage-s3 | Garage（S3互換オブジェクトストア） |
 | monitor-01 | Prometheus、Alertmanager、Grafana、exporter（クラウド管理下） |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
@@ -59,7 +59,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
 | `stacks/docs/` | ドキュメントサイトを配るnginx（services-01、`platform/ansible/docs-site.yml`） |
 | `stacks/tls-proxy/` | 各ホストのHTTPS入口（CaddyとCloudflare DNSモジュール）。受ける名前は `platform/terraform/dns.yaml` |
-| `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・LocalSend |
+| `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・FreshRSS（共通RSSタイムライン）・LocalSend |
 | `stacks/music-tools/` | MeTube・Picard・BCSTM変換・同期（media-01） |
 | `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | services-01・monitor-01の新しい基盤のサービス（ホストごとの独立Compose） |
 | `stacks/game/`・`stacks/romm/`・`stacks/pokemon-ai/`・`stacks/rag-bot/` | game1へ載せるゲーム・AIの開発コード（実装・移行は進行中） |
@@ -142,7 +142,7 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media.yml
 ```
 
-`media.yml` は Nextcloud → Kavita → LocalSend → Navidrome → music-tools → 確認 → HTTPS の順に流します。手順と境界の正本は[サービスの置き場所とクラウドVMでの作り方](docs/operations/services.md)、VMの説明は `platform/terraform/services/media/README.md` です。**クラウドインベントリとNetBoxインベントリは併用しません**（`media` 群が和集合になります）。
+`media.yml` は Nextcloud → Kavita → LocalSend → Navidrome → FreshRSS → music-tools → 確認 → HTTPS の順に流します。手順と境界の正本は[サービスの置き場所とクラウドVMでの作り方](docs/operations/services.md)、VMの説明は `platform/terraform/services/media/README.md` です。**クラウドインベントリとNetBoxインベントリは併用しません**（`media` 群が和集合になります）。
 
 ## バックアップ
 

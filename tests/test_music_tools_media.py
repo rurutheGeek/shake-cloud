@@ -41,6 +41,12 @@ class ComposeTests(unittest.TestCase):
         self.assertIn('${LIBRARY_ROOT:-../library}/music:/music', volumes)
         self.assertNotIn('${LIBRARY_ROOT:-../library}/music:/music:ro', volumes)
 
+    def test_the_tagger_mounts_the_tool_directory_read_only(self):
+        # 0750 のままだとコンテナ (33:33) が /tools をたどれない
+        # （2026-09-13 実機）。playbook が 0711 にする。
+        volumes = self.compose['services']['tagger']['volumes']
+        self.assertIn('./:/tools:ro', volumes)
+
 
 class ManageTests(unittest.TestCase):
     """manage.py creates the Picard config dir and supports staged `up`."""
@@ -214,6 +220,15 @@ class PlaybookTests(unittest.TestCase):
         self.assertEqual(created['state'], 'directory')
         copied = self.tasks['Copy cache synchronization code']
         self.assertIn('sync-music.py', copied['ansible.builtin.copy']['dest'])
+
+    def test_the_organizer_and_its_aliases_are_deployed(self):
+        loop = self.tasks['Copy tool definitions']['loop']
+        self.assertIn('organize.py', loop)
+        self.assertIn('organize-aliases.json', loop)
+
+    def test_the_tool_directory_is_traversable_for_the_tagger_container(self):
+        created = self.tasks['Create tool directory']['ansible.builtin.file']
+        self.assertEqual(created['mode'], '0711')
 
 
 if __name__ == '__main__':

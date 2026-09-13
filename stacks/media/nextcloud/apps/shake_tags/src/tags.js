@@ -1,4 +1,4 @@
-import { FileAction, FileType, registerFileAction } from '@nextcloud/files'
+import { FileType, registerFileAction } from '@nextcloud/files'
 import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
@@ -156,13 +156,13 @@ async function openEditor(fileId) {
 	})
 }
 
-registerFileAction(new FileAction({
+registerFileAction({
 	id: 'shake-tags',
 	displayName: () => t('shake_tags', 'タグを編集'),
 	iconSvgInline: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.42l9 9A2 2 0 0 0 13 22a2 2 0 0 0 1.41-.59l7-7A2 2 0 0 0 21.41 11.58zM6.5 8A1.5 1.5 0 1 1 8 6.5 1.5 1.5 0 0 1 6.5 8z"/></svg>',
-	enabled: (nodes) => nodes.length === 1
+	enabled: ({ nodes }) => nodes.length === 1
 		&& nodes[0].type === FileType.File
-		&& (nodes[0].extension || '').toLowerCase() === 'mp3',
-	exec: (node) => openEditor(node.fileid),
+		&& (nodes[0].extension || '').toLowerCase().replace(/^\./, '') === 'mp3',
+	exec: ({ nodes }) => openEditor(nodes[0].fileid),
 	order: 27,
-}))
+})

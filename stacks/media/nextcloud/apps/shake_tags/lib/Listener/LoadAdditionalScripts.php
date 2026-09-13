@@ -16,6 +16,6 @@ class LoadAdditionalScripts implements IEventListener {
 			return;
 		}
 
-		Util::addScript('shake_tags', 'tags');
+		Util::addInitScript('shake_tags', 'tags');
 	}
 }

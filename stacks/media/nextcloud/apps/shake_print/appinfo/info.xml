@@ -5,7 +5,7 @@
 	<name>印刷</name>
 	<summary>CUPS中継（キュー ts8430）へファイルを送る</summary>
 	<description><![CDATA[ファイル一覧の「…」メニューに「印刷」を追加します。PDF・画像（PNG/JPEG）・テキストを、services-01 の CUPS 中継（キュー ts8430）へ送ります。印刷APIはトークン認証で、Nextcloud のホストからのみ受け付けます。]]></description>
-	<version>1.0.0</version>
+	<version>1.0.5</version>
 	<!-- PHPクラスの名前空間。宣言が無いと Nextcloud は ucfirst した
 	     OCA\Shake_print を探し、OCA\ShakePrint と一致せず二重includeになる。 -->
 	<namespace>ShakePrint</namespace>

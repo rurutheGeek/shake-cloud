@@ -7,6 +7,7 @@ namespace OCA\ShakePrint\Controller;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
@@ -31,6 +32,7 @@ class PrintController extends Controller {
 		parent::__construct($appName, $request);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/print')]
 	public function print(int $fileId, int $copies = 1, string $color = 'color'): DataResponse {
 		if ($this->userId === null) {

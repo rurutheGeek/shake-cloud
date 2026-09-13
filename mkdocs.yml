@@ -69,11 +69,12 @@ nav:
       - Homarrハブ: services/homarr.md
       - Home Assistantと家電の使い方: services/home-assistant.md
       - 音楽・取り込み・タグ: services/music.md
+      - 共通RSSタイムライン: services/rss.md
       - プリンター（Canon TS8430）: services/printer.md
       - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:
-      - 運用の基本: overview.md
+      - ホームラボの全体像（詳細）: overview.md
       - 接続先一覧（URL）: operations/urls.md
       - サービスの置き場所とクラウドVM: operations/services.md
       - Nextcloudと追加アプリ: services/nextcloud.md
@@ -107,3 +108,8 @@ nav:
       - 2人用ゲーム・開発VM: architecture/gaming.md
       - 配備・Git・復旧: architecture/operations.md
       - Proxmox導入後の手順: architecture/bring-up.md
+
+# Mermaidをオフラインで描画する（docs/assets/js/README.md参照）。
+extra_javascript:
+  - assets/js/mermaid.min.js
+  - assets/js/mermaid-init.js

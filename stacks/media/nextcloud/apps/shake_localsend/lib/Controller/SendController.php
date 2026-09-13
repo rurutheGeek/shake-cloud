@@ -7,6 +7,7 @@ namespace OCA\ShakeLocalSend\Controller;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
@@ -30,6 +31,7 @@ class SendController extends Controller {
 		parent::__construct($appName, $request);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/devices')]
 	public function devices(): DataResponse {
 		if (!$this->configured()) {
@@ -53,6 +55,7 @@ class SendController extends Controller {
 		return new DataResponse(['devices' => $payload['devices']]);
 	}
 
+	#[NoAdminRequired]
 	#[FrontpageRoute(verb: 'POST', url: '/send')]
 	public function send(int $fileId, string $fingerprint): DataResponse {
 		if ($this->userId === null) {

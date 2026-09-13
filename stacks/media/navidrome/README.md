@@ -20,6 +20,34 @@ Forward Auth は compose.yaml の環境変数で有効にします。
 - `ND_EXTAUTH_TRUSTEDSOURCES: 127.0.0.1/32,172.16.0.0/12` — このヘッダーを信頼する送信元。Caddy は `127.0.0.1`（host ネットワーク）から届き、コンテナ間は docker bridge の `172.16.0.0/12` になる。
 - 公開ポートは `127.0.0.1:${NAVIDROME_PORT:-4533}` のみ。LAN やインターネットから直接ヘッダーを付けられる経路は作らない。
 
+### SSO利用者の作成（必須）
+
+NavidromeはForward Authの `Remote-User` を信頼しますが、**該当ユーザーがNavidromeのDBに無いと自動ログインしません**（ログに `Authenticated username not found in DB` が出ます）。招待した人ごとに次を作成します。
+
+```bash
+sudo docker exec -it media-navidrome-navidrome-1 /app/navidrome user create \
+  -u sso_<Authentikのユーザー名> --name <表示名> --admin
+# パスワードは対話で2回入力する（SSOでは使わない）
+```
+
+現在: `sso_`（旧テスト）・`sso_ruruthegeek`・`sso_akadmin`・`sso_shunyazhiyuan97`。
+
+### Subsonicクライアント（Ultrasonic等）
+
+アプリは共通ログイン（SSO）を使えないため、**アプリ専用の入口** `navidrome-api.apextox.dpdns.org`（`dns.yaml`、SSOなし）を分けています。アプリはNavidromeの自前認証で接続します。Web UI（`navidrome.apextox.dpdns.org`）は全パスSSOのままで、Web再生もその経路を使います。
+
+- サーバー: `https://navidrome-api.apextox.dpdns.org`（アプリ専用。SSOなし）
+- ユーザー名: `sso_<Authentikのユーザー名>`（例: `sso_ruruthegeek`）
+- パスワード: 次で設定する（対話・SSOでは使わない）
+
+```bash
+sudo docker exec -it media-navidrome-navidrome-1 /app/navidrome user edit \
+  -u sso_<Authentikのユーザー名> --set-password
+```
+
+Web UI（ブラウザー）は今までどおりSSOで自動ログインします。
+
+
 ## 使い方（media-01）
 
 ```bash

@@ -20,7 +20,9 @@
     - https://nextcloud.apextox.dpdns.org/status.php
     - https://kavita.apextox.dpdns.org/
     - https://navidrome.apextox.dpdns.org/ping
+    - https://freshrss.apextox.dpdns.org/api/
     - https://metube.apextox.dpdns.org/
+    - https://navidrome-api.apextox.dpdns.org/
   labels:
     group: media
 - targets:

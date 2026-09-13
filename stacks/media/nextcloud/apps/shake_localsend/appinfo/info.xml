@@ -5,7 +5,7 @@
 	<name>LocalSendで送る</name>
 	<summary>同じLANの端末へLocalSendでファイルを送る</summary>
 	<description><![CDATA[ファイル一覧の「…」メニューに「LocalSendで送る」を追加します。media-01の送信APIが同じLANのLocalSend端末を探し、選んだ端末へファイルを送ります。送り先の端末ではLocalSendアプリを開いて、受信の確認を押してください。]]></description>
-	<version>1.0.0</version>
+	<version>1.0.5</version>
 	<!-- PHPクラスの名前空間。宣言が無いと Nextcloud は ucfirst した
 	     OCA\Shake_localsend を探し、OCA\ShakeLocalSend と一致せず二重includeになる。 -->
 	<namespace>ShakeLocalSend</namespace>

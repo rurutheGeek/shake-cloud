@@ -160,7 +160,7 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 4)
+        self.assertEqual(len(sites), 6)
         self.assertEqual(rendered.count('forward_auth https://'), 2)
         for name in ('navidrome', 'metube'):
             block = site_block(rendered, name)
@@ -170,7 +170,7 @@ class TlsProxyTests(unittest.TestCase):
             self.assertIn('copy_headers X-Authentik-Username', block, name)
             self.assertIn('header_up Remote-User sso_{http.request.header.X-Authentik-Username}', block, name)
             self.assertIn('header_up -X-Authentik-Username', block, name)
-        for name in ('nextcloud', 'kavita'):
+        for name in ('nextcloud', 'kavita', 'freshrss'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)
 

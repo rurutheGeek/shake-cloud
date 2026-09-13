@@ -1,0 +1,7 @@
+[Unit]
+Description=Shelve loose Kavita book files into series folders
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 {{ project_dir }}/scripts/shelve-loose-books.py --books {{ library_root }}/books --kavita-dir {{ project_dir }}/media/kavita

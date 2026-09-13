@@ -160,6 +160,15 @@ def setup():
             print(f'OK: external storage available to every user: /{name}')
 
 
+def upgrade():
+    """Apply pending Nextcloud/app upgrades (needed after an app version bump)."""
+    result = occ('upgrade', capture_output=True)
+    if 'Everything up-to-date' in result.stdout:
+        print('OK: Nextcloud already up to date')
+    else:
+        print('CHANGED: Nextcloud upgraded')
+
+
 def apps(names):
     """Install and enable selected Nextcloud apps through occ.
 
@@ -227,8 +236,9 @@ def config_tags():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
-                        choices=['init', 'lock', 'up', 'setup', 'apps', 'config-print',
-                                 'config-localsend', 'config-tags', 'status', 'down'])
+                        choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
+                                 'config-print', 'config-localsend', 'config-tags',
+                                 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
@@ -237,6 +247,8 @@ def main():
         lock()
     elif args.action == 'up':
         up()
+    elif args.action == 'upgrade':
+        upgrade()
     elif args.action == 'setup':
         setup()
     elif args.action == 'apps':

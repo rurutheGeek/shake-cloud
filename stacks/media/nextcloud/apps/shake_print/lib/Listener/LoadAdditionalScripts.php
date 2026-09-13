@@ -16,6 +16,6 @@ class LoadAdditionalScripts implements IEventListener {
 			return;
 		}
 
-		Util::addScript('shake_print', 'shake_print');
+		Util::addInitScript('shake_print', 'shake_print');
 	}
 }

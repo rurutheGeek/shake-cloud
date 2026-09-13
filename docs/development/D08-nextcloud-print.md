@@ -1,6 +1,6 @@
 # D08 Nextcloudからの印刷（shake_print）
 
-更新日: 2026-09-13。種別: **実装＋資料**。状態: **services-01の印刷APIとmedia-01のNextcloudアプリを配備済み。API経由の実印刷は確認済み、ブラウザーの「…」→「印刷」は未確認**。
+更新日: 2026-09-13。種別: **実装＋資料**。状態: **services-01の印刷APIとmedia-01のNextcloudアプリを配備済み。API経由の実印刷と、ブラウザーでのメニュー出現（「印刷」「タグを編集」「LocalSendで送る」）・タグ編集の起動を実測済み**。
 
 [開発計画一覧](index.md)へ戻る。番号は実施順を表しません。
 
@@ -27,9 +27,9 @@ Nextcloudのファイル一覧から直接印刷できるようにします。�
 ## 検証・完了条件
 
 - services-01: `print-api` がactive、`/healthz` 200、キュー `ts8430` がidle（実測済み）。
-- media-01: `occ app:list` に `shake_print: 1.0.0`、`print_api_url` とトークン設定済み（実測済み）。
+- media-01: `occ app:list` に `shake_print: 1.0.5`、`print_api_url` とトークン設定済み（実測済み）。
 - 経路: media-01 → API → CUPS で `ts8430-2` が完了し、1枚印刷された（実測済み）。
-- **ブラウザーでファイルの「…」→「印刷」を押した実印刷は未確認。** 結果が出たら日付付きで追記する。
+- ブラウザー（一般ユーザー）で `/books` のPDFの「…」に **「印刷」「LocalSendで送る」**、`/music` のMP3に **「タグを編集」「LocalSendで送る」** が出ることを実測（2026-09-13）。「タグを編集」は実クリックでエディタが開き、タグAPIが200を返した（元ファイルにタグが無いため空欄）。
 - コピー部数・モノクロはAPI側だけ対応。UIが要るなら後で足す。
 
 共通の確認は `python3 -m mkdocs build --strict` と `python3 -m unittest discover -s tests`。
@@ -38,3 +38,7 @@ Nextcloudのファイル一覧から直接印刷できるようにします。�
 
 - Nextcloud 33は `appinfo/info.xml` に `<namespace>` が無いと `ucfirst` した `OCA\Shake_print` を探し、`OCA\ShakePrint` と噛み合わず二重includeで落ちる（2026-09-13実測）。`<namespace>ShakePrint</namespace>` を宣言する。
 - JSは `@nextcloud/files` の `registerFileAction` を使う。`@nextcloud/dialogs` はFilePicker経由でVueとCSSを引き込むため使わず、トーストは `OCP.Toast` にする。esbuildで `js/shake_print.js` にバンドルし、`node_modules` は配備しない。
+- **NC33のFilesアプリは `@nextcloud/files` v4 のグローバルレジストリ（`window._nc_files_scope`）を共有する。** アプリ側も v4 をバンドルしないと登録が別インスタンスに落ちてメニューに出ない（v3系の `window._nc_fileactions` は読まれない。2026-09-13実測）。v4では `new FileAction(...)` ではなくプレーンオブジェクトを `registerFileAction()` へ渡す。
+- アプリJSは `Util::addScript` でなく `Util::addInitScript` で読む。Filesの初期化より前に登録でき、v4の `register:action` イベントと合わせて順序に依存しない。
+- v4の `Node.extension` は**ドット込み**（`.pdf`）。`enabled` では `(node.extension || '').toLowerCase().replace(/^\./, '')` のように正規化する。
+- コントローラの各メソッドに `#[NoAdminRequired]` を付ける。AppFrameworkは既定で管理者のみで、無いと一般ユーザーの実行時だけ403になる（メニュー表示は成功するため気づきにくい。2026-09-13実測）。

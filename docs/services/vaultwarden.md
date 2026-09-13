@@ -42,7 +42,7 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 | マスターパスワードを求められる | 通常の復号手順。identityのパスワードを入れる場面ではない |
 | 最初は入れるがしばらくすると失敗 | OIDCセッション・refresh token・時刻を確認。`offline_access`を追加済み |
 
-サーバーは `SSO_ENABLED=true`、`SSO_SCOPES=email profile offline_access`、`SSO_PKCE=true`を使用し、未知のメール確認状態を許可しません。ローカル登録は`SIGNUPS_ALLOWED=false`、既存保管庫へのメール一致だけの紐付けは`SSO_SIGNUPS_MATCH_EMAIL=false`のままです。通常のローカル登録と、認可済みSSOによる初回作成は別経路です。
+サーバーは `SSO_ENABLED=true`、`SSO_SCOPES=email profile offline_access`、`SSO_PKCE=true`を使用します。Authentikの既定emailスコープは `email_verified=false` を返すため、identityに `Verified Email` スコープマッピング（`email_verified: true`）を用意してプロバイダへ適用し、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` も設定しています（2026-09-13。招待はメール宛リンクで本人確認しています）。ローカル登録は`SIGNUPS_ALLOWED=false`、既存保管庫へのメール一致だけの紐付けは`SSO_SIGNUPS_MATCH_EMAIL=false`のままです。通常のローカル登録と、認可済みSSOによる初回作成は別経路です。
 
 緊急時・既存アカウント向けのローカルログインを残すため、`SSO_ONLY=false`としています。Web保管庫の「Other／その他」からローカル認証へ切り替えます。全利用者へSSOのみを強制する場合は、既存保管庫・ブラウザー拡張・スマホの移行確認後に別途変更します。[公式SSO設定](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect)
 

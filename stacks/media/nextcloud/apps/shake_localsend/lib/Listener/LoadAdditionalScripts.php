@@ -16,6 +16,6 @@ class LoadAdditionalScripts implements IEventListener {
 			return;
 		}
 
-		Util::addScript('shake_localsend', 'localsend');
+		Util::addInitScript('shake_localsend', 'localsend');
 	}
 }

@@ -15,6 +15,8 @@ media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → タグ�
 
 共有 music の実体は `${LIBRARY_ROOT}/music`。タグAPIはそこを `/music` へ読み書き（rw）でマウントし、バックアップは `storage/tags`（コンテナ内 `/state/tag-backups`）へ保存します。BCSTM 原本と `music/Converted/` は直接編集しません。
 
+YouTubeのCookieは `storage/state/cookies.txt`（0600）へ置き、compose の `YTDL_OPTIONS` が `cookiefile` として常に参照します（再起動後も有効）。MeTubeの **Upload Cookies** でも同じ場所へ保存されます。通常の公開動画はCookieなしで取得できます。
+
 `.env.example` は秘密値を含まない参照用です。実値の `.env` は配備先で 0600 になります。共有 Cookie などの実値は Git に置かず、対象ホストへ配ります。
 
 ## Ansible での配備（正本）
@@ -61,6 +63,35 @@ sudo python3 manage.py backup --destination /srv/backups/music-tools
 ## タグ編集
 
 通常はNextcloudの `music` にあるMP3の **…** → **タグを編集** を使います（[Nextcloudの使い方](../../docs/services/nextcloud-guide.md)）。MusicBrainz検索つきで、変更前のタグは `storage/tags/tag-backups/` に保存されます。Navidromeへの反映は通常1時間以内です。
+
+## ライブラリ一括整理（organize.py）
+
+`music/` のMP3をまとめて `アーティスト/アルバム/NN - 曲名.mp3` へ整理し、タグを書き、アルバムフォルダへ `cover.jpg` を置きます。`Converted/` とMP3以外（WAV・BCSTMなど）には触れません。plan（調査のみ）と apply（適用）を分けており、適用前に差分を確認できます。
+
+```bash
+cd /opt/media-stack/music-tools
+# 1) 計画を作る（/music は変更しない。MusicBrainz照合とカバー収集）
+sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
+  run --rm --entrypoint python3 tagger /tools/organize.py plan \
+  --aliases /tools/organize-aliases.json
+# 2) storage/convert/organize/report.md と manifest.json を確認する
+# 3) 適用（ID3バックアップと移動ジャーナルを残す）
+sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
+  run --rm --entrypoint python3 tagger /tools/organize.py apply \
+  --manifest /state/organize/manifest.json --cleanup
+# 4) 取り消しはジャーナルから（適用時と逆の操作をする）
+sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
+  run --rm --entrypoint python3 tagger /tools/organize.py undo \
+  --journal /state/organize/journal-<日時>.json
+```
+
+- 判定順: MusicBrainzリリース一致 → MusicBrainz録音一致 → 既存タグ/ファイル名。既存タグは可能な限り保持します。
+- アルバムが無い曲は `アーティスト/Singles/` へ、アーティストも無い曲は移動せず `report.md` の「未解決」へ出します。
+- カバーは Cover Art Archive → iTunes(JP) → Deezer → 既存のFolder.jpg の順。誤りを避けるため類似度しきい値未満は付けず、未取得として記録します。
+- MusicBrainzで見つからない日本語ゲームBGMは `organize-aliases.json` の `albums`（アルバムタグ）/ `folders`（フォルダ相対パス）に `album`・`albumartist`・`genre`・`mb_release`・`title_prefix`・`itunes_term` を書き、再planすると反映されます。
+- 同一曲がライブ版・コンピ盤など別アルバムへ解決されることがあります。適用前に `report.md` を確認してください。
+- 状態は `storage/convert/organize/`（`cache/`・`covers/`・`manifest.json`・`report.md`・`journal-*.json`）、タグのバックアップは `storage/convert/tag-backups/` に置きます。
+- 失敗時は plan をやり直してください。`cache/` が効くため2回目以降は速くなります。
 
 ## 手元での検証
 

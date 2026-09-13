@@ -26,16 +26,18 @@
     music_tools_tag_port: 5810
   tasks:
     - name: Create tool directory
+      # tagger コンテナ (33:33) は /tools 以下を名前で読むため、他者に x を
+      # 与える（r は与えないので一覧はできない。.env は 0600 のまま）。
       ansible.builtin.file:
         path: '{{ project_dir }}/music-tools'
         state: directory
-        mode: '0750'
+        mode: '0711'
     - name: Copy tool definitions
       ansible.builtin.copy:
         src: '{{ source_dir }}/music-tools/{{ item }}'
         dest: '{{ project_dir }}/music-tools/{{ item }}'
         mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, .env.example]
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, organize.py, organize-aliases.json, .env.example]
     - name: Copy pinned tool images
       ansible.builtin.copy:
         src: '{{ item }}'

@@ -17,12 +17,14 @@ ROOT = Path(__file__).resolve().parent
 BASE = os.environ.get('AUTHENTIK_URL', 'http://localhost:9000') + '/api/v3/'
 GROUPS = ('users', 'admins')
 CLIENT = 'cloud'
-# Media SSO. Nextcloud and Kavita accept OIDC natively; Navidrome, MeTube and
-# Picard get Forward Auth through the embedded outpost and keep their own
-# authentication on the API paths.
-MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc'}
+# Media SSO. Nextcloud, Kavita and FreshRSS accept OIDC natively; Navidrome,
+# MeTube and Picard get Forward Auth through the embedded outpost and keep
+# their own authentication on the API paths.
+MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc',
+                      'freshrss': '/i/oidc/'}
 MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'picard')
 MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
+                      'freshrss': 'FreshRSS',
                       'navidrome': 'Navidrome', 'metube': 'MeTube', 'picard': 'Picard'}
 MEDIA_OUTPOST = 'Embedded'
 # The service entry point lives on services-01, not media-01, but it is an
@@ -47,6 +49,16 @@ HOME_ASSISTANT_REDIRECT_PATH = '/auth/oidc/callback'
 # proxies, so it goes through Forward Auth too; printing itself stays on the
 # plain IPP port (631) and the /admin paths are blocked at the proxy.
 CUPS = 'cups'
+# Authentik's managed email scope mapping always reports email_verified=False.
+# Vaultwarden and Kavita reject an unverified email, so the providers use our
+# own mapping for the email scope: invitations already verify the address.
+VERIFIED_EMAIL_MAPPING = 'Verified Email'
+VERIFIED_EMAIL_EXPRESSION = (
+    'return {\n'
+    '    "email": request.user.email,\n'
+    '    "email_verified": True,\n'
+    '}'
+)
 AUTHORIZATION_FLOW = 'default-provider-authorization-implicit-consent'
 INVALIDATION_FLOW = 'default-provider-invalidation-flow'
 SIGNING_KEY = 'authentik Self-signed Certificate'
@@ -451,6 +463,26 @@ def ensure_oauth2_provider(api, name, desired):
     return provider
 
 
+def ensure_scope_mapping(api, name, scope_name, expression):
+    """Create or correct one custom OAuth2 scope mapping."""
+    desired = {'name': name, 'scope_name': scope_name, 'expression': expression}
+    existing = [row for row in api.rows('propertymappings/provider/scope/')
+                if row.get('name') == name]
+    if not existing:
+        mapping = api.call('POST', 'propertymappings/provider/scope/', desired)
+        print(f'CHANGED: created scope mapping {name}')
+        return mapping
+    mapping = existing[0]
+    changes = drifted(mapping, desired)
+    if changes:
+        mapping = api.call('PATCH',
+                           f"propertymappings/provider/scope/{mapping['pk']}/", desired)
+        print(f'CHANGED: corrected scope mapping {name}: {changes}')
+    else:
+        print(f'OK: scope mapping {name}')
+    return mapping
+
+
 def ensure_proxy_provider(api, name, desired):
     """Create or correct one Forward Auth provider for the embedded outpost."""
     payload = {'name': name, **desired}
@@ -680,9 +712,17 @@ def main():
         print('CHANGED: akadmin joined admins')
 
     flows = {row['slug']: row['pk'] for row in api.rows('flows/instances/')}
+    # Authentikのmanaged emailマッピングはemail_verified=Falseを返す。検証済み
+    # メールを要求するVaultwarden・Kavitaには独自マッピングを使う（2026-09-13）。
+    verified_email = ensure_scope_mapping(api, VERIFIED_EMAIL_MAPPING, 'email',
+                                          VERIFIED_EMAIL_EXPRESSION)
     # profile carries the groups claim the API and NetBox use to recognise admins.
+    # offline_access lets clients that ask for it receive a refresh token
+    # (Vaultwarden's SSO session keeps working with one).
     mappings = [row['pk'] for row in api.rows('propertymappings/provider/scope/')
-                if row.get('managed', '') and row['scope_name'] in ('openid', 'email', 'profile')]
+                if row.get('managed', '')
+                and row['scope_name'] in ('openid', 'profile', 'offline_access')]
+    mappings.append(verified_email['pk'])
     keys = [row['pk'] for row in api.rows('crypto/certificatekeypairs/') if row['name'] == SIGNING_KEY]
     if not keys:
         raise SystemExit(f'Signing key not found: {SIGNING_KEY}')

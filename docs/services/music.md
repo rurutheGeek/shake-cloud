@@ -4,7 +4,7 @@
 
 **MeTubeはmedia-01で稼働中です。** <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。ダウンロードできる権利のある音源を指定してください。
 
-音声は `${LIBRARY_ROOT}/music/YouTube/投稿者/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
+音声は `${LIBRARY_ROOT}/music/YouTube/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
 
 yt-dlp・FFmpeg・MeTubeはコンテナに含まれます。設定は `stacks/music-tools/compose.yaml`、固定バージョンは `stacks/music-tools/compose.lock.yaml` で管理します。既定でメタデータと、取得可能ならサムネイルを埋め込みます。元動画の情報だけではアーティスト・アルバムが正確にならないことがあるため、必要なタグは後で補正します。
 
@@ -12,19 +12,21 @@ yt-dlp・FFmpeg・MeTubeはコンテナに含まれます。設定は `stacks/mu
 
 MeTubeはmedia-01で稼働しています。共有Cookieと取り込み履歴は全利用者で共通です。
 
-### 共有Cookieの登録（初回・期限切れ時）
+### 共有Cookieの登録（通常は不要）
 
-共有用のYouTubeアカウントのCookieを一度登録し、一般利用者はURLを貼るだけで使う方式です。サーバーの管理者権限やSSH操作は不要です。
+**普通の公開動画はCookieなしで取得できます**（2026-09-13に実機で確認）。年齢制限・地域制限・「ロボットでないことを確認」などで失敗した動画だけ、次の手順で共有Cookieを登録します。
 
-1. 共有用アカウントでYouTubeにログインしたブラウザーから、Netscape形式の `cookies.txt` を書き出します。具体的な手順は [yt-dlp公式のCookie書き出し手順](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) を参照してください。
-2. [MeTube](https://metube.apextox.dpdns.org)（media-01への配備後）の **Advanced Options → Upload Cookies** から、そのファイルを選びます。
+1. パソコンのブラウザー（共有用アカウントでYouTubeにログイン済み）にCookieを書き出す拡張機能（例: **Get cookies.txt LOCALLY**）を入れ、`cookies.txt` を保存します。
+2. [MeTube](https://metube.apextox.dpdns.org) の **Advanced Options → Upload Cookies** でそのファイルを選びます。
+
+登録したCookieは `music-tools/storage/state/cookies.txt`（0600）に保存され、MeTubeは `YTDL_OPTIONS` の `cookiefile` として常に参照します（コンテナ再起動後も有効）。UIの **Delete Cookies** で消した場合は、ファイルが無いとYouTubeの取得が失敗するので再登録してください。
 3. Cookie登録済みの表示を確認し、失敗していたURLを再投入します。通常の利用者はログイン情報を入力せず、URL・MP3形式を選んで追加します。
 
 CookieはMeTube全体で共有されます。履歴やダウンロード先も利用者別ではありません。MeTube自体にはCookie更新の役割分離がないため、この画面を使える人は共有Cookieを更新・削除できます。個人の主アカウントのCookieではなく、合意した共有用アカウントを使ってください。
 
 Cookieはセッション情報です。チャットやGitHubへ貼らず、上記画面から登録します。サーバーでは `music-tools/storage/state/cookies.txt` に権限0600で永続化され、再起動・コンテナ再作成後も保持します。このディレクトリはGit管理対象外です。MeTubeで **Delete Cookies** を押すと削除できます。
 
-「一度登録」は永久に有効という意味ではありません。期限切れ・ログアウト・YouTube側の判定で再登録が必要になることがあります。Cookieを入れてもすべての動画の取得を保証するものではありません。現在、共有Cookieの実物は未登録のため、報告されたURLのダウンロード成功は未確認です。yt-dlpとJavaScript実行環境はコンテナに導入済みです。
+「一度登録」は永久に有効という意味ではありません。期限切れ・ログアウト・YouTube側の判定で再登録が必要になることがあります。Cookieを入れてもすべての動画の取得を保証するものではありません。現在、共有Cookieは未登録ですが、公開動画の取得は確認済みです。yt-dlpとJavaScript実行環境はコンテナに導入済みです。
 
 GUIを使わず、次のコマンドでも音声を追加できます。
 
@@ -55,6 +57,14 @@ sudo docker compose --env-file music-tools/.env -f music-tools/compose.yaml -f m
 対応項目はtitle・artist・album・albumartist・tracknumber・discnumber・date・genre・composerです。実在するmusic内のMP3だけを対象にし、指定しない項目は維持します。同じ設定の再適用は書き換えません。変更前のID3タグはmusic-tools/storage/convert/tag-backupsへ初回保存します。これは音声本体のバックアップではないため、原本の通常バックアップも必要です。
 
 復元する場合は、バックアップID3をMutagenの `ID3(バックアップ).save(原本MP3)` で戻します。`.no-id3`記録の場合は元々タグがなかったため、ID3タグの削除で戻します。操作後はスキャンを実行します。
+
+## サーバーでまとめて整理・タグ付けする（organize.py）
+
+既存ライブラリをまとめて `アーティスト/アルバム/NN - 曲名.mp3` へ整理し、タグを書き、アルバムごとに `cover.jpg` を取得したい場合は `organize.py` を使います。plan（調査のみ）とapply（適用）が分かれていて、適用前に `report.md` で移動先・タグ・未解決曲・カバー結果を確認できます。手順とオプションは [music-toolsのREADME](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/music-tools/README.md) を参照してください。
+
+- MusicBrainzで見つからない曲は既存タグとファイル名で整理し、それも無い曲は移動せず「未解決」として一覧になります。
+- カバーは Cover Art Archive → iTunes(JP) → Deezer → 既存のFolder.jpg の順に取得します。誤った画像を付けないよう、候補がしきい値未満なら付けずに未取得として記録します。
+- 日本語ゲームBGMなど自動で見つからない作品は `music-tools/organize-aliases.json` にアルバム/フォルダ単位の対応（アルバム名・作曲者・MusicBrainzリリースID・iTunes検索語）を書いて再実行します。
 
 ## BCSTMを聴く
 

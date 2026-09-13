@@ -206,6 +206,56 @@ class MailTests(unittest.TestCase):
         self.assertTrue(any(isinstance(call, tuple) and call[0] == 'send' for call in calls))
 
 
+class FakeScopeAPI:
+    def __init__(self, existing=()):
+        self.existing = list(existing)
+        self.calls = []
+
+    def rows(self, path):
+        return list(self.existing)
+
+    def call(self, method, path, body=None):
+        self.calls.append((method, path, body))
+        if method == 'POST':
+            return dict(body, pk='new')
+        return dict(body, pk='old')
+
+
+class ScopeMappingTests(unittest.TestCase):
+    """Vaultwarden and Kavita need email_verified=True from the provider."""
+
+    def test_a_missing_verified_email_mapping_is_created(self):
+        api = FakeScopeAPI()
+        mapping = configure.ensure_scope_mapping(
+            api, configure.VERIFIED_EMAIL_MAPPING, 'email',
+            configure.VERIFIED_EMAIL_EXPRESSION)
+        self.assertEqual(mapping['pk'], 'new')
+        self.assertEqual(api.calls[0][0], 'POST')
+        self.assertIn('"email_verified": True', api.calls[0][2]['expression'])
+
+    def test_a_drifted_mapping_is_corrected(self):
+        api = FakeScopeAPI([{'pk': 'old', 'name': configure.VERIFIED_EMAIL_MAPPING,
+                             'scope_name': 'email', 'expression': 'return {}'}])
+        configure.ensure_scope_mapping(api, configure.VERIFIED_EMAIL_MAPPING, 'email',
+                                       configure.VERIFIED_EMAIL_EXPRESSION)
+        method, path, _ = api.calls[0]
+        self.assertEqual(method, 'PATCH')
+        self.assertIn('/old/', path)
+
+    def test_a_matching_mapping_is_left_alone(self):
+        api = FakeScopeAPI([{'pk': 'same', 'name': configure.VERIFIED_EMAIL_MAPPING,
+                             'scope_name': 'email',
+                             'expression': configure.VERIFIED_EMAIL_EXPRESSION}])
+        configure.ensure_scope_mapping(api, configure.VERIFIED_EMAIL_MAPPING, 'email',
+                                       configure.VERIFIED_EMAIL_EXPRESSION)
+        self.assertEqual(api.calls, [])
+
+    def test_the_provider_mappings_prefer_the_verified_email(self):
+        text = (SOURCE / 'configure.py').read_text(encoding='utf-8')
+        self.assertIn("'openid', 'profile', 'offline_access'", text)
+        self.assertIn("mappings.append(verified_email['pk'])", text)
+
+
 class InventoryNameTests(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[1]
 

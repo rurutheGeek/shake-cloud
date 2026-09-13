@@ -149,7 +149,7 @@ class AppTests(unittest.TestCase):
         app = read(APP / 'lib/AppInfo/Application.php')
         listener = read(APP / 'lib/Listener/LoadAdditionalScripts.php')
         self.assertIn('LoadAdditionalScriptsEvent::class', app)
-        self.assertIn("Util::addScript('shake_localsend', 'localsend')", listener)
+        self.assertIn("Util::addInitScript('shake_localsend', 'localsend')", listener)
 
     def test_the_controller_proxies_devices_and_send(self):
         controller = read(APP / 'lib/Controller/SendController.php')
@@ -160,12 +160,26 @@ class AppTests(unittest.TestCase):
         self.assertIn("'X-Send-To' => $fingerprint", controller)
         self.assertIn("'Bearer '", controller)
 
+    def test_the_action_uses_the_files_context_signature(self):
+        source = read(APP / 'src/localsend.js')
+        self.assertIn('enabled: ({ nodes })', source)
+        self.assertIn('exec: async ({ nodes })', source)
+
+    def test_non_admins_may_use_the_send_routes(self):
+        # AppFramework は既定で管理者のみ。付けないと一般ユーザーは403になる（実測）。
+        controller = read(APP / 'lib/Controller/SendController.php')
+        self.assertIn('use OCP\\AppFramework\\Http\\Attribute\\NoAdminRequired;', controller)
+        self.assertEqual(controller.count('#[NoAdminRequired]'), 2)
+
     def test_the_bundle_registers_the_send_action(self):
         bundle = read(APP / 'js/localsend.js')
         self.assertIn('registerFileAction', bundle)
         self.assertIn('/apps/shake_localsend/devices', bundle)
         self.assertIn('/apps/shake_localsend/send', bundle)
         self.assertIn('shake-localsend', bundle)
+        # コアと同じ @nextcloud/files v4 のグローバルレジストリへ登録する。
+        self.assertIn('_nc_files_scope', bundle)
+        self.assertIn('register:action', bundle)
         package = json.loads(read(APP / 'package.json'))
         self.assertNotIn('@nextcloud/dialogs', package['dependencies'])
 

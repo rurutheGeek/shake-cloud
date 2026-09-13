@@ -159,7 +159,7 @@ class AppTests(unittest.TestCase):
         application = read(APP / 'lib/AppInfo/Application.php')
         listener = read(APP / 'lib/Listener/LoadAdditionalScripts.php')
         self.assertIn('LoadAdditionalScriptsEvent::class', application)
-        self.assertIn("Util::addScript('shake_print', 'shake_print')", listener)
+        self.assertIn("Util::addInitScript('shake_print', 'shake_print')", listener)
 
     def test_the_controller_forwards_with_a_token_to_the_relay(self):
         controller = read(APP / 'lib/Controller/PrintController.php')
@@ -170,11 +170,33 @@ class AppTests(unittest.TestCase):
         self.assertIn("'allow_local_address' => true", controller)
         self.assertIn('isReadable()', controller)
 
+    def test_the_action_uses_the_files_context_signature(self):
+        # NC33は enabled/exec を {nodes, ...} のコンテキストで呼ぶ。配列前提だと
+        # nodes.length が undefined になり、無効化されてメニューに出ない。
+        source = read(APP / 'src/print.js')
+        self.assertIn('enabled: ({ nodes })', source)
+        self.assertIn('exec: async ({ nodes })', source)
+
+    def test_non_admins_may_use_the_print_route(self):
+        # AppFramework は既定で管理者のみ。付けないと一般ユーザーは403になる（実測）。
+        controller = read(APP / 'lib/Controller/PrintController.php')
+        self.assertIn('use OCP\\AppFramework\\Http\\Attribute\\NoAdminRequired;', controller)
+        self.assertEqual(controller.count('#[NoAdminRequired]'), 1)
+
     def test_the_bundle_registers_the_print_action(self):
         bundle = read(APP / 'js/shake_print.js')
         self.assertIn('registerFileAction', bundle)
         self.assertIn('/apps/shake_print/print', bundle)
         self.assertIn('shake-print', bundle)
+        # コアと同じ @nextcloud/files v4 のグローバルレジストリへ登録する。
+        self.assertIn('_nc_files_scope', bundle)
+        self.assertIn('register:action', bundle)
+
+    def test_the_action_matches_the_v4_dotted_extension(self):
+        source = read(APP / 'src/print.js')
+        self.assertIn("replace(/^\\./, '')", source)
+        package = json.loads(read(APP / 'package.json'))
+        self.assertEqual(package['dependencies']['@nextcloud/files'], '^4.0.0')
 
     def test_the_bundle_does_not_pull_the_dialog_vue_tree(self):
         # dialogs は FilePicker 経由で path/Vue/CSS を引き込むため使わない。

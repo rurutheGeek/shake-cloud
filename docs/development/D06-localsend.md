@@ -31,3 +31,9 @@ LocalSendは本来サーバーを持たないため、採用したのは非公�
 - 文書・リンク・公開対象検証の通過。実施していない実機確認を完了根拠へ追加しない。
 
 共通の確認は `python3 -m mkdocs build --strict`、内部リンクの実在確認、`python3 tools/check-publication.py`。
+
+## 実装メモ
+
+- NC33のFilesアプリは `@nextcloud/files` v4 のグローバルレジストリ（`window._nc_files_scope`）を共有する。アプリ側も v4 をバンドルし、`registerFileAction()` にプレーンオブジェクトを渡す（v3系の `window._nc_fileactions` は読まれない。2026-09-13実測）。
+- アプリJSは `Util::addInitScript` で読む（`addScript` だとFilesの初期化後に実行される）。`register:action` イベントでも更新される。
+- コントローラの各メソッドに `#[NoAdminRequired]` を付ける。無いと一般ユーザーの実行時だけ403になる（2026-09-13実測）。

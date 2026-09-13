@@ -166,7 +166,7 @@ class AppTests(unittest.TestCase):
 
     def test_the_files_script_is_registered(self):
         listener = read(APP / 'lib/Listener/LoadAdditionalScripts.php')
-        self.assertIn("Util::addScript('shake_tags', 'tags')", listener)
+        self.assertIn("Util::addInitScript('shake_tags', 'tags')", listener)
 
     def test_the_controller_relays_tags_and_musicbrainz(self):
         controller = read(APP / 'lib/Controller/TagsController.php')
@@ -177,12 +177,34 @@ class AppTests(unittest.TestCase):
         self.assertIn("getAppValue('shake_tags', 'tags_api_token'", controller)
         self.assertIn('/musicbrainz', controller)
 
+    def test_non_admins_may_use_the_tag_routes(self):
+        # AppFramework は既定で管理者のみ。付けないと一般ユーザーは403になる（実測）。
+        controller = read(APP / 'lib/Controller/TagsController.php')
+        self.assertIn('use OCP\\AppFramework\\Http\\Attribute\\NoAdminRequired;', controller)
+        self.assertEqual(controller.count('#[NoAdminRequired]'), 3)
+
+    def test_the_action_uses_the_files_context_signature(self):
+        source = read(APP / 'src/tags.js')
+        self.assertIn('enabled: ({ nodes })', source)
+        self.assertIn('exec: ({ nodes })', source)
+
     def test_the_bundle_registers_the_tag_action(self):
         bundle = read(APP / 'js/tags.js')
         self.assertIn('registerFileAction', bundle)
         self.assertIn('/apps/shake_tags/tags', bundle)
         self.assertIn('/apps/shake_tags/search', bundle)
         self.assertIn('MusicBrainz', bundle)
+        # NC33のFilesアプリは @nextcloud/files v4 のグローバルレジストリ
+        # （window._nc_files_scope）を共有し、register:action で更新する。
+        # v3系をバンドルすると別インスタンスになりメニューに出ない（実測）。
+        self.assertIn('_nc_files_scope', bundle)
+        self.assertIn('register:action', bundle)
+
+    def test_the_action_matches_the_v4_dotted_extension(self):
+        source = read(APP / 'src/tags.js')
+        self.assertIn("replace(/^\\./, '')", source)
+        package = json.loads(read(APP / 'package.json'))
+        self.assertEqual(package['dependencies']['@nextcloud/files'], '^4.0.0')
 
 
 class NextcloudDeploymentTests(unittest.TestCase):

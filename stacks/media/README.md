@@ -1,6 +1,6 @@
 # メディア共通の開発・移行入口
 
-状態: **media-01 は2026-09-12に作成・実機確認済み。** Nextcloud・Kavita・Navidrome・Picard（music-tools）を配備し、`*.apextox.dpdns.org` のHTTPSと新しい identity の OIDC／Forward Auth まで実装済み。**旧環境からのデータ移行とブラウザーでのログイン実測は未了**。MeTube・変換・同期の移行はW06で進行中で、旧メディアスタックは移行元として残る。このREADMEの追加・更新では配備を発動しない。
+状態: **media-01 は2026-09-12に作成・実機確認済み。** Nextcloud・Kavita・Navidrome・Picard（music-tools）を配備し、`*.apextox.dpdns.org` のHTTPSと新しい identity の OIDC／Forward Auth まで実装済み。FreshRSS（共通RSSタイムライン）は2026-09-13にmedia-01へ配備し、HTTPS＋ネイティブOIDC＋SharedFeeds拡張（購読のリアルタイム共有）を実機で確認済み。**旧環境からのデータ移行とブラウザーでのログイン実測は未了**。MeTube・変換・同期の移行はW06で進行中で、旧メディアスタックは移行元として残る。このREADMEの追加・更新では配備を発動しない。
 
 ## 配備先・担当
 
@@ -17,6 +17,7 @@
 | Nextcloud | [nextcloud/](nextcloud/README.md) | media-01へ配備済み。HTTPS＋`user_oidc`、`shake_print`（D08） |
 | Kavita | [kavita/](kavita/README.md) | media-01へ配備済み。HTTPS＋組み込みOIDC |
 | Navidrome | [navidrome/](navidrome/README.md) | media-01へ配備済み。HTTPS＋Forward Auth |
+| FreshRSS（共通RSSタイムライン） | [freshrss/](freshrss/README.md) | media-01へ配備済み（2026-09-13）。HTTPS＋ネイティブOIDC＋SharedFeeds拡張（全ユーザーで購読をリアルタイム共有） |
 | music-tools（MeTube・Picard・変換・同期） | [../music-tools/](../music-tools/README.md) | Picardのみ配備済み（HTTPS＋Forward Auth）。MeTube・変換・同期はW06 |
 | LocalSend | [localsend/](localsend/README.md) | 受信機を配備済み。端末アプリの実送受信は未確認（D06） |
 

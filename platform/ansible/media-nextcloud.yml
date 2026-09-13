@@ -100,6 +100,12 @@
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
       changed_when: true
+    # アプリのバージョンを上げた配備では occ が「upgrade required」で止まる。
+    - name: Apply pending Nextcloud upgrades
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', upgrade]
+      register: nextcloud_upgrade
+      changed_when: "'CHANGED:' in nextcloud_upgrade.stdout"
     - name: Enable Nextcloud cron and shared external storage
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', setup]

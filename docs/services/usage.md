@@ -25,6 +25,7 @@
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
 | 本・PDFを読む | [Kavita](https://kavita.apextox.dpdns.org) |
 | 音楽を聴く | [Navidrome](https://navidrome.apextox.dpdns.org) |
+| RSS・ニュースをまとめて読む | [FreshRSS](https://freshrss.apextox.dpdns.org)（[使い方](rss.md)） |
 | URLから音声を取り込む | MeTube（準備中。media-01への配備はW06で進行中） |
 | パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
@@ -91,13 +92,26 @@ Nextcloudの`music`へ追加した直後は、表示まで通常1分ほどかか
 
 ### Androidで音楽を聴く
 
-Navidrome公式の[Androidクライアント一覧](https://www.navidrome.org/apps/?platform=android)から、OpenSubsonicまたはSubsonic対応のアプリを選びます。アプリには、管理者から案内されたHTTPSのNavidrome URL、ユーザー名、専用パスワードを入力します。
+Navidrome公式の[Androidクライアント一覧](https://www.navidrome.org/apps/?platform=android)から、OpenSubsonicまたはSubsonic対応のアプリを選びます。アプリには次の接続情報を入力します。
 
-現在の構成ではブラウザーからの利用は共通ログイン（Forward Auth）で保護しています。Subsonic対応のAndroidアプリは共通ログインの画面を扱えないことがあるため、アプリ用の認証は別途確認が必要です。
+- URL: `https://navidrome-api.apextox.dpdns.org`（アプリ専用。共通ログイン画面が出ないホストです）
+- ユーザー名・パスワード: 管理者から案内されたもの
+
+ブラウザーで見る場合は `https://navidrome.apextox.dpdns.org` を使います（こちらは共通ログインで保護）。
+
+**アプリで曲は表示されるのに再生できないとき**（Ultrasonicの例）は、アプリが「サーバーで再生する」設定のままです。Navidromeはジュークボックス非対応のため、この設定だと再生要求がサーバーに届いても失敗します。Navidromeが非対応を正しく伝えるため、**再生画面の「ジュークボックス ON/OFF」項目は最初から表示されません**。設定は次の場所にあります（Ultrasonic 4.x）。
+
+1. 左のメニュー（ハンバーガー）を開き、サーバー名の横の **鉛筆アイコン** を押します。
+2. サーバーの行の右端 **⋮ → 「編集」**。
+3. 下へスクロールして **「詳細設定」**。
+4. **「ジュークボックスをデフォルト化」をオフ**にして保存します。
+5. アプリを完全に終了してから開き直します。
+
+スイッチが見つからない古い版では、⋮ → 「削除」でサーバーをいったん消し、＋で同じURL・ユーザー名・パスワードを追加し直すと初期値（オフ）に戻ります。
 
 ## 音声を取り込む（MeTube）
 
-**MeTubeはmedia-01への配備が未了です（W06）。配備後の入口は <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）になります。**
+入口は <https://metube.apextox.dpdns.org>（identity の共通ログイン）です。Cookieが必要なサイトは設定に `cookies.txt` を置きます（任意）。
 
 権利のある音源だけを取り込んでください。取り込みの準備・Cookie・タグ付けの手順は[音楽の取り込み手順](music.md)を参照してください。
 
@@ -141,6 +155,7 @@ Androidから使うには、家庭内LANで名前解決できる `*.apextox.dpdn
 | パスワード | 公式Bitwardenアプリ | **Self-hosted** に保管庫URLを登録 |
 | 家電の操作・通知 | 公式Home Assistantアプリ | サーバーURLに `https://ha.apextox.dpdns.org`（[使い方](home-assistant.md)） |
 | 音楽 | Navidrome対応アプリ | OpenSubsonic/Subsonicの接続情報を登録 |
+| RSS・ニュース | FreshRSS対応アプリ（Google Reader API） | サーバーURLとAPIパスワードを登録（[使い方](rss.md)） |
 | 本 | ブラウザー、またはOPDS対応アプリ | KavitaのOPDSを登録 |
 | Homarr・手順書 | Androidブラウザー | ホーム画面に追加すると便利（LANのHTTPS名） |
 

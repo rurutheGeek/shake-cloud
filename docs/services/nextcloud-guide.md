@@ -117,7 +117,7 @@ Nextcloudは単体で使えますが、同じ保存領域・同じアカウン�
 | [共通ログイン](identity.md)（Authentik） | 同じアカウントでHomarr・Nextcloud・Vaultwardenに入れる | パスキー登録、パスワード再設定 |
 | [Homarr](https://homarr.apextox.dpdns.org) | サービスの入口。Nextcloudのタイルあり | 最初に開く場所 |
 | [Kavita](https://kavita.apextox.dpdns.org) | `books`フォルダーを読む | 本・PDF・電子書籍 |
-| [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生 | 音楽 |
+| [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生（ブラウザーは共通ログインで自動ログイン） | 音楽 |
 | [MeTube](https://metube.apextox.dpdns.org)（media-01への配備は未了） | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
 | [LocalSend](../development/D06-localsend.md) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
 | [プリンター](printer.md)（CUPS） | ファイルの「…」→「印刷」 | Nextcloudのファイルを印刷 |

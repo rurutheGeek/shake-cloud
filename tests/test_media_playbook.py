@@ -1,7 +1,7 @@
 """Guard the single media-01 entry point and the post-deploy verification.
 
-media.yml is what makes the five independently developed units (W03-W06・LocalSend)
-reproducible in one run; media-verify.yml is what turns "deployed" from a
+media.yml is what makes the independently developed units (W03-W06・LocalSend・
+FreshRSS) reproducible in one run; media-verify.yml is what turns "deployed" from a
 memory into a check. These are source-text and YAML assertions in the same
 spirit as test_media_nextcloud.py. The only thing executed is
 `ansible-playbook --syntax-check`; nothing here connects to media-01.
@@ -21,11 +21,12 @@ ENTRY = ANSIBLE / 'media.yml'
 VERIFY = ANSIBLE / 'media-verify.yml'
 GROUP_VARS = ANSIBLE / 'group_vars/media.yml'
 UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-localsend.yml',
-                  'media-navidrome.yml', 'music-tools.yml']
+                  'media-navidrome.yml', 'media-freshrss.yml', 'music-tools.yml']
 COMPOSE_FILES = {
     'nextcloud': ROOT / 'stacks/media/nextcloud/compose.yaml',
     'kavita': ROOT / 'stacks/media/kavita/compose.yaml',
     'navidrome': ROOT / 'stacks/media/navidrome/compose.yaml',
+    'freshrss': ROOT / 'stacks/media/freshrss/compose.yaml',
     'music-tools': ROOT / 'stacks/music-tools/compose.yaml',
 }
 
@@ -52,9 +53,9 @@ class EntryPointTests(unittest.TestCase):
         self.imports = [entry['import_playbook'] for entry in yaml.safe_load(self.text)
                         if isinstance(entry, dict) and 'import_playbook' in entry]
 
-    def test_the_base_then_the_five_units_run_in_order(self):
+    def test_the_base_then_the_units_run_in_order(self):
         self.assertEqual(self.imports[0], 'media-base.yml')
-        self.assertEqual(self.imports[1:6], UNIT_PLAYBOOKS)
+        self.assertEqual(self.imports[1:1 + len(UNIT_PLAYBOOKS)], UNIT_PLAYBOOKS)
 
     def test_verification_and_the_https_entrypoint_run_last(self):
         self.assertEqual(self.imports[-2:], ['media-verify.yml', 'media-tls.yml'])
@@ -152,9 +153,9 @@ class VerifyTests(unittest.TestCase):
         self.assertEqual(self.play['hosts'], 'media')
         self.assertTrue(self.play['become'])
 
-    def test_the_default_selection_is_all_four_units(self):
+    def test_the_default_selection_is_all_units(self):
         self.assertEqual(self.vars['media_units'],
-                         ['nextcloud', 'kavita', 'navidrome', 'music-tools'])
+                         ['nextcloud', 'kavita', 'navidrome', 'freshrss', 'music-tools'])
 
     def test_the_unit_directories_are_under_the_project_dir(self):
         directories = self.vars['media_unit_dirs']
@@ -215,7 +216,7 @@ class VerifyTests(unittest.TestCase):
         # The runtime check is an equality on the number of running services;
         # here it is enough that the expectations name real services and the
         # health count is the number of healthchecks among them.
-        for name in ('nextcloud', 'kavita', 'navidrome'):
+        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss'):
             compose = yaml.safe_load(read(COMPOSE_FILES[name]))
             expected = self.vars['media_unit_services'][name]
             self.assertLessEqual(set(expected), set(compose['services']), name)

@@ -54,7 +54,7 @@ sudo python3 manage.py backup --destination /var/backups/vaultwarden
 - `users` グループにだけアプリへのアクセスを与えます。
 - `SSO_ENABLED=true` / `SSO_SCOPES=email profile offline_access` / `SSO_PKCE=true`。
   既存アカウントとのメール一致の自動紐付けは `SSO_SIGNUPS_MATCH_EMAIL=false`、
-  未知のメール確認状態は `SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=false` で拒否します。
+  Authentikの既定emailスコープは `email_verified` を返さないため、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` でログインを許可します（招待はメール宛リンクで本人確認しています）。
 - 緊急時のローカルログインを残すため `SSO_ONLY=false` です。Web保管庫の
   「Other／その他」からローカル認証へ切り替えます。
 - 一般登録と組織招待は既定で無効（`SIGNUPS_ALLOWED=false`・`INVITATIONS_ALLOWED=false`）。

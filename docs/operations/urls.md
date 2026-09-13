@@ -43,12 +43,13 @@
 
 ### media-01 のメディア入口（`*.apextox.dpdns.org`・家庭内LANから）
 
-media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud と Kavita はアプリ自身の OIDC、Navidrome・MeTube は Authentik Forward Auth です。**認証は `auth.apextox.dpdns.org`** を使います。
+media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各アプリへ中継します。Nextcloud・Kavita・FreshRSS はアプリ自身の OIDC、Navidrome・MeTube は Authentik Forward Auth です。**認証は `auth.apextox.dpdns.org`** を使います。
 
 | サービス | URL | 認証 |
 | --- | --- | --- |
 | Nextcloud | <https://nextcloud.apextox.dpdns.org> | Authentik OIDC（`user_oidc`） |
 | Kavita | <https://kavita.apextox.dpdns.org> | Authentik OIDC（組み込み） |
+| FreshRSS | <https://freshrss.apextox.dpdns.org> | Authentik OIDC（ネイティブ。全員で共通購読・購読の追加はその場で全員へ反映） |
 | Navidrome | <https://navidrome.apextox.dpdns.org> | Authentik Forward Auth |
 | MeTube | <https://metube.apextox.dpdns.org> | Authentik Forward Auth（本体はW06で配備） |
 
@@ -87,7 +88,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | dev-a / dev-b | `debian@192.168.10.202` / `.203` | 開発VM |
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
-| media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・LocalSend（クラウド管理下） |
+| media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
 | monitor-01 | `debian@192.168.10.102` | Prometheus・Alertmanager・Grafana・exporter（M01。クラウド管理下） |
 
 VM の正本は[配備台帳](handover.md)と `platform/terraform/hosts.yaml` です。

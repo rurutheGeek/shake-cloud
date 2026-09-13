@@ -13,6 +13,7 @@
 #   ansible-playbook -i <inventory> platform/ansible/media-nextcloud.yml
 #   ansible-playbook -i <inventory> platform/ansible/media-kavita.yml
 #   ansible-playbook -i <inventory> platform/ansible/media-navidrome.yml
+#   ansible-playbook -i <inventory> platform/ansible/media-freshrss.yml
 #   ansible-playbook -i <inventory> platform/ansible/music-tools.yml
 # 確認は media-verify.yml の media_units で対象を絞る。`key=["a"]` 形式は
 # Ansible が文字列として扱うため、リストは JSON で渡す:
@@ -38,6 +39,7 @@
 - import_playbook: media-kavita.yml
 - import_playbook: media-localsend.yml
 - import_playbook: media-navidrome.yml
+- import_playbook: media-freshrss.yml
 - import_playbook: music-tools.yml
 - import_playbook: media-verify.yml
 # 最後にHTTPS入口（DNSは20-dnsが先。受け持つ名前は dns.yaml の host: media-01）。

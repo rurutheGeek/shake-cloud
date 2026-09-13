@@ -63,6 +63,13 @@
     "pingUrl": "https://navidrome.apextox.dpdns.org/ping"
   },
   {
+    "name": "FreshRSS",
+    "href": "https://freshrss.apextox.dpdns.org",
+    "description": "共通RSSタイムライン（みんなで購読を追加）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/freshrss.svg",
+    "pingUrl": "https://freshrss.apextox.dpdns.org/api/"
+  },
+  {
     "name": "MeTube",
     "href": "https://metube.apextox.dpdns.org",
     "description": "URLから音声を取り込む",

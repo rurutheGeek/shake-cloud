@@ -22,6 +22,11 @@
 - 配備・切替: [I02](I02-media-vm.md)、[I01](I01-resources.md)、[N05](N05-https.md)。自動追加の結合確認のみ[W06](W06-music-tools.md)に依存。
 - 競合調整: music原本と同期タイマーはW03/W06と共有する。スキャン要求を重複実行せず、既存環境のタイマーを切替時に止める。
 
+## 実装記録
+
+- 2026-09-13: **Subsonicクライアント対応。** Caddyで `navidrome` の `/rest/*` をForward Authから除外し（`dns.yaml` の `auth_except`、`Remote-User` は付けない）、Navidromeユーザー `sso_<name>` にパスワードを設定（`user edit --set-password`）。`/rest/ping.view` が200・誤パスワードがcode 40・Web UIは302（SSO）を実測。ユーザーの追加は `stacks/media/navidrome/README.md` の手順。
+- 2026-09-13: 構成を見直し、Web UI（`navidrome.apextox.dpdns.org`）は全パスSSO、アプリ専用に `navidrome-api.apextox.dpdns.org`（SSOなし・Subsonic認証）を追加した。**Ultrasonicで「曲は出るが再生されない」件は、アプリのサーバー設定 `jukeboxByDefault` が有効なため `jukeboxControl` が501になるのが原因**（Navidrome 0.63.2 は `Jukebox.Enabled` 既定off。media-01にオーディオ機器が無く有効化しても意味がない）。Ultrasonic側の実装を確認すると、`isJukeboxAvailable()` は `getUser` の `jukeboxRole`（Navidromeはfalse）を見て**再生画面のジュークボックス項目を隠す**が、`MediaPlayerManager` はサーバー切替時に `jukeboxByDefault` をそのまま `isJukeboxEnabled` に入れるため、**非対応サーバーでもjukeboxバックエンドに切り替わってしまう**（アプリ側の落とし穴）。オフにする導線は再生画面ではなく**サーバー編集画面の「詳細設定」→「ジュークボックスをデフォルト化」**で、[使い方](../services/usage.md)にその手順を記載した。サーバー側で501を成功に偽装する対応はしない。
+
 ## 検証・完了条件
 
 - 既存利用者のプレイリスト・お気に入りを保持し、Webと利用クライアントで再生・シークできる。

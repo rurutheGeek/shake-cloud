@@ -15,9 +15,9 @@ services:
       STATE_DIR: /state
       TEMP_DIR: /temp
       DEFAULT_OPTION_PLAYLIST_ITEM_LIMIT: '20'
-      OUTPUT_TEMPLATE: '%(uploader)s/%(title)s [%(id)s].%(ext)s'
+      OUTPUT_TEMPLATE: '%(title)s [%(id)s].%(ext)s'
       OUTPUT_TEMPLATE_PLAYLIST: '%(playlist_title)s/%(title)s [%(id)s].%(ext)s'
-      YTDL_OPTIONS: '{"writethumbnail":true,"postprocessors":[{"key":"FFmpegMetadata","add_metadata":true},{"key":"EmbedThumbnail"}]}'
+      YTDL_OPTIONS: '{"writethumbnail":true,"cookiefile":"/state/cookies.txt","postprocessors":[{"key":"FFmpegMetadata","add_metadata":true},{"key":"EmbedThumbnail"}]}'
     volumes:
     - ${LIBRARY_ROOT:-../library}/music/YouTube:/music/YouTube
     - ./storage/video:/video
@@ -90,6 +90,9 @@ services:
     - /tools/edit-tags.py
     volumes:
     - ${LIBRARY_ROOT:-../library}/music:/music
+    # 配備先ディレクトリは 0711（playbook）。コンテナ (33:33) は名前を指定して
+    # ファイルを読める。0750 のままだと /tools をたどれず Permission denied に
+    # なる（2026-09-13 実機）。.env は 0600 なので見えない。
     - ./:/tools:ro
     - ./storage/convert:/state
     healthcheck:

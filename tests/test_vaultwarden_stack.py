@@ -32,7 +32,8 @@ SSO_EXPECTED = {
     'SSO_ENABLED': 'true',
     'SSO_ONLY': 'false',
     'SSO_SIGNUPS_MATCH_EMAIL': 'false',
-    'SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION': 'false',
+    # Authentikはemail_verifiedを返さないため許可する（2026-09-13実測）。
+    'SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION': 'true',
     'SSO_SCOPES': 'email profile offline_access',
     'SSO_PKCE': 'true',
 }

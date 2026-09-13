@@ -21,12 +21,13 @@
   become: true
   gather_facts: false
   vars:
-    media_units: [nextcloud, kavita, navidrome, music-tools]
+    media_units: [nextcloud, kavita, navidrome, freshrss, music-tools]
     music_tools_services: [metube, convert, tag-api]
     media_unit_dirs:
       nextcloud: '{{ project_dir }}/media/nextcloud'
       kavita: '{{ project_dir }}/media/kavita'
       navidrome: '{{ project_dir }}/media/navidrome'
+      freshrss: '{{ project_dir }}/media/freshrss'
       music-tools: '{{ project_dir }}/music-tools'
     # docker compose ps が既定で出す「起動中のコンテナ」の数。manage.py up は
     # --wait で healthcheck 成功まで待つため、数が合わなければ配備が失敗している。
@@ -36,12 +37,14 @@
       nextcloud: [postgres, redis, nextcloud, cron]
       kavita: [kavita]
       navidrome: [navidrome]
+      freshrss: [freshrss]
     # そのうち healthcheck を持ち、STATUS に (healthy) と出るコンテナの数。
     # music-tools は convert と tag-api が該当する（assert で計算する）。
     media_unit_healthy:
       nextcloud: 3
       kavita: 0
       navidrome: 1
+      freshrss: 1
   tasks:
     - name: Require a known, non-empty unit selection
       ansible.builtin.assert:
@@ -158,3 +161,24 @@
         success_msg: 'Navidrome: /ping が HTTP 200'
       when: "'navidrome' in media_units"
 
+    - name: Wait for FreshRSS /api/ to answer
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ freshrss_port | default(8082) }}/api/'
+        status_code: [200]
+      register: media_freshrss_http
+      retries: 24
+      delay: 5
+      until: media_freshrss_http is succeeded
+      changed_when: false
+      when: "'freshrss' in media_units"
+
+    - name: Require an HTTP answer from FreshRSS
+      ansible.builtin.assert:
+        that:
+          - media_freshrss_http.status == 200
+        fail_msg: >-
+          FreshRSS が 127.0.0.1:{{ freshrss_port | default(8082) }}/api/ で
+          HTTP 200 を返していない。{{ project_dir }}/media/freshrss/manage.py
+          status と up を確認する。
+        success_msg: 'FreshRSS: /api/ が HTTP 200'
+      when: "'freshrss' in media_units"

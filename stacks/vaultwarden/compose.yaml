@@ -27,7 +27,10 @@ services:
       SSO_ENABLED: 'true'
       SSO_ONLY: 'false'
       SSO_SIGNUPS_MATCH_EMAIL: 'false'
-      SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: 'false'
+      # Authentikの既定emailスコープはemail_verifiedを返さないため、falseだと
+      # 「You need to verify your email with your provider」でログインできない
+      # （2026-09-13実測）。招待はメール宛のリンクで本人確認しているので許可する。
+      SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: 'true'
       SSO_AUTHORITY: https://auth.apextox.dpdns.org/application/o/vaultwarden/
       SSO_CLIENT_ID: ${SSO_CLIENT_ID:-vaultwarden}
       SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET:-}

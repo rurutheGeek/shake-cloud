@@ -45,12 +45,24 @@ records:
     upstream: 127.0.0.1:4533
     description: Navidrome（音楽ストリーミング。Forward Auth）
     auth: true
+  # Subsonicクライアント（Ultrasonic等）用の入口。SSOを通さず、Navidromeの
+  # 自前認証（ユーザー名とパスワード）を使う。Web UIは上の名前（SSO）のまま。
+  navidrome-api:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:4533
+    description: Navidrome Subsonic API（アプリ用・SSOなし）
   metube:
     host: media-01
     address: 192.168.10.101
     upstream: 127.0.0.1:8081
     description: MeTube（動画ダウンローダー。Forward Auth）
     auth: true
+  freshrss:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:8082
+    description: FreshRSS（共通RSSタイムライン。OIDC）
   netbox:
     host: services-01
     upstream: 127.0.0.1:8000

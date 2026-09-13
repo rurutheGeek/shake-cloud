@@ -1,4 +1,4 @@
-import { FileAction, FileType, registerFileAction } from '@nextcloud/files'
+import { FileType, registerFileAction } from '@nextcloud/files'
 import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
@@ -47,12 +47,13 @@ function showDevicePicker(devices) {
 	})
 }
 
-registerFileAction(new FileAction({
+registerFileAction({
 	id: 'shake-localsend',
 	displayName: () => t('shake_localsend', 'LocalSendで送る'),
 	iconSvgInline: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>',
-	enabled: (nodes) => nodes.length === 1 && nodes[0].type === FileType.File,
-	exec: async (node) => {
+	enabled: ({ nodes }) => nodes.length === 1 && nodes[0].type === FileType.File,
+	exec: async ({ nodes }) => {
+		const [node] = nodes
 		let devices
 		try {
 			const response = await axios.get(generateUrl('/apps/shake_localsend/devices'))
@@ -86,4 +87,4 @@ registerFileAction(new FileAction({
 		}
 	},
 	order: 26,
-}))
+})
