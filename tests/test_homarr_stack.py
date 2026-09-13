@@ -332,6 +332,23 @@ class IntegrationTests(unittest.TestCase):
                       for dx in range(layout['width']) for dy in range(layout['height'])]
         self.assertEqual(len(cells), len(set(cells)), 'layouts overlap')
 
+    def test_pack_layouts_only_touches_the_target_layout(self):
+        mobile = {'layoutId': 'mobile', 'sectionId': 's', 'xOffset': 1, 'yOffset': 5,
+                  'width': 2, 'height': 2}
+        desktop = {'layoutId': 'desktop', 'sectionId': 's'}
+        items = [{'kind': 'app', 'id': 'a1', 'layouts': [mobile, desktop]}]
+        packed = integrations.pack_layouts(items, 8, integrations.widget_sizes(8), 'desktop')
+        by_id = {layout['layoutId']: layout for layout in packed[0]['layouts']}
+        self.assertEqual(by_id['mobile'], mobile, 'the mobile layout must survive')
+        self.assertEqual((by_id['desktop']['xOffset'], by_id['desktop']['yOffset']), (0, 0))
+
+    def test_layout_to_arrange_picks_the_biggest_breakpoint(self):
+        board = {'layouts': [{'id': 'm', 'name': 'Mobile', 'breakpoint': 0, 'columnCount': 4},
+                             {'id': 'd', 'name': 'Desktop', 'breakpoint': 768, 'columnCount': 12}]}
+        self.assertEqual(integrations.layout_to_arrange(board)['id'], 'd')
+        single = {'layouts': [{'id': 'b', 'name': 'Base', 'breakpoint': 0, 'columnCount': 12}]}
+        self.assertEqual(integrations.layout_to_arrange(single)['id'], 'b')
+
     def test_creating_an_integration_grants_everyone_use(self):
         homarr = FakeHomarr()
         integration_id = integrations.ensure_integration(

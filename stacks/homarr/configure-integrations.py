@@ -64,9 +64,18 @@ def desired_columns():
     return int(os.environ.get('BOARD_COLUMNS', DEFAULT_COLUMNS))
 
 
+def layout_to_arrange(board):
+    """並べ替えの対象にするレイアウトを返す。
+
+    画面幅ごとに複数レイアウトを持てる（Board settings → Layouts）。自動で
+    触るのはPC向けの最大breakpointだけにして、モバイル側の手動配置は残す。
+    """
+    return max(board['layouts'], key=lambda row: row['breakpoint'])
+
+
 def ensure_columns(homarr, board, columns):
     """列数が違えば saveLayouts で変える（項目は自動で再配置される）。"""
-    layout = next(row for row in board['layouts'] if row['breakpoint'] == 0)
+    layout = layout_to_arrange(board)
     if layout['columnCount'] == columns:
         return False
     homarr.trpc('board.saveLayouts',
@@ -74,11 +83,13 @@ def ensure_columns(homarr, board, columns):
     return True
 
 
-def pack_layouts(items, width, sizes=None):
+def pack_layouts(items, width, sizes=None, layout_id=None):
     """Return copies of the items with a gap-free layout, largest first.
 
     A pure function so the arrangement can be tested without a board
     (tests/test_homarr_stack.py). Keeps each item's layout and section ids.
+    When layout_id is given, only that layout is re-packed and the other
+    breakpoints (e.g. a manually arranged Mobile layout) are left alone.
     """
     occupied = set()
     packed = []
@@ -102,6 +113,7 @@ def pack_layouts(items, width, sizes=None):
         x, y = place(w, h)
         layouts = [
             {**layout, 'xOffset': x, 'yOffset': y, 'width': w, 'height': h}
+            if layout_id is None or layout['layoutId'] == layout_id else layout
             for layout in item['layouts']
         ]
         packed.append({**item, 'layouts': layouts})
@@ -112,14 +124,15 @@ def arrange_board(homarr, board, columns=None):
     """列数を揃えてから、隙間なく並べて board.saveBoard で保存する。"""
     if columns and ensure_columns(homarr, board, columns):
         board = homarr.trpc('board.getBoardByName', {'name': board['name']})
-    width = next(layout['columnCount'] for layout in board['layouts'] if layout['breakpoint'] == 0)
+    layout = layout_to_arrange(board)
+    width = layout['columnCount']
     sizes = widget_sizes(width)
     managed = set(sizes)
     items = [
         {**item, 'options': widget_options(item['kind'])} if item['kind'] in managed else item
         for item in board['items']
     ]
-    items = pack_layouts(items, width, sizes)
+    items = pack_layouts(items, width, sizes, layout['id'])
     homarr.trpc('board.saveBoard',
                 {'id': board['id'], 'sections': board['sections'], 'items': items}, post=True)
 
