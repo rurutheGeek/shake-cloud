@@ -189,7 +189,7 @@ class DeploymentTests(unittest.TestCase):
     def test_the_app_list_includes_the_send_app(self):
         apps = [task for task in self.tasks if '--apps' in str(task)]
         self.assertEqual(len(apps), 1)
-        self.assertIn("+ ['shake_print', 'shake_localsend']",
+        self.assertIn("+ ['shake_print', 'shake_localsend', 'shake_tags']",
                       str(apps[0]['ansible.builtin.command']['argv']))
 
     def test_the_relay_url_and_token_are_configured(self):

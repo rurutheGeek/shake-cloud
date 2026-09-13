@@ -297,11 +297,11 @@ class IntegrationTests(unittest.TestCase):
     def test_the_widget_options_match_the_widgets(self):
         health = integrations.widget_options('healthMonitoring')
         self.assertTrue(health['cpu'] and health['memory'])
-        self.assertEqual(health['visibleClusterSections'], [])
-        self.assertFalse(health['fileSystem'])
+        self.assertEqual(health['visibleClusterSections'], ['node'])
+        self.assertTrue(health['fileSystem'])
         ups = integrations.widget_options('ups')
         self.assertTrue(ups['showBattery'])
-        self.assertFalse(ups['showVoltage'])
+        self.assertTrue(ups['showVoltage'])
 
     def test_has_widget_matches_the_kind_and_integrations(self):
         items = [{'kind': 'ups', 'integrationIds': ['a']}]
@@ -319,11 +319,11 @@ class IntegrationTests(unittest.TestCase):
         sizes = integrations.widget_sizes(8)
         packed = integrations.pack_layouts(items, 8, sizes)
         by_id = {item['id']: item['layouts'][0] for item in packed}
-        self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 1))
+        self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 3))
         self.assertEqual((by_id['u']['xOffset'], by_id['u']['yOffset'], by_id['u']['width']), (4, 0, 4))
         self.assertEqual((by_id['a1']['width'], by_id['a1']['height']), (1, 1))
         self.assertEqual(by_id['a1']['xOffset'], 0)
-        self.assertEqual(by_id['a1']['yOffset'], 1)
+        self.assertEqual(by_id['a1']['yOffset'], 3)
         cells = []
         for layout in by_id.values():
             cells += [(layout['xOffset'] + dx, layout['yOffset'] + dy)

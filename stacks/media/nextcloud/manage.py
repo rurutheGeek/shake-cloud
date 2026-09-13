@@ -217,11 +217,18 @@ def config_localsend():
     ))
 
 
+def config_tags():
+    config_app('shake_tags', (
+        ('tags_api_url', os.environ['TAGS_API_URL']),
+        ('tags_api_token', os.environ['TAGS_API_TOKEN']),
+    ))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
                         choices=['init', 'lock', 'up', 'setup', 'apps', 'config-print',
-                                 'config-localsend', 'status', 'down'])
+                                 'config-localsend', 'config-tags', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
@@ -240,6 +247,8 @@ def main():
         config_print()
     elif args.action == 'config-localsend':
         config_localsend()
+    elif args.action == 'config-tags':
+        config_tags()
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

@@ -18,3 +18,4 @@ nextcloud_apps:
 # （旧スタックの deploy.yml は store から入れる前提なので触らない）。
 nextcloud_print_api_url: 'http://192.168.10.200:6320'
 nextcloud_localsend_api_url: 'http://192.168.10.101:53200'
+nextcloud_tags_api_url: 'http://192.168.10.101:5810'

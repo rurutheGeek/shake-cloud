@@ -76,6 +76,26 @@
         path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend/{{ item }}'
         state: absent
       loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
+    - name: Create the tag editor app directory
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '0755'
+    - name: Copy the tag editor app
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/apps/shake_tags/{{ item }}/'
+        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags/{{ item }}/'
+        owner: '33'
+        group: '33'
+        mode: preserve
+      loop: [appinfo, lib, js]
+    - name: Drop build-only files from the deployed tag editor app
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags/{{ item }}'
+        state: absent
+      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
@@ -92,7 +112,7 @@
           - '{{ project_dir }}/media/nextcloud/manage.py'
           - apps
           - --apps
-          - "{{ (nextcloud_apps | default([]) + ['shake_print', 'shake_localsend']) | join(',') }}"
+          - "{{ (nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
     - name: Read the print API token
@@ -130,4 +150,22 @@
         SEND_API_TOKEN: '{{ (nextcloud_localsend_secrets.stdout | from_json).LOCALSEND_SEND_TOKEN }}'
       register: nextcloud_localsend_config
       changed_when: "'CHANGED:' in nextcloud_localsend_config.stdout"
+      no_log: true
+    - name: Read the music tag API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
+      register: nextcloud_tags_secrets
+      changed_when: false
+      no_log: true
+    - name: Point the tag editor app at the music-tools tag API
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-tags]
+      environment:
+        TAGS_API_URL: '{{ nextcloud_tags_api_url }}'
+        TAGS_API_TOKEN: '{{ (nextcloud_tags_secrets.stdout | from_json).TAG_API_TOKEN }}'
+      register: nextcloud_tags_config
+      changed_when: "'CHANGED:' in nextcloud_tags_config.stdout"
       no_log: true

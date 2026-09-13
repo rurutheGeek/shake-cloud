@@ -274,7 +274,9 @@ class AnsibleTests(unittest.TestCase):
 
     def test_apps_use_the_group_var_and_always_add_the_custom_apps(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
-        self.assertIn("nextcloud_apps | default([]) + ['shake_print', 'shake_localsend']", text)
+        self.assertIn(
+            "nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']",
+            text)
 
     def test_change_detection_uses_the_manage_py_status_lines(self):
         text = PLAYBOOK.read_text(encoding='utf-8')

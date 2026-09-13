@@ -39,6 +39,37 @@ services:
     volumes:
     - ${LIBRARY_ROOT:-../library}/music:/storage
     - ./storage/picard:/config
+  tag-api:
+    labels:
+      media-stack.tag-api-code: ${TAG_API_CODE_SHA:-unmanaged}
+    image: ghcr.io/alexta69/metube:latest
+    restart: unless-stopped
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/tag_api.py
+    environment:
+      TAG_API_TOKEN: ${TAG_API_TOKEN:-}
+      TAG_API_PORT: '5810'
+      TAG_API_MUSIC: /music
+      TAG_API_STATE: /state
+    ports:
+    - 0.0.0.0:${TAG_API_PORT:-5810}:5810
+    volumes:
+    - ${LIBRARY_ROOT:-../library}/music:/music
+    - ./storage/tags:/state
+    - ./tag_api.py:/tools/tag_api.py:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5810/healthz',
+        timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
   convert:
     labels:
       media-stack.converter-code: ${CONVERTER_CODE_SHA:-unmanaged}

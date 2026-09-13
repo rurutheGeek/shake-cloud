@@ -16,6 +16,7 @@
       - metube
       - picard
       - convert
+      - tag-api
     # 既定は有効のまま（現行配備の挙動を変えない）。切替中に旧タイマーと
     # 二重に走らせたくない場合だけ -e music_tools_sync_enabled=false にする。
     music_tools_sync_enabled: true
@@ -24,6 +25,7 @@
     # これらの変数を -e で上書きする。
     music_tools_tz: 'Asia/Tokyo'
     music_tools_picard_port: 5800
+    music_tools_tag_port: 5810
   tasks:
     - name: Create tool directory
       ansible.builtin.file:
@@ -35,24 +37,39 @@
         src: '{{ source_dir }}/music-tools/{{ item }}'
         dest: '{{ project_dir }}/music-tools/{{ item }}'
         mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, .env.example]
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, .env.example]
     - name: Copy pinned tool images
       ansible.builtin.copy:
         src: '{{ item }}'
         dest: '{{ project_dir }}/music-tools/compose.lock.yaml'
         mode: '0644'
       with_fileglob: ['{{ source_dir }}/music-tools/compose.lock.yaml']
+    - name: Read the music tag API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
+      register: music_tools_tag_secrets
+      changed_when: false
+      no_log: true
     - name: Configure environment
       # 既存ホストの .env は LIBRARY_ROOT だけだった。TZ と PICARD_PORT は
       # compose.yaml の既定値と同じ値で追記するので再実行しても挙動は変わらない。
-      # PICARD_PORT は Picard を配備対象にしたときだけ書く。
+      # PICARD_PORT / TAG_API_* はそのサービスを配備対象にしたときだけ書く。
+      # TAG_API_TOKEN は SOPS から渡し、ログには残さない。
+      # 行はテキスト＋式で組む（{% if %} ブロックの直後は trim_blocks で
+      # 改行が消え、値が連結してしまうため）。
       ansible.builtin.copy:
         content: |
           LIBRARY_ROOT={{ library_root }}
           TZ={{ music_tools_tz }}
-          {% if 'picard' in music_tools_services %}PICARD_PORT={{ music_tools_picard_port }}{% endif %}
+          {{ ('PICARD_PORT=' ~ music_tools_picard_port) if 'picard' in music_tools_services else '' }}
+          {{ ('TAG_API_TOKEN=' ~ (music_tools_tag_secrets.stdout | from_json).TAG_API_TOKEN) if 'tag-api' in music_tools_services else '' }}
+          {{ ('TAG_API_PORT=' ~ music_tools_tag_port) if 'tag-api' in music_tools_services else '' }}
         dest: '{{ project_dir }}/music-tools/.env'
         mode: '0600'
+      no_log: true
     - name: Deploy selected music tools
       # manage.py up は引数でサービスを絞れないため、manage.py に足した
       # --services へ music_tools_services を渡す。既定は全サービスのため、
