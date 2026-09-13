@@ -14,7 +14,7 @@
       "type": "stat",
       "title": "監視対象の応答",
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 0,
         "y": 0
@@ -55,7 +55,7 @@
       "type": "stat",
       "title": "Prometheusターゲット up",
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 6,
         "x": 6,
         "y": 0
@@ -96,10 +96,10 @@
       "type": "timeseries",
       "title": "Proxmox ノードCPU",
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -128,10 +128,10 @@
       "type": "timeseries",
       "title": "Proxmox ノードメモリ",
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 6
+        "y": 4
       },
       "datasource": {
         "type": "prometheus",
@@ -160,7 +160,7 @@
       "type": "stat",
       "title": "UPS バッテリー",
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 4,
         "x": 12,
         "y": 0
@@ -205,7 +205,7 @@
       "type": "stat",
       "title": "UPS 残り時間",
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 4,
         "x": 16,
         "y": 0
@@ -233,7 +233,7 @@
       "type": "stat",
       "title": "UPS 負荷",
       "gridPos": {
-        "h": 6,
+        "h": 4,
         "w": 4,
         "x": 20,
         "y": 0

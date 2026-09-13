@@ -48,8 +48,9 @@ def widget_options(kind):
 
 
 # ウィジェットの大きさ（列数は8）。アプリのタイルは2x2で見やすくする。
-WIDGET_SIZES = {'healthMonitoring': (8, 5), 'ups': (4, 3)}
-DEFAULT_SIZE = (2, 2)
+# 1画面に収める。ウィジェットは半幅、アプリは1x1。
+WIDGET_SIZES = {'healthMonitoring': (4, 4), 'ups': (4, 4)}
+DEFAULT_SIZE = (1, 1)
 
 
 def pack_layouts(items, width, sizes=None):

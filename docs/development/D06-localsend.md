@@ -13,6 +13,8 @@ LocalSendは本来サーバーを持たないため、採用したのは非公�
 ## 変更範囲
 
 - `stacks/media/localsend/`（Compose・lock・manage.py・README）と `platform/ansible/media-localsend.yml`。SGは `platform/terraform/services/media/main.tf` がTCP 53317をLANへ開ける。
+- **逆方向（Nextcloud → 端末）** は `stacks/localsend-send/`（`localsend_send.py`・systemdユニット・README）。LocalSend protocol v2のクライアント側（探索→`prepare-upload`→`upload`）を実装し、`media-localsend.yml` が受信機と一緒に配備する。トークンとfingerprintは `platform/sops/localsend-send.sops.yaml`。
+- 使う側は自作アプリ `stacks/media/nextcloud/apps/shake_localsend/`（ファイルの「…」→「LocalSendで送る」）。配備と `occ config:app:set` は `platform/ansible/media-nextcloud.yml`。
 - Nextcloudは `stacks/media/nextcloud/` が `${LIBRARY_ROOT}/inbox` を外部ストレージ `/inbox` として登録する。
 - 利用者向けの案内は端末アプリの導線（同一LANでの検出条件、遠隔はNextcloudへ）を[全サービスの使い方](../services/usage.md)に追加する。
 
@@ -24,7 +26,8 @@ LocalSendは本来サーバーを持たないため、採用したのは非公�
 ## 検証・完了条件
 
 - 受信機はmedia-01でhealthy・`/api/localsend/v2/info` が `media-01` を返し、LANから53317へ到達できる（実測済み）。
-- 公式アプリからの初回fingerprint信頼と実送受信、Nextcloud `inbox` への着地は**未確認**。端末2台の送受信結果を取得した場合だけ日付付きで追記する。
+- 送信APIはmedia-01でactive・`/healthz` 200。送信フロー（`prepare-upload`→`upload`）は受信機を相手に実機でファイルが `inbox/<fingerprint>/YYYY/MM/` へ着地することを確認済み（2026-09-13）。
+- **実端末のLocalSendアプリとの送受信は未確認。** 端末→`inbox` の初回fingerprint信頼、およびNextcloudの「LocalSendで送る」→端末の受信確認を試し、結果を日付付きで追記する。
 - 文書・リンク・公開対象検証の通過。実施していない実機確認を完了根拠へ追加しない。
 
 共通の確認は `python3 -m mkdocs build --strict`、内部リンクの実在確認、`python3 tools/check-publication.py`。
