@@ -127,7 +127,8 @@ def configure_env():
                BOARD_NAME=values.get('BOARD_NAME', 'home'),
                APPS_FILE=values.get('APPS_FILE', 'apps.json'),
                ADMIN_GROUP=values.get('ADMIN_GROUP', 'admins'),
-               LOCALE=values.get('LOCALE', 'ja'))
+               LOCALE=values.get('LOCALE', 'ja'),
+               BOARD_COLUMNS=values.get('BOARD_COLUMNS', '12'))
 
 
 def configure():

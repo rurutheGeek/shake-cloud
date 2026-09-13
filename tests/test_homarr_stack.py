@@ -316,7 +316,8 @@ class IntegrationTests(unittest.TestCase):
             {'kind': 'ups', 'id': 'u', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
             {'kind': 'app', 'id': 'a2', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
         ]
-        packed = integrations.pack_layouts(items, 8)
+        sizes = integrations.widget_sizes(8)
+        packed = integrations.pack_layouts(items, 8, sizes)
         by_id = {item['id']: item['layouts'][0] for item in packed}
         self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 1))
         self.assertEqual((by_id['u']['xOffset'], by_id['u']['yOffset'], by_id['u']['width']), (4, 0, 4))

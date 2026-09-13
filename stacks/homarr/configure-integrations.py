@@ -48,10 +48,29 @@ def widget_options(kind):
     raise ValueError(f'unknown widget: {kind}')
 
 
-# ウィジェットの大きさ（列数は8）。アプリのタイルは2x2で見やすくする。
-# 1画面に収める。ウィジェットは半幅、アプリは1x1。
-WIDGET_SIZES = {'healthMonitoring': (4, 1), 'ups': (4, 1)}
+# アプリのタイルは1x1。列数を増やすほど1つが小さくなる。
 DEFAULT_SIZE = (1, 1)
+DEFAULT_COLUMNS = 12
+
+
+def widget_sizes(width):
+    """ウィジェットは半幅・1行。"""
+    half = max(1, width // 2)
+    return {'healthMonitoring': (half, 1), 'ups': (half, 1)}
+
+
+def desired_columns():
+    return int(os.environ.get('BOARD_COLUMNS', DEFAULT_COLUMNS))
+
+
+def ensure_columns(homarr, board, columns):
+    """列数が違えば saveLayouts で変える（項目は自動で再配置される）。"""
+    layout = next(row for row in board['layouts'] if row['breakpoint'] == 0)
+    if layout['columnCount'] == columns:
+        return False
+    homarr.trpc('board.saveLayouts',
+                {'id': board['id'], 'layouts': [{**layout, 'columnCount': columns}]}, post=True)
+    return True
 
 
 def pack_layouts(items, width, sizes=None):
@@ -60,7 +79,6 @@ def pack_layouts(items, width, sizes=None):
     A pure function so the arrangement can be tested without a board
     (tests/test_homarr_stack.py). Keeps each item's layout and section ids.
     """
-    sizes = sizes or WIDGET_SIZES
     occupied = set()
     packed = []
 
@@ -89,15 +107,18 @@ def pack_layouts(items, width, sizes=None):
     return packed
 
 
-def arrange_board(homarr, board):
-    """Save the packed layout through board.saveBoard."""
+def arrange_board(homarr, board, columns=None):
+    """列数を揃えてから、隙間なく並べて board.saveBoard で保存する。"""
+    if columns and ensure_columns(homarr, board, columns):
+        board = homarr.trpc('board.getBoardByName', {'name': board['name']})
     width = next(layout['columnCount'] for layout in board['layouts'] if layout['breakpoint'] == 0)
-    managed = set(WIDGET_SIZES)
+    sizes = widget_sizes(width)
+    managed = set(sizes)
     items = [
         {**item, 'options': widget_options(item['kind'])} if item['kind'] in managed else item
         for item in board['items']
     ]
-    items = pack_layouts(items, width)
+    items = pack_layouts(items, width, sizes)
     homarr.trpc('board.saveBoard',
                 {'id': board['id'], 'sections': board['sections'], 'items': items}, post=True)
 
@@ -183,7 +204,7 @@ def main():
     if '--arrange' in sys.argv:
         board = homarr.trpc('board.getBoardByName',
                             {'name': os.environ.get('BOARD_NAME', 'home')})
-        arrange_board(homarr, board)
+        arrange_board(homarr, board, desired_columns())
         print('CHANGED: arranged the board layout')
 
 
