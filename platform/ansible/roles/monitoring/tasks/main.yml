@@ -116,6 +116,15 @@
   register: monitoring_nut_password
   no_log: true
 
+# 空なら Watchdog は Alertmanager 内で完結し、外向きの通知はしない。
+- name: Point the dead man's switch at the external check
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^WATCHDOG_PING_URL='
+    line: 'WATCHDOG_PING_URL={{ (monitoring_secrets.stdout | from_json).WATCHDOG_PING_URL | default("") }}'
+    mode: '0600'
+  no_log: true
+
 - name: Read the Grafana OIDC client credentials on the identity VM
   ansible.builtin.slurp:
     src: '{{ monitoring_oidc_credentials_path }}'

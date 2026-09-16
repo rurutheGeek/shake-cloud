@@ -1,6 +1,6 @@
 # 電源と UPS
 
-更新日: 2026-09-13。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の状態取得は NUT で配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`、読み取り専用）。K11 の電源を UPS のバッテリー側へ入れる作業と、低電池時の自動シャットダウン（upsmon）は未実施。**
+更新日: 2026-09-16。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。**
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 
@@ -89,18 +89,24 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 - **`onboot` を付けるのは常時動く基盤（identity・cloud-01・services-01・storage-s3）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
 - game1 は起動時に **CD が移動前の `local:iso` を指していて起動できませんでした**。`cloud-images:iso/bazzite-stable-live-amd64.iso` へ直してあります（ISO を `cloud-images` へ移したときの取り残し）。
 
-## 停電で自動停止させる（任意・推奨）
+## 停電で自動停止させる（実装済み）
 
-**NUT の読み取り（`upsd` と読み取り専用ユーザー）は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.126:3493` を読んで Grafana に出します（M01）。低電池時に自動で落とす `upsmon` はまだ有効にしていません。
+**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.126:3493` を読んで Grafana に出します（M01）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
 
-**残りの作業（低電池での自動シャットダウン）の骨子:**
+1. **猶予 60 秒**（`pve_nut_shutdown_grace_seconds`）。実行中ジョブの確認は自動ではできないため、短いジョブの完了を待つ。
+2. **k8s worker**（tags `k8s-worker` のVM）を ACPI で停止し、最大 180 秒待つ（`pve_nut_k8s_stop_timeout`）。
+3. **k8s control plane**（tags `k8s-cp`）を同じく停止（etcd を先に止めない順）。
+4. **ホストを `shutdown -h now`**。残りのゲストは Proxmox が止める。
 
-1. `nut-client`（`upsmon`）を入れ、`/etc/nut/upsmon.conf` に
-   `MONITOR <ups>@localhost 1 <user> <pass> master` と
-   `SHUTDOWNCMD "/sbin/shutdown -h +0"`、`MINSUPPLIES 1`、`FINALDELAY 5` を書く。
-2. `systemctl enable --now nut-monitor` と `upsc <ups>` で確認。
+```bash
+# 動作確認（実際には止めない）
+ssh root@192.168.10.126 'PVE_UPS_SHUTDOWN_DRY_RUN=1 /usr/local/sbin/pve-ups-shutdown'
+ssh root@192.168.10.126 'systemctl status nut-monitor; upsc cyberpower@localhost ups.status'
+```
 
-あわせて **BIOS の "Restore on AC Power Loss" を Power On** にすると、復電後に自動で起動します。VM の起動順は `hosts.yaml` の `on_boot` と Proxmox の Startup order で決めます。
+- `monitor` ユーザーは読み取り専用のまま。upsmon 専用ユーザー（`upsmon`）を分けてあり、パスワードは `monitoring.sops.yaml` の `NUT_UPSMON_PASSWORD`。
+- **長い AWX ジョブは停電時に失われます。** 猶予は 60 秒なので、停電前に止められるものは手順どおり止めてください。
+- あわせて **BIOS の "Restore on AC Power Loss" を Power On** にすると、復電後に自動で起動します。VM の起動順は `hosts.yaml` の `on_boot` と Proxmox の Startup order で決めます。
 
 > NUT はホストで動かします。ホストが落ちるときに Proxmox がゲストも止めるので、ゲスト側に別々の NUT は要りません。
 

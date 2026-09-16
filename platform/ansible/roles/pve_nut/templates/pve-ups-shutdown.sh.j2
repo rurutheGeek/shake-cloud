@@ -1,0 +1,64 @@
+#!/bin/bash
+# 低電池時の停止。順番は docs/operations/power.md に合わせる:
+# 短いジョブの猶予 → k8s worker → k8s control plane → ホスト。
+# 実行中ジョブの確認は自動ではできないので、猶予時間で短いものの完了を待つ。
+# 動作確認: PVE_UPS_SHUTDOWN_DRY_RUN=1 {{ pve_nut_shutdown_script }}
+set -u
+LOG_TAG=pve-ups-shutdown
+DRY_RUN=${PVE_UPS_SHUTDOWN_DRY_RUN:-0}
+GRACE={{ pve_nut_shutdown_grace_seconds }}
+TIMEOUT={{ pve_nut_k8s_stop_timeout }}
+
+log() {
+    logger -t "$LOG_TAG" "$*"
+    echo "$(date -Is) $*"
+}
+
+# hosts.yaml の tags（k8s-worker / k8s-cp）が Proxmox 側にも付いている。
+k8s_vms() {
+    local tag=$1 id
+    qm list | awk 'NR > 1 {print $1}' | while read -r id; do
+        qm config "$id" 2>/dev/null | grep -q "^tags:.*$tag" && echo "$id"
+    done
+}
+
+stop_group() {
+    local tag=$1 id ids waited running
+    ids=$(k8s_vms "$tag")
+    if [ -z "$ids" ]; then
+        log "$tag: no VM"
+        return 0
+    fi
+    log "stopping $tag: $(echo $ids | tr '\n' ' ')"
+    for id in $ids; do
+        [ "$DRY_RUN" = 1 ] || qm shutdown "$id" --timeout "$TIMEOUT"
+    done
+    waited=0
+    while [ "$waited" -lt "$TIMEOUT" ]; do
+        running=0
+        for id in $ids; do
+            if [ "$(qm status "$id" | awk '{print $2}')" = running ]; then
+                running=1
+            fi
+        done
+        [ "$running" = 0 ] && return 0
+        sleep 5
+        waited=$((waited + 5))
+    done
+    log "$tag: still running after ${TIMEOUT}s; the host shutdown stops them"
+}
+
+log "low battery: starting shutdown (dry run: $DRY_RUN)"
+log "grace ${GRACE}s for short jobs"
+if [ "$DRY_RUN" != 1 ]; then
+    sleep "$GRACE"
+fi
+# etcd を先に止めないよう worker → control plane の順にする。
+stop_group k8s-worker
+stop_group k8s-cp
+if [ "$DRY_RUN" = 1 ]; then
+    log "dry run: would stop the host"
+    exit 0
+fi
+log "stopping the host"
+shutdown -h now

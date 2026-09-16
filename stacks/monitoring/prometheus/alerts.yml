@@ -20,6 +20,98 @@ groups:
           summary: "{{ $labels.instance }} の証明書が14日以内に期限切れ"
           description: "Let's Encrypt の更新経路（Caddy）を確認してください。"
 
+  - name: nodes
+    rules:
+      # VM が落ちたか node_exporter が死ぬと node_* が静かに消える。それを防ぐ。
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} の node_exporter が応答しない"
+          description: "VM の停止か node_exporter の異常です。pve_up と合わせて確認してください。"
+
+      - alert: NodeFilesystemAlmostFull
+        expr: >-
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660"})
+          < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} の {{ $labels.mountpoint }} の空きが15%未満"
+          description: "イメージ・ログ・世代を確認してください（読み取り専用マウントは除外）。"
+
+      - alert: NodeMemoryLow
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} の空きメモリが10%未満"
+          description: "プロセスを絞るか、配分（flavor・memory_mib）を見直してください。"
+
+      - alert: NodeOOMKill
+        expr: increase(node_vmstat_oom_kill[30m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} でOOM killが発生"
+          description: "30分以内にカーネルがプロセスを強制終了しました。dmesg を確認してください。"
+
+      - alert: NodeSystemdUnitFailed
+        expr: node_systemd_unit_state{state="failed"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} の {{ $labels.name }} が failed"
+          description: "systemctl status {{ $labels.name }} で原因を確認してください。"
+
+      # 計画外の再起動は uptime の途切れではなく起動時刻の変化で見る。
+      - alert: NodeRebooted
+        expr: changes(node_boot_time_seconds[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} が再起動した"
+          description: "1時間以内にカーネルの起動時刻が変わりました。計画外なら原因を確認してください。"
+
+  - name: backup
+    rules:
+      # 収集が止まると式が空になるので、欠測そのものを鳴らす。
+      - alert: CloudBackupMetricMissing
+        expr: absent(backup_last_success_timestamp_seconds)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "管理DBバックアップのメトリクスが無い"
+          description: "cloud-01 の textfile collector に cloud_backup.prom がありません。"
+
+      - alert: CloudBackupStale
+        expr: time() - backup_last_success_timestamp_seconds > 36 * 3600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "管理DBバックアップが36時間以上成功していない"
+          description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
+
+  - name: deadman
+    rules:
+      # 常時 firing。Alertmanager から外部のdead man's switchへ送り続け、
+      # 「12時間届かなければ監視系が死んでいる」と外部で判定する。
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "監視経路は生きている"
+          description: "この通知が外部で途切れたら、Prometheus か Alertmanager を疑ってください。"
+
   - name: resources
     rules:
       - alert: ProxmoxGuestDown

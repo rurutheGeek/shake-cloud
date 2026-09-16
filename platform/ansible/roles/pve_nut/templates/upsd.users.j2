@@ -1,3 +1,8 @@
 # 読み取り専用の監視ユーザー。upsmon 権限（主系・FSD）は与えない。
 [{{ pve_nut_monitor_user }}]
     password = {{ (pve_nut_secrets.stdout | from_json).NUT_MONITOR_PASSWORD }}
+
+# ホストの upsmon（primary）専用。localhost からのみ使う。
+[{{ pve_nut_upsmon_user }}]
+    password = {{ (pve_nut_secrets.stdout | from_json).NUT_UPSMON_PASSWORD }}
+    upsmon primary

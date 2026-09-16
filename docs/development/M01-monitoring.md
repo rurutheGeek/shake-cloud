@@ -1,6 +1,6 @@
 # M01 監視（Prometheus・Grafana）
 
-更新日: 2026-09-12。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全24ターゲットup、UPS取得、メール通知1通を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。残りは低電池シャットダウンとダッシュボード拡充**。
+更新日: 2026-09-16。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み**。
 
 ## 目的・現状・配備先
 
@@ -20,14 +20,38 @@
 | UPS | nut_exporter | ProxmoxホストのNUTサーバー（`:3493`）を読む |
 | 通知 | Alertmanager | Prometheusのアラートを既存の`smtp.sops.yaml`（Gmail）でメール通知 |
 
-アラート例: `probe_success == 0`（5分）、ノード/VMのダウン、ディスク使用率85%、証明書期限14日、UPSがバッテリー動作。
+アラート規則（`stacks/monitoring/prometheus/alerts.yml`）:
+
+- **疎通**: `probe_success == 0`（5分）、証明書期限14日。
+- **ノード**（node_exporterを入れたVM）: exporterのダウン、`/`などの空き15%未満、空きメモリ10%未満、OOM kill、systemd unitのfailed、起動時刻の変化（計画外再起動）。メトリクスは取得済みなので規則だけを置く。
+- **バックアップ**: `backup_last_success_timestamp_seconds`の停滞（36時間超）と**欠測そのもの**（`absent()`）。
+- **Proxmox・UPS**: ゲストのダウン、ノードのディスク85%、UPSがバッテリー動作中。
+- **dead man's switch**: `Watchdog`（`vector(1)`で常時firing）。Alertmanagerから外部（healthchecks.io等）へ送り続け、外部側で「届かなければ監視系が死んでいる」と判定する。ping URLは`monitoring.sops.yaml`の`WATCHDOG_PING_URL`（空なら`deadman`宛先は何もせず、`Watchdog`がメールに流れることもない）。
+
+## dead man's switch（外部監視）
+
+monitor-01はK11（Proxmoxホスト）の上にあるため、K11ごと落ちると監視も沈黙する。「静かなこと」と「正常なこと」を区別するには外部の受信点が要る。
+
+1. healthchecks.io等でチェックを作り、期間を12時間・猶予を1時間にする。
+2. ping URLを`sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'`で入れる。
+3. `monitoring.yml`を再実行すると`.env`へ写り、Alertmanagerが`Watchdog`を1時間ごとに送る。
+4. 外部側で「12時間以上受信が無い」をアラートにし、宛先は普段のメールとは別経路（スマホアプリ等）にする。
+5. ラズパイを別電源で動かせるようになったら、同じ`Watchdog`をそこへも送る（[電源とUPS](../operations/power.md)）。
+
+## 管理DBバックアップの見える化
+
+`cloud-backup.timer`（cloud-01、毎日03:40）の成否をメトリクスにする。
+
+- 成功時に`manage.py backup-metric`がnode_exporterのtextfile collectorへ`backup_last_success_timestamp_seconds`を1行書く（失敗時は更新されない）。
+- 配備時にも既存世代から現在値を書く（無ければ0）。欠測1時間・停滞36時間でメールする。
+- 外部コピー（[O01](O01-cloud-backup.md)）を足す前にこれを入れて、「やったつもり」を防ぐ。
 
 ## UPS（CyberPower CP1200PFCLCDJP）
 
 UPSはUSBでProxmoxホストに接続されている。NUTはUSBを持つホストで動かす。
 
-1. ホストに`nut`（`usbhid-ups`＋`upsd`）をAnsibleで導入する。`upsmon`も入れ、低電池時にVMを順に停止してホストをシャットダウンする。
-2. `upsd`は監視LANだけへ公開し、nut_exporter（monitor-01）が読む。UPSの状態はGrafanaのダッシュボードとHomarrのUPSウィジェット（PeaNUT経由）へ出す。
+1. ホストに`nut`（`usbhid-ups`＋`upsd`）をAnsibleで導入する。`upsmon`（`nut-monitor`）も有効にし、低電池時に**k8s worker → control plane → ホスト**の順に停止する（[電源とUPS](../operations/power.md#停電で自動停止させる任意推奨)）。停止スクリプトは`/usr/local/sbin/pve-ups-shutdown`。
+2. `upsd`は監視LANだけへ公開し、nut_exporter（monitor-01）が読む。UPSの状態はGrafanaのダッシュボードとHomarrのUPSウィジェット（PeaNUT経由）へ出す。`monitor`ユーザーは読み取り専用のまま、upsmon専用ユーザーを分ける。
 3. **前提: ProxmoxホストへのSSH公開鍵登録（人）**。`platform/ansible/pve.ini`の`root`接続を使う。鍵は`~/.ssh/id_ed25519_pve`。
 
 ## Homarrへの表示
@@ -58,6 +82,14 @@ UPSはUSBでProxmoxホストに接続されている。NUTはUSBを持つホス�
 
 - すべての対象がPrometheusのターゲットで`up`になり、Grafanaで資源・疎通・UPSが見える。
 - サービスを1つ止めると、5分以内にアラートメールが届き、復旧で解除される。
+- ノードのディスク・メモリ・OOM・systemd failed・再起動が規則で鳴る（[検証](#検証)）。
 - monitor-01を再作成しても、宣言済みのデータソース・ダッシュボード・アラートが復元される。
 - 保持期間とデータディスクの実使用から容量を再計算し、[配分表](../architecture/operations.md#measured-budget)へ実測を渡す。
-- ホストNUTの低電池シャットダウンは隔離環境で手順を確認してから有効化する。
+- ホストNUTの低電池シャットダウンは`PVE_UPS_SHUTDOWN_DRY_RUN=1`で順番を確認してから有効化する（実停電の試験はUPSのバッテリーで1回行う）。
+
+## 検証
+
+- アラート規則: `manage.py reload`後にPrometheusの`/api/v1/rules`で`health=ok`を確認。
+- ノード規則: 一時的に閾値を上げた式を`/api/v1/query`で評価して鳴ることを確認し、実配備では戻す。
+- バックアップ: cloud-01で`manage.py backup`（手動）→ `backup_last_success_timestamp_seconds`が更新されるのをPrometheusで確認。
+- upsmon: `systemctl status nut-monitor`がactive、`upsc cyberpower@localhost ups.status`が`OL`。`journalctl -t pve-ups-shutdown`でdry-runのログを確認。

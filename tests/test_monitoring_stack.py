@@ -7,6 +7,7 @@ blackbox targets drift away from dns.yaml, would be worse than no test.
 import importlib.util
 import json
 from pathlib import Path
+import string
 import unittest
 
 import yaml
@@ -82,6 +83,54 @@ class PrometheusTests(unittest.TestCase):
         rules = load(STACK / 'prometheus/alerts.yml')
         expressions = [rule['expr'] for group in rules['groups'] for rule in group['rules']]
         self.assertTrue(any('network_ups_tools_ups_status' in expr for expr in expressions))
+
+    def test_the_alert_rules_cover_the_node_exporters(self):
+        # 5台から node_* を集めているのに規則が無い、を防ぐ。
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        for name, metric in (
+                ('NodeExporterDown', 'up{job="node"}'),
+                ('NodeFilesystemAlmostFull', 'node_filesystem_avail_bytes'),
+                ('NodeMemoryLow', 'node_memory_MemAvailable_bytes'),
+                ('NodeOOMKill', 'node_vmstat_oom_kill'),
+                ('NodeSystemdUnitFailed', 'node_systemd_unit_state'),
+                ('NodeRebooted', 'node_boot_time_seconds')):
+            self.assertIn(name, alerts)
+            self.assertIn(metric, alerts[name]['expr'], name)
+
+    def test_the_alert_rules_cover_the_backup_age_and_absence(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        self.assertIn('backup_last_success_timestamp_seconds', alerts['CloudBackupStale']['expr'])
+        self.assertIn('absent(', alerts['CloudBackupMetricMissing']['expr'])
+        self.assertTrue(alerts['CloudBackupStale']['for'] == '15m')
+
+    def test_the_watchdog_alert_is_always_firing(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        self.assertEqual(alerts['Watchdog']['expr'], 'vector(1)')
+        self.assertEqual(alerts['Watchdog']['labels']['severity'], 'none')
+
+
+class AlertmanagerTests(unittest.TestCase):
+    def test_the_deadman_switch_is_rendered_only_with_a_ping_url(self):
+        spec = importlib.util.spec_from_file_location('monitoring_manage', STACK / 'manage.py')
+        monitoring = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(monitoring)
+        template = (STACK / 'alertmanager/alertmanager.yml.template').read_text(encoding='utf-8')
+        self.assertIn('${WATCHDOG_PING_URL}', template)
+        self.assertIn('alertname = Watchdog', template)
+        configured = string.Template(template).substitute(
+            {'WATCHDOG_PING_URL': 'https://hc-ping.com/example', 'ALERT_EMAIL': 'a@example.com',
+             'SMTP_HOST': 'smtp', 'SMTP_PORT': '587', 'SMTP_FROM': 'f@example.com',
+             'SMTP_USERNAME': 'u', 'SMTP_PASSWORD': 'p', 'SMTP_REQUIRE_TLS': 'true'})
+        self.assertIn('hc-ping.com', configured)
+        disabled = monitoring.without_watchdog(configured)
+        self.assertNotIn('hc-ping.com', disabled)
+        # 宛先は残す。Watchdog がメールへ流れると12時間ごとに誤通知になる。
+        self.assertIn('name: deadman', disabled)
+        self.assertIn('alertname = Watchdog', disabled)
+        self.assertIn('name: email', disabled)
 
 
 class GrafanaTests(unittest.TestCase):

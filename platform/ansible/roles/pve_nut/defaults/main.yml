@@ -1,9 +1,17 @@
 ---
-# ProxmoxホストのUPS（CyberPower）をNUTで読めるようにする。読み取り専用。
+# ProxmoxホストのUPS（CyberPower）をNUTで読み、低電池で安全に停止する。
 pve_nut_ups_name: cyberpower
 pve_nut_vendorid: '0764'
 pve_nut_productid: '0601'
 # monitor-01 から読めるよう、管理LANのアドレスで待ち受ける。
 pve_nut_listen_address: 192.168.10.126
 pve_nut_monitor_user: monitor
+# 低電池時に upsmon（primary）が使うローカル専用ユーザー。
+pve_nut_upsmon_user: upsmon
 pve_nut_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'
+# 停止スクリプト。順番は docs/operations/power.md（k8s worker → cp → ホスト）。
+pve_nut_shutdown_script: /usr/local/sbin/pve-ups-shutdown
+# k8s VM の ACPI 停止を待つ上限（秒）。過ぎたらホスト停止へ進む。
+pve_nut_k8s_stop_timeout: 180
+# 停電検知から停止までの猶予（秒）。短いジョブの完了を待つ。
+pve_nut_shutdown_grace_seconds: 60

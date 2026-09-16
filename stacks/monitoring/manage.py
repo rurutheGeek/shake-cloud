@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import string
@@ -18,6 +19,10 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent
+# Alertmanager の dead man's switch ブロック。ping URL が無いときは丸ごと外す
+# （空URLは設定エラーになるため）。
+WATCHDOG_BLOCK = re.compile(r'^[ \t]*# deadman:start.*?^[ \t]*# deadman:end[ \t]*\n',
+                            re.MULTILINE | re.DOTALL)
 GENERATED_SECRETS = ('grafana_admin_password', 'nut_password', 'peanut_web_password')
 # The Proxmox read-only token is copied from SOPS by the Ansible role.
 PVE_TOKEN = 'pve_token'
@@ -105,6 +110,11 @@ def render_peanut_config():
     path.chmod(0o600)
 
 
+def without_watchdog(text):
+    """Drop the dead man's switch blocks when no external ping URL is set."""
+    return WATCHDOG_BLOCK.sub('', text)
+
+
 def render_alertmanager_config():
     """Write Alertmanager's config with the SMTP values from .env.
 
@@ -116,7 +126,9 @@ def render_alertmanager_config():
     template = string.Template((ROOT / 'alertmanager/alertmanager.yml.template').read_text())
     rendered = template.substitute({key: values.get(key, '') for key in (
         'SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USERNAME', 'SMTP_PASSWORD',
-        'SMTP_REQUIRE_TLS', 'ALERT_EMAIL')})
+        'SMTP_REQUIRE_TLS', 'ALERT_EMAIL', 'WATCHDOG_PING_URL')})
+    if not values.get('WATCHDOG_PING_URL'):
+        rendered = without_watchdog(rendered)
     target = storage() / 'alertmanager-config'
     target.mkdir(parents=True, exist_ok=True)
     path = target / 'alertmanager.yml'
