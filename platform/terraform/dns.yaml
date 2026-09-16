@@ -45,6 +45,9 @@ records:
     upstream: 127.0.0.1:4533
     description: Navidrome（音楽ストリーミング。Forward Auth）
     auth: true
+    # アルバム確認HTMLをダウンロードせず表示する（/review/、同じSSO）。
+    static_prefix: /review
+    static_data: /data/review
   # Subsonicクライアント（Ultrasonic等）用の入口。SSOを通さず、Navidromeの
   # 自前認証（ユーザー名とパスワード）を使う。Web UIは上の名前（SSO）のまま。
   navidrome-api:
@@ -57,6 +60,12 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:8081
     description: MeTube（動画ダウンローダー。Forward Auth）
+    auth: true
+  khinsider:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:5820
+    description: KHInsider（アルバム一括ダウンローダー。Forward Auth）
     auth: true
   freshrss:
     host: media-01

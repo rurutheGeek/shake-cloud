@@ -190,7 +190,7 @@ class PlaybookTests(unittest.TestCase):
 
     def test_the_default_is_still_every_service(self):
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'convert', 'tag-api'])
+                         ['metube', 'convert', 'tag-api', 'khinsider'])
 
     def test_a_subset_can_be_selected(self):
         argv = self.tasks['Deploy selected music tools']['ansible.builtin.command']['argv']

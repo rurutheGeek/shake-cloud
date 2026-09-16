@@ -4,7 +4,7 @@
 
 ## 目的・現状
 
-状態: **services-01へ新規構築済み（2026-09-12）**。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザでのSSO・マスターパスワードと独立バックアップ復元は未確認**。
+状態: **services-01へ新規構築済み（2026-09-12）**。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザーでのSSOログインと保管庫作成は実測済み（2026-09-14）。独立バックアップの復元は未確認**。
 
 `stacks/vaultwarden/compose.yaml` に本体とOIDC（identityの`vaultwarden`クライアント）の定義がある。[利用・SSO手順](../services/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
 
@@ -27,3 +27,7 @@
 - 既存保管庫の復号、添付取得、作成・更新、スマホと拡張の同期、セッション更新が成功する。
 - 確認済みメールの認証、未確認メールの拒否、管理画面のアクセス制限、ローカル復旧認証を確認する。
 - 独立バックアップから復元して内容を比較し、再配備・VM再起動後にも使用できる。[O03](O03-restore.md)へ復元対象と結果を渡す。
+
+## 実装記録
+
+- 2026-09-14: **「毎回マスターパスワード設定の新規登録画面が出る」を調査。** 原因は2つ。(1) ブラウザーに残った管理用 `akadmin` のAuthentikセッションでVaultwardenのSSOが認証され、`akadmin`（email `shake.notify@gmail.com`）の保管庫に入っていた（Authentikの`authorize`ログが`auth_via=session`・`user=akadmin`、Vaultwardenの`sso_users`がakadminのUUID `be74d198-…` に紐付け、DBの`users`は`ruru2028@gmail.com`（`651f9b36-…`）と`shake.notify@gmail.com`の2件で後者は`password_hash`が空）。(2) Vaultwarden 1.37.1／1.37.2はマスターパスワード設定が422（`missing field newMasterPasswordHash`）で失敗するため、未設定の保管庫は毎回この画面に戻っていた。**1.37.3（#7634入り）へ更新**（digest `sha256:1587c45f…`、`db.sqlite3`のコールドバックアップは `/srv/backups/vaultwarden/20260914T125129145768Z`）。不要な `shake.notify@gmail.com`（akadmin）保管庫をDBから削除し、以後は `ruru2028@gmail.com` の1件のみ。本人はAuthentikからサインアウトするかプライベートウィンドウで自分のメールを入れてSSOする。

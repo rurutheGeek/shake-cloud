@@ -1,0 +1,22 @@
+# net-01（Tailscale subnet router）の認証キー。正本は SOPS
+# （platform/sops/tailscale.sops.yaml）。Git へ平文を入れない。
+#
+# 作り方:
+#   1. Tailscale の管理画面 → Settings → Keys → Generate auth key
+#      - Reusable: 端末を作り直す前提なら on
+#      - Ephemeral: off（停止しても tailnet から消さない）
+#      - Pre-approved: on
+#      - Tags: tag:vpn を推奨（ACL の tagOwners に定義が必要。
+#        タグ付き端末はキー期限が無効になる）
+#   2. コピーして値を入れる
+#      cp platform/sops/tailscale.sops.yaml.example platform/sops/tailscale.sops.yaml
+#      $EDITOR platform/sops/tailscale.sops.yaml
+#   3. 暗号化する（.sops.yaml の creation_rules が適用される）
+#      sops --encrypt --in-place platform/sops/tailscale.sops.yaml
+#   4. 配備する（Tailscale の認証キーとクラウドinventory用のアクセスキーの
+#      2つを、そのプロセスの環境変数として渡す）
+#      TAILSCALE_AUTH_KEY=$(sops --decrypt --extract '["TAILSCALE_AUTH_KEY"]' platform/sops/tailscale.sops.yaml) \
+#      SHAKECLOUD_ACCESS_KEY=$(sops --decrypt --extract '["SHAKECLOUD_ACCESS_KEY"]' platform/sops/services.sops.yaml) \
+#      ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#      .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/net.yml
+TAILSCALE_AUTH_KEY: REPLACE_WITH_A_TAILSCALE_AUTH_KEY

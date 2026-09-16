@@ -52,6 +52,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | FreshRSS | <https://freshrss.apextox.dpdns.org> | Authentik OIDC（ネイティブ。全員で共通購読・購読の追加はその場で全員へ反映） |
 | Navidrome | <https://navidrome.apextox.dpdns.org> | Authentik Forward Auth |
 | MeTube | <https://metube.apextox.dpdns.org> | Authentik Forward Auth（本体はW06で配備） |
+| KHInsider | <https://khinsider.apextox.dpdns.org> | Authentik Forward Auth（アルバム一括ダウンロード） |
 
 ### LocalSend（端末 → media-01 の受け渡し）
 

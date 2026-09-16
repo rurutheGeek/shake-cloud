@@ -55,6 +55,22 @@ class TextTests(unittest.TestCase):
         self.assertEqual(organize.filename_track_number('song'), None)
 
 
+class MusicBrainzQueryTests(unittest.TestCase):
+    def test_recording_query_uses_artist_when_known(self):
+        self.assertEqual(organize.recording_query('Song', 'Artist'),
+                         'recording:"Song" AND artist:"Artist"')
+        self.assertEqual(organize.recording_query('Song', ''),
+                         'recording:"Song"')
+
+    def test_release_queries_start_strict_and_loosen_for_long_titles(self):
+        queries = organize.release_queries('ポケモン不思議のダンジョン 時・闇・空の探検隊', '')
+        self.assertEqual(queries[0], 'release:"ポケモン不思議のダンジョン 時・闇・空の探検隊"')
+        self.assertTrue(len(queries) > 1)
+        self.assertEqual(organize.release_queries('Album', 'A'),
+                         ['release:"Album" AND artist:"A"',
+                          'release:Album AND artist:"A"'])
+
+
 def track(source, **kwargs):
     folder = str(Path(source).parent)
     folder = '' if folder == '.' else folder
@@ -169,6 +185,33 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(albums[0].album, 'Album X')
         self.assertEqual(tracks[0].reason, 'fallback')
 
+    def test_disabled_lookup_reorganizes_by_existing_tags_only(self):
+        # 手でタグを直したあとの再整理（plan --no-lookup）はMBで上書きしない。
+        mb = mock.Mock()
+        mb.disabled = True
+        tracks = [track('old/a.mp3', album='Album A', albumartist='Artist A')]
+        albums, unresolved = organize.plan_tracks(mb, tracks, {}, {})
+        mb.release_search.assert_not_called()
+        mb.recording_search.assert_not_called()
+        self.assertEqual(unresolved, [])
+        self.assertEqual(albums[0].album, 'Album A')
+        self.assertEqual(tracks[0].reason, 'fallback')
+
+    def test_per_file_corrections_override_tags_before_planning(self):
+        tracks = [track('現在のパス/a.mp3', title='old', album='Wrong',
+                        albumartist='Someone')]
+        corrections = {'現在のパス/a.mp3': {
+            'title': '正しい曲名', 'album': '正しいアルバム',
+            'albumartist': '正しい人'}}
+        organize.apply_corrections(tracks, corrections)
+        self.assertEqual(tracks[0].title, '正しい曲名')
+        self.assertEqual(tracks[0].album, '正しいアルバム')
+        self.assertEqual(tracks[0].albumartist, '正しい人')
+        mb = mock.Mock()
+        mb.disabled = True
+        albums, _ = organize.plan_tracks(mb, tracks, {}, {})
+        self.assertEqual(albums[0].album, '正しいアルバム')
+
     def test_unresolved_files_are_left_in_place(self):
         mb = FakeMusicBrainz()
         tracks = [track('misc/random junk.mp3')]
@@ -220,6 +263,15 @@ class TargetTests(unittest.TestCase):
                             track('old/b.mp3', title='Same', position=2)])
         self.assertEqual(album.tracks[0].target, 'Artist/Album/01 - Same.mp3')
         self.assertEqual(album.tracks[1].target, 'Artist/Album/02 - Same.mp3')
+
+    def test_merged_tracks_get_unique_track_numbers(self):
+        # 別リリースから合流した曲のトラック番号重複は後ろへ回す。
+        album = self.build([
+            track('old/a.mp3', title='One', position=3),
+            track('old/b.mp3', title='Two', position=3),
+            track('old/c.mp3', title='Three', position=0)])
+        numbers = sorted(t.position for t in album.tracks)
+        self.assertEqual(numbers, [3, 4, 5])
 
 
 class ApplyTests(unittest.TestCase):

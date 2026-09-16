@@ -184,7 +184,7 @@ class SeedTests(unittest.TestCase):
         for feed in feeds:
             self.assertTrue(feed.attrib['xmlUrl'].startswith('https://'), feed.attrib['xmlUrl'])
 
-    def test_the_starter_opml_assigns_subreddits_to_all_three(self):
+    def test_the_reddit_timeline_holds_every_subreddit(self):
         tree = ET.parse(UNIT / 'feeds.opml')
         body = tree.getroot().find('body')
         self.assertIsNotNone(body)
@@ -192,9 +192,23 @@ class SeedTests(unittest.TestCase):
         for category in body.findall('outline'):
             by_category[category.attrib['text']] = [
                 feed.attrib['xmlUrl'] for feed in category.findall('outline')]
-        self.assertEqual(set(by_category), {'ゲーム', 'IT', 'ポケモン'})
-        for category, feeds in by_category.items():
-            self.assertTrue(any('reddit.com' in url for url in feeds), category)
+        self.assertTrue({'ゲーム', 'IT', 'ポケモン', 'Reddit'} <= set(by_category))
+        reddit = by_category['Reddit']
+        self.assertGreaterEqual(len(reddit), 15)
+        self.assertTrue(all('reddit.com' in url for url in reddit))
+        for category in ('ゲーム', 'IT', 'ポケモン'):
+            self.assertFalse(any('reddit.com' in url for url in by_category[category]), category)
+
+    def test_the_review_timeline_holds_the_candidates(self):
+        # A staging timeline for adding and then promoting sources.
+        tree = ET.parse(UNIT / 'feeds.opml')
+        body = tree.getroot().find('body')
+        review = next((c for c in body.findall('outline') if c.attrib['text'] == 'Review'), None)
+        self.assertIsNotNone(review)
+        urls = [feed.attrib['xmlUrl'] for feed in review.findall('outline')]
+        self.assertGreaterEqual(len(urls), 20)
+        for needle in ('denfaminicogamer', 'publickey1', 'smogon', 'googleprojectzero'):
+            self.assertTrue(any(needle in url for url in urls), needle)
 
     def test_the_seed_runs_once(self):
         text = (UNIT / 'manage.py').read_text(encoding='utf-8')

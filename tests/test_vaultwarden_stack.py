@@ -96,7 +96,7 @@ class StackTests(unittest.TestCase):
         image = self.service()['image']
         default = re.search(r'\$\{[A-Z_]+:-([^}]+)\}', image)
         fixed = default.group(1) if default else image
-        self.assertEqual(fixed, 'vaultwarden/server:1.37.2')
+        self.assertEqual(fixed, 'vaultwarden/server:1.37.3')
         self.assertNotIn('latest', image)
 
     def test_the_lock_pins_the_same_repository_as_compose(self):

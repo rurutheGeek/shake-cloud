@@ -13,7 +13,7 @@
 ## 使い方
 
 1. <https://freshrss.apextox.dpdns.org> を開きます。自動的に共通ログインへ進みます。
-2. 左の一覧に、**ゲーム・IT・ポケモン**の3カテゴリに分かれてフィードが並びます（サブレディットも各カテゴリに入っています）。
+2. 左の一覧に、**ゲーム・IT・ポケモン・Reddit・Review** に分かれてフィードが並びます。
 3. 読みたいフィードや「未読」を選んで記事を読みます。スクロールや `j` / `k` でも移動できます。
 
 ### フィードを追加する（全員に反映）
@@ -34,9 +34,15 @@
 
 | カテゴリ | 例 |
 | --- | --- |
-| ゲーム | 4Gamer.net、AUTOMATON、GAME Watch、Game*Spark、ゲームメモ、ジュウシマツの鳥小屋、r/skyrim、r/SwitchPirates など |
-| IT | ＠IT、ASCII.jp、GIGAZINE、ITmedia Mobile、ITmedia PC USER、PC Watch、Togetter、ギズモード・ジャパン、窓の杜、r/Piracy、r/fossdroid など |
-| ポケモン | ポケGO速報まとめサイト、ポケモンメモ、ぽけりん＠ポケモンまとめ、r/PokemonScarletViolet |
+| ゲーム | 4Gamer.net、AUTOMATON、GAME Watch、Game*Spark、ゲームメモ、ジュウシマツの鳥小屋 |
+| IT | ＠IT、ASCII.jp、GIGAZINE、ITmedia Mobile、ITmedia PC USER、PC Watch、Togetter、ギズモード・ジャパン、窓の杜、デジタル・IT |
+| ポケモン | ポケGO速報まとめサイト、ポケットモンスターオフィシャルサイト、ポケモンメモ、ぽけりん＠ポケモンまとめ |
+| **Reddit** | r/skyrim、r/SwitchPirates、r/Piracy、r/fossdroid、r/PokemonScarletViolet、r/TheSilphRoad など20件 |
+| **Review** | 追加候補を試す育成用。電ファミニコゲーマー、Game Developer、GamesIndustry.biz、Shmuplations、Publickey、Zenn、Qiita、Lobsters、Hacker News、Project Zero、JVN、Krebs on Security、Cloudflare Blog、Smogon、PKHeX など |
+
+**Reddit はまとめて独立カテゴリにしています。** 件数が多く取得も不安定（HTTP 429）なため、他のニュースと同じ列に混ぜていません。
+
+**Review はテスト・育成用の共有カテゴリです。** 気になる情報源をまずここへ入れて様子を見て、よければ「ゲーム」「IT」「ポケモン」の本筋へ移してください（購読管理でカテゴリを変更します）。FreshRSSはリダイレクト後の正規URLを保存するため、購読管理で出てくるURLをそのまま使うと重複しません。
 
 初期リストは `stacks/media/freshrss/feeds.opml` です。ここを直しても既存のタイムラインには反映されません（追加は画面から行います）。
 

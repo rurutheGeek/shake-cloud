@@ -71,6 +71,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['netbox']['upstream'], f"127.0.0.1:{defaults('netbox')['netbox_port']}")
         self.assertEqual(records['docs']['upstream'], f"127.0.0.1:{defaults('docs_site')['docs_site_port']}")
         self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
+        self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
 
@@ -115,7 +116,7 @@ class TlsProxyTests(unittest.TestCase):
     def test_forward_auth_is_declared_for_the_browser_tools_only(self):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
-        self.assertEqual(behind_auth, {'navidrome', 'metube', 'cups'})
+        self.assertEqual(behind_auth, {'navidrome', 'metube', 'khinsider', 'cups'})
         for name in ('nextcloud', 'kavita'):
             self.assertNotIn('auth', records[name], name)
 
@@ -154,15 +155,16 @@ class TlsProxyTests(unittest.TestCase):
                    if (role.get('role') if isinstance(role, dict) else role) == 'tls_proxy')
         self.assertEqual(tls['tls_proxy_catchall_upstream'], '127.0.0.1:9000')
 
-    def test_the_rendered_caddyfile_guards_only_the_three_auth_sites(self):
+    def test_the_rendered_caddyfile_guards_only_the_auth_sites(self):
         names = [CLOUD_INSTANCE_ID, CLOUD_NAME]
         sites = [{'key': name, 'value': record} for name, record in DNS['records'].items()
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 6)
-        self.assertEqual(rendered.count('forward_auth https://'), 2)
-        for name in ('navidrome', 'metube'):
+        self.assertEqual(len(sites), 7)
+        # navidrome は通常の認証に加え、/review/ の静的ページにも forward_auth を付ける。
+        self.assertEqual(rendered.count('forward_auth https://'), 4)
+        for name in ('navidrome', 'metube', 'khinsider'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
             self.assertIn('request_header -Remote-User', block, name)
@@ -170,6 +172,10 @@ class TlsProxyTests(unittest.TestCase):
             self.assertIn('copy_headers X-Authentik-Username', block, name)
             self.assertIn('header_up Remote-User sso_{http.request.header.X-Authentik-Username}', block, name)
             self.assertIn('header_up -X-Authentik-Username', block, name)
+        navidrome = site_block(rendered, 'navidrome')
+        self.assertIn('handle_path /review/*', navidrome)
+        self.assertIn('root * /data/review', navidrome)
+        self.assertIn('file_server', navidrome)
         for name in ('nextcloud', 'kavita', 'freshrss'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)

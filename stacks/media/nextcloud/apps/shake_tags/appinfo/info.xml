@@ -2,10 +2,10 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>shake_tags</id>
-	<name>タグを編集</name>
+	<name>MP3タグ編集</name>
 	<summary>音楽ファイルのタグをNextcloudから編集する</summary>
-	<description><![CDATA[ファイル一覧の「…」メニューに「タグを編集」を追加します。musicライブラリのMP3のタグ（曲名・アーティスト・アルバムなど）をフォームで編集でき、「MusicBrainzで検索」で候補から入力できます。変更前のタグはmedia-01側でバックアップされます。]]></description>
-	<version>1.0.5</version>
+	<description><![CDATA[ファイル一覧の「…」メニューに「MP3タグを編集」を追加します（Nextcloud標準のタグ機能とは別です）。musicライブラリのMP3のタグ（曲名・アーティスト・アルバムなど）をフォームで編集でき、「MusicBrainzで検索」で候補から入力できます。変更前のタグはmedia-01側でバックアップされます。]]></description>
+	<version>1.0.7</version>
 	<!-- PHPクラスの名前空間。宣言が無いと Nextcloud は ucfirst した
 	     OCA\Shake_tags を探し、OCA\ShakeTags と一致せず二重includeになる。 -->
 	<namespace>ShakeTags</namespace>

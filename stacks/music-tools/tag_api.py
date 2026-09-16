@@ -22,7 +22,7 @@ from pathlib import Path
 
 ALLOWED_FIELDS = {
     'title', 'artist', 'album', 'albumartist', 'tracknumber',
-    'discnumber', 'date', 'genre', 'composer',
+    'discnumber', 'date', 'genre', 'composer', 'comment',
 }
 ALLOWED_EXTENSIONS = {'.mp3'}
 USER_AGENT = 'shake-cloud-music-tags/1.0 (+https://github.com/rurutheGeek/shake-cloud)'
@@ -69,14 +69,28 @@ def clean_tags(values):
     return clean
 
 
+def read_comments(path):
+    """COMM frames are not exposed by EasyID3; read them directly."""
+    from mutagen.id3 import ID3, ID3NoHeaderError
+    try:
+        tags = ID3(path)
+    except ID3NoHeaderError:
+        return []
+    return [frame.text[0] for frame in tags.getall('COMM') if frame.text]
+
+
 def read_tags(path):
     """Read the supported tags from an audio file (returns lists of values)."""
     import mutagen
     audio = mutagen.File(path, easy=True)
-    if audio is None or audio.tags is None:
-        return {}
-    return {key: list(audio.tags[key])
-            for key in audio.tags if key in ALLOWED_FIELDS}
+    tags = {}
+    if audio is not None and audio.tags is not None:
+        tags = {key: list(audio.tags[key])
+                for key in audio.tags if key in ALLOWED_FIELDS}
+    comments = read_comments(path)
+    if comments:
+        tags['comment'] = comments
+    return tags
 
 
 def apply_tags(path, backup_dir, relative, values):
@@ -89,6 +103,9 @@ def apply_tags(path, backup_dir, relative, values):
     except ID3NoHeaderError:
         tags = EasyID3()
     current = {key: list(tags[key]) for key in tags if key in ALLOWED_FIELDS}
+    comments = read_comments(path)
+    if comments:
+        current['comment'] = comments
     changes = {key: value for key, value in clean.items()
                if current.get(key) != value}
     if not changes:
@@ -100,9 +117,17 @@ def apply_tags(path, backup_dir, relative, values):
             ID3(path).save(backup)
         except ID3NoHeaderError:
             backup.with_suffix('.no-id3').touch()
+    comment = changes.pop('comment', None)
     for key, value in changes.items():
         tags[key] = value
-    tags.save(path)
+    if changes:
+        tags.save(path)
+    if comment:
+        from mutagen.id3 import COMM
+        id3 = ID3(path)
+        id3.delall('COMM')
+        id3.add(COMM(encoding=3, lang='XXX', desc='', text=comment[0]))
+        id3.save(path)
     os.utime(path, None)
     return {'changed': True, 'tags': clean}
 

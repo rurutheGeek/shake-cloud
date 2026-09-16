@@ -34,17 +34,33 @@ GUIを使わず、次のコマンドでも音声を追加できます。
 python3 stacks/music-tools/download.py 'https://www.youtube.com/watch?v=動画ID' --format mp3
 ```
 
-## タグ付け（Nextcloudの「タグを編集」）
+## KHInsiderのアルバムをまとめて追加
 
-**通常のタグ付けはNextcloudで行います。** `music` のMP3の **…** → **タグを編集** で、曲名・アーティスト・アルバムなどをフォームで直せます。**MusicBrainzで検索** を押すと候補が出て、選ぶと入力欄に入ります。変更前のタグはmedia-01の `/opt/media-stack/music-tools/storage/tags/tag-backups/` にバックアップされます。手順は[Nextcloudの使い方](nextcloud-guide.md)を参照してください。Navidromeへの反映は通常1時間以内です。
+KHInsiderのアルバムページ（`https://downloads.khinsider.com/game-soundtracks/album/...`）を指定すると、収録MP3をまとめて取り込めます。**<https://khinsider.apextox.dpdns.org>**（MeTubeと同じForward Auth）を開き、アルバムURLを貼り付けて「すべてダウンロード」を押します。曲は `music/Khinsider/<アルバム名>/` へ保存されます。ファイル名は曲名だけ（例: `激突！グルメレース.mp3`）で、曲番号はID3の `tracknumber`/`discnumber` に入ります。以降はMeTubeで取り込んだ曲と同じく、同期・Nextcloudのタグ編集・`organize.py` の整理対象になります。
+
+途中で失敗しても同じURLを再投入すると、保存済みのファイルをスキップして続きから取得します。実行履歴はサービス再起動で消えますが、保存済みファイルは残ります。**ダウンロードできる権利のある音源だけを指定してください。**
+
+### 日本語の曲名に戻す
+
+KHInsiderは日本語のゲームでもアルバム名・曲名を英語で載せます。ページの **「日本語の曲名に戻す」** を選んで取得すると、まず **アルバム名を原典ゲームの日本語タイトル**（KHInsiderの日本語別名）にします（例: `kirby-super-star` → `星のカービィスーパーデラックス`）。フォルダ名とID3のアルバムに反映され、Nextcloudの「MP3タグ編集」とNavidromeに表示されます。
+
+曲名は **MusicBrainz**（無ければiTunes JP）で公式の日本語名を照合し、ファイル名とID3のタイトルを日本語にします。曲数・曲順・尺が一致し、日本語名が半数以上のときだけ採用するため、誤った名前や別のアルバム（コンサート・リミックス等）の名前は付きません。見つからなかった曲は英語のまま残ります（ゲームリップには公式の日本語トラックリストが無いことが多く、その場合は曲名は英語のままです）。曲名を手動で補う場合は `stacks/music-tools/khinsider-ja.json` に書きます（詳細は[music-toolsのREADME](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/music-tools/README.md)）。
+
+実装は `stacks/music-tools/khinsider.py`、配備は同じplaybook（`platform/ansible/music-tools.yml`）に含まれます。
+
+## タグ付け（Nextcloudの「MP3タグ編集」）
+
+**通常のタグ付けはNextcloudで行います。** `music` のMP3の **…** → **MP3タグを編集** で、曲名・アーティスト・アルバムなどをフォームで直せます。**MusicBrainzで検索** を押すと候補が出て、選ぶと入力欄に入ります。変更前のタグはmedia-01の `/opt/media-stack/music-tools/storage/tags/tag-backups/` にバックアップされます。手順は[Nextcloudの使い方](nextcloud-guide.md)を参照してください。Navidromeへの反映は通常1時間以内です。
 
 ## Picardは廃止しました（2026-09-13）
 
-タグ編集はNextcloudの「タグを編集」へ統合したため、サーバーのPicard（`jlesage/musicbrainz-picard` のブラウザー内デスクトップ）は撤去し、`https://picard.apextox.dpdns.org` も閉じました。PCでPicardを使いたい場合は、Nextcloudからファイルを取り出して[公式配布](https://picard.musicbrainz.org/downloads/)のデスクトップ版を使い、終わったらNextcloudへアップロードし直します（サーバー側のデータ `storage/picard` は残してあるので、戻す場合はcomposeとDNSを戻します）。
+タグ編集はNextcloudの「MP3タグ編集」へ統合したため、サーバーのPicard（`jlesage/musicbrainz-picard` のブラウザー内デスクトップ）は撤去し、`https://picard.apextox.dpdns.org` も閉じました。PCでPicardを使いたい場合は、Nextcloudからファイルを取り出して[公式配布](https://picard.musicbrainz.org/downloads/)のデスクトップ版を使い、終わったらNextcloudへアップロードし直します（サーバー側のデータ `storage/picard` は残してあるので、戻す場合はcomposeとDNSを戻します）。
+
+タグの編集手段（手動・自動ツール・ジャンル方針・バックアップ）は[タグ管理（MP3）](tags.md)、Navidromeでできないことと代替手段は[Navidrome改造予定](navidrome.md)にまとめています。
 
 ## MP3タグをコードで編集
 
-Navidromeは設計上、原本ファイルへタグを書き込みません。通常は上のNextcloudの「タグを編集」（`shake_tags`）を使います。サーバー上でまとめて処理したい場合のために、JSONマニフェスト式のコマンド（`edit-tags.py`）も残しています。以下は配備先（media-01では `/opt/media-stack`）で実行します。
+Navidromeは設計上、原本ファイルへタグを書き込みません。通常は上のNextcloudの「MP3タグ編集」（`shake_tags`）を使います。サーバー上でまとめて処理したい場合のために、JSONマニフェスト式のコマンド（`edit-tags.py`）も残しています。以下は配備先（media-01では `/opt/media-stack`）で実行します。
 
 ```bash
 cp music-tools/tags.example.json music-tools/tags.local.json
@@ -65,6 +81,7 @@ sudo docker compose --env-file music-tools/.env -f music-tools/compose.yaml -f m
 - MusicBrainzで見つからない曲は既存タグとファイル名で整理し、それも無い曲は移動せず「未解決」として一覧になります。
 - カバーは Cover Art Archive → iTunes(JP) → Deezer → 既存のFolder.jpg の順に取得します。誤った画像を付けないよう、候補がしきい値未満なら付けずに未取得として記録します。
 - 日本語ゲームBGMなど自動で見つからない作品は `music-tools/organize-aliases.json` にアルバム/フォルダ単位の対応（アルバム名・作曲者・MusicBrainzリリースID・iTunes検索語）を書いて再実行します。
+- 同名の別バージョン（ライブ、別録音）や同名の別楽曲を誤って一致させることがあります。ファイル長とMusicBrainz録音長の差などで要チェック一覧を作り、Nextcloudの「MP3タグ編集」で直したあと、`plan --no-lookup` で再整理するとMusicBrainzに上書きされません。
 
 ## BCSTMを聴く
 

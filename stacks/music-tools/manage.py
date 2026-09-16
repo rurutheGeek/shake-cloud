@@ -9,6 +9,9 @@ def compose(*args,locked=True,**kw):
  env=dict(os.environ)
  env['CONVERTER_CODE_SHA']=hashlib.sha256((ROOT/'convert.py').read_bytes()+(ROOT/'bcstm_pcm.py').read_bytes()).hexdigest()
  env['TAG_API_CODE_SHA']=hashlib.sha256((ROOT/'tag_api.py').read_bytes()).hexdigest()
+ # 辞書は単一ファイルの bind mount なので、置き換えても稼働中コンテナには
+ # 反映されない（古い inode を見続ける）。内容をハッシュに含めて再作成させる。
+ env['KHINSIDER_CODE_SHA']=hashlib.sha256((ROOT/'khinsider.py').read_bytes()+(ROOT/'khinsider-ja.json').read_bytes()).hexdigest()
  ports=ROOT.parent/'sso/ports.env'
  if ports.exists():
   for line in ports.read_text().splitlines():

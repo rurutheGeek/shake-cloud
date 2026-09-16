@@ -2,176 +2,160 @@
 
 更新日: 2026-09-13
 
-このページは、「このホームラボで何をしているのか」を1枚で伝えるための**詳細版**です。使っているツール、サービス間の連携、自作している部分、実機の構成、いまの制約までを書きます。**Proxmox VE の1台の上に役割ごとのVMを分け、自作のプライベートクラウド `shakecloud` でVM・S3・データベース・関数を払い出し、共通ログインを Authentik に集約し、常用サービス・メディア・家電・監視を家庭内LANのHTTPS名から使っています。**
+正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
-- 実機のVM・IP・状態の正本: [クラウド開発の引き継ぎとTODO](operations/handover.md)（配備台帳）
-- サービスを探す入口: [接続先一覧（URL・アドレス）](operations/urls.md)
+このページは「このホームラボで何をしているのか」を1枚で伝える詳細版です。**Proxmox VE の1台に役割ごとのVMを分け、自作のプライベートクラウド `shakecloud` でVM・S3・DB・関数を払い出し、共通ログインを Authentik に集約し、メディア・家電・監視を家庭内LANのHTTPS名から使っています。自作部分はクラウドだけではありません（§2）。**
+
+- VMの配分・電源・状態の正本: [クラウド開発の引き継ぎとTODO](operations/handover.md)（配備台帳）
+- サービスを探す入口: [接続先一覧](operations/urls.md)・[Homarr](https://homarr.apextox.dpdns.org)
 - 誰が何を作るかの境界: [IaCの所有境界](architecture/iac.md)
 - 作業IDごとの計画: [機能別VMと並列開発計画](development/index.md)
 - 秘密値の置き場所: [秘密値の管理（SOPS + age）](operations/secrets.md)
 
-## 1. 概要
+## 1. 全体像（役割とVM）
 
-物理ホストは Proxmox VE の1台だけで、その上に「基盤VM（`platform` プール）」と「利用者・サービスVM（`cloud` プール）」を分けて載せています。基盤VMは Terraform が作り、ゲストの中は Ansible が整え、Kubernetes のアプリは Flux と Git から配ります。自作部分の中心は `cloud/` の **shakecloud**（Go の REST API・OpenAPI・PostgreSQL の管理DB・セルフサービスポータル・CLI・Terraform Provider）で、AWS の語彙で VM・S3・database・function の4機能を操作できます。認証は identity VM の Authentik に集約し、招待・メール復旧・Email OTP・パスキーを `stacks/identity/` のコードで自動化しています。常用サービスは services-01、メディアは media-01、監視は monitor-01、ゲームとAIは game1 に分け、すべて `*.apextox.dpdns.org` のHTTPS名で家庭内LANから使います。
-
-## 2. 全体構成図
-
-読み方のポイントは3つです。**上から下へ「物理 → 基盤VM → 入口 → 自作クラウド → アプリ群」**の順です。**shakecloud は cloud-01 で動き、利用者VMを作る側なので `cloud` プールには置きません。** **HTTPSの入口は1台に集めず、各VMの Caddy が自分の名前だけを受けます。**
+読み方は「**役割ごとにVMを分ける → VMの中でサービスを分ける**」の1つだけです。HTTPSの入口は別VMではなく、**各VMのCaddy** が自分の名前だけを受けます（§13）。
 
 ```mermaid
 flowchart TB
-  user["家庭内LANの端末<br/>ブラウザ・スマホアプリ・SSH"]
+  devices["家庭内LANの端末"]
 
-  subgraph pve["Proxmox VE ホスト apextox<br/>Ryzen 9 8945HS・RAM 59.7GiB・SSD 1TB"]
-    subgraph platform["基盤VM platform プール"]
-      identity["identity 110<br/>Authentik 共通ログイン"]
-      cloud01["cloud-01 140<br/>クラウドAPIと管理DB"]
-      services01["services-01 150<br/>常用サービス・台帳・文書"]
-      s3["storage-s3 130<br/>Garage S3"]
-      k8scp["k8s-cp-01 200<br/>control plane・etcd"]
-      k8sw1["k8s-worker-01 210<br/>AWX・database・function"]
-      k8sw2["k8s-worker-02 211<br/>予備・停止中"]
+  subgraph host["物理ホスト apextox（Proxmox VE）"]
+    subgraph infra["基盤VM platform プール"]
+      identity["identity<br/>共通ログイン"]
+      cloud01["cloud-01<br/>自作クラウド"]
+      services01["services-01<br/>台帳・docs・パスワード・家電"]
+      storage["storage-s3<br/>S3とバックアップ"]
+      k8s["k8s-cp/worker<br/>AWX・DB・関数"]
     end
-    subgraph cloudpool["クラウドVM cloud プール"]
-      media["media-01<br/>メディア一式"]
-      monitor["monitor-01 5002<br/>監視一式"]
-      game["game1 100<br/>ゲーム・AI・GPUパススルー"]
-      win11["win11pro 5000<br/>検証・停止中"]
-      holder["shakecloud-volumes 5997<br/>ボリューム保持・停止中"]
+    subgraph svcpool["サービスVM cloud プール"]
+      media["media-01<br/>メディア"]
+      monitor["monitor-01<br/>監視"]
+      game["game1<br/>ゲーム・AI（GPU）"]
     end
   end
 
-  subgraph entry["名前とHTTPSの入口"]
-    dns["Cloudflare DNS<br/>内部IPをAレコードで登録"]
-    tls["各ホストのCaddy<br/>Let's Encrypt DNS-01"]
-  end
-
-  subgraph shake["自作クラウド shakecloud"]
-    api["Go REST API<br/>OpenAPIが正本"]
-    portal["セルフサービスポータル"]
-    cli["CLI"]
-    provider["Terraform Provider"]
-    adb["PostgreSQL 管理DB<br/>アカウント・監査ログ"]
-    features["VM・S3・database・function"]
-  end
-
-  subgraph k8s["Kubernetes 1.36.4"]
-    cilium["Cilium 1.20.1<br/>kube-proxy置換"]
-    flux["Flux 2.9.5 + SOPS"]
-    awx["AWX 24.6.1"]
-    cnpg["CloudNativePG 1.30.0"]
-    knative["Knative 1.23 + Kourier"]
-    metallb["MetalLB 0.16.1"]
-    certmgr["cert-manager 1.21.2"]
-    localpath["local-path 永続化"]
-  end
-
-  subgraph common["services-01 の常用サービス"]
-    netbox["NetBox 台帳"]
-    docs["Shake Lab Docs"]
-    homarr["Homarr 入口"]
-    vault["Vaultwarden"]
-    ha["Home Assistant 2026.9.2"]
-    eufyws["eufy-security-ws 中継"]
-    cups["CUPS 印刷"]
-  end
-
-  subgraph mediastack["media-01 のメディア"]
-    nextcloud["Nextcloud<br/>Calendar・Tasks・Text"]
-    kavita["Kavita"]
-    navidrome["Navidrome<br/>Subsonic API入口"]
-    freshrss["FreshRSS<br/>共有RSSタイムライン"]
-    metube["MeTube・変換・タグAPI"]
-    localsend["LocalSend 受信・送信"]
-  end
-
-  subgraph home["家電と印刷"]
-    eufy["Eufy eufyCam S4・SmartTrack"]
-    switchbot["SwitchBot Hub Mini<br/>鍵・ドア・赤外線"]
-    printer["Canon TS8430"]
-  end
-
-  subgraph store["ストレージとバックアップ"]
-    garage["Garage v2.4.1<br/>単一ノード RF1"]
-    r2["Cloudflare R2<br/>Terraform state"]
-    mediaDisk["media-01 データディスク<br/>OS32GiB＋データ64GiB"]
-    adbBackup["管理DBの日次バックアップ"]
-  end
-
-  subgraph mon["監視 monitor-01"]
-    prom["Prometheus"]
-    alert["Alertmanager"]
-    grafana["Grafana"]
-    exporters["node・pve・nut・blackbox"]
-    peanut["PeaNUT"]
-  end
-
-  user --> dns
-  dns --> tls
-  tls --> identity
-  tls --> cloud01
-  tls --> services01
-  tls --> media
-  tls --> monitor
-  cloud01 --> api
-  portal --> api
-  cli --> api
-  provider --> api
-  api --> adb
-  api --> features
-  features --> media
-  features --> monitor
-  features --> game
-  features --> win11
-  features --> holder
-  features --> garage
-  features --> k8scp
-  identity --> services01
-  identity --> media
-  identity --> monitor
-  services01 --> netbox
-  services01 --> docs
-  services01 --> homarr
-  services01 --> vault
-  services01 --> ha
-  services01 --> cups
-  services01 --> eufyws
-  k8scp --> cilium
-  k8scp --> flux
-  k8scp --> metallb
-  k8scp --> certmgr
-  k8scp --> localpath
-  k8sw1 --> awx
-  k8sw1 --> cnpg
-  k8sw1 --> knative
-  flux --> awx
-  flux --> cnpg
-  flux --> knative
-  k8sw2 -.予備.- k8sw1
-  ha --> eufyws
-  ha --> eufy
-  ha --> switchbot
-  eufyws --> eufy
-  cups --> printer
-  media --> nextcloud
-  media --> kavita
-  media --> navidrome
-  media --> freshrss
-  media --> metube
-  media --> localsend
-  nextcloud --> cups
-  nextcloud --> localsend
-  media --> mediaDisk
-  s3 --> garage
-  adb --> adbBackup
-  monitor --> prom
-  monitor --> alert
-  monitor --> grafana
-  monitor --> exporters
-  monitor --> peanut
+  devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
+  devices --> media
+  devices --> monitor
+  devices --> game
+  cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
+  services01 --> storage
+  media --> storage
+  monitor --> k8s
 ```
 
-補足の小さな図です。クラウドの入口は3つあり、裏のAPI・認証・アクセスキーは共通です。
+| 役割 | VM（プール） | 配分（計画。実機は台帳） | 中身 |
+| --- | --- | --- | --- |
+| 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
+| 共通ログイン | identity（platform） | 2 / 4GiB / 32GiB | Authentik。SSO・招待・復旧 |
+| 自作クラウド | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル |
+| 台帳・docs・パスワード・家電 | services-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | NetBox・Shake Lab Docs・Homarr・Vaultwarden・Home Assistant・Eufy中継・CUPS |
+| S3・バックアップ | storage-s3（platform） | 2 / 1GiB / OS16＋データ32GiB | Garage（S3互換） |
+| クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
+| メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
+| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana |
+| ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
+| 復旧経路 | net-01（cloud） | 1 / 512MiB / OS10GiB | Tailscale subnet router。宅外から管理LANへ（N02） |
+| 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
+| 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
+| 利用者VM（例） | win11pro（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
+
+VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](architecture/operations.md)）。
+
+## 2. 自作しているもの（OSSとの分担）
+
+既製ソフトはそのまま使い、**足りない部分・運用の自動化・機器連携を自作**しています。クラウドだけではありません。
+
+| 自作部分 | 場所 | 何をする |
+| --- | --- | --- |
+| shakecloud | `cloud/` | VM・S3・DB・関数を払い出すAPI、OpenAPI、CLI、Terraform Provider、ポータル（§5） |
+| identityの運用自動化 | `stacks/identity/` | グループ・OIDCクライアント・招待フロー・メール復旧・Email OTP・パスキーを冪等に整える（§4） |
+| Nextcloud連携アプリ | `stacks/media/nextcloud/apps/` | `shake_print`（印刷）・`shake_localsend`（送信）・`shake_tags`（タグ編集） |
+| 印刷・転送の橋渡し | `stacks/print-api/`・`stacks/localsend-send/` | Nextcloud → CUPS の自作API、Nextcloud → 端末のLocalSend送信 |
+| 音楽ライブラリの整理 | `stacks/music-tools/`（`tag_api.py`・`organize.py`・同期） | タグ編集API、ライブラリ整理（plan/apply/undo）、同期 |
+| FreshRSSの共有タイムライン | `stacks/media/freshrss/extensions/` | 全員で1つの購読リストを共有する system 拡張 `SharedFeeds` |
+| Home AssistantのSSO・配備 | `stacks/home-assistant/` | OIDC統合の版固定導入、逆プロキシ設定、バックアップ、Eufy統合の導入（§6・§8） |
+| Eufy中継の運用 | `stacks/eufy-security-ws/` | 中継コンテナの構成、資格情報のSOPS受け渡し、セッション・CAPTCHA時の復旧手順 |
+| 監視の設定 | `stacks/monitoring/` | Prometheusのスクレイプ・アラート、blackboxのHTTPS監視、UPS・PeaNUT連携（§9） |
+| デプロイ・検証ツール | `tools/`・`tests/`・`.github/workflows/` | Terraform/k8s/devvmラッパー、実機プローブ、公開前検査、ユニットテスト（§14） |
+
+```mermaid
+flowchart LR
+  oss["既製OSS<br/>Authentik・Proxmox・Kubernetes・<br/>Nextcloud・Garage・Wolfなど"]
+  self["自作レイヤ<br/>shakecloud・運用自動化・<br/>連携アプリ・検証ツール"]
+  ops["このホームラボの運用<br/>役割ごとのVMとSSO"]
+
+  oss --> ops
+  self --> ops
+  self -. "OSSを設定・接続" .-> oss
+```
+
+## 3. 物理ホスト（apextox）
+
+```mermaid
+flowchart TB
+  host["apextox<br/>Proxmox VE 9.2.2"]
+  platform["platform プール<br/>基盤VM"]
+  dev["dev プール<br/>開発VM"]
+  lab["lab プール<br/>検証VM"]
+  cloud["cloud プール<br/>サービスVMと利用者VM"]
+  tf["Terraform<br/>基盤VMを作る"]
+  shake["shakecloud Provider<br/>cloudプールを作る"]
+  netbox["NetBox<br/>IP採番の正本"]
+
+  host --> platform
+  host --> dev
+  host --> lab
+  host --> cloud
+  tf --> platform
+  shake --> cloud
+  netbox --> tf
+  netbox --> shake
+```
+
+| 項目 | 実測（2026-09-12、I01） |
+| --- | --- |
+| CPU | Ryzen 9 8945HS、8コア/16スレッド |
+| RAM | Proxmoxの認識で 59.7GiB（64GB公称からファーム・iGPU予約を引いた値） |
+| SSD | CT1000E100SSD8 1TB。SMART PASSED、Percentage Used 0% |
+| VMディスク | `local-lvm` 794.3GiBのうち使用 226.7GiB（29%）。シンプロビジョニング |
+| イメージ・ISO置き場 | `local` / `cloud-images` 約94GiBのうち使用 22.0GiB |
+| 稼働中VMの割当合計 | 35.1GiB。ホストの空き 25.4GiB |
+
+**GPUは game1 へパススルー**しており、ゲーム配信と将来のローカルAI・RAGで共有します（§10）。停止中も含めた全VMの割当合計は物理RAMを超えるため、全台同時起動はできません。メモリはバルーニングを前提に「ノードに4GiB残す」「ディスク実使用率85%で断る」の2つでホストを守ります。
+
+## 4. 共通ログイン（identity・VMID 110）
+
+```mermaid
+flowchart LR
+  user["利用者"]
+  ak["Authentik<br/>identity・VMID 110"]
+  oidc["OIDCアプリ<br/>クラウド・Homarr・Grafana・<br/>Nextcloud・Kavita・FreshRSSなど"]
+  forward["Forward Auth<br/>Navidrome・MeTube・CUPS"]
+  passkey["パスキー・Email OTP<br/>パスワード再設定"]
+
+  user --> ak
+  ak --> oidc
+  ak --> forward
+  ak --> passkey
+```
+
+Authentik（既製）を identity VM に置き、**その設定を自作コードで冪等に整えます**。グループは `users`（一般）と `admins`（管理者）の2つだけです。
+
+- `configure.py`: OIDCクライアントとForward Auth、`sub` は `user_uuid`、Kavita・Vaultwarden向けの検証済みメール用スコープマッピング。
+- `invitations.py`: 招待専用フロー。1回限り・24時間で、ユーザー名・メール・グループは招待側が固定。SMTP（Gmail）で送り、送れなければリンクを0600で保存。
+- 復旧: Email OTP とパスワード再設定フロー。パスキーを失ってもメールコードで通過できます。
+- パスキー: パスワードレス有効。登録は `auth.apextox.dpdns.org` の名前に結び付きます。
+
+| アプリ | 主な方式 |
+| --- | --- |
+| クラウド・Homarr・Grafana・Vaultwarden・NetBox | OIDC |
+| Home Assistant | OIDC（community統合。緊急用ローカルも残す） |
+| Nextcloud・Kavita・FreshRSS | 各アプリのOIDC |
+| Navidrome・MeTube・CUPS | Forward Auth（APIは自前認証を分離） |
+
+## 5. 自作クラウド shakecloud（cloud-01）
 
 ```mermaid
 flowchart LR
@@ -179,10 +163,11 @@ flowchart LR
   portal["ポータル"]
   cli["CLI"]
   tf["Terraform Provider"]
-  api["shakecloud API<br/>OIDCセッションまたはBearer sca_"]
+  api["shakecloud API<br/>OIDC または sca_ キー"]
+  db["PostgreSQL 管理DB"]
   proxmox["Proxmox<br/>VM・ボリューム・SG"]
-  garage["Garage<br/>S3バケット・キー"]
-  k8sapi["Kubernetes<br/>CloudNativePG・Knative"]
+  garage["Garage<br/>バケットとS3キー"]
+  k8s["Kubernetes<br/>database・function"]
 
   user --> portal
   user --> cli
@@ -190,320 +175,361 @@ flowchart LR
   portal --> api
   cli --> api
   tf --> api
+  api --> db
   api --> proxmox
   api --> garage
-  api --> k8sapi
+  api --> k8s
 ```
 
-## 3. 物理・仮想化
-
-Proxmox ホストは `apextox`（Proxmox VE 9.2.2）です。管理画面は `https://pve.apextox.dpdns.org:8006`、IP直は `https://192.168.10.126:8006` です。
-
-| 項目 | 実測（2026-09-12、I01） |
-| --- | --- |
-| CPU | Ryzen 9 8945HS、8コア/16スレッド |
-| RAM | Proxmoxの認識で **59.7GiB**（64GB公称からファーム・iGPU予約を引いた値） |
-| SSD | CT1000E100SSD8 1TB。SMART PASSED、Percentage Used 0% |
-| VMディスク | `local-lvm` 794.3GiBのうち使用 226.7GiB（29%）。シンプロビジョニング |
-| イメージ・ISO置き場 | `local` / `cloud-images` 約94GiBのうち使用 22.0GiB |
-| 稼働中VMの割当合計 | 35.1GiB。ホストの空き 25.4GiB |
-
-**停止中も含めた全VMの割当合計は物理RAMを超えるため、全台同時起動はできません。** メモリはバルーニングを前提に「ノードに4GiB残す」「ディスク実使用率85%で断る」の2つでホストを守ります（[配分と運用設計](architecture/operations.md)）。
-
-VMIDの範囲は `platform/terraform/pools.yaml` が正本です。基盤 `platform` 100–399、開発 `dev` 400–499、検証 `lab` 900–999、`cloud` 5000–5999 です。`hosts.yaml` は基盤VM専用で、サービスVMは `platform/terraform/services/<name>/` の shakecloud Provider 宣言で作ります（[サービスの置き場所](operations/services.md)）。
-
-| VMID | 名前 | IP | 役割 | 状態 |
-| --- | --- | --- | --- | --- |
-| 100 | game1 | 192.168.10.127 | Bazziteのゲームサーバ。GPUパススルー hostpci0/1。`cloud` プール | 稼働。APIが `shunyazhiyuan97` の `i-bec54e3a0169b3660` として引き取り済み |
-| 110 | identity | 192.168.10.204 | Authentik。SSOの土台なので常時起動 | 稼働 |
-| 130 | storage-s3 | 192.168.10.206 | Garage。OS16GiB＋データ32GiB | 稼働。S3 `:3900`、管理API `:3903` |
-| 140 | cloud-01 | 192.168.10.205 | クラウドAPIと管理DB。利用者VMを作る側 | 稼働。ポータルは `https://cloud.apextox.dpdns.org` |
-| 150 | services-01 | 192.168.10.200 | NetBox・docs・Homarr・Vaultwarden・CUPS・Home Assistant・Eufy中継 | 稼働 |
-| 200 | k8s-cp-01 | 192.168.10.207 | Kubernetes control plane・etcd | 停止中（2026-09-12 12:46に正常停止） |
-| 210 | k8s-worker-01 | 192.168.10.209 | AWX・CloudNativePG・Knative | 停止中 |
-| 211 | k8s-worker-02 | 192.168.10.208 | 予備。OS32＋データ48GiB | 停止のまま。使うときは容量を確認して起動・join |
-| 400 | dev-a | 192.168.10.202 | 開発VM | 稼働。2vCPU/6GiB（下限2GiB） |
-| 401 | dev-b | 192.168.10.203 | 開発VM・自動化の実行ホスト | 稼働。2vCPU/6GiB（下限2GiB） |
-| 900 | probe-01 | 192.168.10.201 | 復元ドリル用の使い捨てVM | 停止中 |
-| 5000 | win11pro | 192.168.10.100 | Windows 11 の検証VM | 停止中 |
-| 5002 | monitor-01 | 192.168.10.102 | Prometheus・Alertmanager・Grafana・exporter | 稼働。`https://grafana.apextox.dpdns.org` |
-| API採番 | media-01 | 192.168.10.101 | Nextcloud・Kavita・Navidrome・FreshRSS・MeTube・LocalSend | 稼働。`i-a06df9a2dfd1ce6db`、4vCPU/6GiB、OS32＋データ64GiB |
-| 5997 | shakecloud-volumes | — | デタッチしたボリュームの待機先。起動しない | 停止。APIが初回のボリューム作成時に作る |
-
-タイムゾーンは **コードと実機が食い違っています**。`common` ロールの既定は `Etc/UTC` で、常用VMは手動で `Asia/Tokyo` にした状態です。次に `common` ロールを流すとUTCへ戻るため、JSTに揃える場合は先に既定値を直します（台帳の「ゲストのタイムゾーン」）。
-
-## 4. 自作しているもの
-
-### 4.1 shakecloud（`cloud/`）
-
-AWS の語彙・状態遷移・フィールド名に揃えた自作のプライベートクラウドです。ワイヤ互換（SigV4や本物の `aws` CLI）は作らず、**`cloud/openapi/shakecloud.yaml` が API の正本**です。Go のルート表との一致は `routes_test.go` が検査します。
+AWS の語彙・状態遷移・フィールド名に揃えた自作のプライベートクラウドです。**`cloud/openapi/shakecloud.yaml` がAPIの正本**で、Go のルート表との一致をテストが検査します。
 
 | 部分 | 置き場所 | 中身 |
 | --- | --- | --- |
-| API | `cloud/api` | Go 1.27・標準 `net/http`・`pgx`・`go-oidc`。OpenAPIからのコード生成はしない。CSRFは `http.CrossOriginProtection` |
-| API定義 | `cloud/openapi/shakecloud.yaml` | 45パスの正本。認証・エラーコード・フィールドを定義 |
-| 管理DB | `cloud/compose.yaml` | PostgreSQL 18。起動時にadvisory lock下でマイグレーション `0001`〜`0011` を適用 |
-| ポータル | `cloud/api/internal/server/web` | `html/template` と素のJS。VM・ボリューム・SG・イメージ・ISO・SSH鍵・アクセスキー・バケット・S3キー・database・function・容量・上限・履歴 |
-| CLI | `cloud/cli` + `cloud/client` | 標準ライブラリのみ。`instance`・`volume`・`sg`・`image`・`key`・`access-key`・`bucket`・`s3-key`・`database`・`function`・`capacity`・`limits`・`events`・`identity` |
-| Terraform Provider | `cloud/provider` | terraform-plugin-framework。`shakecloud_*` の10リソースとデータソース `shakecloud_caller_identity` |
-| 配備 | platform/ansible/roles/cloud_api + cloud.yml | cloud-01 の `/opt/cloud-stack`。`render_site.py` が Terraform の宣言から `site.json` を生成 |
-| 監査ログ | 管理DB | 追記専用（トリガーで UPDATE/DELETE/TRUNCATE を拒否）。`GET /v1/audit-events` とポータルの「履歴」 |
+| API | `cloud/api` | Go・標準 `net/http`・`pgx`・`go-oidc`。CSRFは `http.CrossOriginProtection` |
+| 管理DB | `cloud/compose.yaml` | PostgreSQL。起動時にマイグレーションを適用 |
+| ポータル | `cloud/api/internal/server/web` | VM・ボリューム・SG・イメージ・ISO・SSH鍵・アクセスキー・バケット・S3キー・database・function・容量・上限・履歴 |
+| CLI | `cloud/cli` + `cloud/client` | 標準ライブラリのみ。instance・volume・sg・image・key・access-key・bucket・s3-key・database・function・capacity・limits・events・identity |
+| Terraform Provider | `cloud/provider` | `shakecloud_*` のリソースとデータソース |
+| 配備 | `platform/ansible/roles/cloud_api` | cloud-01 の `/opt/cloud-stack` |
 
-**4機能**はすべて API・CLI・Provider・ポータルで揃っています。
+提供する4機能はすべて API・CLI・Provider・ポータルで揃っています。
 
 | 機能 | 実体 | できること |
 | --- | --- | --- |
-| VM（EC2相当） | Proxmox | 作成・電源・コンソール・サイズ変更・削除・既存VMの引き取り。IPはNetBoxから採番 |
+| VM | Proxmox | 作成・電源・コンソール・サイズ変更・削除・既存VMの引き取り。IPはNetBoxから採番 |
 | ボリューム / セキュリティグループ | Proxmox | 追加ディスクの作成・接続・拡張・デタッチ、受信/送信ルール |
-| バケット | Garage | バケットとS3キーの作成、キーごとの読み書き・所有者権限 |
+| バケット | Garage | バケットとS3キーの作成、キーごとの権限 |
 | database | CloudNativePG | PostgreSQLクラスタの作成、接続情報の発行 |
 | function | Knative | コンテナイメージからサーバレスHTTPを作成しURLを発行 |
 
-主な設計上の決めごとです。
+設計上の決めごとの要点: 認証はOIDCとアクセスキー `sca_<keyid>.<secret>` の2経路。**VMは全員に見え、操作は所有者と `admins` だけ**。サイズは自由入力で、vCPU・メモリ変更は停止中のみ。イメージは12GiBまでAPIへ直接アップロード。WebコンソールはnoVNCを同梱（CDN不使用）。上限と容量は `platform/terraform/cloud.yaml` を既定に `admins` が上書きでき、「ノードに4GiB残す」「ディスク85%」の保護は常に効きます。詳細は[最小クラウドとProvider](architecture/cloud.md)にあります。
 
-- **認証は2経路。** ブラウザは Authentik の OIDC。機械はポータルで発行するアクセスキー `sca_<keyid>.<secret>` を `Authorization: Bearer` で送ります。アクセスキーの発行はポータルのログインからだけで、キーでは別のキーを作れません。1アカウント5本までで、削除は行を残して無効化します。Authentikユーザー1人＝1アカウントです。
-- **VMは全員に見え、操作は所有者と `admins` だけ。** 1台のホストを分け合うため、誰が何を動かしているか全員に見えます。他人のVMへの電源操作・削除は403です。
-- **サイズは自由入力。** `vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定でき、`instance_type`（`flavors.yaml` の名前）は値を埋める近道です。vCPU・メモリの変更は停止中のみ、ディスクは稼働中も拡大のみ、変更は `admins` だけです。
-- **イメージはAPIへの直接アップロード。** 1本12GiBまで。Proxmoxが長さの分からない本文を拒否するため、cloud-01 のディスクへ一度書いてから流します。WindowsはUEFI・TPM 2.0・q35で作り、ISO方式と共有イメージ方式の2経路があります（[Windows 11 ProのVMを作る](operations/windows.md)）。
-- **WebコンソールはnoVNC 1.7.0を同梱**（CDN不使用）。5分有効・アカウントに結び付いたURLを発行し、ページを開くたびにProxmoxの新しいチケットを取ります。WebSocketはAPIが中継し、フレームは解釈せず双方向コピーだけします。
-- **上限と容量。** 既定は `platform/terraform/cloud.yaml`（1アカウント8台・32vCPU・32GiB・ディスク1000GiB、クラウド全体のメモリ枠32GiBなど）で、`admins` が実行中に上書きできます。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねます。`0` は無制限ですが、「ノードに4GiB残す」「ディスク実使用率85%」は無制限にしても効きます。
-- **後始末を漏らさない。** 作成に失敗しても同じ経路で片付け、Terminateは成功するまで諦めません。外での電源変更には追従しますが、消えて見えるVMは消しません（403なら周回ごと中止）。VMIDは隔離し、プローブ用5998・5999とボリューム保持VM 5997は払い出しません。
-- **ポータルのフロント。** 2026-09-12の[Web GUI監査・改善案](audits/webgui-2026-09-12.md)に沿って、送信ロック・入力保持・検索・アップロード段階表示・アクセシビリティを改善しました。新しいJSビルド基盤は増やしていません。
+## 6. services-01（台帳・docs・パスワード・家電）
 
-### 4.2 identityの運用自動化（`stacks/identity/`）
+```mermaid
+flowchart LR
+  caddy["Caddy<br/>services-01"]
+  netbox["NetBox<br/>台帳"]
+  docs["Shake Lab Docs<br/>nginx"]
+  homarr["Homarr<br/>入口ダッシュボード"]
+  vault["Vaultwarden"]
+  ha["Home Assistant"]
+  eufy["eufy-security-ws"]
+  cups["CUPS・print-api"]
 
-Authentik 自体は公式イメージですが、**グループ・OIDCクライアント・招待・復旧をコードで冪等に整える部分が自作**です。配備のたびに `manage.py configure` が走り、2回目はすべて `OK:` になります。
+  caddy --> netbox
+  caddy --> docs
+  caddy --> homarr
+  caddy --> vault
+  caddy --> ha
+  caddy --> cups
+  ha --> eufy
+```
 
-- `configure.py`: グループ `users`・`admins`、OIDCクライアント（`cloud`・`homarr`・`grafana`・`vaultwarden`・`netbox`、HA用の公開クライアント `home-assistant`、Nextcloud・Kavita・FreshRSS のクライアント、Navidrome・MeTube・CUPS のForward Auth）、`sub` は `user_uuid`。KavitaとVaultwardenが要求する「検証済みメール」用の独自スコープマッピングも作ります。
-- `invitations.py`: 招待専用フロー `cloud-invitation-enrollment` の作成・発行・一覧・失効。**1回限り・24時間**で、ユーザー名・メール・所属グループは招待側が固定し、本人が決めるのは12文字以上のパスワードだけです。SMTP（Gmail `shake.notify@gmail.com`）で招待メールを送り、送れなければリンクを0600で保存します（[SMTPとメール送信](operations/smtp.md)）。
-- 復旧: **メール確認コード**（Email OTP）と**パスワード再設定フロー**を用意。パスキーを失ってもメールコードでログイン検証を通過できます。`akadmin` の復旧先は `SMTP_FROM` です。
-- パスキー: **パスワードレス有効**。識別ステージのWebAuthn設定で、ログイン画面にパスキーの自動入力が出ます。詳しい運用手順は[認証基盤（identity・Authentik）](operations/identity.md)。
-
-### 4.3 Home Assistant のSSOと家電連携（`stacks/home-assistant/`）
-
-HAコアはOIDC非対応のため、コミュニティ統合 `hass-oidc-auth` v1.2.1 を**版とSHA256を固定**して入れ、Authentikの公開クライアント（PKCE・秘密値なし）でログインを併設しています。緊急用のローカルオーナーは残します。逆プロキシの信頼設定はHA 2026.9以降 `.storage/http` が正本のため、`manage.py ensure-http-proxy` が `trusted_proxies`（compose固定サブネットのゲートウェイ `172.31.254.1`）を直接反映します。`manage.py install-integration` はEufy統合 `eufy_security` v8.2.4 の導入も行います。
-
-### 4.4 Eufy中継（`stacks/eufy-security-ws/`）
-
-EufyクラウドへログインしてP2Pで機器へつなぐ `bropat/eufy-security-ws` 3.1.0 を中継として動かし、HAは `eufy_security` からWebSocketで接続します。中継はLANへ公開せず、HAのComposeネットワーク内の `eufy-security-ws:3000` だけに届かせます。資格情報はSOPS（`platform/sops/eufy-security.sops.yaml`）から `.env` へ写し、2FAの信頼済み端末セッションは `/srv/services/eufy-security-ws/data` に保存します。現状の可否は「家電」の節に書きます。
-
-### 4.5 Nextcloudの自作アプリと印刷（`stacks/media/nextcloud/apps/`）
-
-Nextcloud のファイル一覧に、自作アプリ `shake_print`（「…」→「印刷」）・`shake_localsend`（「…」→「LocalSendで送る」）・`shake_tags`（「…」→「タグを編集」。MusicBrainz検索つき）を入れています（`1.0.5`）。イメージは固定のまま、htmlボリュームの `custom_apps` へ配備します。
-
-印刷は media-01 → services-01 の `print-api`（`stacks/print-api/`、`:6320`、トークン認証＋送信元をmedia-01だけに限定、最大50MiB）→ CUPS `ts8430` の順で流します。タグ編集のバックエンドは music-tools の `tag_api.py` で、変更前のタグは `storage/tags/tag-backups/` に残します。
-
-### 4.6 ドキュメントと検証ツール（`tools/`・`.github/workflows/`）
-
-この文書サイト自体が成果物です。MkDocs のビルドを Ansible が実行し、`--strict` でリンク切れがあれば配る前に止めます。Mermaid は同梱JSでオフライン描画します（`docs/assets/js/`）。検証ツールは「文書では分からない実機の事実」を機械で確かめるために自作しています。
-
-| ツール | 何をする |
-| --- | --- |
-| `tools/tf` | Terraformラッパー。SOPSの資格情報だけを環境変数で渡し、基盤モジュールと `services/*` のstateを切り替える |
-| `tools/k8s` | k8s VMの起動・停止・状態表示。`hosts.yaml` から対象を読むので宣言とずれない |
-| `tools/devvm` | 開発VMの電源操作とSSH。権限は VM.Audit / VM.PowerMgmt / VM.Console だけ |
-| `tools/site-yaml.py` | Proxmox APIか survey 出力から `site.yaml` を生成。手書きをなくす |
-| `tools/ensure-secrets.py` | 秘密値を生成してSOPSで暗号化。既存値は作り直さない |
-| `tools/trim-vms.py` | 再生成できる容量（ビルドキャッシュ・apt）の回収。既定は確認のみ |
-| `tools/verify-cloud.py` | Proxmox実機プローブ4つ（空き容量・ISO・プール境界・noVNC）。**絞った `cloudapi@pve` で走らせる** |
-| `tools/verify-instances.py` | VM作成→SSHログイン→削除のE2E。残骸があれば失敗 |
-| `tools/verify-volumes.py` | ボリューム・セキュリティグループのE2E。実際の遮断・許可まで見る |
-| `tools/pve-restore-drill.sh` | Proxmoxホスト上でのバックアップ・復元ドリル。復元VMはNICを切断して起動 |
-| `tools/check-publication.py` | 公開前の秘密値・禁止パス検査 |
-| `tools/render-architecture-diagrams.py` | Mermaid原稿を自己完結SVGへ描画 |
-
-## 5. 認証・台帳・ドキュメント
-
-### 5.1 Authentik（identity・VMID 110）
-
-共通ログインの入口は `https://auth.apextox.dpdns.org`（`:9000`・`:9443` は127.0.0.1に閉じています）。Kubernetesの外に置き、クラスタ更新中でもログインできます。グループは `users`（一般）と `admins`（管理者）の2つだけです。
-
-| アプリ | 入口 | SSOの方式 |
-| --- | --- | --- |
-| クラウド | `https://cloud.apextox.dpdns.org` | OIDC |
-| Homarr | `https://homarr.apextox.dpdns.org` | OIDC（閲覧 `users`・編集 `admins`） |
-| Grafana | `https://grafana.apextox.dpdns.org` | OIDC（`admins`=Admin・`users`=Viewer） |
-| Home Assistant | `https://ha.apextox.dpdns.org` | OIDC（`hass-oidc-auth`・公開クライアント） |
-| Vaultwarden | `https://vault.apextox.dpdns.org` | OIDC |
-| NetBox | `https://netbox.apextox.dpdns.org` | OIDC |
-| Nextcloud | `https://nextcloud.apextox.dpdns.org` | OIDC（`user_oidc`） |
-| Kavita | `https://kavita.apextox.dpdns.org` | 組み込みOIDC |
-| FreshRSS | `https://freshrss.apextox.dpdns.org` | ネイティブOIDC |
-| Navidrome | `https://navidrome.apextox.dpdns.org` | Forward Auth（Subsonic API用にSSOなしの `navidrome-api` を分離） |
-| MeTube | `https://metube.apextox.dpdns.org` | Forward Auth |
-| CUPS | `https://cups.apextox.dpdns.org` | Forward Auth（`/admin` は入口で拒否） |
-
-AWX と Proxmox はまだSSOに接続していません。招待・復旧・パスキーの運用は[認証基盤（identity・Authentik）](operations/identity.md)、利用者向けは[共通ログインの使い方](services/identity.md)にあります。
-
-### 5.2 NetBox（services-01・台帳）
-
-VM・インターフェース・IP・タグの台帳です。`10-platform` が Terraform でIP Rangeとタグを作り、Ansible の動的インベントリ（`platform/ansible/inventory.netbox.yml`）とクラウドAPIが読みます。
-
-| 用途 | トークン | 権限 |
-| --- | --- | --- |
-| Ansibleインベントリ | `netbox-inventory.sops.yaml` | 読み取り専用 |
-| Terraform | `netbox.sops.yaml` | `dcim`・`virtualization`・`ipam`・`tenancy`・`extras` の書き込み |
-| クラウドAPI | `cloudapi.sops.yaml` | `virtualization`・`ipam` |
-| NetBoxのSSO | `netbox.sops.yaml` のOIDC秘密 | Authentikの `netbox` クライアントと対 |
-
-`http://192.168.10.200:8000` はツール用に開いたままです（HTTPS名へ寄せて閉じるのは残作業）。
-
-### 5.3 ドキュメントサイト（services-01）
-
-`https://docs.apextox.dpdns.org` で、原稿はこのリポジトリの `docs/` が正本です。Ansible が実行側で `mkdocs build --strict` を行い、変わりないページは再配布しません（タイムスタンプを落として差分を取る）。配るのは nginx のコンテナだけで、中身はHTMLです。直アクセスの `:8090` は残作業で閉じます。
-
-## 6. Kubernetes・自動化
-
-Kubernetes は `k8s-cp-01` と worker で組んだ kubeadm クラスタです。データベース提供と関数実行の基盤として使い、**現在は3台とも停止しています**（電源状態は配備台帳が正本）。[Kubernetes クラスタ](operations/kubernetes.md)の手順に従い、容量を確認して `tools/k8s up` から再開します。
-
-| 役割 | ソフト | 備考 |
-| --- | --- | --- |
-| クラスタ | Kubernetes 1.36.4・containerd 2.3.5 | Pod CIDR `10.244.0.0/16`、Service CIDR `10.96.0.0/12` |
-| CNI | Cilium 1.20.1 | kube-proxyを置き換え。Helm導入 |
-| 永続化 | local-path-provisioner v0.0.37 | PVC用 |
-| LoadBalancer | MetalLB 0.16.1（L2） | `192.168.10.240–249` |
-| 証明書 | cert-manager v1.21.2 | 自前CA `shakecloud-ca` とCloudflare DNS-01の `letsencrypt-dns` |
-| GitOps | Flux 2.9.5 + SOPS | `main` の `platform/flux` を監視。秘密値はageで復号 |
-| Ansible実行 | AWX 24.6.1（Operator 2.19.1） | `https://awx.apextox.dpdns.org`。ジョブ整備はこれから（[AWXの使い方](operations/awx.md)） |
-| DB提供 | CloudNativePG 1.30.0 | `databases` namespace。APIのServiceAccountは最小RBAC |
-| 関数 | Knative 1.23 + Kourier | 関数URLは `https://<name>.functions.k8s.apextox.dpdns.org`（ワイルドカード証明書） |
-
-Flux のルート `platform/flux/kustomization.yaml` は**列挙したものだけ**を適用し、各アプリは子 Kustomization がパス指定で適用します。AWX・CNPG・Knative は Git にコミットするとFluxが反映します。`sops-age` の復号鍵だけはGitに置けないため、人がSecretとして入れます。
-
-## 7. 常用サービス（services-01）
-
-services-01（192.168.10.200）はホームラボの常用サービスの置き場です。各サービスは別々のComposeプロジェクトで、ポートは127.0.0.1に閉じ、入口は同じホストの Caddy です。
-
-| サービス | 中身 | 入口・認証 |
-| --- | --- | --- |
-| NetBox | VM・IP・タグの台帳 | `https://netbox.apextox.dpdns.org`（OIDC。直 `:8000` も存続） |
-| Shake Lab Docs | この文書サイト（nginx） | `https://docs.apextox.dpdns.org`（認証なし・LAN内） |
-| Homarr | サービスの入口ダッシュボード。タイルと権限を `apps.json` から冪等反映 | `https://homarr.apextox.dpdns.org`（OIDC。ローカル管理者は復旧用） |
-| Vaultwarden | パスワード管理。一般登録と組織招待は無効 | `https://vault.apextox.dpdns.org`（OIDC。`/admin` はSSH転送のみ） |
-| Home Assistant | 家電の操作・自動化 | `https://ha.apextox.dpdns.org`（OIDC＋緊急用ローカル） |
-| eufy-security-ws | EufyクラウドとHAのWebSocket中継 | LAN非公開。HAのComposeネットワーク内 `eufy-security-ws:3000` |
-| CUPS | Canon TS8430への印刷中継。キュー `ts8430`、IPP Everywhere | 印刷は `192.168.10.200:631`（LAN/VPN）、状況は `https://cups.apextox.dpdns.org` |
-| print-api | Nextcloudの「印刷」を受けてCUPSへ流す自作API | `:6320`（トークン＋media-01のみ） |
-| セルフホストVPN | NetBirdを第一候補として検討中 | 未配備（[N01](development/N01-vpn.md)） |
-
-### ゲーム・AI（game1）
-
-game1（VMID 100、192.168.10.127）は Bazzite のゲームサーバで、GPUをパススルーしています。もとは手動で作ったVMですが、2026-09-11 に `cloud` プールへ移し、クラウドAPIが利用者のインスタンスとして引き取りました。ゲーム配信（Wolf・Azahar）は計画段階、RomM（`stacks/romm/` のComposeは実装済み・game1への配備は未実施）、共有Ollama（`stacks/pokemon-ai/ollama/` 実装済み・実機未確認）、ポケモンAI・汎用RAG・Discord Bot は外部コードとデータ待ちです。VMを停止するとゲーム・AI・Bot・ライブラリも止まります（[機能別VMと並列開発計画](development/index.md)）。
-
-## 8. メディア（media-01）
-
-media-01 はクラウドAPIで作った `cloud` プールのVM（`i-a06df9a2dfd1ce6db`、4vCPU/6GiB、OS32GiB＋データ64GiB）です。データディスクは `/srv/media-stack` に ext4 でマウントし、**マウントが完了するまでDockerを起動しません**（未マウントの原本領域へ書かせない）。サービスはすべて `127.0.0.1` に閉じ、同じホストの Caddy がHTTPSとSSOを担います。
+services-01 は「家の台帳と道具」を置くVMです。サービスは別々のComposeプロジェクトで、ポートは127.0.0.1に閉じ、入口は同じVMのCaddyです。
 
 | サービス | 中身 | 認証 |
 | --- | --- | --- |
-| Nextcloud | ファイル共有に加え、Calendar・Tasks・Text を有効化。`/books`・`/music`・`/docs`・`/inbox` を共有ライブラリとして登録 | OIDC（`user_oidc`）＋[権限手順](operations/nextcloud-permissions.md) |
-| Kavita | 電子書籍リーダー。本の原本は読み取り専用。初期管理者とBooksライブラリは `bootstrap.py` が作成 | 組み込みOIDC |
-| Navidrome | 音楽ストリーミング。毎時スキャン・日本語表示。Subsonicクライアント用にSSOなしの入口を分離 | Forward Auth（Web UI）／自前認証（API） |
-| FreshRSS | 全員で1つの購読リストを共有する共通RSSタイムライン。同梱のSharedFeeds拡張が追加・削除を全ユーザーへ同報 | ネイティブOIDC |
+| NetBox | VM・IP・タグの台帳。Ansibleの動的インベントリとクラウドAPIが読む | OIDC |
+| Shake Lab Docs | この文書サイト。原稿はGitの `docs/` が正本で、Ansibleが `mkdocs --strict` で配備 | なし（LAN内） |
+| Homarr | サービスの入口ダッシュボード。タイルと権限をコードから冪等反映 | OIDC（閲覧 `users`・編集 `admins`） |
+| Vaultwarden | パスワード管理。一般登録と組織招待は無効 | OIDC（マスターパスワードは別） |
+| Home Assistant | 家電の操作・自動化 | OIDC＋緊急用ローカル（§8） |
+| eufy-security-ws | EufyクラウドとHAをつなぐWebSocket中継。LAN非公開 | HAのComposeネットワーク内だけ |
+| CUPS・print-api | Canon TS8430への印刷と、Nextcloudの「印刷」を受ける自作API | 端末はIPP、`/admin` は入口で拒否 |
+
+## 7. メディア（media-01）
+
+```mermaid
+flowchart LR
+  caddy["Caddy<br/>media-01"]
+  nextcloud["Nextcloud<br/>ファイル・予定・TODO"]
+  kavita["Kavita<br/>電子書籍"]
+  navidrome["Navidrome<br/>音楽"]
+  freshrss["FreshRSS<br/>共通RSS"]
+  metube["MeTube<br/>取り込み"]
+  music["music-tools<br/>タグ・整理・同期"]
+  localsend["LocalSend<br/>受信と送信"]
+  disk["データディスク<br/>storage と library"]
+
+  caddy --> nextcloud
+  caddy --> kavita
+  caddy --> navidrome
+  caddy --> freshrss
+  caddy --> metube
+  nextcloud --> music
+  nextcloud --> localsend
+  nextcloud --> disk
+  kavita --> disk
+  navidrome --> disk
+  music --> disk
+```
+
+media-01 はクラウドAPIで作った `cloud` プールのVMです。データディスクを `/srv/media-stack` にマウントし、**マウントが完了するまでDockerを起動しません**（未マウントの原本領域へ書かせない）。サービスは127.0.0.1に閉じ、同じVMのCaddyがHTTPSとSSOを担います。
+
+| サービス | 中身 | 認証 |
+| --- | --- | --- |
+| Nextcloud | ファイル共有に加え、Calendar・Tasks・Text。`books`・`music`・`docs`・`inbox` を共有ライブラリとして登録 | OIDC |
+| Kavita | 電子書籍リーダー。原本は読み取り専用 | OIDC |
+| Navidrome | 音楽ストリーミング。Subsonicクライアント用にSSOなしの入口を分離 | Forward Auth／APIは自前認証 |
+| FreshRSS | 全員で1つの購読リストを共有する共通RSS。自作の `SharedFeeds` 拡張が購読を同報 | OIDC |
 | MeTube | 動画・音源の取り込み | Forward Auth |
-| music-tools | 変換ワーカー・タグAPI（`:5810`）・同期。`organize.py` でライブラリを一括整理（plan/apply/undo） | タグAPIはトークン認証 |
-| LocalSend | 受信機（`53317`、着地はNextcloudの `inbox`）と、Nextcloudから端末へ送る送信サービス | 受信機は端末アプリから、送信はNextcloudの「LocalSendで送る」 |
-| Picard | タグ編集はNextcloudの `shake_tags` に統合し、コンテナは2026-09-13に撤去 | — |
+| music-tools | 変換・タグAPI・同期。`organize.py` でライブラリを整理 | タグAPIはトークン |
+| LocalSend | 受信機（着地はNextcloudの `inbox`）と、Nextcloudから端末へ送る自作連携 | 端末アプリ／Nextcloudから |
+| Picard | タグ編集は `shake_tags` に統合し、コンテナは撤去済み | — |
 
-音楽の導線は「MeTubeで取り込む → Nextcloudの `music` に置く → タグを編集する → Navidromeで再生する」です。詳しくは[音楽・取り込み・タグ](services/music.md)、移行の残りは[W03](development/W03-nextcloud.md)〜[W06](development/W06-music-tools.md)にあります。
+導線は「MeTubeで取り込む → Nextcloudの `music` に置く → タグを編集する → Navidromeで再生する」です（[音楽・取り込み・タグ](services/music.md)）。
 
-## 9. 家電
+## 8. 家電（Home Assistant on services-01）
 
-家電の操作は services-01 の Home Assistant Container に集めています。
+```mermaid
+flowchart LR
+  ha["Home Assistant<br/>services-01"]
+  eufyws["eufy-security-ws<br/>中継"]
+  eufy["Eufy<br/>eufyCam S4・SmartTrack"]
+  hub["SwitchBot Hub Mini"]
+  sb["鍵・ドア・赤外線家電"]
+  cups["CUPS"]
+  printer["Canon TS8430"]
+  alexa["Alexa・Echo<br/>見送り"]
+
+  ha --> eufyws
+  eufyws --> eufy
+  ha --> hub
+  hub --> sb
+  ha --> cups
+  cups --> printer
+  eufy -.-> alexa
+  sb -.-> alexa
+```
+
+家電は services-01 の Home Assistant Container に集めています。SSOはAuthentik、遠隔操作は現状LAN内だけです。
 
 | 対象 | 接続 | 現状 |
 | --- | --- | --- |
-| Home Assistant | HA 2026.9.2 をContainerで稼働。`configuration.yaml` はVM上の `/srv/services/home-assistant/config` が正本 | SSO・ローカルオーナー併用。バックアップと復元試験は未完 |
-| Eufy | `eufy-security-ws` 3.1.0 とHA統合 `eufy_security` v8.2.4 | eufyCam S4（T8172、HomeBaseなし・バッテリー、fw 1.1.1.2）と SmartTrack（T87B0）で、ログイン・デバイス一覧・Push・スナップショットは動作し、イベントのHA取り込みは確認中。**ライブ映像はS4の新WebRTC方式のため、現行の公開ソフトでは不可**（2026-09-13に実機で確定。[H04](development/H04-eufy.md)） |
-| SwitchBot | Hub Mini経由のSwitchBot Cloud統合 | 鍵・ドアセンサー・赤外線家電（エアコン・テレビ・照明等）のエンティティを確認。実機操作・状態更新は確認待ち。ローカルBluetoothはUSBドングル未装着のため未使用（[H02](development/H02-switchbot.md)） |
-| プリンター | Canon TS8430 を IPP Everywhere（`-m everywhere`）でCUPSに登録 | LAN/VPNの端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](services/printer.md)） |
-| Alexa / Echo | Home Assistant Cloudの契約も独自Skillの公開入口も作らない | **見送り（2026-09-12決定）**。SwitchBotとEufyは各社のAlexaスキルで操作できる（[H03](development/H03-echo.md)） |
+| Home Assistant | HA 2026.9.2。設定は `/srv/services/home-assistant/config` が正本 | SSO＋緊急用ローカル。バックアップと復元試験は未完 |
+| Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](development/H04-eufy.md)） |
+| SwitchBot | Hub Mini経由のSwitchBot Cloud統合 | 鍵・ドアセンサー・赤外線家電（エアコン・テレビ・照明等）のエンティティを確認。実機操作は確認待ち |
+| プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](services/printer.md)） |
+| Alexa / Echo | Home Assistant Cloudも独自Skillも作らない | 見送り。SwitchBotとEufyは各社のAlexaスキルで操作可能 |
 
-## 10. ストレージとバックアップ
+## 9. 監視（monitor-01）
+
+```mermaid
+flowchart LR
+  pve["Proxmoxホスト<br/>pve-exporter"]
+  ups["UPS<br/>nut-exporter"]
+  vm["各VM<br/>node-exporter"]
+  https["HTTPS名<br/>blackbox"]
+  prom["Prometheus<br/>monitor-01"]
+  alert["Alertmanager<br/>メール通知"]
+  grafana["Grafana<br/>OIDC"]
+  peanut["PeaNUT<br/>HomarrのUPS表示"]
+
+  pve --> prom
+  ups --> prom
+  vm --> prom
+  https --> prom
+  prom --> alert
+  prom --> grafana
+  ups --> peanut
+```
+
+監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。
+
+| 見るもの | 方法 |
+| --- | --- |
+| ProxmoxホストとVM | pve-exporter・node-exporter |
+| UPS | nut-exporter。低電池時のシャットダウンは残作業 |
+| HTTPS名 | blackboxが各名前の疎通と証明書を確認（全24ターゲットup・メール通知1通を実機確認） |
+| Homarr連携 | PeaNUTのUPS表示は残作業 |
+
+## 10. ゲームとAI（game1・GPUパススルー）
+
+game1 は **GPUをパススルーした** `cloud` プールのVMです（8vCPU・現行12GiB、16GiB候補、256GiB）。ゲーム配信と将来のローカルAI・RAGを同じVMで動かし、**GPUを増設したら Ollama と汎用RAGを載せる予定**です（[A02](development/A02-ollama.md)・[A03](development/A03-rag.md)・[G03](development/G03-game-ai-resources.md)）。VMを停止するとゲーム・AI・Bot・ライブラリも止まります。
+
+ゲームスタックは別の開発者が担当し、Ansible（`site.yml` と `roles/*`）が設定・Compose fragment・env を生成して `game-server-next.service` で起動する構成です。構成ファイルはまだ本リポジトリへ取り込まれていません。
+
+```mermaid
+flowchart LR
+  user["利用者<br/>ブラウザ・Moonlight"]
+  ingress["ingress<br/>自作Go・TLS終端"]
+  portal["portal<br/>FastAPI"]
+  rt["runtime-controller<br/>wolf.sockを所有"]
+  wolf["wolf<br/>gamescope・配信"]
+  runner["runner<br/>Azahar・Dolphin・RetroArch・PC"]
+  romm["RomM・MariaDB<br/>共有ライブラリ"]
+  sftpgo["SFTPGo<br/>ROM・セーブ転送"]
+  netdata["Netdata<br/>cgroup監視"]
+  ansible["Ansible<br/>設定生成"]
+
+  user --> ingress
+  ingress --> portal
+  portal --> rt
+  rt --> wolf
+  wolf -- docker.sock --> runner
+  portal --> romm
+  user --> sftpgo
+  ansible -.-> portal
+  ansible -.-> wolf
+  wolf -.-> netdata
+```
+
+- **常駐コンテナ**: ingress（自作Go・CaddyとCloudflare DNSプラグインを自前ビルド、TLS終端と振り分け）、portal（自作FastAPIのモノリス。auth・data・runtime・portal・metricsを同梱）、runtime-controller（Wolfの `wolf.sock` を所有しHTTPで公開）、wolf（本家に独自patchを当てたビルド。gamescope/GStreamer、`docker.sock` 保持）、RomM・MariaDB（既製。共有ライブラリの権威）、SFTPGo（既製）、Netdata（既製）。
+- **runner**: FedoraベースにAzahar・Dolphin・RetroArch・Lutris・Wine・Pegasusを固定版で同梱した自作イメージ。Wolfが `docker.sock` 経由で都度起動し、`RUNNER` で中身を切り替えます。起動ロジックは自作Pythonアダプタがargvを組み立てます。
+- 品質の判定は [G01 Wolf](development/G01-wolf.md)・[G02 Azahar](development/G02-azahar.md)・[W07 RomM](development/W07-romm.md) で管理します。
+
+## 11. Kubernetes（k8s-cp-01 / k8s-worker-01 / k8s-worker-02）
+
+```mermaid
+flowchart TB
+  cp["k8s-cp-01<br/>control plane・etcd"]
+  w1["k8s-worker-01<br/>AWX・DB・関数の実行先"]
+  w2["k8s-worker-02<br/>予備"]
+  cilium["Cilium<br/>CNI"]
+  addons["MetalLB・cert-manager<br/>local-path"]
+  git["Git main<br/>platform/flux"]
+  flux["Flux + SOPS<br/>GitOps"]
+  awx["AWX<br/>Ansible実行"]
+  cnpg["CloudNativePG<br/>クラウドのDB提供"]
+  knative["Knative + Kourier<br/>クラウドの関数実行"]
+
+  cp --> w1
+  cp -.-> w2
+  cp --> cilium
+  cp --> addons
+  git --> flux
+  flux --> awx
+  flux --> cnpg
+  flux --> knative
+  w1 --> awx
+  w1 --> cnpg
+  w1 --> knative
+```
+
+kubeadm＋Ciliumのクラスタです。**自作クラウドの「database」と「function」はここで動く**ため、worker-01 には AWX に加えて CloudNativePG と Knative が載っています。**2026-09-12時点で3台とも停止中**で、使うときは容量を確認して `tools/k8s up` で起動します（[Kubernetes クラスタ](operations/kubernetes.md)）。
+
+| 役割 | ソフト |
+| --- | --- |
+| クラスタ | Kubernetes・containerd |
+| CNI | Cilium（kube-proxyを置き換え） |
+| 永続化 | local-path-provisioner |
+| LoadBalancer | MetalLB（L2） |
+| 証明書 | cert-manager（自前CAとCloudflare DNS-01） |
+| GitOps | Flux + SOPS。`main` の `platform/flux` を適用 |
+| Ansible実行 | AWX（ジョブテンプレートはこれから） |
+| DB提供 | CloudNativePG（`databases` namespace、APIのServiceAccountは最小RBAC） |
+| 関数 | Knative + Kourier（関数URLはHTTPS） |
+
+## 12. ストレージとバックアップ（storage-s3ほか）
+
+```mermaid
+flowchart LR
+  garage["Garage<br/>storage-s3・単一ノード"]
+  r2["Cloudflare R2<br/>Terraform state"]
+  media["media-01の原本<br/>データディスク"]
+  adb["管理DB<br/>日次バックアップ"]
+  cnpg["利用者DB<br/>CloudNativePG"]
+  appstate["各アプリの状態<br/>manage.py backup"]
+  drill["復元演習<br/>隔離して起動"]
+
+  adb --> drill
+  appstate --> drill
+  media --> drill
+  cnpg -.-> garage
+```
 
 | 対象 | 実体 | 注意点 |
 | --- | --- | --- |
-| S3互換ストレージ | Garage v2.4.1 を storage-s3（VMID 130）に単一ノードで。データは専用32GiBディスクの `/srv/garage` | **replication factor 1で冗長性なし。唯一の保存先・唯一のバックアップにしない**（[Garage](operations/garage.md)） |
-| Terraform state | Cloudflare R2。基盤は `shake-cloud/<module>/`、サービスは `shake-cloud/services/<name>/` | 条件付き書き込みのロックを実機確認済み。stateには秘密値が平文で入り得るのでGitへ入れない（[Terraformの実行](operations/terraform.md)） |
-| media-01 の原本 | データディスク64GiBを `/srv/media-stack` にマウント。`storage/`（設定・DB）と `library/`（books・music・docs・inbox） | volumeは `prevent_destroy`。アプリのバックアップに原本は含まない |
-| 管理DB | cloud-01 の `cloud-backup.timer` が毎日03:40に `manage.py backup --keep 14` を実行し `/var/backups/cloud-api` へ | **同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手**（[O01](development/O01-cloud-backup.md)） |
-| 利用者DB | CloudNativePGのクラスタ | バックアップは未整備（[O02](development/O02-cnpg-backup.md)） |
-| アプリ状態 | 各スタックの `manage.py backup` がサービスを止めて `state.tar`・`deployment.tar` を取る | 復元は同じCPUアーキテクチャへ、空のディレクトリへ（[O03](development/O03-restore.md)） |
-| 復元演習 | `tools/pve-restore-drill.sh` が別VMIDへ戻し、NICを切断して起動する | ツールの存在だけで復元合格とは扱わない。外部保全先の確定が前提 |
+| S3互換ストレージ | Garageをstorage-s3に単一ノードで | **冗長性なし。唯一の保存先・唯一のバックアップにしない** |
+| Terraform state | Cloudflare R2 | stateには秘密値が入り得るためGitへ入れない |
+| メディア原本 | media-01のデータディスク。`storage/`（設定・DB）と `library/`（books・music・docs・inbox） | volumeは `prevent_destroy`。アプリのバックアップに原本は含まない |
+| 管理DB | cloud-01で毎日バックアップ（14世代） | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
+| 利用者DB | CloudNativePG | バックアップは未整備 |
+| アプリ状態 | 各スタックの `manage.py backup` がサービスを止めて取得 | 復元は空のディレクトリへ。外部保全先の確定が前提 |
 
-方針は「**失っても Git・外部state・バックアップから隔離復元できる**」ことです。同じSSD上のVMコピーは物理障害対策として数えず、Garageをstateの唯一の保管先にもしません。
+方針は「**失っても Git・外部state・バックアップから隔離復元できる**」ことです。同じSSD上のVMコピーは物理障害対策として数えません。
 
-## 11. ネットワークと公開範囲
+## 13. ネットワークと公開範囲（全VM共通）
 
-家庭内LANは `192.168.10.0/24`（ゲートウェイ `.1`）です。用途ごとにレンジを分け、管理用とクラウド用は重ねません（`platform/terraform/network.yaml` が正本）。
+```mermaid
+flowchart TB
+  lan["家庭内LAN"]
+  dns["Cloudflare DNS<br/>内部IPを名前で引く"]
+  caddy["各VMのCaddy<br/>Let's Encrypt DNS-01"]
+  fixed["基盤VM<br/>静的割り当て"]
+  cloudips["サービスVM・利用者VM<br/>APIが採番"]
+  metallb["MetalLB<br/>KubernetesのLB"]
+  tailscale["net-01<br/>Tailscale subnet router（N02）"]
+  vpn["セルフホストVPN<br/>未構築"]
 
-| レンジ | 用途 |
-| --- | --- |
-| `.200`–`.239` | 基盤VMの静的割り当て。`.200` services-01、`.201` probe-01、`.202`/`.203` dev-a/dev-b など |
-| `.240`–`.249` | MetalLB（KubernetesのLoadBalancer） |
-| `.100`–`.180` | クラウドAPIが利用者VMへ実行時に採番 |
-| `.127` | game1（NetBoxに予約済みで新規VMには払い出さない） |
+  lan --> caddy
+  dns --> caddy
+  caddy --> fixed
+  caddy --> cloudips
+  lan --> metallb
+  tailscale -.-> fixed
+  tailscale -.-> cloudips
+  vpn -.-> cloudips
+```
 
-- **DNS。** ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、`20-dns` がAレコードを書きます。**Cloudflareの公開DNSに内部IPをそのまま書いており、インターネットへは公開していません。** 外から名前は引けますが届きません。ドメインを持つ目的は、Let's Encryptの証明書をDNS-01で取るためです。
-- **TLS。** 各ホストの Caddy（`stacks/tls-proxy/`）が、自分のホスト宛の名前だけを受けて `127.0.0.1` のサービスへ中継します。証明書はDNS-01で取得し、CloudflareのトークンはそのゾーンのDNS編集だけに絞っています。1台に集めないのは、認証基盤を他のホストの障害に巻き込まないためです。
-- **ポート。** identity・cloud-01 のサービス自身のポートは127.0.0.1に閉じています。NetBox `:8000` とdocs `:8090` はまだ開いており、HTTPS名へ寄せて閉じるのが[N05](development/N05-https.md)です。CUPSの `/admin` は入口で拒否します。
-- **LANの外。** 公開Web入口は作っておらず、VPNも未構築です。復旧用に既存ラズパイのTailscale経由で管理LANへ戻る計画（[N02](development/N02-tailscale.md)）がありますが、DNSとサブネットルートは未確認です。TailscaleのCGNAT帯 `100.64.0.0/10` からはCUPSの印刷を許可しています。
-- **VLAN計画。** 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画です。切替は `network.yaml` の `vlan_id` と `cloud.prefix`／レンジを埋めるだけで行い、bridgeがVLAN非対応のまま設定した場合はTerraformがplanを止めます。物理スイッチ・ルーターの作業待ちです（[VLAN 分離への切替](operations/vlan.md)）。
-- **既知の障害。** クラウドの `.100`–`.180` がルーターのDHCP配布範囲と重なっており、2026-09-12に他端末が media-01 のIPを取得して到達不能になりました。VMを増やす前に解消が必要です。media-01 ではルーターのIPv6がインターネットへ通らないため、IPv6を無効化してDockerをIPv4に揃えています。
+- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**各VMのCaddy**（`stacks/tls-proxy/`）が自分の名前だけを受けて `127.0.0.1` のサービスへ中継します。証明書はDNS-01で取得。**入口を1台に集めない**のは、認証基盤を他ホストの障害に巻き込まないためです。
+- **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
+- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として cloud VM `net-01` の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[net-01（Tailscale subnet router）](operations/net.md)・[N02](development/N02-tailscale.md)。
+- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画です。物理スイッチ・ルーターの作業待ちです（[N03](development/N03-vlan.md)）。
+- **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。net-01 作成前に確認）。
 
-## 12. 開発・運用の進め方
+## 14. 開発・運用の進め方（dev-a・dev-b）
 
-**コードで管理できるものはすべてコードにします。** 手順書に一度きりのGUI操作を書いて済ませず、残った手作業は[初回セットアップの順番](operations/bootstrap.md)に理由付きで列挙しています。
+```mermaid
+flowchart LR
+  tf["Terraform<br/>基盤VM・台帳・DNS"]
+  ansible["Ansible<br/>ゲストの中"]
+  flux["Flux + SOPS<br/>Kubernetes"]
+  shake["shakecloud<br/>cloudプール"]
+  tests["テストとCI<br/>unittest・yamllint・<br/>mkdocs strict・公開検査"]
+  docs["計画と台帳<br/>docs/development・handover"]
+
+  tf --> ansible
+  ansible --> flux
+  shake --> ansible
+  tests --> docs
+  docs --> tf
+```
+
+**コードで管理できるものはすべてコードにします。** 残った手作業は[初回セットアップの順番](operations/bootstrap.md)に理由付きで列挙しています。
 
 | 対象 | 道具 | 原則 |
 | --- | --- | --- |
-| 基盤VM・台帳・DNS | Terraform（`platform/terraform/*.yaml`） | 秘密でない宣言はGitのYAML。tfvarsを使わない。`site.yaml` は実機から生成 |
-| ゲストの中 | Ansible（`platform/ansible/`） | NetBoxの動的インベントリと、クラウドVM用の `inventory.cloud.py`。再実行で `changed=0` を目指す |
-| Kubernetes | Flux + SOPS | `main` の `platform/flux` を監視。秘密値はageで暗号化 |
-| クラウド | shakecloud API・CLI・Provider | `services/<name>/` は1サービス1 state。Providerの資格情報はstateへ書かない |
-| 秘密値 | SOPS + age（`platform/sops/`） | すべて自動生成し、人に鍵を作らせない。復号鍵は作業機とクラスタにだけ置く |
+| 基盤VM・台帳・DNS | Terraform（`platform/terraform/*.yaml`） | 秘密でない宣言はGitのYAML。`site.yaml` は実機から生成 |
+| ゲストの中 | Ansible（`platform/ansible/`） | NetBoxの動的インベントリと、cloud VM用の `inventory.cloud.py`。再実行で変更ゼロを目指す |
+| Kubernetes | Flux + SOPS | `main` の `platform/flux` を適用。秘密値はageで暗号化 |
+| クラウド | shakecloud API・CLI・Provider | 1サービス1 state。Providerの資格情報はstateへ書かない |
+| 秘密値 | SOPS + age（`platform/sops/`） | 自動生成し、復号鍵は作業機とクラスタにだけ置く |
 
-検査はCIと同じものを手元で流せます。**どれも「差分なし・変更ゼロ・PASS・200」が正常です。**
+作業は[機能別VMと並列開発計画](development/index.md)のID（W・A・G・H・N・I・M・O・D）で管理し、**仕様と進捗の正本は個別計画書、実機の配備結果は[配備台帳](operations/handover.md)** に記録します。計画の作成を配備済みとは扱いません。検査は `python3 -m unittest discover -s tests`、`yamllint`、`mkdocs build --strict`、`tools/check-publication.py`、Goの `vet`・`test`、実機E2E（`tools/verify-*.py`）をCIと同じように手元で流せます。
 
-| 検査 | コマンド・場所 |
-| --- | --- |
-| 単体テスト（46件のテストモジュール） | `python3 -m unittest discover -s tests` |
-| Python構文・YAML構文 | CIで全トラッキングファイルを検査 |
-| YAML Lint | `.venv/bin/yamllint -c .yamllint .` |
-| ドキュメント | `.venv/bin/mkdocs build --strict` |
-| 公開チェック | `python3 tools/check-publication.py` |
-| Terraform | `terraform fmt -check -recursive` と各ルートの `validate`（Terraform 1.15.8） |
-| Go | `gofmt -l cloud`、`cloud/api`・`cloud/client`・`cloud/cli`・`cloud/provider` の `go vet`・`go test` |
-| GitHub Actions | `.github/workflows/validate.yml`（PostgreSQL 18のサービス付き） |
-| 実機E2E | `tools/verify-cloud.py`・`verify-instances.py`・`verify-volumes.py` |
-
-作業は[機能別VMと並列開発計画](development/index.md)の42件のID（W01〜W07・A01〜A05・G01〜G03・H01〜H04・N01〜N05・I01〜I06・M01・O01〜O03・D01〜D08）で管理し、**仕様と進捗の正本は個別計画書、実機の配備結果は[配備台帳](operations/handover.md)** に記録します。計画の作成を配備済みとは扱いません。
-
-## 13. 既知の制約とこれから
+## 15. 既知の制約とこれから
 
 | 項目 | 現状 | これから |
 | --- | --- | --- |
-| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可と確定 | イベント・スナップショットでの運用を維持。フル実装は工数大のため保留（[H04](development/H04-eufy.md)） |
-| VPN | 未構築。LANの外からは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](development/N01-vpn.md)） |
-| 復旧用Tailscale | ラズパイ経由の経路はあるが、DNSとサブネットルートの合格が未確認 | 管理LANの範囲だけを広告し、設定の退避・切戻しを文書化（[N02](development/N02-tailscale.md)） |
-| VLAN分離 | 宣言と安全装置・手順は用意済み。`vlan_id` は未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](development/N03-vlan.md)） |
+| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](development/H04-eufy.md)） |
+| VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](development/N01-vpn.md)） |
+| 復旧用Tailscale | **subnet router `net-01` を作成しTailscaleへ参加済み（2026-09-14、`100.91.7.69`）**。ルート承認・ACL・宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](development/N02-tailscale.md)・[net.md](operations/net.md)） |
+| VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](development/N03-vlan.md)） |
 | 管理DBの外部バックアップ | ローカルに14世代。外部コピーなし | 別ディスク・別機器への暗号化コピーと復元照合（[O01](development/O01-cloud-backup.md)） |
-| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL、外部コピー（[O02](development/O02-cnpg-backup.md)） |
-| 復元の合格 | ツールはあるが、アプリ横断の隔離復元は未合格 | 原本・state・秘密を一組として復元手順を確定（[O03](development/O03-restore.md)） |
-| 監視（M01） | Prometheus・Grafana・exporterは稼働。全24ターゲットup・メール通知1通を確認 | 低電池シャットダウンとダッシュボード拡充（[M01](development/M01-monitoring.md)） |
-| メディアのデータ移行 | media-01への配備は完了。実データの移行とブラウザでのログイン実測が未完 | W03〜W06の手順で移行し、容量を再測定（[W06](development/W06-music-tools.md)） |
-| LocalSendの実送受信 | 受信機は配備済み。端末アプリからの実送受信が未確認 | 公式アプリで送受信を確認（[D06](development/D06-localsend.md)） |
+| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](development/O02-cnpg-backup.md)） |
+| 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](development/O03-restore.md)） |
+| 監視（M01） | Prometheus・Grafana・exporterは稼働 | 低電池シャットダウンとダッシュボード拡充、Homarr連携（[M01](development/M01-monitoring.md)） |
+| メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](development/W06-music-tools.md)） |
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](development/H01-home-assistant.md)） |
-| NetBox/docsの直ポート | NetBox `:8000` とdocs `:8090` をツール用に開いたまま | HTTPS名へ寄せて閉じる（[N05](development/N05-https.md)） |
-| AWXの運用 | 本体は配備済み。ジョブテンプレートは未登録 | NetBoxインベントリ・EE・ジョブを整備（[I06](development/I06-awx.md)） |
-| 公開Web入口 | 要件検討中。public-edgeは未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](development/N04-public-edge.md)） |
-| DHCP範囲の重なり | クラウドの `.100`–`.180` がルーターの配布範囲と重複 | VMを増やす前にルーター側を除外するかレンジを移す |
-| タイムゾーン | 宣言は `Etc/UTC`、実機は手動で `Asia/Tokyo` | `common` ロールの既定を直してから配備しないとUTCへ戻る |
-| パスキー | 有効。ドメイン名に結び付く | `auth.apextox.dpdns.org` を変える場合は登録し直し |
-| 無料ドメイン | `apextox.dpdns.org` の更新・取消規則は未確認 | 使えなくなった場合は有料ドメインへ移行（候補 `ruruthegeek.org`） |
+| Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](operations/kubernetes.md)） |
+| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](development/N04-public-edge.md)） |
+| DHCP範囲の重なり | クラウド用レンジがルーターの配布範囲と重複 | VMを増やす前にルーター側を除外するかレンジを移す |
+| タイムゾーン | 宣言はUTC、実機は手動でJST | `common` ロールの既定を直してから配備しないとUTCへ戻る |
 
 ## 関連ページ
 
-- 使い方（利用者向け）: [全サービスの使い方](services/usage.md)・[クラウドの使い方](services/cloud.md)・[Nextcloudの使い方](services/nextcloud-guide.md)・[Home Assistantと家電の使い方](services/home-assistant.md)・[プリンター](services/printer.md)・[共通RSSタイムライン](services/rss.md)
-- 構築・運用（管理者向け）: [サービスの置き場所とクラウドVM](operations/services.md)・[認証基盤](operations/identity.md)・[Kubernetes クラスタ](operations/kubernetes.md)・[Flux にアプリを足す](operations/flux-apps.md)・[Terraformの実行](operations/terraform.md)・[Garage](operations/garage.md)・[NetBoxの使い方](operations/netbox.md)・[電源とUPS](operations/power.md)
+- 使い方（利用者向け）: [全サービスの使い方](services/usage.md)・[クラウドの使い方](services/cloud.md)・[Nextcloudの使い方](services/nextcloud-guide.md)・[Home Assistantと家電の使い方](services/home-assistant.md)・[プリンター](services/printer.md)
+- 構築・運用（管理者向け）: [サービスの置き場所とクラウドVM](operations/services.md)・[認証基盤](operations/identity.md)・[Kubernetes クラスタ](operations/kubernetes.md)・[Terraformの実行](operations/terraform.md)・[Garage](operations/garage.md)・[NetBoxの使い方](operations/netbox.md)・[電源とUPS](operations/power.md)
 - 設計: [最小クラウドとProvider](architecture/cloud.md)・[ネットワーク・公開範囲・SSO](architecture/network-auth.md)・[IaCの所有境界](architecture/iac.md)・[配分と運用設計](architecture/operations.md)

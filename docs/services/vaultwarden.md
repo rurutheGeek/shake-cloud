@@ -15,7 +15,9 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 <a id="sso-login"></a>
 ## identityのOIDCでログインする手順
 
-この環境はVaultwarden 1.37.2 / Web Vault 2026.7.0で、組み込みOIDC（SSO）を有効化しています。通常の新規アカウント作成はidentityの招待を使います（[共通ログインの使い方](identity.md)）。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
+この環境はVaultwarden 1.37.3 / Web Vault 2026.7.0で、組み込みOIDC（SSO）を有効化しています。通常の新規アカウント作成はidentityの招待を使います（[共通ログインの使い方](identity.md)）。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
+
+**Vaultwardenの保管庫はidentityのアカウントごとに別々に作られます。** ブラウザーに共通ログイン（Authentik）のセッションが残っていると、「シングルサインオンを使用する」を押した時点で**そのセッションのアカウント**（例: 管理用の `akadmin`）として認証され、本人の保管庫ではなく新しい保管庫の作成／マスターパスワード設定画面が出ます。本人のアカウントで入るには、先にAuthentikからサインアウトするか、プライベートウィンドウでメール欄に自分のメール（例: `ruru2028@gmail.com`）を入れてSSOします。
 
 1. ブラウザーで `https://vault.apextox.dpdns.org/` を開く（services-01。Let's Encrypt。Bitwardenのクラウドサイトから始めない）。
 2. 画面に見えるメール欄へidentityに登録したメールを入力し、「シングルサインオンを使用する」を押す。
@@ -26,11 +28,9 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 
 ### 「SSO識別子」を求められたら
 
-これはidentityのユーザー名やパスワード、OIDCのclient secretではありません。通常のメール入力から進む画面では自動取得されます。`/#/sso`の直接アクセスやクライアントによって手入力を求められた場合に使う値は、**新しいservices-01のサーバーでは未確認です。画面に表示される値を使ってください。** 任意の文字列で進める版もありますが、初回保管庫作成時に組織識別子との不一致を起こす可能性があるため、画面の表示へ揃えます。これは公開値で、認証用秘密値ではありません。[導入版のSSO識別子実装](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/sso.rs)、[組織識別子応答](https://github.com/dani-garcia/vaultwarden/blob/1.37.2/src/api/core/organizations.rs)
+これはidentityのユーザー名やパスワード、OIDCのclient secretではありません。通常のメール入力から進む画面では自動取得されます。`/#/sso`の直接アクセスやクライアントによって手入力を求められた場合に使う値は、**新しいservices-01のサーバーでは未確認です。画面に表示される値を使ってください。** 任意の文字列で進める版もありますが、初回保管庫作成時に組織識別子との不一致を起こす可能性があるため、画面の表示へ揃えます。これは公開値で、認証用秘密値ではありません。[導入版のSSO識別子実装](https://github.com/dani-garcia/vaultwarden/blob/1.37.3/src/sso.rs)、[組織識別子応答](https://github.com/dani-garcia/vaultwarden/blob/1.37.3/src/api/core/organizations.rs)
 
 ### 確認済みのエラーと対応
-
-**ブラウザーでのSSOログインとマスターパスワードの設定・保管庫の作成は、新しいサーバーではまだ実測していません。** 実際の画面表示が異なる場合は管理者へ伝えてください。
 
 | 症状 | 原因・対応 |
 | --- | --- |
@@ -41,6 +41,8 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 | 証明書／issuer／discoveryエラー | HTTPS入口、CA信頼、Vaultwarden内部からのissuer到達を確認 |
 | マスターパスワードを求められる | 通常の復号手順。identityのパスワードを入れる場面ではない |
 | 最初は入れるがしばらくすると失敗 | OIDCセッション・refresh token・時刻を確認。`offline_access`を追加済み |
+| **毎回「マスターパスワードの設定／新規登録」画面が出る** | 別のidentityアカウント（多くは管理用の`akadmin`）のセッションでSSOしている。そのアカウントの保管庫はマスターパスワード未設定のため毎回この画面になる。Authentikからサインアウトするか、プライベートウィンドウで自分のメールを入れてSSOする（2026-09-14対応） |
+| マスターパスワードを設定すると422エラー | 1.37.1／1.37.2の不具合（`missing field newMasterPasswordHash`）。1.37.3で修正済み。`stacks/vaultwarden/compose.yaml`の版が1.37.3以上か確認する |
 
 サーバーは `SSO_ENABLED=true`、`SSO_SCOPES=email profile offline_access`、`SSO_PKCE=true`を使用します。Authentikの既定emailスコープは `email_verified=false` を返すため、identityに `Verified Email` スコープマッピング（`email_verified: true`）を用意してプロバイダへ適用し、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` も設定しています（2026-09-13。招待はメール宛リンクで本人確認しています）。ローカル登録は`SIGNUPS_ALLOWED=false`、既存保管庫へのメール一致だけの紐付けは`SSO_SIGNUPS_MATCH_EMAIL=false`のままです。通常のローカル登録と、認可済みSSOによる初回作成は別経路です。
 

@@ -76,6 +76,12 @@
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/metube.svg"
   },
   {
+    "name": "KHInsider",
+    "href": "https://khinsider.apextox.dpdns.org",
+    "description": "KHInsiderのアルバムをまとめて取り込む",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz.svg"
+  },
+  {
     "name": "Picard",
     "href": "https://picard.apextox.dpdns.org",
     "description": "音楽タグの編集（GUI）",

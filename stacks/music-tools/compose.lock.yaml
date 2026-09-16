@@ -5,3 +5,4 @@ services:
     image: ghcr.io/alexta69/metube@sha256:397778fccf13d83adf9325fe813b260617a082d1772aff6d678c5b9256dd01fb
   tagger: *id001
   tag-api: *id001
+  khinsider: *id001

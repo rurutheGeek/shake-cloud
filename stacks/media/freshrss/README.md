@@ -55,7 +55,9 @@ sudo python3 manage.py down
 
 `init` は `.env.example` から `.env` を作り、0600 にします。秘密値は `secrets/` に生成し（0600のディレクトリ、0400のファイル）、`manage.py` が環境変数として Compose へ渡します。`.env` には秘密値を置きません。OIDC クライアントの `secrets/oidc_client.json` は identity 側から Ansible が配ります。
 
-`feeds.opml` は共通タイムラインの初期フィード（ゲーム・IT・ポケモンの3タイムライン。サブレディットも各カテゴリへ振り分け）です。`up` の最後に**一度だけ**既定ユーザー（`akadmin`）へ取り込みます。以後の追加・削除は FreshRSS の画面から全員で行い、SharedFeeds 拡張が反映します。取り込み済みかは `secrets/feeds_seeded` で管理するため、再配備で消したフィードが復活しません。
+`feeds.opml` は共通タイムラインの初期フィード（ゲーム・IT・ポケモンの3タイムライン＋サブレディットをまとめた **Reddit**＋追加候補を試す **Review**）です。`up` の最後に**一度だけ**既定ユーザー（`akadmin`）へ取り込みます。以後の追加・削除は FreshRSS の画面から全員で行い、SharedFeeds 拡張が反映します。取り込み済みかは `secrets/feeds_seeded` で管理するため、再配備で消したフィードが復活しません。
+
+> `xmlUrl` は**リダイレクト後の正規URL**を書くこと。FreshRSS は取得後に正規URLを保存するため、違うURLで再インポートすると重複する（2026-09-13に5組発生）。
 
 ## バックアップと復元
 

@@ -12,6 +12,7 @@ const FIELDS = [
 	['discnumber', 'ディスク番号'],
 	['date', '年'],
 	['genre', 'ジャンル'],
+	['comment', 'コメント（備考）'],
 ]
 
 const toast = (method, message) => {
@@ -47,7 +48,7 @@ async function openEditor(fileId) {
 	return new Promise((resolve) => {
 		const overlay = element('div', '', 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center')
 		const box = element('div', '', 'background:var(--color-main-background,#fff);color:var(--color-main-text,#222);padding:20px;border-radius:8px;width:min(520px,92vw);max-height:90vh;overflow:auto')
-		box.appendChild(element('h3', t('shake_tags', 'タグを編集'), 'margin-top:0'))
+		box.appendChild(element('h3', t('shake_tags', 'MP3タグを編集'), 'margin-top:0'))
 		const inputs = {}
 		for (const [key, label] of FIELDS) {
 			const row = element('label', '', 'display:block;margin:6px 0')
@@ -158,7 +159,7 @@ async function openEditor(fileId) {
 
 registerFileAction({
 	id: 'shake-tags',
-	displayName: () => t('shake_tags', 'タグを編集'),
+	displayName: () => t('shake_tags', 'MP3タグを編集'),
 	iconSvgInline: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.42l9 9A2 2 0 0 0 13 22a2 2 0 0 0 1.41-.59l7-7A2 2 0 0 0 21.41 11.58zM6.5 8A1.5 1.5 0 1 1 8 6.5 1.5 1.5 0 0 1 6.5 8z"/></svg>',
 	enabled: ({ nodes }) => nodes.length === 1
 		&& nodes[0].type === FileType.File

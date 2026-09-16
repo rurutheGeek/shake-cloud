@@ -55,6 +55,14 @@ sudo python3 manage.py backup --destination /var/backups/vaultwarden
 - `SSO_ENABLED=true` / `SSO_SCOPES=email profile offline_access` / `SSO_PKCE=true`。
   既存アカウントとのメール一致の自動紐付けは `SSO_SIGNUPS_MATCH_EMAIL=false`、
   Authentikの既定emailスコープは `email_verified` を返さないため、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` でログインを許可します（招待はメール宛リンクで本人確認しています）。
+- **Vaultwarden 1.37.1／1.37.2 はマスターパスワードの設定・変更が422で失敗する**
+  （`missing field newMasterPasswordHash`。SSO初回作成した保管庫はこの設定が必須なので
+  毎回作成画面に戻る）。**1.37.3で修正済み**なので、この版以上を固定します。
+- SSOの保管庫は**identityのアカウント単位**です。ブラウザーに残った別アカウント
+  （管理用 `akadmin` など）のAuthentikセッションでSSOすると、その人の保管庫に入り、
+  未設定なら作成／マスターパスワード画面が出ます。本人の保管庫に入るには
+  Authentikからサインアウトするか、プライベートウィンドウで自分のメールを入れてSSOします
+  （2026-09-14実測。`akadmin` の保管庫は削除し、`ruruthegeek` の1件のみ）。
 - 緊急時のローカルログインを残すため `SSO_ONLY=false` です。Web保管庫の
   「Other／その他」からローカル認証へ切り替えます。
 - 一般登録と組織招待は既定で無効（`SIGNUPS_ALLOWED=false`・`INVITATIONS_ALLOWED=false`）。

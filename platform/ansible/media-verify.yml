@@ -11,7 +11,7 @@
 #   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
 #     -e '{"media_units": ["kavita"]}'
 # music-tools を一部サービスだけ配備した場合は、配備側と同じ
-# music_tools_services（既定: metube, convert, tag-api）を JSON で渡す:
+# music_tools_services（既定: metube, convert, tag-api, khinsider）を JSON で渡す:
 #   -e '{"music_tools_services": ["tag-api"]}'
 #
 # すべて media-01 自身から 127.0.0.1 に対して確認する。ポートは各ユニットの
@@ -22,7 +22,7 @@
   gather_facts: false
   vars:
     media_units: [nextcloud, kavita, navidrome, freshrss, music-tools]
-    music_tools_services: [metube, convert, tag-api]
+    music_tools_services: [metube, convert, tag-api, khinsider]
     media_unit_dirs:
       nextcloud: '{{ project_dir }}/media/nextcloud'
       kavita: '{{ project_dir }}/media/kavita'
@@ -39,7 +39,7 @@
       navidrome: [navidrome]
       freshrss: [freshrss]
     # そのうち healthcheck を持ち、STATUS に (healthy) と出るコンテナの数。
-    # music-tools は convert と tag-api が該当する（assert で計算する）。
+    # music-tools は convert・tag-api・khinsider が該当する（assert で計算する）。
     media_unit_healthy:
       nextcloud: 3
       kavita: 0

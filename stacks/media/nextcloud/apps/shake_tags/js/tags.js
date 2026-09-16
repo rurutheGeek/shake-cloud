@@ -6731,7 +6731,8 @@ ${message.stack}`;
     ["tracknumber", "\u30C8\u30E9\u30C3\u30AF\u756A\u53F7"],
     ["discnumber", "\u30C7\u30A3\u30B9\u30AF\u756A\u53F7"],
     ["date", "\u5E74"],
-    ["genre", "\u30B8\u30E3\u30F3\u30EB"]
+    ["genre", "\u30B8\u30E3\u30F3\u30EB"],
+    ["comment", "\u30B3\u30E1\u30F3\u30C8\uFF08\u5099\u8003\uFF09"]
   ];
   var toast = (method, message) => {
     if (window.OCP?.Toast?.[method]) {
@@ -6762,7 +6763,7 @@ ${message.stack}`;
     return new Promise((resolve) => {
       const overlay = element("div", "", "position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center");
       const box = element("div", "", "background:var(--color-main-background,#fff);color:var(--color-main-text,#222);padding:20px;border-radius:8px;width:min(520px,92vw);max-height:90vh;overflow:auto");
-      box.appendChild(element("h3", translate("shake_tags", "\u30BF\u30B0\u3092\u7DE8\u96C6"), "margin-top:0"));
+      box.appendChild(element("h3", translate("shake_tags", "MP3\u30BF\u30B0\u3092\u7DE8\u96C6"), "margin-top:0"));
       const inputs = {};
       for (const [key, label] of FIELDS) {
         const row = element("label", "", "display:block;margin:6px 0");
@@ -6878,7 +6879,7 @@ ${message.stack}`;
   }
   registerFileAction({
     id: "shake-tags",
-    displayName: () => translate("shake_tags", "\u30BF\u30B0\u3092\u7DE8\u96C6"),
+    displayName: () => translate("shake_tags", "MP3\u30BF\u30B0\u3092\u7DE8\u96C6"),
     iconSvgInline: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.42l9 9A2 2 0 0 0 13 22a2 2 0 0 0 1.41-.59l7-7A2 2 0 0 0 21.41 11.58zM6.5 8A1.5 1.5 0 1 1 8 6.5 1.5 1.5 0 0 1 6.5 8z"/></svg>',
     enabled: ({ nodes }) => nodes.length === 1 && nodes[0].type === FileType.File && (nodes[0].extension || "").toLowerCase().replace(/^\./, "") === "mp3",
     exec: ({ nodes }) => openEditor(nodes[0].fileid),

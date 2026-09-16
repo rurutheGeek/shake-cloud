@@ -33,6 +33,18 @@
 			reverse_proxy {{ site.value.upstream }}
 		}
 {% endif %}
+{% if site.value.static_prefix | default('') %}
+		# 静的な確認ページ（例: /review/）。同じ SSO を通す。
+		handle_path {{ site.value.static_prefix }}/* {
+			forward_auth {{ tls_proxy_authentik_url }} {
+				uri /outpost.goauthentik.io/auth/caddy
+				copy_headers X-Authentik-Username
+				header_up Host {http.request.host}
+			}
+			root * {{ site.value.static_data | default('/data') }}
+			file_server
+		}
+{% endif %}
 		handle {
 			forward_auth {{ tls_proxy_authentik_url }} {
 				uri /outpost.goauthentik.io/auth/caddy

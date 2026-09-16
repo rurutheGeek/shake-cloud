@@ -4,7 +4,7 @@
 
 ## 既存機器の使い方
 
-新規ネットワーク機器の購入は前提にしません。方針は、既存ルータとスイッチを使い、K11のservices-01にセルフホストVPN、ラズパイに予備のTailscale subnet routerとDNS、監視はmonitor-01へ置く構成です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
+新規ネットワーク機器の購入は前提にしません。方針は、既存ルータとスイッチを使い、K11のservices-01にセルフホストVPN、ラズパイに予備のTailscale subnet routerとDNS、監視はmonitor-01へ置く構成です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。**2026-09-14: ラズパイは導入せず、Tailscaleの復旧経路は cloud VM `net-01` で作ります**（[net-01（Tailscale subnet router）](../operations/net.md)）。
 
 ### VPNをラズパイに置く理由と選択肢
 
@@ -69,6 +69,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `kavita.apextox.dpdns.org` | Kavita（media-01） |
 | `navidrome.apextox.dpdns.org` | Navidrome（media-01） |
 | `metube.apextox.dpdns.org` | MeTube（media-01。本体の配備は追加作業） |
+| `khinsider.apextox.dpdns.org` | KHInsiderのアルバム一括ダウンロード（media-01） |
 | `picard.apextox.dpdns.org` | Picard（media-01） |
 | `grafana.apextox.dpdns.org` | Grafana（monitor-01） |
 | `localsend.apextox.dpdns.org` | LocalSend受信機（media-01。Caddyを通さず53317/tcp） |

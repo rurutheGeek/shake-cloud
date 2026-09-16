@@ -1,0 +1,32 @@
+---
+# net-01（Tailscale subnet router）の配備入口。
+#
+# 認証キー（Tailscale）とアクセスキー（クラウドinventory）の2つが要る。
+# どちらもSOPSから復号し、そのプロセスの環境変数としてだけ渡す。
+#
+#   TAILSCALE_AUTH_KEY=$(sops --decrypt --extract '["TAILSCALE_AUTH_KEY"]' platform/sops/tailscale.sops.yaml) \
+#   SHAKECLOUD_ACCESS_KEY=$(sops --decrypt --extract '["SHAKECLOUD_ACCESS_KEY"]' platform/sops/services.sops.yaml) \
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#   .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/net.yml
+#
+# 認証キーは Tailscale の管理画面で発行する（Pre-approved）。推奨は
+# tag:vpn を付けたキー（タグ付き端末はキー期限が無効）。タグなしの場合も、
+# 参加後に管理画面で net-01 の key expiry を Disable にできる。
+#
+# 参加後にやること（管理画面）:
+#   1. Machines で net-01 の Subnet routes に 192.168.10.0/24 を承認
+#   2. ACL で管理端末から 192.168.10.0/24 へのアクセスを許可
+#   3. 使い終えた auth key を失効させる（端末は切断されない）
+#
+# グループ vpn は platform/ansible/inventory.netbox.yml の語彙。対象は
+# platform/ansible/cloud-inventory.yml が instance ID で宣言する。
+- name: Deploy the Tailscale subnet router
+  hosts: vpn
+  become: true
+  vars:
+    # LAN の CIDR は site.yaml が正本。SG（Terraform）と同じ出所を使う。
+    site: "{{ lookup('ansible.builtin.file', playbook_dir + '/../terraform/site.yaml') | from_yaml }}"
+    tailscale_advertise_routes: "{{ [site.network.prefix] }}"
+    # tailscale_advertise_tags: ["tag:vpn"]
+  roles:
+    - tailscale

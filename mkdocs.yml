@@ -69,6 +69,8 @@ nav:
       - Homarrハブ: services/homarr.md
       - Home Assistantと家電の使い方: services/home-assistant.md
       - 音楽・取り込み・タグ: services/music.md
+      - タグ管理（MP3）: services/tags.md
+      - Navidrome改造予定: services/navidrome.md
       - 共通RSSタイムライン: services/rss.md
       - プリンター（Canon TS8430）: services/printer.md
       - 開発VMの使い方: services/devvm.md
@@ -94,6 +96,7 @@ nav:
       - shakecloud Terraform Provider: operations/terraform-provider.md
       - Garage（S3互換ストレージ）: operations/garage.md
       - VLAN 分離への切替: operations/vlan.md
+      - net-01（Tailscale subnet router）: operations/net.md
       - Kubernetes クラスタ: operations/kubernetes.md
       - 電源とUPS: operations/power.md
       - Flux にアプリを足す: operations/flux-apps.md

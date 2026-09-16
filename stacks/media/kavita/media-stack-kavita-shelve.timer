@@ -1,9 +1,9 @@
 [Unit]
-Description=Check loose Kavita books every minute
+Description=Check loose Kavita books every hour
 
 [Timer]
 OnBootSec=2min
-OnUnitInactiveSec=1min
+OnUnitInactiveSec=1h
 Persistent=true
 
 [Install]

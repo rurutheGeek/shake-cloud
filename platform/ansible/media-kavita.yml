@@ -52,7 +52,8 @@
       register: kavita_bootstrap
       changed_when: "'CHANGED:' in kavita_bootstrap.stdout"
     # Kavita はライブラリ直下のファイルを無視し、フォルダをシリーズとして扱う。
-    # books 直下へ置けるように、1分ごとに本を同名フォルダへ移す。
+    # books 直下へ置けるように、1時間ごとに本を同名フォルダへ移す
+    # （手動整理とぶつかりやすいので、毎分から頻度を下げた。2026-09-16）。
     - name: Create the Kavita scripts directory
       ansible.builtin.file:
         path: '{{ project_dir }}/scripts'

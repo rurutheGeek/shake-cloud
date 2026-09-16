@@ -1,0 +1,30 @@
+#cloud-config
+# net-01（Tailscale subnet router）の初回起動。
+# ユーザー・qemu-guest-agent・SSH・IPv6の無効化だけを行う。
+# Tailscale の導入と tailnet への登録は platform/ansible/net.yml
+# （roles/tailscale）が行う。認証キーは cloud-init へ入れない。
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - ca-certificates
+  - curl
+
+# パスワード認証は使わない。鍵は cloud API の meta-data 経由で入る。
+ssh_pwauth: false
+
+write_files:
+  # ルータはRAでIPv6のdefault routeを配るのに、インターネットへのIPv6が
+  # 通っていない。apt・curl がAAAAを先に引いて固まらないよう、media-01 と
+  # 同じくIPv6を無効化する（handover の既知の障害）。
+  - path: /etc/sysctl.d/99-net-no-ipv6.conf
+    permissions: '0644'
+    content: |
+      net.ipv6.conf.all.disable_ipv6 = 1
+      net.ipv6.conf.default.disable_ipv6 = 1
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - sysctl --system
+
+final_message: "net-01 ready after $UPTIME seconds"

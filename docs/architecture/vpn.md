@@ -39,7 +39,7 @@ Tailcatの接続アドレスは接続権を与える情報を含むため、公�
 
 NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
 
-ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。
+ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。**2026-09-14: ラズパイは導入せず、cloud VM `net-01` を復旧経路の subnet router として作成した**（[net-01（Tailscale subnet router）](../operations/net.md)）。K11のホスト障害には巻き込まれるため、真のアウトオブバンドが必要になった時点でラズパイかルーター内蔵VPNを検討する。
 
 Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscaleの両方へ常時同時接続する前提にしない。接続先・アカウント切替を実機で確認し、復旧用のラズパイはSaaS側へ残す。Headscaleサーバーを自分自身のtailnetへ参加させる構成にも注意が必要なので、管理サーバーと接続agentの役割を分ける。[Headscale FAQ](https://headscale.net/stable/about/faq/)
 

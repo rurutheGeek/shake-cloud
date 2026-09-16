@@ -227,16 +227,17 @@ class VerifyTests(unittest.TestCase):
     def test_music_tools_expectations_follow_the_deploy_selection(self):
         # W06 deploys a subset with -e music_tools_services=[...]; the verifier
         # reads the same variable instead of hard-coding the full list.
-        self.assertEqual(self.vars['music_tools_services'], ['metube', 'convert', 'tag-api'])
+        self.assertEqual(self.vars['music_tools_services'],
+                         ['metube', 'convert', 'tag-api', 'khinsider'])
         self.assertNotIn('music-tools', self.vars['media_unit_services'])
         self.assertIn('default(music_tools_services)', self.conditions())
         compose = yaml.safe_load(read(COMPOSE_FILES['music-tools']))
         self.assertLessEqual(set(self.vars['music_tools_services']), set(compose['services']))
-        # The verifier counts the healthchecked music-tools services; convert
-        # and the tag API both have one.
+        # The verifier counts the healthchecked music-tools services; convert,
+        # the tag API and KHInsider all have one.
         healthchecked = [service for service in self.vars['music_tools_services']
                          if 'healthcheck' in compose['services'][service]]
-        self.assertEqual(healthchecked, ['convert', 'tag-api'])
+        self.assertEqual(healthchecked, ['convert', 'tag-api', 'khinsider'])
 
 
 class SyntaxTests(unittest.TestCase):

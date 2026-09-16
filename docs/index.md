@@ -2,78 +2,72 @@
 
 更新日: 2026-09-13
 
-Proxmox VE の1台に役割ごとのVMを分け、本・音楽・ファイル・パスワード・家電から自作のプライベートクラウドまでを、家庭内LANの一つの入口から使えるようにしています。このページは全体像だけの簡潔版です。詳しい運用は[運用ドキュメント](overview.md)にあります。
+正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
-## 全体像
+Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パスワードから自作のプライベートクラウドまでを、家庭内LANのHTTPS名から使えるようにしています。このページは全体像だけの簡潔版です。
+
+## 全体像（役割とVM）
 
 ```mermaid
 flowchart TB
-  user[家庭内LANの端末]
-  entry["入口<br/>Homarr・Caddy TLS・Cloudflare DNS"]
+  devices["家庭内LANの端末"]
 
-  subgraph pve["Proxmox VE ホスト apextox"]
-    subgraph platform["基盤VM platform プール"]
+  subgraph host["物理ホスト apextox（Proxmox VE）"]
+    subgraph infra["基盤VM platform プール"]
       identity["identity<br/>共通ログイン"]
-      cloud01["cloud-01<br/>クラウドAPIと管理DB"]
-      services01["services-01<br/>常用サービス"]
-      s3["storage-s3<br/>Garage S3"]
-      k8s["k8s<br/>AWX・DB・関数"]
+      cloud01["cloud-01<br/>自作クラウド"]
+      services01["services-01<br/>台帳・docs・パスワード・家電"]
+      storage["storage-s3<br/>S3とバックアップ"]
+      k8s["k8s-cp/worker<br/>AWX・DB・関数"]
     end
-    subgraph cloudpool["サービスVM cloud プール"]
+    subgraph svcpool["サービスVM cloud プール"]
       media["media-01<br/>メディア"]
       monitor["monitor-01<br/>監視"]
-      game["game1<br/>ゲーム・AI"]
+      game["game1<br/>ゲーム・AI（GPU）"]
     end
   end
 
-  shake["自作クラウド shakecloud<br/>API・CLI・Provider・ポータル"]
-  ha["家電<br/>Home Assistant・Eufy・SwitchBot"]
-
-  user --> entry
-  entry --> services01
-  entry --> cloud01
-  entry --> media
-  cloud01 --> shake
-  shake --> media
-  shake --> monitor
-  shake --> game
-  shake --> s3
-  shake --> k8s
-  services01 --- ha
-  services01 --> s3
-  media --> s3
+  devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
+  devices --> media
+  devices --> monitor
+  devices --> game
+  cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
+  services01 --> storage
+  media --> storage
 ```
 
 ## 何をどこに分けているか
 
-| 用途 | 置き場所 | 代表サービス |
+| 役割 | VM | 中身 |
 | --- | --- | --- |
-| 仮想化の土台 | Proxmox ホスト `apextox` | Proxmox VE |
-| 共通ログイン | identity | Authentik（招待・復旧・パスキー） |
+| 共通ログイン | identity | Authentik。招待・メール復旧・パスキー |
 | 自作クラウド | cloud-01 | shakecloud API・CLI・Provider・ポータル・管理DB |
-| 常用サービス | services-01 | Homarr・NetBox・Shake Lab Docs・Vaultwarden・CUPS |
-| 家電 | services-01 | Home Assistant・Eufy中継・SwitchBot Cloud |
-| クラスタ | k8s-cp-01・k8s-worker-01 | Kubernetes・AWX・CloudNativePG・Knative |
-| S3ストレージ | storage-s3 | Garage |
-| メディア | media-01（クラウドVM） | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（クラウドVM） | Prometheus・Alertmanager・Grafana |
-| ゲーム・AI | game1（クラウドVM） | ゲームサーバ・GPUパススルー |
-| 開発 | dev-a・dev-b | 開発VM（Terraform・Docker・Go） |
-| 入口 | 各VMのCaddy＋Cloudflare DNS | `*.apextox.dpdns.org` |
+| 台帳・docs・パスワード | services-01 | NetBox・Shake Lab Docs・Homarr・Vaultwarden |
+| 家電 | services-01 | Home Assistant・eufy-security-ws中継・CUPS |
+| S3・バックアップ | storage-s3 | Garage（S3互換） |
+| クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02 | Kubernetes・AWX・CloudNativePG（DB）・Knative（関数） |
+| メディア | media-01 | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend |
+| 監視 | monitor-01 | Prometheus・Alertmanager・Grafana |
+| ゲーム・AI | game1（GPUパススルー） | Wolf・RomM・SFTPGo。将来OllamaとRAG（[詳細](overview.md)） |
+| 開発 | dev-a・dev-b | Terraform・Docker・Go |
+
+VMの管理方法はプールで揃えています。**基盤VMはTerraform**、**cloudプールのVMは自作API・Provider** が作り、IPはどちらもNetBoxから採番します（配分は[全体像（詳細）](overview.md)）。
 
 ## 自作している部分
 
-- **shakecloud**（`cloud/`）: VM・S3・DB・関数を扱うAPI、CLI、Terraform Provider、セルフサービスポータル
-- **identity**（`stacks/identity/`）: Authentikの招待フロー、メール復旧、パスキー
-- **Home AssistantのSSO**（`stacks/home-assistant/`）: `hass-oidc-auth`でAuthentik OIDCを併設
-- **Eufy中継**（`stacks/eufy-security-ws/`）: イベント・push・スナップショットをHAへ連携
-- **ドキュメント検証**（`platform/ansible/roles/docs_site/`・`tools/check-publication.py`）: `mkdocs --strict`のリンク検査と、公開前の秘密・禁止パス検査
+- **shakecloud**（`cloud/`）: VM・S3・DB・関数を扱うAPI、CLI、Terraform Provider、ポータル
+- **identityの運用**（`stacks/identity/`）: OIDCクライアント、招待フロー、メール復旧、Email OTP、パスキー
+- **Nextcloud連携**（`stacks/media/nextcloud/apps/`・`stacks/print-api/`・`stacks/localsend-send/`）: 印刷・送信・タグ編集のアプリと、CUPS・LocalSendへの橋渡し
+- **FreshRSSの共有タイムライン**（`stacks/media/freshrss/`）: 購読を全員へ同報する `SharedFeeds` 拡張
+- **家電連携**（`stacks/home-assistant/`・`stacks/eufy-security-ws/`）: SSO・逆プロキシ設定、Eufy中継の運用
+- **監視設定**（`stacks/monitoring/`）: スクレイプ・アラート・blackbox・UPS連携
+- **検証ツール**（`tools/`・`tests/`・`.github/workflows/`）: 実機プローブ、公開前検査、テスト
 
-## 入口と詳しい資料
+## 資料
 
-- サービス一覧の入口: [Homarr](https://homarr.apextox.dpdns.org)（家庭内LANから。閲覧は全員、編集は `admins`）
-- 接続先: [接続先一覧（URL・アドレス）](operations/urls.md)
+- サービス一覧の入口: [Homarr](https://homarr.apextox.dpdns.org)（閲覧は全員、編集は `admins`）
+- 接続先: [接続先一覧](operations/urls.md)
 - 使い方: [利用者向け：全サービスの使い方](services/usage.md)
-- 詳細版: [運用ドキュメント](overview.md)（管理者向けの構成・運用手順）
+- 全体像（詳細）: [ホームラボの全体像](overview.md)
 
 **既知の制約**: LANの外からはVPNが要ります（未構築）。Eufyのライブ映像は新WebRTC方式のため当面未対応です。

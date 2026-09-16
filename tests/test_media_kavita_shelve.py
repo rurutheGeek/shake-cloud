@@ -133,9 +133,10 @@ class PlaybookTests(unittest.TestCase):
         self.assertIn('--books {{ library_root }}/books', unit)
         self.assertIn('--kavita-dir {{ project_dir }}/media/kavita', unit)
 
-    def test_the_timer_runs_every_minute(self):
+    def test_the_timer_runs_hourly(self):
+        # 手動整理とぶつからないよう、毎分から1時間ごとへ下げた（2026-09-16）。
         timer = read(STACK / 'media-stack-kavita-shelve.timer')
-        self.assertIn('OnUnitInactiveSec=1min', timer)
+        self.assertIn('OnUnitInactiveSec=1h', timer)
         self.assertIn('WantedBy=timers.target', timer)
 
 

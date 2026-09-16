@@ -38,6 +38,21 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+
+# media-01 のコンテナは IPv6 を先に試し、LRCLIB/iTunes などで 20 秒待たされる。
+# IPv4 を優先して名前解決する（2026-09-15 実測）。
+import socket as _socket
+
+_getaddrinfo = _socket.getaddrinfo
+
+
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    return _getaddrinfo(host, port, _socket.AF_INET, type, proto, flags)
+
+
+_socket.getaddrinfo = _getaddrinfo_ipv4
+
+
 USER_AGENT = 'shake-cloud-music-organize/1.0 (+https://github.com/rurutheGeek/shake-cloud)'
 MB_API = 'https://musicbrainz.org/ws/2'
 CAA_API = 'https://coverartarchive.org'
@@ -48,17 +63,20 @@ DEFAULT_STATE = '/state'
 EXCLUDED_DIRS = {'Converted'}
 AUDIO_SUFFIX = '.mp3'
 TAG_FIELDS = ('title', 'artist', 'album', 'albumartist', 'tracknumber',
-              'discnumber', 'date', 'genre')
+              'discnumber', 'date', 'genre', 'composer')
 INVALID_TAG_VALUES = {'', 'none', 'null', 'unknown', 'unknown artist', 'various'}
 JUNK_IMAGE_NAMES = re.compile(
     r'^(albumart(small)?|folder|cover|front|back|disc|cd)(\s*\(\d+\))?(\.(jpe?g|png|bmp|gif))?$', re.I)
 WMP_JUNK = re.compile(r'^(albumartsmall|folder)(\s*\([^)]*\))?\.(jpe?g|png)$', re.I)
+JUNK_DELETE = re.compile(
+    r'^(albumartsmall|folder|cover|front)(\s*\([^)]*\))?\.(jpe?g|png|bmp|gif)$', re.I)
 COVER_JUNK_ARTISTS = re.compile(
     r'(cover|tribute|piano|orgel|lullaby|music box|8-?bit|chiptune|arcade|karaoke|'
     r'カバー|オルゴール|ピアノ|弾いてみた|アレンジ|作業用|勉強|睡眠)', re.I)
 RELEASE_MIN_SCORE = 0.86
 TRACK_MIN_SCORE = 0.84
 RECORDING_MIN_SCORE = 0.90
+RECORDING_TITLE_SCORE = 0.95
 COVER_MIN_SCORE = 0.76
 COVER_MIN_BYTES = 8000
 
@@ -180,6 +198,7 @@ class Track:
     artist: str = ''
     albumartist: str = ''
     album: str = ''
+    composer: str = ''
     date: str = ''
     genre: str = ''
     tracknumber: str = ''
@@ -454,6 +473,26 @@ def load_aliases(path):
     return json.loads(Path(path).read_text())
 
 
+def load_corrections(path):
+    """Per-file tag fixes recorded after a manual review (files map)."""
+    if not path or not Path(path).exists():
+        return {}
+    return json.loads(Path(path).read_text()).get('files', {})
+
+
+def apply_corrections(tracks, corrections):
+    for track in tracks:
+        fix = corrections.get(track.source)
+        if not fix:
+            continue
+        for field in ('title', 'artist', 'albumartist', 'album', 'genre', 'date',
+                      'composer'):
+            value = fix.get(field)
+            if value:
+                setattr(track, field, value)
+        track.search_title = clean_for_search(track.title)
+
+
 def alias_for(aliases, album, folder):
     if album and album in aliases.get('albums', {}):
         return aliases['albums'][album]
@@ -490,12 +529,17 @@ def resolve_release_group(mb, tracks, alias):
             return None
         score = 1.0
     elif valid_tag(album):
-        try:
-            candidates = mb.release_search(album, artist)
-        except RuntimeError:
-            return None
-        scored = sorted(((score_release(r, album, artist, len(tracks)), r)
-                         for r in candidates), key=lambda pair: -pair[0])
+        scored = []
+        artists = [artist, ''] if artist else ['']
+        for search_artist in artists:
+            try:
+                candidates = mb.release_search(album, search_artist)
+            except RuntimeError:
+                return None
+            scored = sorted(((score_release(r, album, artist, len(tracks)), r)
+                             for r in candidates), key=lambda pair: -pair[0])
+            if scored and scored[0][0] >= RELEASE_MIN_SCORE:
+                break
         if not scored or scored[0][0] < RELEASE_MIN_SCORE:
             return None
         score, summary = scored[0]
@@ -509,7 +553,7 @@ def resolve_release_group(mb, tracks, alias):
     if not mb_tracks:
         return None
     matches = match_tracks(tracks, mb_tracks)
-    if not matches:
+    if not matches and not alias.get('mb_release'):
         return None
     names = credit_names(release.get('artist-credit'))
     release_artist = alias.get('albumartist') or (
@@ -547,56 +591,67 @@ def resolve_release_group(mb, tracks, alias):
     }
 
 
+def recording_artists(track, alias):
+    """Artist names to try for a recording lookup, best first."""
+    values = []
+    for value in (alias.get('albumartist'), track.albumartist, track.artist):
+        if valid_tag(value) and value not in values:
+            values.append(value)
+    values.append('')
+    return values
+
+
 def resolve_by_recording(mb, track, alias):
     titles = [t for t in (track.title, track.search_title,
                           strip_title_prefix(track.stem)) if t]
-    artist = ''
-    if alias.get('albumartist') and alias.get('albumartist') in (
-            track.albumartist, track.artist):
-        artist = alias['albumartist']
-    artist = artist or track.albumartist or track.artist
     for title in titles:
         variants = []
         for candidate in (title, clean_for_search(title)):
             if len(candidate) >= 2 and candidate not in variants:
                 variants.append(candidate)
         for candidate_title in variants:
-            try:
-                recordings = mb.recording_search(candidate_title, artist)
-            except RuntimeError:
-                return False
-            scored = sorted(((score_recording(r, candidate_title, artist), r)
-                             for r in recordings), key=lambda pair: -pair[0])
-            if not scored or scored[0][0] < RECORDING_MIN_SCORE:
-                continue
-            score, recording = scored[0]
-            release = choose_recording_release(recording, track.album, artist)
-            if release is None:
-                continue
-            names = credit_names(release.get('artist-credit')) or credit_names(
-                recording.get('artist-credit'))
-            release_album = release.get('title') or track.album
-            release_artist = names[0] if names else (track.albumartist or track.artist)
-            try:
-                full = mb.release(release['id'])
-            except RuntimeError:
-                return False
-            position = 0
-            disc = 1
-            for mb_track in release_tracks(full):
-                if mb_track['recording'] == recording.get('id'):
-                    position, disc = mb_track['position'], mb_track['disc']
-                    break
-            track.reason = 'mb-recording'
-            track.release = release['id']
-            track.mb_recording = recording.get('id') or ''
-            track.album = release_album
-            track.albumartist = release_artist
-            track.title = recording.get('title') or track.title
-            track.date = (release.get('date') or track.date or '')[:4]
-            track.position = position
-            track.disc = disc
-            return True
+            for artist in recording_artists(track, alias):
+                try:
+                    recordings = mb.recording_search(candidate_title, artist)
+                except RuntimeError:
+                    return False
+                scored = sorted(
+                    ((score_recording(r, candidate_title, artist), r)
+                     for r in recordings), key=lambda pair: -pair[0])
+                threshold = RECORDING_MIN_SCORE if artist else RECORDING_TITLE_SCORE
+                if not scored or scored[0][0] < threshold:
+                    continue
+                score, recording = scored[0]
+                if not artist and any(COVER_JUNK_ARTISTS.search(name) for name in
+                                      credit_names(recording.get('artist-credit'))):
+                    continue
+                release = choose_recording_release(recording, track.album, artist)
+                if release is None:
+                    continue
+                names = credit_names(release.get('artist-credit')) or credit_names(
+                    recording.get('artist-credit'))
+                release_album = release.get('title') or track.album
+                release_artist = names[0] if names else (track.albumartist or track.artist)
+                try:
+                    full = mb.release(release['id'])
+                except RuntimeError:
+                    return False
+                position = 0
+                disc = 1
+                for mb_track in release_tracks(full):
+                    if mb_track['recording'] == recording.get('id'):
+                        position, disc = mb_track['position'], mb_track['disc']
+                        break
+                track.reason = 'mb-recording'
+                track.release = release['id']
+                track.mb_recording = recording.get('id') or ''
+                track.album = release_album
+                track.albumartist = release_artist
+                track.title = recording.get('title') or track.title
+                track.date = (release.get('date') or track.date or '')[:4]
+                track.position = position
+                track.disc = disc
+                return True
     return False
 
 
@@ -628,7 +683,7 @@ def plan_tracks(mb, tracks, aliases, stats):
                 track.artist = artist
         alias = alias_for(aliases, album_key, folder_key)
         apply_alias(members, alias)
-        skip_lookup = bool(alias.get('skip_lookup'))
+        skip_lookup = bool(alias.get('skip_lookup')) or getattr(mb, 'disabled', False)
         if skip_lookup:
             # 検索しても見つからない塊（YouTubeの英語列挙など）は、エイリアスで
             # 決めたアルバム/アーティストへそのまま入れる。
@@ -642,8 +697,10 @@ def plan_tracks(mb, tracks, aliases, stats):
                 result = {}
             resolved = [t for t in members if t.reason == 'mb-release']
             leftover = [t for t in members if t.reason != 'mb-release']
+        album_locked = bool(alias.get('mb_release') and result.get('mb_release'))
         for track in leftover:
-            if not skip_lookup and resolve_by_recording(mb, track, alias):
+            if not skip_lookup and not album_locked and resolve_by_recording(
+                    mb, track, alias):
                 bump(stats, 'mb_recording')
                 resolved.append(track)
                 continue
@@ -678,9 +735,26 @@ def sequence_tracks(album):
         t.disc or 1,
         t.position or 0 or filename_track_number(t.stem) or 999,
         natural_key(Path(t.source).name)))
-    for index, track in enumerate(ordered, start=1):
-        if not track.position:
-            track.position = index
+    # 手動補正で別リリースから合流した曲はトラック番号が重なる。最初の
+    # 1曲だけ元の番号を残し、重複・欠番はファイル名順に後ろへ回す。
+    taken = collections.defaultdict(set)
+    for track in ordered:
+        disc = track.disc or 1
+        if track.position:
+            if track.position in taken[disc]:
+                track.position = 0
+            else:
+                taken[disc].add(track.position)
+    for disc in sorted({track.disc or 1 for track in ordered}):
+        next_position = max(taken[disc] or {0}) + 1
+        for track in ordered:
+            if (track.disc or 1) != disc or track.position:
+                continue
+            while next_position in taken[disc]:
+                next_position += 1
+            track.position = next_position
+            taken[disc].add(next_position)
+            next_position += 1
     return ordered
 
 
@@ -952,6 +1026,7 @@ def build_manifest(albums, root):
                 'albumartist': t.albumartist,
                 'date': t.date,
                 'genre': t.genre,
+                'composer': t.composer,
                 'tracknumber': str(t.position or ''),
                 'discnumber': str(t.disc or 1),
                 'reason': t.reason,
@@ -983,6 +1058,7 @@ def command_plan(args):
             track.artist = tags.get('artist', '')
             track.albumartist = tags.get('albumartist', '')
             track.album = tags.get('album', '')
+            track.composer = tags.get('composer', '')
             track.date = tags.get('date', '')
             track.genre = tags.get('genre', '')
             track.tracknumber = tags.get('tracknumber', '')
@@ -993,8 +1069,10 @@ def command_plan(args):
                 track.title = parsed_title
             track.search_title = clean_for_search(track.title)
             tracks.append(track)
+    apply_corrections(tracks, load_corrections(getattr(args, 'corrections', None)))
     stats = collections.Counter({'files': len(tracks)})
     mb = MusicBrainz(state / 'cache', interval=args.interval)
+    mb.disabled = args.no_lookup
     albums, unresolved = plan_tracks(mb, tracks, load_aliases(args.aliases), stats)
     if unresolved:
         albums.append(Album(album='_未解決', albumartist='_未解決', tracks=unresolved))
@@ -1066,6 +1144,7 @@ def command_apply(args):
             values = {'title': track['title'], 'artist': track['artist'],
                       'album': track['album'], 'albumartist': track['albumartist'],
                       'date': track['date'], 'genre': track['genre'],
+                      'composer': track.get('composer', ''),
                       'tracknumber': track['tracknumber'],
                       'discnumber': track['discnumber']}
             try:
@@ -1113,7 +1192,7 @@ def command_apply(args):
                 continue
             leftovers = list(folder.iterdir())
             only_junk = leftovers and all(
-                path.is_file() and WMP_JUNK.match(path.name) for path in leftovers)
+                path.is_file() and JUNK_DELETE.match(path.name) for path in leftovers)
             if only_junk:
                 for path in leftovers:
                     path.unlink()
@@ -1187,6 +1266,8 @@ def main(argv=None):
     plan.add_argument('--only', default=None)
     plan.add_argument('--interval', type=float, default=1.1)
     plan.add_argument('--no-covers', action='store_true')
+    plan.add_argument('--no-lookup', action='store_true')
+    plan.add_argument('--corrections', default=None)
     plan.set_defaults(func=command_plan)
     apply = sub.add_parser('apply')
     apply.add_argument('--manifest', required=True)

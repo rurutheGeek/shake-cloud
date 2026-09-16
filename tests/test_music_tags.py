@@ -69,9 +69,13 @@ class TagValueTests(unittest.TestCase):
 
     def test_unsupported_fields_are_refused(self):
         with self.assertRaises(ValueError):
-            tag_api.clean_tags({'comment': 'nope'})
+            tag_api.clean_tags({'bpm': '120'})
         with self.assertRaises(ValueError):
             tag_api.clean_tags('not a dict')
+
+    def test_comment_is_supported_as_the_notes_field(self):
+        clean = tag_api.clean_tags({'comment': '→vs チャンピオン'})
+        self.assertEqual(clean, {'comment': ['→vs チャンピオン']})
 
 
 class MusicBrainzTests(unittest.TestCase):

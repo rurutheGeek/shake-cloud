@@ -18,14 +18,15 @@ BASE = os.environ.get('AUTHENTIK_URL', 'http://localhost:9000') + '/api/v3/'
 GROUPS = ('users', 'admins')
 CLIENT = 'cloud'
 # Media SSO. Nextcloud, Kavita and FreshRSS accept OIDC natively; Navidrome,
-# MeTube and Picard get Forward Auth through the embedded outpost and keep
+# MeTube and KHInsider get Forward Auth through the embedded outpost and keep
 # their own authentication on the API paths.
 MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc',
                       'freshrss': '/i/oidc/'}
-MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'picard')
+MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider')
 MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
                       'freshrss': 'FreshRSS',
-                      'navidrome': 'Navidrome', 'metube': 'MeTube', 'picard': 'Picard'}
+                      'navidrome': 'Navidrome', 'metube': 'MeTube',
+                      'khinsider': 'KHInsider'}
 MEDIA_OUTPOST = 'Embedded'
 # The service entry point lives on services-01, not media-01, but it is an
 # OIDC client of the same identity and is reachable by every invited person.
