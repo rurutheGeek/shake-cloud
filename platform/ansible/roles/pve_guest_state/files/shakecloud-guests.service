@@ -1,0 +1,18 @@
+[Unit]
+Description=Restore the guests that were running before the last power-off
+Documentation=https://docs.apextox.dpdns.org/operations/power/
+After=pve-guests.service
+Wants=pve-guests.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# 起動時: onboot=1 のゲストを pve-guests が起こしたあと、残りを戻す。
+# 停止時: pve-guests がゲストを止める前に、いま動いている組を記録する。
+#         (After= なので停止順は逆になり、この ExecStop が先に走る)
+ExecStart=/usr/local/sbin/shakecloud-guests restore
+ExecStop=/usr/local/sbin/shakecloud-guests save
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

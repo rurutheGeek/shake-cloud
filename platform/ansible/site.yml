@@ -8,6 +8,7 @@
 # 対象ホストが揃っていない段階では、個別の playbook を直接実行する。
 - import_playbook: survey-pve.yml
 - import_playbook: pve-users.yml
+- import_playbook: pve-guests.yml
 - import_playbook: netbox.yml
 - import_playbook: guests.yml
 - import_playbook: identity.yml

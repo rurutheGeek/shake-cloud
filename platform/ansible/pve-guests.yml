@@ -1,0 +1,11 @@
+---
+# 停電・電源断のあと、直前に動いていたゲストを戻す仕組みを Proxmox ホストへ入れる。
+# pve-guests.service は onboot=1 のゲストしか起こさないため、game1 や開発VMを
+# 「切れたときの状態」に合わせて戻す。手順は docs/operations/power.md。
+#   ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-guests.yml
+- name: Restore the guests that were running before a power-off
+  hosts: pve
+  become: true
+  gather_facts: false
+  roles:
+    - pve_guest_state

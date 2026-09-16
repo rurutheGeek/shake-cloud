@@ -1,0 +1,45 @@
+---
+# 停電や電源断のあと、直前に動いていたゲストを戻す。
+# pve-guests.service は onboot=1 のゲストしか起こさないので、それ以外
+# （game1・開発VMなど）を「切れたときの状態」に合わせて戻すための補助。
+- name: Install the guest state script
+  ansible.builtin.copy:
+    src: shakecloud-guests
+    dest: /usr/local/sbin/shakecloud-guests
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the guest state units
+  ansible.builtin.copy:
+    src: '{{ item }}'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - shakecloud-guests.service
+    - shakecloud-guests-snapshot.service
+    - shakecloud-guests-snapshot.timer
+  register: pve_guest_state_units
+
+- name: Enable and start the restore service and the snapshot timer
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - shakecloud-guests.service
+    - shakecloud-guests-snapshot.timer
+
+- name: Show the state that will be restored on the next boot
+  ansible.builtin.command:
+    argv: [cat, /var/lib/shakecloud/guests-running]
+  changed_when: false
+  register: pve_guest_state_saved
+  failed_when: false
+
+- name: Report the saved guests
+  ansible.builtin.debug:
+    msg: 'saved guests: {{ (pve_guest_state_saved.stdout | default("")).split() | default([]) }}'

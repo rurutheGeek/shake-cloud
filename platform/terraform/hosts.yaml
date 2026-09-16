@@ -94,10 +94,12 @@ hosts:
     memory_mib: 3072
     memory_min_mib: 3072
     disk_gib: 32
-    on_boot: true
+    # 使わないときは tools/k8s で止める。電源断のあとは「切れる前に動いていた
+    # 組」を戻す shakecloud-guests が起動するので、onboot では起こさない。
+    on_boot: false
     started: true
     tags: [k8s-cp, managed-by-terraform-admin]
-    description: Kubernetes control plane と etcd。常時起動。
+    description: Kubernetes control plane と etcd。使うときだけ起動。
 
   k8s-worker-01:
     vm_id: 210
@@ -109,10 +111,11 @@ hosts:
     memory_min_mib: 8192
     disk_gib: 32
     data_disk_gib: 64
-    on_boot: true
+    # control plane と同じ理由で onboot は付けない（shakecloud-guests が戻す）。
+    on_boot: false
     started: true
     tags: [k8s-worker, managed-by-terraform-admin]
-    description: Kubernetes worker。OS32+データ64。常時起動。
+    description: Kubernetes worker。OS32+データ64。使うときだけ起動。
 
   k8s-worker-02:
     vm_id: 211

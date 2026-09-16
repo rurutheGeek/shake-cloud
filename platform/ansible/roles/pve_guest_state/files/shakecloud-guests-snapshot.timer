@@ -1,0 +1,10 @@
+[Unit]
+Description=Save the running Proxmox guests every minute
+Documentation=https://docs.apextox.dpdns.org/operations/power/
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
