@@ -17,20 +17,53 @@
 {{ site.key }}.{{ tls_proxy_dns.zone }} {
 	import dns_challenge
 {% if site.value.auth | default(false) %}
-	request_header -Remote-User
-	request_header -X-Authentik-Username
-	forward_auth {{ tls_proxy_authentik_url }} {
-		uri /outpost.goauthentik.io/auth/caddy
-		copy_headers X-Authentik-Username
-		# Authentik の outpost は Host でアプリを選ぶ。Caddy は中継先の
-		# Host を upstream に書き換えないので、元の名前を明示して渡す。
-		header_up Host {http.request.host}
-	}
-	reverse_proxy {{ site.value.upstream }} {
-		header_up Remote-User sso_{http.request.header.X-Authentik-Username}
-		header_up -X-Authentik-Username
+	# 中身は route で書いた順に評価する。forward_auth は Caddy の内部順で
+	# respond より先に走るため、閉じたいパスを確実に先へ置く。
+	route {
+		request_header -Remote-User
+		request_header -X-Authentik-Username
+{% if site.value.block | default([]) %}
+		@blocked path {{ site.value.block | join(' ') }}
+		respond @blocked 403
+{% endif %}
+{% if site.value.auth_except | default([]) %}
+		# Subsonic など自前の認証を持つクライアントの経路は SSO を通さず、
+		# Remote-User も付けない（Navidrome の外部認証を素通しさせない）。
+		handle {{ site.value.auth_except | join(' ') }} {
+			reverse_proxy {{ site.value.upstream }}
+		}
+{% endif %}
+{% if site.value.static_prefix | default('') %}
+		# 静的な確認ページ（例: /review/）。同じ SSO を通す。
+		handle_path {{ site.value.static_prefix }}/* {
+			forward_auth {{ tls_proxy_authentik_url }} {
+				uri /outpost.goauthentik.io/auth/caddy
+				copy_headers X-Authentik-Username
+				header_up Host {http.request.host}
+			}
+			root * {{ site.value.static_data | default('/data') }}
+			file_server
+		}
+{% endif %}
+		handle {
+			forward_auth {{ tls_proxy_authentik_url }} {
+				uri /outpost.goauthentik.io/auth/caddy
+				copy_headers X-Authentik-Username
+				# Authentik の outpost は Host でアプリを選ぶ。Caddy は中継先の
+				# Host を upstream に書き換えないので、元の名前を明示して渡す。
+				header_up Host {http.request.host}
+			}
+			reverse_proxy {{ site.value.upstream }} {
+				header_up Remote-User sso_{http.request.header.X-Authentik-Username}
+				header_up -X-Authentik-Username
+			}
+		}
 	}
 {% else %}
+{% if site.value.block | default([]) %}
+	@blocked path {{ site.value.block | join(' ') }}
+	respond @blocked 403
+{% endif %}
 	reverse_proxy {{ site.value.upstream }}
 {% endif %}
 }

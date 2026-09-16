@@ -6,7 +6,7 @@
 
 状態: **独立Compose・状態管理を実装。game1実機確認と認証統合は未実施**。
 
-[配置案](../architecture/operations.md)と[ゲーム設計](../architecture/gaming.md)に希望はあるが、リポジトリ内にRomMの配備定義はない。**RomMはゲームVMのライブラリ管理であり、メディア（音楽・本）の移行ではない。**ゲーム起動・通信プレイ連携まで実装済みとは扱わない。
+[配置案](../architecture/operations.md)と[ゲーム設計](../architecture/gaming.md)に希望がある。**RomMはゲームVMのライブラリ管理であり、メディア（音楽・本）の移行ではない。**`stacks/romm/` に独立Compose・状態管理を実装済みだがgame1へは未配備で、ゲーム起動・通信プレイ連携まで実装済みとは扱わない。
 
 配備先: **game1**。開発先は `stacks/romm/`。RomM＋MariaDBの独立Compose、ROM原本の読み取り専用マウント、秘密値生成、ダイジェスト固定、冷間バックアップを実装した。ライブラリ管理を最初の完了単位とし、Wolf/Azahar連携の結果は分けて記録する。
 

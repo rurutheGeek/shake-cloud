@@ -1,7 +1,7 @@
 # Vaultwarden
 
-パスワード管理です。**services-01 に単独の Compose プロジェクトとして置きます。**
-旧ホスト（検証用ステージング）のデータは移行せず、新規に構築します。認証は
+パスワード管理です。**services-01 に単独の Compose プロジェクトとして置いています。**
+旧ホスト（検証用ステージング）のデータは移行せず、新規に構築しました。認証は
 新しい identity（Authentik）の OIDC へ接続し、HTTPS 名は
 `vault.apextox.dpdns.org` です。
 
@@ -54,7 +54,15 @@ sudo python3 manage.py backup --destination /var/backups/vaultwarden
 - `users` グループにだけアプリへのアクセスを与えます。
 - `SSO_ENABLED=true` / `SSO_SCOPES=email profile offline_access` / `SSO_PKCE=true`。
   既存アカウントとのメール一致の自動紐付けは `SSO_SIGNUPS_MATCH_EMAIL=false`、
-  未知のメール確認状態は `SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=false` で拒否します。
+  Authentikの既定emailスコープは `email_verified` を返さないため、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` でログインを許可します（招待はメール宛リンクで本人確認しています）。
+- **Vaultwarden 1.37.1／1.37.2 はマスターパスワードの設定・変更が422で失敗する**
+  （`missing field newMasterPasswordHash`。SSO初回作成した保管庫はこの設定が必須なので
+  毎回作成画面に戻る）。**1.37.3で修正済み**なので、この版以上を固定します。
+- SSOの保管庫は**identityのアカウント単位**です。ブラウザーに残った別アカウント
+  （管理用 `akadmin` など）のAuthentikセッションでSSOすると、その人の保管庫に入り、
+  未設定なら作成／マスターパスワード画面が出ます。本人の保管庫に入るには
+  Authentikからサインアウトするか、プライベートウィンドウで自分のメールを入れてSSOします
+  （2026-09-14実測。`akadmin` の保管庫は削除し、`ruruthegeek` の1件のみ）。
 - 緊急時のローカルログインを残すため `SSO_ONLY=false` です。Web保管庫の
   「Other／その他」からローカル認証へ切り替えます。
 - 一般登録と組織招待は既定で無効（`SIGNUPS_ALLOWED=false`・`INVITATIONS_ALLOWED=false`）。
@@ -82,8 +90,11 @@ DB・添付・鍵・`config.json` は `${STORAGE_ROOT}/data`（`/data`）です�
 管理画面で保存した設定は `config.json` に入り、環境変数より優先される場合が
 あります。環境変数を変えたのに反映されないときは `config.json` を確認します。
 
-## まだやっていないこと
+## 実配備の状態（2026-09-12）
 
-- services-01 への実配備（上のコマンドは未実行）と実機確認（SSO・マスターパスワード・
-  再起動）
-- 旧ホストからのデータ移行（実データは使わず、検証用の新規構築のみ）
+- services-01 へ配備済み。`https://vault.apextox.dpdns.org`（Let's Encrypt）、`/alive` 200、
+  一般登録無効（登録 API は 400）・`INVITATIONS_ALLOWED=false` で Web UI に
+  「Create account」が出ないことを実機で確認済み。
+- 未確認: ブラウザーでの SSO ログイン、マスターパスワードの設定・保管庫の作成、
+  独立バックアップからの復元。
+- 旧ホストは検証用ステージングで実データが無いため、データ移行は行わない。

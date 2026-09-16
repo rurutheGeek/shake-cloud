@@ -34,10 +34,78 @@
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
       changed_when: true
+    # 自作の印刷アプリは、Nextcloud の html ボリューム内 custom_apps へ置く。
+    # イメージは固定のままで、コンテナには既存のボリューム越しに見える。
+    - name: Create the print app directory
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '0755'
+    - name: Copy the print app
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/apps/shake_print/{{ item }}/'
+        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}/'
+        owner: '33'
+        group: '33'
+        mode: preserve
+      loop: [appinfo, lib, js]
+    - name: Drop build-only files from the deployed print app
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}'
+        state: absent
+      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
+    - name: Create the LocalSend send app directory
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '0755'
+    - name: Copy the LocalSend send app
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/apps/shake_localsend/{{ item }}/'
+        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend/{{ item }}/'
+        owner: '33'
+        group: '33'
+        mode: preserve
+      loop: [appinfo, lib, js]
+    - name: Drop build-only files from the deployed LocalSend send app
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend/{{ item }}'
+        state: absent
+      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
+    - name: Create the tag editor app directory
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags'
+        state: directory
+        owner: '33'
+        group: '33'
+        mode: '0755'
+    - name: Copy the tag editor app
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/nextcloud/apps/shake_tags/{{ item }}/'
+        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags/{{ item }}/'
+        owner: '33'
+        group: '33'
+        mode: preserve
+      loop: [appinfo, lib, js]
+    - name: Drop build-only files from the deployed tag editor app
+      ansible.builtin.file:
+        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags/{{ item }}'
+        state: absent
+      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
       changed_when: true
+    # アプリのバージョンを上げた配備では occ が「upgrade required」で止まる。
+    - name: Apply pending Nextcloud upgrades
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', upgrade]
+      register: nextcloud_upgrade
+      changed_when: "'CHANGED:' in nextcloud_upgrade.stdout"
     - name: Enable Nextcloud cron and shared external storage
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', setup]
@@ -50,7 +118,60 @@
           - '{{ project_dir }}/media/nextcloud/manage.py'
           - apps
           - --apps
-          - "{{ nextcloud_apps | default([]) | join(',') }}"
+          - "{{ (nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
-      when: nextcloud_apps | default([]) | length > 0
+    - name: Read the print API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --extract, '["PRINT_API_TOKEN"]',
+               '{{ playbook_dir }}/../sops/print-api.sops.yaml']
+      register: nextcloud_print_token
+      changed_when: false
+      no_log: true
+    - name: Point the print app at the services-01 relay
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-print]
+      environment:
+        PRINT_API_URL: '{{ nextcloud_print_api_url }}'
+        PRINT_API_TOKEN: '{{ nextcloud_print_token.stdout }}'
+      register: nextcloud_print_config
+      changed_when: "'CHANGED:' in nextcloud_print_config.stdout"
+      no_log: true
+    - name: Read the LocalSend send credentials
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/localsend-send.sops.yaml']
+      register: nextcloud_localsend_secrets
+      changed_when: false
+      no_log: true
+    - name: Point the LocalSend send app at the media-01 sender
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-localsend]
+      environment:
+        SEND_API_URL: '{{ nextcloud_localsend_api_url }}'
+        SEND_API_TOKEN: '{{ (nextcloud_localsend_secrets.stdout | from_json).LOCALSEND_SEND_TOKEN }}'
+      register: nextcloud_localsend_config
+      changed_when: "'CHANGED:' in nextcloud_localsend_config.stdout"
+      no_log: true
+    - name: Read the music tag API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
+      register: nextcloud_tags_secrets
+      changed_when: false
+      no_log: true
+    - name: Point the tag editor app at the music-tools tag API
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-tags]
+      environment:
+        TAGS_API_URL: '{{ nextcloud_tags_api_url }}'
+        TAGS_API_TOKEN: '{{ (nextcloud_tags_secrets.stdout | from_json).TAG_API_TOKEN }}'
+      register: nextcloud_tags_config
+      changed_when: "'CHANGED:' in nextcloud_tags_config.stdout"
+      no_log: true

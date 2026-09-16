@@ -1,0 +1,9 @@
+---
+# ProxmoxホストのUPSをNUTで公開する（読み取り専用）。低電池シャットダウンは別手順。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-nut.yml
+- name: UPS monitoring on the Proxmox host
+  hosts: pve
+  become: true
+  roles:
+    - pve_nut

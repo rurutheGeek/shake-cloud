@@ -4,32 +4,47 @@
 
 ## 現在の構成
 
-単一ホストのDocker Compose環境です（旧メディアスタック）。NetBoxをAnsibleの動的インベントリとして利用しています。**新しい基盤では kubeadm の Kubernetes と Flux、AWX 24.6.1、identity VM の Authentik が稼働しています**（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
+Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは独立したDocker Composeプロジェクト群です。Kubernetes（kubeadm + Cilium + Flux）とその上のAWX・CloudNativePG・Knativeは構築済みです（2026-09-12時点で k8s-cp-01・k8s-worker-01 は停止中）。NetBoxをAnsibleの動的インベントリとして利用しています（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
+
+| VM | 役割 |
+| --- | --- |
+| identity | Authentik（共通ログイン・AWS風ポータルの認証） |
+| cloud-01 | クラウドAPI・管理DB・ポータル |
+| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、Home Assistant、CUPS、eufy-security-ws |
+| media-01 | Nextcloud、Kavita、Navidrome、Picard、LocalSend受信機 |
+| storage-s3 | Garage（S3互換オブジェクトストア） |
+| monitor-01 | Prometheus、Alertmanager、Grafana |
+| k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
+| dev-a / dev-b | 開発VM |
+| game1 | ゲームサーバ（クラウド管理下） |
 
 ## 設定する場所
 
 | 対象 | 設定例 | 設定場所 |
 | --- | --- | --- |
-| Kavita | ライブラリ分割、閲覧ユーザー、対象拡張子、除外パターン、フォルダ監視、定期スキャン、PDF描画解像度、OPDS、OIDC | SSOはstacks/sso/configure-kavita.py、既存の状態はstorage/kavitaに永続化 |
-| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、Markdown手順書、メール、追加アプリ | 管理画面・occ。外部ストレージ初期設定はstacks/scripts/stack.py。手順書はNextcloudのdocsから編集 |
-| Navidrome | スキャン間隔、トランスコード、ユーザー | stacks/compose.yamlのND_*環境変数と管理画面 |
-| Vaultwarden | 招待、登録可否、SMTP、公開URL | 環境変数・/admin。保存された/data/config.jsonが環境変数より優先 |
-| ホスト | 保存先、ポート、イメージ、HTTPS | stacks/.env.example、stacks/compose.yaml、platform/ansible/deploy.ymlとstack_env。変更は再配備で反映 |
-| NetBox | 配備対象・IP・タグ | NetBox管理画面。現在はactiveかつmedia-stackタグを持つ対象を抽出 |
+| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、追加アプリ | `stacks/media/nextcloud/manage.py`（`setup`・`apps`・`config-print`）。配備は `platform/ansible/media-nextcloud.yml`、OIDCは `stacks/media/nextcloud/configure-oidc.py` |
+| Kavita | ライブラリ、OIDC、初期管理者 | `stacks/media/kavita/bootstrap.py`・`configure-oidc.py`。状態は `/srv/media-stack/storage/kavita` |
+| Navidrome | スキャン間隔、トランスコード、Forward Auth | `stacks/media/navidrome/compose.yaml` の `ND_*` 環境変数。状態は `/srv/media-stack/storage/navidrome` |
+| music-tools | 取込先、変換、Picard、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |
+| Vaultwarden | SSO、登録可否、公開URL | `stacks/vaultwarden/compose.yaml`・`manage.py`。保存された `/data/config.json` が環境変数より優先されることがある |
+| Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
+| Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
+| 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
+| NetBox | 配備対象・IP・タグ | NetBox管理画面。`platform/terraform/tags.yaml` と `platform/ansible/inventory.netbox.yml` が対応の正本 |
 
-秘密値は.gitignore対象ファイルで管理し、Gitには登録しません。現在のAnsibleは主にコンテナ・保存領域・初期設定を管理します。各アプリの管理画面設定すべてをAnsibleが再現する構成にはなっていません。必要な設定はAPI/occを使うPlaybookへ順次追加できます。
+秘密値は.gitignore対象ファイルやSOPS（`platform/sops/`）で管理し、Gitには登録しません。Ansibleはコンテナ・保存領域・初期設定を管理しますが、各アプリの管理画面設定すべてを再現する構成にはなっていません。
 
 ## 拡張の方法と境界
 
-- 原本ディスクの増設・移動: LIBRARY_ROOT/library_rootを変更します。NFSも利用可能ですが事前マウントが必要です。ネットワーク越しの変更検知だけに依存せず、定期スキャンを併用してください。
-- ライブラリ分割: 例として技術書・漫画・家族用のディレクトリを作り、Kavitaで別ライブラリとして登録し閲覧権限を設定できます。Nextcloudの権限は他サービスへ同期されません。
-- HTTPS: 現在はstacks/sso/のローカルCAとSSH転送を利用します。端末へのCA登録はdocs/operations/hub.mdを参照してください。公開ドメイン向けにはstacks/compose.https.example.yamlもあります。
-- バックアップ: stacks/scripts/stack.py backupとstacks/netbox/manage.py backupがあります。別ホスト転送・定期実行は追加設定が必要です。
-- 複数ホスト: NetBoxへの登録でAnsible対象を増やせます。現在のPlaybookは各対象に一式を配備します。サービスごとの分散にはロール分割・接続先・ネットワーク設計の追加が必要です。
-- 冗長化: 現状は単一ホストです。コンテナ数を増やすだけではHAになりません。PostgreSQLやSQLiteを含むアプリ状態は原本と分けて保持し、同じ状態ディレクトリを複数インスタンスで共有しないでください。
+- 原本ディスクの増設・移動: media-01 では `LIBRARY_ROOT`（`/srv/media-stack/library`）と `platform/terraform/services/media` の宣言を変更します（データディスクは `prevent_destroy`）。
+- ライブラリ分割: 技術書・漫画・家族用のディレクトリを作り、Kavitaで別ライブラリとして登録し閲覧権限を設定できます。Nextcloudの権限は他サービスへ同期されません。
+- HTTPS: `platform/terraform/dns.yaml` の名前ごとに、各ホストのCaddy（`stacks/tls-proxy`）がLet's Encrypt（DNS-01）で証明書を取って中継します。アプリ自身のポートは 127.0.0.1 に閉じます。
+- バックアップ: 各ユニットの `manage.py backup`（Nextcloud・Kavita・Navidrome・music-tools・Vaultwarden・Home Assistant・NetBox）と、cloud-01の管理DBの定期バックアップ（`cloud-backup.timer`）があります。別ホストへの転送は追加設定が必要です。
+- 複数ホスト: 新規VMは `platform/terraform/services/<name>/` で宣言します。クラウドVMは `platform/ansible/inventory.cloud.py` でAnsibleの対象にします。サービスごとの分散にはロール分割・接続先・ネットワーク設計の追加が必要です。
+- 冗長化: 現状は各サービス1インスタンスです。コンテナ数を増やすだけではHAになりません。PostgreSQLやSQLiteを含むアプリ状態は原本と分けて保持し、同じ状態ディレクトリを複数インスタンスで共有しないでください。
 
 ## PDFを追加する方法
 
-`library/books/作品名/作品名.pdf` としてください。Nextcloudのbooks内から作品フォルダを作ってアップロードできます。KavitaのサーバーとBooks両方のフォルダ監視は有効で、日次スキャンも設定されています。自動反映は変更検知後約10分、手動ではライブラリのScanを実行します。
+`/srv/media-stack/library/books/作品名/作品名.pdf` としてください（media-01）。Nextcloudの `books` から作品フォルダを作ってアップロードできます。KavitaはBooksライブラリのフォルダ監視（Folder Watching）が有効で、変更を検知して取り込みます。反映されないときはKavitaのライブラリでScanを実行します。
 
 参考: [Kavitaの配置ルール](https://wiki.kavitareader.com/guides/scanner/managefiles/)、[ライブラリ設定](https://wiki.kavitareader.com/guides/admin-settings/libraries/)、[Navidrome設定](https://www.navidrome.org/docs/usage/configuration/options/)。

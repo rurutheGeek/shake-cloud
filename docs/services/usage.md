@@ -10,31 +10,35 @@
 | 共通アカウント・パスキー・パスワード再設定 | [共通ログインの使い方](identity.md) |
 | Ansible を実行する | [AWX の使い方](../operations/awx.md) |
 | 台帳（IP・VM）を見る | [NetBox の使い方](../operations/netbox.md) |
+| 家電を操作する・自動化する | [Home Assistantと家電の使い方](home-assistant.md) |
 
-以下は**旧メディアスタック**の使い方です。
+メディア系は media-01 の新しい基盤へ移行済みで、入口はすべて `*.apextox.dpdns.org` です（旧環境からのデータ移行は進行中）。**MeTube は media-01 への配備が未了です（W06）。**
 
 ## まず開く場所
 
-パソコンでは [Homarr](https://homarr.apextox.dpdns.org)（新しい基盤。LAN内）を開き、使いたいサービスのタイルを押します。**メディア系は移行中で、次の表の `localhost` のURLは旧メディアスタック（SSHトンネル）のものです。**
+パソコンでは [Homarr](https://homarr.apextox.dpdns.org)（新しい基盤。LAN内）を開き、使いたいサービスのタイルを押します。
 
 | やりたいこと | 開く場所 |
 | --- | --- |
 | サービスを選ぶ | [Homarr](https://homarr.apextox.dpdns.org)（新基盤） |
-| ファイルを保存・共有する | [Nextcloud](https://nextcloud.localhost:8443) |
+| ファイルを保存・共有する | [Nextcloud](https://nextcloud.apextox.dpdns.org)（[使い方](nextcloud-guide.md)） |
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
-| 本・PDFを読む | [Kavita](https://kavita.localhost:5443) |
-| 音楽を聴く | [Navidrome](http://localhost:4533) |
-| URLから音声を取り込む | [MeTube](http://localhost:8081) |
-| パスワードを使う | [Vaultwarden](https://vault.localhost:8243) |
+| 本・PDFを読む | [Kavita](https://kavita.apextox.dpdns.org) |
+| 音楽を聴く | [Navidrome](https://navidrome.apextox.dpdns.org) |
+| RSS・ニュースをまとめて読む | [FreshRSS](https://freshrss.apextox.dpdns.org)（[使い方](rss.md)） |
+| URLから音声を取り込む | MeTube（準備中。media-01への配備はW06で進行中） |
+| パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
 ログインを求められたら、案内に従って共通ログイン画面へ進みます。サービスによっては、最初に招待されたアカウントの登録や、サービス専用のパスワード設定が必要です。
 
 ## Nextcloudを使う
 
+**Nextcloudは新しい基盤へ移行済みです。機能・他のサービスとの連携・Androidアプリの設定は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** データ移行は進行中です。
+
 ### ファイルを保存・共有する
 
-1. Nextcloudを開き、**ファイル**を押します。
+1. [Nextcloud](https://nextcloud.apextox.dpdns.org)を開き、**ファイル**を押します。
 2. **＋** または **ファイルをアップロード** からファイルを追加します。
 3. ファイルやフォルダーの **共有** メニューから、相手または共有リンクを指定します。
 
@@ -44,9 +48,10 @@
 | --- | --- | --- |
 | `books` | PDF・電子書籍 | Kavita |
 | `music` | MP3などの音楽 | Navidrome |
-| `docs` | Markdownの手順書 | 8090の手順書サイト |
+| `docs` | Markdownの共有置き場 | 手順書サイトはGitの`docs/`から配備 |
+| `inbox` | LocalSendで送ったファイル | 手動で移動 |
 
-`docs`が見えない場合は、現在の設定では編集できる利用者が限定されています。手順書サイトの閲覧は[Shake Lab Docs](https://docs.apextox.dpdns.org)からできます。
+4つのフォルダーは[Nextcloudにログインできる全員に見えます](../operations/nextcloud-permissions.md)。手順書サイトの閲覧は[Shake Lab Docs](https://docs.apextox.dpdns.org)からできます。
 
 ### 予定を管理する
 
@@ -62,6 +67,8 @@
 
 ## 本・PDFを読む（Kavita）
 
+Kavitaは <https://kavita.apextox.dpdns.org>（新しい基盤。家庭内LANから）です。
+
 1. Nextcloudの`books`に、作品ごとのフォルダーを作ります。
 2. PDF・EPUBなどをそのフォルダーへアップロードします。
 3. Kavitaを開き、**Books** から作品を選んで読みます。
@@ -71,6 +78,8 @@
 スマートフォンでは、Kavitaをブラウザーで開いてホーム画面に追加できます。Kavitaには公式Androidアプリがないため、必要な場合はOPDS対応の電子書籍アプリを使います。[Kavita公式のOPDS説明](https://wiki.kavitareader.com/guides/features/opds/)
 
 ## 音楽を聴く（Navidrome）
+
+Navidromeは <https://navidrome.apextox.dpdns.org>（新しい基盤。家庭内LANから）です。
 
 1. Navidromeを開きます。
 2. **Artists / Albums / Songs** から曲を探します。
@@ -83,39 +92,43 @@ Nextcloudの`music`へ追加した直後は、表示まで通常1分ほどかか
 
 ### Androidで音楽を聴く
 
-Navidrome公式の[Androidクライアント一覧](https://www.navidrome.org/apps/?platform=android)から、OpenSubsonicまたはSubsonic対応のアプリを選びます。アプリには、管理者から案内されたHTTPSのNavidrome URL、ユーザー名、専用パスワードを入力します。
+Navidrome公式の[Androidクライアント一覧](https://www.navidrome.org/apps/?platform=android)から、OpenSubsonicまたはSubsonic対応のアプリを選びます。アプリには次の接続情報を入力します。
 
-現在の構成はブラウザーの共通ログインを中心にしているため、Androidアプリからの接続はHTTPS公開経路を整えた後に確認が必要です。
+- URL: `https://navidrome-api.apextox.dpdns.org`（アプリ専用。共通ログイン画面が出ないホストです）
+- ユーザー名・パスワード: 管理者から案内されたもの
+
+ブラウザーで見る場合は `https://navidrome.apextox.dpdns.org` を使います（こちらは共通ログインで保護）。
+
+**アプリで曲は表示されるのに再生できないとき**（Ultrasonicの例）は、アプリが「サーバーで再生する」設定のままです。Navidromeはジュークボックス非対応のため、この設定だと再生要求がサーバーに届いても失敗します。Navidromeが非対応を正しく伝えるため、**再生画面の「ジュークボックス ON/OFF」項目は最初から表示されません**。設定は次の場所にあります（Ultrasonic 4.x）。
+
+1. 左のメニュー（ハンバーガー）を開き、サーバー名の横の **鉛筆アイコン** を押します。
+2. サーバーの行の右端 **⋮ → 「編集」**。
+3. 下へスクロールして **「詳細設定」**。
+4. **「ジュークボックスをデフォルト化」をオフ**にして保存します。
+5. アプリを完全に終了してから開き直します。
+
+スイッチが見つからない古い版では、⋮ → 「削除」でサーバーをいったん消し、＋で同じURL・ユーザー名・パスワードを追加し直すと初期値（オフ）に戻ります。
 
 ## 音声を取り込む（MeTube）
 
-権利のある音源だけを取り込んでください。
+入口は <https://metube.apextox.dpdns.org>（identity の共通ログイン）です。Cookieが必要なサイトは設定に `cookies.txt` を置きます（任意）。
 
-1. MeTubeを開きます。
-2. 動画のURLを貼り付けます。
-3. 音声形式で **MP3** を選びます。
-4. **追加** または **Download** を押して待ちます。
-
-完了した音声はNextcloudの`music/YouTube`へ入り、Navidromeで聴けるようになります。反映には少し時間がかかります。
-
-Cookieの登録・更新は管理作業です。ダウンロードに失敗したときは、同じURLを何度も繰り返す前に管理者へ伝えてください。[音楽の取り込み手順](music.md)
-
-Android専用アプリは使わず、ブラウザーでMeTubeを開きます。
+権利のある音源だけを取り込んでください。取り込みの準備・Cookie・タグ付けの手順は[音楽の取り込み手順](music.md)を参照してください。
 
 ## パスワードを使う（Vaultwarden）
 
 Vaultwardenでは、Webサイトやアプリのログイン情報を保管します。保管庫を開くマスターパスワードは、共通ログインのパスワードとは別に、自分だけが分かるものを設定します。
 
-1. 招待されたVaultwardenを開きます。
+1. [Vaultwarden](https://vault.apextox.dpdns.org)を開きます。
 2. アカウントを登録、またはログインします。
 3. **新しいアイテム** から、サイト名・ユーザー名・パスワードを保存します。
 4. 次回から保存したアイテムを使ってログインします。
 
 ### Androidで使う
 
-公式Bitwardenアプリをインストールし、ログイン画面で **Self-hosted** を選びます。**Server URL** には、管理者から案内された`https://`で始まる保管庫URLを入力します。[Bitwarden公式のセルフホスト接続手順](https://bitwarden.com/en-gb/help/change-client-environment/)
+公式Bitwardenアプリをインストールし、ログイン画面で **Self-hosted** を選びます。**Server URL** には `https://vault.apextox.dpdns.org` を入力します。[Bitwarden公式のセルフホスト接続手順](https://bitwarden.com/en-gb/help/change-client-environment/)
 
-`vault.localhost`のようなこの構成のローカルURLは、Androidからそのまま使えません。Android用には、HTTPSドメインまたはVPN経由のサーバーURLが必要です。
+このURLは家庭内LANの名前です。外出先からはVPN（準備中）が必要です。
 
 ## 手順書を読む・更新する
 
@@ -125,7 +138,7 @@ Vaultwardenでは、Webサイトやアプリのログイン情報を保管しま
 
 ### 更新する
 
-手順書を編集できる利用者は、Nextcloudの **ファイル → docs** を開き、編集したい`.md`ファイルを選びます。Nextcloudの **Text** で文章を編集して保存すると、通常1分以内に8090へ反映されます。
+手順書サイトの原稿（Markdown）は**Gitの`docs/`が正本**で、`platform/ansible/docs-site.yml`の配備でサイトが更新されます。Nextcloudの **ファイル → docs** は共有のMarkdown置き場で、編集した内容が自動でサイトへ反映される仕組みは現在の配備にはありません。原稿の変更は管理者へ相談してください。
 
 ページを増やすときは、既存ページをコピーして、見出しと内容を書き換えると簡単です。壊れた表示になった場合は、直前の内容へ戻して保存します。
 
@@ -133,16 +146,18 @@ AndroidではNextcloud公式アプリでファイルを開けます。短い修�
 
 ## Androidで使えるもの
 
-Androidから使うには、まずサーバーへ到達できるネットワークが必要です。パソコンで`ssh -L`を実行しても、その`localhost`はパソコンだけの入口であり、Androidには共有されません。Android用には、HTTPSドメイン、VPN、またはTailscaleなどを用意します。
+Androidから使うには、家庭内LANで名前解決できる `*.apextox.dpdns.org` のHTTPS入口を使います。外出先からはVPN（準備中）です。
 
 | 目的 | Androidで使うもの | 使い方 |
 | --- | --- | --- |
 | ファイル・docsの編集 | 公式Nextcloudアプリ | サーバーURLで接続してファイルを開く |
 | カレンダー・連絡先・TODOの同期 | DAVx⁵、必要に応じてOpenTasks | CalDAV/CardDAVの接続情報を登録 |
 | パスワード | 公式Bitwardenアプリ | **Self-hosted** に保管庫URLを登録 |
+| 家電の操作・通知 | 公式Home Assistantアプリ | サーバーURLに `https://ha.apextox.dpdns.org`（[使い方](home-assistant.md)） |
 | 音楽 | Navidrome対応アプリ | OpenSubsonic/Subsonicの接続情報を登録 |
+| RSS・ニュース | FreshRSS対応アプリ（Google Reader API） | サーバーURLとAPIパスワードを登録（[使い方](rss.md)） |
 | 本 | ブラウザー、またはOPDS対応アプリ | KavitaのOPDSを登録 |
-| Homarr・MeTube・手順書 | Androidブラウザー | ホーム画面に追加すると便利（HomarrはLANのHTTPS名） |
+| Homarr・手順書 | Androidブラウザー | ホーム画面に追加すると便利（LANのHTTPS名） |
 
 Nextcloud公式マニュアルも、Androidのファイル利用には公式アプリ、カレンダー・連絡先・タスクの同期にはDAVx⁵を案内しています。[NextcloudのAndroid同期手順](https://docs.nextcloud.com/server/latest/user_manual/en/pim/sync_android.html)
 
@@ -152,5 +167,6 @@ Nextcloud公式マニュアルも、Androidのファイル利用には公式ア�
 
 - [Homarrのタイル編集](homarr.md)
 - [Nextcloudのアクセス権限変更](../operations/nextcloud-permissions.md)
-- [共通ログイン・アカウント管理](sso.md)
-- [接続・配備・バックアップ](../operations/hub.md)
+- [共通ログイン・アカウント管理](../operations/identity.md)
+- [接続先一覧](../operations/urls.md)
+- [配備の引き継ぎ](../operations/handover.md)

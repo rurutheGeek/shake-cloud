@@ -1,14 +1,15 @@
 flowchart TB
   users["利用者の端末 / LAN・VPN"]
-  pi["既存ラズパイ<br/>復旧用Tailscale・DNS・監視"]
+  pi["既存ラズパイ<br/>復旧用Tailscale・DNS"]
   internet["インターネット"] --> router["既存ルータ・スイッチ"]
   subgraph host["現有K11 / Proxmox VE：機能別の配置計画"]
-    services["services-01 / 常用<br/>NetBox・MkDocs・Homarr<br/>追加予定：家電・VPN・Vaultwarden"]
-    media["media-01 / VM作成済み<br/>移行予定：Nextcloud・書籍・音楽<br/>MeTube・Picard"]
+    services["services-01 / 常用<br/>NetBox・MkDocs・Homarr・Vaultwarden<br/>配備済み：Home Assistant・Eufy中継・印刷<br/>追加予定：VPN"]
+    media["media-01 / 稼働中<br/>Nextcloud・書籍・音楽・Picard<br/>LocalSend受信機<br/>MeTubeは追加予定"]
+    monitor["monitor-01 / 稼働中<br/>Grafana・Prometheus・Alertmanager<br/>資源・証明書・UPSを監視"]
     game["既存game1 / GPU割当済み<br/>開発対象：Wolf・Azahar・RomM<br/>ポケモンAI・汎用RAG・Bot・Ollama"]
     identity["identity<br/>Authentik + 専用DB"]
     cloud["cloud-01<br/>クラウドAPI + 管理DB"]
-    k8s["既存Kubernetes<br/>AWX・CloudNativePG・Knative<br/>起動状態は配備台帳を参照"]
+    k8s["常用Kubernetes<br/>AWX・CloudNativePG・Knative<br/>起動状態は配備台帳を参照"]
     s3["storage-s3<br/>Garage"]
     edge["public-edge / 条件成立後に追加<br/>公開Caddy"]
     pve["Proxmox API"]
@@ -18,11 +19,14 @@ flowchart TB
     cloud -. DB・関数提供 .-> k8s
     cloud -. S3管理 .-> s3
     pve -. cloud所有VM .-> media
+    pve -. cloud所有VM .-> monitor
     pve -. cloud所有VM .-> game
+    monitor -. ノード・VMを読む .-> pve
     dev -. 作成・設定 .-> cloud
   end
   users --> services
   users --> media
+  users --> monitor
   users --> game
   users --> identity
   users --> pi

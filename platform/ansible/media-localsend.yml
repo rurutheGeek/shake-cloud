@@ -1,0 +1,111 @@
+---
+# LocalSend の常設受信機を media-01 の独立 Compose プロジェクトとして配備する。
+# 端末から送ったファイルは Nextcloud が見る inbox へ着地する。
+#   ansible-playbook -i <inventory> platform/ansible/media-localsend.yml
+- name: Deploy the LocalSend receiver
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    localsend_send_dir: /opt/localsend-send
+  tasks:
+    - name: Create LocalSend deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/localsend'
+        state: directory
+        mode: '0750'
+    - name: Copy LocalSend definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/localsend/{{ item }}'
+        dest: '{{ project_dir }}/media/localsend/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+    - name: Configure LocalSend environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          LIBRARY_ROOT={{ library_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          MEDIA_UID={{ media_uid | default(33) }}
+          MEDIA_GID={{ media_gid | default(33) }}
+          LOCALSEND_PORT={{ localsend_port | default(53317) }}
+          LOCALSEND_ADMIN_PORT={{ localsend_admin_port | default(53318) }}
+          LOCALSEND_DEVICE_NAME={{ localsend_device_name | default('media-01') }}
+        dest: '{{ project_dir }}/media/localsend/.env'
+        mode: '0600'
+    - name: Prepare LocalSend storage and the PIN secret
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', init]
+      changed_when: true
+    - name: Deploy LocalSend
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', up]
+      changed_when: true
+    # 受信機は自己署名TLSなので、証明書検証を外して info を確認する。
+    - name: Wait for the LocalSend receiver
+      ansible.builtin.uri:
+        url: 'https://127.0.0.1:{{ localsend_port | default(53317) }}/api/localsend/v2/info'
+        validate_certs: false
+        status_code: [200]
+      register: localsend_info
+      retries: 20
+      delay: 3
+      until: localsend_info is succeeded
+    # 送信側（Nextcloudの「LocalSendで送る」用）。受信機とは別のsystemdサービス。
+    - name: Read the LocalSend send credentials
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/localsend-send.sops.yaml']
+      register: localsend_send_secrets
+      changed_when: false
+      no_log: true
+    - name: Create the LocalSend send directory
+      ansible.builtin.file:
+        path: '{{ localsend_send_dir }}'
+        state: directory
+        mode: '0750'
+    - name: Install the LocalSend sender
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/localsend-send/localsend_send.py'
+        dest: '{{ localsend_send_dir }}/localsend_send.py'
+        mode: '0755'
+      notify: Restart localsend send
+    - name: Write the LocalSend send environment
+      ansible.builtin.copy:
+        content: |
+          LOCALSEND_SEND_TOKEN={{ (localsend_send_secrets.stdout | from_json).LOCALSEND_SEND_TOKEN }}
+          LOCALSEND_SEND_FINGERPRINT={{ (localsend_send_secrets.stdout | from_json).LOCALSEND_SEND_FINGERPRINT }}
+          LOCALSEND_SEND_PORT={{ localsend_send_port | default(53200) }}
+          LOCALSEND_SEND_ALIAS={{ localsend_device_name | default('media-01') }}
+        dest: '{{ localsend_send_dir }}/localsend-send.env'
+        mode: '0400'
+      no_log: true
+      notify: Restart localsend send
+    - name: Install the LocalSend send unit
+      ansible.builtin.template:
+        src: '{{ source_dir }}/localsend-send/localsend-send.service.j2'
+        dest: /etc/systemd/system/localsend-send.service
+        mode: '0644'
+      notify: Restart localsend send
+    - name: Enable and start the LocalSend sender
+      ansible.builtin.systemd:
+        name: localsend-send
+        enabled: true
+        state: started
+        daemon_reload: true
+    - name: Wait for the LocalSend sender
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ localsend_send_port | default(53200) }}/healthz'
+        status_code: [200]
+      register: localsend_send_health
+      retries: 10
+      delay: 2
+      until: localsend_send_health is succeeded
+  handlers:
+    - name: Restart localsend send
+      ansible.builtin.systemd:
+        name: localsend-send
+        state: restarted
+        daemon_reload: true

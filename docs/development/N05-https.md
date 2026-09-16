@@ -11,7 +11,7 @@
 1. 各FQDNのDNS、証明書、上流、バインド範囲、認証を読み取り確認する。実装済み・実機未確認・修正必要を入口ごとに記録する。
 2. services-01のNetBox・文書と新しい同居アプリの入口を同じCaddy設定管理へ揃える。既存`dns.yaml`とtls_proxyロールを正本とし、ホスト上のCaddyfileを直接編集しない。
 3. 認証・リダイレクト・ヘルスチェックをHTTPS名へ揃え、HTTP直ポートが不要になったものはlocalhost等の必要範囲へ制限する。SSHトンネルや復旧経路を先に確認する。
-4. アプリ固有のOIDC・クライアント確認は[W01](W01-homarr.md)・[W02](W02-vaultwarden.md)・[W03](W03-nextcloud.md)等が持つ。移行先でのTLS接続条件を渡し、旧SSO撤去は全利用先の移行確認後に行う。
+4. アプリ固有のOIDC・クライアント確認は[W01](W01-homarr.md)・[W02](W02-vaultwarden.md)・[W03](W03-nextcloud.md)等が持つ。移行先でのTLS接続条件を渡す。
 
 ## 依存と並列作業
 

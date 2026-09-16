@@ -1,0 +1,40 @@
+name: media-localsend
+
+# LocalSend Hub（非公式）を media-01 の常設受信機として動かす。multicast で
+# 公式アプリから見つかるよう host ネットワークにし、受信ファイルは Nextcloud が
+# 見る inbox へ着地させる。選定理由とリスクは README.md を参照。
+services:
+  localsend:
+    image: ${LOCALSEND_IMAGE:-ghcr.io/linychuo/localsend-hub:1.0.10}
+    restart: unless-stopped
+    network_mode: host
+    # Nextcloud と同じ 33:33 で受ける。root 所有で着地すると www-data が
+    # 受信ディレクトリ内のファイルを移動・削除できないため。
+    user: '${MEDIA_UID:-33}:${MEDIA_GID:-33}'
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      LOCALSEND_RECEIVE_DIR: /inbox
+      LOCALSEND_PORT: ${LOCALSEND_PORT:-53317}
+      LOCALSEND_ADMIN_PORT: ${LOCALSEND_ADMIN_PORT:-53318}
+      LOCALSEND_DEVICE_NAME: ${LOCALSEND_DEVICE_NAME:-media-01}
+      LOCALSEND_DEVICE_TYPE: server
+      LOCALSEND_MAX_LOGS: ${LOCALSEND_MAX_LOGS:-1000}
+      LOCALSEND_CONFIG_PATH: /app/config/localsend_config.json
+      # 上流 1.0.10 は PIN を検証しない（README の「PIN」を参照）。対応版へ
+      # 差し替えたときに secrets から渡せるよう口だけ用意しておく。
+      LOCALSEND_PIN_FILE: /run/secrets/localsend_pin
+    secrets: [localsend_pin]
+    volumes:
+      - ${LIBRARY_ROOT:-/srv/media-stack/library}/inbox:/inbox
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/localsend/config:/app/config
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/localsend/data:/app/data
+    healthcheck:
+      test: [CMD-SHELL, 'wget --no-verbose --tries=1 --spider https://127.0.0.1:${LOCALSEND_PORT:-53317}/api/localsend/v2/info --no-check-certificate']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+secrets:
+  localsend_pin:
+    file: ./secrets/localsend_pin

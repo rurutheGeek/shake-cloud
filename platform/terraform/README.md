@@ -7,12 +7,12 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | ルートモジュール | 役割 | 実行に使う資格情報 | 状態 |
 | --- | --- | --- | --- |
 | `state-store/` | 他のモジュールが使う state 置き場（R2バケット）。**stateはローカル**（循環を避けるため） | Cloudflare APIトークン | 実装済み |
-| `00-bootstrap/` | プール、ロール、ユーザー、ACL、cloud imageの取得、開発VMのAPIトークン | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み |
+| `00-bootstrap/` | プール、ロール、ユーザー、ACL、cloud imageの取得、開発VMのAPIトークン | `root@pam`（`platform/sops/proxmox-root.sops.yaml`） | 実装済み・適用済み |
 | `05-seed/` | NetBoxを載せる最初の1台。**NetBoxを使わず静的IP**で作る | `terraform@pve` | 実装済み・適用済み |
 | `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・適用済み |
 | `20-dns/` | LAN の中の名前（`*.apextox.dpdns.org`）を Cloudflare へ書く。アドレスは 10-platform・05-seed の出力から引く | Cloudflare の DNS 編集トークン（`platform/sops/cloudflare-dns.sops.yaml`）。Proxmox は触らない | 実装済み・適用済み |
 | `modules/managed-host/` | NetBoxのVM＋採番とProxmoxのVMを1組で作る | — | 実装済み |
-| `services/<name>/` | **ホームラボのサービスを載せるクラウドVM**（`cloud` プール、VMID 5000–5999）。`shakecloud` Providerのdev overrideで実行する。基盤VMはここに置かない | ポータルで発行したアクセスキー | 追加場所（[手順](../../docs/operations/services.md)） |
+| `services/<name>/` | **ホームラボのサービスを載せるクラウドVM**（`cloud` プール、VMID 5000–5999）。`shakecloud` Providerのdev overrideで実行する。基盤VMはここに置かない | ポータルで発行したアクセスキー | media-01・monitor-01 を適用済み（[手順](../../docs/operations/services.md)） |
 
 宣言はYAMLに置く。`.tf` は機構だけを持つ。
 

@@ -1,0 +1,13 @@
+---
+# 監視スタック（Prometheus・Grafana・exporter）を monitor-01 へ配備する。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/monitor.ini platform/ansible/monitoring.yml
+# OIDC クライアントの秘密値を identity VM から読むので、identity.yml の後に流す。
+- name: Deploy the monitoring stack
+  hosts: monitoring
+  become: true
+  roles:
+    - docker
+    # configure は公開名（OIDC）で入る。証明書を先に取る。
+    - tls_proxy
+    - monitoring

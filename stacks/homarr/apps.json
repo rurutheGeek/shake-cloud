@@ -3,38 +3,51 @@
     "name": "Shake Lab Docs",
     "href": "https://docs.apextox.dpdns.org",
     "description": "利用手順・設定例・運用ドキュメント",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/mkdocs.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/mkdocs.svg",
+    "pingUrl": "https://docs.apextox.dpdns.org/"
+  },
+  {
+    "name": "Grafana",
+    "href": "https://grafana.apextox.dpdns.org",
+    "description": "監視ポータル（稼働・資源・UPS）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grafana.svg",
+    "pingUrl": "https://grafana.apextox.dpdns.org/api/health"
   },
   {
     "name": "Shake Cloud",
     "href": "https://cloud.apextox.dpdns.org",
     "description": "VM・S3・DB・関数のセルフサービス",
     "iconText": "CLOUD",
-    "iconColor": "#2563eb"
+    "iconColor": "#2563eb",
+    "pingUrl": "https://cloud.apextox.dpdns.org/healthz"
   },
   {
     "name": "Authentik",
     "href": "https://auth.apextox.dpdns.org",
     "description": "共通ログイン（招待・パスキー・パスワード復旧）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/authentik.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/authentik.svg",
+    "pingUrl": "https://auth.apextox.dpdns.org/-/health/live/"
   },
   {
     "name": "NetBox",
     "href": "https://netbox.apextox.dpdns.org",
     "description": "IP・VM・配備対象の台帳",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/netbox.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/netbox.svg",
+    "pingUrl": "https://netbox.apextox.dpdns.org/login/"
   },
   {
     "name": "Home Assistant",
     "href": "https://ha.apextox.dpdns.org",
     "description": "家電の自動化・状態確認",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/home-assistant.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/home-assistant.svg",
+    "pingUrl": "https://ha.apextox.dpdns.org/manifest.json"
   },
   {
     "name": "Nextcloud",
     "href": "https://nextcloud.apextox.dpdns.org",
     "description": "ファイル・共有・カレンダー・タスク",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/nextcloud.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/nextcloud.svg",
+    "pingUrl": "https://nextcloud.apextox.dpdns.org/status.php"
   },
   {
     "name": "Kavita",
@@ -46,13 +59,27 @@
     "name": "Navidrome",
     "href": "https://navidrome.apextox.dpdns.org",
     "description": "音楽ストリーミング",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/navidrome.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/navidrome.svg",
+    "pingUrl": "https://navidrome.apextox.dpdns.org/ping"
+  },
+  {
+    "name": "FreshRSS",
+    "href": "https://freshrss.apextox.dpdns.org",
+    "description": "共通RSSタイムライン（みんなで購読を追加）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/freshrss.svg",
+    "pingUrl": "https://freshrss.apextox.dpdns.org/api/"
   },
   {
     "name": "MeTube",
     "href": "https://metube.apextox.dpdns.org",
     "description": "URLから音声を取り込む",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/metube.svg"
+  },
+  {
+    "name": "KHInsider",
+    "href": "https://khinsider.apextox.dpdns.org",
+    "description": "KHInsiderのアルバムをまとめて取り込む",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz.svg"
   },
   {
     "name": "Picard",
@@ -64,26 +91,30 @@
     "name": "Vaultwarden",
     "href": "https://vault.apextox.dpdns.org",
     "description": "パスワード管理（SSO）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/vaultwarden.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/vaultwarden.svg",
+    "pingUrl": "https://vault.apextox.dpdns.org/alive"
   },
   {
     "name": "ゲームポータル",
     "href": "https://play.apextox.dpdns.org",
     "description": "ゲーム配信・ランチャーの入口",
     "iconText": "GAME",
-    "iconColor": "#8b5cf6"
+    "iconColor": "#8b5cf6",
+    "pingUrl": "https://play.apextox.dpdns.org/"
   },
   {
     "name": "AWX",
     "href": "https://awx.apextox.dpdns.org",
     "description": "Ansibleの実行基盤",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/awx.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/awx.svg",
+    "pingUrl": "https://awx.apextox.dpdns.org/api/v2/ping/"
   },
   {
     "name": "Proxmox",
     "href": "https://pve.apextox.dpdns.org:8006",
     "description": "仮想化ホストの管理画面",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/proxmox.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/proxmox.svg",
+    "pingUrl": "https://pve.apextox.dpdns.org:8006/"
   },
   {
     "name": "GitHub リポジトリ",

@@ -1,0 +1,15 @@
+---
+# 監視スタック（Prometheus・Alertmanager・Grafana・exporter）を monitor-01 に置く。
+monitoring_project_dir: /opt/monitoring-stack
+monitoring_storage_root: /srv/monitoring
+monitoring_source_dir: '{{ playbook_dir }}/../../stacks/monitoring'
+monitoring_bind_address: 127.0.0.1
+monitoring_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+monitoring_public_url: 'https://grafana.{{ monitoring_dns.zone }}'
+# OIDC クライアントの秘密値の正本は identity VM。配備のたびにここから写す。
+monitoring_identity_host: "{{ (groups.get('identity_provider') or ['identity'])[0] }}"
+monitoring_oidc_credentials_path: /opt/identity-stack/secrets/oidc-grafana.json
+# Proxmox の読み取り専用トークンと NUT のパスワード。
+monitoring_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'
+monitoring_smtp_sops_file: '{{ playbook_dir }}/../sops/smtp.sops.yaml'
+monitoring_smtp_keys: [SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM]

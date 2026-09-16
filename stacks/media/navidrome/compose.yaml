@@ -10,6 +10,8 @@ services:
       ND_MUSICFOLDER: /music
       ND_DATAFOLDER: /data
       ND_SCANSCHEDULE: '@every 1h'
+      # 整理でファイルを動かすと旧パスは missing として残る。全スキャン後に掃除する。
+      ND_SCANNER_PURGEMISSING: always
       ND_DEFAULTLANGUAGE: ja
       # Forward Auth。Caddy は media-01 のホスト（host ネットワーク）で動き、
       # コンテナからは 127.0.0.1 と docker bridge 経由で届く。公開ポートは

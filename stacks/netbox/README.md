@@ -1,6 +1,6 @@
 # NetBoxの初回構築
 
-NetBoxもこのリポジトリから構築します。このディレクトリは旧メディアスタックの配備用です。**新しい基盤の Kubernetes（kubeadm）と AWX 24.6.1 は稼働済み**で、NetBox は services-01 のままです（[配備台帳](../../docs/operations/handover.md)）。
+NetBoxもこのリポジトリから構築します。このディレクトリは **services-01 の NetBox** を配備するためのスタックです。**新しい基盤の Kubernetes（kubeadm・Cilium・Flux）とその上の AWX 24.6.1 は構築済み**です（2026-09-12時点で cp-01・worker-01 は停止中）。NetBox は services-01 のままです（[配備台帳](../../docs/operations/handover.md)）。
 
 起動順序は **Docker → NetBox → 配備先登録 → NetBox動的インベントリ → アプリ配備** です。NetBox本体を作る初回だけ静的なSSH指定を使用します。
 
@@ -53,8 +53,10 @@ Ansibleのグループ分けはNetBoxのタグを見ます。`platform/ansible/i
 | --- | --- | --- |
 | `media-stack` | `media` | 既存のメディアスタック。**意味を変えない** |
 | `managed-by-terraform-admin` | `terraform_managed` | 管理者Terraformが作ったもの |
+| `managed-by-cloud-api` | （なし） | 将来の自作クラウドAPIが作るもの。現時点では未使用 |
 | `k8s-cp` / `k8s-worker` | `k8s_cp` / `k8s_worker` | Kubernetesノード |
-| `identity` | `identity` | Authentikと専用DB |
+| `identity` | `identity_provider` | Authentikと専用DB |
+| `cloud-control` | `cloud_control` | クラウドAPIとその管理DB |
 | `devbox` | `devbox` | 開発VM |
 | `edge` / `vpn` / `storage` | 同名 | 公開入口、セルフホストVPN、Garage |
 | `lab` | `lab` | 検証・復元ドリル用の使い捨て |

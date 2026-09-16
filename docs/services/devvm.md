@@ -1,6 +1,6 @@
 # 開発VMの使い方
 
-更新日: 2026-09-12。状態: **稼働中**。VMの定義と権限はコード化済みで、dev-a（.202）・dev-b（.203）は実機で動いています。
+更新日: 2026-09-13。状態: **稼働中**。VMの定義と権限はコード化済みで、dev-a（.202）・dev-b（.203）は実機で動いています。
 
 2人がそれぞれ1台ずつ、GUIなしのLinux VMを持ちます。SSHとVS Code Remote SSHで使い、**使うときだけ起動します**。
 
@@ -111,7 +111,7 @@ VS Code は「Remote-SSH: Connect to Host」で `dev-a` を選びます。
 
 ## 6. 元に戻す方法と注意点
 
-- **宅外からは使えません。** VPN（`vpn-01`）が入るまでは宅内LANからだけです。ProxmoxのWeb画面をインターネットへ公開しません。
+- **宅外からは使えません。** services-01のVPNが入るまでは宅内LANからだけです。ProxmoxのWeb画面をインターネットへ公開しません。
 - どの鍵がどのVMに入るかは `platform/terraform/access.yaml` の `admin_ssh_public_keys`（全ホスト）と `host_ssh_public_keys`（ホスト個別）で決まります。`05-seed`（services-01）だけは専用の `seed_ssh_public_keys` を使います。
 - VM自体はTerraformで作り直せますが、その際ディスクの中身は失われます。
 - `~/tf`（0700）が各VMのTerraform state置き場として用意してあります。

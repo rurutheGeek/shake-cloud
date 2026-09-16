@@ -1,0 +1,19 @@
+---
+# 各VMへ node_exporter を入れる。監視スタックの Prometheus が 9100 を読む。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/node-exporter.yml \
+#       --limit services-01,identity,cloud-01,storage-s3
+- name: Install node_exporter on the service VMs
+  hosts: "{{ node_exporter_hosts | default('terraform_managed') }}"
+  become: true
+  tasks:
+    - name: Install node_exporter
+      ansible.builtin.apt:
+        name: prometheus-node-exporter
+        state: present
+
+    - name: Enable and start node_exporter
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+        enabled: true
+        state: started

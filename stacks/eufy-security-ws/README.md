@@ -1,6 +1,6 @@
 # eufy-security-wsの開発入口
 
-状態: **2026-09-12にstackを追加。実機配備はEufyの資格情報（`platform/sops/eufy-security.sops.yaml`）を入れてから**。eufyCam S4（T8172）はHomeBaseなしの単体動作で、[eufy-security-clientの対応機器一覧](https://github.com/bropat/eufy-security-client/blob/master/docs/supported_devices.md)に載っている。
+状態: **services-01へ配備済み（2026-09-12）。Eufyの資格情報（`platform/sops/eufy-security.sops.yaml`）は投入済みで、eufyCam S4（T8172）・SmartTrack（T87B0）のログイン・デバイス一覧・Pushまで動作。イベントのHA取り込みは確認中。ライブ映像はS4の新WebRTC方式のため、現行の公開ソフトでは不可（2026-09-13に実機で確定）**。eufyCam S4（T8172）はHomeBaseなしの単体動作で、[eufy-security-clientの対応機器一覧](https://github.com/bropat/eufy-security-client/blob/master/docs/supported_devices.md)に載っている。
 
 ## 何をするか
 
@@ -33,7 +33,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
 
 ## HA側
 
-HAのカスタム統合 `eufy_security`（v8.2.4、digest固定）は `home-assistant.yml` が `custom_components/` へ入れる。オーナー作成後、**設定 → デバイスとサービス → 統合を追加 → Eufy Security** で、ホスト `eufy-security-ws`・ポート `3000` を指定する。まずイベントとスナップショットを読み取りで確認し、ライブ映像は別途試す。既存のEufyアプリと録画は変更しない。
+HAのカスタム統合 `eufy_security`（v8.2.4、digest固定）は `home-assistant.yml` が `custom_components/` へ入れる。HAの「設定 → デバイスとサービス → 統合を追加 → Eufy Security」で、ホスト `eufy-security-ws`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識）。イベントとスナップショットは読み取りで確認中で、**ライブ映像はS4（T8172）の新WebRTC方式のため現行の公開ソフトでは不可**（[H04](../../docs/development/H04-eufy.md)）。既存のEufyアプリと録画は変更しない。
 
 ## 注意
 

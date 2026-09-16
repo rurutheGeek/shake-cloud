@@ -14,3 +14,8 @@ nextcloud_apps:
   - tasks
   - text
   - user_oidc
+# 自作アプリの送り先。アプリ本体は media-nextcloud.yml が一緒に配る
+# （旧スタックの deploy.yml は store から入れる前提なので触らない）。
+nextcloud_print_api_url: 'http://192.168.10.200:6320'
+nextcloud_localsend_api_url: 'http://192.168.10.101:53200'
+nextcloud_tags_api_url: 'http://192.168.10.101:5810'

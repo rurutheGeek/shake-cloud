@@ -4,26 +4,30 @@
 
 ## 目的・現状
 
-状態: **services-01へ新規構築済み（2026-09-12）**。旧ホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザでのSSO・マスターパスワードと独立バックアップ復元は未確認**。
+状態: **services-01へ新規構築済み（2026-09-12）**。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。**ブラウザーでのSSOログインと保管庫作成は実測済み（2026-09-14）。独立バックアップの復元は未確認**。
 
-`stacks/compose.yaml` に本体、`stacks/compose.integrations.example.yaml` とhub設定処理にOIDCがある。[利用・SSO手順](../services/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
+`stacks/vaultwarden/compose.yaml` に本体とOIDC（identityの`vaultwarden`クライアント）の定義がある。[利用・SSO手順](../services/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
 
 配備先: **services-01**。開発先は `stacks/vaultwarden/`。保管庫を独立した単位で移行・復元できるようにする。
 
 ## 実装手順
 
 1. 固定イメージ、DBの実形式、添付・鍵・`config.json`・SMTP・OIDC設定を棚卸しする。管理画面設定と環境変数の優先順位を保持して専用Composeへ切り出す。
-2. 既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。 マスターパスワードと保管庫暗号鍵はSSOで代替しない。一般登録無効・ローカル復旧認証を維持する。
-3. 旧環境の書き込みを止め、整合したDB・添付・鍵・設定を取得して隔離先へ復元する。Web・拡張・モバイルで合格後にURLを切り替える。切替後の書き込み差分を保全する切戻し手順も作る。
+2. 認証は[identity](../operations/identity.md)のOIDCクライアント `vaultwarden` を使う。既存アカウントを引き継ぐ場合は `users` への紐付けを検証し、メール一致だけで別人のデータを結び付けない。 マスターパスワードと保管庫暗号鍵はSSOで代替しない。一般登録無効・ローカル復旧認証を維持する。
+3. 既存環境の書き込みを止め、整合したDB・添付・鍵・設定を取得して隔離先へ復元する。Web・拡張・モバイルで合格後にURLを切り替える。切替後の書き込み差分を保全する切戻し手順も作る。
 
 ## 依存と並列作業
 
 - 開発開始: なし。実データを使わないテスト保管庫で専用構成を作れる。
 - 配備・切替: [I01](I01-resources.md)、[N05](N05-https.md)、対象本人による既存保管庫の確認とバックアップ。
-- 競合調整: 旧共通Composeからの除外と専用Composeへの追加を一担当が同一切替で行う。旧新への二重書き込み、SSO/TLSの同時変更を避ける。
+- 競合調整: services-01内の他Composeと保存先・ポートを分離し、SSO/TLSの同時変更を避ける。
 
 ## 検証・完了条件
 
 - 既存保管庫の復号、添付取得、作成・更新、スマホと拡張の同期、セッション更新が成功する。
 - 確認済みメールの認証、未確認メールの拒否、管理画面のアクセス制限、ローカル復旧認証を確認する。
 - 独立バックアップから復元して内容を比較し、再配備・VM再起動後にも使用できる。[O03](O03-restore.md)へ復元対象と結果を渡す。
+
+## 実装記録
+
+- 2026-09-14: **「毎回マスターパスワード設定の新規登録画面が出る」を調査。** 原因は2つ。(1) ブラウザーに残った管理用 `akadmin` のAuthentikセッションでVaultwardenのSSOが認証され、`akadmin`（email `shake.notify@gmail.com`）の保管庫に入っていた（Authentikの`authorize`ログが`auth_via=session`・`user=akadmin`、Vaultwardenの`sso_users`がakadminのUUID `be74d198-…` に紐付け、DBの`users`は`ruru2028@gmail.com`（`651f9b36-…`）と`shake.notify@gmail.com`の2件で後者は`password_hash`が空）。(2) Vaultwarden 1.37.1／1.37.2はマスターパスワード設定が422（`missing field newMasterPasswordHash`）で失敗するため、未設定の保管庫は毎回この画面に戻っていた。**1.37.3（#7634入り）へ更新**（digest `sha256:1587c45f…`、`db.sqlite3`のコールドバックアップは `/srv/backups/vaultwarden/20260914T125129145768Z`）。不要な `shake.notify@gmail.com`（akadmin）保管庫をDBから削除し、以後は `ruru2028@gmail.com` の1件のみ。本人はAuthentikからサインアウトするかプライベートウィンドウで自分のメールを入れてSSOする。

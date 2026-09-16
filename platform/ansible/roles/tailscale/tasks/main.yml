@@ -1,0 +1,103 @@
+---
+- name: Require the auth key from SOPS
+  ansible.builtin.assert:
+    that:
+      - tailscale_auth_key | length > 0
+    fail_msg: >-
+      TAILSCALE_AUTH_KEY が空です。Tailscale の管理画面で認証キーを発行し、
+      platform/sops/tailscale.sops.yaml へ入れてから
+      `sops exec-env platform/sops/tailscale.sops.yaml '...'` で実行してください。
+    quiet: true
+
+- name: Add the Tailscale repository signing key
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.noarmor.gpg"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add the Tailscale repository
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/debian/{{ ansible_distribution_release }}.tailscale-keyring.list"
+    dest: /etc/apt/sources.list.d/tailscale.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    # リポジトリを追加した直後は必ず update が要る。cache_valid_time を
+    # 付けると、cloud-init の update から1時間以内に追加したリポジトリが
+    # 反映されず "No package matching 'tailscale' is available" になる。
+    update_cache: true
+
+# 望む状態と今の設定を比べ、変わるときだけ `tailscale up` を実行する。
+# `tailscale up` は毎回同じ内容なら実質 no-op だが、認証キーを伴うため
+# 必要なときにだけ走らせる。
+- name: Read the current Tailscale preferences
+  ansible.builtin.command: tailscale debug prefs
+  register: tailscale_prefs
+  changed_when: false
+  failed_when: false
+
+- name: Decide whether the node needs to connect or update its preferences
+  ansible.builtin.set_fact:
+    tailscale_needs_up: >-
+      {{
+        tailscale_prefs.rc != 0
+        or not tailscale_current.WantRunning
+        or (tailscale_current.AdvertiseRoutes or []) | sort != tailscale_advertise_routes | sort
+        or (tailscale_current.AdvertiseTags or []) | sort != tailscale_advertise_tags | sort
+        or tailscale_current.CorpDNS != tailscale_accept_dns
+      }}
+  vars:
+    tailscale_current: "{{ tailscale_prefs.stdout | from_json }}"
+
+- name: Join the tailnet with the advertised routes
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - up
+      - "--authkey={{ tailscale_auth_key }}"
+      - "--advertise-routes={{ tailscale_advertise_routes | join(',') }}"
+      - "--advertise-tags={{ tailscale_advertise_tags | join(',') }}"
+      - "--accept-dns={{ tailscale_accept_dns | lower }}"
+  when: tailscale_needs_up | bool
+  changed_when: true
+  # argv に認証キーが入る。ログ・差分へ出さない。
+  no_log: true
+
+- name: Persist IPv4 forwarding for the subnet routes
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-tailscale-forwarding.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Tailscale subnet router (net-01)。広告した LAN ルートを転送する。
+      net.ipv4.ip_forward = 1
+
+- name: Read the current IPv4 forwarding setting
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: tailscale_ip_forward
+  changed_when: false
+
+- name: Enable IPv4 forwarding now
+  ansible.builtin.command: sysctl -w net.ipv4.ip_forward=1
+  when: tailscale_ip_forward.stdout | trim != '1'
+  changed_when: true
+
+- name: Read the tailnet address
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_address
+  changed_when: false
+  until: tailscale_address.rc == 0 and tailscale_address.stdout is match('^100\\.')
+  retries: 20
+  delay: 3
+
+- name: Report the tailnet address
+  ansible.builtin.debug:
+    msg: "tailnet address: {{ tailscale_address.stdout }}"

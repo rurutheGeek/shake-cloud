@@ -1,0 +1,18 @@
+# monitor-01 の静的インベントリ。NetBox の動的インベントリに載る前の配備に使う。
+# platform/ansible/monitor.ini へコピーして実値を入れる。monitor.ini は .gitignore 対象。
+[monitoring]
+monitor-01 ansible_host=192.0.2.102
+
+[monitoring:vars]
+ansible_user=debian
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_private_key_file=~/.ssh/id_ed25519_pve
+
+# monitoring ロールが OIDC クライアントの秘密値を読むために identity VM も置く。
+[identity_provider]
+identity ansible_host=192.0.2.204
+
+[identity_provider:vars]
+ansible_user=debian
+ansible_python_interpreter=/usr/bin/python3
+ansible_ssh_private_key_file=~/.ssh/id_ed25519_pve

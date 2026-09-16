@@ -17,3 +17,6 @@ account_id: "934162309796"
 # 停止・削除・IP未確定・遷移中のものは inventory.cloud.py が出さない。
 instances:
   i-a06df9a2dfd1ce6db: [media]
+  # net-01（Tailscale subnet router。platform/terraform/services/net）。
+  # 2026-09-14 作成。グループ vpn は inventory.netbox.yml の語彙。
+  i-88933be43f442c6f4: [vpn]

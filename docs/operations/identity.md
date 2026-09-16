@@ -4,7 +4,6 @@ identity VM の Authentik は、**利用者の共通アカウント（誰であ�
 
 - **入口:** `https://auth.apextox.dpdns.org`（`:9000` と `:9443` は 127.0.0.1 に閉じています）
 - **VM:** identity（VMID 110、192.168.10.204）。Kubernetes の外に置き、クラスタ更新中でもログインできます。
-- 作業機の検証用 `stacks/hub` の Authentik とは**別物**です。そこから移行していません。
 
 ## 配備
 
@@ -18,8 +17,11 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
   - OIDC クライアント `homarr`（services-01の入口。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
-  - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`。`users`と`admins`の両方を許可）
-  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso共通ログイン)）
+  - OIDC クライアント `grafana`（monitor-01の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
+  - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`。`users`と`admins`の両方を許可）
+  - OIDC クライアント `vaultwarden`（`https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` を許可）
+  - media-01 の入口（Nextcloud・Kavita・FreshRSS は OIDC クライアント、Navidrome・MeTube・Picard は Forward Auth）と CUPS（Forward Auth）のクライアント
+  - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
 - 2 回目の実行はすべて `OK:` になります。
@@ -52,13 +54,14 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 | グループ | 何のため | 主なアプリでの扱い |
 | --- | --- | --- |
-| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ） |
-| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、AWX など |
+| `users` | 一般利用者 | クラウド、NetBox（閲覧のみ）、Homarr、Home Assistant、Vaultwarden、media-01 の各入口、CUPS |
+| `admins` | 管理者 | クラウド（全体操作）、NetBox（superuser）、Homarr（編集）、Home Assistant（管理者）、AWX など |
 
 - `akadmin` は `admins` に入ります。**招待で作られた人は `users` に入ります。**
 - 管理者の追加や既存ユーザーの移行は GUI で行います（**Directory → Users → 対象 → Groups**）。
 - **グループ名を変えたら、既存ユーザーを新しいグループへ入れ直してください。** 旧グループを消しただけでは移りません。2026-09-12 の改名（`cloud-users`/`cloud-admins` → `users`/`admins`）で実際に起きました。旧 `cloud-users` にいた `ruruthegeek` と `shunyazhiyuan97` は**どちらも利用者アカウント**なので `users` へ移して解決しています（管理者は `akadmin` だけ。Authentik のイベントログの `add_user` 記録で確認）。
-- `gaming-users` / `gaming-admins` は、ゲームポータルが `game_identity` スコープの `groups` クレームで使うため残しています。
+- ゲームポータルも `users` / `admins` を使います。用途別にグループを分けません（旧 `gaming-users` / `gaming-admins` は廃止し、メンバーを統合しました）。`game_identity` スコープは所属グループ名を `groups` クレームで返します。
+- VaultwardenやKavitaは「検証済みメール」を要求します。Authentikの既定emailスコープは `email_verified=false` を返すため、独自の `Verified Email` スコープマッピング（`email_verified: true`）をプロバイダへ適用し、あわせて `offline_access` も付与しています（2026-09-13）。
 
 <a id="利用者の招待管理者"></a>
 ## 利用者の招待（管理者）

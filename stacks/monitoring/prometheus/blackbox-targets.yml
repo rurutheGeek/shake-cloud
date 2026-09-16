@@ -1,0 +1,32 @@
+# blackbox_exporter が probe する HTTPS 名。platform/terraform/dns.yaml の
+# upstream 付きレコードと揃える（tests/test_monitoring_stack.py が検査）。
+- targets:
+    - https://auth.apextox.dpdns.org/-/health/live/
+    - https://cloud.apextox.dpdns.org/healthz
+    - https://docs.apextox.dpdns.org/
+    - https://netbox.apextox.dpdns.org/login/
+    - https://homarr.apextox.dpdns.org/api/auth/csrf
+    - https://ha.apextox.dpdns.org/manifest.json
+    - https://vault.apextox.dpdns.org/alive
+    - https://play.apextox.dpdns.org/
+    - https://cups.apextox.dpdns.org/
+    - https://grafana.apextox.dpdns.org/api/health
+    # PeaNUT は / がログインへ307。https_reachable が到達性だけを見る。
+    - https://peanut.apextox.dpdns.org/
+    - https://pve.apextox.dpdns.org:8006/
+  labels:
+    group: platform
+- targets:
+    - https://nextcloud.apextox.dpdns.org/status.php
+    - https://kavita.apextox.dpdns.org/
+    - https://navidrome.apextox.dpdns.org/ping
+    - https://freshrss.apextox.dpdns.org/api/
+    - https://metube.apextox.dpdns.org/
+    - https://khinsider.apextox.dpdns.org/
+    - https://navidrome-api.apextox.dpdns.org/
+  labels:
+    group: media
+- targets:
+    - https://awx.apextox.dpdns.org/api/v2/ping/
+  labels:
+    group: k8s

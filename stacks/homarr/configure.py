@@ -94,10 +94,14 @@ class Homarr:
         if not content:
             return None
         try:
-            return json.loads(content)
+            parsed = json.loads(content)
         except json.JSONDecodeError:
             # The auth callback answers with HTML; the session cookie is the result.
             return content.decode('utf-8', 'replace')
+        # tRPC returns application errors with HTTP 200 and an `error` field.
+        if isinstance(parsed, dict) and parsed.get('error'):
+            raise RuntimeError(f'{method} {path}: {parsed["error"].get("json", parsed["error"])}')
+        return parsed
 
     def trpc(self, path, data=None, post=False):
         if post:
@@ -150,7 +154,7 @@ def configure(homarr, options):
                                     'isPublic': False}, post=True)['boardId']}
     homarr.trpc('board.savePartialBoardSettings',
                 {'id': board['id'], 'pageTitle': options['title'],
-                 'metaTitle': options['title'], 'disableStatus': True}, post=True)
+                 'metaTitle': options['title'], 'disableStatus': False}, post=True)
 
     known = {row['name']: row for row in homarr.trpc('app.all')}
     # 同じURLのアプリが別名で残っていたら、新規作成せず名前を直す（タイルの重複を防ぐ）。
@@ -160,7 +164,9 @@ def configure(homarr, options):
     for row in load_apps(options['apps_file']):
         data = {key: row[key] for key in ('name', 'description', 'href') if key in row}
         data.update(iconUrl=row.get('iconUrl') or icon_data_uri(
-            row.get('iconText', 'APP'), row.get('iconColor', DEFAULT_COLOR)), pingUrl=None)
+            row.get('iconText', 'APP'), row.get('iconColor', DEFAULT_COLOR)),
+            # タイルの緑/赤はこのURLへの疎通で決まる。指定が無ければ開くURLを使う。
+            pingUrl=row.get('pingUrl') or row['href'])
         existing_app = known.get(row['name']) or by_href.get(row['href'])
         if existing_app:
             app_id = existing_app['id']
@@ -185,6 +191,12 @@ def configure(homarr, options):
         admin = next(row for row in homarr.trpc('group.getAll')
                      if row['name'] == options['admin_group'])
     homarr.trpc('group.savePermissions', {'groupId': admin['id'], 'permissions': ['admin']}, post=True)
+    # 管理者グループにもボード編集を明示（全体管理者でも編集できるが、意図を残す）。
+    homarr.trpc('board.saveGroupBoardPermissions', {
+        'entityId': board['id'],
+        'permissions': [{'principalId': everyone['id'], 'permission': 'view'},
+                        {'principalId': admin['id'], 'permission': 'modify'}],
+    }, post=True)
     print(f"Homarr board '{options['board']}' reconciled "
           f"({len(existing)} items before, {len(known)} apps known)")
 

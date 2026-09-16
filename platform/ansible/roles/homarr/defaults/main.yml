@@ -8,6 +8,8 @@ homarr_bind_address: 127.0.0.1
 homarr_port: 7575
 homarr_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
 homarr_public_url: 'https://homarr.{{ homarr_dns.zone }}'
+# Proxmox と PeaNUT の資格情報（M01 の monitoring.sops.yaml）。
+homarr_monitoring_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'
 # Authentik は受けた Host から issuer を組み立てるので、ブラウザと Homarr が同じ名前で叩く。
 homarr_oidc_issuer: 'https://auth.{{ homarr_dns.zone }}/application/o/homarr/'
 homarr_oidc_client_id: homarr

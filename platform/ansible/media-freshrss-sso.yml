@@ -1,0 +1,63 @@
+---
+# FreshRSS のネイティブ OIDC を identity（Authentik）に接続する。
+#
+#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
+#   .venv/bin/ansible-playbook \
+#     -i platform/ansible/inventory.netbox.yml \
+#     -i platform/ansible/inventory.cloud.py \
+#     platform/ansible/media-freshrss-sso.yml --limit i-a06df9a2dfd1ce6db
+#
+# 実行には media-01 と identity の両方が解決できる inventory が要る。`media`
+# グループは基盤の NetBox インベントリにも存在し得るため --limit で media-01 を
+# 明示する。前提: identity が configure.py でクライアントを作り、media-freshrss.yml
+# がユニットを配備していること。
+#
+# client_id/secret は identity VM の secrets/oidc-media.json から読み、標準出力・
+# ログには出さない（no_log）。配った後 manage.py up で OIDC を有効にして再起動する。
+- name: Configure FreshRSS native OIDC
+  hosts: media
+  become: true
+  tasks:
+    - name: Require the FreshRSS deployment to exist
+      ansible.builtin.stat:
+        path: '{{ project_dir }}/media/freshrss/{{ item }}'
+      loop: [.env, manage.py]
+      register: media_freshrss_files
+    - name: Stop when the unit has not been deployed
+      ansible.builtin.assert:
+        that: media_freshrss_files.results | map(attribute='stat.exists') | select | list | length == 2
+        fail_msg: >-
+          {{ project_dir }}/media/freshrss に .env か manage.py がない。
+          media-freshrss.yml を先に実行する。
+        quiet: true
+
+    - name: Read the media OIDC client credentials on the identity VM
+      ansible.builtin.slurp:
+        src: /opt/identity-stack/secrets/oidc-media.json
+      delegate_to: '{{ media_sso_identity_host | default("identity") }}'
+      register: media_freshrss_oidc
+      no_log: true
+    - name: Check the FreshRSS client credentials
+      ansible.builtin.assert:
+        that:
+          - (media_freshrss_oidc.content | b64decode | from_json).freshrss.client_id | length > 0
+          - (media_freshrss_oidc.content | b64decode | from_json).freshrss.client_secret | length > 0
+        fail_msg: >-
+          identity VM の /opt/identity-stack/secrets/oidc-media.json に freshrss の
+          client_id / client_secret がない。identity 側を先に配備する。
+        quiet: true
+      no_log: true
+
+    - name: Install the FreshRSS OIDC client secret
+      ansible.builtin.copy:
+        content: >-
+          {{ {'client_id': (media_freshrss_oidc.content | b64decode | from_json).freshrss.client_id,
+              'client_secret': (media_freshrss_oidc.content | b64decode | from_json).freshrss.client_secret} | to_json }}
+        dest: '{{ project_dir }}/media/freshrss/secrets/oidc_client.json'
+        mode: '0600'
+      no_log: true
+
+    - name: Restart FreshRSS with OIDC enabled
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/freshrss/manage.py', up]
+      changed_when: true

@@ -123,25 +123,50 @@ def occ(*args, **kwargs):
 
 
 def setup():
-    """Enable files_external and cron, then reconcile the shared library mounts."""
+    """Enable files_external and cron, then reconcile the shared library mounts.
+
+    The library lives on the shared data disk, so it is opened to every account
+    that can log in: inviting someone in Authentik is the access decision. The
+    mount is created without an applicable list (empty = everyone) and any
+    leftover user/group restriction is removed on redeploy.
+    """
     occ('app:enable', 'files_external')
     occ('background:cron')
     raw = json.loads(occ('files_external:list', '--output=json', capture_output=True).stdout)
     mounts = list(raw.values()) if isinstance(raw, dict) else raw
-    admin = settings().get('NEXTCLOUD_ADMIN_USER', 'admin')
     for name, datadir in (('books', '/library/books'),
                           ('music', '/library/music'),
-                          ('docs', '/docs')):
+                          ('docs', '/docs'),
+                          ('inbox', '/library/inbox')):
         matching = [m for m in mounts if m['mount_point'].strip('/') == name]
         if not matching:
             occ('files_external:create', '/' + name, 'local', 'null::null',
-                '--config', f'datadir={datadir}', '--applicable-user', admin)
+                '--config', f'datadir={datadir}')
             print(f'CHANGED: external storage created: /{name}')
-        elif len(matching) != 1 or matching[0]['configuration'].get('datadir') != datadir:
+            continue
+        if len(matching) != 1 or matching[0]['configuration'].get('datadir') != datadir:
             raise RuntimeError(f'Conflicting external storage mount: {name}; inspect in Nextcloud')
+        mount = matching[0]
+        changed = False
+        for user in mount.get('applicable_users') or []:
+            occ('files_external:applicable', str(mount['mount_id']), f'--remove-user={user}')
+            changed = True
+        for group in mount.get('applicable_groups') or []:
+            occ('files_external:applicable', str(mount['mount_id']), f'--remove-group={group}')
+            changed = True
+        if changed:
+            print(f'CHANGED: external storage opened to every user: /{name}')
         else:
-            # Preserve intentionally edited access rules on subsequent deployments.
-            print(f'OK: external storage preserved: /{name}')
+            print(f'OK: external storage available to every user: /{name}')
+
+
+def upgrade():
+    """Apply pending Nextcloud/app upgrades (needed after an app version bump)."""
+    result = occ('upgrade', capture_output=True)
+    if 'Everything up-to-date' in result.stdout:
+        print('OK: Nextcloud already up to date')
+    else:
+        print('CHANGED: Nextcloud upgraded')
 
 
 def apps(names):
@@ -168,10 +193,52 @@ def apps(names):
             print(f'CHANGED: Nextcloud app installed: {name}')
 
 
+def config_app(app, values):
+    """Reconcile app config values and report only real changes.
+
+    The token is a shared secret from SOPS and reaches this script through the
+    environment; it is stored in Nextcloud's app config for the controller.
+    """
+    for key, value in values:
+        try:
+            current = occ('config:app:get', app, key,
+                          capture_output=True).stdout.strip()
+        except subprocess.CalledProcessError:
+            current = ''
+        if current == value:
+            print(f'OK: {app} {key}')
+        else:
+            occ('config:app:set', app, key, f'--value={value}')
+            print(f'CHANGED: {app} {key}')
+
+
+def config_print():
+    config_app('shake_print', (
+        ('print_api_url', os.environ['PRINT_API_URL']),
+        ('print_api_token', os.environ['PRINT_API_TOKEN']),
+    ))
+
+
+def config_localsend():
+    config_app('shake_localsend', (
+        ('send_api_url', os.environ['SEND_API_URL']),
+        ('send_api_token', os.environ['SEND_API_TOKEN']),
+    ))
+
+
+def config_tags():
+    config_app('shake_tags', (
+        ('tags_api_url', os.environ['TAGS_API_URL']),
+        ('tags_api_token', os.environ['TAGS_API_TOKEN']),
+    ))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
-                        choices=['init', 'lock', 'up', 'setup', 'apps', 'status', 'down'])
+                        choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
+                                 'config-print', 'config-localsend', 'config-tags',
+                                 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
@@ -180,12 +247,20 @@ def main():
         lock()
     elif args.action == 'up':
         up()
+    elif args.action == 'upgrade':
+        upgrade()
     elif args.action == 'setup':
         setup()
     elif args.action == 'apps':
         if args.app_names is None:
             raise ValueError('Use --apps app1,app2 with the apps action')
         apps(args.app_names)
+    elif args.action == 'config-print':
+        config_print()
+    elif args.action == 'config-localsend':
+        config_localsend()
+    elif args.action == 'config-tags':
+        config_tags()
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

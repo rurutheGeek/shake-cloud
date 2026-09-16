@@ -19,6 +19,7 @@ x-nextcloud-volumes: &nextcloud-volumes
   - ${LIBRARY_ROOT:-/srv/media-stack/library}/books:/library/books
   - ${LIBRARY_ROOT:-/srv/media-stack/library}/music:/library/music
   - ${LIBRARY_ROOT:-/srv/media-stack/library}/docs:/docs
+  - ${LIBRARY_ROOT:-/srv/media-stack/library}/inbox:/library/inbox
 
 services:
   postgres:

@@ -1,0 +1,59 @@
+# Prometheus の収集設定。監視対象の一覧は dns.yaml と揃える
+# （tests/test_monitoring_stack.py が差分を検査する）。
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['127.0.0.1:9090']
+
+  # HTTPS名の疎通と証明書期限。blackbox_exporter に probe させる。
+  - job_name: blackbox
+    metrics_path: /probe
+    params:
+      module: [https_reachable]
+    file_sd_configs:
+      - files: ['/etc/prometheus/blackbox-targets.yml']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Proxmox のノードとゲスト（VM）の資源。読み取り専用トークンで API を読む。
+  - job_name: pve
+    metrics_path: /pve
+    params:
+      module: [default]
+    static_configs:
+      - targets: ['192.168.10.126']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: pve-exporter:9221
+
+  # UPS（ProxmoxホストのNUTサーバー）。
+  - job_name: nut
+    metrics_path: /ups_metrics
+    static_configs:
+      - targets: ['nut-exporter:9199']
+
+  # 各VMの node_exporter。apt の prometheus-node-exporter を Ansible が入れる。
+  - job_name: node
+    file_sd_configs:
+      - files: ['/etc/prometheus/node-targets.yml']

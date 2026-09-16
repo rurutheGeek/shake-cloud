@@ -1,6 +1,6 @@
 site_name: Shake Lab Docs
 docs_dir: docs
-site_dir: stacks/hub/site
+site_dir: stacks/docs/site
 use_directory_urls: true
 theme:
   name: mkdocs
@@ -16,7 +16,7 @@ nav:
           - W03 Nextcloud・Calendar・Tasks: development/W03-nextcloud.md
           - W04 Kavita: development/W04-kavita.md
           - W05 Navidrome: development/W05-navidrome.md
-          - W06 MeTube・音楽変換・Picard: development/W06-music-tools.md
+          - W06 MeTube・音楽変換・タグ編集: development/W06-music-tools.md
           - W07 RomM: development/W07-romm.md
       - A：AI:
           - A01 ポケモンDB・WebUI・agent: development/A01-pokemon-ai.md
@@ -46,6 +46,8 @@ nav:
           - I04 DNS登録: development/I04-cloud-dns.md
           - I05 サービス用state管理: development/I05-service-state.md
           - I06 AWXのジョブ整備: development/I06-awx.md
+      - M：監視:
+          - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
       - O：復旧・運用:
           - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
           - O02 CNPGバックアップ: development/O02-cnpg-backup.md
@@ -58,21 +60,27 @@ nav:
           - D05 Picard: development/D05-picard.md
           - D06 LocalSend: development/D06-localsend.md
           - D07 Tailcat: development/D07-tailcat.md
+          - D08 Nextcloudからの印刷: development/D08-nextcloud-print.md
   - 利用者向け:
       - 全サービスの使い方: services/usage.md
+      - Nextcloudの使い方: services/nextcloud-guide.md
       - 共通ログインの使い方: services/identity.md
       - クラウドの使い方: services/cloud.md
       - Homarrハブ: services/homarr.md
+      - Home Assistantと家電の使い方: services/home-assistant.md
       - 音楽・取り込み・タグ: services/music.md
+      - タグ管理（MP3）: services/tags.md
+      - Navidrome改造予定: services/navidrome.md
+      - 共通RSSタイムライン: services/rss.md
+      - プリンター（Canon TS8430）: services/printer.md
       - 開発VMの使い方: services/devvm.md
       - 日本語表示: services/language.md
   - 管理者向け:
-      - 運用の基本: overview.md
+      - ホームラボの全体像（詳細）: overview.md
       - 接続先一覧（URL）: operations/urls.md
       - サービスの置き場所とクラウドVM: operations/services.md
       - Nextcloudと追加アプリ: services/nextcloud.md
       - Vaultwardenの管理: services/vaultwarden.md
-      - 共通ログイン: services/sso.md
       - 認証基盤（identity・Authentik）: operations/identity.md
       - メール設定: operations/smtp.md
       - 初回セットアップの順番: operations/bootstrap.md
@@ -88,10 +96,10 @@ nav:
       - shakecloud Terraform Provider: operations/terraform-provider.md
       - Garage（S3互換ストレージ）: operations/garage.md
       - VLAN 分離への切替: operations/vlan.md
+      - net-01（Tailscale subnet router）: operations/net.md
       - Kubernetes クラスタ: operations/kubernetes.md
       - 電源とUPS: operations/power.md
       - Flux にアプリを足す: operations/flux-apps.md
-      - ハブ運用: operations/hub.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md
   - 構成案:
@@ -103,3 +111,8 @@ nav:
       - 2人用ゲーム・開発VM: architecture/gaming.md
       - 配備・Git・復旧: architecture/operations.md
       - Proxmox導入後の手順: architecture/bring-up.md
+
+# Mermaidをオフラインで描画する（docs/assets/js/README.md参照）。
+extra_javascript:
+  - assets/js/mermaid.min.js
+  - assets/js/mermaid-init.js

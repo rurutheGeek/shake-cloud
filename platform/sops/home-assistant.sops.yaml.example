@@ -1,0 +1,11 @@
+# Home Assistant の長期アクセストークン。正本はこのSOPSファイル。
+#
+# Ansibleや運用スクリプトから HA の REST / WebSocket API を叩くときに使う。
+# 例: プリンター統合（IPP）の config flow、状態取得、自動化の確認。
+#
+#   sops exec-env platform/sops/home-assistant.sops.yaml \
+#     'curl -s -H "Authorization: Bearer $HA_TOKEN" https://ha.apextox.dpdns.org/api/'
+#
+# 発行は HA の プロフィール → セキュリティ → 長期アクセストークン。
+# **失効したらこのファイルを更新する。**
+HA_TOKEN: REPLACE_WITH_A_LONG_LIVED_ACCESS_TOKEN

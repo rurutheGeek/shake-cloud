@@ -1,0 +1,18 @@
+---
+# Tailscale を導入し、この端末を tailnet へ参加させるロール。
+# net-01（platform/ansible/net.yml）の subnet router 用。
+#
+# 認証キーは Git へ入れない。SOPS から復号し、プロセスの環境変数として渡す
+# （実行例は platform/ansible/net.yml の先頭）。
+
+tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
+
+# LAN 側で広告するルート（subnet router）。空なら広告しない。
+tailscale_advertise_routes: []
+
+# 端末のタグ。ACL の tagOwners を定義したタグだけを指定する。
+# タグ付き端末は既定でキー期限が無効になる。空ならタグなしで参加する。
+tailscale_advertise_tags: []
+
+# DNS は既存の Cloudflare（内部IPを返す）と split DNS の検証が済むまで触らない。
+tailscale_accept_dns: false

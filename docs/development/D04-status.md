@@ -6,9 +6,9 @@
 
 ## 目的・現状の根拠
 
-既存実装、旧環境からの移行、未実装、実機未確認、資料のみの作業を分け、重複開発を防ぐ。
+既存実装、既存環境からの移行、未実装、実機未確認、資料のみの作業を分け、重複開発を防ぐ。
 
-[配備台帳](../operations/handover.md)、[クラウド運用](../operations/cloud.md)、[サービスの作り方](../operations/services.md)、[旧SSO](../services/sso.md)が根拠。API／Provider、メディアCompose、旧SSOの設定コードは既にあり、新配置への移行完了とは別。
+[配備台帳](../operations/handover.md)、[クラウド運用](../operations/cloud.md)、[サービスの作り方](../operations/services.md)、[identity運用](../operations/identity.md)が根拠。API／Provider、メディアCompose、identityの設定コードは既にあり、新配置への移行完了とは別。
 
 ## 変更範囲
 

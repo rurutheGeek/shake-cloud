@@ -23,10 +23,10 @@ lspci -nnk
 ```bash
 cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 # 接続先を編集し、先に手動SSHでホスト鍵を確認する
-.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/site.yml --tags survey
+.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/survey-pve.yml
 ```
 
-生成された `.survey/<ホスト名>.md` の冒頭に「Terraformへ転記する値」の表があります。ノード名、VMディスク用ストレージ名、cloud image置き場、**cloud-init snippetを置けるストレージ**、bridge名とvlan-awareの有無、既存LANのサブネットとgateway、使用済みVMIDを埋めてから次へ進みます。`snippets` を持つストレージが無い場合、cloud-initの追加設定は投入できないため、先にProxmox側でcontent種別を追加します。このファイル自体は台帳ではありません。必要な値を非公開台帳へ転記し、`.survey/` は作業用の一時出力として扱います。
+生成された `.survey/<ホスト名>.md` の冒頭に「Terraformへ転記する値」の表があります。ノード名、VMディスク用ストレージ名、cloud image／ISO置き場（`iso`）、クラウドAPI用イメージ置き場（`iso` と `import`）、SDNゾーン、データセンターFWの状態、bridge名とvlan-awareの有無、既存LANのサブネットとgateway、空きIP範囲、使用済みVMID、iGPUのPCIアドレスとIOMMUグループを埋めてから次へ進みます。**クラウドAPIは任意の user-data を NoCloud の seed ISO（`content=iso`）で渡すため `snippets` は使いません。** このファイル自体は台帳ではありません。必要な値を非公開台帳へ転記し、`.survey/` は作業用の一時出力として扱います。
 
 - BIOSの仮想化／IOMMU、RAM、SSD、冷却とファン動作を確認する。iGPUの固定予約は実測前に16GiBへ増やさない。
 - 管理用IP・ホスト名・gateway・DNS・時刻同期を固定／確認する。既存ネットワークと重複しないIPを使い、bridgeの物理NIC割り当てを確認する。
@@ -58,10 +58,10 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 
 ```bash
 # 1. 台帳とVMを作る
-sops exec-env platform/sops/proxmox.sops.yaml   'terraform -chdir=platform/terraform/10-platform apply'
+tools/tf 10-platform apply
 
 # 2. ゲストOSの共通設定
-.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit probe-01
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml --limit probe-01
 
 # 3. 復元ドリル（Proxmoxホスト上でrootとして実行）
 tools/pve-restore-drill.sh backup  --vmid 900 --storage <別媒体のストレージ>
@@ -83,7 +83,7 @@ tools/pve-restore-drill.sh cleanup --target-vmid 901
 pveum passwd dev-a@pve
 
 # 利用者: ゲストOSの初期設定
-.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml   platform/ansible/site.yml --tags guests --limit dev-a
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml --limit dev-a
 ```
 
 `DevVMOperator` に含まれるのは `VM.Audit` / `VM.PowerMgmt` / `VM.Console` だけです。CPU・RAM・ディスク・NICの正本は `hosts.yaml` のままなので、利用者の操作でIaCと実機が乖離しません。使い方は[開発VMの使い方](../services/devvm.md)を利用者へ渡します。
@@ -96,21 +96,21 @@ pveum passwd dev-a@pve
 
 ## 4. Home Assistantをservices-01へ追加する
 
-HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)が構築計画です。Kubernetes・game1から分離できますが、services-01再起動時は家電とVPNも停止します。
+HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)のとおり、**services-01へ配備済みです（2026-09-12）**。入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。認証はAuthentik OIDC（公開クライアント `home-assistant` と `hass-oidc-auth` v1.2.1）と緊急用のローカルオーナーを併用します。WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetes・game1から分離できますが、services-01再起動時は家電・印刷・Eufy中継も停止します。
 
-SwitchBot・Echo・Eufyの調査はH02–H04で独立して進め、実機接続だけをH01の配備後に確認します。家電1台の操作・状態更新、再起動後の復帰、構成・履歴の復元を合格条件にします。機種未確認の連携を他の作業の着手条件にしません。
+SwitchBotはHub Mini経由のSwitchBot Cloud統合を配備済みです。Eufyは `eufy-security-ws`（3.1.0）とHA統合 `eufy_security`（v8.2.4）でログイン・デバイス一覧・Pushまで動作し、イベント取り込みを確認中です。ライブ映像はS4の新しいWebRTC方式のため当面使えません。Alexa連携は2026-09-12に見送りました。家電1台の操作・状態更新、再起動後の復帰、構成・履歴の復元を合格条件にします。
 
 ## 5. 既存game1でゲームとAIを検証する
 
-既存game1（Bazzite、8vCPU、現行12GiB、cloud API所有）を利用する。GPUは割り当て済みだが、Wolf・Azaharの2人利用は別途検証する。IOMMUグループとGPU／音声機能を調べ、管理NICや必要なUSBを巻き込まないことを確認してからPCIパススルーを設定する。ホストの画面が使えなくなる可能性があるため、手順1のSSH・管理GUI経路を先に確保する。実機のPCIアドレスや起動方式に依存する設定を推測でコピーしない。[PCIパススルー公式](https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_pci_passthrough)
+既存game1（Bazzite、8vCPU、現行12GiB、cloud API管理下・引き取り済み）を利用する。GPUは割り当て済みだが、Wolf・Azaharの2人利用は別途検証する。IOMMUグループとGPU／音声機能を調べ、管理NICや必要なUSBを巻き込まないことを確認してからPCIパススルーを設定する。ホストの画面が使えなくなる可能性があるため、手順1のSSH・管理GUI経路を先に確保する。実機のPCIアドレスや起動方式に依存する設定を推測でコピーしない。[PCIパススルー公式](https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_pci_passthrough)
 
 Wolf → 1人のAzahar → 2人の独立セッション → 交換・対戦の順に確認する。30〜60分のプレイとVM再起動後のGPU再利用を[ゲームの合格条件](gaming.md)で確認する。Ollamaは後から追加し、ゲーム中は推論を止める。
 
-OpenHomeはgame-01への同居希望として台帳に残す。製品／リポジトリが未特定なので、Linux対応・常駐要否・音声／GPU・保存先・必要RAMを確認してから追加する。常時必要な機能なら、利用時だけ起動するgame-01の運用と両立するかも確認する。
+OpenHomeはgame1への同居希望として台帳に残す。製品／リポジトリが未特定なので、Linux対応・常駐要否・音声／GPU・保存先・必要RAMを確認してから追加する。常時必要な機能なら、利用時だけ起動するgame1の運用と両立するかも確認する。
 
 **完了条件:** 2人プレイとセーブ永続化が確認できる。不具合がある間は既存ゲーム環境を残し、Home Assistantや他サービスの導入は進められる。
 
-## 6. 既存クラスタを維持し、移行先を機能ごとに選ぶ
+## 6. 常用Kubernetesを維持し、移行先を機能ごとに選ぶ
 
 identity・cp・worker-01は構築済み。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](../operations/kubernetes.md)）。
 
@@ -125,7 +125,7 @@ identity・cp・worker-01は構築済み。現在の起動状態は配備台帳�
 
 ## 7. 自動起動と日常運用を仕上げる
 
-Proxmoxの自動起動順は、identity／storage／services-01（家電・VPNを同居予定） → cloud-01／control plane → workers → 必要な入口を初期案とする。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
+Proxmoxの自動起動順は、identity／storage／services-01（家電・印刷・Eufy中継を同居。VPNは追加予定） → cloud-01／control plane → workers → monitor-01／必要な入口を初期案とする。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
 
 初期バックアップ方針は重要DB・HA設定・セーブを日次、VMを週次＋大きな変更前とし、データ変更頻度・容量に応じて見直す。これは日次なら最大約1日分を失い得る目安であり、実際の取得成功を監視する。ゲームの利用時間とバックアップ／大量走査をずらす。復元所要時間を測り、必要な復旧時間に収まるか確認する。
 

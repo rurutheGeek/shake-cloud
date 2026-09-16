@@ -4,7 +4,7 @@
 
 ## 目的・現状
 
-状態: **既存コードの移行・認証統合・実機確認**。media-01へ空のNextcloud・PostgreSQL・Redis・cronを配備し、`setup`（外部ストレージ・cron）と`apps`（calendar・tasks・text・user_oidc）まで2026-09-12に実機適用済み。HTTPS入口（`https://nextcloud.apextox.dpdns.org`）とAuthentik OIDC（`user_oidc`）を設定済み。**旧環境からのデータ移行と既存アカウントの紐付けは未了**。
+状態: **既存コードの移行・認証統合・実機確認**。media-01へ空のNextcloud・PostgreSQL・Redis・cronを配備し、`setup`（外部ストレージ・cron）と`apps`（calendar・tasks・text・user_oidc）まで2026-09-12に実機適用済み。HTTPS入口（`https://nextcloud.apextox.dpdns.org`）とAuthentik OIDC（`user_oidc`）を設定済み。**既存環境からのデータ移行と既存アカウントの紐付けは未了**。
 
 `stacks/compose.yaml` はNextcloud・PostgreSQL・Redis・cronを定義済み。`platform/ansible/deploy.yml` と `group_vars/media.yml` はCalendar・Tasks・Text・user_oidcを導入する。[既存機能](../services/nextcloud.md)と[共有権限](../operations/nextcloud-permissions.md)を移行する。
 
@@ -13,7 +13,7 @@
 ## 実装手順
 
 1. 既存lockとアプリ版、DB・ファイル量、共有books/musicと私有データの対応を記録する。移行時には版更新を重ねない。共通ComposeからVaultwardenを分離する変更をW02と調整する。
-2. ホストごとの保存先・UID/GIDを明示し、原本を一つの共有領域に置く。既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。 CalDAV等はブラウザーSSOとは別にアプリパスワードを検証する。
+2. ホストごとの保存先・UID/GIDを明示し、原本を一つの共有領域に置く。認証は[identity](../operations/identity.md)のOIDCクライアントを使う。既存アカウントを引き継ぐ場合は `users` / `admins` への紐付けを検証し、メール一致だけで別人のデータを結び付けない。 CalDAV等はブラウザーSSOとは別にアプリパスワードを検証する。
 3. cron・同期・取り込みを停止し、メンテナンス状態でDB・設定・ファイルの整合バックアップを取る。隔離先に復元してアプリと共有権限を確認し、入口とクライアントを切り替える。
 
 ## 依存と並列作業

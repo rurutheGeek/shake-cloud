@@ -13,7 +13,8 @@
 | リソース | 内容 |
 | --- | --- |
 | `shakecloud_key_pair.media` | `ssh_public_key_path` の公開鍵を cloud API へ登録 |
-| `shakecloud_security_group.media` | LAN から 22・80・443 だけを許可 |
+| `shakecloud_security_group.media` | LAN から 22・80・443・53317（LocalSend）だけを許可 |
+| `shakecloud_security_group_rule.localsend` | LocalSend の受信（HTTPS 53317/tcp）。発見用のUDP multicastはCIDRで表せないためSGには無い |
 | `shakecloud_instance.media` | `img-debian13` から 4vCPU／6144MiB／OS32GiB。`tags.Name` が `media-01` |
 | `shakecloud_volume.data` | 64GiB のデータディスク（`prevent_destroy`） |
 | `shakecloud_volume_attachment.data` | 空きの virtio スロットへ接続 |

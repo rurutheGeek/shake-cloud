@@ -1,0 +1,50 @@
+# アラート規則。通知は Alertmanager（SMTP）が行う。
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceProbeFailed
+        expr: probe_success == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} が応答しない"
+          description: "blackbox probe が5分間失敗しています。"
+
+      - alert: CertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} の証明書が14日以内に期限切れ"
+          description: "Let's Encrypt の更新経路（Caddy）を確認してください。"
+
+  - name: resources
+    rules:
+      - alert: ProxmoxGuestDown
+        expr: pve_up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.id }} が停止または応答なし"
+          description: "Proxmox API から見てゲストが up ではありません。"
+
+      - alert: UpsOnBattery
+        expr: network_ups_tools_ups_status{value="OB"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "UPSがバッテリー動作中"
+          description: "停電か入力異常です。残り時間を確認してください。"
+
+      - alert: ProxmoxNodeDiskAlmostFull
+        expr: pve_disk_usage_bytes / pve_disk_size_bytes > 0.85
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.id }} のディスク使用率が85%超"
+          description: "不要なイメージ・バックアップ・キャッシュを確認してください。"

@@ -19,6 +19,14 @@ SPEC = importlib.util.spec_from_file_location('homarr_configure', STACK / 'confi
 configure = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(configure)
 
+# configure-integrations.py imports its sibling as `configure`.
+import sys as _sys  # noqa: E402
+_sys.modules['configure'] = configure
+INT_SPEC = importlib.util.spec_from_file_location(
+    'homarr_integrations', STACK / 'configure-integrations.py')
+integrations = importlib.util.module_from_spec(INT_SPEC)
+INT_SPEC.loader.exec_module(integrations)
+
 
 class FakeHomarr:
     """In-memory stand-in that records calls, enough for configure()."""
@@ -31,6 +39,7 @@ class FakeHomarr:
         self.apps = []
         self.items = []
         self.groups = [{'id': 'everyone', 'name': 'everyone'}]
+        self.integrations = []
         self.next_id = 0
 
     def _id(self, prefix):
@@ -67,8 +76,27 @@ class FakeHomarr:
             app.update(data)
             return {}
         if path == 'board.addItem':
-            self.items.append({'boardId': data['boardId'],
-                               'options': {'json': {'appId': data['options']['appId']}}})
+            if data.get('kind') == 'app':
+                self.items.append({'boardId': data['boardId'], 'kind': 'app',
+                                   'options': {'json': {'appId': data['options']['appId']}},
+                                   'integrationIds': []})
+            else:
+                self.items.append({'boardId': data['boardId'], 'kind': data['kind'],
+                                   'options': data.get('options', {}),
+                                   'integrationIds': data.get('integrationIds', [])})
+            return {}
+        if path == 'integration.all':
+            return self.integrations
+        if path == 'integration.create':
+            row = {'id': self._id('integration'), 'name': data['name'],
+                   'kind': data['kind'], 'url': data['url']}
+            self.integrations.append(row)
+            return {}
+        if path == 'integration.update':
+            row = next(item for item in self.integrations if item['id'] == data['id'])
+            row.update({key: data[key] for key in ('name', 'url')})
+            return {}
+        if path == 'integration.saveGroupIntegrationPermissions':
             return {}
         if path == 'group.getAll':
             return self.groups
@@ -154,14 +182,32 @@ class ReconcileTests(unittest.TestCase):
         homarr = FakeHomarr()
         configure.configure(homarr, options(APPS))
         permission = homarr.calls_to('board.saveGroupBoardPermissions')[-1]
-        self.assertEqual(permission['permissions'],
-                         [{'principalId': 'everyone', 'permission': 'view'}])
+        permissions = permission['permissions']
+        self.assertIn({'principalId': 'everyone', 'permission': 'view'}, permissions)
+        self.assertTrue(any(row['permission'] == 'modify' for row in permissions),
+                        'the admins group needs modify access')
 
     def test_the_culture_is_set(self):
         homarr = FakeHomarr()
         configure.configure(homarr, options(APPS))
         culture = homarr.calls_to('serverSettings.saveSettings')[-1]
         self.assertEqual(culture['value'], {'defaultLocale': 'ja'})
+
+    def test_the_board_shows_the_reachability_status(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options(APPS))
+        settings = homarr.calls_to('board.savePartialBoardSettings')[-1]
+        self.assertFalse(settings['disableStatus'])
+
+    def test_a_declared_ping_url_is_used_and_defaults_to_href(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options([
+            {'name': 'A', 'href': 'https://a.example', 'pingUrl': 'https://a.example/healthz'},
+            {'name': 'B', 'href': 'https://b.example'},
+        ]))
+        created = {row['name']: row for row in homarr.calls_to('app.create')}
+        self.assertEqual(created['A']['pingUrl'], 'https://a.example/healthz')
+        self.assertEqual(created['B']['pingUrl'], 'https://b.example')
 
 
 class InputTests(unittest.TestCase):
@@ -227,7 +273,7 @@ class StackTests(unittest.TestCase):
             self.assertIn(key, text, key)
 
     def test_the_scripts_use_the_standard_library_only(self):
-        for name in ('manage.py', 'configure.py'):
+        for name in ('manage.py', 'configure.py', 'configure-integrations.py'):
             text = (STACK / name).read_text(encoding='utf-8')
             self.assertNotIn('import requests', text, name)
 
@@ -238,6 +284,91 @@ class StackTests(unittest.TestCase):
         self.assertEqual(len(apps), len({row['href'] for row in apps}))
         for row in apps:
             self.assertTrue(row['href'].startswith('https://'), row['href'])
+            if 'pingUrl' in row:
+                self.assertTrue(row['pingUrl'].startswith('https://'), row['pingUrl'])
+
+
+class IntegrationTests(unittest.TestCase):
+    def test_proxmox_uses_the_read_only_token_secret_kinds(self):
+        secrets = integrations.proxmox_secrets({
+            'PVE_USERNAME': 'monitoring', 'PVE_REALM': 'pve',
+            'PVE_TOKEN_ID': 'monitoring', 'PVE_TOKEN_SECRET': 'secret'})
+        self.assertEqual([secret['kind'] for secret in secrets],
+                         ['username', 'realm', 'tokenId', 'apiKey'])
+
+    def test_the_widget_options_match_the_widgets(self):
+        health = integrations.widget_options('healthMonitoring')
+        self.assertTrue(health['cpu'] and health['memory'])
+        self.assertEqual(health['visibleClusterSections'], ['node', 'qemu', 'lxc', 'storage'])
+        self.assertTrue(health['fileSystem'])
+        ups = integrations.widget_options('ups')
+        self.assertTrue(ups['showBattery'])
+        self.assertTrue(ups['showVoltage'])
+
+    def test_has_widget_matches_the_kind_and_integrations(self):
+        items = [{'kind': 'ups', 'integrationIds': ['a']}]
+        self.assertTrue(integrations.has_widget(items, 'ups', ['a']))
+        self.assertFalse(integrations.has_widget(items, 'ups', ['b']))
+        self.assertFalse(integrations.has_widget(items, 'healthMonitoring', ['a']))
+
+    def test_pack_layouts_places_widgets_then_apps(self):
+        items = [
+            {'kind': 'app', 'id': 'a1', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
+            {'kind': 'healthMonitoring', 'id': 'h', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
+            {'kind': 'ups', 'id': 'u', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
+            {'kind': 'app', 'id': 'a2', 'layouts': [{'layoutId': 'l', 'sectionId': 's'}]},
+        ]
+        sizes = integrations.widget_sizes(8)
+        packed = integrations.pack_layouts(items, 8, sizes)
+        by_id = {item['id']: item['layouts'][0] for item in packed}
+        self.assertEqual((by_id['h']['xOffset'], by_id['h']['width'], by_id['h']['height']), (0, 4, 4))
+        self.assertEqual((by_id['u']['xOffset'], by_id['u']['yOffset'], by_id['u']['width']), (4, 0, 4))
+        self.assertEqual((by_id['a1']['width'], by_id['a1']['height']), (1, 1))
+        self.assertEqual(by_id['a1']['xOffset'], 0)
+        self.assertEqual(by_id['a1']['yOffset'], 4)
+        cells = []
+        for layout in by_id.values():
+            cells += [(layout['xOffset'] + dx, layout['yOffset'] + dy)
+                      for dx in range(layout['width']) for dy in range(layout['height'])]
+        self.assertEqual(len(cells), len(set(cells)), 'layouts overlap')
+
+    def test_pack_layouts_only_touches_the_target_layout(self):
+        mobile = {'layoutId': 'mobile', 'sectionId': 's', 'xOffset': 1, 'yOffset': 5,
+                  'width': 2, 'height': 2}
+        desktop = {'layoutId': 'desktop', 'sectionId': 's'}
+        items = [{'kind': 'app', 'id': 'a1', 'layouts': [mobile, desktop]}]
+        packed = integrations.pack_layouts(items, 8, integrations.widget_sizes(8), 'desktop')
+        by_id = {layout['layoutId']: layout for layout in packed[0]['layouts']}
+        self.assertEqual(by_id['mobile'], mobile, 'the mobile layout must survive')
+        self.assertEqual((by_id['desktop']['xOffset'], by_id['desktop']['yOffset']), (0, 0))
+
+    def test_layout_to_arrange_picks_the_biggest_breakpoint(self):
+        board = {'layouts': [{'id': 'm', 'name': 'Mobile', 'breakpoint': 0, 'columnCount': 4},
+                             {'id': 'd', 'name': 'Desktop', 'breakpoint': 768, 'columnCount': 12}]}
+        self.assertEqual(integrations.layout_to_arrange(board)['id'], 'd')
+        single = {'layouts': [{'id': 'b', 'name': 'Base', 'breakpoint': 0, 'columnCount': 12}]}
+        self.assertEqual(integrations.layout_to_arrange(single)['id'], 'b')
+
+    def test_creating_an_integration_grants_everyone_use(self):
+        homarr = FakeHomarr()
+        integration_id = integrations.ensure_integration(
+            homarr, 'everyone', 'Proxmox', 'proxmox', 'https://pve.example:8006',
+            integrations.proxmox_secrets({'PVE_USERNAME': 'monitoring', 'PVE_REALM': 'pve',
+                                          'PVE_TOKEN_ID': 'monitoring', 'PVE_TOKEN_SECRET': 'x'}))
+        self.assertEqual(len(homarr.integrations), 1)
+        self.assertEqual(integration_id, homarr.integrations[0]['id'])
+        permissions = homarr.calls_to('integration.saveGroupIntegrationPermissions')[-1]
+        self.assertEqual(permissions['permissions'],
+                         [{'principalId': 'everyone', 'permission': 'use'}])
+
+    def test_widgets_are_added_once(self):
+        homarr = FakeHomarr()
+        homarr.boards.append({'id': 'board1', 'name': 'home'})
+        board = homarr.trpc('board.getBoardByName', {'name': 'home'})
+        self.assertTrue(integrations.ensure_widget(homarr, board, 'ups', ['i1']))
+        board = homarr.trpc('board.getBoardByName', {'name': 'home'})
+        self.assertFalse(integrations.ensure_widget(homarr, board, 'ups', ['i1']))
+        self.assertEqual(len(homarr.items), 1)
 
 
 class IacTests(unittest.TestCase):
@@ -261,7 +392,8 @@ class IacTests(unittest.TestCase):
                          '/opt/identity-stack/secrets/oidc-homarr.json')
         tasks = (ROOT / 'platform/ansible/roles/homarr/tasks/main.yml').read_text(encoding='utf-8')
         for token in ('compose.yaml', 'compose.lock.yaml', 'manage.py', 'configure.py',
-                      'apps.json', 'oidc_client.json', 'manage.py, init', 'manage.py, lock',
+                      'configure-integrations.py', 'integration_values.json', 'apps.json',
+                      'oidc_client.json', 'manage.py, init', 'manage.py, lock',
                       'manage.py, up', 'manage.py, configure'):
             self.assertIn(token, tasks, token)
 

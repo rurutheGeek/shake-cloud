@@ -1,7 +1,7 @@
 ---
 - name: Install repository prerequisites
   ansible.builtin.apt:
-    name: [ca-certificates, curl, python3]
+    name: [ca-certificates, curl, gnupg, python3]
     state: present
     update_cache: true
 - name: Create apt keyring directory

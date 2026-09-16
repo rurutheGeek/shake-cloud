@@ -6,7 +6,7 @@
 
 状態: **共有OllamaのCompose・管理コマンドを実装。game1実機確認は未実施**。
 
-[ゲーム設計](../architecture/gaming.md)に推論停止・モデル解放の方針があるが、本リポジトリにOllama配備定義はない。[配備台帳](../operations/handover.md)のgame1はBazziteでGPUパススルー済みと記録され、推論動作は別途確認が必要。
+[ゲーム設計](../architecture/gaming.md)に推論停止・モデル解放の方針がある。Ollamaの配備定義は `stacks/pokemon-ai/ollama/` に実装済みで、game1への配備はこれから。[配備台帳](../operations/handover.md)のgame1はBazziteでGPUパススルー済みと記録され、推論動作は別途確認が必要。
 
 配備先・開発範囲: **game1。`stacks/pokemon-ai/ollama/` に共有推論のCompose・管理コマンドを実装した。A01とA03の両方から接続し、AI用VMは追加しない**。
 

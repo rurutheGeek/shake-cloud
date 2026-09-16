@@ -1,95 +1,72 @@
-# Nextcloudの手順書アクセス権限
+# Nextcloudの共有ライブラリのアクセス権限
+
+Nextcloudの `books`・`music`・`docs`・`inbox` は、media-01の共有データディスク
+（`/srv/media-stack/library`）を外部ストレージとして見せています。このページは
+その見える範囲の正本です。
 
 ## 現在の設定
 
-Nextcloudのファイル一覧にある`docs`は、MkDocsの入力になる手順書原本です。現在は安全のため、`admin`ユーザーだけが見える設定です。
+**Nextcloudにログインできる全利用者に見えます。** 適用先の指定が空（＝全員）で、
+招待したAuthentikのユーザーも初回ログインでNextcloudのアカウントが作られ、
+同じ4つのフォルダーが見えます。ファイルの追加・移動・削除もできます。
 
 | 項目 | 内容 |
 | --- | --- |
-| Nextcloud上の名前 | `docs` |
-| コンテナ内の保存先 | `/docs` |
-| 現在の利用者 | `admin` |
-| グループ | なし |
-| 編集後の反映 | 通常1分以内に8090の手順書へ反映 |
+| 表示される人 | ログインできる全員（ローカル`admin`＋OIDCで入った利用者） |
+| 対象と保存先 | `books`（`/library/books`）・`music`（`/library/music`）・`docs`（`/docs`）・`inbox`（`/library/inbox`） |
+| 正本 | `stacks/media/nextcloud/manage.py` の `setup()` |
+| 反映 | `platform/ansible/media-nextcloud.yml` の再配備 |
 
-## 画面から変更する
+**適用先は再配備が毎回そろえます。** 画面や`occ`で個別に制限しても、次の配備で
+全員に戻ります。制限を続けたい場合は `manage.py` の `setup()` を変更してください
+（`('books', '/library/books'), ...` のループに、作りたい適用先を足す）。
 
-管理者でNextcloudへログインし、次の場所を開きます。
+## 画面から変更する（一時的）
 
-1. 右上のユーザーメニューから **設定** を開く
-2. **管理** または **管理設定** の **外部ストレージ** を開く
-3. `docs` の行にある「適用先」「利用可能なユーザーとグループ」などの欄を変更する
-4. 追加したいユーザーまたはグループを選び、保存する
+1. 管理者でNextcloudへログインし、右上のメニュー → **設定** → **外部ストレージ**
+2. 対象の行の「適用先」を変更して保存
 
-表示名はNextcloudのバージョンや言語設定で少し異なることがあります。`docs`の保存先や認証方式は変更せず、アクセス対象だけを変更してください。
+`docs`の保存先や認証方式は変更せず、アクセス対象だけを変更してください。
 
-## よく使う変更例
+## コマンドで変更する
 
-### 特定ユーザーを追加する
-
-画面でユーザーを追加するか、サーバー上で次を実行します。`3`は現在のmount IDです。環境によって変わるため、先に一覧で確認してください。
+mount IDは `files_external:list` で確認します（現在は `books`=1・`music`=2・
+`docs`=3・`inbox`=4）。
 
 ```bash
-cd media-stack
+cd /opt/media-stack/media/nextcloud
 sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
   exec -T --user 33:33 nextcloud php occ files_external:list --output=json
-
-sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
-  exec -T --user 33:33 nextcloud php occ files_external:applicable 3 --add-user=ユーザー名
 ```
 
-### グループ全体を追加する
-
-例えば`media-users`グループにも手順書を公開する場合です。現在の`admin`の権限は残したまま、グループを追加します。
+特定のユーザー/グループだけに限定する（適用先を1つでも指定すると、それ以外の
+人は見えなくなります）:
 
 ```bash
 sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
   exec -T --user 33:33 nextcloud php occ files_external:applicable 3 --add-group=media-users
 ```
 
-### ユーザーやグループを外す
-
-```bash
-sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
-  exec -T --user 33:33 nextcloud php occ files_external:applicable 3 --remove-user=ユーザー名
-
-sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
-  exec -T --user 33:33 nextcloud php occ files_external:applicable 3 --remove-group=media-users
-```
-
-現在の`docs`は`admin`ユーザーに直接割り当てられているため、`media-users`を外しても`admin`は残ります。
-
-### 全ユーザーへ公開する
-
-画面で「すべてのユーザー」を選ぶか、次のコマンドを実行します。
+全員に戻す:
 
 ```bash
 sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
   exec -T --user 33:33 nextcloud php occ files_external:applicable 3 --remove-all
 ```
 
-これは現在のユーザーだけでなく、将来作成するユーザーにも`docs`を公開します。手順書を編集できる人が増えるため、通常はユーザーまたはグループを指定する設定を推奨します。
-
 ## 変更後の確認
 
-設定とmount IDは次で確認できます。
+`files_external:list --output=json` で `mount_point` と `applicable_users`／
+`applicable_groups` を確認します。**両方が空なら全員**に見えています。対象の
+ユーザーでログインし直し、フォルダーが見えることも確認してください。
 
-```bash
-sudo docker compose --env-file .env -f compose.yaml -f compose.lock.yaml \
-  exec -T --user 33:33 nextcloud php occ files_external:list --output=json
-```
+## ドキュメントサイトとの関係
 
-`mount_point`が`/docs`で、`applicable_users`と`applicable_groups`が意図した内容になっていることを確認します。そのユーザーでNextcloudへログインし、`docs`が表示され、Markdownを編集できることも確認してください。
-
-## 8090の閲覧権限との違い
-
-Nextcloudのアクセス権限は、原本の閲覧・編集権限です。`docs`へアクセスできないユーザーでも、`http://localhost:8090`へ接続できれば、生成済みの手順書サイトは読めます。
-
-逆に、`docs`へ書き込めるユーザーは、保存した内容を手順書サイトへ反映できます。運用手順を変更できる権限なので、編集者は必要最小限にしてください。
+Nextcloudのアクセス権限は、原本の閲覧・編集権限です。**手順書サイト（`https://docs.apextox.dpdns.org`）の正本はGitの`docs/`で、`platform/ansible/docs-site.yml`が配備します。** Nextcloudの`docs`へ保存した内容はサイトへは反映されません。サイトを更新するときはGitの`docs/`を編集して配備します。
 
 ## 注意点
 
-- `scripts/stack.py setup`や再配備は、既存の`docs`のアクセス対象を上書きしません。
-- TextでMarkdownを保存すると、通常1分以内に自動ビルドされます。
-- Markdownの構文エラーがある場合、サイトの更新に失敗します。`media-stack-docs-build.service`のログを確認してください。
-- `docs`の原本は`LIBRARY_ROOT/docs`にあり、基本スタックのバックアップにも含まれます。
+- **手動で変えた適用先は再配備で上書きされます**（`setup()` が全員に戻す）。
+- `docs`の原本は `LIBRARY_ROOT/docs` にあり、バックアップにも含まれます。
+- 4つのフォルダーは共有ディスク上の実フォルダーです。削除はNextcloudのゴミ箱を
+  経由しますが、ゴミ箱を空にすると元へ戻せません。

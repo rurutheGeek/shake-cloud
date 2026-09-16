@@ -4,13 +4,13 @@
 
 ## 目的・現状
 
-状態: **services-01へ配備済み（2026-09-12）。初回オーナー作成・バックアップ復元試験は未完**。
+状態: **services-01へ配備済み（2026-09-12、HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完**。
 
 [家電の構成案](../architecture/operations.md#home-devices)は専用HAOSを想定していたが、採用先はservices-01上のContainer。HAOS追加アプリの管理は使わず、必要な周辺サービスは個別Composeで管理する。
 
 配備先・開発範囲: **services-01。開発先 `stacks/home-assistant/`。本体・設定・自動化・履歴と復元手順**。
 
-認証: HAコアはOIDC非対応のため、コミュニティ製OIDC統合 [`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1、digest固定で `custom_components/` へ配備）を追加し、Authentikの公開クライアント `home-assistant` でSSOできるようにした。**ローカルのオーナーアカウントは緊急用に残す**（`roles.user` は設けず、Authentikアプリの `users`／`admins` バインドで利用者を制限する）。
+認証: HAコアはOIDC非対応のため、コミュニティ製OIDC統合 [`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1、digest固定で `custom_components/auth_oidc` へ配備）を追加し、Authentikの公開クライアント `home-assistant` でSSOできるようにした。**ローカルのオーナーアカウントは緊急用に残す**（`roles.user` は設けず、Authentikアプリの `users`／`admins` バインドで利用者を制限する）。
 
 ## 実装手順
 
@@ -33,11 +33,11 @@
 
 ## 実機の結果（2026-09-12）
 
-`stacks/home-assistant/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/home-assistant.yml` を配備。プロジェクトは `/opt/services/home-assistant`、状態は `/srv/services/home-assistant/config`、イメージは `compose.lock.yaml` でdigest固定。
+`stacks/home-assistant/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/home-assistant.yml` を配備。プロジェクトは `/opt/services/home-assistant`、状態は `/srv/services/home-assistant/config`、イメージは `compose.lock.yaml` でdigest固定（HA 2026.9.2）。
 
 - `services-01` でコンテナを起動し、`127.0.0.1:8123` のHTTP応答・healthy・コンテナ再起動後の復帰を確認した。既定の履歴DBは専用保存先にある。
-- LANからの入口は既存Caddyへ `ha.apextox.dpdns.org`（`upstream 127.0.0.1:8123`）を追加し、Let's Encrypt証明書でHTTPS化した（`platform/terraform/dns.yaml`・`20-dns`・`tls_proxy`）。未認証の `HTTP 302`（オンボーディング）を確認済み。
+- LANからの入口は既存Caddyへ `ha.apextox.dpdns.org`（`upstream 127.0.0.1:8123`）を追加し、Let's Encrypt証明書でHTTPS化した（`platform/terraform/dns.yaml`・`20-dns`・`tls_proxy`）。オーナー作成前は未認証の `HTTP 302`（オンボーディング）を確認済み。作成後の未認証拒否は確認する。
 - HA 2026.9以降はHTTP設定が `.storage/http` へ移行し、YAMLの取り込みはUI承認までのpending（5分で自動撤回）にしかならない。配備は `manage.py ensure-http-proxy` で `stable` に `use_x_forwarded_for` と `trusted_proxies: 172.31.254.1`（compose.yamlで固定したゲートウェイ）を入れ、再起動で反映する。
-- **SSO（2026-09-12）**: Authentikの公開OIDCクライアント `home-assistant`（`redirect_uri` は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode: user_uuid`、`users`／`admins` の両方にバインド）を `stacks/identity/configure.py` が冪等に作る。HA側は `auth_oidc` を `configuration.yaml` の管理ブロックへ書き、`hass-oidc-auth` をdigest固定で入れて再起動する。discovery 200・authorize 302まで確認済み。
-- `manage.py install-integration` でEufy統合 `eufy_security`（v8.2.4、digest固定）も配備済み。Eufyの実接続は `stacks/eufy-security-ws/`（H04）の資格情報待ち。
-- 未完: 初回オーナー作成（ブラウザ。SSOの実ログインはその後）、未認証拒否・テスト自動化・履歴の確認、`manage.py backup` と隔離先への復元試験。
+- **SSO（2026-09-12）**: Authentikの公開OIDCクライアント `home-assistant`（`redirect_uri` は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode: user_uuid`、`users`／`admins` の両方にバインド）を `stacks/identity/configure.py` が冪等に作る。HA側は `auth_oidc` を `configuration.yaml` の管理ブロックへ書き、`hass-oidc-auth` をdigest固定で入れて再起動する。discovery 200・authorize 302に加え、ローカルオーナーの作成とSSOでの実ログインまで確認済み。**ローカルオーナーは緊急用に残す**。
+- `manage.py install-integration` でEufy統合 `eufy_security`（v8.2.4、digest固定）も配備済み。Eufyは `stacks/eufy-security-ws/`（H04）がSOPSの資格情報で動き、S4（T8172）とSmartTrack（T87B0）のログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。
+- 未完: 未認証拒否・テスト自動化・履歴の確認、`manage.py backup` と隔離先への復元試験。

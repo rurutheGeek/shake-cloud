@@ -1,5 +1,7 @@
 # Nextcloudと追加アプリ
 
+**利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** このページは管理者向け（アプリの追加・配備）です。
+
 ## Nextcloudの「追加アプリ」とは
 
 Nextcloudの追加アプリは、Dockerコンテナを増やすものではありません。Nextcloudの中に機能を追加するプラグインです。管理画面の「アプリ」から導入するか、コンテナ内の`occ`コマンドでインストールします。
@@ -16,11 +18,12 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 | Deck | カンバン形式のタスク管理 | 「やること」「作業中」「完了」の管理 | 高機能なプロジェクト管理製品の代替ではない |
 | Tasks | 個人・共有タスク | バックアップや本の整理のTODO | Calendarと連携できる |
 | Notes | Markdownに近い簡易メモ | サーバー運用メモや買い物メモ | 本格的なドキュメント管理は別途検討 |
-| Text | テキスト・Markdownファイルの編集 | docsの手順書をブラウザーから更新 | 保存後のサイト生成は自動処理に任せる |
+| Text | テキスト・Markdownファイルの編集 | `docs`共有置き場のMarkdownをブラウザーから編集 | 手順書サイトはGitの`docs/`が正本。保存だけではサイトへ反映されない |
 | Mail | 外部メールを読む・送る画面 | 既存のIMAPメールをNextcloudで読む | メールサーバーそのものではない |
 | Group folders | グループ専用フォルダ | `family`だけに見える共有領域 | アプリ側の共有設定が別に必要 |
 | Files external storage (`files_external`) | 外部ストレージをFilesに表示 | `/library/books`やNFSを表示 | ホスト側のマウントと権限が必要 |
 | User OIDC (`user_oidc`) | OIDCでNextcloudへログイン | Authentikを共通ログイン基盤にする | OIDCプロバイダーが別途必要 |
+| 印刷 (`shake_print`) | ファイル一覧の「…」→「印刷」でPDF・画像・テキストを印刷 | スマホ・PCからNextcloudのファイルをそのまま印刷 | 自作アプリ（ストア外）。services-01の印刷APIが必要（[プリンター](printer.md)） |
 | Memories | 写真をタイムライン表示 | 写真ライブラリを閲覧 | プレビュー生成などで容量・CPUを使う |
 | Preview Generator | サムネイルを事前生成 | PDFや画像の表示を速くする | 定期ジョブと保存領域を使う |
 
@@ -28,7 +31,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 
 ## 現在の構成でのインストール例
 
-この構成では、利用者が手動でコンテナへ入るのではなく、`scripts/stack.py apps`をAnsibleから呼び出します。既定ではAnsibleの`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定しています。
+この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`shake_print`を足します。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
 
 Ansible配備時は、サービスが正常起動した後に自動で次を実行します。
 
@@ -40,13 +43,13 @@ nextcloud_apps:
   - user_oidc
 ```
 
-Nextcloudのファイル一覧には、管理者だけが使える`docs`外部ストレージも自動登録されます。ここにあるMarkdownを編集すると、MkDocsが定期的にサイトを再生成し、8090の手順書へ反映します。
+Nextcloudのファイル一覧には、ログインできる全員が見られる`docs`外部ストレージも自動登録されます（[アクセス権限](../operations/nextcloud-permissions.md)）。手順書サイトはGitの`docs/`から`platform/ansible/docs-site.yml`で配備されるため、Nextcloudの`docs`を編集してもサイトへは自動反映されません。
 
 ローカルComposeで同じ処理を試す場合も、コンテナへ入らずに次のコマンドを使います。
 
 ```bash
-cd media-stack
-sudo python3 scripts/stack.py apps --apps calendar,tasks,text
+cd stacks/media/nextcloud
+sudo python3 manage.py apps --apps calendar,tasks,text
 ```
 
 この処理は現在のアプリ一覧を確認し、未インストールならインストール、無効なら有効化します。既に有効なら何もしません。
@@ -57,7 +60,7 @@ sudo python3 scripts/stack.py apps --apps calendar,tasks,text
 
 ## アプリ追加の手順
 
-1. 追加前に`stack.py backup`を実行する
+1. 追加前に`stacks/media/nextcloud`で`sudo python3 manage.py backup`を実行する
 2. Nextcloudのバージョン33に対応しているか確認する
 3. まず管理者だけに有効化する
 4. スマートフォン同期や共有など、目的の操作を確認する
@@ -72,6 +75,6 @@ Nextcloudで作ったユーザーやグループは、そのままKavitaやNavid
 
 ## 現在導入済みの機能
 
-Calendar 6.5.4、Tasks 0.18.1、user_oidc 8.11.0を有効化済みです。Nextcloud上部のアプリメニューから予定表・Tasksを開けます。
+Calendar、Tasks、Text、user_oidc（と自作のshake_print）を有効化済みです。Nextcloud上部のアプリメニューから予定表・Tasksを開けます。
 
 Calendarでカレンダーを新規作成し、予定を追加します。共有はカレンダーのメニューから相手を指定します。Tasksではタスクリストを作り、期限・完了状態を設定できます。スマートフォン同期ではNextcloudのCalDAV URLとアプリパスワードを使用します。SSOのブラウザーログインとCalDAVクライアント認証は区別してください。

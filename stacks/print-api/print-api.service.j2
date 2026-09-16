@@ -1,0 +1,17 @@
+[Unit]
+Description=Print API for the Nextcloud print action
+After=network-online.target cups.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {{ cups_print_api_dir }}/print_api.py
+EnvironmentFile={{ cups_print_api_dir }}/print-api.env
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

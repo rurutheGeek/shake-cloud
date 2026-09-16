@@ -1,17 +1,27 @@
-> **2026-09-12 追記:** AWX 24.6.1 は **kubeadm の Kubernetes へ Flux で配備済み**です。使い方と管理者の入口は [docs/operations/kubernetes.md](../../docs/operations/kubernetes.md) と [docs/operations/awx.md](../../docs/operations/awx.md) を参照してください。**このディレクトリの設定例（EE・Project・Job Template 登録）はまだ実APIへ適用していません。**
+# platform/awx
 
-AWX本体の構築は今回は対象外です。将来構築する場合は **kubeadmで作成したKubernetes** にAWX Operatorを配置します。K3s用の構築処理は含めません。
+AWX 24.6.1 は **kubeadm の Kubernetes へ Flux で配備済み**です（2026-09-12）。
+入口は `https://awx.apextox.dpdns.org`、使い方と管理者の入口は
+[docs/operations/kubernetes.md](../../docs/operations/kubernetes.md) と
+[docs/operations/awx.md](../../docs/operations/awx.md) を参照してください。
+**このディレクトリの設定例（EE・Project・Job Template 登録）はまだ実 API へ適用していません。**
 
-今は ../ansible/inventory.netbox.yml と ../ansible/deploy.yml をCLIから実行できます。後で同じGitリポジトリをAWX Projectに登録して利用します。
+| ファイル | 内容 |
+| --- | --- |
+| `execution-environment.yml` | Python 3.11 と NetBox の Python 依存を含むカスタム EE の定義 |
+| `configure.yml` | EE・Project・Credential Type/Credential・Inventory Source・Job Template を登録する |
+| `controller.example.yml` | Git URL・ブランチ・EE イメージの設定例 |
+| `job-vars.example.yml` | HTTPS 公開時の Extra Variables 例 |
 
-将来の移行手順:
-1. kubeadm基盤とAWX Operator/AWXを構築し、AWXへ管理者でログイン。
-2. execution-environment.ymlを使ってEEをビルドし、利用するレジストリへpush。例: このディレクトリで `ansible-builder build -f execution-environment.yml -t ghcr.io/YOUR_ORG/media-stack-ee:1`。その後Docker/Podmanでpush。Python 3.11を含むカスタムEEなので、NetBoxのPython依存もジョブ内で利用できます。
-3. AWXで「Media hosts SSH」というMachine Credentialを作成。SSH鍵、接続ユーザー、sudo設定を登録。必要ならGit用Source Control Credentialも作成。
-4. controller.example.ymlをcontroller.ymlへコピーしGit URL、ブランチ、EEイメージ（digest推奨）を設定。
-5. CONTROLLER_HOST、CONTROLLER_OAUTH_TOKEN、NETBOX_API、NETBOX_TOKENを管理端末の環境変数に設定。`ansible-playbook awx/configure.yml -e @awx/controller.yml` をリポジトリ直下で実行。
-6. NetBox同期結果を確認し「Deploy portable services」を起動。対象はLimitで指定。HTTPS公開時のExtra Variables例はjob-vars.example.yml。
+## 適用するときの手順
 
-configure.ymlはEE、Project、NetBox専用Credential Type/Credential、SCM Inventory Source、Job Templateを登録します。配備ジョブ自体は起動しません。NetBoxのトークンはInventory同期にだけ渡し、アプリ配備ジョブへは渡しません。SSHホスト鍵は通常のAnsible検証を維持します。AWXのMachine Credentialで既知ホストの管理方針を整備してください。
+1. AWX へ管理者でログインする（本体は配備済み。[AWXの使い方](../../docs/operations/awx.md)）。
+2. `execution-environment.yml` を使って EE をビルドし、利用するレジストリへ push する。例: このディレクトリで `ansible-builder build -f execution-environment.yml -t ghcr.io/YOUR_ORG/media-stack-ee:1`。その後 Docker/Podman で push する。
+3. AWX で「Media hosts SSH」という Machine Credential を作成する。SSH 鍵、接続ユーザー、sudo 設定を登録する。必要なら Git 用 Source Control Credential も作成する。
+4. `controller.example.yml` を `controller.yml` へコピーし、Git URL、ブランチ、EE イメージ（digest 推奨）を設定する。
+5. `CONTROLLER_HOST`、`CONTROLLER_OAUTH_TOKEN`、`NETBOX_API`、`NETBOX_TOKEN` を管理端末の環境変数に設定し、`ansible-playbook awx/configure.yml -e @awx/controller.yml` をリポジトリ直下で実行する。
+6. NetBox 同期結果を確認し「Deploy portable services」を起動する。対象は Limit で指定する。
 
-このAWX設定例は未稼働のため実APIでの確認は未実施です。AWX本体のDB・Secret・PVCのバックアップは、今回のアプリ用バックアップとは別に構成する必要があります。
+`configure.yml` は EE、Project、NetBox 専用 Credential Type/Credential、SCM Inventory Source、Job Template を登録します。配備ジョブ自体は起動しません。NetBox のトークンは Inventory 同期にだけ渡し、アプリ配備ジョブへは渡しません。SSH ホスト鍵は通常の Ansible 検証を維持します。AWX の Machine Credential で既知ホストの管理方針を整備してください。
+
+**この設定例は未適用のため実 API での確認は未実施です。** AWX 本体の DB・Secret・PVC のバックアップは、アプリ用バックアップとは別に構成する必要があります。

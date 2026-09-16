@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	共通タイムラインの初期フィード。ゲーム・IT・ポケモンの3つに分け、
+	サブレディットもそれぞれのカテゴリへ振り分ける。
+	配備時に既定ユーザー（akadmin）へ一度だけ取り込む（manage.py seed）。
+	以後の追加・削除は FreshRSS の画面から全員で行う。このファイルは
+	「最初の1回」の種で、ここを直しても既存ユーザーへは自動反映されない。
+
+	xmlUrl はリダイレクト後の正規URLを書く。FreshRSS は取得後に正規URLを
+	保存するため、違うURLで再インポートすると重複する。
+-->
+<opml version="2.0" xmlns:frss="https://freshrss.org/opml">
+	<head>
+		<title>shake-cloud 共通RSS</title>
+	</head>
+	<body>
+		<outline text="ゲーム">
+			<outline type="rss" text="4Gamer.net" title="4Gamer.net" xmlUrl="https://www.4gamer.net/rss/index.xml" htmlUrl="https://www.4gamer.net/"/>
+			<outline type="rss" text="AUTOMATON" title="AUTOMATON" xmlUrl="https://automaton-media.com/feed/" htmlUrl="https://automaton-media.com/"/>
+			<outline type="rss" text="GAME Watch" title="GAME Watch" xmlUrl="https://game.watch.impress.co.jp/data/rss/1.0/gmw/feed.rdf" htmlUrl="https://game.watch.impress.co.jp/"/>
+			<outline type="rss" text="Game*Spark" title="Game*Spark" xmlUrl="https://www.gamespark.jp/rss20/index.rdf" htmlUrl="https://www.gamespark.jp/"/>
+			<outline type="rss" text="ゲームメモ" title="ゲームメモ" xmlUrl="https://ga-m.com/feed/" htmlUrl="https://ga-m.com/"/>
+			<outline type="rss" text="ジュウシマツの鳥小屋" title="ジュウシマツの鳥小屋" xmlUrl="https://jushimatsu.com/feed/" htmlUrl="https://jushimatsu.com/"/>
+		</outline>
+		<outline text="IT">
+			<outline type="rss" text="＠IT" title="＠IT" xmlUrl="https://rss.itmedia.co.jp/rss/2.0/ait_news.xml" htmlUrl="https://atmarkit.itmedia.co.jp/"/>
+			<outline type="rss" text="ASCII.jp" title="ASCII.jp" xmlUrl="https://ascii.jp/rss.xml" htmlUrl="https://ascii.jp/"/>
+			<outline type="rss" text="GIGAZINE" title="GIGAZINE" xmlUrl="https://gigazine.net/news/rss_2.0/" htmlUrl="https://gigazine.net/"/>
+			<outline type="rss" text="ITmedia Mobile" title="ITmedia Mobile" xmlUrl="https://rss.itmedia.co.jp/rss/2.0/mobile.xml" htmlUrl="https://www.itmedia.co.jp/mobile/"/>
+			<outline type="rss" text="ITmedia PC USER" title="ITmedia PC USER" xmlUrl="https://rss.itmedia.co.jp/rss/2.0/pcuser.xml" htmlUrl="https://www.itmedia.co.jp/pcuser/"/>
+			<outline type="rss" text="PC Watch" title="PC Watch" xmlUrl="https://pc.watch.impress.co.jp/data/rss/1.0/pcw/feed.rdf" htmlUrl="https://pc.watch.impress.co.jp/"/>
+			<outline type="rss" text="Togetter" title="Togetter" xmlUrl="https://togetter.com/rss/news" htmlUrl="https://togetter.com/"/>
+			<outline type="rss" text="ギズモード・ジャパン" title="ギズモード・ジャパン" xmlUrl="https://www.gizmodo.jp/feed/index.xml" htmlUrl="https://www.gizmodo.jp/"/>
+			<outline type="rss" text="窓の杜" title="窓の杜" xmlUrl="https://forest.watch.impress.co.jp/data/rss/1.0/wf/feed.rdf" htmlUrl="https://forest.watch.impress.co.jp/"/>
+			<outline type="rss" text="デジタル・IT" title="デジタル・IT" xmlUrl="https://getnews.jp/cat/digital/feed" htmlUrl="https://getnews.jp/cat/digital"/>
+		</outline>
+		<outline text="ポケモン">
+			<outline type="rss" text="ポケGO速報まとめサイト" title="ポケGO速報まとめサイト" xmlUrl="https://pokemongo.gamewith.jp/feed" htmlUrl="https://pokemongo.gamewith.jp/"/>
+			<outline type="rss" text="ポケットモンスターオフィシャルサイト" title="ポケットモンスターオフィシャルサイト" xmlUrl="https://www.pokemon.co.jp/common/xml/news.xml" htmlUrl="https://www.pokemon.co.jp/"/>
+			<outline type="rss" text="ポケモンメモ" title="ポケモンメモ" xmlUrl="https://pk-mn.com/feed/" htmlUrl="https://pk-mn.com/"/>
+			<outline type="rss" text="ぽけりん＠ポケモンまとめ" title="ぽけりん＠ポケモンまとめ" xmlUrl="https://pokepokerin.com/feed" htmlUrl="https://pokepokerin.com/"/>
+		</outline>
+		<outline text="Reddit">
+			<outline type="rss" text="r/Amiibomb" title="r/Amiibomb" xmlUrl="https://www.reddit.com/r/Amiibomb/.rss" htmlUrl="https://www.reddit.com/r/Amiibomb/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/Borderlands" title="r/Borderlands" xmlUrl="https://www.reddit.com/r/Borderlands/.rss" htmlUrl="https://www.reddit.com/r/Borderlands/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/DetroitBecomeHuman" title="r/DetroitBecomeHuman" xmlUrl="https://www.reddit.com/r/DetroitBecomeHuman/.rss" htmlUrl="https://www.reddit.com/r/DetroitBecomeHuman/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/ElinsInn" title="r/ElinsInn" xmlUrl="https://www.reddit.com/r/ElinsInn/.rss" htmlUrl="https://www.reddit.com/r/ElinsInn/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/LinksAmiiboArchive" title="r/LinksAmiiboArchive" xmlUrl="https://www.reddit.com/r/LinksAmiiboArchive/.rss" htmlUrl="https://www.reddit.com/r/LinksAmiiboArchive/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/MinecraftMemes" title="r/MinecraftMemes" xmlUrl="https://www.reddit.com/r/MinecraftMemes/.rss" htmlUrl="https://www.reddit.com/r/MinecraftMemes/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/ParsecGaming" title="r/ParsecGaming" xmlUrl="https://www.reddit.com/r/ParsecGaming/.rss" htmlUrl="https://www.reddit.com/r/ParsecGaming/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/skyrim" title="r/skyrim" xmlUrl="https://www.reddit.com/r/skyrim/.rss" htmlUrl="https://www.reddit.com/r/skyrim/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/SwitchPirates" title="r/SwitchPirates" xmlUrl="https://www.reddit.com/r/SwitchPirates/.rss" htmlUrl="https://www.reddit.com/r/SwitchPirates/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/androidapps" title="r/androidapps" xmlUrl="https://www.reddit.com/r/androidapps/.rss" htmlUrl="https://www.reddit.com/r/androidapps/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/CrackSupport" title="r/CrackSupport" xmlUrl="https://www.reddit.com/r/CrackSupport/.rss" htmlUrl="https://www.reddit.com/r/CrackSupport/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/degoogle" title="r/degoogle" xmlUrl="https://www.reddit.com/r/degoogle/.rss" htmlUrl="https://www.reddit.com/r/degoogle/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/fossdroid" title="r/fossdroid" xmlUrl="https://www.reddit.com/r/fossdroid/.rss" htmlUrl="https://www.reddit.com/r/fossdroid/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/keyguard" title="r/keyguard" xmlUrl="https://www.reddit.com/r/keyguard/.rss" htmlUrl="https://www.reddit.com/r/keyguard/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/Piracy" title="r/Piracy" xmlUrl="https://www.reddit.com/r/Piracy/.rss" htmlUrl="https://www.reddit.com/r/Piracy/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/PokemonScarletViolet" title="r/PokemonScarletViolet" xmlUrl="https://www.reddit.com/r/PokemonScarletViolet/.rss" htmlUrl="https://www.reddit.com/r/PokemonScarletViolet/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/TheSilphRoad" title="r/TheSilphRoad" xmlUrl="https://www.reddit.com/r/TheSilphRoad/.rss" htmlUrl="https://www.reddit.com/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/stunfisk" title="r/stunfisk" xmlUrl="https://www.reddit.com/r/stunfisk/.rss" htmlUrl="https://www.reddit.com/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/VGC" title="r/VGC" xmlUrl="https://www.reddit.com/r/VGC/.rss" htmlUrl="https://www.reddit.com/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+			<outline type="rss" text="r/PokemonROMhacks" title="r/PokemonROMhacks" xmlUrl="https://www.reddit.com/r/PokemonROMhacks/.rss" htmlUrl="https://www.reddit.com/" frss:CURLOPT_USERAGENT="linux:shakecloud.freshrss:1.0 (by /u/shakecloud)"/>
+		</outline>
+		<outline text="Review">
+			<outline type="rss" text="電ファミニコゲーマー" title="電ファミニコゲーマー" xmlUrl="https://news.denfaminicogamer.jp/feed" htmlUrl="https://news.denfaminicogamer.jp/"/>
+			<outline type="rss" text="Game Developer" title="Game Developer" xmlUrl="https://www.gamedeveloper.com/rss.xml" htmlUrl="https://www.gamedeveloper.com/"/>
+			<outline type="rss" text="GamesIndustry.biz" title="GamesIndustry.biz" xmlUrl="https://www.gamesindustry.biz/feed" htmlUrl="https://www.gamesindustry.biz/"/>
+			<outline type="rss" text="Shmuplations" title="Shmuplations" xmlUrl="https://shmuplations.com/feed/" htmlUrl="https://shmuplations.com/"/>
+			<outline type="rss" text="Time Extension" title="Time Extension" xmlUrl="https://www.timeextension.com/feed" htmlUrl="https://www.timeextension.com/"/>
+			<outline type="rss" text="Indie Games Plus" title="Indie Games Plus" xmlUrl="https://indiegamesplus.com/feed" htmlUrl="https://indiegamesplus.com/"/>
+			<outline type="rss" text="Publickey" title="Publickey" xmlUrl="https://www.publickey1.jp/atom.xml" htmlUrl="https://www.publickey1.jp/"/>
+			<outline type="rss" text="はてなブックマーク テクノロジー" title="はてなブックマーク テクノロジー" xmlUrl="https://b.hatena.ne.jp/hotentry/it.rss" htmlUrl="https://b.hatena.ne.jp/"/>
+			<outline type="rss" text="Zenn" title="Zenn" xmlUrl="https://zenn.dev/feed" htmlUrl="https://zenn.dev/"/>
+			<outline type="rss" text="Qiita 人気の記事" title="Qiita 人気の記事" xmlUrl="https://qiita.com/popular-items/feed" htmlUrl="https://qiita.com/"/>
+			<outline type="rss" text="Lobsters" title="Lobsters" xmlUrl="https://lobste.rs/rss" htmlUrl="https://lobste.rs/"/>
+			<outline type="rss" text="Hacker News" title="Hacker News" xmlUrl="https://news.ycombinator.com/rss" htmlUrl="https://news.ycombinator.com/"/>
+			<outline type="rss" text="Project Zero" title="Project Zero" xmlUrl="https://googleprojectzero.blogspot.com/feeds/posts/default" htmlUrl="https://googleprojectzero.blogspot.com/"/>
+			<outline type="rss" text="JVN" title="JVN" xmlUrl="https://jvn.jp/rss/jvn.rdf" htmlUrl="https://jvn.jp/"/>
+			<outline type="rss" text="Security Next" title="Security Next" xmlUrl="https://www.security-next.com/feed" htmlUrl="https://www.security-next.com/"/>
+			<outline type="rss" text="GMO Flatt Security" title="GMO Flatt Security" xmlUrl="https://blog.flatt.tech/feed" htmlUrl="https://blog.flatt.tech/"/>
+			<outline type="rss" text="Krebs on Security" title="Krebs on Security" xmlUrl="https://krebsonsecurity.com/feed/" htmlUrl="https://krebsonsecurity.com/"/>
+			<outline type="rss" text="Schneier on Security" title="Schneier on Security" xmlUrl="https://www.schneier.com/feed/atom/" htmlUrl="https://www.schneier.com/"/>
+			<outline type="rss" text="Cloudflare Blog" title="Cloudflare Blog" xmlUrl="https://blog.cloudflare.com/rss/" htmlUrl="https://blog.cloudflare.com/"/>
+			<outline type="rss" text="Netflix Tech Blog" title="Netflix Tech Blog" xmlUrl="https://netflixtechblog.com/feed" htmlUrl="https://netflixtechblog.com/"/>
+			<outline type="rss" text="AWS News Blog" title="AWS News Blog" xmlUrl="https://aws.amazon.com/blogs/aws/feed/" htmlUrl="https://aws.amazon.com/"/>
+			<outline type="rss" text="Mercari Engineering" title="Mercari Engineering" xmlUrl="https://engineering.mercari.com/blog/feed.xml" htmlUrl="https://engineering.mercari.com/"/>
+			<outline type="rss" text="SmartHR Tech Blog" title="SmartHR Tech Blog" xmlUrl="https://tech.smarthr.jp/feed" htmlUrl="https://tech.smarthr.jp/"/>
+			<outline type="rss" text="gihyo.jp" title="gihyo.jp" xmlUrl="https://gihyo.jp/feed/rss2" htmlUrl="https://gihyo.jp/"/>
+			<outline type="rss" text="DevelopersIO" title="DevelopersIO" xmlUrl="https://dev.classmethod.jp/feed/" htmlUrl="https://dev.classmethod.jp/"/>
+			<outline type="rss" text="Smogon Forums" title="Smogon Forums" xmlUrl="https://www.smogon.com/forums/forums/-/index.rss" htmlUrl="https://www.smogon.com/"/>
+			<outline type="rss" text="PKHeX releases" title="PKHeX releases" xmlUrl="https://github.com/kwsch/PKHeX/releases.atom" htmlUrl="https://github.com/"/>
+			<outline type="rss" text="ぽけっとまーち" title="ぽけっとまーち" xmlUrl="https://learn-book.com/feed" htmlUrl="https://learn-book.com/"/>
+			<outline type="rss" text="PokeJungle" title="PokeJungle" xmlUrl="https://pokejungle.net/feed/" htmlUrl="https://pokejungle.net/"/>
+			<outline type="rss" text="Nintendo Everything" title="Nintendo Everything" xmlUrl="https://nintendoeverything.com/feed/" htmlUrl="https://nintendoeverything.com/"/>
+		</outline>
+	</body>
+</opml>

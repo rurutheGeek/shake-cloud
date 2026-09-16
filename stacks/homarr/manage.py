@@ -115,20 +115,36 @@ def lock(refresh=False):
     print('CHANGED: homarr images pinned')
 
 
-def configure():
+def configure_env():
     values = settings()
     # BASE_URL があればそれを使う（HTTPS では NextAuth の Cookie が Secure になり、
     # ローカルの HTTP ではセッションが続かない）。未設定ならローカルへ直接。
     url = values.get('BASE_URL') or f"http://127.0.0.1:{values.get('HOMARR_PORT', '7575')}"
-    env = dict(os.environ,
+    return dict(os.environ,
                HOMARR_URL=url,
                HOMARR_ADMIN_USERNAME=values.get('HOMARR_ADMIN_USERNAME', 'admin'),
                HOMARR_ADMIN_PASSWORD=secret('admin_password'),
                BOARD_NAME=values.get('BOARD_NAME', 'home'),
                APPS_FILE=values.get('APPS_FILE', 'apps.json'),
                ADMIN_GROUP=values.get('ADMIN_GROUP', 'admins'),
-               LOCALE=values.get('LOCALE', 'ja'))
+               LOCALE=values.get('LOCALE', 'ja'),
+               BOARD_COLUMNS=values.get('BOARD_COLUMNS', '12'))
+
+
+def configure():
+    env = configure_env()
     run([sys.executable, str(ROOT / 'configure.py')], env=env)
+    # 監視スタックのトークンが配備されているときだけ、連携とウィジェットを揃える。
+    if (ROOT / 'secrets' / 'integration_values.json').exists():
+        run([sys.executable, str(ROOT / 'configure-integrations.py')], env=env)
+
+
+def arrange():
+    """一度だけボードを整列する。以後の手動配置は configure では動かさない。"""
+    if not (ROOT / 'secrets' / 'integration_values.json').exists():
+        raise SystemExit('integration values are missing; run configure first')
+    run([sys.executable, str(ROOT / 'configure-integrations.py'), '--arrange'],
+        env=configure_env())
 
 
 def backup(destination):
@@ -156,7 +172,7 @@ def backup(destination):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['init', 'lock', 'up', 'configure', 'status', 'backup'])
+    parser.add_argument('action', choices=['init', 'lock', 'up', 'configure', 'arrange', 'status', 'backup'])
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     args = parser.parse_args()
@@ -170,6 +186,8 @@ def main():
         compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300')
     elif args.action == 'configure':
         configure()
+    elif args.action == 'arrange':
+        arrange()
     elif args.action == 'status':
         compose('ps')
     else:

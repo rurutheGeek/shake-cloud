@@ -1,0 +1,5 @@
+# Nextcloudの「タグを編集」と music-tools のタグAPIが共有するトークン。
+# 正本はSOPS（music-tags.sops.yaml）。
+#
+# 生成: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+TAG_API_TOKEN: REPLACE_WITH_A_RANDOM_TOKEN

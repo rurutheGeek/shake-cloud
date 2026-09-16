@@ -32,7 +32,8 @@ SSO_EXPECTED = {
     'SSO_ENABLED': 'true',
     'SSO_ONLY': 'false',
     'SSO_SIGNUPS_MATCH_EMAIL': 'false',
-    'SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION': 'false',
+    # Authentikはemail_verifiedを返さないため許可する（2026-09-13実測）。
+    'SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION': 'true',
     'SSO_SCOPES': 'email profile offline_access',
     'SSO_PKCE': 'true',
 }
@@ -95,7 +96,7 @@ class StackTests(unittest.TestCase):
         image = self.service()['image']
         default = re.search(r'\$\{[A-Z_]+:-([^}]+)\}', image)
         fixed = default.group(1) if default else image
-        self.assertEqual(fixed, 'vaultwarden/server:1.37.2')
+        self.assertEqual(fixed, 'vaultwarden/server:1.37.3')
         self.assertNotIn('latest', image)
 
     def test_the_lock_pins_the_same_repository_as_compose(self):

@@ -2,7 +2,7 @@
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
-更新: 2026-09-12。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
+更新: 2026-09-13。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
 
 方針は **K11にセルフホストVPNを置き、Tailscaleも併用する**。Windows・macOS・Linux・iOS・Androidからの使いやすさと、一般利用者がAuthentikの招待から参加できることを重視する。第一検証候補はNetBird、Tailscaleアプリへの統一を優先する場合の候補はHeadscaleとする。WireGuard単独には決め打ちしない。
 
@@ -26,20 +26,20 @@ OSの対応だけでなく、実際の端末のOS版・CPU・アプリ配布方�
 
 スマホのHome Assistant・Nextcloud・Bitwarden・Moonlightをまとめてつなぐ日常用VPNには、現時点ではNetBird／Tailscale系の端末アプリを優先する。Tailcatのブラウザーデモはスマホ用の全端末VPNアプリと同義ではなく、デモの通信はDERP中継である。通常は外部DERPを利用し、自前DERPも選べるため「管理サーバー不要＝外部中継も不要」ではない。CLI/API安定性の保証もないため、版を固定して必要時だけ試す。[Tailcat公式](https://github.com/tailscale/tailcat)
 
-Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Git・ハブに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
+Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Gitに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
 
 ## K11とラズパイの配置
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
-| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01全体4vCPU・8GiBの計画枠内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
+| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
-| ラズパイ | Tailscale SaaSのsubnet routerと既存監視 | K11外の管理経路。K11停止中も動くことを検証 |
+| ラズパイ | Tailscale SaaSのsubnet routerとDNS（監視はmonitor-01へ分離） | K11外の管理経路。K11停止中も動くことを検証 |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
 NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
 
-ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。
+ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。**2026-09-14: ラズパイは導入せず、cloud VM `net-01` を復旧経路の subnet router として作成した**（[net-01（Tailscale subnet router）](../operations/net.md)）。K11のホスト障害には巻き込まれるため、真のアウトオブバンドが必要になった時点でラズパイかルーター内蔵VPNを検討する。
 
 Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscaleの両方へ常時同時接続する前提にしない。接続先・アカウント切替を実機で確認し、復旧用のラズパイはSaaS側へ残す。Headscaleサーバーを自分自身のtailnetへ参加させる構成にも注意が必要なので、管理サーバーと接続agentの役割を分ける。[Headscale FAQ](https://headscale.net/stable/about/faq/)
 
@@ -53,7 +53,7 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 
 ## Authentik連携と外部到達
 
-通常のVPN利用者もAuthentik招待を入口にする。NetBirdでは公式のAuthentik連携を使い、VPN利用許可グループ・端末承認・アクセス先を別途設定する。`media-users`に入っただけでProxmoxやDBへ管理アクセスを与えない。NetBirdのローカル管理者は復旧用とし、一般利用者の別台帳を増やさない。[NetBirdとAuthentik](https://docs.netbird.io/selfhosted/identity-providers/authentik)
+通常のVPN利用者もAuthentik招待を入口にする。NetBirdでは公式のAuthentik連携を使い、VPN利用許可グループ・端末承認・アクセス先を別途設定する。`users`に入っただけでProxmoxやDBへ管理アクセスを与えない。NetBirdのローカル管理者は復旧用とし、一般利用者の別台帳を増やさない。[NetBirdとAuthentik](https://docs.netbird.io/selfhosted/identity-providers/authentik)
 
 **初回VPN接続に必要な管理サーバーとAuthentikが、そのVPNに接続しないと開けない構成は避ける。** 宅外で新規接続・再認証できるように、限定したHTTPS認証入口を外部到達可能にするか、登録・再認証を宅内LAN／予備Tailscaleで行う運用を明記する。前者を採るなら、既存の「内部WebはVPNのみ」方針に対する明示的な例外として設計・確認してから公開する。
 

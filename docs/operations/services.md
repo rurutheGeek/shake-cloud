@@ -1,6 +1,6 @@
 # サービスの置き場所とクラウドVMでの作り方
 
-更新日: 2026-09-12。状態: **方針と手順。機能別VMと常用サービスの同居方針を更新。新配置は未配備。**
+更新日: 2026-09-13。状態: **方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。**
 
 ## 方針
 
@@ -10,9 +10,10 @@
 
 **配置は停止単位と運用上の利点で決めます。** 既存KubernetesのAWX・DB提供（CloudNativePG）・関数提供（Knative）は維持します。Homarr・Vaultwardenを単に小さいWebアプリだからKubernetesへ移すことはしません。
 
-- services-01にはNetBox・MkDocsを残し、Home Assistant Container・VPN・Homarr・Vaultwardenを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません。
+- services-01にはNetBox・MkDocsを残し、Home Assistant Container・eufy-security-ws（HAとは別Compose）・VPN・Homarr・Vaultwarden・CUPSを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません（VPNは未配備）。
 - game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
-- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・MeTubeを載せます。機能群の停止・再開をVM単位で行います。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
+- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・Picard・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
+- monitor-01は新規cloud VMにPrometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-09-12に配備済みで、Grafanaは `https://grafana.apextox.dpdns.org`（identity OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
 スペック案・独立した作業ID・依存関係は[並列開発計画](../development/index.md)を参照してください。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
@@ -49,7 +50,7 @@
 ### 0. 前提
 
 - cloud-01 が動いている（`https://cloud.apextox.dpdns.org/healthz` が 200）。
-- アクセスキーをポータルで発行済み。ポータル → アクセスキー、または CLI の `shakecloud access-key create`。
+- アクセスキーをポータルで発行済み。ポータル → アクセスキー（**発行はポータルのログインからだけ**。CLI は `shakecloud access-key ls` / `rm` のみで作成できません）。
 - Provider の dev override を設定済み（[shakecloud Terraform Provider](terraform-provider.md)）。
 
 ```bash
@@ -156,7 +157,7 @@ terraform -chdir=platform/terraform/services/<name> apply
 - **作成と削除はワーカーが終わるまで待ちます。** `apply` が返った時点で VM は `running` です。
 - **state はサービスごとに分けます。** 他のモジュールと共有しません。
 - 消すときは `terraform destroy`。VM と IP は API の管理下で片付きます。
-- state の置き場（各作業機か、R2/Garage へ寄せるか）は未決です。**秘密値は state に平文で入り得ます**（[Terraformの実行](terraform.md)）。
+- state の置き場は Cloudflare R2 の `shake-cloud/services/<name>/terraform.tfstate` です（`tools/tf services/<name>` 経由。I05 で実機確認済み）。**秘密値は state に平文で入り得ます**（[Terraformの実行](terraform.md)）。
 
 ### 4. ソフトを配備する
 
@@ -173,7 +174,7 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 
 ### 5. 名前を付ける（任意）
 
-`*.apextox.dpdns.org` の名前は `platform/terraform/dns.yaml` に書き、`20-dns` を適用します。ただし Caddy が中継するのは基盤VM上の `tls_proxy` です。クラウドVMへ名前を付ける場合は、その IP へ A レコードを向け、TLS は VM 上で終端します。**現時点でクラウドVMへの DNS 自動登録はありません。**
+`*.apextox.dpdns.org` の名前は `platform/terraform/dns.yaml` に書き、`20-dns` を適用します。Caddy が中継するのは各ホストの `tls_proxy` です。クラウドVMへ名前を付ける場合は、`hosts.yaml` に居ないため IP を `address` に直接書き、その VM にも `tls_proxy` ロールを配備して TLS を終端します（media-01 が実例）。**現時点でクラウドVMへの DNS 自動登録はありません**（IP は宣言へ直接書く）。
 
 ### 6. ドキュメントを足す
 
@@ -189,6 +190,7 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 
 ## まだ無いもの
 
-- クラウドVMを Ansible の動的インベントリに載せる仕組み。API は NetBox に**IPアドレス**を登録しますが、デバイス/VM としては登録しないため、Ansible から自動では見えません。今は cloud-init と手動の SSH で配ります。
-- クラウドVMへの DNS 自動登録。
-- サービス用 state の共有の置き場（R2/Garage）。
+- クラウドVMへの DNS **自動**登録（`dns.yaml` へ手で宣言する）。
+- 既存環境からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
+
+クラウドVMは Ansible のクラウド動的インベントリ（`platform/ansible/inventory.cloud.py`・`cloud-inventory.yml`。I03 で実機確認済み）で配備できます。`media.yml` がこの方式を使います。**基盤の NetBox インベントリとは併用しません**（`media` 群が和集合になるため）。

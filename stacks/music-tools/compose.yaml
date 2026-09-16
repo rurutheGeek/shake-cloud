@@ -15,30 +15,75 @@ services:
       STATE_DIR: /state
       TEMP_DIR: /temp
       DEFAULT_OPTION_PLAYLIST_ITEM_LIMIT: '20'
-      OUTPUT_TEMPLATE: '%(uploader)s/%(title)s [%(id)s].%(ext)s'
+      OUTPUT_TEMPLATE: '%(title)s [%(id)s].%(ext)s'
       OUTPUT_TEMPLATE_PLAYLIST: '%(playlist_title)s/%(title)s [%(id)s].%(ext)s'
-      YTDL_OPTIONS: '{"writethumbnail":true,"postprocessors":[{"key":"FFmpegMetadata","add_metadata":true},{"key":"EmbedThumbnail"}]}'
+      YTDL_OPTIONS: '{"writethumbnail":true,"cookiefile":"/state/cookies.txt","postprocessors":[{"key":"FFmpegMetadata","add_metadata":true},{"key":"EmbedThumbnail"}]}'
     volumes:
     - ${LIBRARY_ROOT:-../library}/music/YouTube:/music/YouTube
     - ./storage/video:/video
     - ./storage/state:/state
     - ./storage/temp:/temp
-  picard:
-    image: jlesage/musicbrainz-picard:latest
+  khinsider:
+    labels:
+      media-stack.khinsider-code: ${KHINSIDER_CODE_SHA:-unmanaged}
+    image: ghcr.io/alexta69/metube:latest
     restart: unless-stopped
-    ports:
-    - 127.0.0.1:${PICARD_PORT:-5800}:5800
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/khinsider.py
     environment:
-      USER_ID: '33'
-      GROUP_ID: '33'
-      UMASK: '0027'
-      TZ: ${TZ:-Asia/Tokyo}
-      LANG: ja_JP.UTF-8
-      ENABLE_CJK_FONT: '1'
-      WEB_AUDIO: '1'
+      KHINSIDER_PORT: '5820'
+      KHINSIDER_MUSIC: /music
+      KHINSIDER_JA: /tools/khinsider-ja.json
+    ports:
+    - 127.0.0.1:${KHINSIDER_PORT:-5820}:5820
     volumes:
-    - ${LIBRARY_ROOT:-../library}/music:/storage
-    - ./storage/picard:/config
+    - ${LIBRARY_ROOT:-../library}/music:/music
+    - ./khinsider.py:/tools/khinsider.py:ro
+    - ./khinsider-ja.json:/tools/khinsider-ja.json:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5820/healthz',
+        timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+  tag-api:
+    labels:
+      media-stack.tag-api-code: ${TAG_API_CODE_SHA:-unmanaged}
+    image: ghcr.io/alexta69/metube:latest
+    restart: unless-stopped
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/tag_api.py
+    environment:
+      TAG_API_TOKEN: ${TAG_API_TOKEN:-}
+      TAG_API_PORT: '5810'
+      TAG_API_MUSIC: /music
+      TAG_API_STATE: /state
+    ports:
+    - 0.0.0.0:${TAG_API_PORT:-5810}:5810
+    volumes:
+    - ${LIBRARY_ROOT:-../library}/music:/music
+    - ./storage/tags:/state
+    - ./tag_api.py:/tools/tag_api.py:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5810/healthz',
+        timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
   convert:
     labels:
       media-stack.converter-code: ${CONVERTER_CODE_SHA:-unmanaged}
@@ -75,6 +120,9 @@ services:
     - /tools/edit-tags.py
     volumes:
     - ${LIBRARY_ROOT:-../library}/music:/music
+    # 配備先ディレクトリは 0711（playbook）。コンテナ (33:33) は名前を指定して
+    # ファイルを読める。0750 のままだと /tools をたどれず Permission denied に
+    # なる（2026-09-13 実機）。.env は 0600 なので見えない。
     - ./:/tools:ro
     - ./storage/convert:/state
     healthcheck:

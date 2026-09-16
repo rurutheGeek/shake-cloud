@@ -1,6 +1,6 @@
 # Flux にアプリを足す手順
 
-更新日: 2026-09-12。`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
+更新日: 2026-09-13。`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
 
 ## 決まり
 
@@ -8,7 +8,7 @@
 - アプリ1つ = **子 Kustomization 1つ** + **中身のディレクトリ1つ**。
   - 子 Kustomization: `platform/flux/apps/<name>.yaml`
   - 中身: `platform/flux/apps/<name>/`（インフラ寄りなら `platform/flux/infra/<name>/`）
-- **秘密値は SOPS**。`platform/flux/**/*.sops.yaml` を age で暗号化し、そのファイルを適用する**子 Kustomization** に `decryption` を付けます（ルートには付けません）。復号鍵はクラスタ内の `flux-system/sops-age` にあります。
+- **秘密値は SOPS**。`platform/flux/**/*.sops.yaml` を age で暗号化します。復号鍵はクラスタ内の `flux-system/sops-age` にあります。ルート Kustomization（`platform/flux/flux-system/gotk-sync.yaml`）にも `decryption` を設定済みですが、**暗号化ファイルを適用する Kustomization に `decryption` が必要**です。子 Kustomization はそれぞれ自分の `path` 先を復号するので、子のパスに秘密値を置くときはその子にも付けます（AWX が実例）。
 
 ## 手順
 

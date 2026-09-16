@@ -1,6 +1,6 @@
 # 最小クラウドとTerraform Provider
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-11。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。**Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み**（イメージ作成は[windows.md](../operations/windows.md)）**。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・monitor-01などサービスVMもこのAPIで作成済み**。
 
 実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
 
@@ -71,12 +71,12 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 
 **この節は方針を変更しました。** 以前は「利用者アカウントを作らず、用途別のキーだけを発行する」と書いていました。それではクォータも所有権（どのVMが誰のものか）も成立せず、利用者が自分でキーを発行する経路もありません。homelab統合認証アカウントへ寄せます。
 
-- **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります（メディア系が使う検証用の `stacks/hub` とは別に新規構築）。
+- **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります。
 - **Terraform と CLI はアクセスキー**を使います。ポータルで発行し、`Authorization: Bearer sca_<キーID>.<秘密値>` で送ります。AWSのIAMアクセスキーと同じモデルです。
 
 キーをSSOと分けるのは、依存を一方向にするためです。**Authentik が停止していても Terraform は動きます。**逆にすると、認証基盤の障害が復旧作業そのものを止めます。
 
-- Authentikユーザー1人が1アカウントです。自分の作ったリソースだけが見え、消せます。`admins` グループだけが全体を見られます。
+- Authentikユーザー1人が1アカウントです。**VMの一覧は全員に見えます**（所有者名・イメージ・割り当てリソース・状態）。操作（電源・削除・大きさの変更）は所有者と `admins` だけです。他人の `client_token` は返さず、`user_data` は一覧に出しません。
 - 秘密値は発行時に一度だけ表示し、保存するのは検証用ハッシュ・キーID・期限・失効状態だけです。
 - キーIDごとに操作履歴を残します。
 - クラウドのアクセスキー、S3 access key/secret、DBパスワードは別のものです。混ぜません。
@@ -227,8 +227,8 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 
 | もの | 値 | 状態 |
 | --- | --- | --- |
-| Proxmoxプール | `cloud` | 作成済み・空 |
-| VMID範囲 | 5000–5999 | 未使用 |
+| Proxmoxプール | `cloud` | 作成済み。game1（引き取り）・media-01・monitor-01・利用者VM・ボリュームホルダーが所属 |
+| VMID範囲 | 5000–5999 | クラウドVMが使用中（game1は引き取りのため範囲外の100） |
 | ロール | `CloudApiOperator` / `CloudApiStorage` / `CloudApiImages` / `CloudApiNodeAudit` | **適用済み** |
 | 実行アカウント | `cloudapi@pve` とAPIトークン | **適用済み**・実機プローブ4つとも PASS |
 | NetBoxのIP Range | クラウド用 192.168.10.100–180（管理用 .201–.249 と分離） | **適用済み** |
@@ -314,6 +314,6 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 
-**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に、**database（CloudNativePG）と function（Knative）は 2026-09-12 に完了しました。次は Phase 8（VLAN 分離への切替）と、CNPG の外部バックアップです。
+**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に、**database（CloudNativePG）と function（Knative）は 2026-09-12 に完了しました。次は Phase 8（VLAN 分離への切替）と、CNPG の外部バックアップです。** media-01・monitor-01はこのAPIで作成したサービスVMで、アプリの配備・データ移行は[並列開発計画](../development/index.md)のW03–W06・M01が担当します。
 
 VM、通常の関数HTTP呼出し、S3オブジェクト転送、SQL通信は利用先へ直接接続します。自作クラウドAPIにデータ転送を集約せず、APIはリソース管理を担当します。

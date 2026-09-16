@@ -1,0 +1,3 @@
+services:
+  localsend:
+    image: ghcr.io/linychuo/localsend-hub@sha256:baf878d3261c5f4f087f9417e7b716b9ec720b12a4057bae5462b80fbb05092b

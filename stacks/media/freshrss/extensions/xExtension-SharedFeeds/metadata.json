@@ -1,0 +1,8 @@
+{
+	"name": "SharedFeeds",
+	"author": "shake-cloud",
+	"description": "全ユーザーの購読フィードを1つの共通タイムラインとして同期する（追加・削除をその場で全員へ反映）",
+	"version": "1.0.0",
+	"entrypoint": "SharedFeeds",
+	"type": "system"
+}

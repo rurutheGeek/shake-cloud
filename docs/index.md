@@ -1,56 +1,73 @@
 # Shake Lab Docs
 
-本・音楽・ファイル・パスワード・予定・TODOを、一つの入口から開けます。
+更新日: 2026-09-13
 
-普段の操作は[利用者向け：全サービスの使い方](services/usage.md)から始めてください。管理者向けの設定やサーバー作業は、目次の[管理者向け]から選びます。**すべての接続先は[接続先一覧](operations/urls.md)にまとめています。**
+正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
-## 新しい基盤（`*.apextox.dpdns.org`・LAN 内）
+Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パスワードから自作のプライベートクラウドまでを、家庭内LANのHTTPS名から使えるようにしています。このページは全体像だけの簡潔版です。
 
-| サービス | 開く | 用途 |
+## 全体像（役割とVM）
+
+```mermaid
+flowchart TB
+  devices["家庭内LANの端末"]
+
+  subgraph host["物理ホスト apextox（Proxmox VE）"]
+    subgraph infra["基盤VM platform プール"]
+      identity["identity<br/>共通ログイン"]
+      cloud01["cloud-01<br/>自作クラウド"]
+      services01["services-01<br/>台帳・docs・パスワード・家電"]
+      storage["storage-s3<br/>S3とバックアップ"]
+      k8s["k8s-cp/worker<br/>AWX・DB・関数"]
+    end
+    subgraph svcpool["サービスVM cloud プール"]
+      media["media-01<br/>メディア"]
+      monitor["monitor-01<br/>監視"]
+      game["game1<br/>ゲーム・AI（GPU）"]
+    end
+  end
+
+  devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
+  devices --> media
+  devices --> monitor
+  devices --> game
+  cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
+  services01 --> storage
+  media --> storage
+```
+
+## 何をどこに分けているか
+
+| 役割 | VM | 中身 |
 | --- | --- | --- |
-| Homarr | <https://homarr.apextox.dpdns.org> | サービス一覧の入口（閲覧は全員、編集は管理者） |
-| Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理 |
-| ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口 |
-| クラウド | <https://cloud.apextox.dpdns.org> | VM・S3・DB・関数のポータル |
-| 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（招待・パスキー・復旧） |
-| AWX | <https://awx.apextox.dpdns.org> | Ansible の実行基盤 |
-| NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM） |
-| ドキュメント | <https://docs.apextox.dpdns.org> | このサイト |
+| 共通ログイン | identity | Authentik。招待・メール復旧・パスキー |
+| 自作クラウド | cloud-01 | shakecloud API・CLI・Provider・ポータル・管理DB |
+| 台帳・docs・パスワード | services-01 | NetBox・Shake Lab Docs・Homarr・Vaultwarden |
+| 家電 | services-01 | Home Assistant・eufy-security-ws中継・CUPS |
+| S3・バックアップ | storage-s3 | Garage（S3互換） |
+| クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02 | Kubernetes・AWX・CloudNativePG（DB）・Knative（関数） |
+| メディア | media-01 | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend |
+| 監視 | monitor-01 | Prometheus・Alertmanager・Grafana |
+| ゲーム・AI | game1（GPUパススルー） | Wolf・RomM・SFTPGo。将来OllamaとRAG（[詳細](overview.md)） |
+| 開発 | dev-a・dev-b | Terraform・Docker・Go |
 
-**これらは家庭内 LAN からのみ届きます。** メディア系（Nextcloud・Kavita・Navidrome・
-MeTube・Vaultwarden）は移行中で、まだ旧メディアスタック（下の表、SSH トンネル経由・
-別の Authentik）です。
+VMの管理方法はプールで揃えています。**基盤VMはTerraform**、**cloudプールのVMは自作API・Provider** が作り、IPはどちらもNetBoxから採番します（配分は[全体像（詳細）](overview.md)）。
 
-## 旧メディアスタック（SSH トンネル）
+## 自作している部分
 
-| サービス | 開く | 用途 |
-| --- | --- | --- |
-| Nextcloud | [ファイル](https://nextcloud.localhost:8443) | ファイルと共有 |
-| Calendar | Nextcloud内 | 予定・共有カレンダー |
-| Tasks | Nextcloud内 | 個人・共有タスク |
-| Kavita | [書籍](https://kavita.localhost:5443) | PDF・電子書籍 |
-| Navidrome | [音楽](http://localhost:4533) | 音楽再生 |
-| MeTube | [音声取り込み](http://localhost:8081) | URLからMP3を音楽フォルダへ |
-| お気に入りの曲 | [曲のハート一覧](http://localhost:4533/app/#/song?filter=%7B%22starred%22%3Atrue%7D) | アルバムのFavouritesとは別 |
-| Vaultwarden | [保管庫](https://vault.localhost:8243) | パスワード管理 |
-| Authentik | ログイン時に表示 | 共通ログイン。アカウント管理は管理者向け |
+- **shakecloud**（`cloud/`）: VM・S3・DB・関数を扱うAPI、CLI、Terraform Provider、ポータル
+- **identityの運用**（`stacks/identity/`）: OIDCクライアント、招待フロー、メール復旧、Email OTP、パスキー
+- **Nextcloud連携**（`stacks/media/nextcloud/apps/`・`stacks/print-api/`・`stacks/localsend-send/`）: 印刷・送信・タグ編集のアプリと、CUPS・LocalSendへの橋渡し
+- **FreshRSSの共有タイムライン**（`stacks/media/freshrss/`）: 購読を全員へ同報する `SharedFeeds` 拡張
+- **家電連携**（`stacks/home-assistant/`・`stacks/eufy-security-ws/`）: SSO・逆プロキシ設定、Eufy中継の運用
+- **監視設定**（`stacks/monitoring/`）: スクレイプ・アラート・blackbox・UPS連携
+- **検証ツール**（`tools/`・`tests/`・`.github/workflows/`）: 実機プローブ、公開前検査、テスト
 
-これらはSSHトンネル接続時のURLです。接続できない場合は管理者へ連絡してください。[接続手順](operations/hub.md)は管理者向けです。
+## 資料
 
-## 最初に使う
+- サービス一覧の入口: [Homarr](https://homarr.apextox.dpdns.org)（閲覧は全員、編集は `admins`）
+- 接続先: [接続先一覧](operations/urls.md)
+- 使い方: [利用者向け：全サービスの使い方](services/usage.md)
+- 全体像（詳細）: [ホームラボの全体像](overview.md)
 
-- 本: Nextcloudのbooks内に作品フォルダを作り、その中へPDFを置きます。Kavitaへの自動反映は約10分、即時反映はScanです。
-- 音楽: Nextcloudのmusicへ追加します。Navidromeは定期スキャンで取り込みます。
-- 予定: NextcloudのCalendarでカレンダーを作り、必要な相手に共有します。
-- TODO: Tasksでリストを作り、タスクを追加します。
-- パスワード: Vaultwardenの招待を受け、自分だけが知るマスターパスワードで登録します。
-
-[音楽の取り込み・タグ編集・BCSTM](services/music.md)も参照してください。日常の操作は[全サービスの使い方](services/usage.md)にまとめています。
-
-## 将来の構成案
-
-[ホームラボ／最小プライベートクラウド構成案](architecture/index.md)では、Proxmox・常用Kubernetes・VM／サーバレス／S3／DBの提供、2人用ゲーム、VPNと公開Web、認証、Git管理を整理しています。稼働中サービスの操作手順とは別の設計資料です。
-
-機能ごとの開発・移行・資料修正は[並列開発計画](development/index.md)から選べます。VMの配置計画と実機の状態は区別して記録しています。
-
-開発へ参加する場合は[開発参加ガイド](onboarding.md)を先に読んでください。
+**既知の制約**: LANの外からはVPNが要ります（未構築）。Eufyのライブ映像は新WebRTC方式のため当面未対応です。

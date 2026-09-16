@@ -1,0 +1,8 @@
+# Nextcloudの「LocalSendで送る」と、media-01の送信APIが共有する秘密値。
+# 正本はSOPS（localsend-send.sops.yaml）。
+#
+# 生成:
+#   TOKEN: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+#   FINGERPRINT: python3 -c "import os; print(os.urandom(32).hex().upper())"
+LOCALSEND_SEND_TOKEN: REPLACE_WITH_A_RANDOM_TOKEN
+LOCALSEND_SEND_FINGERPRINT: REPLACE_WITH_A_STABLE_DEVICE_FINGERPRINT

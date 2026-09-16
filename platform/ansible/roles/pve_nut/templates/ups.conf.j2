@@ -1,0 +1,10 @@
+# CyberPower（USB HID）。ドライバは usbhid-ups。
+[{{ pve_nut_ups_name }}]
+  driver = usbhid-ups
+  port = auto
+  vendorid = {{ pve_nut_vendorid }}
+  productid = {{ pve_nut_productid }}
+  desc = "CyberPower UPS (Proxmox host)"
+  # NUT が返す製造元は "CPS"。監視画面の表示を分かりやすくする。
+  override.ups.mfr = CyberPower
+  override.device.mfr = CyberPower

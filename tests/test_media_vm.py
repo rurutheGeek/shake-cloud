@@ -114,11 +114,11 @@ class AccessTests(unittest.TestCase):
         self.assertIn('site.yaml', self.main)
         self.assertIn('local.site.network.prefix', self.main)
 
-    def test_only_ssh_and_the_web_ports_are_opened_and_only_to_the_lan(self):
+    def test_only_ssh_the_web_ports_and_localsend_are_opened_to_the_lan(self):
         ports = sorted(int(value) for value in
                        re.findall(r'from_port\s*=\s*(\d+)', self.main))
-        self.assertEqual(ports, [22, 80, 443])
-        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 3)
+        self.assertEqual(ports, [22, 80, 443, 53317])
+        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 4)
         self.assertNotIn('0.0.0.0/0', self.main)
 
 

@@ -4,16 +4,16 @@
 
 ## 目的・現状
 
-状態: **既存コードの移行・認証統合・実機確認**。media-01へKavitaを独立Composeとして2026-09-12に配備済み（HTTP応答・healthy、booksは読み取り専用）。初期管理者とBooksは`bootstrap.py`で作成済み、HTTPS入口（`https://kavita.apextox.dpdns.org`）と組み込みOIDCを設定済み。**旧環境のライブラリ・読書状態の移行と既存アカウントの紐付けは未了**。
+状態: **既存コードの移行・認証統合・実機確認**。media-01へKavitaを独立Composeとして2026-09-12に配備済み（HTTP応答・healthy、booksは読み取り専用）。初期管理者とBooksは`bootstrap.py`で作成済み、HTTPS入口（`https://kavita.apextox.dpdns.org`）と組み込みOIDCを設定済み。**既存環境のライブラリ・読書状態の移行と既存アカウントの紐付けは未了**。
 
-`stacks/compose.yaml` に `/kavita/config` の永続化とbooksの読み取り専用マウントがある。[旧メディアSSO](../services/sso.md)はKavitaの組み込みOIDCと確認済みメールを使用する。
+`stacks/compose.yaml` に `/kavita/config` の永続化とbooksの読み取り専用マウントがある。Kavitaは[identity](../operations/identity.md)の組み込みOIDCと確認済みメールを使用する。
 
 配備先: **media-01**。開発先は `stacks/media/`。既存Kavita定義とlockを再利用し、本の原本・読書状態・利用者を維持する。
 
 ## 実装手順
 
 1. 構成・アプリDB・ライブラリID・読書進捗・ブックマークを棚卸しし、既存版のまま独立して配備できる設定を用意する。booksは共有原本を読み取り専用で参照する。
-2. 既存の[旧メディアSSO](../services/sso.md)を再利用し、[identity](../operations/identity.md)へ統合する。旧 `media-users` / `homarr-admins` と新 `users` / `admins` の対応、issuer・subject変更時の既存アカウントの紐付けを検証し、メール一致だけで別人のデータを結び付けない。 ライブラリ閲覧・ダウンロード権限と旧利用者の紐付けをサンプルで確認する。
+2. 認証は[identity](../operations/identity.md)のOIDCクライアントを使う。既存アカウントを引き継ぐ場合は `users` / `admins` への紐付けを検証し、メール一致だけで別人のデータを結び付けない。 ライブラリ閲覧・ダウンロード権限と既存利用者の紐付けをサンプルで確認する。
 3. 走査と書き込みを停止して設定・DBを保全し、原本と一緒に復元する。読書状態を比較してから入口を切り替え、初回全走査の負荷を測る。
 
 ## 依存と並列作業

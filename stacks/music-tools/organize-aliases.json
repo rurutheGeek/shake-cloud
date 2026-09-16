@@ -1,0 +1,43 @@
+{
+  "_note": "organize.py のエイリアス。albums はアルバムタグ、folders はフォルダ相対パスで引く。album / albumartist / genre / mb_release / title_prefix / itunes_term を指定できる。MusicBrainzで見つからない日本語ゲームBGM向けの逃げ道。",
+  "albums": {
+    "ポケモンマスターズ": {
+      "album": "ポケモンマスターズ",
+      "albumartist": "景山将太",
+      "genre": "Soundtrack",
+      "mb_release": "4d2dea17-0186-4885-ab23-a36d34e1e87a",
+      "title_prefix": "ポケマス",
+      "itunes_term": "Pokemon Masters EX"
+    },
+    "ポケモン不思議のダンジョン 時・闇・空の探検隊": {
+      "album": "ポケモン不思議のダンジョン 時・闇・空の探検隊",
+      "albumartist": "いとうけいすけ",
+      "genre": "Soundtrack",
+      "itunes_term": "ポケモン不思議のダンジョン 時・闇・空の探検隊"
+    },
+    "ポケットモンスター ダイヤモンド・パール・プラチナ": {
+      "album": "ポケットモンスター ダイヤモンド・パール・プラチナ",
+      "albumartist": "一之瀬剛",
+      "genre": "Soundtrack",
+      "itunes_term": "Nintendo DS ポケモン ダイヤモンド パール スーパーミュージックコレクション"
+    },
+    "ポケットモンスター ソード・シールド": {
+      "album": "ポケットモンスター ソード・シールド",
+      "albumartist": "一之瀬剛",
+      "genre": "Soundtrack",
+      "itunes_term": "ポケットモンスター ソード・シールド スーパーミュージック・コレクション"
+    },
+    "DAOKO × ドラガリアロスト": {
+      "itunes_term": "DAOKO × Dragaria Lost"
+    }
+  },
+  "folders": {
+    "20230520/ポケモン/mp3": {
+      "album": "ポケットモンスター スカーレット・バイオレット",
+      "albumartist": "GAME FREAK",
+      "genre": "Soundtrack",
+      "itunes_term": "ポケットモンスター スカーレット・バイオレット スーパーミュージック・コレクション",
+      "skip_lookup": true
+    }
+  }
+}

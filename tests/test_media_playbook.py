@@ -1,7 +1,7 @@
 """Guard the single media-01 entry point and the post-deploy verification.
 
-media.yml is what makes the four independently developed units (W03-W06)
-reproducible in one run; media-verify.yml is what turns "deployed" from a
+media.yml is what makes the independently developed units (W03-W06・LocalSend・
+FreshRSS) reproducible in one run; media-verify.yml is what turns "deployed" from a
 memory into a check. These are source-text and YAML assertions in the same
 spirit as test_media_nextcloud.py. The only thing executed is
 `ansible-playbook --syntax-check`; nothing here connects to media-01.
@@ -20,12 +20,13 @@ ANSIBLE = ROOT / 'platform/ansible'
 ENTRY = ANSIBLE / 'media.yml'
 VERIFY = ANSIBLE / 'media-verify.yml'
 GROUP_VARS = ANSIBLE / 'group_vars/media.yml'
-UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-navidrome.yml',
-                  'music-tools.yml']
+UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-localsend.yml',
+                  'media-navidrome.yml', 'media-freshrss.yml', 'music-tools.yml']
 COMPOSE_FILES = {
     'nextcloud': ROOT / 'stacks/media/nextcloud/compose.yaml',
     'kavita': ROOT / 'stacks/media/kavita/compose.yaml',
     'navidrome': ROOT / 'stacks/media/navidrome/compose.yaml',
+    'freshrss': ROOT / 'stacks/media/freshrss/compose.yaml',
     'music-tools': ROOT / 'stacks/music-tools/compose.yaml',
 }
 
@@ -52,14 +53,14 @@ class EntryPointTests(unittest.TestCase):
         self.imports = [entry['import_playbook'] for entry in yaml.safe_load(self.text)
                         if isinstance(entry, dict) and 'import_playbook' in entry]
 
-    def test_the_base_then_the_four_units_run_in_order(self):
+    def test_the_base_then_the_units_run_in_order(self):
         self.assertEqual(self.imports[0], 'media-base.yml')
-        self.assertEqual(self.imports[1:5], UNIT_PLAYBOOKS)
+        self.assertEqual(self.imports[1:1 + len(UNIT_PLAYBOOKS)], UNIT_PLAYBOOKS)
 
     def test_verification_and_the_https_entrypoint_run_last(self):
         self.assertEqual(self.imports[-2:], ['media-verify.yml', 'media-tls.yml'])
 
-    def test_only_the_base_the_four_units_the_verifier_and_tls_are_imported(self):
+    def test_only_the_base_the_units_the_verifier_and_tls_are_imported(self):
         self.assertEqual(self.imports,
                          ['media-base.yml'] + UNIT_PLAYBOOKS + ['media-verify.yml', 'media-tls.yml'])
 
@@ -152,9 +153,9 @@ class VerifyTests(unittest.TestCase):
         self.assertEqual(self.play['hosts'], 'media')
         self.assertTrue(self.play['become'])
 
-    def test_the_default_selection_is_all_four_units(self):
+    def test_the_default_selection_is_all_units(self):
         self.assertEqual(self.vars['media_units'],
-                         ['nextcloud', 'kavita', 'navidrome', 'music-tools'])
+                         ['nextcloud', 'kavita', 'navidrome', 'freshrss', 'music-tools'])
 
     def test_the_unit_directories_are_under_the_project_dir(self):
         directories = self.vars['media_unit_dirs']
@@ -211,16 +212,11 @@ class VerifyTests(unittest.TestCase):
         uri = self.uri_for('navidrome_port')['ansible.builtin.uri']
         self.assertIn(200, uri['status_code'])
 
-    def test_picard_requires_http_200_on_5800(self):
-        uri = self.uri_for('music_tools_picard_port')['ansible.builtin.uri']
-        self.assertIn('5800', uri['url'])
-        self.assertEqual(uri['status_code'], [200])
-
     def test_the_expected_service_and_health_counts_match_the_compose_projects(self):
         # The runtime check is an equality on the number of running services;
         # here it is enough that the expectations name real services and the
         # health count is the number of healthchecks among them.
-        for name in ('nextcloud', 'kavita', 'navidrome'):
+        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss'):
             compose = yaml.safe_load(read(COMPOSE_FILES[name]))
             expected = self.vars['media_unit_services'][name]
             self.assertLessEqual(set(expected), set(compose['services']), name)
@@ -231,16 +227,17 @@ class VerifyTests(unittest.TestCase):
     def test_music_tools_expectations_follow_the_deploy_selection(self):
         # W06 deploys a subset with -e music_tools_services=[...]; the verifier
         # reads the same variable instead of hard-coding the full list.
-        self.assertEqual(self.vars['music_tools_services'], ['metube', 'picard', 'convert'])
+        self.assertEqual(self.vars['music_tools_services'],
+                         ['metube', 'convert', 'tag-api', 'khinsider'])
         self.assertNotIn('music-tools', self.vars['media_unit_services'])
         self.assertIn('default(music_tools_services)', self.conditions())
         compose = yaml.safe_load(read(COMPOSE_FILES['music-tools']))
         self.assertLessEqual(set(self.vars['music_tools_services']), set(compose['services']))
-        # The verifier counts one healthy container for music-tools, which is
-        # only correct while convert is the single healthchecked service.
+        # The verifier counts the healthchecked music-tools services; convert,
+        # the tag API and KHInsider all have one.
         healthchecked = [service for service in self.vars['music_tools_services']
                          if 'healthcheck' in compose['services'][service]]
-        self.assertEqual(healthchecked, ['convert'])
+        self.assertEqual(healthchecked, ['convert', 'tag-api', 'khinsider'])
 
 
 class SyntaxTests(unittest.TestCase):

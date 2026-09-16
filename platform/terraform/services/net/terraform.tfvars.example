@@ -1,0 +1,17 @@
+# platform/terraform/services/net の入力例。
+# **terraform.tfvars はコミットしない。** state と同様、秘密値が入り得る。
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   # 必要な値だけ書く
+
+# Tailscale subnet router 専用の極小VM。
+# メモリ512MiBとOS10GiBは cloud API の最小値。これ以上小さくできない。
+# vcpus          = 1
+# memory_mib     = 512
+# memory_min_mib = 512
+# ballooning     = false
+# root_disk_gib  = 10
+
+# cloud API の鍵ペアへ登録する公開鍵のファイル。秘密鍵ではない。
+# 正本は platform/terraform/access.yaml の admin_ssh_public_keys。
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"

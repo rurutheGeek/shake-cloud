@@ -1,0 +1,54 @@
+---
+# FreshRSS を media-01 の独立 Compose プロジェクトとして配備する。
+#   ansible-playbook -i <inventory> platform/ansible/media-freshrss.yml
+#
+# 公開は 127.0.0.1 のみ。認証は identity の Authentik へのネイティブ OIDC を
+# 使うが、クライアント秘密値は media-freshrss-sso.yml が配る。この playbook
+# だけでは OIDC は無効のまま起動し、SSO playbook の再実行で有効になる。
+- name: Deploy FreshRSS
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    media_freshrss_zone: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml).zone }}"
+  tasks:
+    - name: Create the FreshRSS deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/freshrss'
+        state: directory
+        mode: '0750'
+    - name: Copy the FreshRSS definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/freshrss/{{ item }}'
+        dest: '{{ project_dir }}/media/freshrss/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example, README.md, feeds.opml]
+    - name: Copy the SharedFeeds extension
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/freshrss/extensions/'
+        dest: '{{ project_dir }}/media/freshrss/extensions/'
+        mode: '0644'
+        directory_mode: '0755'
+    - name: Configure the FreshRSS environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          FRESHRSS_PORT={{ freshrss_port | default(8082) }}
+          FRESHRSS_IMAGE={{ freshrss_image | default('freshrss/freshrss:latest') }}
+          FRESHRSS_CRON_MIN={{ freshrss_cron_min | default('2,17,32,47') }}
+          FRESHRSS_BASE_URL=https://freshrss.{{ media_freshrss_zone }}
+          FRESHRSS_DEFAULT_USER={{ freshrss_default_user | default('akadmin') }}
+          FRESHRSS_OIDC_PROVIDER_METADATA_URL=https://auth.{{ media_freshrss_zone }}/application/o/freshrss/.well-known/openid-configuration
+          MEDIA_UID={{ media_uid | default(33) }}
+          MEDIA_GID={{ media_gid | default(33) }}
+        dest: '{{ project_dir }}/media/freshrss/.env'
+        mode: '0600'
+    - name: Prepare the FreshRSS data directory and secrets
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/freshrss/manage.py', init]
+      changed_when: true
+    - name: Deploy FreshRSS
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/freshrss/manage.py', up]
+      changed_when: true

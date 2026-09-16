@@ -1,0 +1,18 @@
+{
+	"name": "shake_localsend",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Nextcloud file action that sends documents to a LAN LocalSend device",
+	"scripts": {
+		"build": "esbuild src/localsend.js --bundle --format=iife --target=es2020 --alias:path=./src/shims/path.js --alias:string_decoder=./src/shims/string_decoder.js --outfile=js/localsend.js"
+	},
+	"dependencies": {
+		"@nextcloud/axios": "^2.5.2",
+		"@nextcloud/files": "^4.0.0",
+		"@nextcloud/l10n": "^3.2.0",
+		"@nextcloud/router": "^3.0.1"
+	},
+	"devDependencies": {
+		"esbuild": "^0.25.0"
+	}
+}
