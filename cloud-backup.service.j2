@@ -7,3 +7,5 @@ Requires=docker.service
 Type=oneshot
 WorkingDirectory={{ cloud_api_project_dir }}
 ExecStart=/usr/bin/python3 {{ cloud_api_project_dir }}/manage.py backup --destination {{ cloud_api_backup_dir }} --keep {{ cloud_api_backup_keep }}
+# 成功時だけ最終成功時刻を公開する。失敗やtimer停止はメトリクスの停滞・欠測になる。
+ExecStartPost=/usr/bin/python3 {{ cloud_api_project_dir }}/manage.py backup-metric --destination {{ cloud_api_backup_dir }} --metric {{ cloud_api_backup_metric }}
