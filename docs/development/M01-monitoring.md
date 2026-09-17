@@ -1,6 +1,6 @@
 # M01 監視（Prometheus・Grafana）
 
-更新日: 2026-09-16。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み**。
+更新日: 2026-09-16。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み**。
 
 ## 目的・現状・配備先
 
@@ -15,10 +15,10 @@
 | 収集・保持 | Prometheus | データディスク32GiB、保持は15日開始。外部公開しない |
 | 表示・通知 | Grafana | `grafana.apextox.dpdns.org`（tls_proxy）。identityのOIDC＋ローカル管理者 |
 | 疎通 | blackbox_exporter | `dns.yaml`のHTTPS名をprobe。証明書期限も取れる |
-| VM資源 | node_exporter | 各VM（services-01・identity・cloud-01・storage-s3・media-01・monitor-01）。game1は導入可否を別途 |
+| VM資源 | node_exporter | services-01・identity・cloud-01・storage-s3・monitor-01の5台。media-01・game1は入れず、Proxmox側（pve-exporter）の資源で見る |
 | Proxmox | pve-exporter | 読み取り専用APIトークンでノード・VMを収集 |
 | UPS | nut_exporter | ProxmoxホストのNUTサーバー（`:3493`）を読む |
-| 通知 | Alertmanager | Prometheusのアラートを既存の`smtp.sops.yaml`（Gmail）でメール通知 |
+| 通知 | Alertmanager | Prometheusのアラートを既存の`smtp.sops.yaml`（Gmail）でメール通知。`Watchdog`だけは外部のdead man's switch（healthchecks.io）へ送る |
 
 アラート規則（`stacks/monitoring/prometheus/alerts.yml`）:
 
@@ -28,15 +28,16 @@
 - **Proxmox・UPS**: ゲストのダウン、ノードのディスク85%、UPSがバッテリー動作中。
 - **dead man's switch**: `Watchdog`（`vector(1)`で常時firing）。Alertmanagerから外部（healthchecks.io等）へ送り続け、外部側で「届かなければ監視系が死んでいる」と判定する。ping URLは`monitoring.sops.yaml`の`WATCHDOG_PING_URL`（空なら`deadman`宛先は何もせず、`Watchdog`がメールに流れることもない）。
 
-## dead man's switch（外部監視）
+## dead man's switch（外部監視・有効）
 
 monitor-01はK11（Proxmoxホスト）の上にあるため、K11ごと落ちると監視も沈黙する。「静かなこと」と「正常なこと」を区別するには外部の受信点が要る。
 
-1. healthchecks.io等でチェックを作り、期間を12時間・猶予を1時間にする。
-2. ping URLを`sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'`で入れる。
-3. `monitoring.yml`を再実行すると`.env`へ写り、Alertmanagerが`Watchdog`を1時間ごとに送る。
-4. 外部側で「12時間以上受信が無い」をアラートにし、宛先は普段のメールとは別経路（スマホアプリ等）にする。
-5. ラズパイを別電源で動かせるようになったら、同じ`Watchdog`をそこへも送る（[電源とUPS](../operations/power.md)）。
+- 受信点: **healthchecks.io**（無料枠）。チェック`shake-cloud watchdog`。
+- 設定: Simple / **Period 12時間 / Grace 1時間** / リクエストは**POSTのみ**。通知はメール（同じGmailでもhealthchecks.io側のサーバーから届くので、うちのSMTP障害には影響されない。別アドレスならGoogleアカウント障害も分離できる）。
+- 経路: `Watchdog`（常時firing）→ Alertmanagerの`deadman`宛先 → 1時間ごとにPOST。ping URLは`monitoring.sops.yaml`の`WATCHDOG_PING_URL`。空なら`deadman`は何もせず、`Watchdog`がメールに流れることもない。
+- 差し替え: `sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'` → `monitoring.yml`を流す。`.env`のSMTP・WATCHDOG変更でもAlertmanagerを再読込する（2026-09-16に修正）。
+- 試験: 受信点を一時的に5分/5分にして`docker stop monitoring-alertmanager-1` → 10分ほどで通知 → `docker start`。**鳴ることを一度見たら12時間/1時間に戻す。**
+- ラズパイを別電源で動かせるようになったら、2つ目のwebhookとして追加する（[電源とUPS](../operations/power.md#停電で自動停止させる実装済み)）。
 
 ## 管理DBバックアップの見える化
 
@@ -50,7 +51,7 @@ monitor-01はK11（Proxmoxホスト）の上にあるため、K11ごと落ちる
 
 UPSはUSBでProxmoxホストに接続されている。NUTはUSBを持つホストで動かす。
 
-1. ホストに`nut`（`usbhid-ups`＋`upsd`）をAnsibleで導入する。`upsmon`（`nut-monitor`）も有効にし、低電池時に**k8s worker → control plane → ホスト**の順に停止する（[電源とUPS](../operations/power.md#停電で自動停止させる任意推奨)）。停止スクリプトは`/usr/local/sbin/pve-ups-shutdown`。
+1. ホストに`nut`（`usbhid-ups`＋`upsd`）をAnsibleで導入する。`upsmon`（`nut-monitor`）も有効にし、低電池時に**k8s worker → control plane → ホスト**の順に停止する（[電源とUPS](../operations/power.md#停電で自動停止させる実装済み)）。停止スクリプトは`/usr/local/sbin/pve-ups-shutdown`。
 2. `upsd`は監視LANだけへ公開し、nut_exporter（monitor-01）が読む。UPSの状態はGrafanaのダッシュボードとHomarrのUPSウィジェット（PeaNUT経由）へ出す。`monitor`ユーザーは読み取り専用のまま、upsmon専用ユーザーを分ける。
 3. **前提: ProxmoxホストへのSSH公開鍵登録（人）**。`platform/ansible/pve.ini`の`root`接続を使う。鍵は`~/.ssh/id_ed25519_pve`。
 
@@ -93,3 +94,4 @@ UPSはUSBでProxmoxホストに接続されている。NUTはUSBを持つホス�
 - ノード規則: 一時的に閾値を上げた式を`/api/v1/query`で評価して鳴ることを確認し、実配備では戻す。
 - バックアップ: cloud-01で`manage.py backup`（手動）→ `backup_last_success_timestamp_seconds`が更新されるのをPrometheusで確認。
 - upsmon: `systemctl status nut-monitor`がactive、`upsc cyberpower@localhost ups.status`が`OL`。`journalctl -t pve-ups-shutdown`でdry-runのログを確認。
+- dead man's switch: Alertmanagerの`alertmanager_notifications_total{integration="webhook"}`が増え、`..._failed_total`が0（healthchecks.ioがPOSTを受理している）。
