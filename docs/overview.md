@@ -339,7 +339,7 @@ flowchart LR
   ups --> hoststop
 ```
 
-監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28/28ターゲットup**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。
+監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
 
 | 見るもの | 方法 |
 | --- | --- |
@@ -527,13 +527,12 @@ flowchart LR
 | 管理DBの外部バックアップ | ローカルに14世代。外部コピーなし | 別ディスク・別機器への暗号化コピーと復元照合（[O01](development/O01-cloud-backup.md)） |
 | CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](development/O02-cnpg-backup.md)） |
 | 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](development/O03-restore.md)） |
-| 監視（M01） | 稼働。全28ターゲットup、node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了 | ダッシュボードの拡充と、外部監視の冗長化（別電源のラズパイ）（[M01](development/M01-monitoring.md)） |
+| 監視（M01） | 稼働。28ターゲットを収集しAWX（k8s停止中）以外のプローブは成功。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了 | ダッシュボードの拡充と、外部監視の冗長化（別電源のラズパイ）（[M01](development/M01-monitoring.md)） |
 | メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](development/W06-music-tools.md)） |
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](development/H01-home-assistant.md)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](operations/kubernetes.md)） |
 | 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](development/N04-public-edge.md)） |
-| DHCP範囲の重なり | クラウド用レンジがルーターの配布範囲と重複 | VMを増やす前にルーター側を除外するかレンジを移す |
-| タイムゾーン | 宣言はUTC、実機は手動でJST | `common` ロールの既定を直してから配備しないとUTCへ戻る |
+| タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-bは未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ
 

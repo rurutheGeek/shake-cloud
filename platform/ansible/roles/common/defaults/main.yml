@@ -1,6 +1,6 @@
 ---
 # 全ゲストVMの共通設定。Proxmox の cloud-init が作った状態を土台にする。
-common_timezone: Etc/UTC
+common_timezone: Asia/Tokyo
 common_packages:
   - ca-certificates
   - curl

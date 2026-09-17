@@ -110,7 +110,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）で
 
 I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../architecture/operations.md#measured-budget)にあります。この表の停止状態は再開すると変わります。通常の再開は容量確認後に `tools/k8s up` でcp・worker-01を起動します。`--all` は停止中のworker-02も含むため、追加の容量確認と配置計画が必要です。
 
-ゲストのタイムゾーンは**コードと実機が食い違っています**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` は現在 **`Etc/UTC`** です。一方、services-01・identity・cloud-01・storage-s3・dev-a・media-01 は手動で `Asia/Tokyo` へ変更済み、dev-b は未変更、停止中の k8s ノード・probe-01 は次回起動も UTC のままです。**次に `common` ロールを流すと、手動で JST にしたVMも UTC へ戻ります。** 実機を JST に揃えたい場合は、`common_timezone` を `Asia/Tokyo` に直してから配備してください（2026-09-13時点では未修正）。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
+ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。services-01・identity・cloud-01・storage-s3・dev-a・media-01 は JST です。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP はクラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
 
