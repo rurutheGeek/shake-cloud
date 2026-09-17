@@ -67,6 +67,7 @@
     line: '{{ item }}={{ (monitoring_smtp.stdout | from_json)[item] | default("") }}'
     mode: '0600'
   loop: '{{ monitoring_smtp_keys }}'
+  register: monitoring_smtp_env
   no_log: true
 
 - name: Point alerts at the notification mailbox
@@ -75,6 +76,7 @@
     regexp: '^ALERT_EMAIL='
     line: 'ALERT_EMAIL={{ (monitoring_smtp.stdout | from_json).SMTP_FROM | default("") }}'
     mode: '0600'
+  register: monitoring_alert_email
   no_log: true
 
 - name: Create the secrets directory
@@ -123,6 +125,7 @@
     regexp: '^WATCHDOG_PING_URL='
     line: 'WATCHDOG_PING_URL={{ (monitoring_secrets.stdout | from_json).WATCHDOG_PING_URL | default("") }}'
     mode: '0600'
+  register: monitoring_watchdog
   no_log: true
 
 - name: Read the Grafana OIDC client credentials on the identity VM
@@ -180,7 +183,11 @@
     argv: [python3, manage.py, reload]
     chdir: '{{ monitoring_project_dir }}'
   changed_when: true
-  when: monitoring_stack_files is changed
+  when: >-
+    monitoring_stack_files is changed
+    or monitoring_smtp_env is changed
+    or monitoring_alert_email is changed
+    or monitoring_watchdog is changed
 
 - name: Wait for the public Grafana entry point
   ansible.builtin.uri:

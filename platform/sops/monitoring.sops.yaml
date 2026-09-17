@@ -2,7 +2,7 @@ PVE_TOKEN_VALUE: ENC[AES256_GCM,data:IPgBFrtSSEqQKkjncbxjgRgIIxs252WMD+zhwu2GwyH
 NUT_MONITOR_PASSWORD: ENC[AES256_GCM,data:gLGAsjlFBRuJ7PD7UmhmcYnSeuv53kWCCD394AnF1Ew=,iv:PgILURrby3CzNrg5GqxRkCrvNepdt1Br12Or/pftVhg=,tag:BMFrawOQkXTBic0Prtkb2Q==,type:str]
 PEANUT_WEB_PASSWORD: ENC[AES256_GCM,data:NIB1EkGZE7kI6RpFSeamCAZ1znF6nLMhg9p3nL4XHnI=,iv:u3hr0L8t6GGvjB6wdqNZaQLnklavKh97qIwkcPI409o=,tag:EnpxZAbDogoMK4nzt0r2GA==,type:str]
 NUT_UPSMON_PASSWORD: ENC[AES256_GCM,data:x8tK7mf7oCtP+nhCSaS1sog9JqNpCR8f3P/RZxHDSVM=,iv:eIqP3rrN4nqFlqbFK3G0HNLYHfqS58C1Jx0sowy5RxI=,tag:APE8p/T+D6mb+veAaAl9KA==,type:str]
-WATCHDOG_PING_URL: ""
+WATCHDOG_PING_URL: ENC[AES256_GCM,data:kPToWNMrhLWyymx/bQLFZaY5m79TAQqa0YrHGSdU2mbFYpj9XXP7JYLOGVMAu/FDz2zEvLUCRuY=,iv:SKHmCHen8qrw6VIBBL7FietOQq1Kx4mgI75t648nd8c=,tag:/DfD6+jmq6di2h+k0bPmXg==,type:str]
 sops:
     age:
         - enc: |
@@ -14,7 +14,7 @@ sops:
             nc6JZ5i/IfIb3T9o9R80vgLIBlbIz3W5WMF1EAldeFpoAIrL+kMkOQ==
             -----END AGE ENCRYPTED FILE-----
           recipient: age1r6y7am38u759z2ktg2zhmn5j8vpvzseptvflaxa69l6wadxlraes806g2h
-    lastmodified: "2026-09-16T23:42:41Z"
-    mac: ENC[AES256_GCM,data:nqn6dhgQM50P/95N/A4KmtC7xcRhw6Z9QQAOnlX+6YBVUnlX32gibHWMzCAk6KFmDacCoX92nm3L3o3rC89KqDAAhzYsH+0eBdXXXWlNo6p8Vbtifl5gWdVcSfzbMmh6kQqXGpPHmMkbtdi1n9AxHNnjIHXoIuPijYap1mm9wAg=,iv:/t/6vqSR8VFQUtUVqfM9jfinRxs1pjgParCdFJElRWk=,tag:gaPjrKH2PAlMlyPVxVYzEg==,type:str]
+    lastmodified: "2026-09-17T10:37:58Z"
+    mac: ENC[AES256_GCM,data:Wuxa063dSpcIzeHSGiKbsMsQJY3PoD1OxjKPDYMUuX1aRha7w1b13Q6vU+WtBHjKFDRWHVGHYgTbt3c4X8xPeouFdC+NX0+evWEiEqcPzKq9U7P5lyldX+v7mbQVsPI1CeqoH3dDcpAlyDmUjCxZMcPjt65JeDwLk8lSu8s9q2Y=,iv:T4ZNIEIoIIch2xQkzg4XqE5ufEHxPCgzvBCRgmb3sho=,tag:QQUrgtIIs/2/2iSPVdrWUQ==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.13.3
