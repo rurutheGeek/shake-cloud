@@ -1,6 +1,6 @@
 # 機能別VMと並列開発計画
 
-更新日: 2026-09-12。状態: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter）を配備済み（24/24 targets、UPS取得、通知確認）、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
+更新日: 2026-09-12。状態: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、全28ターゲットup・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
 作業環境は既存dev-a／dev-bです。[開発参加ガイド](../onboarding.md)から接続し、下のIDから担当する機能を選びます。**W01・A01などの番号は識別用で、優先度や実施順ではありません。** 同じVMへ載せる機能でも独立して着手・完了できるものを別文書にしています。
 
@@ -63,7 +63,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [I04 DNS登録](I04-cloud-dns.md) | 新規 | サービス宣言・DNS | 一部完了（VM連携未） |
 | [I05 サービス用state管理](I05-service-state.md) | 未決事項の具体化 | 既存外部state保存先 | 一部完了（キー投入未） |
 | [I06 AWXのジョブ整備](I06-awx.md) | 既存基盤への設定追加 | 既存Kubernetes | 一部完了（ジョブ未適用） |
-| [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。Homarr連携済み。低電池シャットダウンが残り） |
+| [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了。ダッシュボード拡充が残り） |
 | [O01 管理DBの外部バックアップ](O01-cloud-backup.md) | 既存ローカルバックアップの拡張 | cloud-01・既存外部保存先 | 一部完了（外部保全未） |
 | [O02 CNPGバックアップ](O02-cnpg-backup.md) | 新規 | 既存Kubernetes・Garage・外部保存先 | 一部完了（バックアップ未） |
 | [O03 VM・アプリ状態の復元](O03-restore.md) | 既存手順の拡張・検証 | 対象VM・隔離復元先 | 一部完了（復元合格未） |

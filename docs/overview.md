@@ -1,6 +1,6 @@
 # ホームラボの全体像（詳細）
 
-更新日: 2026-09-13
+更新日: 2026-09-17
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -54,7 +54,7 @@ flowchart TB
 | S3・バックアップ | storage-s3（platform） | 2 / 1GiB / OS16＋データ32GiB | Garage（S3互換） |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana |
+| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
 | 復旧経路 | net-01（cloud） | 1 / 512MiB / OS10GiB | Tailscale subnet router。宅外から管理LANへ（N02） |
 | 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
@@ -114,14 +114,14 @@ flowchart TB
   netbox --> shake
 ```
 
-| 項目 | 実測（2026-09-12、I01） |
+| 項目 | 実測（2026-09-12、I01。VM割当は2026-09-17再測） |
 | --- | --- |
 | CPU | Ryzen 9 8945HS、8コア/16スレッド |
 | RAM | Proxmoxの認識で 59.7GiB（64GB公称からファーム・iGPU予約を引いた値） |
 | SSD | CT1000E100SSD8 1TB。SMART PASSED、Percentage Used 0% |
 | VMディスク | `local-lvm` 794.3GiBのうち使用 226.7GiB（29%）。シンプロビジョニング |
 | イメージ・ISO置き場 | `local` / `cloud-images` 約94GiBのうち使用 22.0GiB |
-| 稼働中VMの割当合計 | 35.1GiB。ホストの空き 25.4GiB |
+| 稼働中VMの割当合計 | 43.6GiB（稼働11台、2026-09-17再測）。ホストの実空き 12GiB |
 
 **GPUは game1 へパススルー**しており、ゲーム配信と将来のローカルAI・RAGで共有します（§10）。停止中も含めた全VMの割当合計は物理RAMを超えるため、全台同時起動はできません。メモリはバルーニングを前提に「ノードに4GiB残す」「ディスク実使用率85%で断る」の2つでホストを守ります。
 
@@ -319,30 +319,37 @@ flowchart LR
 flowchart LR
   pve["Proxmoxホスト<br/>pve-exporter"]
   ups["UPS<br/>nut-exporter"]
-  vm["各VM<br/>node-exporter"]
-  https["HTTPS名<br/>blackbox"]
+  vm["各VM 5台<br/>node-exporter"]
+  https["HTTPS名 20件<br/>blackbox"]
   prom["Prometheus<br/>monitor-01"]
   alert["Alertmanager<br/>メール通知"]
   grafana["Grafana<br/>OIDC"]
   peanut["PeaNUT<br/>HomarrのUPS表示"]
+  deadman["healthchecks.io<br/>dead man's switch"]
+  hoststop["k8s worker → cp<br/>→ ホスト停止"]
 
   pve --> prom
   ups --> prom
   vm --> prom
   https --> prom
   prom --> alert
+  alert --> deadman
   prom --> grafana
   ups --> peanut
+  ups --> hoststop
 ```
 
-監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。
+監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28/28ターゲットup**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。
 
 | 見るもの | 方法 |
 | --- | --- |
-| ProxmoxホストとVM | pve-exporter・node-exporter |
-| UPS | nut-exporter。低電池時のシャットダウンは残作業 |
-| HTTPS名 | blackboxが各名前の疎通と証明書を確認（全24ターゲットup・メール通知1通を実機確認） |
-| Homarr連携 | PeaNUTのUPS表示は残作業 |
+| ProxmoxホストとVM | pve-exporter、VM内は node-exporter（5台） |
+| UPS | nut-exporter。低電池時は upsmon が **k8s worker → control plane → ホスト** の順で停止（猶予60秒。2026-09-16実装） |
+| HTTPS名 | blackboxが疎通と証明書を確認。ログイン用のリダイレクト（302）や401/403は「生きている」とみなす |
+| ノード資源 | ディスク空き15%未満・空きメモリ10%未満・OOM kill・systemd unit failed・計画外再起動 |
+| バックアップ | 管理DBの最終成功時刻をメトリクス化（`backup_last_success_timestamp_seconds`）。36時間の停滞と欠測そのものを通知 |
+| 通知 | AlertmanagerがGmailでメール。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
+| Homarr連携 | 実装済み。Proxmox連携のSystem HealthとPeaNUT経由のUPSウィジェット |
 
 ## 10. ゲームとAI（game1・GPUパススルー）
 
@@ -444,7 +451,7 @@ flowchart LR
 | S3互換ストレージ | Garageをstorage-s3に単一ノードで | **冗長性なし。唯一の保存先・唯一のバックアップにしない** |
 | Terraform state | Cloudflare R2 | stateには秘密値が入り得るためGitへ入れない |
 | メディア原本 | media-01のデータディスク。`storage/`（設定・DB）と `library/`（books・music・docs・inbox） | volumeは `prevent_destroy`。アプリのバックアップに原本は含まない |
-| 管理DB | cloud-01で毎日バックアップ（14世代） | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
+| 管理DB | cloud-01で毎日バックアップ（14世代）。最終成功時刻をメトリクス化し36時間停滞でアラート | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
 | 利用者DB | CloudNativePG | バックアップは未整備 |
 | アプリ状態 | 各スタックの `manage.py backup` がサービスを止めて取得 | 復元は空のディレクトリへ。外部保全先の確定が前提 |
 
@@ -520,7 +527,7 @@ flowchart LR
 | 管理DBの外部バックアップ | ローカルに14世代。外部コピーなし | 別ディスク・別機器への暗号化コピーと復元照合（[O01](development/O01-cloud-backup.md)） |
 | CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](development/O02-cnpg-backup.md)） |
 | 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](development/O03-restore.md)） |
-| 監視（M01） | Prometheus・Grafana・exporterは稼働 | 低電池シャットダウンとダッシュボード拡充、Homarr連携（[M01](development/M01-monitoring.md)） |
+| 監視（M01） | 稼働。全28ターゲットup、node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了 | ダッシュボードの拡充と、外部監視の冗長化（別電源のラズパイ）（[M01](development/M01-monitoring.md)） |
 | メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](development/W06-music-tools.md)） |
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](development/H01-home-assistant.md)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](operations/kubernetes.md)） |

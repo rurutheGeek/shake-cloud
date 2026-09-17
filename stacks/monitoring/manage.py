@@ -241,10 +241,10 @@ def main():
         render_peanut_config()
         compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300')
     elif args.action == 'reload':
-        # Prometheus と Alertmanager は設定を起動時にしか読まない。
+        # Prometheus・Alertmanager・blackbox は設定を起動時にしか読まない。
         render_pve_config()
         render_alertmanager_config()
-        compose('restart', 'prometheus', 'alertmanager')
+        compose('restart', 'prometheus', 'alertmanager', 'blackbox')
     elif args.action == 'restart':
         # 保存先の所有権を直したときなど、設定は同じでもコンテナを作り直す。
         render_peanut_config()

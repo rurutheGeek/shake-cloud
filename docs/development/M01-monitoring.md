@@ -95,3 +95,4 @@ UPSはUSBでProxmoxホストに接続されている。NUTはUSBを持つホス�
 - バックアップ: cloud-01で`manage.py backup`（手動）→ `backup_last_success_timestamp_seconds`が更新されるのをPrometheusで確認。
 - upsmon: `systemctl status nut-monitor`がactive、`upsc cyberpower@localhost ups.status`が`OL`。`journalctl -t pve-ups-shutdown`でdry-runのログを確認。
 - dead man's switch: Alertmanagerの`alertmanager_notifications_total{integration="webhook"}`が増え、`..._failed_total`が0（healthchecks.ioがPOSTを受理している）。
+- blackboxの設定変更: `manage.py reload`がPrometheus・Alertmanagerと一緒にblackboxも再起動する（2026-09-17に追加。再起動漏れで全プローブが400になった実例あり）。
