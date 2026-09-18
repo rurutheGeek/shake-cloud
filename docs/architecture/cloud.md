@@ -1,4 +1,16 @@
+---
+title: 最小クラウドとTerraform Provider
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - cloud
+---
+
 # 最小クラウドとTerraform Provider
+
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・monitor-01などサービスVMもこのAPIで作成済み**。
 
@@ -29,7 +41,7 @@
 
 KourierはKnative向けのネットワーク実装です。既存の内部HTTPS入口から、正しいHost情報を保ってKourierへ転送します。通常アプリ用Gatewayとは転送先・IPの担当を分けます。[ネットワークプラグイン](https://knative.dev/docs/install/)
 
-Knative ServingだけではAWS Lambda API、ZIPアップロード、AWSの実行ロールは提供しません。Discord Gatewayへ常時接続するBotなどは、通常のDeploymentとして常駐させます。
+Knative Serving だけでは、商用のサーバレス基盤にあるコードのZIPアップロードや実行ロールの仕組みは提供しません。Discord Gatewayへ常時接続するBotなどは、通常のDeploymentとして常駐させます。
 
 ## S3: Garageを第一候補にする
 
@@ -41,7 +53,7 @@ Garageは、バケット・キーの管理APIがあり、自作クラウドへ�
 
 当初は単一ノード・replication factor 1なので、**データの冗長性はありません**。Garage公式も単一ノード手順を冗長性のない構成として説明しています。ホームラボでこの制約を受け入れる場合も、唯一の保存先や唯一のバックアップにはしません。[Garage Quick Start](https://garagehq.deuxfleurs.fr/documentation/quick-start/)
 
-GarageはS3の全機能を実装しているわけではありません。公式互換表では署名v4、presigned URLなどに対応する一方、バケットバージョニングは未対応です。AWS IAM互換の任意ポリシーをそのまま適用できる前提にもせず、初期APIはバケット単位の許可に絞ります。[S3互換表](https://garagehq.deuxfleurs.fr/documentation/reference-manual/s3-compatibility/)
+GarageはS3の全機能を実装しているわけではありません。公式互換表では署名v4、presigned URLなどに対応する一方、バケットバージョニングは未対応です。細かなポリシー言語をそのまま適用できる前提にもせず、初期APIはバケット単位の許可に絞ります。[S3互換表](https://garagehq.deuxfleurs.fr/documentation/reference-manual/s3-compatibility/)
 
 バージョニングなどが必須ならSeaweedFSも比較し、採用バージョンと実際のクライアントで確認してから選定を変更します。SeaweedFSには単一ノード向けの `weed mini` があり、S3エンドポイントを提供できます。[SeaweedFS公式](https://github.com/seaweedfs/seaweedfs)
 
@@ -72,7 +84,7 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 **この節は方針を変更しました。** 以前は「利用者アカウントを作らず、用途別のキーだけを発行する」と書いていました。それではクォータも所有権（どのVMが誰のものか）も成立せず、利用者が自分でキーを発行する経路もありません。homelab統合認証アカウントへ寄せます。
 
 - **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります。
-- **Terraform と CLI はアクセスキー**を使います。ポータルで発行し、`Authorization: Bearer sca_<キーID>.<秘密値>` で送ります。AWSのIAMアクセスキーと同じモデルです。
+- **Terraform と CLI はアクセスキー**を使います。ポータルで発行し、`Authorization: Bearer sca_<キーID>.<秘密値>` で送ります。ブラウザのログインとは別系統の、機械用の資格情報です。
 
 キーをSSOと分けるのは、依存を一方向にするためです。**Authentik が停止していても Terraform は動きます。**逆にすると、認証基盤の障害が復旧作業そのものを止めます。
 
@@ -83,7 +95,9 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 
 Authentik の `sub` は `sub_mode='user_uuid'` にします。既定の `hashed_user_id` はプロバイダごとに導出されるので、**Authentik側でプロバイダを作り直すと全アカウントの `sub` が変わる**からです。それでもアカウント表には `sub` と併せてメールアドレスを保存し、既知のメールに未知の `sub` が来たときに気づけるようにします。
 
-ワイヤ互換（SigV4 + EC2 Query API）は実装しません。得たいのは「他のクラウドと同じ作り方が通じる」ことであって、バイナリ互換ではありません。本物の `aws` CLI や `hashicorp/aws` プロバイダは動きません。代わりに、語彙・状態遷移・フィールド名をAWSへ厳密に揃えます（`image_id` / `instance_type` / `client_token` / `pending→running→stopping→stopped→shutting-down→terminated`）。
+**語彙は、広く使われている商用クラウドの仮想マシンAPIに合わせます。** `image_id` / `instance_type` / `client_token`、状態遷移 `pending→running→stopping→stopped→shutting-down→terminated` といったフィールド名と状態名をそのまま使います。既にクラウドを触ったことのある人が読み替えずに書けるからで、この1点だけが理由です。
+
+**ワイヤ互換は実装しません。** 署名方式やクエリAPIまで真似ることはせず、他社のCLIやProviderが動くようにもしません。得たいのは「同じ作り方が通じる」ことであって、バイナリ互換ではありません。
 
 ## VMを作るときのProxmox側の制約
 
@@ -103,7 +117,7 @@ Authentik の `sub` は `sub_mode='user_uuid'` にします。既定の `hashed_
 
 → APIが `CIDATA` ラベルの **NoCloud seed ISO**（`meta-data` / `user-data` / `network-config`）をインスタンスごとに作り、`content=iso` で上げて CD-ROM として接続します。Proxmox内蔵の cloud-init ドライブは**使いません**。
 
-その結果、**IPアドレスは ISO 内の `network-config` に書きます**。内蔵ドライブを使わない以上 `ipconfig0` は無効で、ここを間違えると「起動したがネットワークが無い」になります。また user-data はISOに平文で入りゲストから読めるので、秘密の置き場としては案内しません（AWSのIMDSと同じ性質です）。
+その結果、**IPアドレスは ISO 内の `network-config` に書きます**。内蔵ドライブを使わない以上 `ipconfig0` は無効で、ここを間違えると「起動したがネットワークが無い」になります。また user-data はISOに平文で入りゲストから読めるので、秘密の置き場としては案内しません（クラウドのインスタンスメタデータと同じ性質です）。
 
 ISOはディレクトリ型ストレージにしか置けず、VMディスク（LVM-thin）とは別の容量枠になります。クォータとGCも別に持ちます。
 
@@ -151,20 +165,20 @@ VM単位のルールは**3つ揃って初めて効きます**。(1) `firewall/op
 
 自作APIは小さな単一サービスから開始します。GoのHTTP API、OpenAPI、永続化されたジョブ／バックエンドIDを用意し、当初は専用メッセージブローカを増やしません。必要なワーカー処理は同じコードベースで実行できます。
 
-Providerの名前は `shakecloud` です。**設計案の `homelab_*` から変更しました。**リポジトリ名・CLI名（`shakecloud`）・キーの接頭辞（`sca_`）と揃えるためです。リソース名はAWSの対応物と1対1にし、`aws_instance` を書ける人がそのまま書けるようにします。
+Providerの名前は `shakecloud` です。**設計案の `homelab_*` から変更しました。**リポジトリ名・CLI名（`shakecloud`）・キーの接頭辞（`sca_`）と揃えるためです。リソース名は一般的なクラウドProviderの対応物と1対1にし、読み替えずに書けるようにします。
 
-| Terraformリソース | AWSの対応物 | バックエンド | 主な入出力 |
+| Terraformリソース | 一般的な呼び名 | バックエンド | 主な入出力 |
 | --- | --- | --- | --- |
-| `shakecloud_instance` | `aws_instance` | Proxmox VM | image_id、instance_type、disk、user_data → ID、IP、状態 |
-| `shakecloud_volume` | `aws_ebs_volume` | Proxmox の追加ディスク | size → volume ID |
-| `shakecloud_volume_attachment` | `aws_volume_attachment` | `qm set` の virtioN | instance、volume、device |
-| `shakecloud_security_group` | `aws_security_group` | VM単位のFWルール | ingress／egress ルール |
-| `shakecloud_security_group_rule` | `aws_security_group_rule` | VM単位のFWルール（1つずつ） | group、direction、protocol、ports、cidr → rule ID |
-| `shakecloud_key_pair` | `aws_key_pair` | 台帳のみ | 公開鍵 → fingerprint |
-| `shakecloud_image` | `aws_ami` | アップロード済みイメージ | ファイル → image_id |
-| `shakecloud_bucket` | `aws_s3_bucket` | Garage bucket | name → bucket名、S3 endpoint |
-| `shakecloud_function` | — | Knative Service | image digest、env、limits、scale → URL、revision |
-| `shakecloud_database` | `aws_db_instance` | CloudNativePG Cluster | version、size、storage → endpoint、資格情報参照 |
+| `shakecloud_instance` | インスタンス | Proxmox VM | image_id、instance_type、disk、user_data → ID、IP、状態 |
+| `shakecloud_volume` | ブロックボリューム | Proxmox の追加ディスク | size → volume ID |
+| `shakecloud_volume_attachment` | ボリュームのアタッチ | `qm set` の virtioN | instance、volume、device |
+| `shakecloud_security_group` | セキュリティグループ | VM単位のFWルール | ingress／egress ルール |
+| `shakecloud_security_group_rule` | セキュリティグループのルール | VM単位のFWルール（1つずつ） | group、direction、protocol、ports、cidr → rule ID |
+| `shakecloud_key_pair` | キーペア | 台帳のみ | 公開鍵 → fingerprint |
+| `shakecloud_image` | マシンイメージ | アップロード済みイメージ | ファイル → image_id |
+| `shakecloud_bucket` | バケット | Garage bucket | name → bucket名、S3 endpoint |
+| `shakecloud_function` | サーバレス関数 | Knative Service | image digest、env、limits、scale → URL、revision |
+| `shakecloud_database` | マネージドDB | CloudNativePG Cluster | version、size、storage → endpoint、資格情報参照 |
 
 **いま実装済みなのは `instance`・`volume`・`volume_attachment`・`security_group`・`security_group_rule`・`key_pair`・`bucket`・`image`・`database`・`function` と、データソース `shakecloud_caller_identity` です。**`image` はローカルファイルを送る形で、アップロード済みのイメージだけを扱います。`database` の資格情報は Kubernetes の Secret にあり、状態には残しません。S3キーは秘密値が state に残るため Provider では作らず、ポータルか CLI で発行します。使い方は[shakecloud Terraform Provider](../operations/terraform-provider.md)にあります。
 
@@ -284,15 +298,15 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 | 入れる | 入れない |
 | --- | --- |
 | インスタンスのCRUDと電源操作 | スナップショット |
-| CPU・メモリ・ディスクの自由指定（`flavors.yaml` の名前は任意の近道） | IMDS（169.254.169.254） |
+| CPU・メモリ・ディスクの自由指定（`flavors.yaml` の名前は任意の近道） | インスタンスメタデータサービス（169.254.169.254） |
 | イメージの一覧・アップロード（素通しのストリーミング） | 削除保護・ソフトデリート |
 | 任意の user-data、SSH鍵、タグ | オートスケーリング |
 | Webコンソール（noVNC） | ロードバランサ |
 | 追加ボリューム（attach/detach/拡張） | VPC・サブネット・ルーティングのAPI化 |
 | セキュリティグループ | 冗長性・ライブマイグレーション |
 | クォータと空き容量検査 | 課金 |
-| 差分リコンサイラ | IAMポリシー言語（ロールは admin/user の2つ） |
-| 監査ログ | EC2ワイヤ互換シム |
+| 差分リコンサイラ | ポリシー言語（ロールは admin/user の2つ） |
+| 監査ログ | 他社APIのワイヤ互換シム |
 | S3バケットとキー（Garage）、サーバレス関数（Knative）、DBアプライアンス（CloudNativePG） | DB・関数の外部バックアップ（未構築） |
 
 **空き容量検査は省けません。**上限が無ければ1人がホストを埋めて基盤VM（認証・API・台帳）ごと倒せます。
@@ -314,6 +328,6 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 
-**1〜4は 2026-09-10 に完了しました。5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に、**database（CloudNativePG）と function（Knative）は 2026-09-12 に完了しました。次は Phase 8（VLAN 分離への切替）と、CNPG の外部バックアップです。** media-01・monitor-01はこのAPIで作成したサービスVMで、アプリの配備・データ移行は[並列開発計画](../development/index.md)のW03–W06・M01が担当します。
+**1〜4は 2026-09-10 に完了しました。** 5〜6（クォータ・空き容量・差分リコンサイラ、イメージのアップロード・SSH鍵・Webコンソール）、Phase 4（ボリュームとセキュリティグループ）、Phase 5（ポータルの完成・既存VMの引き取り・管理キー無効化）、Phase 6（CLI と Terraform Provider）、Phase 7（Garage と バケット・S3キー API）は 2026-09-11 に、database（CloudNativePG）と function（Knative）は 2026-09-12 に完了しました。次は Phase 8（VLAN 分離への切替）と、CNPG の外部バックアップです。media-01・monitor-01はこのAPIで作成したサービスVMで、アプリの配備・データ移行は[並列開発計画](../development/index.md)のW03–W06・M01が担当します。
 
 VM、通常の関数HTTP呼出し、S3オブジェクト転送、SQL通信は利用先へ直接接続します。自作クラウドAPIにデータ転送を集約せず、APIはリソース管理を担当します。

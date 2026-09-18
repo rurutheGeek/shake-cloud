@@ -1,6 +1,18 @@
+---
+title: M01 監視（Prometheus・Grafana）
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - monitoring
+---
+
 # M01 監視（Prometheus・Grafana）
 
-更新日: 2026-09-12。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全24ターゲットup、UPS取得、メール通知1通を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。残りは低電池シャットダウンとダッシュボード拡充**。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**区分**: 新規実装 ・ **状態**: 配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全24ターゲットup、UPS取得、メール通知1通を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。残りは低電池シャットダウンとダッシュボード拡充
 
 ## 目的・現状・配備先
 

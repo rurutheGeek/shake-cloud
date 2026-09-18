@@ -1,6 +1,18 @@
+---
+title: クラウドAPIの構築
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - cloud
+---
+
 # クラウドAPIの構築
 
-更新日: 2026-09-13。状態: **Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）。database（3-20）・function（3-21）も実機で確認済み**。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）。database（3-20）・function（3-21）も実機で確認済み
 
 設計は[最小クラウドとProvider](../architecture/cloud.md)、所有境界は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは**実際に手を動かす順番**と、**コードにできない作業とその理由**を書きます。
 
@@ -211,7 +223,7 @@ NetBox は 2026-09-10 から **LAN に公開**しています（`http://192.168.
 
 ### 3-7. 共通ログイン（Authentik）
 
-identity VM の Authentik が共通ログインを担います。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・Navidrome・MeTube・Picard）は、この Authentik の OIDC / Forward Auth を使います。**
+identity VM の Authentik が共通ログインを担います。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・FreshRSS・Navidrome・MeTube）は、この Authentik の OIDC / Forward Auth を使います。**
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \

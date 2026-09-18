@@ -1,8 +1,20 @@
+---
+title: K11到着後・Proxmox VE導入後の進め方
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - bootstrap
+---
+
 # K11到着後・Proxmox VE導入後の進め方
+
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md) / [VM配分・サービス配置](operations.md#resource-budget)
 
-状態: **手順の記録**。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。**現在の状態は[配備台帳](../operations/handover.md)を正とします。** 64GB／1TBのK11を想定します。以下の章番号は初回構築の経緯で、今後の実施順ではありません。配置変更と未完了作業は[並列開発計画](../development/index.md)に従います。
+**状態**: 手順の記録。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。現在の状態は[配備台帳](../operations/handover.md)を正とします。 64GB／1TBのK11を想定します。以下の章番号は初回構築の経緯で、今後の実施順ではありません。配置変更と未完了作業は[並列開発計画](../development/index.md)に従います。
 
 ## 1. ホストの基礎を記録する
 

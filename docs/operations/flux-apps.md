@@ -1,6 +1,18 @@
+---
+title: Flux にアプリを足す手順
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - kubernetes
+---
+
 # Flux にアプリを足す手順
 
-更新日: 2026-09-13。`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+`platform/flux` にアプリを追加するときの決まりと雛形。実際の例は AWX（`apps/awx*.yaml` と `apps/awx-instance/`）と Let's Encrypt の発行体（`apps/cert-issuer.yaml` と `infra/cert-issuer/`）にあります。
 
 ## 決まり
 

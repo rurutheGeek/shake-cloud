@@ -1,12 +1,25 @@
+---
+title: W03 Nextcloud・Calendar・Tasksのmedia-01移行
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - nextcloud
+  - cloud
+---
+
 # W03 Nextcloud・Calendar・Tasksのmedia-01移行
 
-更新日: 2026-09-12。これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **既存コードの移行・認証統合・実機確認**。media-01へ空のNextcloud・PostgreSQL・Redis・cronを配備し、`setup`（外部ストレージ・cron）と`apps`（calendar・tasks・text・user_oidc）まで2026-09-12に実機適用済み。HTTPS入口（`https://nextcloud.apextox.dpdns.org`）とAuthentik OIDC（`user_oidc`）を設定済み。**既存環境からのデータ移行と既存アカウントの紐付けは未了**。
+**状態**: 既存コードの移行・認証統合・実機確認。media-01へ空のNextcloud・PostgreSQL・Redis・cronを配備し、`setup`（外部ストレージ・cron）と`apps`（calendar・tasks・text・user_oidc）まで2026-09-12に実機適用済み。HTTPS入口（`https://nextcloud.apextox.dpdns.org`）とAuthentik OIDC（`user_oidc`）を設定済み。既存環境からのデータ移行と既存アカウントの紐付けは未了
 
-`stacks/compose.yaml` はNextcloud・PostgreSQL・Redis・cronを定義済み。`platform/ansible/deploy.yml` と `group_vars/media.yml` はCalendar・Tasks・Text・user_oidcを導入する。[既存機能](../services/nextcloud.md)と[共有権限](../operations/nextcloud-permissions.md)を移行する。
+`stacks/compose.yaml` はNextcloud・PostgreSQL・Redis・cronを定義済み。`platform/ansible/deploy.yml` と `group_vars/media.yml` はCalendar・Tasks・Text・user_oidcを導入する。[既存機能](../operations/nextcloud.md)と[共有権限](../operations/nextcloud-permissions.md)を移行する。
 
 配備先: **media-01**。開発先は `stacks/media/`。既存コードを再利用し、DB・設定・ファイル・cronを同じ移行単位にする。
 

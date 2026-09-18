@@ -1,10 +1,22 @@
+---
+title: W06 MeTube・音楽変換・タグ編集のmedia-01移行
+updated: 2026-09-16
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - music
+---
+
 # W06 MeTube・音楽変換・タグ編集のmedia-01移行
 
-更新日: 2026-09-12。これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-16 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **media-01 で MeTube・変換・タグAPI・KHInsiderが稼働し、Nextcloudの「タグを編集」から読み書きできる（2026-09-14）。同期タイマーは停止中で、切替が残る。タグ編集をNextcloudへ統合したためPicardは撤去した**。
+**状態**: media-01 で MeTube・変換・タグAPI・KHInsiderが稼働し、Nextcloudの「タグを編集」から読み書きできる（2026-09-14）。同期タイマーは停止中で、切替が残る。タグ編集をNextcloudへ統合したためPicardは撤去した
 
 `stacks/music-tools/compose.yaml` にMeTube・変換・タグAPIがあり、`platform/ansible/music-tools.yml` と同期タイマーが存在する。[音楽手順](../services/music.md)では共有Cookieの実物未登録・対象URL取得未確認を区別している。タグ編集はNextcloudの自作アプリ `shake_tags` が同スタックのタグAPI（`:5810`・MusicBrainz検索つき）を使う。導線の経緯は[D05](D05-picard.md)。
 

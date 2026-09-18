@@ -1,10 +1,22 @@
+---
+title: H04 EufyCam連携の検証
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - home-assistant
+---
+
 # H04 EufyCam連携の検証
 
-更新日: 2026-09-13。これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **実機確認中。`eufy-security-ws` 3.1.0（独立Compose、hostネットワークで `172.31.254.1:3000` のみbind・LAN非公開）＋HA統合 `eufy_security` v8.2.4（host `172.31.254.1:3000`）を配備済み（資格情報は `platform/sops/eufy-security.sops.yaml`）。eufyCam S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作。ライブ映像はS4の新WebRTC（leo_rtc）方式のため現行の公開ソフトでは不可で、後継 `mega-yfue/eufy-sdk` でのRTSPブリッジを検討中。イベント取り込みは確認中**。
+**状態**: 実機確認中。`eufy-security-ws` 3.1.0（独立Compose、hostネットワークで `172.31.254.1:3000` のみbind・LAN非公開）＋HA統合 `eufy_security` v8.2.4（host `172.31.254.1:3000`）を配備済み（資格情報は `platform/sops/eufy-security.sops.yaml`）。eufyCam S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作。ライブ映像はS4の新WebRTC（leo_rtc）方式のため現行の公開ソフトでは不可で、後継 `mega-yfue/eufy-sdk` でのRTSPブリッジを検討中。イベント取り込みは確認中
 
 [家電の構成案](../architecture/operations.md#home-devices)ではAnker EufyCam S4と記載される。実機は **eufyCam S4（T8172、fw 1.1.1.2、HomeBaseなしの単体、IP 192.168.10.4）** と **SmartTrack（T87B0）** の2台で確認した。RTSP/NASは使えない前提とし、一般的なEufyのNAS対応をS4の保証にしない。
 

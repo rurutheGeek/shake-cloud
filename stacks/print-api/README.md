@@ -1,6 +1,6 @@
 # print-api（services-01）
 
-Nextcloudの「印刷」アクション（[`stacks/media/nextcloud/apps/shake_print/`](../media/nextcloud/apps/shake_print/)）
+Nextcloudの「印刷」アクション（[`stacks/media/nextcloud/apps/shake_print/`](../media/nextcloud/apps/shake_print)）
 からのHTTP POSTを受け、services-01のCUPSキュー `ts8430` へ流す小さなAPIです。
 標準ライブラリだけで動きます。
 

@@ -1,8 +1,20 @@
+---
+title: 配備・Git管理・ストレージ・復旧
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - placement
+---
+
 # 配備・Git管理・ストレージ・復旧
+
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
-更新日: 2026-09-13。状態: **配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了**。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
+**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
 
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
@@ -20,7 +32,7 @@
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
-| media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・Picard・LocalSend受信機と各依存DB（MeTubeは追加予定）。機能群をVM単位で停止 |
+| media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
 | monitor-01（cloud VM、作成済み） | 2 / 2GiB（宣言値） | OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は専用データディスク。常時 |
 | dev-a / dev-b（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
@@ -150,7 +162,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | セルフホストVPN | services-01 | 別ComposeでDB・設定・鍵を保存。N01 |
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
 | AdGuard Home・復旧用Tailscale | 既存ラズパイ | 既存負荷と復旧経路を確認。N02 |
-| Picard | media-01（利用者PCからも利用可） | **配備済み（2026-09-12、W06の一部）**。Web GUIコンテナ。MeTubeの取込（W06）とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。導線の資料はD05 |
+| 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
 
 停止・更新単位と依存関係は[開発計画の一覧](../development/index.md)を参照してください。services-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。

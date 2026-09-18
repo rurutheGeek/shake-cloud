@@ -1,10 +1,22 @@
+---
+title: W04 Kavitaのmedia-01移行
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - kavita
+---
+
 # W04 Kavitaのmedia-01移行
 
-更新日: 2026-09-12。これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **既存コードの移行・認証統合・実機確認**。media-01へKavitaを独立Composeとして2026-09-12に配備済み（HTTP応答・healthy、booksは読み取り専用）。初期管理者とBooksは`bootstrap.py`で作成済み、HTTPS入口（`https://kavita.apextox.dpdns.org`）と組み込みOIDCを設定済み。**既存環境のライブラリ・読書状態の移行と既存アカウントの紐付けは未了**。
+**状態**: 既存コードの移行・認証統合・実機確認。media-01へKavitaを独立Composeとして2026-09-12に配備済み（HTTP応答・healthy、booksは読み取り専用）。初期管理者とBooksは`bootstrap.py`で作成済み、HTTPS入口（`https://kavita.apextox.dpdns.org`）と組み込みOIDCを設定済み。既存環境のライブラリ・読書状態の移行と既存アカウントの紐付けは未了
 
 `stacks/compose.yaml` に `/kavita/config` の永続化とbooksの読み取り専用マウントがある。Kavitaは[identity](../operations/identity.md)の組み込みOIDCと確認済みメールを使用する。
 

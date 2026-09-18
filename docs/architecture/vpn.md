@@ -1,4 +1,16 @@
+---
+title: セルフホストVPNとTailscaleの併用
+updated: 2026-09-16
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - network
+---
+
 # セルフホストVPNとTailscaleの併用
+
+> **更新日** 2026-09-16 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 

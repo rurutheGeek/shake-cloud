@@ -1,6 +1,18 @@
+---
+title: ネットワーク・公開範囲・SSO
+updated: 2026-09-16
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - network
+---
+
 # ネットワーク・公開範囲・SSO
 
-[構成案トップ](index.md)へ戻る。ここでは将来の構成を説明します。現在のURLは[接続先一覧](../operations/urls.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
+> **更新日** 2026-09-16 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+
+[構成案トップ](index.md)へ戻る。ここでは将来の構成を説明します。現在のURLは[接続先一覧](../reference/urls.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
 
 ## 既存機器の使い方
 
@@ -70,7 +82,6 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `navidrome.apextox.dpdns.org` | Navidrome（media-01） |
 | `metube.apextox.dpdns.org` | MeTube（media-01。本体の配備は追加作業） |
 | `khinsider.apextox.dpdns.org` | KHInsiderのアルバム一括ダウンロード（media-01） |
-| `picard.apextox.dpdns.org` | Picard（media-01） |
 | `grafana.apextox.dpdns.org` | Grafana（monitor-01） |
 | `localsend.apextox.dpdns.org` | LocalSend受信機（media-01。Caddyを通さず53317/tcp） |
 | `pve.apextox.dpdns.org` | Proxmox（ポート 8006。Let's Encrypt） |

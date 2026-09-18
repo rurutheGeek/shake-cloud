@@ -1,8 +1,20 @@
+---
+title: 音楽の取り込み・タグ編集・BCSTM
+updated: 2026-09-16
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - music
+---
+
 # 音楽の取り込み・タグ編集・BCSTM
+
+> **更新日** 2026-09-16 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 ## URLから音声を追加
 
-**MeTubeはmedia-01で稼働中です。** <https://metube.apextox.dpdns.org>（新しい identity の Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。ダウンロードできる権利のある音源を指定してください。
+**MeTubeはmedia-01で稼働中です。** <https://metube.apextox.dpdns.org>（共通ログインの Forward Auth）から開き、動画URLを貼り付けて音声形式MP3を選んで追加します。ダウンロードできる権利のある音源を指定してください。
 
 音声は `${LIBRARY_ROOT}/music/YouTube/タイトル [動画ID].mp3`、プレイリストではプレイリスト名のフォルダへ保存されます。MP3以外の音声形式も選べます。通常の動画を選んだ場合は `music-tools/storage/video`（media-01では `/opt/media-stack/music-tools/storage/video`）に保存し、音楽原本と分けます。MP3への変換は音質を改善する処理ではありません。
 
@@ -16,17 +28,17 @@ MeTubeはmedia-01で稼働しています。共有Cookieと取り込み履歴は
 
 **普通の公開動画はCookieなしで取得できます**（2026-09-13に実機で確認）。年齢制限・地域制限・「ロボットでないことを確認」などで失敗した動画だけ、次の手順で共有Cookieを登録します。
 
-1. パソコンのブラウザー（共有用アカウントでYouTubeにログイン済み）にCookieを書き出す拡張機能（例: **Get cookies.txt LOCALLY**）を入れ、`cookies.txt` を保存します。
+1. 共有用アカウントで対象サイトにログインしたブラウザーから、Netscape形式の `cookies.txt` を書き出します（ブラウザー拡張を使うのが簡単です）。
 2. [MeTube](https://metube.apextox.dpdns.org) の **Advanced Options → Upload Cookies** でそのファイルを選びます。
-
-登録したCookieは `music-tools/storage/state/cookies.txt`（0600）に保存され、MeTubeは `YTDL_OPTIONS` の `cookiefile` として常に参照します（コンテナ再起動後も有効）。UIの **Delete Cookies** で消した場合は、ファイルが無いとYouTubeの取得が失敗するので再登録してください。
 3. Cookie登録済みの表示を確認し、失敗していたURLを再投入します。通常の利用者はログイン情報を入力せず、URL・MP3形式を選んで追加します。
+
+登録したCookieは `music-tools/storage/state/cookies.txt`（0600）に保存され、MeTubeは `YTDL_OPTIONS` の `cookiefile` として常に参照します（コンテナ再起動後も有効）。UIの **Delete Cookies** で消した場合は、ファイルが無いと制限付き動画の取得が失敗するので再登録してください。
 
 CookieはMeTube全体で共有されます。履歴やダウンロード先も利用者別ではありません。MeTube自体にはCookie更新の役割分離がないため、この画面を使える人は共有Cookieを更新・削除できます。個人の主アカウントのCookieではなく、合意した共有用アカウントを使ってください。
 
 Cookieはセッション情報です。チャットやGitHubへ貼らず、上記画面から登録します。サーバーでは `music-tools/storage/state/cookies.txt` に権限0600で永続化され、再起動・コンテナ再作成後も保持します。このディレクトリはGit管理対象外です。MeTubeで **Delete Cookies** を押すと削除できます。
 
-「一度登録」は永久に有効という意味ではありません。期限切れ・ログアウト・YouTube側の判定で再登録が必要になることがあります。Cookieを入れてもすべての動画の取得を保証するものではありません。現在、共有Cookieは未登録ですが、公開動画の取得は確認済みです。yt-dlpとJavaScript実行環境はコンテナに導入済みです。
+「一度登録」は永久に有効という意味ではありません。期限切れ・ログアウト・配信サイト側の判定で再登録が必要になることがあります。Cookieを入れてもすべての動画の取得を保証するものではありません。現在、共有Cookieは未登録ですが、公開動画の取得は確認済みです。yt-dlpとJavaScript実行環境はコンテナに導入済みです。
 
 GUIを使わず、次のコマンドでも音声を追加できます。
 
@@ -56,7 +68,7 @@ KHInsiderは日本語のゲームでもアルバム名・曲名を英語で載�
 
 タグ編集はNextcloudの「MP3タグ編集」へ統合したため、サーバーのPicard（`jlesage/musicbrainz-picard` のブラウザー内デスクトップ）は撤去し、`https://picard.apextox.dpdns.org` も閉じました。PCでPicardを使いたい場合は、Nextcloudからファイルを取り出して[公式配布](https://picard.musicbrainz.org/downloads/)のデスクトップ版を使い、終わったらNextcloudへアップロードし直します（サーバー側のデータ `storage/picard` は残してあるので、戻す場合はcomposeとDNSを戻します）。
 
-タグの編集手段（手動・自動ツール・ジャンル方針・バックアップ）は[タグ管理（MP3）](tags.md)、Navidromeでできないことと代替手段は[Navidrome改造予定](navidrome.md)にまとめています。
+タグの編集手段（手動・自動ツール・ジャンル方針・バックアップ）は[タグ管理（MP3）](tags.md)、Navidromeでできないことと代替手段は[Navidrome改造予定](../development/navidrome-ideas.md)にまとめています。
 
 ## MP3タグをコードで編集
 

@@ -1,4 +1,16 @@
+---
+title: Navidrome改造予定
+updated: 2026-09-18
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - navidrome
+---
+
 # Navidrome改造予定
+
+> **更新日** 2026-09-18 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 Navidromeを今後いじりたい・改善したいと思っている点のメモです。
 
@@ -16,5 +28,5 @@ Navidromeは読み取り専用で編集機能がありません。当面はNextc
 
 ## 関連
 
-- 使い方: [音楽・取り込み・タグ](music.md)、[タグ管理（MP3）](tags.md)
-- 配備・経緯: [W05](../development/W05-navidrome.md)
+- 使い方: [音楽・取り込み・タグ](../services/music.md)、[タグ管理（MP3）](../services/tags.md)
+- 配備・経緯: [W05](W05-navidrome.md)

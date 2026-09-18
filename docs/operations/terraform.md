@@ -1,6 +1,18 @@
+---
+title: Terraformの実行手順
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - terraform
+---
+
 # Terraformの実行手順
 
-更新日: 2026-09-13。状態: **00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み**。Terraform CLI は `.terraform-version`（1.15.8）に固定。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み。Terraform CLI は `.terraform-version`（1.15.8）に固定。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 

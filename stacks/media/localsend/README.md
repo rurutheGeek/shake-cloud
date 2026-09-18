@@ -28,7 +28,7 @@
 
 着地先は `inbox/<送信元fingerprint>/<YYYY>/<MM>/` です。Nextcloudの「inbox」からmusic/books/docsへ移動してください。
 
-**この受信機は受け取る専用です**（LocalSend protocol v2のupload APIのみ。download APIは無効）。Nextcloudのファイルを端末へ送るのは、隣の送信サービス [`stacks/localsend-send/`](../localsend-send/) の役割です（Nextcloudの「…」→「LocalSendで送る」）。
+**この受信機は受け取る専用です**（LocalSend protocol v2のupload APIのみ。download APIは無効）。Nextcloudのファイルを端末へ送るのは、隣の送信サービス [`stacks/localsend-send/`](../localsend-send) の役割です（Nextcloudの「…」→「LocalSendで送る」）。
 
 通常はアプリの自動検出（デバイス一覧の `media-01`）を使います。手動でURLを指定する場合は `https://localsend.apextox.dpdns.org:53317`（`platform/terraform/dns.yaml` の `localsend` レコード。IP直は `192.168.10.101:53317`）を使えます。
 

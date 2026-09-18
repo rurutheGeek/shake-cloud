@@ -1,6 +1,18 @@
+---
+title: IaCの所有境界
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - iac
+---
+
 # IaCの所有境界
 
-更新日: 2026-09-13。状態: **00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み**。
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+
+**状態**: 00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み
 
 [配備・Git管理・ストレージ・復旧](operations.md)の「Gitと構成の所有者」は「**同じオブジェクトをFluxと自作API、または2つのTerraform stateで管理しません**」と定めています。この文書は、その原則をProxmoxの権限とVMIDの分割で**構造として**保証する方法を書きます。運用規約ではなく、権限が無いから触れない、という形にします。
 

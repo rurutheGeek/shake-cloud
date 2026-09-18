@@ -1,4 +1,16 @@
+---
+title: 認証基盤（identity サービス・Authentik）
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - identity
+---
+
 # 認証基盤（identity サービス・Authentik）
+
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 identity VM の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud.md#3-17)を参照してください。
 
@@ -20,7 +32,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - OIDC クライアント `grafana`（monitor-01の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
   - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`。`users`と`admins`の両方を許可）
   - OIDC クライアント `vaultwarden`（`https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` を許可）
-  - media-01 の入口（Nextcloud・Kavita・FreshRSS は OIDC クライアント、Navidrome・MeTube・Picard は Forward Auth）と CUPS（Forward Auth）のクライアント
+  - media-01 の入口（Nextcloud・Kavita・FreshRSS は OIDC クライアント、Navidrome・MeTube は Forward Auth）と CUPS（Forward Auth）のクライアント
   - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）

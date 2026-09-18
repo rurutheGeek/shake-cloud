@@ -1,12 +1,24 @@
+---
+title: クラウド開発の引き継ぎとTODO
+updated: 2026-09-16
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - handover
+---
+
 # クラウド開発の引き継ぎとTODO
 
-更新日: 2026-09-14。状態: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**`main` と `feat/cloud-instances-limits-capacity` は `e2fb0d9` で統合済み（origin へ push 済み）。**media-01 は新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備済み。既存環境からのデータ移行（W03〜W06。RomMはgame1でW07）が残る。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、既存環境からのメディアデータ移行。**2026-09-12のI01実測を反映し、k8s-cp-01・k8s-worker-01・probe-01は停止中、dev-a/dev-bの宣言RAMは6GiB。Homarrはservices-01へ新規配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC）。2026-09-13にNextcloudの「…」→「印刷」からservices-01のCUPSへ送る自作アプリをmedia-01へ配備した（D08）。2026-09-12に監視スタック（Prometheus・Alertmanager・Grafana・exporter）をmonitor-01へ配備した（M01。Homarr連携・低電池シャットダウン等は残）。2026-09-12〜13にHome Assistant（services-01）へAuthentik SSO・Eufy（イベント・スナップショット）・SwitchBot Cloudを設定した（H01/H02/H04。Eufyのライブ映像は不可、Alexaは見送り）。2026-09-14に復旧経路のTailscale subnet routerをcloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）として作成し、tailnetへ参加した（N02。ルート承認・ACL・宅外検証が未了）。**
+> **更新日** 2026-09-16 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。`main` と `feat/cloud-instances-limits-capacity` は `e2fb0d9` で統合済み（origin へ push 済み）。media-01 は新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備済み。既存環境からのデータ移行（W03〜W06。RomMはgame1でW07）が残る。残りは Phase 8（VLAN 分離の実機切替、物理作業待ち）、DB の外部バックアップ、既存環境からのメディアデータ移行。2026-09-12のI01実測を反映し、k8s-cp-01・k8s-worker-01・probe-01は停止中、dev-a/dev-bの宣言RAMは6GiB。Homarrはservices-01へ新規配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC）。2026-09-13にNextcloudの「…」→「印刷」からservices-01のCUPSへ送る自作アプリをmedia-01へ配備した（D08）。2026-09-12に監視スタック（Prometheus・Alertmanager・Grafana・exporter）をmonitor-01へ配備した（M01。Homarr連携・低電池シャットダウン等は残）。2026-09-12〜13にHome Assistant（services-01）へAuthentik SSO・Eufy（イベント・スナップショット）・SwitchBot Cloudを設定した（H01/H02/H04。Eufyのライブ映像は不可、Alexaは見送り）。2026-09-14に復旧経路のTailscale subnet routerをcloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）として作成し、tailnetへ参加した（N02。ルート承認・ACL・宅外検証が未了）。
 
 **この文書が、クラウドの実機配備状態と既存TODOの正本です。** 2026-09-12に[機能別の並列開発計画](../development/index.md)を追加しました。各作業IDの仕様・進捗は個別計画書を正本とし、実機配備後にこの台帳へ結果を記録します。2026-09-12に media-01 を新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備しました（I02。既存環境からのデータ移行は未完）。2026-09-12に Home Assistant Container を services-01 へ配備し、AuthentikのOIDC（SSO）・Eufy（イベント/スナップショット）・SwitchBot Cloud まで設定しました（H01/H02/H04。バックアップと復元試験は未完、Eufyのライブ映像は新方式のため不可）。 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
 
 ## 1. 何を作っているか
 
-Proxmox VE の上に、**AWS の語彙で操作できる小さなプライベートクラウド**を作っています。
+Proxmox VE の上に、**広く使われているクラウドAPIと同じ語彙で操作できる小さなプライベートクラウド**を作っています（揃える理由は[最小クラウドとProvider](../architecture/cloud.md)）。
 
 到達点は次のとおりです。
 
@@ -14,7 +26,7 @@ Proxmox VE の上に、**AWS の語彙で操作できる小さなプライベー
 2. ポータル・Terraform・CLI のどれからでも自分のVMを作る
 3. Webコンソールで入り、要らなくなったら消す
 
-v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG）・function（Knative）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。**サービスを載せるVMの置き場所と作り方は[サービスの置き場所とクラウドVMでの作り方](services.md)、接続先は[URL一覧](urls.md)。**
+v1 の範囲は **VM・S3互換ストレージ（Garage）・database（CloudNativePG）・function（Knative）** です。オートスケール、冗長化、ネットワークのAPI化は作りません。一覧は[最小クラウドとProvider](../architecture/cloud.md)にあります。**サービスを載せるVMの置き場所と作り方は[サービスの置き場所とクラウドVMでの作り方](services.md)、接続先は[URL一覧](../reference/urls.md)。**
 
 ## 2. 読む順番
 
@@ -36,7 +48,7 @@ v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG�
 
 | 論点 | 決定 |
 | --- | --- |
-| APIの形 | AWS の語彙・状態遷移・フィールド名に揃えた自作 REST（OpenAPI が正本）。ワイヤ互換（SigV4、本物の `aws` CLI）は作らない |
+| APIの形 | 一般的なクラウドの語彙・状態遷移・フィールド名に揃えた自作 REST（OpenAPI が正本）。ワイヤ互換（署名方式や他社CLIの受け入れ）は作らない |
 | 認証 | ブラウザは Authentik の OIDC。機械は、ポータルで発行するアクセスキーを `Authorization: Bearer sca_<keyid>.<secret>` で送る |
 | アクセスキーの発行 | **ポータルのログインからだけ。** アクセスキーで別のアクセスキーは作れない（漏れたキーが複製を作って居座れないように）。1アカウント5本まで。削除は行を残して無効化 |
 | テナント | Authentik ユーザー1人 = 1アカウント |
@@ -52,8 +64,8 @@ v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG�
 | コンソールの経路 | ブラウザは WebSocket に `Authorization` を付けられず、`vncwebsocket` はそれを要求するので、**API が自分の `cloudapi@pve` トークンで中継する**。**WebSocket のライブラリは足さない**。ハンドシェイクだけ双方と行い、以後はフレームを解釈せずバイト列を双方向にコピーする（ブラウザのマスク付きフレームは Proxmox が期待する形、Proxmox の非マスクのフレームはブラウザが期待する形なので、そのまま正しい）。圧縮などの拡張はどちら側とも交渉しない |
 | コンソールの手順と期限 | ①`POST /v1/instances/{id}/console`（所有者と管理者だけ、稼働中だけ）が**5分有効・アカウントに結び付いた URL** を返す。**この時点では Proxmox に何も頼まない**。②その**ページを開くたびに** Proxmox の新しいチケットと使い捨てパスワードを発行する（Proxmox の VNC プロキシは数秒しか WebSocket を待たないので、接続の直前まで遅らせる。再読み込みがそのまま再接続になる）。③WebSocket は**1回のページ表示につき1本だけ** |
 | コンソールの防御 | **Cookie で認証された WebSocket は Origin が自サイトでなければ断る**（`CrossOriginProtection` は GET を見ないので、他サイトからのクロスサイト WebSocket 乗っ取りはここで止める）。アクセスキーは他サイトのページから送れないので Origin は問わない（CLI 用）。URL のトークンは**アクセスログに出さず**（`/console/{token}` と記録）、メモリ上も**ハッシュで持つ**。ページは `Cache-Control: no-store`（パスワードを含むため） |
-| v1 の範囲 | EC2相当（VM）+ S3（Garage）+ database（CloudNativePG）+ function（Knative）。4機能とも実装済み |
-| EC2 の追加機能 | 追加ボリューム、セキュリティグループ。スナップショットと IMDS は作らない |
+| v1 の範囲 | VM + S3互換ストレージ（Garage）+ database（CloudNativePG）+ function（Knative）。4機能とも実装済み |
+| VMの追加機能 | 追加ボリューム、セキュリティグループ。スナップショットとメタデータサービスは作らない |
 | 運用機能 | クォータと空き容量検査、差分リコンサイラ、監査ログ。削除保護は作らない |
 | Web UI | フルのセルフサービスポータル |
 | イメージ | 利用者が API へ直接アップロード（他に道が無いことを実測で確認。下の「イメージのアップロード経路」） |

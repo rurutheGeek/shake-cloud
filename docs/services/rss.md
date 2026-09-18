@@ -1,4 +1,16 @@
+---
+title: 共通RSSタイムライン（FreshRSS）
+updated: 2026-09-16
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - rss
+---
+
 # 共通RSSタイムライン（FreshRSS）
+
+> **更新日** 2026-09-16 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 ゲームニュース・ITニュース・おすすめのサブレディットを1つの画面で読むための、全員共通のRSSリーダーです。入口は <https://freshrss.apextox.dpdns.org>（家庭内LAN専用）です。
 

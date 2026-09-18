@@ -6,7 +6,7 @@
 `vault.apextox.dpdns.org` です。
 
 - 担当計画: [W02 Vaultwardenのservices-01移行](../../docs/development/W02-vaultwarden.md)
-- 利用・SSO手順: [Vaultwarden](../../docs/services/vaultwarden.md)
+- 利用・SSO手順: [Vaultwarden](../../docs/operations/vaultwarden.md)
 - 所有境界: [IaCの所有境界](../../docs/architecture/iac.md)
 
 ## 構成
