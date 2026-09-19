@@ -39,7 +39,7 @@
         src: '{{ source_dir }}/music-tools/{{ item }}'
         dest: '{{ project_dir }}/music-tools/{{ item }}'
         mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, organize.py, organize-aliases.json, strip-embedded-art.py, .env.example]
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, organize.py, organize-aliases.json, strip-embedded-art.py, strip-itunes-comments.py, lyrics.py, embed_sylt.py, rename-lrc-sidecars.py, make-review-html.py, make-lyrics-pages.py, .env.example]
     - name: Copy pinned tool images
       ansible.builtin.copy:
         src: '{{ item }}'

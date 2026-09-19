@@ -202,11 +202,12 @@ class PlanTests(unittest.TestCase):
                         albumartist='Someone')]
         corrections = {'現在のパス/a.mp3': {
             'title': '正しい曲名', 'album': '正しいアルバム',
-            'albumartist': '正しい人'}}
+            'albumartist': '正しい人', 'comment': '出典: https://example.com'}}
         organize.apply_corrections(tracks, corrections)
         self.assertEqual(tracks[0].title, '正しい曲名')
         self.assertEqual(tracks[0].album, '正しいアルバム')
         self.assertEqual(tracks[0].albumartist, '正しい人')
+        self.assertEqual(tracks[0].comment, '出典: https://example.com')
         mb = mock.Mock()
         mb.disabled = True
         albums, _ = organize.plan_tracks(mb, tracks, {}, {})
@@ -339,6 +340,23 @@ class ApplyTests(unittest.TestCase):
         cover = self.root / 'Artist/Album/cover.jpg'
         self.assertTrue(cover.exists())
         self.assertTrue(cover.read_bytes().startswith(b'\xff\xd8'))
+
+    def test_apply_moves_sidecar_lyrics_and_undo_restores_them(self):
+        (self.root / 'old/a.mp3').write_bytes(b'audio')
+        (self.root / 'old/a.lrc').write_text('[00:01.00] line')
+        with mock.patch.object(organize, 'write_tags', return_value=False):
+            organize.command_apply(type('Args', (), {
+                'manifest': str(self.manifest_path), 'state': str(self.state),
+                'cleanup': True})())
+        moved = self.root / 'Artist/Album/01 - Song.lrc'
+        self.assertEqual(moved.read_text(), '[00:01.00] line')
+        self.assertFalse((self.root / 'old/a.lrc').exists())
+        journals = list(self.state.glob('journal-*.json'))
+        organize.command_undo(type('Args', (), {
+            'journal': str(journals[0]), 'root': str(self.root),
+            'state': str(self.state)})())
+        self.assertEqual((self.root / 'old/a.lrc').read_text(), '[00:01.00] line')
+        self.assertFalse(moved.exists())
 
 
 if __name__ == '__main__':
