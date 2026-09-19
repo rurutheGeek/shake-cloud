@@ -1,4 +1,17 @@
+---
+title: Nextcloudの共有ライブラリのアクセス権限
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - nextcloud
+  - cloud
+---
+
 # Nextcloudの共有ライブラリのアクセス権限
+
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 Nextcloudの `books`・`music`・`docs`・`inbox` は、media-01の共有データディスク
 （`/srv/media-stack/library`）を外部ストレージとして見せています。このページは

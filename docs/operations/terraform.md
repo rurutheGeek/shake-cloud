@@ -1,6 +1,18 @@
+---
+title: Terraformの実行手順
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - terraform
+---
+
 # Terraformの実行手順
 
-更新日: 2026-09-13。状態: **00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み**。Terraform CLI は `.terraform-version`（1.15.8）に固定。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み。Terraform CLI は `.terraform-version`（1.15.8）に固定。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
@@ -35,7 +47,7 @@ Proxmoxのプール・ロール・自動化ユーザー・ACLを宣言的に作�
 
 ## 4. 具体的な入力例
 
-準備は3つです。実機の値は[Proxmox導入後の手順](../architecture/bring-up.md)で読み取った値から取ります。
+準備は3つです。実機の値は[Proxmox導入後の手順](bring-up.md)で読み取った値から取ります。
 
 **手動で1回だけ**、PVEのGUI（データセンター → 権限 → APIトークン）で `root@pam` のトークンを作ります。「特権の分離」のチェックを外します。これがこの構成で唯一の手作業です。ここで作る `terraform@pve` は自分自身を作れないため、1段だけ上位の資格情報が要ります。
 

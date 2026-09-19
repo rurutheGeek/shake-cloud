@@ -1,8 +1,20 @@
+---
+title: 配備・Git管理・ストレージ・復旧
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - placement
+---
+
 # 配備・Git管理・ストレージ・復旧
+
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
-更新日: 2026-09-13。状態: **配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了**。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
+**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
 
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
@@ -20,7 +32,7 @@
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
-| media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・Picard・LocalSend受信機と各依存DB（MeTubeは追加予定）。機能群をVM単位で停止 |
+| media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
 | monitor-01（cloud VM、作成済み） | 2 / 2GiB（宣言値） | OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は専用データディスク。常時 |
 | dev-a / dev-b（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
@@ -150,7 +162,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | セルフホストVPN | services-01 | 別ComposeでDB・設定・鍵を保存。N01 |
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
 | AdGuard Home・復旧用Tailscale | 既存ラズパイ | 既存負荷と復旧経路を確認。N02 |
-| Picard | media-01（利用者PCからも利用可） | **配備済み（2026-09-12、W06の一部）**。Web GUIコンテナ。MeTubeの取込（W06）とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。導線の資料はD05 |
+| 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
 
 停止・更新単位と依存関係は[開発計画の一覧](../development/index.md)を参照してください。services-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。
@@ -248,23 +260,9 @@ IP、ドメイン、ストレージ名、PCIアドレスを環境設定へ分離
 
 [開発計画](../development/index.md)のW/A/G/H/N/I/O/Dは作業の分類で、番号は実施順ではありません。コード・設定・模擬応答による検証は各担当が並列に進め、実機配備に必要なVM・容量・認証・バックアップだけを個別の切替条件にします。
 
-同じstateの適用、共通DNS/TLS設定、VM再起動、GPU負荷試験は担当間で調整します。DBや原本の移行は整合バックアップと隔離復元に合格してから切り替えます。初回構築の経緯は[Proxmox導入後の記録](bring-up.md)に残しますが、その章番号を今後の全体工程として使いません。
+同じstateの適用、共通DNS/TLS設定、VM再起動、GPU負荷試験は担当間で調整します。DBや原本の移行は整合バックアップと隔離復元に合格してから切り替えます。初回構築の経緯は[Proxmox導入後の記録](../operations/bring-up.md)に残しますが、その章番号を今後の全体工程として使いません。
 
 <a id="document-publishing"></a>
-## この構成案の更新・公開
+## この資料の更新・公開
 
-Git上の設計文書は `docs/architecture/`、図の原稿は `diagrams/*.mmd`、表示用は同名SVGです。SVGは静的ファイルなので、サイト表示時にMermaid用CDNへの接続は不要です。図を変えた場合は原稿からSVGも更新し、両方をコミットします。
-
-図の再生成は管理環境でPlaywrightとChromiumを用意し、次のスクリプトを使います。MermaidのバージョンとスクリプトのSHA-256はスクリプト内で固定します。初回取得にネット接続を使用します。
-
-```bash
-python3 -m pip install playwright==1.62.0
-python3 -m playwright install chromium --only-shell
-python3 tools/render-architecture-diagrams.py
-```
-
-Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。現行のservices-01サイトはGitの `docs/` を入力に `platform/ansible/docs-site.yml` で配備します。今回の計画・README追加ではサイトへの配備を実行しません。
-
-Gitの `docs/` を正本とします。レビューを経ない外部編集や自動双方向同期は設けず、変更はGitの `docs/architecture/` へ集約してから同じ版をサイトへ反映します。生成物を直接編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
-
-公開前にステージした差分と `tools/check-publication.py` を確認します。GitHub公開用の資料には、実際のAPIキー、個人用IP台帳、DB接続文字列、セーブ、Secretを入れません。
+ドキュメントの書き方・置き場所・検証・公開のルールは[ドキュメントの書き方](../contributing-docs.md)へ移しました。図（`diagrams/*.mmd` と同名SVG）の再生成手順も同じページにあります。

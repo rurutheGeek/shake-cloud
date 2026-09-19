@@ -1,8 +1,20 @@
+---
+title: K11到着後・Proxmox VE導入後の進め方
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - bootstrap
+---
+
 # K11到着後・Proxmox VE導入後の進め方
 
-[構成案トップ](index.md) / [VM配分・サービス配置](operations.md#resource-budget)
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-状態: **手順の記録**。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。**現在の状態は[配備台帳](../operations/handover.md)を正とします。** 64GB／1TBのK11を想定します。以下の章番号は初回構築の経緯で、今後の実施順ではありません。配置変更と未完了作業は[並列開発計画](../development/index.md)に従います。
+[構成案トップ](../architecture/index.md) / [VM配分・サービス配置](../architecture/operations.md#resource-budget)
+
+**状態**: 手順の記録。Proxmox・VM・Kubernetes・AWX・クラウドAPI は 2026-09-12 までに実機で構築済みで、この文書はその順番を残すためのものです。現在の状態は[配備台帳](handover.md)を正とします。 64GB／1TBのK11を想定します。以下の章番号は初回構築の経緯で、今後の実施順ではありません。配置変更と未完了作業は[並列開発計画](../development/index.md)に従います。
 
 ## 1. ホストの基礎を記録する
 
@@ -38,7 +50,7 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 
 ## 2. 管理台帳とバックアップ先を先に作る
 
-非公開台帳へ、VMID・VM名・IP予約・用途・vCPU/RAM・ディスク／保存先・起動順・バックアップ対象・確認日を記録する。初期値は[VM配分表](operations.md#resource-budget)を転記し、未作成／検証中／稼働／移行済みを区別する。APIキーやパスワード自体は台帳へ直書きしない。
+非公開台帳へ、VMID・VM名・IP予約・用途・vCPU/RAM・ディスク／保存先・起動順・バックアップ対象・確認日を記録する。初期値は[VM配分表](../architecture/operations.md#resource-budget)を転記し、未作成／検証中／稼働／移行済みを区別する。APIキーやパスワード自体は台帳へ直書きしない。
 
 利用可能な既存の外部バックアップ先を1つ確認する。今回の計画では新規ハード購入を前提にしない。対象デバイスと既存データを確認してから設定する。同じ内蔵SSDの別パーティションやスナップショットだけを故障対策にしない。PBSは後から追加できる。
 
@@ -104,7 +116,7 @@ SwitchBotはHub Mini経由のSwitchBot Cloud統合を配備済みです。Eufy�
 
 既存game1（Bazzite、8vCPU、現行12GiB、cloud API管理下・引き取り済み）を利用する。GPUは割り当て済みだが、Wolf・Azaharの2人利用は別途検証する。IOMMUグループとGPU／音声機能を調べ、管理NICや必要なUSBを巻き込まないことを確認してからPCIパススルーを設定する。ホストの画面が使えなくなる可能性があるため、手順1のSSH・管理GUI経路を先に確保する。実機のPCIアドレスや起動方式に依存する設定を推測でコピーしない。[PCIパススルー公式](https://pve.proxmox.com/pve-docs/pve-admin-guide.html#qm_pci_passthrough)
 
-Wolf → 1人のAzahar → 2人の独立セッション → 交換・対戦の順に確認する。30〜60分のプレイとVM再起動後のGPU再利用を[ゲームの合格条件](gaming.md)で確認する。Ollamaは後から追加し、ゲーム中は推論を止める。
+Wolf → 1人のAzahar → 2人の独立セッション → 交換・対戦の順に確認する。30〜60分のプレイとVM再起動後のGPU再利用を[ゲームの合格条件](../architecture/gaming.md)で確認する。Ollamaは後から追加し、ゲーム中は推論を止める。
 
 OpenHomeはgame1への同居希望として台帳に残す。製品／リポジトリが未特定なので、Linux対応・常駐要否・音声／GPU・保存先・必要RAMを確認してから追加する。常時必要な機能なら、利用時だけ起動するgame1の運用と両立するかも確認する。
 
@@ -112,7 +124,7 @@ OpenHomeはgame1への同居希望として台帳に残す。製品／リポジ�
 
 ## 6. 常用Kubernetesを維持し、移行先を機能ごとに選ぶ
 
-identity・cp・worker-01は構築済み。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](../operations/kubernetes.md)）。
+identity・cp・worker-01は構築済み。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](kubernetes.md)）。
 
 1. OS・containerd・kubeadm・Ciliumの互換版を固定し、Pod／Service CIDRとLAN／VPNのアドレス重複を避ける。
 2. nodeがReadyになることを確認し、名前解決・Pod間通信・NetworkPolicyを確認する。

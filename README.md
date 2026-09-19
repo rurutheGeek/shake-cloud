@@ -2,13 +2,20 @@
 
 Proxmox VE 上のホームラボを、コードで構築・運用するリポジトリです。認証（Authentik）、クラウドAPI（VM・S3・DB・関数）、台帳（NetBox）、メディア、家電、監視を用途別のVMに分け、Terraform・Ansible・Flux・Docker Composeで配備します。
 
-**入口**
+**ドキュメントの入口**
 
-- [接続先一覧（URL・アドレス）](docs/operations/urls.md) — どのサービスをどこで開くか
-- [全サービスの使い方](docs/services/usage.md) — 利用者向け
-- [配備台帳](docs/operations/handover.md) — 実機の状態・進捗・TODOの正本
-- [運用ドキュメント](docs/overview.md) — 管理者向けの一覧
-- [開発参加ガイド](docs/onboarding.md) — 開発VMの使い方
+手順書は `docs/` にあり、services-01 の <https://docs.apextox.dpdns.org> へ配備されます。目的から入ってください。
+
+| 目的 | 入口 |
+| --- | --- |
+| サービスを使う | [利用ガイド](docs/services/index.md)・[全サービスの使い方](docs/services/usage.md) |
+| 開発に参加する | [開発参加ガイド](docs/onboarding.md)・[開発計画](docs/development/index.md) |
+| 環境を立ち上げる・運用する | [運用手順の入口](docs/operations/index.md)・[初回セットアップの順番](docs/operations/bootstrap.md) |
+| 仕組みを知る | [ホームラボの全体像](docs/architecture/overview.md)・[設計](docs/architecture/index.md) |
+| URL・用語を引く | [接続先一覧](docs/reference/urls.md)・[用語集](docs/reference/glossary.md) |
+| 手順書を書き足す | [ドキュメントの書き方](docs/contributing-docs.md) |
+
+[トップページ](docs/index.md)と[ドキュメント地図](docs/map.md)が全体の案内板です。実機の状態・進捗・TODOの正本は[配備台帳](docs/operations/handover.md)です。
 
 ## いまの構成
 
@@ -19,14 +26,14 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | identity | Authentik（共通ログイン。招待・復旧・パスキー） |
 | cloud-01 | クラウドAPI・ポータル・管理DB（PostgreSQL） |
 | services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、Home Assistant、CUPS、eufy-security-ws、print-api |
-| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、Picard、LocalSend受信機（クラウド管理下） |
+| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機（クラウド管理下） |
 | storage-s3 | Garage（S3互換オブジェクトストア） |
 | monitor-01 | Prometheus、Alertmanager、Grafana、exporter（クラウド管理下） |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
 | dev-a / dev-b | 開発VM |
 | game1 | ゲームサーバ（クラウド管理下） |
 
-サービスは `*.apextox.dpdns.org`（家庭内LAN専用。Let's Encrypt証明書をDNS-01で取得）で開きます。**インターネットには公開していません。** URLとアドレスの正本は `platform/terraform/dns.yaml` と[接続先一覧](docs/operations/urls.md)、停止・再開を含む実機の状態は[配備台帳](docs/operations/handover.md)です。
+サービスは `*.apextox.dpdns.org`（家庭内LAN専用。Let's Encrypt証明書をDNS-01で取得）で開きます。**インターネットには公開していません。** URLとアドレスの正本は `platform/terraform/dns.yaml` と[接続先一覧](docs/reference/urls.md)、停止・再開を含む実機の状態は[配備台帳](docs/operations/handover.md)です。
 
 ## 開発方針
 
@@ -39,7 +46,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 - **手作業の最小化**：**コードで管理できるものはすべてコードにします。** GUIやシェルでの一度きりの操作を手順書に書いて済ませません。バケット、プール、ロール、ユーザー、トークン、VM、IPの採番はすべて宣言から作ります。残る手作業は「それ自体が最初の資格情報を生む操作」だけで、[残っている手作業](docs/operations/bootstrap.md)に理由付きで列挙し、増やしません。手順書は手作業の置き場ではなく、コードの実行順と判断根拠を書く場所です。
 - **IaC（Infrastructure as Code）**：配備対象はNetBox、ホストへの導入はAnsible、サービス構成はDocker Compose、アプリ設定はAPI・occを使うPythonスクリプトで管理します。継続して必要な設定をGUIだけで変更せず、設定例・スクリプト・手順へ反映します。利用者の本棚・予定・お気に入りなどの日常データはアプリのDBに保持します。
 - **再実行と再現性**：初期化では既存の秘密値・アカウント・データを保護します。コードで管理する設定は再配備で反映します。イメージは各 `compose.lock.yaml` のdigestで固定し、更新は明示的に行います。冪等性は全設定について保証済みではないため、変更箇所の再実行確認も必要です。
-- **認証と権限の分離**：Authentikを共通認証基盤にし、対応アプリはOIDC、Navidrome・MeTube・PicardはForward Authで接続します。SSOは各サービスの閲覧権限や既存データの自動統合を意味しません。VaultwardenにはSSO後も保管庫の暗号化用マスターパスワードが必要です。
+- **認証と権限の分離**：Authentikを共通認証基盤にし、対応アプリはOIDC、Navidrome・MeTubeはForward Authで接続します。SSOは各サービスの閲覧権限や既存データの自動統合を意味しません。VaultwardenにはSSO後も保管庫の暗号化用マスターパスワードが必要です。
 - **秘密値と状態の分離**：Gitにはコード・設定例・Markdown・ロックファイルを置きます。実際の認証情報、Cookie、CA秘密鍵、ホスト台帳、原本、DB、ログは非公開領域へ分離します。Gitだけでは環境のデータ復元はできません。
 - **利用の入口と日本語化**：サービスの入口はHomarr（services-01）で、タイルの正本は `stacks/homarr/apps.json` です。ドキュメントの原稿はGitの `docs/` が正本で、`platform/ansible/docs-site.yml` がservices-01へ配備します。生成済みサイトを直接編集しません。日本語化は各アプリの対応範囲で設定し、ブラウザー・利用者設定に依存する部分は手順で補います。
 - **派生ファイルの管理**：BCSTM原本を残して再生用MP3を生成するなど、原本と派生物を分けて管理します。変換・タグ編集のコードは `stacks/music-tools/` にあります。
@@ -60,7 +67,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | `stacks/docs/` | ドキュメントサイトを配るnginx（services-01、`platform/ansible/docs-site.yml`） |
 | `stacks/tls-proxy/` | 各ホストのHTTPS入口（CaddyとCloudflare DNSモジュール）。受ける名前は `platform/terraform/dns.yaml` |
 | `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・FreshRSS（共通RSSタイムライン）・LocalSend |
-| `stacks/music-tools/` | MeTube・Picard・BCSTM変換・同期（media-01） |
+| `stacks/music-tools/` | MeTube・タグAPI・BCSTM変換・同期（media-01） |
 | `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | services-01・monitor-01の新しい基盤のサービス（ホストごとの独立Compose） |
 | `stacks/game/`・`stacks/romm/`・`stacks/pokemon-ai/`・`stacks/rag-bot/` | game1へ載せるゲーム・AIの開発コード（実装・移行は進行中） |
 | `docs/`、`mkdocs.yml` | 日本語の利用・運用手順とサイト構成 |
@@ -71,7 +78,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 
 ### 引き継いだら行うこと
 
-1. [配備台帳](docs/operations/handover.md)・[接続先一覧](docs/operations/urls.md)・[設定と拡張](CONFIGURATION.md)を読み、Git差分と稼働中のコンテナを確認します。既存ホストで初期化・イメージ更新を無条件に実行しないでください。
+1. [配備台帳](docs/operations/handover.md)・[接続先一覧](docs/reference/urls.md)・[設定と拡張](CONFIGURATION.md)を読み、Git差分と稼働中のコンテナを確認します。既存ホストで初期化・イメージ更新を無条件に実行しないでください。
 2. 非公開の `.env`・秘密値・各サービスの状態領域と、原本の実際の保存先を確認します。新規ホストではNetBoxを先に構築し、対象を登録してAnsibleインベントリの `--graph` と配備の `--list-hosts` を確認します。
 3. 基盤VMは `platform/terraform/10-platform` と `05-seed`、サービスVMは `platform/terraform/services/<name>/`（クラウドAPIのTerraform Provider）で作ります。中身の配備は、基盤がNetBoxの動的インベントリ、クラウドVMが `platform/ansible/inventory.cloud.py` を使います。対象ホストは `--limit` で絞ります。
 4. 変更は設定の正本と対応する日本語手順へ反映し、下記の検証を実行します。実機へ反映する場合は対象サービスの起動・認証・目的の操作を確認し、再配備による秘密値やデータの保持も確認します。
@@ -101,9 +108,9 @@ Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platfor
 ### 現状と未完了事項
 
 - クラウドは VM・S3・database・function の4機能を API・Provider・CLI・ポータルまで実装・実機確認済みです。Kubernetes は kubeadm + Cilium + Flux で構築し、AWX・CloudNativePG・Knative を配備しています（[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)）。
-- メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と新しい identity の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
-- Home Assistant Container は services-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、Alexa/Echo連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
-- identity は Gmail SMTP で招待・復旧メールを送信済みです（[SMTP](docs/operations/smtp.md)）。MeTube・音楽変換・同期の media-01 移行はW06で進行中で、共有Cookieを使う実ダウンロードは未確認です。
+- メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と identity の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
+- Home Assistant Container は services-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
+- identity は外部SMTPリレーで招待・復旧メールを送信済みです（[メール設定](docs/operations/smtp.md)）。MeTube・音楽変換・タグ編集は media-01 へ配備済みです（W06）。**同期タイマーの切替と、共有Cookieを使う実ダウンロードは未確認です。**
 - AWX 24.6.1 は構築済みです。ジョブテンプレート・プロジェクトの整備はこれからです（[AWXの使い方](docs/operations/awx.md)）。
 - VPN（宅外アクセス）は未構築です（[VPN比較・Tailscale併用](docs/architecture/vpn.md)）。管理DBの外部バックアップも未着手です。
 - 実際のゲーム由来BCSTMの網羅的互換性は未検証です。バックアップからの復元は drill を継続します。
@@ -158,13 +165,13 @@ cloud-01 の管理DBは `cloud-backup.timer` が毎日 `/var/backups/cloud-api` 
 
 PDFは `/srv/media-stack/library/books/作品名/作品名.pdf` のように作品別フォルダへ置きます（books直下には置かないでください）。Nextcloudの `books` から作品フォルダを作ってアップロードできます。KavitaはBooksライブラリのフォルダ監視（Folder Watching）が有効で、変更を検知して取り込みます。反映されないときはKavitaのライブラリでScanを実行します。初期管理者とBooksライブラリの作成は `stacks/media/kavita/bootstrap.py` が行います。
 
-設定範囲と拡張時の制約は[CONFIGURATION.md](CONFIGURATION.md)を参照してください。利用者は[全サービスの使い方](docs/services/usage.md)から始めてください。[Homarrの編集方法](docs/services/homarr.md)や[日本語表示](docs/services/language.md)も利用者向けにまとめています。運用の管理作業は[運用ドキュメント](docs/overview.md)から参照できます。
+設定範囲と拡張時の制約は[CONFIGURATION.md](CONFIGURATION.md)を参照してください。利用者は[全サービスの使い方](docs/services/usage.md)から始めてください。運用の管理作業は[運用手順の入口](docs/operations/index.md)から参照できます。
 
 ## GitHubへ置くもの
 
 コード、Ansible、設定例、Markdown、イメージdigestのロックファイルを管理します。`.env`、秘密値、Cookie、実データ、状態、CA、実ホスト台帳、実行ログは `.gitignore` で除外します。公開前に `git diff --cached --stat` と `git diff --cached` で対象を確認してください。
 
-`docs/` がドキュメントの正本です。GitHubへのpushは配備とは別の操作です。
+`docs/` がドキュメントの正本です。書き方・検証・公開の決まりは[ドキュメントの書き方](docs/contributing-docs.md)にあります。ページを足したら `python3 tools/docs-map.py` で[ドキュメント地図](docs/map.md)を更新してください（CIが差分を検査します）。GitHubへのpushは配備とは別の操作です。
 
 ## 参照
 

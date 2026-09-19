@@ -1,6 +1,17 @@
+---
+title: 機能別VMと並列開発計画
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+---
+
 # 機能別VMと並列開発計画
 
-更新日: 2026-09-12。状態: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter）を配備済み（24/24 targets、UPS取得、通知確認）、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**状態**: 計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter）を配備済み（24/24 targets、UPS取得、通知確認）、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る
 
 作業環境は既存dev-a／dev-bです。[開発参加ガイド](../onboarding.md)から接続し、下のIDから担当する機能を選びます。**W01・A01などの番号は識別用で、優先度や実施順ではありません。** 同じVMへ載せる機能でも独立して着手・完了できるものを別文書にしています。
 
@@ -19,7 +30,7 @@
 | --- | --- | --- | --- |
 | services-01（既存） | NetBox・MkDocs・Home Assistant Container・VPN・Homarr・Vaultwarden | 4 / 8GiB | 現行容量と実データを確認。常時VM内で別Compose・別保存先 |
 | game1（既存） | ゲーム・RomM・Ollama・ポケモンAI一式・汎用RAG・Discord Bot | 8 / 現行12GiB、実測後16GiB候補 | 現行ディスクを維持しAI・ROM容量を測定。VM停止中はAI・Bot・ライブラリも停止 |
-| media-01（VM作成済み） | Nextcloud・Calendar・Tasks・Kavita・Navidrome・MeTube・Picardと依存DB | 4 / 6GiB | OS32＋データ64GiBを仮予算。原本・索引・WAL・復元領域から確定 |
+| media-01（VM作成済み） | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPIと依存DB | 4 / 6GiB | OS32＋データ64GiBを仮予算。原本・索引・WAL・復元領域から確定 |
 | 既存Kubernetes | AWX・DB提供（CNPG）・関数提供（Knative） | cp 2 / 3GiB、worker-01 4 / 8GiB | 固定RAM。worker-02は必要量から起動・join判断 |
 | public-edge（条件成立後） | 外部公開Webの入口 | 1 / 1GiB | OS16GiB。公開要件が揃った時点でVM追加 |
 

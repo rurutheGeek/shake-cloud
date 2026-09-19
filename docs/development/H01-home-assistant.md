@@ -1,10 +1,22 @@
+---
+title: H01 Home Assistant Containerの導入
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - home-assistant
+---
+
 # H01 Home Assistant Containerの導入
 
-更新日: 2026-09-12。これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **services-01へ配備済み（2026-09-12、HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完**。
+**状態**: services-01へ配備済み（2026-09-12、HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完
 
 [家電の構成案](../architecture/operations.md#home-devices)は専用HAOSを想定していたが、採用先はservices-01上のContainer。HAOS追加アプリの管理は使わず、必要な周辺サービスは個別Composeで管理する。
 

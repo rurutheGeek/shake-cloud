@@ -1,6 +1,18 @@
+---
+title: I02 media-01のVM宣言
+updated: 2026-09-12
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - media
+---
+
 # I02 media-01のVM宣言
 
-更新日: 2026-09-12。区分: **新規実装**。状態: **media-01 作成済み・実機確認済み（2026-09-12）**。アプリの配備とデータ切替はW03〜W06（RomMはgame1側）。
+> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**区分**: 新規実装 ・ **状態**: media-01 作成済み・実機確認済み（2026-09-12）。アプリの配備とデータ切替はW03〜W06（RomMはgame1側）。
 
 ## 目的・現状・配備先
 
@@ -36,6 +48,6 @@ Terraform validate・planで基盤VMへの変更がなく、作成後の再plan�
 - `i-a06df9a2dfd1ce6db`、`192.168.10.101`、4vCPU／6144MiB、OS32GiB、データ64GiB（`vol-cff33af40771b2b74`）。公開鍵は dev-b の `~/.ssh/id_ed25519_pve.pub`。
 - apply 直後の再 plan は **No changes**。SG は LAN から 22/80/443 が到達でき、8080 は遮断されることを実測。
 - cloud-init は `done`。`/srv/media-stack` が `/dev/vdb`（ext4、63GiB）でマウントされ、`media-data-mount`・`docker` が active。VM 再起動後も同じ状態へ復帰。Docker Compose v5.5.1。
-- apply で Provider の SG ルール同時作成の競合（3ルールが同じIDを state に持つ）を発見し、`findNewRule` を属性一致へ修正した。state は `state rm` → `import` で復旧。詳細は[配備台帳](../operations/handover.md) §10。
+- apply で Provider の SG ルール同時作成の競合（3ルールが同じIDを state に持つ）を発見し、`findNewRule` を属性一致へ修正した。state は `state rm` → `import` で復旧。詳細は[確認と、はまりどころ](../operations/verify.md)。
 
 **残る前提:** ホスト空き容量はI01で測定済み。移行する原本・DB・索引・復元領域の実データ量は未確定。`tools/tf` はサービス向けの資格情報分岐がまだ無い（I05）。アプリの配備とデータ切替はW03〜W06（RomMはgame1側でW07）。

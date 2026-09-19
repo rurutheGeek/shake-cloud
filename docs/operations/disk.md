@@ -1,4 +1,16 @@
+---
+title: ディスク増設
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - storage
+---
+
 # ディスク増設
+
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 media-01 のメディア系データは専用データディスク（`/srv/media-stack`）に置きます。**容量の増設・拡張はクラウドのボリュームAPI（`shakecloud volume resize`）か `platform/terraform/services/media`（I02）で行います。** 現在は 64GiB のデータディスク1本です。
 

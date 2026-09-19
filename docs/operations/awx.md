@@ -1,6 +1,18 @@
+---
+title: AWX の使い方
+updated: 2026-09-12
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - awx
+---
+
 # AWX の使い方
 
-更新日: 2026-09-12。状態: **配備済み（AWX 24.6.1 / Operator 2.19.1）。ジョブテンプレートの整備はこれから。**
+> **更新日** 2026-09-12 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 配備済み（AWX 24.6.1 / Operator 2.19.1）。ジョブテンプレートの整備はこれから。
 
 AWX は Ansible Playbook をブラウザと API から実行し、実行履歴・権限・スケジュールを管理する基盤です。NetBox をインベントリ源にして、`platform/ansible/` の Playbook を回す用途を想定しています。
 
@@ -50,5 +62,5 @@ curl -sk https://awx.apextox.dpdns.org/api/v2/ping/
 
 - [Kubernetes クラスタ](kubernetes.md#アプリ-awx)（配備の中身・HTTPS・トラブルシュート）
 - [Flux にアプリを足す](flux-apps.md)
-- [接続先一覧](urls.md)
+- [接続先一覧](../reference/urls.md)
 - `platform/awx/README.md`（EE と登録 Playbook の例）

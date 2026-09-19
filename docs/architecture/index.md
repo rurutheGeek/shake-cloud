@@ -1,8 +1,38 @@
-# ホームラボ／最小プライベートクラウド構成案
+---
+title: 設計と決定の入口
+updated: 2026-09-18
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+---
 
-更新日: 2026-09-13。配置方針は[並列開発計画](../development/index.md)に合わせて更新しました。media-01を作成し、Homarr・Vaultwarden・Home Assistant（SSO）と、Nextcloud・Kavita・Navidrome、監視（monitor-01）を配備済みです。既存環境からのメディアデータ移行とVPNは未完了です。状態: **設計の記録。Proxmox・Kubernetes・クラウドAPI・identity は構築済み。Wolf/Azahar（ゲーム）と VLAN の実機切替は未着手。実機の配置は[配備台帳](../operations/handover.md)を正とする**。
+# 設計と決定の入口
 
-この文書は、現在のメディア基盤を、2人で利用するホームラボと小規模なプライベートクラウドへ発展させる構成案です。現在稼働しているComposeサービスの使い方は[既存の運用手順](../overview.md)を参照してください。**構築が済んだ範囲（Proxmox、Kubernetes、クラウドAPIの4機能、identity、AWX）はこの文書より実機が先です。** 何が動いているかは[配備台帳](../operations/handover.md)と[接続先一覧](../operations/urls.md)を見てください。
+> **更新日** 2026-09-18 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+
+**この節は「なぜそう作ったか」を残す場所です。** 手順は[運用手順](../operations/index.md)、実機の状態は[配備台帳](../operations/handover.md)、これからの作業は[開発計画](../development/index.md)が正本で、食い違ったらそちらが正しいと考えてください。
+
+いま何がどのVMで動いているかを1枚で知りたいときは[ホームラボの全体像](overview.md)を先に読んでください。このページは、その形になるまでに決めた前提と選択の記録です。
+
+**状態**: Proxmox・Kubernetes・クラウドAPI・identity・メディア・家電・監視は構築済み。ゲーム（Wolf・Azahar）とVLANの実機切替、VPN、既存環境からのメディアデータ移行は未完了。
+
+## この節のページ
+
+| ページ | 内容 |
+| --- | --- |
+| [ホームラボの全体像](overview.md) | 役割ごとのVMと、何を自作しているかの詳細版 |
+| [決定ログ](decisions.md) | **すでに決まっていること**と、その理由。蒸し返す前にここを読む |
+| [信頼境界とセキュリティ方針](security.md) | 何を信頼し、何を信頼しないか。守らないと決めたことも書く |
+| [障害モードと単一障害点](failure-modes.md) | 何が止まると何が使えなくなるか。復旧の順番 |
+| [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプール、ロールとACL |
+| [最小クラウドとProvider](cloud.md) | 4機能、SSOとアクセスキー、Proxmox側の制約、実装境界 |
+| [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマートフォン、認証の使い分け |
+| [VPNの比較と併用](vpn.md) | 候補の比較、対応OS、復旧経路、認証依存 |
+| [ゲーム・開発VM](gaming.md) | 2人で使う構成、通信プレイ、性能確認、軽量開発環境 |
+| [配備・Git管理・ストレージ・復旧](operations.md) | VM配分、Kubernetes運用、永続データ、段階的移行 |
+
+初回構築の手順そのものは[Proxmox VE導入後の進め方](../operations/bring-up.md)へ移しました（設計ではなく実行する手順のため）。
 
 ## 前提と合意した範囲
 
@@ -17,19 +47,7 @@
 - **変更（2026-09-11）**: **VMの一覧は全員に見せる。**当初は「自分のリソースだけが見える」としていましたが、2人で1台のホストを分け合うので、誰が何を動かしているかが見えないと容量の判断ができません。見えるのは所有者名・イメージ・割り当てリソース・状態までで、**操作（電源・削除・大きさの変更）は所有者と管理者だけ**です。
 - **変更**: Authentikをクラウドの統合認証にも使う。ブラウザはOIDCでポータルへログインし、そこで発行したアクセスキーをTerraformとCLIが使う。キーをSSOと分けるので、**Authentikが停止していてもTerraformは動く**。
 
-初回構築の経緯は[Proxmox VE導入後の記録](bring-up.md)に残しています。今後は[作業ID一覧](../development/index.md)から独立した作業を選び、必要な切替条件だけを調整して並列に進めます。実機状態は[配備台帳](../operations/handover.md)、配置計画は[VM配分](operations.md)で区別します。
-
-## 読む順序
-
-| 文書 | 内容 |
-| --- | --- |
-| [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプールの分割、ロールとACL |
-| [最小クラウドとTerraform Provider](cloud.md) | 4機能、採用候補、SSOとアクセスキー、Proxmox側の制約、リソース設計、実装境界 |
-| [VPNの比較と併用](vpn.md) | NetBird・Headscale・Tailcat、対応OS、復旧経路、認証依存 |
-| [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマホ、認証の使い分け |
-| [2人用ゲーム・開発VM](gaming.md) | WolfとAzahar、通信プレイ、性能確認、軽量開発環境 |
-| [Proxmox VE導入後の手順](bring-up.md) | ホスト確認、最初のVMと復元、家電・ゲーム・クラスタの構築順 |
-| [配備・Git管理・ストレージ・復旧](operations.md) | VM配分、Kubernetes運用、永続データ、段階的移行 |
+初回構築の経緯は[Proxmox VE導入後の記録](../operations/bring-up.md)に残しています。今後は[作業ID一覧](../development/index.md)から独立した作業を選び、必要な切替条件だけを調整して並列に進めます。実機状態は[配備台帳](../operations/handover.md)、配置計画は[VM配分](operations.md)で区別します。
 
 ## 採用候補
 
@@ -52,7 +70,7 @@
 | 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（新規cloud VM）。UPS・証明書・資源を監視。ラズパイはDNSと復旧経路 |
 | 印刷 | CUPS（services-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
 | ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
-| 自動音楽タグ | MusicBrainz Picard（Web GUI） | media-01（GUIは利用者PCでも可）。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える |
+| 音楽タグの編集 | Nextcloudの自作アプリ `shake_tags` とタグAPI | media-01。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える（専用GUIコンテナは2026-09-13に撤去） |
 | LocalSend | 各端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認） |
 | OpenHome | 製品・リポジトリ確認待ち | ゲームVMへの同居候補 |
 | ゲーム | Wolf + Azahar×2 + 非公開ルーム | 780Mを割り当てるゲームVM |
@@ -90,7 +108,7 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
 | クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。2026-09-12時点でcp・worker-01・worker-02は停止中（起動は[配備台帳](../operations/handover.md)）。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
-| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは identity サービスで実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../operations/urls.md) |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは identity サービスで実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
 | Home Assistantと家電連携 | **配備済み（2026-09-12）**: services-01のContainerを `https://ha.apextox.dpdns.org` でHTTPS化（LAN内。本体は `127.0.0.1:8123`）。Authentik OIDCと緊急用ローカルオーナー。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り。手順は[利用者向けHA](../services/home-assistant.md)・[H01](../development/H01-home-assistant.md) |
 | 監視・印刷・転送 | **監視はmonitor-01へ配備（2026-09-13、M01）**: Prometheus・Alertmanager・Grafana・exporter。**印刷**はCUPS（services-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
@@ -106,4 +124,4 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 ## この文書の管理
 
-Gitの `docs/` が正本です。この資料は `docs/architecture/` に置き、`mkdocs.yml` と Ansible（`platform/ansible/docs-site.yml`）で `https://docs.apextox.dpdns.org` へ配備します。更新・公開方法は[運用文書](operations.md#document-publishing)を参照してください。
+Gitの `docs/` が正本です。書き方・置き場所・検証・公開の決まりは[ドキュメントの書き方](../contributing-docs.md)にあります。

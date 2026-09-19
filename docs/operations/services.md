@@ -1,6 +1,18 @@
+---
+title: サービスの置き場所とクラウドVMでの作り方
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - placement
+---
+
 # サービスの置き場所とクラウドVMでの作り方
 
-更新日: 2026-09-13。状態: **方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。**
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。
 
 ## 方針
 
@@ -12,7 +24,7 @@
 
 - services-01にはNetBox・MkDocsを残し、Home Assistant Container・eufy-security-ws（HAとは別Compose）・VPN・Homarr・Vaultwarden・CUPSを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません（VPNは未配備）。
 - game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
-- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・Picard・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
+- media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
 - monitor-01は新規cloud VMにPrometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-09-12に配備済みで、Grafanaは `https://grafana.apextox.dpdns.org`（identity OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
@@ -178,7 +190,7 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 
 ### 6. ドキュメントを足す
 
-`docs/operations/<name>.md`（管理者）と `docs/services/<name>.md`（利用者）を書き、`mkdocs.yml` のナビへ入れます。URL は[接続先一覧](urls.md)へ追記します。
+`docs/operations/<name>.md`（管理者）と `docs/services/<name>.md`（利用者）を書き、`mkdocs.yml` のナビへ入れます。URL は[接続先一覧](../reference/urls.md)へ追記します。
 
 ## 決まりごと
 

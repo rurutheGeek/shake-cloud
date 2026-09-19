@@ -1,10 +1,22 @@
+---
+title: W01 Homarrのservices-01移行
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - homarr
+---
+
 # W01 Homarrのservices-01移行
 
-更新日: 2026-09-12。これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **services-01へ配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC、ボード反映済み）。残りはブラウザでのSSOログイン・権限・再起動後の保持確認**。
+**状態**: services-01へ配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC、ボード反映済み）。残りはブラウザでのSSOログイン・権限・再起動後の保持確認
 
 `stacks/homarr/compose.yaml` にHomarr、永続 `/appdata`、暗号鍵、OIDCの定義がある。`stacks/homarr/configure.py` と `apps.json` がリンクの管理元である。[利用手順](../services/homarr.md)のボード・管理者権限を維持する。
 

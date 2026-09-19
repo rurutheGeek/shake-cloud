@@ -1,6 +1,18 @@
+---
+title: 電源と UPS
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - power
+---
+
 # 電源と UPS
 
-更新日: 2026-09-13。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の状態取得は NUT で配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`、読み取り専用）。K11 の電源を UPS のバッテリー側へ入れる作業と、低電池時の自動シャットダウン（upsmon）は未実施。**
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 手順書。UPS（CyberPower CP1200PFCLCDJP）の状態取得は NUT で配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`、読み取り専用）。K11 の電源を UPS のバッテリー側へ入れる作業と、低電池時の自動シャットダウン（upsmon）は未実施。
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 

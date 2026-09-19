@@ -1,10 +1,22 @@
+---
+title: A02 Ollamaのgame1導入
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - ai
+---
+
 # A02 Ollamaのgame1導入
 
-更新日: 2026-09-12。これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **共有OllamaのCompose・管理コマンドを実装。game1実機確認は未実施**。
+**状態**: 共有OllamaのCompose・管理コマンドを実装。game1実機確認は未実施
 
 [ゲーム設計](../architecture/gaming.md)に推論停止・モデル解放の方針がある。Ollamaの配備定義は `stacks/pokemon-ai/ollama/` に実装済みで、game1への配備はこれから。[配備台帳](../operations/handover.md)のgame1はBazziteでGPUパススルー済みと記録され、推論動作は別途確認が必要。
 

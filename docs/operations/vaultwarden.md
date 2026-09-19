@@ -1,4 +1,16 @@
+---
+title: Vaultwarden
+updated: 2026-09-18
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - vaultwarden
+---
+
 # Vaultwarden
+
+> **更新日** 2026-09-18 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **入口は <https://vault.apextox.dpdns.org>（services-01、Let's Encrypt、identity の OIDC）です。** 2026-09-12にservices-01へ新規構築しました（`stacks/vaultwarden/`）。管理画面 `/admin` は公開せず、services-01へのSSHポート転送で `127.0.0.1:8222` に接続して開きます（admin tokenは `/opt/services/vaultwarden/secrets/admin_token`、0400）。一般登録と組織招待は既定で無効で、Web UIに「Create account」は出ません（初回作成はSSO経由のみ）。**ブラウザーでのSSOログインとマスターパスワードの設定・保管庫の作成は、新しいサーバーではまだ実測していません。**
 
@@ -15,7 +27,7 @@ Web保管庫の表示言語は、Vaultwardenサーバーの環境変数ではな
 <a id="sso-login"></a>
 ## identityのOIDCでログインする手順
 
-この環境はVaultwarden 1.37.3 / Web Vault 2026.7.0で、組み込みOIDC（SSO）を有効化しています。通常の新規アカウント作成はidentityの招待を使います（[共通ログインの使い方](identity.md)）。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
+この環境はVaultwarden 1.37.3 / Web Vault 2026.7.0で、組み込みOIDC（SSO）を有効化しています。通常の新規アカウント作成はidentityの招待を使います（[共通ログインの使い方](../services/identity.md)）。Vaultwarden側の「Create account／アカウント作成」から一般登録を始めません。
 
 **Vaultwardenの保管庫はidentityのアカウントごとに別々に作られます。** ブラウザーに共通ログイン（Authentik）のセッションが残っていると、「シングルサインオンを使用する」を押した時点で**そのセッションのアカウント**（例: 管理用の `akadmin`）として認証され、本人の保管庫ではなく新しい保管庫の作成／マスターパスワード設定画面が出ます。本人のアカウントで入るには、先にAuthentikからサインアウトするか、プライベートウィンドウでメール欄に自分のメール（例: `ruru2028@gmail.com`）を入れてSSOします。
 
@@ -52,7 +64,7 @@ SSOはマスターパスワードや保管庫の暗号鍵を代替しません�
 
 ## SMTPと招待
 
-通常の利用開始の招待はidentityで発行します。Vaultwarden側の招待は共有保管庫の組織参加など、アプリ固有の用途として区別します。メール招待、メール確認、パスワードヒントの送信、メール2FAなどを使うにはSMTPまたはsendmailが必要です。[SMTP設定](../operations/smtp.md)
+通常の利用開始の招待はidentityで発行します。Vaultwarden側の招待は共有保管庫の組織参加など、アプリ固有の用途として区別します。メール招待、メール確認、パスワードヒントの送信、メール2FAなどを使うにはSMTPまたはsendmailが必要です。[SMTP設定](smtp.md)
 
 Vaultwardenのメール本文を日本語化する場合は、`data/templates/email`へテンプレートを配置できます。テンプレート内の`{{変数}}`を壊さず、アップデート後に最新版との差分を確認してください。[公式メールテンプレート手順](https://github.com/dani-garcia/vaultwarden/wiki/Translating-the-email-templates)
 

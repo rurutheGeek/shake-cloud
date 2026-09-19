@@ -1,8 +1,18 @@
+---
+title: Homarrの使い方
+updated: 2026-09-12
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - homarr
+---
+
 # Homarrの使い方
 
-Homarrは、各サービスを開くための入口です。**新しい基盤（services-01）で動いており、
-家庭内LANから `https://homarr.apextox.dpdns.org` で開きます。** ファイルや本そのものを
-保存する場所ではありません。
+> **更新日** 2026-09-12 ・ **区分** 利用ガイド ・ **読む人** 利用者
+
+Homarrは、各サービスを開くための入口です。**services-01 で動いており、家庭内LANから `https://homarr.apextox.dpdns.org` で開きます。** ファイルや本そのものを保存する場所ではありません。
 
 ## 利用者として使う
 
