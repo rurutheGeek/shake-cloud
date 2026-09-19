@@ -46,6 +46,7 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 | [運用手順の入口](operations/index.md) | 立ち上げ順・日常運用・復旧の一覧 |
 | [初回セットアップの順番](operations/bootstrap.md) | 何もない状態からの手順 |
 | [配備台帳](operations/handover.md) | 実機の状態・進捗・TODOの正本 |
+| [確認と、はまりどころ](operations/verify.md) | 変更後の検査と、実際に踏んだ落とし穴 |
 | [秘密値の管理](operations/secrets.md) | SOPS と age |
 
 ## 4. 仕組みを知りたい
@@ -54,6 +55,9 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 | --- | --- |
 | [ホームラボの全体像](architecture/overview.md) | 何がどのVMで動いているかの詳細版 |
 | [設計の入口](architecture/index.md) | 決定と根拠 |
+| [決定ログ](architecture/decisions.md) | すでに決まっていることと、その理由 |
+| [信頼境界とセキュリティ方針](architecture/security.md) | 何を信頼し、何を信頼しないか |
+| [障害モードと単一障害点](architecture/failure-modes.md) | 何が止まると何が使えなくなるか |
 | [用語集](reference/glossary.md) | VM名・プール・略語 |
 
 ## 全体の構成
@@ -76,6 +80,7 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 ## このドキュメントの歩き方
 
 - **どこに何があるか**は[ドキュメント地図](map.md)にまとめています。Obsidian で `docs/` を開くときも同じ地図を使えます。
+- **書き足すとき**は[ドキュメントの書き方](contributing-docs.md)を先に読んでください。
 - 各ページの先頭には **更新日・区分・読む人** を置いています。内容が最後に変わった日で、閲覧日ではありません。
 - 同じ事実を2か所に書きません。迷ったときの正本は、**URLは[接続先一覧](reference/urls.md)**、**実機の状態は[配備台帳](operations/handover.md)**、**作業の進捗は[各作業IDの計画書](development/index.md)** です。
 

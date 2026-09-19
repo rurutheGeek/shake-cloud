@@ -22,13 +22,17 @@ tags:
 | ページ | 内容 |
 | --- | --- |
 | [ホームラボの全体像](overview.md) | 役割ごとのVMと、何を自作しているかの詳細版 |
+| [決定ログ](decisions.md) | **すでに決まっていること**と、その理由。蒸し返す前にここを読む |
+| [信頼境界とセキュリティ方針](security.md) | 何を信頼し、何を信頼しないか。守らないと決めたことも書く |
+| [障害モードと単一障害点](failure-modes.md) | 何が止まると何が使えなくなるか。復旧の順番 |
 | [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプール、ロールとACL |
 | [最小クラウドとProvider](cloud.md) | 4機能、SSOとアクセスキー、Proxmox側の制約、実装境界 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマートフォン、認証の使い分け |
 | [VPNの比較と併用](vpn.md) | 候補の比較、対応OS、復旧経路、認証依存 |
 | [ゲーム・開発VM](gaming.md) | 2人で使う構成、通信プレイ、性能確認、軽量開発環境 |
 | [配備・Git管理・ストレージ・復旧](operations.md) | VM配分、Kubernetes運用、永続データ、段階的移行 |
-| [Proxmox VE導入後の手順](bring-up.md) | ホスト確認、最初のVMと復元、家電・ゲーム・クラスタの構築順 |
+
+初回構築の手順そのものは[Proxmox VE導入後の進め方](../operations/bring-up.md)へ移しました（設計ではなく実行する手順のため）。
 
 ## 前提と合意した範囲
 
@@ -43,7 +47,7 @@ tags:
 - **変更（2026-09-11）**: **VMの一覧は全員に見せる。**当初は「自分のリソースだけが見える」としていましたが、2人で1台のホストを分け合うので、誰が何を動かしているかが見えないと容量の判断ができません。見えるのは所有者名・イメージ・割り当てリソース・状態までで、**操作（電源・削除・大きさの変更）は所有者と管理者だけ**です。
 - **変更**: Authentikをクラウドの統合認証にも使う。ブラウザはOIDCでポータルへログインし、そこで発行したアクセスキーをTerraformとCLIが使う。キーをSSOと分けるので、**Authentikが停止していてもTerraformは動く**。
 
-初回構築の経緯は[Proxmox VE導入後の記録](bring-up.md)に残しています。今後は[作業ID一覧](../development/index.md)から独立した作業を選び、必要な切替条件だけを調整して並列に進めます。実機状態は[配備台帳](../operations/handover.md)、配置計画は[VM配分](operations.md)で区別します。
+初回構築の経緯は[Proxmox VE導入後の記録](../operations/bring-up.md)に残しています。今後は[作業ID一覧](../development/index.md)から独立した作業を選び、必要な切替条件だけを調整して並列に進めます。実機状態は[配備台帳](../operations/handover.md)、配置計画は[VM配分](operations.md)で区別します。
 
 ## 採用候補
 
@@ -120,4 +124,4 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 ## この文書の管理
 
-Gitの `docs/` が正本です。この資料は `docs/architecture/` に置き、`mkdocs.yml` と Ansible（`platform/ansible/docs-site.yml`）で `https://docs.apextox.dpdns.org` へ配備します。更新・公開方法は[運用文書](operations.md#document-publishing)を参照してください。
+Gitの `docs/` が正本です。書き方・置き場所・検証・公開の決まりは[ドキュメントの書き方](../contributing-docs.md)にあります。

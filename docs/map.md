@@ -60,10 +60,12 @@ flowchart TB
 | --- | --- |
 | サービスのURL・IP・ポート | [接続先一覧](reference/urls.md)（名前の生成元は `platform/terraform/dns.yaml`） |
 | 実機のVM・電源・配備の状態 | [配備台帳](operations/handover.md) |
+| すでに決まっていること | [決定ログ](architecture/decisions.md) |
+| ドキュメント自体の書き方 | [ドキュメントの書き方](contributing-docs.md) |
 | 作業ごとの仕様・進捗・完了条件 | [各作業IDの計画書](development/index.md) |
 | クラウドAPIのエンドポイントとフィールド | `cloud/openapi/shakecloud.yaml` |
 | ホスト固有の値（ノード名・ストレージ名） | `platform/terraform/site.yaml`（`tools/site-yaml.py` が生成） |
-| 設計をなぜそう決めたか | [設計](architecture/index.md)と[配備台帳の「確定した決定」](operations/handover.md) |
+| 設計をなぜそう決めたか | [設計の入口](architecture/index.md)と[決定ログ](architecture/decisions.md) |
 | 言葉の意味 | [用語集](reference/glossary.md) |
 
 ## Obsidian で読む
@@ -83,6 +85,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
+| [ドキュメントの書き方](contributing-docs.md) | 2026-09-19 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-09-18 | `hub` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 
@@ -160,6 +163,9 @@ flowchart TB
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-09-12 | `ops` `bootstrap` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-13 | `ops` `cloud` |
+| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-19 | `ops` `cloud` |
+| [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-19 | `ops` `cloud` |
+| [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-19 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-09-13 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-09-13 | `ops` `storage` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
@@ -179,6 +185,7 @@ flowchart TB
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-09-18 | `ops` `vaultwarden` |
+| [確認と、はまりどころ](operations/verify.md) | 2026-09-19 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-09-12 | `ops` `network` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-09-12 | `ops` `vm` |
 
@@ -186,15 +193,18 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [K11到着後・Proxmox VE導入後の進め方](architecture/bring-up.md) | 2026-09-13 | `design` `bootstrap` |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-09-13 | `design` `cloud` |
+| [決定ログ](architecture/decisions.md) | 2026-09-19 | `design` `decisions` |
+| [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-19 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-09-13 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-09-13 | `design` `iac` |
 | [設計と決定の入口](architecture/index.md) | 2026-09-18 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-09-16 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-13 | `design` `placement` |
 | [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-18 | `design` `overview` |
+| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-19 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-09-16 | `design` `network` |
+| [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-13 | `design` `bootstrap` |
 
 ### リファレンス
 
@@ -211,6 +221,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 97 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 105 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

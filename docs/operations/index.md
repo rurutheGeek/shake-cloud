@@ -18,11 +18,15 @@ tags:
 | 順 | ページ | 何をするか |
 | --- | --- | --- |
 | 1 | [初回セットアップの順番](bootstrap.md) | 何もない状態から。残っている手作業の一覧もここ |
+| 1.5 | [Proxmox導入後の進め方](bring-up.md) | ホスト確認、最初のVMと復元、構築の順番 |
 | 2 | [秘密値の管理](secrets.md) | SOPS と age。以降の全手順が前提にする |
 | 3 | [Terraformの実行](terraform.md) | プール・ロール・基盤VMを作る |
 | 4 | [NetBoxの使い方](netbox.md) | 配備先の台帳。IPの採番元 |
 | 5 | [認証基盤（identity・Authentik）](identity.md) | 共通ログイン。他の全サービスが繋がる先 |
-| 6 | [クラウドAPIの構築](cloud.md) | shakecloud API・ポータル・管理DB |
+| 6 | [クラウドAPIの構築](cloud.md) | 土台（実機の読み取り・Terraform・SOPS・FW・NetBox・共通ログイン） |
+| 6a | [クラウドAPI本体とインスタンス](cloud-api.md) | API・HTTPS・インスタンス・容量と上限・イメージ・コンソール |
+| 6b | [ボリューム・S3・DB・関数](cloud-resources.md) | 追加ディスク・バケット・database・function |
+| 6c | [実機プローブと切り戻し](cloud-verify.md) | 実機での検査、元に戻す方法 |
 | 7 | [Kubernetes クラスタ](kubernetes.md) | AWX・DB提供・関数提供の土台 |
 | 8 | [サービスの置き場所とクラウドVMでの作り方](services.md) | サービスVMを作って中身を配る |
 
@@ -54,12 +58,15 @@ tags:
 | [Garage（S3互換ストレージ）](garage.md) | バケットとキー |
 | [ディスク増設](disk.md) | 容量を足す |
 
-## 5. 電源・復旧・引き継ぎ
+## 5. 電源・確認・引き継ぎ
 
 | ページ | 何が分かるか |
 | --- | --- |
 | [電源とUPS](power.md) | 安全な停止順と復電 |
-| [配備台帳](handover.md) | **実機の状態・決定・TODOの正本** |
+| [確認と、はまりどころ](verify.md) | 変更後に流す検査と、実際に踏んだ落とし穴 |
+| [配備台帳](handover.md) | **実機の状態・進捗・TODOの正本** |
+
+決定そのものは[決定ログ](../architecture/decisions.md)、止まったときの影響範囲は[障害モードと単一障害点](../architecture/failure-modes.md)にあります。
 
 ## 関連
 

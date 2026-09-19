@@ -4,6 +4,7 @@ A page without front matter drops out of the generated map and out of Obsidian's
 property search; a page missing from mkdocs' nav is unreachable on the site.
 Both failures are invisible when reading the page itself, so they are checked here.
 """
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -62,6 +63,42 @@ class DocsStructureTests(unittest.TestCase):
             re.sub(r'!!\S+', '', (ROOT / 'mkdocs.yml').read_text(encoding='utf-8')))
         listed = nav_targets(config['nav'], set())
         self.assertEqual(sorted({rel for rel, _ in pages()} - listed), [])
+
+    def test_every_anchor_link_points_at_something(self):
+        # MkDocs validates page links but not fragments, so a link to a section
+        # that was split out into another page stays silently broken.
+        link = re.compile(r'\]\(([^)\s]*)#([^)\s]+)\)')
+        heading = re.compile(r'^#{1,6}\s+(.*)$', re.M)
+        explicit = re.compile(r'<a id="([^"]+)"')
+        anchors = {}
+
+        def slug(text):
+            # mkdocs' toc extension: lowercase, drop anything but word chars,
+            # spaces and hyphens, then join on hyphens.
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'[`*_\[\]()]', '', text).strip().lower()
+            return re.sub(r'[^\w\- ]', '', text).strip().replace(' ', '-')
+
+        for rel, path in pages():
+            text = path.read_text(encoding='utf-8')
+            found = set(explicit.findall(text))
+            found.update(slug(m) for m in heading.findall(text))
+            anchors[rel] = {a for a in found if a}
+
+        broken = []
+        for rel, path in pages():
+            here = Path(rel).parent
+            for target, fragment in link.findall(path.read_text(encoding='utf-8')):
+                if target.startswith(('http://', 'https://', 'mailto:')):
+                    continue
+                page = rel if not target else (here / target).as_posix()
+                page = Path(page).as_posix().replace('/./', '/')
+                page = Path(os.path.normpath(page)).as_posix()
+                if page not in anchors:
+                    continue  # the page link itself is mkdocs --strict's job
+                if fragment not in anchors[page]:
+                    broken.append(f'{rel} -> {page}#{fragment}')
+        self.assertEqual(broken, [])
 
     def test_the_generated_map_is_up_to_date(self):
         result = subprocess.run(

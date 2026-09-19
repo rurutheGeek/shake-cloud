@@ -260,23 +260,9 @@ IP、ドメイン、ストレージ名、PCIアドレスを環境設定へ分離
 
 [開発計画](../development/index.md)のW/A/G/H/N/I/O/Dは作業の分類で、番号は実施順ではありません。コード・設定・模擬応答による検証は各担当が並列に進め、実機配備に必要なVM・容量・認証・バックアップだけを個別の切替条件にします。
 
-同じstateの適用、共通DNS/TLS設定、VM再起動、GPU負荷試験は担当間で調整します。DBや原本の移行は整合バックアップと隔離復元に合格してから切り替えます。初回構築の経緯は[Proxmox導入後の記録](bring-up.md)に残しますが、その章番号を今後の全体工程として使いません。
+同じstateの適用、共通DNS/TLS設定、VM再起動、GPU負荷試験は担当間で調整します。DBや原本の移行は整合バックアップと隔離復元に合格してから切り替えます。初回構築の経緯は[Proxmox導入後の記録](../operations/bring-up.md)に残しますが、その章番号を今後の全体工程として使いません。
 
 <a id="document-publishing"></a>
-## この構成案の更新・公開
+## この資料の更新・公開
 
-Git上の設計文書は `docs/architecture/`、図の原稿は `diagrams/*.mmd`、表示用は同名SVGです。SVGは静的ファイルなので、サイト表示時にMermaid用CDNへの接続は不要です。図を変えた場合は原稿からSVGも更新し、両方をコミットします。
-
-図の再生成は管理環境でPlaywrightとChromiumを用意し、次のスクリプトを使います。MermaidのバージョンとスクリプトのSHA-256はスクリプト内で固定します。初回取得にネット接続を使用します。
-
-```bash
-python3 -m pip install playwright==1.62.0
-python3 -m playwright install chromium --only-shell
-python3 tools/render-architecture-diagrams.py
-```
-
-Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。現行のservices-01サイトはGitの `docs/` を入力に `platform/ansible/docs-site.yml` で配備します。今回の計画・README追加ではサイトへの配備を実行しません。
-
-Gitの `docs/` を正本とします。レビューを経ない外部編集や自動双方向同期は設けず、変更はGitの `docs/architecture/` へ集約してから同じ版をサイトへ反映します。生成物を直接編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
-
-公開前にステージした差分と `tools/check-publication.py` を確認します。GitHub公開用の資料には、実際のAPIキー、個人用IP台帳、DB接続文字列、セーブ、Secretを入れません。
+ドキュメントの書き方・置き場所・検証・公開のルールは[ドキュメントの書き方](../contributing-docs.md)へ移しました。図（`diagrams/*.mmd` と同名SVG）の再生成手順も同じページにあります。

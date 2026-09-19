@@ -8,6 +8,7 @@ theme:
 nav:
   - ホーム: index.md
   - ドキュメント地図: map.md
+  - ドキュメントの書き方: contributing-docs.md
   - 利用者向け:
       - 利用ガイドの入口: services/index.md
       - 全サービスの使い方: services/usage.md
@@ -85,7 +86,11 @@ nav:
           - Terraformの実行: operations/terraform.md
           - NetBoxの使い方: operations/netbox.md
           - 認証基盤（identity・Authentik）: operations/identity.md
-          - クラウドAPIの構築: operations/cloud.md
+          - Proxmox導入後の進め方: operations/bring-up.md
+          - クラウドAPIの構築（土台）: operations/cloud.md
+          - クラウドAPI本体とインスタンス: operations/cloud-api.md
+          - ボリューム・S3・DB・関数: operations/cloud-resources.md
+          - 実機プローブと切り戻し: operations/cloud-verify.md
           - Kubernetes クラスタ: operations/kubernetes.md
           - サービスの置き場所とクラウドVM: operations/services.md
       - 道具:
@@ -104,19 +109,22 @@ nav:
           - VLAN 分離への切替: operations/vlan.md
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
-      - 電源・引き継ぎ:
+      - 電源・確認・引き継ぎ:
           - 電源とUPS: operations/power.md
+          - 確認と、はまりどころ: operations/verify.md
           - 配備台帳（実機の状態とTODO）: operations/handover.md
   - 設計:
       - ホームラボの全体像: architecture/overview.md
       - 設計と決定の入口: architecture/index.md
+      - 決定ログ: architecture/decisions.md
+      - 信頼境界とセキュリティ方針: architecture/security.md
+      - 障害モードと単一障害点: architecture/failure-modes.md
       - IaCの所有境界: architecture/iac.md
       - 最小クラウドとProvider: architecture/cloud.md
       - ネットワーク・SSO: architecture/network-auth.md
       - VPNの比較と併用: architecture/vpn.md
       - ゲーム・開発VM: architecture/gaming.md
       - 配備・Git・復旧: architecture/operations.md
-      - Proxmox導入後の手順: architecture/bring-up.md
   - リファレンス:
       - リファレンスの入口: reference/index.md
       - 接続先一覧（URL）: reference/urls.md

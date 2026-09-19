@@ -13,6 +13,7 @@ Proxmox VE 上のホームラボを、コードで構築・運用するリポジ
 | 環境を立ち上げる・運用する | [運用手順の入口](docs/operations/index.md)・[初回セットアップの順番](docs/operations/bootstrap.md) |
 | 仕組みを知る | [ホームラボの全体像](docs/architecture/overview.md)・[設計](docs/architecture/index.md) |
 | URL・用語を引く | [接続先一覧](docs/reference/urls.md)・[用語集](docs/reference/glossary.md) |
+| 手順書を書き足す | [ドキュメントの書き方](docs/contributing-docs.md) |
 
 [トップページ](docs/index.md)と[ドキュメント地図](docs/map.md)が全体の案内板です。実機の状態・進捗・TODOの正本は[配備台帳](docs/operations/handover.md)です。
 
@@ -170,7 +171,7 @@ PDFは `/srv/media-stack/library/books/作品名/作品名.pdf` のように作�
 
 コード、Ansible、設定例、Markdown、イメージdigestのロックファイルを管理します。`.env`、秘密値、Cookie、実データ、状態、CA、実ホスト台帳、実行ログは `.gitignore` で除外します。公開前に `git diff --cached --stat` と `git diff --cached` で対象を確認してください。
 
-`docs/` がドキュメントの正本です。ページを足したら `python3 tools/docs-map.py` で[ドキュメント地図](docs/map.md)を更新してください（CIが差分を検査します）。GitHubへのpushは配備とは別の操作です。
+`docs/` がドキュメントの正本です。書き方・検証・公開の決まりは[ドキュメントの書き方](docs/contributing-docs.md)にあります。ページを足したら `python3 tools/docs-map.py` で[ドキュメント地図](docs/map.md)を更新してください（CIが差分を検査します）。GitHubへのpushは配備とは別の操作です。
 
 ## 参照
 

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-identity VM の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud.md#3-17)を参照してください。
+identity VM の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud-resources.md#3-17)を参照してください。
 
 - **入口:** `https://auth.apextox.dpdns.org`（`:9000` と `:9443` は 127.0.0.1 に閉じています）
 - **VM:** identity（VMID 110、192.168.10.204）。Kubernetes の外に置き、クラスタ更新中でもログインできます。
