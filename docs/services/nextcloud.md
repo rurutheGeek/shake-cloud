@@ -31,13 +31,14 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 
 ## 現在の構成でのインストール例
 
-この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`shake_print`を足します。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
+この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`notes`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`shake_print`・`shake_localsend`・`shake_tags`を足します。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
 
 Ansible配備時は、サービスが正常起動した後に自動で次を実行します。
 
 ```yaml
 nextcloud_apps:
   - calendar
+  - notes
   - tasks
   - text
   - user_oidc
@@ -49,10 +50,12 @@ Nextcloudのファイル一覧には、ログインできる全員が見られ�
 
 ```bash
 cd stacks/media/nextcloud
-sudo python3 manage.py apps --apps calendar,tasks,text
+sudo python3 manage.py apps --apps calendar,notes,tasks,text
 ```
 
 この処理は現在のアプリ一覧を確認し、未インストールならインストール、無効なら有効化します。既に有効なら何もしません。
+
+Notesは生Markdownで書き、必要なときだけプレビューする使い方に揃えています。配備時は`manage.py config-notes`が`occ config:app:set notes noteMode --value=edit`を実行し、個人設定が未変更の利用者の表示既定を`edit`（Plain text）にします。利用者はNotes設定の「表示」から`Rich text`や`Preview`にも切り替えられます。
 
 特定グループだけに有効化するなど、アプリ固有の詳細設定は、初回導入後にAnsibleタスクまたは専用の`occ`処理として追加します。
 
@@ -67,6 +70,24 @@ sudo python3 manage.py apps --apps calendar,tasks,text
 5. 問題がなければ対象グループへ公開する
 6. 必要ならAnsibleまたは`occ`を使うPlaybookへ追加する
 
+## 既存カレンダーの取り込み（ICS）
+
+旧アプリが書き出したiCalendar（`.ics`）は、`manage.py import-calendar`でNextcloudのカレンダーへ取り込みます。ファイルはLocalSendの`inbox`などホスト上のパスを指定します。
+
+```bash
+cd stacks/media/nextcloud
+sudo python3 manage.py import-calendar \
+  --user <取り込み先のuid> --file '/srv/media-stack/library/inbox/.../export.ics' \
+  --name 'カレンダー名' --share <共有相手のuid>
+```
+
+- `--name`が同じ既存カレンダーは再利用し、同じUIDの予定はスキップするため、再実行しても二重にならない
+- 独立した`TZID`プロパティ（KF New Calendarの書き出し）は`DTSTART`/`DTEND`のパラメータへ移し、`DTEND:19700101T090000`は`--default-minutes`（既定60分）で補正する
+- `--share user`は編集可、`--share user:read`は閲覧のみで共有する
+- CalDAVの認証は一時的なアプリパスワード（`occ user:auth-tokens:add`）を使い、終了時に削除する
+
+Calendarアプリの「インポート」はブラウザー上のファイルを対象にするため、サーバー上のICSを直接指定できません。配備のたびに走る処理ではないのでAnsibleには載せず、移行時の手動操作とします。
+
 ## 重要な境界
 
 Nextcloudで作ったユーザーやグループは、そのままKavitaやNavidromeのユーザーにはなりません。SSOを使う場合はログインを共通化できますが、各サービス側のライブラリ権限・音楽権限は別途確認します。
@@ -75,6 +96,6 @@ Nextcloudで作ったユーザーやグループは、そのままKavitaやNavid
 
 ## 現在導入済みの機能
 
-Calendar、Tasks、Text、user_oidc（と自作のshake_print）を有効化済みです。Nextcloud上部のアプリメニューから予定表・Tasksを開けます。
+Calendar、Notes、Tasks、Text、user_oidc（と自作の印刷・LocalSend送信・MP3タグ編集）を有効化済みです。Nextcloud上部のアプリメニューから予定表・Tasks・Notesを開けます。
 
 Calendarでカレンダーを新規作成し、予定を追加します。共有はカレンダーのメニューから相手を指定します。Tasksではタスクリストを作り、期限・完了状態を設定できます。スマートフォン同期ではNextcloudのCalDAV URLとアプリパスワードを使用します。SSOのブラウザーログインとCalDAVクライアント認証は区別してください。

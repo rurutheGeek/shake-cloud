@@ -8,9 +8,12 @@ spirit as test_media_vm.py and test_media_kavita.py. Nothing here connects to
 media-01 or runs Docker.
 """
 import ast
+import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
 
@@ -21,6 +24,39 @@ LOCK = yaml.safe_load((UNIT / 'compose.lock.yaml').read_text(encoding='utf-8'))
 ROOT_LOCK = yaml.safe_load((ROOT / 'stacks/compose.lock.yaml').read_text(encoding='utf-8'))
 PLAYBOOK = ROOT / 'platform/ansible/media-nextcloud.yml'
 SHARED_IMAGES = ('cron', 'nextcloud', 'postgres', 'redis')
+SPEC = importlib.util.spec_from_file_location('nextcloud_manage', UNIT / 'manage.py')
+manage = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(manage)
+
+EXPORT = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+DTSTAMP:20260919T095209Z
+DTSTART:20230411T105000
+DTEND:19700101T090000
+SUMMARY:SA
+TZID:Asia/Tokyo
+UID:2d780652-66fc-47c9-ac59-021d2b512907@kfsoft.info
+RRULE:FREQ=WEEKLY;UNTIL=20230605T145959Z;INTERVAL=1
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20260919T095209Z
+DTSTART;VALUE=DATE:20260101
+DTEND;VALUE=DATE:20260102
+SUMMARY:元日
+UID:allday-1@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+EMPTY_MULTISTATUS = '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"/>'
+OBJECT_MULTISTATUS = """<?xml version="1.0"?>
+<d:multistatus xmlns:d="DAV:">
+<d:response>
+<d:href>/remote.php/dav/calendars/user1/slug/2d780652-66fc-47c9-ac59-021d2b512907%40kfsoft.info.ics</d:href>
+<d:propstat><d:prop><d:getetag>"x"</d:getetag></d:prop></d:propstat>
+</d:response>
+</d:multistatus>"""
 
 
 def example_env():
@@ -135,8 +171,8 @@ class ManageTests(unittest.TestCase):
 
     def test_the_required_actions_are_available(self):
         for action in ('init', 'lock', 'up', 'upgrade', 'setup', 'apps',
-                       'config-print', 'config-localsend', 'config-tags',
-                       'status', 'down'):
+                       'config-notes', 'config-print', 'config-localsend',
+                       'config-tags', 'import-calendar', 'status', 'down'):
             self.assertIn(f"'{action}'", self.text)
 
     def test_it_uses_only_the_standard_library(self):
@@ -225,12 +261,74 @@ class ManageTests(unittest.TestCase):
         self.assertIn("parser.add_argument('--apps'", self.text)
         self.assertIn('Use --apps app1,app2 with the apps action', self.text)
 
+    def test_notes_default_to_the_plain_markdown_editor(self):
+        self.assertIn("config_app('notes', (('noteMode', 'edit'),))", self.text)
+
     def test_setup_and_apps_do_not_handle_credentials(self):
         functions = {node.name: ast.get_source_segment(self.text, node)
                      for node in ast.walk(ast.parse(self.text))
                      if isinstance(node, ast.FunctionDef)}
         for name in ('occ', 'setup', 'apps'):
             self.assertNotRegex(functions[name], r'(?i)password|token|secret')
+
+
+class CalendarImportTests(unittest.TestCase):
+    def test_normalize_fixes_timezone_and_broken_end(self):
+        events = dict(manage.normalize_ics(EXPORT))
+        ics = events['2d780652-66fc-47c9-ac59-021d2b512907@kfsoft.info']
+        self.assertIn('DTSTART;TZID=Asia/Tokyo:20230411T105000', ics)
+        self.assertIn('DTEND;TZID=Asia/Tokyo:20230411T115000', ics)
+        self.assertNotIn('TZID:Asia/Tokyo', ics)
+        self.assertNotIn('19700101T090000', ics)
+        self.assertIn('BEGIN:VEVENT', ics)
+        self.assertIn('END:VEVENT', ics)
+        self.assertIn('UID:2d780652-66fc-47c9-ac59-021d2b512907@kfsoft.info', ics)
+
+    def test_normalize_keeps_all_day_events(self):
+        events = dict(manage.normalize_ics(EXPORT))
+        ics = events['allday-1@example.com']
+        self.assertIn('DTSTART;VALUE=DATE:20260101', ics)
+        self.assertIn('DTEND;VALUE=DATE:20260102', ics)
+        self.assertNotIn('TZID=', ics)
+
+    def test_share_values(self):
+        self.assertEqual(manage.parse_share('abc'), ('abc', False))
+        self.assertEqual(manage.parse_share('abc:read'), ('abc', True))
+        self.assertEqual(manage.parse_share('abc:read-write'), ('abc', False))
+        with self.assertRaises(ValueError):
+            manage.parse_share('abc:owner')
+
+    def test_import_creates_calendar_puts_missing_events_and_shares(self):
+        calls = []
+
+        def dav(config, user, token, method, path, body=None, headers=None, **kwargs):
+            calls.append((method, path, body))
+            if method == 'PROPFIND' and path.endswith('user1/'):
+                return 207, EMPTY_MULTISTATUS
+            if method == 'PROPFIND':
+                return 207, OBJECT_MULTISTATUS
+            return 201, ''
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'sample.ics'
+            path.write_text(EXPORT, encoding='utf-8')
+            with patch.object(manage, 'settings', return_value={}), \
+                 patch.object(manage, 'create_app_password', return_value=('token', '7')), \
+                 patch.object(manage, 'dav_request', side_effect=dav), \
+                 patch.object(manage, 'occ') as occ:
+                manage.import_calendar('user1', str(path), 'テスト', [('user2', False)], 60)
+
+        puts = [call for call in calls if call[0] == 'PUT']
+        self.assertEqual(len(puts), 1)
+        self.assertTrue(puts[0][1].endswith('allday-1%40example.com.ics'))
+        self.assertIn('BEGIN:VEVENT', puts[0][2])
+        self.assertIn('END:VEVENT', puts[0][2])
+        shares = [call for call in calls if call[0] == 'POST']
+        self.assertEqual(len(shares), 1)
+        self.assertIn('<oc:share', shares[0][2])
+        self.assertIn('<oc:read-write/>', shares[0][2])
+        self.assertEqual(occ.call_args_list[-1].args[:2],
+                         ('user:auth-tokens:delete', 'user1'))
 
 
 class AnsibleTests(unittest.TestCase):
@@ -283,6 +381,17 @@ class AnsibleTests(unittest.TestCase):
         self.assertIn(
             "nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']",
             text)
+
+    def test_notes_default_is_set_through_manage_py_after_apps(self):
+        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
+                    if 'ansible.builtin.command' in task]
+        notes = [argv for argv in commands if argv[-1] == 'config-notes']
+        self.assertEqual(len(notes), 1)
+        self.assertTrue(notes[0][-2].endswith('manage.py'))
+        apps = [argv for argv in commands if '--apps' in argv]
+        self.assertGreater(commands.index(notes[0]), commands.index(apps[0]))
+        text = PLAYBOOK.read_text(encoding='utf-8')
+        self.assertIn("'CHANGED:' in nextcloud_notes_config.stdout", text)
 
     def test_change_detection_uses_the_manage_py_status_lines(self):
         text = PLAYBOOK.read_text(encoding='utf-8')

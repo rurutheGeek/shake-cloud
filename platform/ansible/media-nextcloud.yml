@@ -121,6 +121,11 @@
           - "{{ (nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
+    - name: Default Notes to the plain Markdown editor
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-notes]
+      register: nextcloud_notes_config
+      changed_when: "'CHANGED:' in nextcloud_notes_config.stdout"
     - name: Read the print API token
       delegate_to: localhost
       become: false

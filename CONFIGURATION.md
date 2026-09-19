@@ -22,7 +22,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 
 | 対象 | 設定例 | 設定場所 |
 | --- | --- | --- |
-| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、追加アプリ | `stacks/media/nextcloud/manage.py`（`setup`・`apps`・`config-print`）。配備は `platform/ansible/media-nextcloud.yml`、OIDCは `stacks/media/nextcloud/configure-oidc.py` |
+| Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、追加アプリ、Notesの表示既定、既存カレンダーの取り込み | `stacks/media/nextcloud/manage.py`（`setup`・`apps`・`config-notes`・`import-calendar`・`config-print`）。配備は `platform/ansible/media-nextcloud.yml`、OIDCは `stacks/media/nextcloud/configure-oidc.py` |
 | Kavita | ライブラリ、OIDC、初期管理者 | `stacks/media/kavita/bootstrap.py`・`configure-oidc.py`。状態は `/srv/media-stack/storage/kavita` |
 | Navidrome | スキャン間隔、トランスコード、Forward Auth | `stacks/media/navidrome/compose.yaml` の `ND_*` 環境変数。状態は `/srv/media-stack/storage/navidrome` |
 | music-tools | 取込先、変換、Picard、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |

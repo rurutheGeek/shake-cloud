@@ -110,6 +110,12 @@ class GroupVarsTests(unittest.TestCase):
         self.assertEqual(values['storage_root'], '/srv/media-stack/storage')
         self.assertEqual(values['library_root'], '/srv/media-stack/library')
 
+    def test_the_nextcloud_apps_include_notes(self):
+        # ストアアプリの一覧は再配備のたびに group_vars から読まれる。
+        # 追加した Notes が消えたらここで気づけるようにする。
+        values = yaml.safe_load(read(GROUP_VARS))
+        self.assertIn('notes', values['nextcloud_apps'])
+
     def test_the_verifier_uses_the_group_vars_project_dir(self):
         text = read(VERIFY)
         self.assertIn('{{ project_dir }}', text)
