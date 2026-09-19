@@ -39,6 +39,7 @@ nav:
           - N03 VLAN切替: development/N03-vlan.md
           - N04 公開Web入口: development/N04-public-edge.md
           - N05 既存サービスのHTTPS移行完了: development/N05-https.md
+          - N06 ルータ自作（OpenWrt）: development/N06-router.md
       - I：基盤:
           - I01 容量測定・軽量化: development/I01-resources.md
           - I02 media-01のVM宣言: development/I02-media-vm.md
