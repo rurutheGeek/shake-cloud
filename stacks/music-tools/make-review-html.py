@@ -71,6 +71,7 @@ a{color:#7ab7ff}
 <input type="text" id="filter" placeholder="絞り込み（曲名・アルバム・パス）" style="width:320px">
 <button onclick="exportCsv()">コメント付きのCSVをダウンロード</button>
 <button onclick="clearAll()">入力を全部消す</button>
+<a href="covers.html">アルバム画像チェックへ</a>
 <span class="count" id="count"></span>
 </div>
 <table><colgroup>

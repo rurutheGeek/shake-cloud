@@ -35,6 +35,7 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 | --- | --- | --- |
 | `organize.py` | 整理・タグ・カバー・undo | plan/apply/undo。`--corrections`で個別上書き |
 | `make-review-html.py` | 全曲アルバム確認HTML | コメント入力→CSV出力。`https://navidrome.apextox.dpdns.org/review/`（SSO）で閲覧 |
+| `make-cover-review.py` | アルバム画像チェックHTML | 画像＋アルバム情報を並べて指摘→CSV出力。`/review/covers.html` |
 | `lyrics.py` | 歌詞（`.lrc`）取得 | LRCLIB。既存`.lrc`は保持。曲名のみ検索も試す |
 | `genres.py` / `genres-album.py` | ジャンル推定・アルバム単位で統一 | 既存タグ優先＋キーワード |
 | `composers.py` | 作曲者（TCOM）補完 | Soundtrack/Game/Classicalはアルバムアーティスト＝作曲者 |
