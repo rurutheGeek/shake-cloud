@@ -1,6 +1,6 @@
 # 電源と UPS
 
-更新日: 2026-09-16。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。**
+更新日: 2026-09-20。状態: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 
@@ -9,6 +9,34 @@
 - K11（Proxmox ホスト、`192.168.10.126`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
 - 管理経路（ルータ・スイッチ・監視ラズパイ）は K11 とは別の電源です（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
+
+## K11 が固まったときの自動復旧（watchdog）
+
+K11 がハングするとルータ VM も止まり、家中のネットが落ちます。手で再起動するまで
+戻りません。そこで **ハードウェア watchdog（SP5100 TCO）** を有効にしています
+（2026-09-20 適用。ホスト側の設定で、Ansible 管理外）。
+
+- PVE の `watchdog-mux` が `/etc/default/pve-ha-manager` の
+  `WATCHDOG_MODULE=sp5100_tco` で TCO を開き、**10秒タイムアウトで毎秒 KEEPALIVE**
+- ホストが固まると約10秒でハードウェアリセット → 起動 → `on_boot`＋起動順1 で
+  `router-01` が自動起動し、**ネットは約1〜2分で戻る**
+- クリーン停止時は MAGICCLOSE（`options=0x8180`）で解除されるので、
+  シャットダウンを妨げない
+- panic でも自動再起動するように `kernel.panic=10` / `kernel.panic_on_oops=1`
+  （`/etc/sysctl.d/90-panic.conf`）
+
+```bash
+ssh root@192.168.10.126 'systemctl is-active watchdog-mux; wdctl | head -4; sysctl kernel.panic kernel.panic_on_oops'
+# Identity: SP5100 TCO timer / Timeout: 10 seconds が出れば有効
+```
+
+**引き金は game1（VM 100）の iGPU パススルーです。** 開始/停止の直後にホストが
+ハングした実績が 2026-09-20 に複数回あります（01:28・01:31・01:34・01:40・14:57）。
+メモリ・ディスク・温度・I/O は実測でシロ（OOM・I/Oエラーなし、SMART PASS）。
+game1 を停止/起動するときは、この自動復旧が働く前提で行ってください。
+根本対策の候補は、カーネルパラメータ `initcall_blacklist=sysfb_init`（ホストが
+iGPU を使わないようにする）、`hostpci0` への `disable_vga=1`、そして
+**ルータを K11 の外へ出す**こと（[router.md](router.md) の K11 メンテナンス節）。
 
 ## UPS を間に入れる（稼働中に抜き差ししない）
 
