@@ -112,6 +112,7 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
 | 補完（ポートセット分散と icmp の SNAT。**実機で検証済み・既定で有効**） | `platform/openwrt/rootfs/etc/hotplug.d/iface/90-mape-ports` |
 | 実機: `vmbr1`（nic0、IP なし）追加と `nic2` 削除 | 2026-09-19。`vmbr0`・管理 IP は無傷 |
 | 実機: `router-01`（VM 101）作成、起動順を `qm set`、両 NIC リンクダウン | 2026-09-19。シリアルコンソールで設定反映を確認、再 plan は No changes |
+| DNS の窓口を AdGuard Home へ（広告遮断・DoH・`.lan` 運用） | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`・`dhcp`・`uci-defaults/97-…`（2026-09-20。[router-config.md](../operations/router-config.md#3-dns-adguard-home)） |
 
 実装中に確定した事項:
 
@@ -153,6 +154,17 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
 - **近隣代理は odhcpd ではなく ndppd。** `ndp relay` は端末がアドレスを作る
   瞬間しか学習できず、**ルータ再起動後に固定アドレスの端末が IPv6 を失う**
   （後述）。`ndp` は両側 `disabled` にする。
+- **AdGuard の設定パスはパッケージ版で違う。** 24.10 の `adguardhome` は既定で
+  `/etc/adguardhome.yaml` を見る（master は `/etc/adguardhome/adguardhome.yaml`）。
+  UCI `adguardhome.config.config` で自分のパスに合わせる。移行は
+  **AdGuard の導入 → dnsmasq を `:5353` へ → AdGuard 起動**の順で行う
+  （逆にすると `:53` が空いて DNS が止まる）。
+- **ローカル名は `.lan` を付ける。** AdGuard の上流指定は末尾一致
+  （`[/lan/]…`）なので、1語の `aterm` は dnsmasq へ転送できない。
+- **IPv6 の RDNSS は JPNE の RA に無い。** odhcpd の relay は「上流 RA にある
+  RDNSS を書き換える」方式（`forward_router_advertisement`）なので、元が無ければ
+  何も配れない。`dhcp.lan.dns` は将来用に残す。端末は DHCPv4 の DNS を使う。
+  配るには radvd を RDNSS 専用で併用する等が要る（未実施）。
 
 ### 切替後に IPv4 だけ通らなかった原因（2026-09-20・解決済み）
 
@@ -243,7 +255,7 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 | --- | --- | --- |
 | LAN アドレス | `192.168.10.1/24` | 現行ゲートウェイを引き継ぐ。`platform/terraform/site.yaml` の `gateway` / `dns_servers` を変更せずに済む |
 | DHCP 配布範囲 | `192.168.10.20` 〜 `.99` | `.2〜.19` は機器帯（AP・Pi・プリンタ・Proxmox ホスト）として外へ出す。固定は dnsmasq の MAC 予約 |
-| DNS | OpenWrt の dnsmasq が `192.168.10.1` で応答 | 現行と同じ |
+| DNS | **AdGuard Home が `192.168.10.1:53` で応答**（広告遮断・上流は DoH）。dnsmasq は DHCP とローカル名（`*.lan`）だけを `:5353` で担当。IPv6 の RDNSS は配れない（下記） | 広告遮断と DNS の暗号化。ISP の DNS 不調から独立（2026-09-20 に dnsmasq から移行） |
 | WAN | `proto map` / `maptype map-e`、`tunlink` は `wan6` | 上表の MAP-E パラメータを設定 |
 | MTU | 1460、MSS clamp 1420 | 実測値 |
 | IPv6 | RA・DHCPv6 は odhcpd の **relay モード**、近隣代理は **ndppd** | PD がないため /64 を LAN へ中継する。`ndp relay` は再起動に耐えない（下記） |

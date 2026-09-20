@@ -100,6 +100,8 @@ class ImageContentsTests(unittest.TestCase):
     def test_the_scripts_are_executable_in_git(self):
         for name in ('build.sh',
                      'rootfs/etc/shakecloud/apply',
+                     'rootfs/etc/uci-defaults/97-shakecloud-adguard',
+                     'rootfs/etc/uci-defaults/98-shakecloud-ndppd',
                      'rootfs/etc/uci-defaults/99-shakecloud-router'):
             path = OPENWRT / name
             self.assertTrue(os.access(path, os.X_OK), name)
@@ -269,6 +271,30 @@ class ImageContentsTests(unittest.TestCase):
         forwarding = section(self.firewall, 'forwarding')
         self.assertEqual(forwarding['options']['src'], 'lan')
         self.assertEqual(forwarding['options']['dest'], 'wan')
+
+    def test_the_dns_entry_point_is_adguard(self):
+        # dnsmasq keeps DHCP and local names on 5353; the LAN is told to use
+        # the router (AdGuard) for DNS. The `dns` list is for odhcpd (IPv6),
+        # but JPNE's RA carries no RDNSS, so IPv6 clients still get their
+        # resolver from DHCPv4 (see router-config.md).
+        dnsmasq = section(self.dhcp, 'dnsmasq')
+        self.assertEqual(dnsmasq['options']['port'], '5353')
+        self.assertEqual(dnsmasq['options']['noresolv'], '1')
+        self.assertIn('127.0.0.1#53', dnsmasq['lists']['server'])
+        lan = section(self.dhcp, 'dhcp', 'lan')
+        self.assertIn('192.168.10.1', lan['lists']['dns'])
+
+    def test_adguard_is_installed_and_configured(self):
+        self.assertIn('adguardhome', load(OPENWRT / 'openwrt.yaml')['packages'])
+        config = load(OPENWRT / 'rootfs/etc/adguardhome/adguardhome.yaml')
+        self.assertEqual(config['schema_version'], 29)
+        self.assertEqual(config['dns']['port'], 53)
+        # 管理画面は LAN に出さない（SSH トンネルで開く）。
+        self.assertEqual(config['http']['address'], '127.0.0.1:3000')
+        self.assertIn('[/lan/]127.0.0.1:5353', config['dns']['upstream_dns'])
+        self.assertTrue(any('dns-query' in upstream
+                            for upstream in config['dns']['upstream_dns']))
+        self.assertTrue((OPENWRT / 'rootfs/etc/uci-defaults/97-shakecloud-adguard').exists())
 
     def test_the_management_lan_reaches_the_router(self):
         lan = section(self.firewall, 'zone', 'lan')

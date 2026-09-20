@@ -11,6 +11,8 @@
 | --- | --- |
 | UCI | OpenWrt の設定ファイル（`/etc/config/...`）。テキストなので Git で差分が読める |
 | dnsmasq | LAN に IP を配る（DHCP）・名前を引く（DNS）担当 |
+| AdGuard Home | DNS の窓口。広告を遮断し、上流を暗号化する |
+| DoH | DNS over HTTPS。DNS の問い合わせを HTTPS で包んで送る |
 | odhcpd | IPv6 の RA と DHCPv6 の担当 |
 | ndppd | IPv6 の「近隣代理」。上流が端末を呼ぶとき、代わりに返事する |
 | MAP-E | v6プラスの方式。IPv4 を IPv6 のトンネルに載せる |
@@ -35,7 +37,10 @@
 | `/etc/shakecloud/config/network` | `eth0` が LAN、WAN は ISP の DHCP | `eth0`=WAN（MAP-E）、`eth1`=LAN（`192.168.10.1`） | ONU 側を WAN、既存 LAN を LAN にする |
 | 〃 | — | `legacymap '1'`、`wan6` に `extendprefix '1'` | JPNE 固有の CE 形式と、PD が無いときの /64 取得 |
 | `/etc/shakecloud/config/dhcp` | dnsmasq が LAN に広い範囲を配る | プール `.20〜.99`、`.2〜.19` は機器帯 | 固定機器と動的を混ぜない |
+| 〃 | dnsmasq が DNS の窓口 | DNS の窓口は **AdGuard（:53）**、dnsmasq は DHCP とローカル名（`:5353`） | 広告遮断と DoH |
 | 〃 | IPv6 は LAN でサーバ | RA・DHCPv6 は **relay**、ndp は ndppd に任せる | 上流の /64 を LAN へ中継する |
+| `/etc/adguardhome/adguardhome.yaml` | なし | `:53` で受け、`*.lan` は dnsmasq へ、他は DoH。UI は `127.0.0.1:3000` | 広告・トラッカー遮断と DNS の暗号化 |
+| `uci-defaults/97-shakecloud-adguard` | なし | AdGuard を有効化し、設定パスを UCI に合わせる | 24.10 の既定パス `/etc/adguardhome.yaml` と違うため |
 | `/etc/shakecloud/config/firewall` | 既定のゾーン | WAN は masq + mtu_fix | NAT と MSS clamp（MTU 1460 に合わせる） |
 | `/etc/shakecloud/config/system` | ホスト名 `OpenWrt` | `router-01`、JST、NICT NTP | 識別と時刻合わせ |
 | `/etc/shakecloud/apply` + `uci-defaults/99-…` | なし | 初回起動で設定を反映 | 設定の正本を `/etc/shakecloud/config/` に保つ |
@@ -56,7 +61,33 @@
 | 再起動で固定端末の IPv6 が消える | odhcpd の ndp relay は一度しか学習しない | ndppd + `91-lan-prefix-route` |
 | 予約が UCI と NetBox で二重管理 | — | `confdir=/etc/dnsmasq.d` にして NetBox 生成へ |
 
-## 3. ホスト（Proxmox / K11）側の変更
+## 3. DNS の構成（AdGuard Home）
+
+```
+端末 ──DNS──▶ AdGuard Home（192.168.10.1:53）──DoH──▶ Cloudflare / Google
+                   │  *.lan だけ
+                   ▼
+             dnsmasq（127.0.0.1:5353）＝ DHCP とローカル名
+```
+
+- **窓口は AdGuard**: 広告・トラッカーを遮断し、上流は DoH（暗号化）。
+  ISP の DNS 不調（`refused` を返す問題）から独立する
+- **dnsmasq は DHCP とローカル名だけ**: DNS は 5353 へ移した。AdGuard が
+  `*.lan` をここへ転送する（DHCP のリース名・NetBox の予約名が引ける）
+- **ローカル名は `.lan` を付けて引く**: `aterm.lan` のように。AdGuard は
+  末尾一致でしか転送できないため、1語の名前（`aterm`）は通らない
+- **IPv6 端末の DNS は DHCPv4 で配る分だけ**: `dhcp.lan.dns` は odhcpd 用に
+  入れてあるが、**JPNE の上流 RA に RDNSS が無いため、いまは効かない**。
+  odhcpd の relay は「上流 RA の RDNSS を書き換える」方式で、元が無ければ
+  何も配れない（実測で確認。2026-09-20）。LAN 端末は DHCPv4 の
+  `192.168.10.1` を使う。ISP が将来 RDNSS を載せれば、この設定で AdGuard へ
+  書き換わる。恒久的に配る方法（radvd を RDNSS 専用で併用する等）は未実施
+- **管理画面は LAN に出さない**（`127.0.0.1:3000`）。開くときは SSH トンネル:
+  `ssh -L 3000:127.0.0.1:3000 root@192.168.10.1` → `http://localhost:3000/`
+- フィルタは AdGuard DNS filter（約18万件）。設定の正本は
+  `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`
+
+## 4. ホスト（Proxmox / K11）側の変更
 
 | 変更 | 理由 |
 | --- | --- |
@@ -68,11 +99,12 @@
 | `kernel.panic=10` / `panic_on_oops=1` | panic でも自動再起動 |
 | （未）BIOS の AC 復帰設定・UPS 接続 | 停電対策。物理作業 |
 
-## 4. 変えたいときの正本
+## 5. 変えたいときの正本
 
 | 対象 | 正本 | 反映方法 |
 | --- | --- | --- |
 | UCI 設定 | `platform/openwrt/rootfs/etc/shakecloud/config/` | `build.sh` で再ビルド、または `/etc/shakecloud/apply` |
+| DNS（AdGuard） | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml` | 再ビルド、または `scp` 後に `/etc/init.d/adguardhome restart` |
 | 機器の予約 | `platform/netbox/devices.yaml` | `tools/netbox-dhcp-sync.py ensure && pull`（timer が自動実行） |
 | VM の形 | `platform/terraform/router.yaml` + `router/` | `tools/tf router apply` |
 | ホストのネットワーク | 手順: [router.md](router.md) | 手作業（物理コンソール推奨） |
@@ -80,13 +112,17 @@
 
 **ルータ上で UCI を直接編集しない。** 正本は Git と NetBox です。
 
-## 5. 確認コマンド
+## 6. 確認コマンド
 
 ```bash
 # 設定（UCI）
 ssh root@192.168.10.1 'uci show network.wan; uci show dhcp.wan6'
 # 予約（NetBox 生成）
 ssh root@192.168.10.1 'cat /etc/dnsmasq.d/netbox-reservations.conf'
+# DNS（AdGuard 経由）
+ssh root@192.168.10.1 'nslookup example.com 192.168.10.1'      # 外部（DoH）
+ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'  # 0.0.0.0 なら遮断
+ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'        # ローカル名
 # 動作（STUN・PMTU・IPv6・リンクの6項目）
 python3 tools/verify-router.py --pve root@192.168.10.10
 # ホストの watchdog

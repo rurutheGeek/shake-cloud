@@ -1,0 +1,11 @@
+#!/bin/sh
+# AdGuard Home を有効にする。DNS の窓口は AdGuard（:53）で、dnsmasq は
+# DHCP とローカル名（:5353）へ移る。設定の正本は
+# /etc/adguardhome/adguardhome.yaml（rootfs が焼く）。
+# 詳細は docs/operations/router-config.md。
+#
+# 24.10 のパッケージは既定で /etc/adguardhome.yaml を見るので、パスを合わせる。
+uci set adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'
+uci commit adguardhome
+/etc/init.d/adguardhome enable
+exit 0

@@ -31,6 +31,12 @@ config dnsmasq
 	# tools/netbox-dhcp-sync.py が netbox-reservations.conf を書き、
 	# dnsmasq を再読込する。手で編集しない（正本は NetBox の reserved IP）。
 	option confdir '/etc/dnsmasq.d'
+	# **DNS の窓口は AdGuard Home（:53）。** dnsmasq の DNS は 5353 へ移し、
+	# DHCP とローカル名（*.lan・リース名）だけを担当する。外部クエリは
+	# AdGuard（127.0.0.1#53）へ転送する。ISP の DNS は使わない。
+	option port '5353'
+	option noresolv '1'
+	list server '127.0.0.1#53'
 
 # 固定アドレス（.2〜.19 の機器帯）は **NetBox が正本**。
 # 機器の宣言は platform/netbox/devices.yaml、dnsmasq への反映は
@@ -41,6 +47,12 @@ config dhcp 'lan'
 	# 機器帯 .2〜.19 を空けて .20〜.99 を配る。
 	option start '20'
 	option limit '80'
+	# ルータ自身を DNS として案内する（odhcpd 用）。
+	# **注: いま IPv6 端末には届かない。** JPNE の上流 RA には RDNSS が無く、
+	# odhcpd の relay は「上流 RA にある RDNSS を書き換える」方式のため、
+	# 書き換える元が無い。LAN 端末は DHCPv4 で 192.168.10.1（AdGuard）を使う。
+	# 将来 ISP が RDNSS を載せれば、この1行で AdGuard へ書き換わる。
+	list dns '192.168.10.1'
 	option leasetime '12h'
 	option dhcpv4 'server'
 	option dhcpv6 'relay'

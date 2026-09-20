@@ -21,6 +21,7 @@ Aterm WG1200HP4 を AP モードへ移し、K11（`apextox`）上の OpenWrt VM 
 | 対象 | 場所 |
 | --- | --- |
 | UCI 設定（ルータの設定そのもの） | `platform/openwrt/rootfs/etc/shakecloud/config/` |
+| DNS（AdGuard Home）の設定 | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml` |
 | イメージのビルド宣言 | `platform/openwrt/openwrt.yaml` |
 | ビルド | `platform/openwrt/build.sh`（出力は `dist/openwrt-router.raw`） |
 | VM の宣言（2 NIC・起動順・リンク状態） | `platform/terraform/router.yaml` |
@@ -112,7 +113,7 @@ Git に入れず、`.local/` など Git 管理外の運用メモへ書きます�
 | 住所 | 機器 | MAC |
 | --- | --- | --- |
 | `.2` | Aterm（AP） | `80:22:a7:8f:27:80` |
-| `.3` | プリンタ（MAC 未登録。埋めると予約が有効） | — |
+| `.3` | プリンタ | `f8:a2:6d:a5:e9:fb`（`wlan0`） |
 | `.10` | Proxmox ホスト `apextox` | `c8:ff:bf:0d:fd:6d` |
 | `.11` | tarakoserver（Pi 4） | `e4:5f:01:f2:b8:dc` |
 | `.12` | shakeserver（Pi 5） | `2c:cf:67:2c:e3:4d` |
@@ -133,6 +134,37 @@ Aterm の UI を開く必要があるときは、BR モードでは `aterm.me` �
 サーバ機能（電源を切り、らくらくスタートを押したまま電源を入れ、CONVERTER が
 緑点滅したら離す → `http://192.168.1.210/`）を使い、設定後は**再起動して強制
 DHCP を止めます**。
+
+### DNS と広告遮断（AdGuard Home）
+
+DNS の窓口は **AdGuard Home**（`192.168.10.1:53`）です。広告・トラッカーを
+遮断し、上流は DoH（Cloudflare / Google）で暗号化します。dnsmasq は DHCP と
+ローカル名だけを担当し、DNS は `:5353` に移っています。
+
+```
+端末 ──▶ AdGuard（:53）──DoH──▶ Cloudflare / Google
+              │  *.lan だけ
+              ▼
+        dnsmasq（127.0.0.1:5353）＝ DHCP・ローカル名
+```
+
+- **ローカル名は `.lan` を付けて引きます**（`aterm.lan`・`tarakoserver.lan`）。
+  1語の名前（`aterm`）は AdGuard から dnsmasq へ転送できません（末尾一致のみ）。
+  `*.apextox.dpdns.org` は今までどおり DoH 側で解決します。
+- **端末が使う DNS は DHCPv4 で配る `192.168.10.1` です。** IPv6 の RDNSS は
+  JPNE の上流 RA に RDNSS が無いため配れません（odhcpd の relay は上流 RA の
+  RDNSS を書き換える方式）。実測で確認済み（2026-09-20）。ISP 側が変われば
+  `dhcp.lan.dns` の1行で AdGuard へ書き換わります。
+- **管理画面はルータの localhost だけ**（`127.0.0.1:3000`）。開くとき:
+  `ssh -L 3000:127.0.0.1:3000 root@192.168.10.1` → `http://localhost:3000/`
+- 設定の正本は `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`。
+  反映は scp 後に `/etc/init.d/adguardhome restart`（UCI と違い reboot 不要）。
+  パッケージは `openwrt.yaml` に入っているので、イメージ再ビルドでも入ります。
+
+```bash
+ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'  # 0.0.0.0 なら遮断
+ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'        # ローカル名
+```
 
 ## 1. ホスト側の準備（既存ネットに影響しない）
 
@@ -516,6 +548,19 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   （`import_from` の in-place 更新のみで、稼働中のディスクは
   `local-lvm:vm-101-disk-0` の別ボリューム）。
   ビルドには dev-b へ `make` `gawk` `bzip2` の追加が必要だった。
+- 2026-09-20: **DNS の窓口を dnsmasq から AdGuard Home へ移した。**
+  `opkg install adguardhome`（0.107.57）→ 設定を配置 → dnsmasq を `:5353` へ
+  （`port`・`noresolv`・`server 127.0.0.1#53`）→ AdGuard 起動。実測:
+  `example.com` は DoH で解決、`doubleclick.net` は `0.0.0.0`（遮断）、
+  `aterm.lan` は dnsmasq 経由で `.2`、`nextcloud.apextox.dpdns.org` は `.101`、
+  ルータ自身の解決も通る。フィルタは約18万件。
+  **IPv6 の RDNSS は配れない**（JPNE の上流 RA に RDNSS が無く、odhcpd の
+  relay は上流 RA の RDNSS を書き換える方式のため。実測確認）。端末は DHCPv4 の
+  `192.168.10.1` を使う。
+  **24.10 のパッケージは既定で `/etc/adguardhome.yaml` を見る**ため、UCI
+  `adguardhome.config.config` を `/etc/adguardhome/adguardhome.yaml` に合わせた
+  （`uci-defaults/97-shakecloud-adguard` が同じことをする）。
+  正本は `rootfs/etc/adguardhome/adguardhome.yaml` と `dhcp`。
 
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 

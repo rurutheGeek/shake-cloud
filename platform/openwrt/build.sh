@@ -98,6 +98,8 @@ sys.stdout.write('\n'.join(keys) + '\n')
 PY
 
 chmod 755 "$overlay/etc/shakecloud/apply" \
+          "$overlay/etc/uci-defaults/97-shakecloud-adguard" \
+          "$overlay/etc/uci-defaults/98-shakecloud-ndppd" \
           "$overlay/etc/uci-defaults/99-shakecloud-router"
 chmod 644 "$overlay/etc/dropbear/authorized_keys" \
           "$overlay"/etc/shakecloud/config/*

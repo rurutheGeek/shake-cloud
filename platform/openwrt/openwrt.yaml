@@ -36,6 +36,7 @@ packages:
   - luci
   - luci-ssl
   - luci-proto-ipv6
+  - adguardhome
   - curl
   - tcpdump
   # WAN 側の近隣要請への代理応答。odhcpd の `ndp relay` は端末が
