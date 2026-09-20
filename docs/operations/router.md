@@ -305,6 +305,23 @@ Aterm の AP 化を最後にすることで、切替当日の作業は「配線�
 
 - **イメージの更新（版を上げるとき・初期状態を作り直すとき）**:
   `platform/openwrt/build.sh` で作り直し、`tools/tf router apply`。
+
+  **`terraform@pve` は置きイメージを削除できません。** `/storage/local` には
+  `Datastore.AllocateTemplate`（アップロード）しか与えておらず、
+  `Datastore.Allocate`（削除）は無いため、**2 回目以降の apply は
+  「古いファイルの destroy」で HTTP 403 になります**。権限を広げず、先に
+  root トークンで古いファイルだけ消してから apply します（次の plan は
+  `0 to destroy` になります）。
+
+  ```bash
+  TOKEN=$(sops -d platform/sops/proxmox-root.sops.yaml     | grep -E '^PROXMOX_VE_API_TOKEN:' | sed 's/^[^:]*: *//')
+  curl -sk -X DELETE -H "Authorization: PVEAPIToken=$TOKEN"     'https://192.168.10.126:8006/api2/json/nodes/apextox/storage/local/content/local:import/openwrt-router.raw'
+  tools/tf router plan   # 0 to destroy になる
+  tools/tf router apply
+  ```
+
+  **稼働中の VM には影響しません。** 置きイメージは作成時に取り込むだけで、
+  動いているディスクは `local-lvm:vm-101-disk-0` の別ボリュームです。
   イメージは `filesha256` で差分検出されますが、**VM のディスクは自動では
   入れ替わりません**。メンテナンス時間に VM を作り直します
   （`tools/tf router apply -replace=proxmox_virtual_environment_vm.router`。
@@ -417,11 +434,11 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   捨てていなかったので、切替で初めて出た。`list rebind_domain
   'apextox.dpdns.org'` を足して解決（protection 自体は残す）。
   `tests/test_router.py` が `dns.yaml` のゾーンと突き合わせて検査する。
-- 2026-09-20: **イメージの再ビルドは未実施。** `platform/openwrt/build.sh` は
-  dev-b に `make` が無くて止まる（`sudo apt-get install -y make` が要る）。
-  稼働中のルータは `opkg`／`uci` で同じ状態になっているが、**VM を作り直す前に
-  必ずビルドし直すこと**（`ndppd` パッケージと rootfs の新規ファイルが
-  イメージに入っていない）。
+- 2026-09-20: イメージを再ビルドし、`tools/tf router apply` で Proxmox の
+  置きイメージを入れ替えた（`No changes` まで確認）。VM は無傷
+  （`import_from` の in-place 更新のみで、稼働中のディスクは
+  `local-lvm:vm-101-disk-0` の別ボリューム）。
+  ビルドには dev-b へ `make` `gawk` `bzip2` の追加が必要だった。
 
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 
