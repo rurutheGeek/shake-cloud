@@ -209,7 +209,7 @@ def probe_gateway(check, args, wan):
     expected_mac = args.lan_mac
     if not expected_mac and args.pve:
         output, error = ssh_run(args.pve, args.pve_key,
-                                f"qm config {args.vm_id} | sed -n 's/^net1: [^,]*,virtio=\\([^,]*\\).*/\\1/p'")
+                                f"qm config {args.vm_id} | sed -n 's/^net1:.*virtio=\\([^,]*\\).*/\\1/p'")
         if output:
             expected_mac = output.strip().lower()
     if expected_mac and observed_mac.lower() != expected_mac.lower():
