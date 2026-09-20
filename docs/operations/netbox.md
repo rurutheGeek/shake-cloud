@@ -100,6 +100,8 @@ sops exec-env platform/sops/netbox.sops.yaml \
 - 固定IPを持たないが**名前だけ付けたい機器**（カメラ・家電など）は `devices.yaml`
   の `clients` に書きます。`dhcp-host=MAC,名前` を生成し、動的IPのまま DNS 名が
   引けます（例: `eufycam-s4`）
+- **リースが消えた DHCP レコードは削除**します。機器が別の住所へ移ったときに
+  「廃止済」が並び、機器自体が廃止されたように見えるのを避けるためです
 - MAC は NetBox 4.x の `interface.mac_address`。Terraform Provider は読み取り専用
   なので dcim は API（このツール）で管理します
 - **UCI に `config host` を手書きしない。** 生成ファイルと重複すると dnsmasq は

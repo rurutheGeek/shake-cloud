@@ -73,6 +73,11 @@ class NetBox:
             raise NetBoxError(f'NetBox PATCH {path} HTTP {response.status_code}: {response.text[:200]}')
         return response.json()
 
+    def delete(self, path):
+        response = self.session.delete(self.base + path, timeout=30)
+        if response.status_code != 204:
+            raise NetBoxError(f'NetBox DELETE {path} HTTP {response.status_code}: {response.text[:200]}')
+
 
 def load_yaml(path):
     return yaml.safe_load(path.read_text(encoding='utf-8'))
@@ -378,11 +383,11 @@ def push(api, args):
         address = str(ipaddress.ip_interface(entry['address']).ip)
         if address in live:
             continue
-        actions.append(f"expire {address}")
+        # リースが消えたアドレスは残さない。機器が別の住所へ移っただけなのに
+        # 「廃止」が並ぶと、機器自体が廃止されたように見えるため。
+        actions.append(f"delete {address} (lease gone)")
         if not args.dry_run:
-            api.patch(f"/ipam/ip-addresses/{entry['id']}/",
-                      {'status': 'deprecated',
-                       'description': (entry.get('description') or '') + ' (lease expired)'})
+            api.delete(f"/ipam/ip-addresses/{entry['id']}/")
 
     if args.dry_run:
         print('push: 差分（--dry-run のため書き込まない）')
