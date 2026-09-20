@@ -1,0 +1,7 @@
+#!/bin/sh
+# 初回起動時に Git 管理の UCI 設定を反映する。実行後に procd がこの
+# スクリプトを削除する。設定の正本は /etc/shakecloud/config/。
+if [ -x /etc/shakecloud/apply ]; then
+	/etc/shakecloud/apply boot
+fi
+exit 0

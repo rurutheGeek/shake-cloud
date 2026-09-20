@@ -94,11 +94,25 @@ iface vmbr1 inet manual
 """
         self.assertEqual(build(interfaces=interfaces)['bridge'], 'vmbr0')
 
-    def test_two_real_bridges_refuse_to_guess(self):
+    def test_a_guest_link_bridge_without_a_host_address_is_not_a_candidate(self):
+        # The router VM's WAN bridge (vmbr1, nic0) has physical ports but no
+        # host address. It is not where the management prefix lives, so adding
+        # it must not make site.yaml refuse to regenerate.
         interfaces = INTERFACES + """
 auto vmbr1
 iface vmbr1 inet manual
-        bridge-ports enp2s0
+        bridge-ports nic0
+"""
+        self.assertEqual(build(interfaces=interfaces)['bridge'], 'vmbr0')
+
+    def test_two_addressed_bridges_refuse_to_guess(self):
+        # Two bridges both claiming to carry the host's address is genuinely
+        # ambiguous; naming them is the honest answer.
+        interfaces = INTERFACES + """
+auto vmbr1
+iface vmbr1 inet static
+        address 10.0.0.1/24
+        bridge-ports nic0
 """
         with self.assertRaises(site.Ambiguous):
             build(interfaces=interfaces)

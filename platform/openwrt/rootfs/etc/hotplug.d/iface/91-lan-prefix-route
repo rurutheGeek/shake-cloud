@@ -1,0 +1,35 @@
+#!/bin/sh
+# 上流から寄越された /64 を br-lan 向きの経路にする。
+#
+# ndppd が代理応答すると、上流は LAN 端末宛のパケットを eth0 へ届ける。
+# それを LAN へ流すには経路が要るが、PD が無い本構成では netifd が
+# `unreachable <prefix>/64 dev lo` しか置かない（委譲先が無いため）。
+# ndppd 0.2.5 に autowire は無いので、ここで入れる。
+#
+# **プレフィックスは実行時に ubus から取る。** 上流の /64 は固定ではなく、
+# リポジトリにグローバルアドレスを書かない方針のため
+# （docs/development/N06-router.md）。
+#
+# 検証:
+#   ip -6 route | grep br-lan        # <prefix>/64 dev br-lan があること
+#   logread -e lan-prefix-route
+[ "${ACTION:-}" = "ifup" ] || exit 0
+[ "${INTERFACE:-}" = "wan6" ] || exit 0
+
+status=$(ubus call network.interface.wan6 status 2>/dev/null) || exit 0
+prefix=$(echo "$status" | jsonfilter -e '@["ipv6-prefix"][0].address')
+mask=$(echo "$status" | jsonfilter -e '@["ipv6-prefix"][0].mask')
+[ -n "$prefix" ] && [ -n "$mask" ] || exit 0
+
+# プレフィックスが変わったら古い経路を外す。消し忘れると、もう届かない
+# レンジを br-lan へ流し続けることになる。
+state=/tmp/lan-prefix-route
+old=$(cat "$state" 2>/dev/null)
+[ -n "$old" ] && [ "$old" != "$prefix/$mask" ] && ip -6 route del "$old" dev br-lan 2>/dev/null
+
+# netifd の unreachable（metric 2147483647）より強い metric で入れる。
+ip -6 route replace "$prefix/$mask" dev br-lan metric 1024 || exit 0
+echo "$prefix/$mask" > "$state"
+
+logger -t lan-prefix-route "routed $prefix/$mask to br-lan"
+exit 0

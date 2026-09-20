@@ -1,0 +1,64 @@
+# DHCP と IPv6。IPv4 は dnsmasq が 192.168.10.2〜.99 を配る。
+# IPv6 は PD がないため、odhcpd の relay で上流の /64 と RA を LAN へ中継する
+# （ndp relay + ra relay）。Aterm の ND Proxy と同じ役割。
+config dnsmasq
+	option domainneeded '1'
+	option boguspriv '1'
+	option filterwin2k '0'
+	option localise_queries '1'
+	option rebind_protection '1'
+	option rebind_localhost '1'
+	option local '/lan/'
+	option domain 'lan'
+	option expandhosts '1'
+	option nonegcache '0'
+	option cachesize '1000'
+	option authoritative '1'
+	option readethers '1'
+	option leasefile '/tmp/dhcp.leases'
+	option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
+	option localservice '1'
+	option ednspacket_max '1232'
+
+config dhcp 'lan'
+	option interface 'lan'
+	# 現行 Aterm と同じ .2〜.99。固定割当はしていないので移行作業はない。
+	option start '2'
+	option limit '98'
+	option leasetime '12h'
+	option dhcpv4 'server'
+	option dhcpv6 'relay'
+	option ra 'relay'
+	# **ndp は ndppd に任せる（disabled）。** odhcpd の ndp relay は端末が
+	# アドレスを作る瞬間（DAD）を捕まえて /128 経路を入れる方式で、一度
+	# 取りこぼすと二度と学習の機会が来ない。ルータを再起動しても端末は
+	# アドレスを作り直さないため、MAC 由来の固定アドレス（サーバ類）は
+	# 再起動のたびに IPv6 を失う（2026-09-20 に実機で再現）。代理応答は
+	# /etc/ndppd.conf、転送用の経路は
+	# /etc/hotplug.d/iface/91-lan-prefix-route が受け持つ。
+	option ndp 'disabled'
+
+config dhcp 'wan'
+	option interface 'wan'
+	option ignore '1'
+
+config odhcpd 'odhcpd'
+	option maindhcp '0'
+	option leasefile '/tmp/hosts/odhcpd'
+	option leasetrigger '/usr/sbin/odhcpd-update'
+	option loglevel '4'
+
+# relay の master は上流（wan6）側に付ける。LAN は relay 側。
+#
+# **master には `master '1'` だけでなく、中継する 3 つを relay にする必要が
+# ある。** odhcpd のモードは上流・下流それぞれのインターフェースごとに持つ
+# ので、片側（lan）だけ relay にしても中継は始まらない。2026-09-20 の切替後、
+# これが欠けていて LAN へ RA が 1 つも出ず、端末が IPv6 を取れなかった。
+config dhcp 'wan6'
+	option interface 'wan6'
+	option ignore '1'
+	option master '1'
+	option ra 'relay'
+	option dhcpv6 'relay'
+	# lan 側と同じ理由で ndppd に任せる。
+	option ndp 'disabled'

@@ -1,0 +1,13 @@
+config system
+	option hostname 'router-01'
+	option timezone 'JST-9'
+	option zonename 'Asia/Tokyo'
+	option ttylogin '0'
+	option log_size '128'
+	option urandom_seed '0'
+
+config timeserver 'ntp'
+	option enabled '1'
+	option enable_server '0'
+	list server 'ntp.nict.jp'
+	list server '0.openwrt.pool.ntp.org'

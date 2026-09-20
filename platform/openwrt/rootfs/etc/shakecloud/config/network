@@ -1,0 +1,65 @@
+# ルータのネットワーク。値の根拠は docs/development/N06-router.md。
+#
+# eth0 = WAN（Proxmox の net0 = vmbr1 = nic0 側・ONU）
+# eth1 = LAN（Proxmox の net1 = vmbr0 = nic1 側・既存 LAN）
+#
+# **N06 で確定した実測値（ISP 共通の MAP-E パラメータ）をここに書く。**
+# グローバル IPv4・PSID・IPv6 プレフィックスはこのファイルには書かない
+# （PSID は wan6 が受けた /64 から mapcalc が導出する）。
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config device
+	option name 'br-lan'
+	option type 'bridge'
+	list ports 'eth1'
+
+config interface 'lan'
+	option device 'br-lan'
+	option proto 'static'
+	option ipaddr '192.168.10.1'
+	option netmask '255.255.255.0'
+	# PD がないため、LAN へは odhcpd の relay で /64 を中継する（dhcp 参照）。
+	option ip6assign '0'
+
+# MAP-E トンネル。BR アドレス・Rule prefix・EA/PSID 長は ISP 共通値。
+# 仮想インターフェースなので device は持たない（下回りは tunlink の wan6）。
+config interface 'wan'
+	option proto 'map'
+	option maptype 'map-e'
+	option peeraddr '2404:9200:225:100::64'
+	option ip6prefix '240b:10::'
+	option ip6prefixlen '31'
+	option ipaddr '106.72.0.0'
+	option ip4prefixlen '15'
+	option ealen '25'
+	option psidlen '8'
+	option offset '4'
+	# **JPNE の BR は draft-03 系の CE アドレス形式を使う。**
+	# OpenWrt の既定（RFC 7597）は IID を `0:<IPv4>:<PSID>` にするが、JPNE は
+	# それを 1 バイト左へ寄せた `<0>:<IPv4>:<PSID>:<0>` を期待する。既定のまま
+	# だと送信だけ成立し、BR からの戻りが届く先（上流の Neighbor Solicitation
+	# が問い合わせるアドレス）を誰も名乗らないため、**IPv4 が全滅する**
+	# （IPv6 は無傷なので切り分けが難しい）。2026-09-20 に実機で確認:
+	#   上流が聞く IID : 00 <IPv4 4byte> <PSID> 00   ← LEGACY=1 の並び
+	#   既定の IID     : 00 00 <IPv4 4byte> <PSID>   ← 1 バイト右へずれる
+	# IPv4 アドレス・PSID・ポートセットの計算はどちらでも同じ。
+	option legacymap '1'
+	option tunlink 'wan6'
+	# 実測値（ping -M do）。TCP の MSS は firewall の mtu_fix が追従する。
+	option mtu '1460'
+	option encaplimit 'ignore'
+
+# 上流の IPv6。JPNE はひかり電話なしだと PD を委譲せず、RA で /64 を1つだけ
+# 渡す。mapcalc は ubus の ipv6-prefix から PD を探すので、RA の /64 を
+# **extendprefix（RFC 7278）で ipv6-prefix として見せる**。これが無いと
+# map が NO_MATCHING_PD で止まる。
+config interface 'wan6'
+	option device 'eth0'
+	option proto 'dhcpv6'
+	option reqaddress 'try'
+	option reqprefix 'no'
+	option extendprefix '1'

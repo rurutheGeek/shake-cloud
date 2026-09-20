@@ -1,0 +1,8 @@
+#!/bin/sh
+# ndppd を初回起動で有効にする。設定は /etc/ndppd.conf（rootfs の正本を
+# Image Builder が焼く。パッケージ同梱の見本は上書きされる）。
+#
+# odhcpd の `ndp relay` ではなく ndppd が WAN 側の近隣要請へ代理応答する。
+# 理由は /etc/ndppd.conf の先頭と docs/development/N06-router.md。
+/etc/init.d/ndppd enable
+exit 0

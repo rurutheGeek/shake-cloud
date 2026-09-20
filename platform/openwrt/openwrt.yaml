@@ -1,0 +1,48 @@
+---
+# ルータ VM の OpenWrt イメージのビルド宣言。**このファイルが正本**。
+#
+# Image Builder で「設定入りイメージ」を作る。設定は rootfs/ 以下（UCI ファイル
+# と初回起動スクリプト）で、platform/terraform/router/ の VM 宣言が
+# dist/<output_image> を取り込む。
+#
+# 秘密値は含まない。URL・チェックサム・パッケージ名はいずれも公開値で、
+# ビルド成果物（dist/）は再生成できるので Git へ入れない。
+#
+# **日付入りのリリースを指定する。** 再実行でビルド元が変わらないため。
+# チェックサムは配布元の sha256sums から転記する。
+version: 24.10.8
+
+imagebuilder:
+  url: https://downloads.openwrt.org/releases/24.10.8/targets/x86/64/openwrt-imagebuilder-24.10.8-x86-64.Linux-x86_64.tar.zst
+  file_name: openwrt-imagebuilder-24.10.8-x86-64.Linux-x86_64.tar.zst
+  checksum: 1b0511a92126ed97550d91295459f8869962f9b7c31dd3d0c7cda75c75825741
+  checksum_algorithm: sha256
+
+# x86/64 の generic プロファイル。BIOS（SeaBIOS + i440fx）で起動する
+# ext4-combined イメージを作る。EFI 版は使わない（VM も BIOS で作る）。
+target: x86/64
+profile: generic
+
+# ルートファイルシステムのパーティションサイズ（MiB）。既定は 104 で、
+# map・LuCI・tcpdump を入れると心もとない。512 まで広げる。
+# **VM ディスクのサイズはこの値を反映する。** 変えたらイメージを作り直す。
+rootfs_partition_mib: 512
+
+# 既定パッケージに**追加**する分。map は MAP-E 本体、ip-full は検証用、
+# luci-ssl は LAN からの管理画面（https・自己署名）、curl/tcpdump は切り分け用。
+packages:
+  - map
+  - ip-full
+  - luci
+  - luci-ssl
+  - luci-proto-ipv6
+  - curl
+  - tcpdump
+  # WAN 側の近隣要請への代理応答。odhcpd の `ndp relay` は端末が
+  # アドレスを作る瞬間しか学習できず、ルータ再起動後に固定アドレスの端末が
+  # IPv6 を失う（docs/development/N06-router.md）。
+  - ndppd
+
+# dist/ へ出すファイル名。Terraform の router モジュールが同じ名前を読む。
+output_image: openwrt-router.raw
+output_manifest: openwrt-router.manifest

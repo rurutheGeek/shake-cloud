@@ -1,0 +1,40 @@
+---
+# ルータ VM（OpenWrt）の宣言。**このファイルが正本**。
+#
+# 配備先は cloud プールではなく platform プールの単独 VM。ゲートウェイそのもの
+# なので 05-seed の NetBox 台帳（管理レンジは .201 から）には載せず、IP は
+# 192.168.10.1 を固定で持つ。設計は docs/development/N06-router.md、配備と
+# 切替の手順は docs/operations/router.md。
+#
+# **links は切替の状態。** 構築中は両方 false（リンクダウン）にして既存 LAN へ
+# 一切影響させない。切替は2段階で行う: 先に wan_connected を true にして
+# MAP-E の疎通を確認し、最後に lan_connected を true にする。Aterm と OpenWrt の
+# 両方が 192.168.10.1 / DHCP / DNS を名乗る瞬間を作らないこと
+# （手順は docs/operations/router.md）。
+vm:
+  name: router-01
+  vm_id: 101
+  pool: platform
+  cpu_cores: 2
+  # バルーニングしない。ルータのメモリをホストの都合で回収させない。
+  memory_mib: 512
+  tags: [router, managed-by-terraform-admin]
+  description: 家庭内ルータ（OpenWrt）。WAN=vmbr1 / LAN=vmbr0
+  # Proxmox の起動順。小さいほど先。up_delay は「次の VM までの待ち時間」。
+  # **Terraform では設定しない**（Proxmox が起動順の設定に Sys.Modify on / を
+  # 要求するため。terraform@pve には与えない）。初回に docs/operations/router.md
+  # の `qm set` で設定する。値の正本はここ。
+  startup_order: 1
+  startup_up_delay: 30
+
+network:
+  # WAN 側の bridge。ホストへ手で作る（nic0 を ports に、inet manual、IP なし）。
+  wan_bridge: vmbr1
+  # LAN 側は site.yaml の network.bridge（実測値）を使う。
+  # **2026-09-20 に切替完了。両方 true が実機と一致する。**
+  # 切替当日は LAN を Proxmox UI で上げたため、ここが false のまま実機と
+  # ずれていた。この状態で apply すると **LAN のリンクが落ちて家中のネットが
+  # 止まる**（ゲートウェイ・DHCP・DNS が全部このVM）。
+  # 落としたいときだけ false に戻すこと。
+  wan_connected: true
+  lan_connected: true

@@ -1,0 +1,66 @@
+#!/bin/sh
+# MAP-E の割当ポートを全ブロック使うための補完。**2026-09-20 に実機で検証済み。
+# イメージへ焼いて既定で有効。**（N06 の「既知の弱点」に対する補完）
+#
+# 背景: map.sh は 15 ブロックぶんの SNAT（snat_port 範囲）を proto データで
+# fw4 へ渡すが、nftables の NAT は範囲が埋まっても次のルールへ落ちない。
+# そのため負荷が高いと最初のブロック（16 ポート）で枯渇し、IPv4 の接続が
+# 失敗する（俗に「ニチバンベンチ」）。ここでは mapcalc が計算した全ポート
+# セットを mark のラウンドロビンで割り当て、240 ポートを使い切る。
+#
+# **ICMP もここで初めて割当内へ入る。** fw4 は map.sh が渡す icmp の SNAT を
+# nftables へ translate しない（[openwrt#11972]）ため、素の masquerade に落ちて
+# 割当外の ICMP id で出てしまい、BR に捨てられる。このスクリプトが
+# `{ tcp, udp, icmp }` をまとめて SNAT するので、インターネットへの ping と
+# `ping -M do` による PMTU 実測ができるようになる。
+#
+# 実測（2026-09-20・投入直後の 226 接続）:
+#   15/15 ブロックへ分散。割当外のポートは無し。
+#   verify-router.py の map_ports が観測ブロック [1, 2, 12, 13, 14, 15]、
+#   pmtu が 1432（= MTU 1460）で PASS。
+#
+# 検証:
+#   nft list table ip mape_nat
+#   ping -4 -M do -s 1432 8.8.8.8      # 通る。1433 は通らない
+#   （外向きの送信元ポートが 240 個の範囲に散ること）
+#
+# 注意: fw4 の srcnat（priority 100）より前に（priority 90 で）SNAT する。
+# 自分より後ろの fw4 の masquerade は、既に SNAT 済みの接続へは効かない。
+# 逆に fw4 の map 用 SNAT も残るため、このテーブルを消せば元に戻る
+# （`nft delete table ip mape_nat`）。
+[ "${ACTION:-}" = "ifup" ] || exit 0
+[ "${INTERFACE:-}" = "wan" ] || exit 0
+
+rules=/tmp/map-wan.rules
+[ -r "$rules" ] || exit 0
+
+# map.sh は mapcalc の計算結果（RULE_1_... ）をこのファイルへ書く。
+eval "$(grep -E '^RULE_' "$rules")"
+[ -n "${RULE_1_PORTSETS:-}" ] || exit 0
+[ -n "${RULE_1_IPV4ADDR:-}" ] || exit 0
+
+table=mape_nat
+nft delete table ip "$table" 2>/dev/null
+nft add table ip "$table"
+nft add chain ip "$table" post '{ type nat hook postrouting priority 90 ; }'
+nft add map ip "$table" chains '{ type mark : verdict ; }'
+
+count=0
+for range in $RULE_1_PORTSETS; do
+	count=$((count + 1))
+	lo="${range%-*}"
+	hi="${range#*-}"
+	nft add chain ip "$table" "set$count"
+	nft add rule ip "$table" "set$count" \
+		meta l4proto '{ tcp, udp, icmp }' counter \
+		snat to "$RULE_1_IPV4ADDR:$lo-$hi" persistent
+	nft add element ip "$table" chains "{ $count : goto set$count }"
+done
+
+nft add rule ip "$table" post oifname "map-wan" \
+	meta l4proto '{ tcp, udp, icmp }' \
+	mark set numgen inc mod "$count" offset 1
+nft add rule ip "$table" post oifname "map-wan" meta mark vmap "@chains"
+
+logger -t mape-ports "installed $count port sets for $RULE_1_IPV4ADDR"
+exit 0

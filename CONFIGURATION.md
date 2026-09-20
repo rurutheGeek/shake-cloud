@@ -17,6 +17,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
 | dev-a / dev-b | 開発VM |
 | game1 | ゲームサーバ（クラウド管理下） |
+| router-01 | OpenWrt（家庭内ルータ。WAN=ONU、LAN=既存LAN。切替済み） |
 
 ## 設定する場所
 
@@ -30,6 +31,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
 | Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
 | 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
+| ルータ（router-01） | LAN・DHCP・DNS・MAP-E・ファイアウォール | `platform/openwrt/rootfs/etc/shakecloud/config/`（UCI の正本）。イメージは `platform/openwrt/openwrt.yaml`、VM は `platform/terraform/router.yaml`、手順は [router-01](docs/operations/router.md) |
 | NetBox | 配備対象・IP・タグ | NetBox管理画面。`platform/terraform/tags.yaml` と `platform/ansible/inventory.netbox.yml` が対応の正本 |
 
 秘密値は.gitignore対象ファイルやSOPS（`platform/sops/`）で管理し、Gitには登録しません。Ansibleはコンテナ・保存領域・初期設定を管理しますが、各アプリの管理画面設定すべてを再現する構成にはなっていません。
