@@ -33,6 +33,11 @@ NETWORK = ROOT / 'platform/terraform/network.yaml'
 DEVICES = ROOT / 'platform/netbox/devices.yaml'
 RESERVATIONS_FILE = '/etc/dnsmasq.d/netbox-reservations.conf'
 LEASES_FILE = '/tmp/dhcp.leases'
+# リースの「不在」を信用してよいのは、ルータがこれだけ起動してから。
+# /tmp は tmpfs でリースDBは再起動で空になり、端末が取り直すまで
+# 「リースが消えた」ように見える。リース期間（12h）より短いと、
+# 再起動のたびに台帳を消してしまう（2026-09-20 に実際に起きた）。
+LEASE_TRUST_SECONDS = 12 * 3600
 DEFAULT_KEY = '~/.ssh/id_ed25519_pve'
 
 
@@ -339,14 +344,30 @@ def pull(api, args):
     return 0
 
 
+def deletes_are_trustworthy(leases, uptime):
+    """リースの不在を「機器が去った」とみなしてよいか。
+
+    再起動直後はリースDB（/tmp、tmpfs）が空か部分的で、まだ取り直して
+    いない端末が「リース無し」に見える。1件も無いときと、起動がリース
+    期間に満たないときは削除しない。
+    """
+    return bool(leases) and uptime >= LEASE_TRUST_SECONDS
+
+
 def push(api, args):
     network = load_yaml(NETWORK)
     dhcp = network['dhcp']
     names = client_names(load_yaml(DEVICES))
-    text, error = ssh_run(args.router, args.key, f'cat {LEASES_FILE}')
+    text, error = ssh_run(args.router, args.key,
+                          f'cat {LEASES_FILE}; echo ---; cat /proc/uptime')
     if text is None:
         raise SystemExit(f'{args.router} へ SSH できない: {error}')
-    leases = parse_leases(text)
+    leases_text, _, uptime_text = text.partition('---')
+    leases = parse_leases(leases_text)
+    try:
+        uptime = float(uptime_text.split()[0])
+    except (IndexError, ValueError):
+        uptime = 0.0
     actions = []
 
     for lease in leases:
@@ -377,17 +398,20 @@ def push(api, args):
                     'dns_name': dns_name, 'description': description})
 
     live = {lease['address'] for lease in leases}
-    for entry in api.get('/ipam/ip-addresses/', status='dhcp', limit=200)['results']:
-        if not in_range(entry['address'], dhcp):
-            continue
-        address = str(ipaddress.ip_interface(entry['address']).ip)
-        if address in live:
-            continue
-        # リースが消えたアドレスは残さない。機器が別の住所へ移っただけなのに
-        # 「廃止」が並ぶと、機器自体が廃止されたように見えるため。
-        actions.append(f"delete {address} (lease gone)")
-        if not args.dry_run:
-            api.delete(f"/ipam/ip-addresses/{entry['id']}/")
+    if not deletes_are_trustworthy(leases, uptime):
+        actions.append(f'push: 削除は見送り（起動 {int(uptime)} 秒・リース {len(leases)} 件）')
+    else:
+        for entry in api.get('/ipam/ip-addresses/', status='dhcp', limit=200)['results']:
+            if not in_range(entry['address'], dhcp):
+                continue
+            address = str(ipaddress.ip_interface(entry['address']).ip)
+            if address in live:
+                continue
+            # リースが消えたアドレスは残さない。機器が別の住所へ移っただけなのに
+            # 「廃止」が並ぶと、機器自体が廃止されたように見えるため。
+            actions.append(f"delete {address} (lease gone)")
+            if not args.dry_run:
+                api.delete(f"/ipam/ip-addresses/{entry['id']}/")
 
     if args.dry_run:
         print('push: 差分（--dry-run のため書き込まない）')

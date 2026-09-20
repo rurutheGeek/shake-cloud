@@ -101,7 +101,12 @@ sops exec-env platform/sops/netbox.sops.yaml \
   の `clients` に書きます。`dhcp-host=MAC,名前` を生成し、動的IPのまま DNS 名が
   引けます（例: `eufycam-s4`）
 - **リースが消えた DHCP レコードは削除**します。機器が別の住所へ移ったときに
-  「廃止済」が並び、機器自体が廃止されたように見えるのを避けるためです
+  「廃止済」が並び、機器自体が廃止されたように見えるのを避けるためです。
+  ただし**ルータの再起動直後は削除しません**。リースDBは `/tmp`（tmpfs）にあり、
+  再起動で空になって端末が取り直すまで「リース無し」に見えるためです。
+  リースが1件も無いときと、起動からリース期間（12時間）未満のときは見送ります
+  （2026-09-20、再起動後に10件消えた事故の対策。テストは
+  `tests/test_netbox_dhcp_sync.py` の `DeleteGuardTests`）
 - MAC は NetBox 4.x の `interface.mac_address`。Terraform Provider は読み取り専用
   なので dcim は API（このツール）で管理します
 - **UCI に `config host` を手書きしない。** 生成ファイルと重複すると dnsmasq は

@@ -39,6 +39,23 @@ bad line
                          [lease['address'] for lease in sync.parse_leases(self.LEASES)])
 
 
+class DeleteGuardTests(unittest.TestCase):
+    """再起動直後の「リース無し」で台帳を消さないための門番。"""
+
+    LEASE = {'mac': 'de:78:35:35:ac:8c', 'address': '192.168.10.44', 'hostname': 'Pixel-8a'}
+
+    def test_an_empty_lease_table_is_not_trusted(self):
+        # 再起動でリースDB（tmpfs）が空になった直後の状態。
+        self.assertFalse(sync.deletes_are_trustworthy([], sync.LEASE_TRUST_SECONDS + 1))
+
+    def test_a_fresh_boot_is_not_trusted_even_with_a_few_leases(self):
+        # 一部の端末だけが先に取り直した状態。残りを「去った」と誤解しない。
+        self.assertFalse(sync.deletes_are_trustworthy([self.LEASE], 60))
+
+    def test_a_long_uptime_with_leases_is_trusted(self):
+        self.assertTrue(sync.deletes_are_trustworthy([self.LEASE], sync.LEASE_TRUST_SECONDS))
+
+
 class RenderTests(unittest.TestCase):
     RECORDS = [
         {'mac': 'E4:5F:01:F2:B8:DC', 'address': '192.168.10.11/24', 'name': 'tarakoserver'},
