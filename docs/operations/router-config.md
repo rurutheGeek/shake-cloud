@@ -4,6 +4,7 @@
 対象読者: ネットワーク機器に慣れていない人。細かい手順は
 [router-01（OpenWrt・自作ルータ）](router.md)、調査の根拠は
 [N06 ルータ自作](../development/N06-router.md) が正本です。
+ネットワーク全体の図と IP 帯は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)。
 
 ## まず用語（3分）
 

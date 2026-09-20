@@ -1,6 +1,6 @@
 # ホームラボの全体像（詳細）
 
-更新日: 2026-09-17
+更新日: 2026-09-20
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -18,9 +18,12 @@
 
 ```mermaid
 flowchart TB
-  devices["家庭内LANの端末"]
+  internet["インターネット<br/>IPv6（v6プラス・MAP-E）"]
+  devices["家庭内LANの端末（有線・Wi-Fi）"]
+  remote["宅外の端末（Tailscale）"]
 
   subgraph host["物理ホスト apextox（Proxmox VE）"]
+    router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS（AdGuard Home）"]
     subgraph infra["基盤VM platform プール"]
       identity["identity<br/>共通ログイン"]
       cloud01["cloud-01<br/>自作クラウド"]
@@ -32,9 +35,21 @@ flowchart TB
       media["media-01<br/>メディア"]
       monitor["monitor-01<br/>監視"]
       game["game1<br/>ゲーム・AI（GPU）"]
+      net01["net-01<br/>Tailscale 復旧経路"]
     end
   end
+  switch["TL-SG605"]
+  aterm["Aterm（APモード）"]
 
+  internet --> router
+  router --> switch
+  switch --> aterm --> devices
+  switch --> services01
+  switch --> media
+  switch --> monitor
+  switch --> game
+  remote -. Tailscale .-> net01
+  net01 -. 復旧経路 .-> switch
   devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
   devices --> media
   devices --> monitor
@@ -43,11 +58,13 @@ flowchart TB
   services01 --> storage
   media --> storage
   monitor --> k8s
+  router -. "IP台帳（予約・リース）" .-> services01
 ```
 
 | 役割 | VM（プール） | 配分（計画。実機は台帳） | 中身 |
 | --- | --- | --- | --- |
 | 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
+| ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
 | 共通ログイン | identity（platform） | 2 / 4GiB / 32GiB | Authentik。SSO・招待・復旧 |
 | 自作クラウド | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル |
 | 台帳・docs・パスワード・家電 | services-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | NetBox・Shake Lab Docs・Homarr・Vaultwarden・Home Assistant・Eufy中継・CUPS |
@@ -62,6 +79,8 @@ flowchart TB
 | 利用者VM（例） | win11pro（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
 VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](architecture/operations.md)）。
+
+**ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](architecture/network-auth.md)、設定は[router-01の設定まとめ](operations/router-config.md)。**
 
 ## 2. 自作しているもの（OSSとの分担）
 
@@ -132,7 +151,7 @@ flowchart LR
   user["利用者"]
   ak["Authentik<br/>identity・VMID 110"]
   oidc["OIDCアプリ<br/>クラウド・Homarr・Grafana・<br/>Nextcloud・Kavita・FreshRSSなど"]
-  forward["Forward Auth<br/>Navidrome・MeTube・CUPS"]
+  forward["Forward Auth<br/>Navidrome・MeTube・KHInsider・CUPS・AdGuard Home"]
   passkey["パスキー・Email OTP<br/>パスワード再設定"]
 
   user --> ak
@@ -153,7 +172,7 @@ Authentik（既製）を identity VM に置き、**その設定を自作コー�
 | クラウド・Homarr・Grafana・Vaultwarden・NetBox | OIDC |
 | Home Assistant | OIDC（community統合。緊急用ローカルも残す） |
 | Nextcloud・Kavita・FreshRSS | 各アプリのOIDC |
-| Navidrome・MeTube・CUPS | Forward Auth（APIは自前認証を分離） |
+| Navidrome・MeTube・KHInsider・CUPS・AdGuard Home | Forward Auth（APIは自前認証を分離） |
 
 ## 5. 自作クラウド shakecloud（cloud-01）
 

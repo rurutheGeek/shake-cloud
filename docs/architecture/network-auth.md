@@ -1,31 +1,43 @@
 # ネットワーク・公開範囲・SSO
 
-[構成案トップ](index.md)へ戻る。ここでは将来の構成を説明します。現在のURLは[接続先一覧](../operations/urls.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
+[構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../operations/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
+
+## 全体図
+
+[![ネットワークの全体像](diagrams/network.svg)](diagrams/network.svg)
+
+図を開くと拡大できます。IP帯は次のとおりです（正本は `platform/terraform/network.yaml` と NetBox）。
+
+| 帯 | 用途 |
+| --- | --- |
+| `192.168.10.1` | router-01（ゲートウェイ・DNS・DHCP） |
+| `.2`〜`.19` | 機器帯（Aterm `.2`・プリンタ `.3`・Proxmox `.10`・Pi `.11`/`.12`。NetBox の予約） |
+| `.20`〜`.99` | DHCP プール（dnsmasq。静的端末も reserved で予約して衝突を防ぐ） |
+| `.100`〜`.180` | cloud プールのVM（クラウドAPIが採番） |
+| `.201`〜`.239` | 管理（Terraform・NetBox） |
+| `.240`〜`.249` | MetalLB（Kubernetes） |
+
+[編集用Mermaid](diagrams/network.mmd)
 
 ## 既存機器の使い方
 
-新規ネットワーク機器の購入は前提にしません。方針は、既存ルータとスイッチを使い、K11のservices-01にセルフホストVPN、ラズパイに予備のTailscale subnet routerとDNS、監視はmonitor-01へ置く構成です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。**2026-09-14: ラズパイは導入せず、Tailscaleの復旧経路は cloud VM `net-01` で作ります**（[net-01（Tailscale subnet router）](../operations/net.md)）。
+新規ネットワーク機器の購入は前提にしません。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**です（[N06](../development/N06-router.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605、宅外の復旧経路は cloud VM `net-01`（Tailscale subnet router）です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
 
-### VPNをラズパイに置く理由と選択肢
+### VPNの置き場所と選択肢
 
-理由は**K11の外に管理用の接続経路を残すため**です。Proxmoxを更新・再起動したときや、VMの設定を壊したときにも、稼働中のラズパイ経由で宅内の管理LANへ入れます。K11故障時にK11のアプリが動くわけではなく、ルータ・回線・電源・ラズパイが正常である必要もあります。
+**宅外から戻る経路は cloud VM `net-01`（Tailscale subnet router）**に置いています（[net-01](../operations/net.md)）。K11 の外に出られないため、復旧経路は K11 上のVMではなく cloud プールに置くのが要点です（当初はラズパイを想定していましたが、導入せず net-01 にしました）。
 
 | 配置 | 向いている用途 | 制約 |
 | --- | --- | --- |
-| ラズパイのTailscale subnet router | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | ラズパイのNIC・CPU・稼働状態に依存 |
+| net-01（Tailscale subnet router） | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | cloud プールの1VM。K11 停止時は Tailscale の別経路（スマホ等）が必要 |
 | 各VMにTailscaleを直接導入 | game1の映像通信、開発VMへのSSH | 対象VM停止中は接続できない。台数ごとの管理が必要 |
-| services-01のセルフホストVPN | 常用アクセス。家電・NetBox等とは別Composeで管理 | services-01再起動時はVPNも停止するため、ラズパイの復旧経路を残す |
-| 既存ルータのVPN機能 | 対応機能があり運用できる場合の代案 | 機種・更新状況・VPN機能が未確認 |
+| セルフホストVPN（N01で継続検討） | 常用アクセス | 認証基盤と同じVMに置くと、その停止で両方止まる |
 
-今回の第一案は「K11のセルフホストVPN＋ラズパイのTailscale復旧経路＋必要なVMへのagent」です。ラズパイは必須機器ではありません。宅内で遊ぶときはLAN直結を優先し、全インターネット通信をラズパイに流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
+宅内で遊ぶときはLAN直結を優先し、全インターネット通信を net-01 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
 
-AdGuard Homeもラズパイの余力に応じて配置します。K11停止中にもDNSとVPN接続を残せますが、停止中のK11上のサービスが利用できるという意味ではありません。[Tailscale subnet router](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
+**DNS（AdGuard Home）は router-01 に置いています。** ルータが落ちると名前解決も止まるため、Aterm をコールドスペアとして残し、復旧手順を[router-01](../operations/router.md)に用意しています。K11 停止中に DNS を残す案（別VM）は今後の検討です。
 
-ラズパイの型番・NIC・実効速度を確認します。ゲーム映像の中継性能が足りなければゲームVMへTailscaleを直接入れます。宅内では直接LAN接続できる経路を使用します。Tailscaleの中継接続は直接接続より遅延・帯域の制約が出やすいため、Moonlight利用時は経路を確認します。[Tailscale性能指針](https://tailscale.com/docs/reference/best-practices/performance)
-
-仮想ルータを常用したい場合はOPNsense VMを追加する選択肢があります。その分のRAM・CPUは別途確保します。OPNsenseはx86-64向けなので、ラズパイでルータを作るならLinuxルーティングなど別の方法を使います。[OPNsenseハードウェア要件](https://docs.opnsense.org/manual/hardware.html)
-
-既存ルータへの切替は手動から始めます。配線、LANゲートウェイ、DHCP、DNS、公開Webの転送設定を確認し、DHCPサーバーが競合しないようにします。「予備ルータがある」だけでは自動切替にはなりません。
+**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](../development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
 
 ## 分離するネットワーク
 
@@ -65,20 +77,24 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `ha.apextox.dpdns.org` | Home Assistant（services-01。本体は `127.0.0.1:8123`） |
 | `docs.apextox.dpdns.org` | ドキュメントサイト（services-01） |
 | `cups.apextox.dpdns.org` | CUPSの印刷状況（services-01。`/admin` は入口で403） |
+| `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は services-01 だけに許可） |
 | `nextcloud.apextox.dpdns.org` | Nextcloud（media-01） |
 | `kavita.apextox.dpdns.org` | Kavita（media-01） |
-| `navidrome.apextox.dpdns.org` | Navidrome（media-01） |
-| `metube.apextox.dpdns.org` | MeTube（media-01。本体の配備は追加作業） |
-| `khinsider.apextox.dpdns.org` | KHInsiderのアルバム一括ダウンロード（media-01） |
-| `picard.apextox.dpdns.org` | Picard（media-01） |
+| `navidrome.apextox.dpdns.org` | Navidrome（media-01。Forward Auth） |
+| `navidrome-api.apextox.dpdns.org` | NavidromeのSubsonic API（アプリ用・SSOなし） |
+| `metube.apextox.dpdns.org` | MeTube（media-01。Forward Auth） |
+| `khinsider.apextox.dpdns.org` | KHInsiderのアルバム一括ダウンロード（media-01。Forward Auth） |
+| `freshrss.apextox.dpdns.org` | FreshRSS（media-01。OIDC） |
 | `grafana.apextox.dpdns.org` | Grafana（monitor-01） |
+| `peanut.apextox.dpdns.org` | PeaNUT（UPSのREST。Homarrのウィジェット用） |
 | `localsend.apextox.dpdns.org` | LocalSend受信機（media-01。Caddyを通さず53317/tcp） |
 | `pve.apextox.dpdns.org` | Proxmox（ポート 8006。Let's Encrypt） |
 | `awx.apextox.dpdns.org` | AWX（Cilium Ingress・Let's Encrypt） |
 | `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
-- **名前の引き方:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。LANでは名前解決を確認済みです。Tailscale経由のDNSとサブネット経路は[N02](../development/N02-tailscale.md)の未完了項目です。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。ルーターが内部IPを返す応答を捨てないことは確認済みです。
-- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。identity・cloud-01のサービス自身のポートは127.0.0.1へ閉じています。NetBoxの8000と文書の8090を閉じる残作業は[N05](../development/N05-https.md)です。
+- **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
+- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNSとサブネット経路は[N02](../development/N02-tailscale.md)の未完了項目です。
+- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。AdGuard の入口も同じ Caddy が受けて、ルータの `192.168.10.1:3000` へ中継します（ルータのファイアウォールで services-01 だけに許可）。identity・cloud-01のサービス自身のポートは127.0.0.1へ閉じています。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。各ホストに置くので、1台が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
 `home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。
@@ -98,7 +114,7 @@ VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範�
 | OIDC対応Webアプリ | ネイティブOIDC。アプリごとにclientとredirect URIを設定 |
 | Home Assistant | コミュニティ統合 `hass-oidc-auth` のOIDC（公開クライアント・PKCE）。WebSocket・CompanionアプリのためForward Authは使わず、ローカルオーナーを緊急用に残す |
 | Proxmox Web UI | OIDC。Proxmox内のロールは別途設定 |
-| OIDC非対応のブラウザ専用ツール | 必要に応じてAuthentik Forward Auth |
+| OIDC非対応のブラウザ専用ツール（Navidrome・MeTube・KHInsider・CUPS・AdGuard Home） | Authentik Forward Auth。API経路はサービス自身の認証を残す |
 | 自作クラウドAPI／Terraform | Authentikログインから発行するアクセスキー。呼出し時はBearerで認証し、APIのアカウント所有権を確認 |
 | S3クライアント | S3 access key／secretと署名 |
 | DBクライアント | DBロール・パスワード等。必要に応じてTLS |

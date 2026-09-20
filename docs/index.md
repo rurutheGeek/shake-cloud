@@ -1,18 +1,21 @@
 # Shake Lab Docs
 
-更新日: 2026-09-13
+更新日: 2026-09-20
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
-Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パスワードから自作のプライベートクラウドまでを、家庭内LANのHTTPS名から使えるようにしています。このページは全体像だけの簡潔版です。
+Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パスワードから自作のプライベートクラウドまでを、家庭内LANのHTTPS名から使えるようにしています。ルータも K11 上のVM（`router-01`・OpenWrt）として自作しています。このページは全体像だけの簡潔版です。
 
 ## 全体像（役割とVM）
 
 ```mermaid
 flowchart TB
-  devices["家庭内LANの端末"]
+  internet["インターネット<br/>IPv6（v6プラス・MAP-E）"]
+  devices["家庭内LANの端末（有線・Wi-Fi）"]
+  remote["宅外の端末（Tailscale）"]
 
   subgraph host["物理ホスト apextox（Proxmox VE）"]
+    router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS（AdGuard Home）"]
     subgraph infra["基盤VM platform プール"]
       identity["identity<br/>共通ログイン"]
       cloud01["cloud-01<br/>自作クラウド"]
@@ -24,9 +27,21 @@ flowchart TB
       media["media-01<br/>メディア"]
       monitor["monitor-01<br/>監視"]
       game["game1<br/>ゲーム・AI（GPU）"]
+      net01["net-01<br/>Tailscale 復旧経路"]
     end
   end
+  switch["TL-SG605"]
+  aterm["Aterm（APモード）"]
 
+  internet --> router
+  router --> switch
+  switch --> aterm --> devices
+  switch --> services01
+  switch --> media
+  switch --> monitor
+  switch --> game
+  remote -. Tailscale .-> net01
+  net01 -. 復旧経路 .-> switch
   devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
   devices --> media
   devices --> monitor
@@ -34,6 +49,7 @@ flowchart TB
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
   services01 --> storage
   media --> storage
+  router -. "IP台帳（予約・リース）" .-> services01
 ```
 
 ## 何をどこに分けているか

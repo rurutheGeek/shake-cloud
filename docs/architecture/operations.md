@@ -263,6 +263,11 @@ python3 -m playwright install chromium --only-shell
 python3 tools/render-architecture-diagrams.py
 ```
 
+Chromium のシステムライブラリが無い環境では、root で
+`python3 -m playwright install-deps chromium` を一度実行します
+（dev-b には無いため、2026-09-20 は services-01 に Playwright を入れて
+描画し、SVG をリポジトリへ戻しました）。
+
 Gitの文書を変更した後は `python3 -m mkdocs build --strict` で検証します。現行のservices-01サイトはGitの `docs/` を入力に `platform/ansible/docs-site.yml` で配備します。今回の計画・README追加ではサイトへの配備を実行しません。
 
 Gitの `docs/` を正本とします。レビューを経ない外部編集や自動双方向同期は設けず、変更はGitの `docs/architecture/` へ集約してから同じ版をサイトへ反映します。生成物を直接編集したりGitへ追加したりしません。既存の他の手順書を一括上書きしません。
