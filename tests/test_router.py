@@ -283,6 +283,9 @@ class ImageContentsTests(unittest.TestCase):
         self.assertIn('127.0.0.1#53', dnsmasq['lists']['server'])
         lan = section(self.dhcp, 'dhcp', 'lan')
         self.assertIn('192.168.10.1', lan['lists']['dns'])
+        # dnsmasq の既定では option 6 が配られない（実測）。明示しないと
+        # DHCP で DNS をもらう端末が名前解決できない。
+        self.assertIn('6,192.168.10.1', lan['lists']['dhcp_option'])
 
     def test_adguard_is_installed_and_configured(self):
         self.assertIn('adguardhome', load(OPENWRT / 'openwrt.yaml')['packages'])

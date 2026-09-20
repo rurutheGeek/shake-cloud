@@ -60,6 +60,7 @@
 | ping が通らない・ポート枯渇 | fw4 が ICMP の SNAT を張らない | `90-mape-ports` を有効化 |
 | 再起動で固定端末の IPv6 が消える | odhcpd の ndp relay は一度しか学習しない | ndppd + `91-lan-prefix-route` |
 | 予約が UCI と NetBox で二重管理 | — | `confdir=/etc/dnsmasq.d` にして NetBox 生成へ |
+| 再起動後に Wi-Fi 端末が「インターネットなし」 | dnsmasq が DHCP で DNS（option 6）を配らない | `dhcp.lan` に `list dhcp_option '6,192.168.10.1'`（実測で Offer/ACK を確認） |
 
 ## 3. DNS の構成（AdGuard Home）
 

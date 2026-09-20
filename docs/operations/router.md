@@ -573,6 +573,15 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   `/etc/adguardhome/data` へ移して修正し、`uci-defaults/97` にも反映した。
   `aterm.lan` などの予約名は仕様どおりリース取得後に戻る（リースDBは tmpfs の
   ため、再起動直後は引けない）。
+- 2026-09-20: **再起動後に Wi-Fi 端末が「インターネットなし」になった。**
+  原因は dnsmasq が DHCP で DNS サーバー（option 6）を配っていなかったこと
+  （実測: Offer に 1/3/15/28/51/54 はあるが 6 が無い）。再起動でリースDBが空に
+  なり、端末が取り直した時点で DNS が消えた。切替直後は Aterm の古いリースが
+  残っていたため気づかなかった。`dhcp.lan` に
+  `list dhcp_option '6,192.168.10.1'` を足し、Offer/ACK に option 6 が入ること
+  と、スマホが AdGuard で `connectivitycheck.gstatic.com` を引けることを実測。
+  あわせて NetBox 同期ツールが**再起動直後の「リース無し」で台帳を削除**して
+  いたのを直した（起動がリース期間未満なら削除しない。[netbox.md](netbox.md)）。
 
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 

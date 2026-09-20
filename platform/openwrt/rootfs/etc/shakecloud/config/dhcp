@@ -53,6 +53,12 @@ config dhcp 'lan'
 	# 書き換える元が無い。LAN 端末は DHCPv4 で 192.168.10.1（AdGuard）を使う。
 	# 将来 ISP が RDNSS を載せれば、この1行で AdGuard へ書き換わる。
 	list dns '192.168.10.1'
+	# **dnsmasq の DHCP 応答に DNS サーバー（option 6）を明示する。**
+	# この構成では既定の option 6 が配られない（実測: Offer に 1/3/15/28/51/54
+	# はあるが 6 が無い。2026-09-20、再起動後のリース更新で発覚）。これが無いと
+	# DHCP で DNS をもらう端末（スマホ等）は名前解決できず「インターネットなし」
+	# になる。AdGuard の 192.168.10.1 を配る。
+	list dhcp_option '6,192.168.10.1'
 	option leasetime '12h'
 	option dhcpv4 'server'
 	option dhcpv6 'relay'
