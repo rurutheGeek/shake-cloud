@@ -359,5 +359,21 @@ class RouterOperationsTests(unittest.TestCase):
         self.assertIn('K11', self.doc)
 
 
+class RouterConfigSummaryTests(unittest.TestCase):
+    """The beginner-facing summary of what changed from stock OpenWrt."""
+
+    def setUp(self):
+        self.doc = (ROOT / 'docs/operations/router-config.md').read_text(encoding='utf-8')
+
+    def test_the_summary_lists_the_key_changes(self):
+        for phrase in ('legacymap', 'extendprefix', 'ndppd', 'confdir',
+                       'vmbr1', 'watchdog', 'netbox-dhcp-sync.py'):
+            self.assertIn(phrase, self.doc, phrase)
+
+    def test_the_page_is_in_the_navigation(self):
+        nav = (ROOT / 'mkdocs.yml').read_text(encoding='utf-8')
+        self.assertIn('operations/router-config.md', nav)
+
+
 if __name__ == '__main__':
     unittest.main()
