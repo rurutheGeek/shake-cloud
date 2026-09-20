@@ -409,6 +409,14 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   **上流が一度も見たことのない一時アドレス**（`…::dead:beef`）でも外部と
   往復できることを確認（代理応答が効いている証拠）。再起動後の
   `verify-router.py` は **5 PASS / 0 FAIL**。
+- 2026-09-20: **`*.apextox.dpdns.org` が LAN から一切引けなくなっていた。**
+  切替から数時間、誰も気づいていなかった（インターネットは通っていたため）。
+  原因は dnsmasq の `rebind_protection`。これらの名前は Cloudflare の**公開**
+  レコードが **LAN のアドレス**（`192.168.10.x`）を指しており、rebind
+  protection は「公開 DNS が返したプライベートアドレス」を捨てる。Aterm は
+  捨てていなかったので、切替で初めて出た。`list rebind_domain
+  'apextox.dpdns.org'` を足して解決（protection 自体は残す）。
+  `tests/test_router.py` が `dns.yaml` のゾーンと突き合わせて検査する。
 - 2026-09-20: **イメージの再ビルドは未実施。** `platform/openwrt/build.sh` は
   dev-b に `make` が無くて止まる（`sudo apt-get install -y make` が要る）。
   稼働中のルータは `opkg`／`uci` で同じ状態になっているが、**VM を作り直す前に

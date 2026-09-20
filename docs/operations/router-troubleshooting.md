@@ -16,6 +16,7 @@ Aterm から router-01 へ切り替えた直後、**IPv4 が一切通らず、IP
 | 2 | LAN 端末が IPv6 を取れない | `dhcp.wan6` が `master '1'` だけで、relay のモードが無かった | `dhcp` に 3 行 |
 | 3 | インターネットへ ping が通らない | fw4 が icmp の SNAT を落とし、割当外の ICMP id で出ていた | `90-mape-ports` を有効化 |
 | 4 | 再起動後、固定アドレスの端末だけ IPv6 を失う | odhcpd の `ndp relay` が端末のアドレス作成時しか学習しない | `ndppd` へ差し替え |
+| 5 | ネットは通るのに家のサービスが名前で開けない | dnsmasq の rebind protection が公開 DNS の返すプライベート IP を捨てていた | `rebind_domain` に自分のゾーンを足す |
 
 いずれも**ルータ自身は正常に見える**のが厄介な点です。インターフェースは UP、
 アドレスも付き、ログにもエラーが出ません。
@@ -156,6 +157,44 @@ ssh root@192.168.10.1 'ps w | grep [n]dppd; cat /etc/ndppd.conf | grep -A2 rule'
 **ここで odhcpd の `ndp relay` へ戻さないでください。** あれは端末がアドレスを
 作る瞬間しか学習できず、**ルータを再起動すると固定アドレスの端末（サーバ類）が
 IPv6 を失います**。2026-09-20 に実機で踏んでいます（N06）。
+
+### 6. インターネットは通るのに、家のサービスが名前で開けないとき
+
+`https://nextcloud.apextox.dpdns.org` のような**家のサービス名だけ**が開けず、
+外のサイトは普通に見える場合です。**切替直後にこれを踏んでいます。**
+
+まず名前が引けているかを見ます。
+
+```bash
+getent hosts docs.apextox.dpdns.org
+```
+
+何も返らなければ DNS です。ルータを飛ばして公開 DNS に直接聞いてみます。
+
+```bash
+ssh root@192.168.10.1 'nslookup docs.apextox.dpdns.org 1.1.1.1'
+```
+
+**公開 DNS は答えるのに、ルータ経由だと答えない**なら原因はこれです。
+
+`*.apextox.dpdns.org` は Cloudflare の**公開**レコードですが、中身は **LAN の
+アドレス**（`192.168.10.x`）です。dnsmasq の rebind protection は「公開 DNS が
+返してきたプライベートアドレス」を攻撃とみなして捨てるので、**家のサービス名が
+全部消えます**。Aterm は捨てていなかったため、切替で初めて出ました。
+
+自分のゾーンだけ除外します（protection 自体は残す）。
+
+```bash
+ssh root@192.168.10.1 'uci show dhcp.@dnsmasq[0] | grep rebind'
+```
+
+`rebind_domain` にゾーンが入っていなければ足します。
+
+```bash
+ssh root@192.168.10.1   'uci add_list dhcp.@dnsmasq[0].rebind_domain=apextox.dpdns.org;    uci commit dhcp; /etc/init.d/dnsmasq restart'
+```
+
+正本は `rootfs/etc/shakecloud/config/dhcp` です。
 
 ## 紛らわしいので先に知っておくこと
 

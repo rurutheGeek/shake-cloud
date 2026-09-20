@@ -170,6 +170,18 @@ class ImageContentsTests(unittest.TestCase):
         self.assertEqual(wan6['options']['reqprefix'], 'no')
         self.assertEqual(wan6['options']['extendprefix'], '1')
 
+    def test_the_lab_zone_is_exempt_from_dns_rebind_protection(self):
+        # *.<zone> are public Cloudflare records that point at LAN addresses.
+        # dnsmasq's rebind protection drops private answers that come from
+        # public DNS, so without the exemption every service name stops
+        # resolving on the LAN -- which is what happened for hours after the
+        # 2026-09-20 switch-over. The zone comes from dns.yaml so renaming it
+        # cannot silently leave the router behind.
+        zone = load(TERRAFORM / 'dns.yaml')['zone']
+        dnsmasq = section(self.dhcp, 'dnsmasq')
+        self.assertEqual(dnsmasq['options']['rebind_protection'], '1')
+        self.assertIn(zone, dnsmasq['lists'].get('rebind_domain', []))
+
     def test_ndp_is_left_to_ndppd(self):
         # odhcpd's ndp relay only learns a client while it is configuring its
         # address, so a router reboot leaves stable-address hosts (servers)

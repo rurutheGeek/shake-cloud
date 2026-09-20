@@ -145,6 +145,10 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
   置くだけでは中継は始まらない。odhcpd はモードをインターフェースごとに
   持つので、**上流側にも `ra`/`dhcpv6` = `relay`** を書く。これが抜けて
   いて、切替後に LAN へ RA が 1 つも出なかった。
+- **自分のゾーンを `rebind_domain` で除外する。** `*.apextox.dpdns.org` は
+  公開レコードが LAN のアドレスを指すので、dnsmasq の `rebind_protection` が
+  応答を捨てる。除外しないと**家中のサービス名が引けない**。インターネットは
+  通るので気づきにくい（切替後、数時間そのままだった）。
 - **近隣代理は odhcpd ではなく ndppd。** `ndp relay` は端末がアドレスを作る
   瞬間しか学習できず、**ルータ再起動後に固定アドレスの端末が IPv6 を失う**
   （後述）。`ndp` は両側 `disabled` にする。

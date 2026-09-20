@@ -1,6 +1,6 @@
 # DHCP と IPv6。IPv4 は dnsmasq が 192.168.10.2〜.99 を配る。
-# IPv6 は PD がないため、odhcpd の relay で上流の /64 と RA を LAN へ中継する
-# （ndp relay + ra relay）。Aterm の ND Proxy と同じ役割。
+# IPv6 は PD がないため、RA と DHCPv6 は odhcpd の relay で中継し、近隣代理は
+# ndppd が受け持つ（/etc/ndppd.conf）。Aterm の ND Proxy と同じ役割。
 config dnsmasq
 	option domainneeded '1'
 	option boguspriv '1'
@@ -8,6 +8,13 @@ config dnsmasq
 	option localise_queries '1'
 	option rebind_protection '1'
 	option rebind_localhost '1'
+	# **自分のドメインは rebind protection から除外する。**
+	# `*.apextox.dpdns.org` は Cloudflare の公開レコードが LAN の IP
+	# （192.168.10.x）を指す。rebind protection は公開 DNS が返すプライベート
+	# アドレスを捨てるので、除外しないと **LAN からサービス名が一切引けなく
+	# なる**（2026-09-20 の切替後に実際に全滅した。Aterm は捨てていなかった）。
+	# 正本は platform/terraform/dns.yaml のゾーン。
+	list rebind_domain 'apextox.dpdns.org'
 	option local '/lan/'
 	option domain 'lan'
 	option expandhosts '1'
