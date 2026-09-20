@@ -81,7 +81,7 @@ AdGuard 自身にはパスワードを設定していません（`users: []`）�
 ```bash
 ssh root@192.168.10.1 \
   'curl -s -X POST -H "Content-Type: application/json" -d "{}" \
-     http://127.0.0.1:3000/control/filtering/refresh'
+     http://192.168.10.1:3000/control/filtering/refresh'
 ```
 
 ### 特定の名前を遮断したい・通したい
@@ -100,6 +100,27 @@ user_rules:
 
 管理画面の「クエリログ」。ファイルは
 `/etc/adguardhome/data/data/querylog.json`（90日）。**家の外には出ません。**
+
+### 誤ブロックを見つけたら（止めてはいけない物の確認）
+
+1. クエリログを「遮断」で絞って、ドメインと回数を見る（管理画面、または
+   ログファイルを `grep`）。
+2. そのドメインが**機能に必要**なら、正本の `user_rules` に除外を足す。
+
+```yaml
+user_rules:
+  - '@@||example.com^'   # 遮断しない（サブドメインも含む）
+```
+
+3. scp → `/etc/init.d/adguardhome restart` で反映し、コミットする。
+
+**2026-09-20 の調査（18時間・遮断1,303件/94ドメイン）**では、広告SDK・
+計測（Firebase/Google Analytics など）・Amazon デバイスのテレメトリ
+（`footprintdns.com`・`minerva.devices.a2z.com` など）だけで、機能に必要な
+名前の遮断は見つかりませんでした。唯一の候補は Alexa のテレメトリで、
+**Alexa の挙動がおかしくなったら上のように除外**してください。
+`stats.grafana.org` はブロックが最多だったため、Grafana 側の匿名統計を
+止めています（`stacks/monitoring/compose.yaml`）。
 
 ### 一時的に遮断を止める
 
@@ -144,7 +165,7 @@ ssh root@192.168.10.1 'netstat -lntup | grep -E ":(53|5353) "'
 ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'   # 0.0.0.0
 ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'         # 192.168.10.2
 # フィルタの件数と更新時刻
-ssh root@192.168.10.1 'curl -s http://127.0.0.1:3000/control/filtering/status | head -c 300'
+ssh root@192.168.10.1 'curl -s http://192.168.10.1:3000/control/filtering/status | head -c 300'
 # HTTPS 入口（SSO のログインへ 302 すれば正常）
 curl -sI https://adguard.apextox.dpdns.org/ | head -3
 # ログ

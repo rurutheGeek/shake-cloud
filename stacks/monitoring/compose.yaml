@@ -51,6 +51,11 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run manage.py up}
       GF_USERS_ALLOW_SIGN_UP: 'false'
+      # 匿名の利用統計と更新確認は送らない。AdGuard のフィルタが
+      # stats.grafana.org を遮断しており、無駄な再試行が出るため
+      # （2026-09-20 のクエリログ調査）。
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}
       # Authentik OIDC。秘密値は manage.py が secrets/ から渡す。
       GF_AUTH_GENERIC_OAUTH_ENABLED: ${GRAFANA_OIDC_ENABLED:-false}
