@@ -11,12 +11,32 @@ exact set that was running and restores it after pve-guests has run.
 `save` runs every minute (hard power loss leaves the last snapshot) and just
 before pve-guests stops the guests on a clean shutdown (that value is exact).
 Because the saved set follows reality, a guest that was off stays off.
+
+The minute between snapshots is the gap a hard hang falls into: stopping game1
+hangs the host within seconds through its iGPU passthrough, so the last
+snapshot still says "running" and a plain restore would start a guest the
+operator had just stopped. `restore` therefore also reads the Proxmox task log,
+which timestamps every power task, and skips a guest whose newest power task
+after the snapshot was a stop or a shutdown. A guest that was stopped and
+started again keeps its start, so the restored set is what was really up when
+the host died. See docs/operations/power.md.
 """
 import pathlib
+import re
 import subprocess
 import sys
 
 STATE = pathlib.Path('/var/lib/shakecloud/guests-running')
+# Completed tasks land in `index`; `active` holds the ones still running.
+TASK_LOGS = (
+    pathlib.Path('/var/log/pve/tasks/index'),
+    pathlib.Path('/var/log/pve/tasks/active'),
+)
+# UPID:<node>:<pid>:<pstart>:<starttime hex>:<type>:<id>:<user>:
+UPID = re.compile(
+    r'UPID:[^:]*:[^:]*:[^:]*:(?P<start>[0-9A-Fa-f]+):(?P<action>[a-z]+):(?P<vmid>[^:]*):')
+STOPPING = {'qmstop', 'qmshutdown', 'vzstop', 'vzshutdown'}
+POWER = STOPPING | {'qmstart', 'qmreboot', 'qmreset', 'vzstart'}
 
 
 def running():
@@ -30,6 +50,27 @@ def running():
     return guests
 
 
+def last_power_action(since):
+    """Newest power task per guest started after `since` (epoch seconds)."""
+    newest = {}
+    for path in TASK_LOGS:
+        try:
+            text = path.read_text(errors='replace')
+        except OSError:
+            continue
+        for line in text.splitlines():
+            match = UPID.match(line.strip())
+            if match is None or match.group('action') not in POWER:
+                continue
+            started = int(match.group('start'), 16)
+            vmid = match.group('vmid')
+            if started <= since or not vmid:
+                continue
+            if vmid not in newest or started > newest[vmid][0]:
+                newest[vmid] = (started, match.group('action'))
+    return {vmid: action for vmid, (_, action) in newest.items()}
+
+
 def save():
     guests = running()
     STATE.parent.mkdir(parents=True, exist_ok=True)
@@ -41,9 +82,16 @@ def restore():
     if not STATE.exists():
         print('no saved state; nothing to restore')
         return
+    # The snapshot's mtime is the moment reality was last observed.
+    snapshot = STATE.stat().st_mtime
     up = set(running())
+    later = last_power_action(snapshot)
     for vmid in STATE.read_text().split():
         if vmid in up:
+            continue
+        action = later.get(vmid)
+        if action in STOPPING:
+            print(f'skip {vmid}: {action} after the last snapshot')
             continue
         result = subprocess.run(['qm', 'start', vmid], capture_output=True, text=True)
         print(f'start {vmid}: rc={result.returncode} {result.stderr.strip()}')
