@@ -131,16 +131,76 @@ class DeviceSpecTests(unittest.TestCase):
         self.assertEqual(devices['printer']['interface']['mac'], 'f8:a2:6d:a5:e9:fb')
         self.assertEqual(devices['printer']['interface']['type'], 'ieee802.11ac')
 
-    def test_named_clients_are_declared_without_an_address(self):
-        clients = {client['name']: client for client in self.spec.get('clients', [])}
-        self.assertEqual(clients['eufycam-s4']['mac'], '2c:8d:48:2c:5a:33')
-        self.assertNotIn('address', clients['eufycam-s4'])
+    def test_pool_clients_are_declared_with_a_reserved_address(self):
+        # 静的 IP の端末は devices に書く（clients は「名前だけ」用で、いまは空）。
+        # reserved にすると dnsmasq が同じ IP を他の端末へ配らない。
+        devices = {device['name']: device for device in self.spec['devices']}
+        self.assertEqual(devices['eufycam-s4']['address'], '192.168.10.98/24')
+        self.assertEqual(devices['alexa']['address'], '192.168.10.46/24')
+        self.assertEqual(devices['switchbot-hubmini-ca2a09']['address'], '192.168.10.99/24')
+        self.assertEqual(self.spec.get('clients', []), [])
 
-    def test_every_declared_device_sits_in_the_infrastructure_band(self):
+    def test_every_declared_device_sits_in_a_managed_band(self):
+        # 機器帯（.2〜.19）か DHCP プール内（reserved にして衝突を防ぐ）。
         network = sync.load_yaml(sync.NETWORK)
         for device in self.spec['devices']:
-            self.assertTrue(sync.in_range(device['address'], network['infrastructure']),
-                            device['name'])
+            self.assertTrue(
+                sync.in_range(device['address'], network['infrastructure']) or
+                sync.in_range(device['address'], network['dhcp']),
+                device['name'])
+
+
+class DiscoverTests(unittest.TestCase):
+    """静的な IP の端末はリースを取らない。ARP から見つけて宣言する。"""
+
+    NEIGH = """192.168.10.46 dev br-lan lladdr 4C:EF:C0:58:EA:66 REACHABLE
+192.168.10.36 dev br-lan FAILED
+240b:10:b280:2400::1 dev br-lan lladdr 4c:ef:c0:58:ea:66 REACHABLE
+192.168.10.98 dev br-lan lladdr 2c:8d:48:2c:5a:33 STALE
+bad line
+"""
+
+    def test_neigh_parses_ipv4_with_lladdr(self):
+        entries = sync.parse_neigh(self.NEIGH)
+        self.assertEqual([entry['address'] for entry in entries],
+                         ['192.168.10.46', '192.168.10.98'])
+        self.assertEqual(entries[0]['mac'], '4c:ef:c0:58:ea:66')
+        self.assertEqual(entries[0]['state'], 'REACHABLE')
+
+    def test_declared_macs_covers_devices_and_clients(self):
+        spec = {'devices': [{'interface': {'mac': '4C:EF:C0:58:EA:66'}}],
+                'clients': [{'mac': 'a8:48:fa:ca:2a:09'}]}
+        self.assertEqual(sync.declared_macs(spec),
+                         {'4c:ef:c0:58:ea:66', 'a8:48:fa:ca:2a:09'})
+
+
+class ReservedRangeTests(unittest.TestCase):
+    """プール内の reserved も dnsmasq の予約に入れる（衝突対策）。"""
+
+    class FakeApi:
+        def __init__(self, entries):
+            self.entries = entries
+
+        def get(self, path, **params):
+            if path.startswith('/ipam/ip-addresses/'):
+                return {'results': self.entries}
+            raise AssertionError(path)
+
+    ENTRIES = [
+        {'address': '192.168.10.2/24', 'dns_name': 'aterm',
+         'assigned_object_type': None, 'assigned_object_id': None},
+        {'address': '192.168.10.46/24', 'dns_name': 'alexa',
+         'assigned_object_type': None, 'assigned_object_id': None},
+        {'address': '192.168.10.101/24', 'dns_name': 'media',
+         'assigned_object_type': None, 'assigned_object_id': None},
+    ]
+
+    def test_pool_reservations_are_included_but_cloud_is_not(self):
+        network = sync.load_yaml(sync.NETWORK)
+        records = sync.reserved_records(
+            self.FakeApi(self.ENTRIES), [network['infrastructure'], network['dhcp']])
+        self.assertEqual([record['address'] for record in records],
+                         ['192.168.10.2/24', '192.168.10.46/24'])
 
 
 class TimerTests(unittest.TestCase):

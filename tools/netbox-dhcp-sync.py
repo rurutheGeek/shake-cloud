@@ -2,12 +2,18 @@
 """Keep NetBox and the OpenWrt router's DHCP in step.
 
 NetBox is the source of truth for the infrastructure band (static devices:
-AP, printer, Pis, the Proxmox host). The router's dnsmasq is the source of
-truth for what is actually leased. This tool bridges the two:
+AP, printer, Pis, the Proxmox host) and for reserved addresses in the DHCP
+pool (static clients that must not collide with leases). The router's dnsmasq
+is the source of truth for what is actually leased. This tool bridges them:
 
-    ensure  NetBox の dcim を platform/netbox/devices.yaml に合わせる
-    pull    NetBox の reserved IP を dnsmasq の予約（/etc/dnsmasq.d）へ反映
-    push    ルータの DHCP リースを NetBox の IPAddress(status=dhcp) へ写す
+    ensure    NetBox の dcim を platform/netbox/devices.yaml に合わせる
+    pull      NetBox の reserved IP を dnsmasq の予約（/etc/dnsmasq.d）へ反映
+    push      ルータの DHCP リースを NetBox の IPAddress(status=dhcp) へ写す
+    discover  LAN の ARP とリースを一覧し、未宣言の機器を提案する（読むだけ）
+
+**静的な IP の端末は自動では登録されない**（リースを取らないため）。
+`devices.yaml` に宣言して `ensure` → `pull` すると、予約として台帳に載り、
+dnsmasq がその IP を他の端末へ配らなくなる。
 
 NetBox の資格情報は環境変数で渡す（リポジトリの他のツールと同じ）:
 
@@ -121,6 +127,40 @@ def parse_leases(text):
 
 def normalize_mac(mac):
     return mac.strip().lower().replace('-', ':')
+
+
+def parse_neigh(text):
+    """`ip neigh show dev br-lan` の行を {address, mac, state} にする。
+
+    lladdr の無い行（FAILED など）と IPv6 は落とす。
+    """
+    entries = []
+    for line in text.splitlines():
+        fields = line.split()
+        if 'lladdr' not in fields:
+            continue
+        if not re.match(r'^\d+\.\d+\.\d+\.\d+$', fields[0]):
+            continue
+        index = fields.index('lladdr')
+        mac = fields[index + 1].lower()
+        if not re.match(r'^[0-9a-f]{2}(:[0-9a-f]{2}){5}$', mac):
+            continue
+        state = fields[index + 2] if len(fields) > index + 2 else ''
+        entries.append({'address': fields[0], 'mac': mac, 'state': state})
+    return entries
+
+
+def declared_macs(spec):
+    """devices.yaml で宣言済みの MAC（devices と clients の両方）。"""
+    macs = set()
+    for device in spec.get('devices', []):
+        mac = device.get('interface', {}).get('mac')
+        if mac:
+            macs.add(normalize_mac(mac))
+    for client in spec.get('clients', []):
+        if client.get('mac'):
+            macs.add(normalize_mac(client['mac']))
+    return macs
 
 
 def render_hosts(records):
@@ -301,11 +341,14 @@ def ensure_devices(api, spec, dry_run=False):
     return actions
 
 
-def reserved_records(api, infrastructure):
-    """NetBox の reserved IP（機器帯）を {mac, address, name} にする。"""
+def reserved_records(api, sections):
+    """NetBox の reserved IP（機器帯と DHCP プール内）を {mac, address, name} にする。
+
+    DHCP プール内の reserved は、静的 IP の端末を他の端末へ配らないための予約。
+    """
     records = []
     for entry in api.get('/ipam/ip-addresses/', status='reserved', limit=200)['results']:
-        if not in_range(entry['address'], infrastructure):
+        if not any(in_range(entry['address'], section) for section in sections):
             continue
         mac = ''
         if entry.get('assigned_object_type') == 'dcim.interface':
@@ -318,7 +361,7 @@ def reserved_records(api, infrastructure):
 
 def pull(api, args):
     network = load_yaml(NETWORK)
-    records = reserved_records(api, network['infrastructure'])
+    records = reserved_records(api, [network['infrastructure'], network['dhcp']])
     clients = load_yaml(DEVICES).get('clients', [])
     desired = render_file(records, clients)
     current, error = ssh_run(args.router, args.key,
@@ -419,10 +462,51 @@ def push(api, args):
     return 0
 
 
+def discover(api, args):
+    """LAN に居る機器を ARP とリースから一覧し、未宣言の候補を出す（読むだけ）。
+
+    静的な IP の端末は DHCP のリースを取らないので `push` では台帳に載らない。
+    ここで見つけて `devices.yaml` へ宣言する。
+    """
+    network = load_yaml(NETWORK)
+    known = declared_macs(load_yaml(DEVICES))
+    text, error = ssh_run(args.router, args.key,
+                          f'cat {LEASES_FILE} 2>/dev/null; echo ---; ip neigh show dev br-lan')
+    if text is None:
+        raise SystemExit(f'{args.router} へ SSH できない: {error}')
+    leases_text, _, neigh_text = text.partition('---')
+    names = {lease['mac']: lease['hostname'] for lease in parse_leases(leases_text)}
+    rows = []
+    for entry in parse_neigh(neigh_text):
+        if not (in_range(entry['address'], network['infrastructure']) or
+                in_range(entry['address'], network['dhcp'])):
+            continue
+        record = api.one('/ipam/ip-addresses/', address=f"{entry['address']}/24")
+        status = (record or {}).get('status', {}).get('value', 'なし')
+        rows.append((entry['address'], entry['mac'], names.get(entry['mac'], ''),
+                     entry['mac'] in known, status))
+    for address, mac, name, is_known, status in sorted(
+            rows, key=lambda row: ipaddress.ip_address(row[0])):
+        print(f"{address:16} {mac}  {(name or '-'):24} "
+              f"{'宣言済' if is_known else '未宣言':6} NetBox: {status}")
+    undeclared = [row for row in rows if not row[3] and row[4] == 'なし']
+    if undeclared:
+        print('\n# NetBox に無い機器（devices.yaml に足す候補。MAC は ARP、名前は DHCP で名乗った物）')
+        for address, mac, name, _, _ in undeclared:
+            label = name or 'unknown'
+            print(f'  - name: {label}')
+            print('    device_type: Client Device')
+            print('    role: Client')
+            print(f"    interface: {{name: eth0, type: 1000base-t, mac: '{mac}'}}")
+            print(f'    address: {address}/24')
+            print(f'    dns_name: {label}')
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('command', choices=['ensure', 'pull', 'push'])
+    parser.add_argument('command', choices=['ensure', 'pull', 'push', 'discover'])
     parser.add_argument('--router', default='root@192.168.10.1')
     parser.add_argument('--key', default=DEFAULT_KEY)
     parser.add_argument('--dry-run', action='store_true')
@@ -441,6 +525,8 @@ def main():
         return 0
     if args.command == 'pull':
         return pull(api, args)
+    if args.command == 'discover':
+        return discover(api, args)
     return push(api, args)
 
 

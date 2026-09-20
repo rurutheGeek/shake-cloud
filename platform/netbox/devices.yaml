@@ -17,6 +17,7 @@ roles:
   - {name: Server, slug: server, color_hex: 00c000}
   - {name: Printer, slug: printer, color_hex: ffa000}
   - {name: Hypervisor, slug: hypervisor, color_hex: 8000ff}
+  - {name: Client, slug: client, color_hex: 808080}
 
 manufacturers:
   - {name: NEC Platforms, slug: nec-platforms}
@@ -30,6 +31,7 @@ device_types:
   - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 5, slug: raspberry-pi-5}
   - {manufacturer: Canon, model: TS8430, slug: canon-ts8430}
   - {manufacturer: Generic, model: Mini PC, slug: mini-pc}
+  - {manufacturer: Generic, model: Client Device, slug: client-device}
 
 devices:
   - name: aterm
@@ -72,8 +74,82 @@ devices:
     address: 192.168.10.3/24
     dns_name: printer
 
-# 固定IPは持たないが、名前だけ付けたい DHCP クライアント。
-# `dhcp-host=MAC,名前` を生成し、動的IPのまま DNS 名が引けるようにする。
-# 台帳（NetBox）の dns_name にもこの名前を使う。
-clients:
-  - {name: eufycam-s4, mac: '2c:8d:48:2c:5a:33'}
+# DHCP プール内（.20〜.99）で **静的 IP を使う端末**。
+# リースを取らないので push では台帳に載らない。ここに宣言して reserved に
+# することで、dnsmasq が同じ IP を他の端末へ配るのを防ぐ（衝突対策）。
+# `tools/netbox-dhcp-sync.py discover` が未宣言の機器を見つける。
+  - name: redmi-pad-se-8-7
+    device_type: Client Device
+    role: Client
+    description: Redmi Pad SE 8.7（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'ee:42:3b:45:5e:9d'}
+    address: 192.168.10.33/24
+    dns_name: redmi-pad-se-8-7
+
+  - name: unknown-43
+    device_type: Client Device
+    role: Client
+    description: 未識別（Hon Hai 製。分かったら名前を直す）
+    interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:af:f0:33'}
+    address: 192.168.10.43/24
+    dns_name: unknown-43
+
+  - name: su3
+    device_type: Client Device
+    role: Client
+    description: PC（su3）
+    interface: {name: eth0, type: 1000base-t, mac: '10:a5:1d:32:5e:ec'}
+    address: 192.168.10.45/24
+    dns_name: su3
+
+  - name: alexa
+    device_type: Client Device
+    role: Client
+    description: Amazon Echo（Alexa。旧 .44 から .46 へ）
+    interface: {name: wlan0, type: ieee802.11ac, mac: '4c:ef:c0:58:ea:66'}
+    address: 192.168.10.46/24
+    dns_name: alexa
+
+  - name: unknown-84
+    device_type: Client Device
+    role: Client
+    description: 未識別（Hon Hai 製。分かったら名前を直す）
+    interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:fa:6c:7d'}
+    address: 192.168.10.84/24
+    dns_name: unknown-84
+
+  - name: persothegeek
+    device_type: Client Device
+    role: Client
+    description: PC（persothegeek）
+    interface: {name: eth0, type: 1000base-t, mac: '98:43:fa:9b:fa:1e'}
+    address: 192.168.10.85/24
+    dns_name: persothegeek
+
+  - name: ouchithegeek
+    device_type: Client Device
+    role: Client
+    description: PC（ouchithegeek）
+    interface: {name: eth0, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
+    address: 192.168.10.97/24
+    dns_name: ouchithegeek
+
+  - name: eufycam-s4
+    device_type: Client Device
+    role: Client
+    description: Eufy カメラ（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: '2c:8d:48:2c:5a:33'}
+    address: 192.168.10.98/24
+    dns_name: eufycam-s4
+
+  - name: switchbot-hubmini-ca2a09
+    device_type: Client Device
+    role: Client
+    description: SwitchBot Hub Mini（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'a8:48:fa:ca:2a:09'}
+    address: 192.168.10.99/24
+    dns_name: switchbot-hubmini-ca2a09
+
+# 固定IPは持たないが、名前だけ付けたい DHCP クライアント（いまは空）。
+# 固定IPを持たせる場合は上の devices に書く（reserved として dnsmasq へ入る）。
+clients: []

@@ -82,9 +82,45 @@ NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**
 | `ensure` | devices.yaml → NetBox | 機器・インターフェース（MAC）・reserved な IP を揃える |
 | `pull` | NetBox → ルータ | reserved な IP を dnsmasq の予約（`/etc/dnsmasq.d`）へ反映 |
 | `push` | ルータ → NetBox | DHCP リースを `status=dhcp` の IP として写す |
+| `discover` | LAN → 画面 | ARP とリースを一覧し、未宣言の機器を提案する（読むだけ） |
 
 宣言の正本は `platform/netbox/devices.yaml`。**IP を変えるときはここを直して
 `ensure` → `pull`。** NetBox の画面やルータの UCI を直接編集しません。
+
+### どうやって台帳に載るか（登録の仕組み）
+
+| 端末 | 載り方 |
+| --- | --- |
+| **DHCP でリースを取る端末** | `push`（15分ごと）が `status=dhcp` として自動で書く。名前は端末が名乗ったホスト名 |
+| **devices.yaml に宣言した端末** | `ensure` が dcim（機器・MAC）と `status=reserved` の IP を作る。`pull` が dnsmasq の予約にする |
+| **静的 IP を使う端末** | **自動では載らない**（リースを取らないため）。`discover` で見つけて devices.yaml に宣言する |
+
+```bash
+# LAN に居るのに台帳へ無い物を探す（読み取りのみ。候補を YAML で出す）
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py discover'
+```
+
+`discover` の例（Alexa が未宣言だったとき）:
+
+```
+192.168.10.46    4c:ef:c0:58:ea:66  alexa                    未宣言  NetBox: なし
+...
+# devices.yaml に足す候補
+  - name: alexa
+    device_type: Client Device
+    role: Client
+    interface: {name: eth0, type: 1000base-t, mac: '4c:ef:c0:58:ea:66'}
+    address: 192.168.10.46/24
+    dns_name: alexa
+```
+
+- **DHCP プール内（`.20〜.99`）に静的な端末が居ても、reserved にすれば
+  衝突しません。** dnsmasq は予約された IP を他の端末へ配らない（例: Alexa
+  `.46`、Eufy `.98`、SwitchBot `.99`）。プールの外（機器帯 `.2〜.19`）へ
+  引っ越す必要はなく、端末側の設定も変えなくてよい
+- プール内の reserved は、その端末が DHCP を取れば名前も引けるようになる
+  （静的のままなら予約と衝突防止だけ）
 
 ```bash
 sops exec-env platform/sops/netbox.sops.yaml \
