@@ -11,6 +11,7 @@
     - https://play.apextox.dpdns.org/
     - https://cups.apextox.dpdns.org/
     - https://adguard.apextox.dpdns.org/
+    - https://router.apextox.dpdns.org/
     - https://grafana.apextox.dpdns.org/api/health
     # PeaNUT は / がログインへ307。https_reachable が到達性だけを見る。
     - https://peanut.apextox.dpdns.org/

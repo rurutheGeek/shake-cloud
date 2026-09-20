@@ -87,6 +87,13 @@ records:
     upstream: 192.168.10.1:3000
     description: AdGuard Home（DNS・広告遮断。Forward Auth）
     auth: true
+  # ルータの管理画面（LuCI）。**SSO は付けない。** ルータは復旧経路なので、
+  # identity（Authentik）が止まっていても開ける必要がある。認証は LuCI 自身の
+  # root パスワード。upstream はルータの LAN アドレス。
+  router:
+    host: services-01
+    upstream: 192.168.10.1:80
+    description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
     host: monitor-01

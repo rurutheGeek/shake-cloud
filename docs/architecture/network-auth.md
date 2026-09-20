@@ -78,6 +78,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `docs.apextox.dpdns.org` | ドキュメントサイト（services-01） |
 | `cups.apextox.dpdns.org` | CUPSの印刷状況（services-01。`/admin` は入口で403） |
 | `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は services-01 だけに許可） |
+| `router.apextox.dpdns.org` | router-01 の管理画面（LuCI）。**SSO なし**（復旧経路。identity が止まっていても開ける。認証は LuCI 自身の root パスワード） |
 | `nextcloud.apextox.dpdns.org` | Nextcloud（media-01） |
 | `kavita.apextox.dpdns.org` | Kavita（media-01） |
 | `navidrome.apextox.dpdns.org` | Navidrome（media-01。Forward Auth） |

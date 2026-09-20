@@ -89,6 +89,9 @@
   ホスト）だけに許可**している（LAN 全体に開けると SSO を迂回できる）。
   SSH トンネルでも開ける:
   `ssh -L 3000:192.168.10.1:3000 root@192.168.10.1` → `http://localhost:3000/`
+- **LuCI は `https://router.apextox.dpdns.org`**（SSO なし・復旧経路。IP 直は
+  `http://192.168.10.1`）。認証は LuCI の root パスワードで、未設定なら
+  SSH で `passwd` を実行して設定する
 - フィルタは AdGuard DNS filter（約18万件）。設定の正本は
   `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`
 - 運用（管理画面の開き方・フィルタ更新・つまずきやすい点）は

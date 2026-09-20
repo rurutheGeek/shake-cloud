@@ -132,10 +132,10 @@
   },
   {
     "name": "ルータ（LuCI）",
-    "href": "http://192.168.10.1",
-    "description": "router-01 の管理画面（LAN 内のみ・http）",
+    "href": "https://router.apextox.dpdns.org",
+    "description": "router-01 の管理画面（SSOなし・復旧経路）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
-    "pingUrl": "http://192.168.10.1/"
+    "pingUrl": "https://router.apextox.dpdns.org/"
   },
   {
     "name": "GitHub リポジトリ",
