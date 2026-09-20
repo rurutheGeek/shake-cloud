@@ -89,7 +89,7 @@ v1 の範囲は **EC2相当（VM）・S3（Garage）・database（CloudNativePG�
 
 ## 4. いまの実機
 
-Proxmox ホストは `apextox`（`https://192.168.10.126:8006`、PVE 9.2.2）です。
+Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）です。
 
 | VMID | 名前 | IP | 役割 | 状態 |
 | --- | --- | --- | --- | --- |
@@ -120,9 +120,9 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 
 | サービス | 入口 | ログイン名 | 資格情報の置き場所 |
 | --- | --- | --- | --- |
-| Proxmox の画面 | `https://pve.apextox.dpdns.org:8006`（証明書は Let's Encrypt。IP `192.168.10.126:8006` でも入れるが、名前が一致しないので警告が出る） | `root`（Realm: Linux PAM） | `platform/sops/proxmox-root.sops.yaml` の `PROXMOX_VE_PASSWORD`（ACME アカウントの作成に要るので入れた） |
+| Proxmox の画面 | `https://pve.apextox.dpdns.org:8006`（証明書は Let's Encrypt。IP `192.168.10.10:8006` でも入れるが、名前が一致しないので警告が出る） | `root`（Realm: Linux PAM） | `platform/sops/proxmox-root.sops.yaml` の `PROXMOX_VE_PASSWORD`（ACME アカウントの作成に要るので入れた） |
 | Proxmox の画面（開発者） | 同上 | `dev-a@pve` / `dev-b@pve`（Realm: Proxmox VE） | `platform/sops/pve-users.sops.yaml` |
-| Proxmox ホストへの SSH | `root@192.168.10.126` | 鍵のみ | **dev-b の鍵は登録されていない**（2026-09-10 に拒否を確認）。入れる鍵は人が管理している。API なら root トークン（`proxmox-root.sops.yaml`）で届く |
+| Proxmox ホストへの SSH | `root@192.168.10.10` | 鍵のみ | **dev-b の鍵は登録されていない**（2026-09-10 に拒否を確認）。入れる鍵は人が管理している。API なら root トークン（`proxmox-root.sops.yaml`）で届く |
 | NetBox | `https://netbox.apextox.dpdns.org` | `admin` | services-01 の `/opt/netbox-stack/secrets/superuser_password` |
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | identity の `/opt/identity-stack/secrets/bootstrap_password` |

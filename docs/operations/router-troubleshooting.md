@@ -33,7 +33,7 @@ LAN が落ちていて入れないときは、Proxmox のシリアルコンソ�
 （抜けるのは Ctrl-O）。
 
 ```bash
-ssh root@192.168.10.126 'qm terminal 101'
+ssh root@192.168.10.10 'qm terminal 101'
 ```
 
 ## 手順：上から順に見る
@@ -225,7 +225,7 @@ ssh root@192.168.10.1   'uci add_list dhcp.@dnsmasq[0].rebind_domain=apextox.dpd
 [router.md のロールバック](router.md)。要点だけ:
 
 1. ONU のケーブルを Aterm の WAN ポートへ戻す
-2. `ssh root@192.168.10.126 'qm stop 101'`（`192.168.10.1` の競合を避ける）
+2. `ssh root@192.168.10.10 'qm stop 101'`（`192.168.10.1` の競合を避ける）
 3. Aterm の RT/BR/CNV スイッチを RT へ戻し、保存した `.bin` を復元する
 
 ## 実機に直接入れた設定について

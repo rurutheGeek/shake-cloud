@@ -6,7 +6,7 @@
 
 ## いまの電源構成
 
-- K11（Proxmox ホスト、`192.168.10.126`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
+- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
 - 管理経路（ルータ・スイッチ・監視ラズパイ）は K11 とは別の電源です（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
 
@@ -26,7 +26,7 @@ K11 がハングするとルータ VM も止まり、家中のネットが落ち
   （`/etc/sysctl.d/90-panic.conf`）
 
 ```bash
-ssh root@192.168.10.126 'systemctl is-active watchdog-mux; wdctl | head -4; sysctl kernel.panic kernel.panic_on_oops'
+ssh root@192.168.10.10 'systemctl is-active watchdog-mux; wdctl | head -4; sysctl kernel.panic kernel.panic_on_oops'
 # Identity: SP5100 TCO timer / Timeout: 10 seconds が出れば有効
 ```
 
@@ -34,9 +34,22 @@ ssh root@192.168.10.126 'systemctl is-active watchdog-mux; wdctl | head -4; sysc
 ハングした実績が 2026-09-20 に複数回あります（01:28・01:31・01:34・01:40・14:57）。
 メモリ・ディスク・温度・I/O は実測でシロ（OOM・I/Oエラーなし、SMART PASS）。
 game1 を停止/起動するときは、この自動復旧が働く前提で行ってください。
-根本対策の候補は、カーネルパラメータ `initcall_blacklist=sysfb_init`（ホストが
-iGPU を使わないようにする）、`hostpci0` への `disable_vga=1`、そして
-**ルータを K11 の外へ出す**こと（[router.md](router.md) の K11 メンテナンス節）。
+
+**なぜ落ちるか**: iGPU `c6:00.0` は FLR に非対応で、リセット手段が**バスリセット
+しかありません**（`cat /sys/bus/pci/devices/0000:c6:00.0/reset_method` → `bus`）。
+`c6:00` は APU 内のひとつの部品で、ホストが使用中の USB（`.3`/`.4`。UPS と
+キーボードがここ）・暗号チップ（`.2`）・音声（`.5`/`.6`）が同居しています。
+VM 停止時に GPU を戻そうとしてバスリセットが走ると、この一族が道連れになり、
+ホストがログを 1 行も残さず即死します。
+
+**まずやること**: `qm stop` をやめ、**`qm shutdown 100 --timeout 120`** を使う
+（[router.md](router.md) の K11 メンテナンス節）。ゲストの systemd が amdgpu を
+正規手順で手放してから QEMU が終わるので、危険なリセットに入りにくくなります。
+それでも落ちる場合の候補は、カーネルパラメータ `initcall_blacklist=sysfb_init`
+（ホストが iGPU を使わないようにする）、`hostpci0` への `disable_vga=1`、
+`reset_method` を空にしてバスリセット自体を封じる udev ルール（代償: VM を
+停止したら次の起動までにホスト再起動が要る）、そして**ルータを K11 の外へ
+出す**ことです。
 
 ## UPS を間に入れる（稼働中に抜き差ししない）
 
@@ -64,7 +77,7 @@ tools/k8s status    # 3台とも stopped になるまで確認
 **3. ホストを止める**
 
 ```bash
-ssh root@192.168.10.126 'shutdown -h now'
+ssh root@192.168.10.10 'shutdown -h now'
 ```
 
 Proxmox は**ホストの停止時に残りのゲストも止めます**（`on_boot` の逆順、ACPI、既定のタイムアウト付き）。`shutdown` が返ってきてもまだ落ちていないので、電源ランプが消えるまで待ちます。Proxmox の Web UI の「Shutdown」でも同じです。
@@ -74,7 +87,7 @@ Proxmox は**ホストの停止時に残りのゲストも止めます**（`on_b
 **4. 完全に落ちたのを確認してから電源を切る**
 
 ```bash
-ssh root@192.168.10.126 'qm list; pct list'   # running が無いこと
+ssh root@192.168.10.10 'qm list; pct list'   # running が無いこと
 ```
 
 ホストと全ゲストが停止したのを確認してから、**UPS／ブレーカーの電源を切ります。**
@@ -119,7 +132,7 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 
 ## 停電で自動停止させる（実装済み）
 
-**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.126:3493` を読んで Grafana に出します（M01）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
+**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.10:3493` を読んで Grafana に出します（M01）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
 
 1. **猶予 60 秒**（`pve_nut_shutdown_grace_seconds`）。実行中ジョブの確認は自動ではできないため、短いジョブの完了を待つ。
 2. **k8s worker**（tags `k8s-worker` のVM）を ACPI で停止し、最大 180 秒待つ（`pve_nut_k8s_stop_timeout`）。
@@ -128,8 +141,8 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 
 ```bash
 # 動作確認（実際には止めない）
-ssh root@192.168.10.126 'PVE_UPS_SHUTDOWN_DRY_RUN=1 /usr/local/sbin/pve-ups-shutdown'
-ssh root@192.168.10.126 'systemctl status nut-monitor; upsc cyberpower@localhost ups.status'
+ssh root@192.168.10.10 'PVE_UPS_SHUTDOWN_DRY_RUN=1 /usr/local/sbin/pve-ups-shutdown'
+ssh root@192.168.10.10 'systemctl status nut-monitor; upsc cyberpower@localhost ups.status'
 ```
 
 - `monitor` ユーザーは読み取り専用のまま。upsmon 専用ユーザー（`upsmon`）を分けてあり、パスワードは `monitoring.sops.yaml` の `NUT_UPSMON_PASSWORD`。

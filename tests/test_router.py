@@ -121,8 +121,25 @@ class ImageContentsTests(unittest.TestCase):
         self.assertEqual(lan['options']['netmask'], '255.255.255.0')
         self.assertEqual(lan['options']['ip6assign'], '0')
         server = section(self.dhcp, 'dhcp', 'lan')
-        self.assertEqual(server['options']['start'], '2')
-        self.assertEqual(server['options']['limit'], '98')
+        self.assertEqual(server['options']['start'], '20')
+        self.assertEqual(server['options']['limit'], '80')
+
+    def test_the_infrastructure_band_is_reserved_before_dhcp(self):
+        # The static band (.2-.19) must not overlap the pool, or a DHCP client
+        # could be handed an address an AP or server already uses.
+        infra = load(TERRAFORM / 'network.yaml')['infrastructure']
+        first = int(infra['range_start'].split('.')[-1].split('/')[0])
+        last = int(infra['range_end'].split('.')[-1].split('/')[0])
+        start = int(section(self.dhcp, 'dhcp', 'lan')['options']['start'])
+        self.assertEqual(start, last + 1, 'DHCP は機器帯の直後から始める')
+        self.assertLess(first, last)
+
+    def test_the_infrastructure_hosts_are_reserved_by_mac(self):
+        hosts = {host['options'].get('ip'): host['options'].get('mac')
+                 for host in self.dhcp if host['type'] == 'host'}
+        self.assertEqual(hosts.get('192.168.10.2'), '80:22:a7:8f:27:80')   # Aterm
+        self.assertEqual(hosts.get('192.168.10.11'), 'e4:5f:01:f2:b8:dc')  # tarakoserver
+        self.assertEqual(hosts.get('192.168.10.12'), '2c:cf:67:2c:e3:4d')  # shakeserver
 
     def test_the_wan_uses_the_measured_map_e_rule(self):
         wan = section(self.network, 'interface', 'wan')
@@ -314,7 +331,7 @@ class RouterOperationsTests(unittest.TestCase):
         self.doc = (ROOT / 'docs/operations/router.md').read_text(encoding='utf-8')
 
     def test_the_manual_covers_the_switch_over_and_the_rollback(self):
-        for phrase in ('vmbr1', 'nic2', 'Aterm', 'ロールバック', '192.168.10.250'):
+        for phrase in ('vmbr1', 'nic2', 'Aterm', 'ロールバック', '192.168.10.2'):
             self.assertIn(phrase, self.doc, phrase)
 
     def test_the_manual_pins_the_verification_n06_requires(self):

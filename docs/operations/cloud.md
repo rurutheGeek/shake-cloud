@@ -707,7 +707,7 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 
 ```bash
 # 既存VMを cloud プールへ入れる（管理者。APIトークンではできない）
-ssh root@192.168.10.126 qm set 100 --pool cloud
+ssh root@192.168.10.10 qm set 100 --pool cloud
 ```
 
 ```bash
@@ -916,7 +916,7 @@ NetBoxの `cloudapi` アイデンティティは Ansible では消せません�
 
 ### ネットワークが届かない
 
-Proxmox は `192.168.10.126`、NATの内側で、外から届かせる方法はまだありません（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。**GitHubのホスト型ランナーからは到達できません。**したがって `plan` / `apply` を自動実行するには、LAN内で動く実行主体が要ります。
+Proxmox は `192.168.10.10`、NATの内側で、外から届かせる方法はまだありません（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。**GitHubのホスト型ランナーからは到達できません。**したがって `plan` / `apply` を自動実行するには、LAN内で動く実行主体が要ります。
 
 | 案 | 状態 |
 | --- | --- |

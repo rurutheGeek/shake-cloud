@@ -121,7 +121,7 @@ records:
     # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
     block: ['/admin', '/admin/*']
   pve:
-    address: 192.168.10.126
+    address: 192.168.10.10
     description: Proxmoxの管理画面（ポート8006）
   awx:
     address: 192.168.10.241

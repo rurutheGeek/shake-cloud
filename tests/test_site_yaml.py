@@ -23,7 +23,7 @@ iface enp1s0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-        address 192.168.10.126/24
+        address 192.168.10.10/24
         gateway 192.168.10.1
         bridge-ports enp1s0
         bridge-stp off
@@ -148,7 +148,7 @@ class ApiTests(unittest.TestCase):
         'network': [{'iface': 'lo', 'type': 'loopback'},
                     {'iface': 'nic1', 'type': 'eth'},
                     {'iface': 'vmbr0', 'type': 'bridge', 'bridge_ports': 'nic1',
-                     'bridge_vlan_aware': '1', 'cidr': '192.168.10.126/24',
+                     'bridge_vlan_aware': '1', 'cidr': '192.168.10.10/24',
                      'gateway': '192.168.10.1'}],
         'sdn_zones': [],
     }
@@ -159,7 +159,7 @@ class ApiTests(unittest.TestCase):
 
     def test_the_prefix_is_the_network_not_the_host_address(self):
         # Proxmox reports the host's own address; a prefix of
-        # 192.168.10.126/24 would be a ledger entry nobody can allocate from.
+        # 192.168.10.10/24 would be a ledger entry nobody can allocate from.
         self.assertEqual(site.from_api(self.API)['prefix'], '192.168.10.0/24')
 
     def test_the_node_resolvers_win_over_the_gateway_fallback(self):

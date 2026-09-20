@@ -35,7 +35,7 @@ TL-SG605 ←── nic1 (LAN) ┘                    │
 | `eth1` | net1 | `vmbr0`（既存） | スイッチ・Aterm・各VM |
 
 **`vmbr1` にはホストの IP を与えません。** 管理 IP は今までどおり `vmbr0` 側
-（`192.168.10.126`）に残ります。
+（`192.168.10.10`）に残ります。
 
 ### 切替で変わる配線（ケーブルは2本）
 
@@ -72,9 +72,8 @@ ONU ── nic0 [K11] nic1 ── TL-SG605 ──┬── Windows デスクト�
   設定を保存（エクスポート）し、Wi-Fi の SSID・暗号化キーを**運用メモ**から
   再投入できるようにします。**秘密値はこの文書と Git に書きません。**
   具体的な保存・控え方は次節。
-- **Aterm の管理 IP は `192.168.10.250` に固定します。** AP（BR）モードの既定は
-  DHCP クライアントで、固定しないと DHCP のプール（`.2〜.99`）や IP 自動補正の
-  `.210`（NetBox の管理レンジ `.201〜.239` の内側）を名乗りえます。
+- **Aterm の管理 IP は `192.168.10.2`**（dnsmasq の MAC 予約。`.2〜.19` は
+  機器帯で、DHCP プールは `.20〜.99`）。Aterm 側は DHCP クライアントのままでよい。
 - 切替は家の全利用者に影響します。全断は数分です。時間を調整してから行います。
 
 ### Aterm の設定を保存し、Wi-Fi の値を控える
@@ -98,38 +97,34 @@ Git に入れず、`.local/` など Git 管理外の運用メモへ書きます�
 3. **戻し方**（詳細は「ロールバック」）: 電源を切って RT/BR/CNV スイッチを RT へ
    戻し、電源投入後に「設定値の保存＆復元」で 1 のファイルを復元する。
 
-### Aterm の管理 IP を `192.168.10.250` に固定する（切替後でよい）
+### 機器帯と Aterm の住所（`.2〜.19`）
 
-AP（BR）モードの既定は DHCP クライアントなので、放っておくと OpenWrt の
-DHCP プール（`.2〜.99`）の住所を名乗ります。実害はありませんが、管理しやすい
-よう `.250` に固定します（`.240〜.249` は MetalLB、`.250` は空き）。
+`192.168.10.2〜.19` は**ネットワーク機器・常時稼働サーバの帯**で、DHCP プール
+（`.20〜.99`）の外です。固定は OpenWrt の dnsmasq 予約で行い、機器側は DHCP
+クライアントのままでかまいません（正本は
+`platform/openwrt/rootfs/etc/shakecloud/config/dhcp`）。
 
-1. **いまの住所を調べる**（OpenWrt のリースから。Aterm の MAC はルータ本体の
-   ラベルか、切替前の `ip neigh` で分かる）:
+| 住所 | 機器 | 予約の相手 |
+| --- | --- | --- |
+| `.2` | Aterm（AP） | MAC `80:22:a7:8f:27:80` |
+| `.3` | プリンタ（未予約。mDNS で検出中） | — |
+| `.10` | Proxmox ホスト `apextox` | 静的（`/etc/network/interfaces`） |
+| `.11` | tarakoserver（Pi 4） | MAC `e4:5f:01:f2:b8:dc` |
+| `.12` | shakeserver（Pi 5） | MAC `2c:cf:67:2c:e3:4d` |
 
-   ```bash
-   ssh root@192.168.10.1 'cat /tmp/dhcp.leases'
-   # 例: 1789914754 80:22:a7:8f:27:80 192.168.10.49 * ...
-   ```
+予約の確認:
 
-2. **ブラウザでその住所を開く**（BR モードでは `aterm.me` は使えない）:
-   `http://192.168.10.49/` → ユーザー名 `admin` ＋ 管理者パスワード。
-3. 「基本設定」−「基本設定」の **IPアドレス／ネットマスク**を
-   「DHCPクライアント機能」から**固定アドレス**へ変える:
-   IP `192.168.10.250`、マスク `255.255.255.0`、ゲートウェイ `192.168.10.1`。
-   DNS は `192.168.10.1`（または未設定）。保存して再起動。
-4. 確認:
+```bash
+ssh root@192.168.10.1 'uci show dhcp | grep "=host"; cat /tmp/dhcp.leases'
+ping -c2 192.168.10.2     # Aterm（リース更新後に .2 へ移る）
+curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.2/   # 302 ならOK
+```
 
-   ```bash
-   ping -c2 192.168.10.250
-   curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.250/   # 302 ならOK
-   ```
-
-**住所が分からず UI を開けないとき**は、強制 DHCP サーバ機能を使います:
-Aterm の電源を切り、**らくらくスタートボタンを押したまま電源を入れ、
-CONVERTER ランプが緑点滅したらボタンを離す**。PC を Aterm の LAN ポートへ
-有線接続し、`http://192.168.1.210/` を開いて 3 と同じ設定をする。設定後は
-**再起動して強制 DHCP サーバを止める**（止め忘れると二重 DHCP になる）。
+Aterm の UI を開く必要があるときは、BR モードでは `aterm.me` が使えないので
+`http://192.168.10.2/` を直接開きます。住所が分からず開けないときは強制 DHCP
+サーバ機能（電源を切り、らくらくスタートを押したまま電源を入れ、CONVERTER が
+緑点滅したら離す → `http://192.168.1.210/`）を使い、設定後は**再起動して強制
+DHCP を止めます**。
 
 ## 1. ホスト側の準備（既存ネットに影響しない）
 
@@ -138,7 +133,7 @@ CONVERTER ランプが緑点滅したらボタンを離す**。PC を Aterm の 
 なります）。
 
 ```bash
-ssh root@192.168.10.126 'cp /etc/network/interfaces /etc/network/interfaces.bak-$(date +%F) && cat /etc/network/interfaces'
+ssh root@192.168.10.10 'cp /etc/network/interfaces /etc/network/interfaces.bak-$(date +%F) && cat /etc/network/interfaces'
 ```
 
 `/etc/network/interfaces` に次を足し、`iface nic2` のブロック（実体なし）を
@@ -154,16 +149,16 @@ iface vmbr1 inet manual
 ```
 
 ```bash
-ssh root@192.168.10.126 'ifreload -a'
-ssh root@192.168.10.126 'ip -br link show vmbr1; ip -4 addr show vmbr1'
+ssh root@192.168.10.10 'ifreload -a'
+ssh root@192.168.10.10 'ip -br link show vmbr1; ip -4 addr show vmbr1'
 ```
 
 - `vmbr1` が UP で、**IPv4 アドレスを持たない**こと。
-- `vmbr0` と `192.168.10.126` が今までどおりであること。
+- `vmbr0` と `192.168.10.10` が今までどおりであること。
 - `nic0` / `nic1` のリンク速度が 1000Mbps であること（`nic0` は ONU 接続後）。
 
 ```bash
-ssh root@192.168.10.126 'for i in nic0 nic1; do echo "== $i"; ethtool $i | grep -E "Speed|Duplex"; done'
+ssh root@192.168.10.10 'for i in nic0 nic1; do echo "== $i"; ethtool $i | grep -E "Speed|Duplex"; done'
 ```
 
 `nic1` のリンク断が続いていないかも確認します（N06「LAN ケーブル不良」）。
@@ -213,8 +208,8 @@ tools/tf router apply
 起動後の確認はシリアルコンソールで行います（LAN はまだリンクダウン）。
 
 ```bash
-ssh root@192.168.10.126 'qm config 101'          # net0=vmbr1, net1=vmbr0
-ssh root@192.168.10.126 'qm terminal 101'        # 抜けるのは Ctrl-O
+ssh root@192.168.10.10 'qm config 101'          # net0=vmbr1, net1=vmbr0
+ssh root@192.168.10.10 'qm terminal 101'        # 抜けるのは Ctrl-O
 ```
 
 **起動順だけは Terraform で設定しません。** Proxmox は `startup` の設定に
@@ -223,8 +218,8 @@ ssh root@192.168.10.126 'qm terminal 101'        # 抜けるのは Ctrl-O
 （VM を作り直したら再実行。値の正本は `platform/terraform/router.yaml`）。
 
 ```bash
-ssh root@192.168.10.126 'qm set 101 -startup order=1,up=30'
-ssh root@192.168.10.126 'qm config 101 | grep -E "^(onboot|startup):"'
+ssh root@192.168.10.10 'qm set 101 -startup order=1,up=30'
+ssh root@192.168.10.10 'qm config 101 | grep -E "^(onboot|startup):"'
 ```
 
 `onboot: 1` と `startup: order=1,up=30` が出れば、ホスト再起動時にルータが
@@ -270,16 +265,16 @@ Terraform の apply は復旧後にまとめて行います。
      （ACTIVE ランプが橙点灯すれば完了）。
    - 初期化された場合は SSID・暗号化キーを再投入する（運用メモから）。
    - **DHCP サーバ機能が止まったことを確認**する（二重 DHCP の回避）。
-   - 管理 IP の `192.168.10.250` 固定は切替が落ち着いてからでよい（前節）。
-5. **Proxmox UI**（`https://192.168.10.126:8006`）で LAN リンクを上げる:
+   - 管理 IP は dnsmasq の予約で `.2`（前節）。Aterm 側の操作は不要。
+5. **Proxmox UI**（`https://192.168.10.10:8006`）で LAN リンクを上げる:
    router-01 → Hardware → **net1** → Edit → **「切断（Disconnect）」のチェックを外す**。
-   CLI なら `ssh root@192.168.10.126 'qm set 101 -net1 link_down=0'`。
+   CLI なら `ssh root@192.168.10.10 'qm set 101 -net1 link_down=0'`。
    - これで `192.168.10.1` が OpenWrt になり、DHCP・DNS・インターネットが戻る。
 6. 端末で DHCP を取り直す（Windows は `ipconfig /renew`。`192.168.10.1` の
    ARP が古い間は 1 分ほど待つか、Wi-Fi を付け直す）。
 7. **インターネットが戻ったら**声をかける。こちらで `lan_connected` を `true` に
    して apply し（実機は UI で上がっているので差分は解消される）、
-   `tools/verify-router.py --pve root@192.168.10.126` で検証する。
+   `tools/verify-router.py --pve root@192.168.10.10` で検証する。
 
 **192.168.10.1・DHCP・DNS を Aterm と OpenWrt の両方が名乗る瞬間を作らないで
 ください。** Aterm の AP 化（手順 4）→ LAN のリンクアップ（手順 5）の順を守ります。
@@ -312,6 +307,43 @@ Aterm の AP 化を最後にすることで、切替当日の作業は「配線�
   `router-01` 自動起動。全断は約1〜2分）。引き金は game1 の iGPU パススルー操作で、
   リソース起因ではないことを実測で確認済み。詳細と確認方法は
   [power.md](power.md) の「K11 が固まったときの自動復旧」を参照。
+- **game1（VM 100）は `qm stop` で止めない。必ず `qm shutdown` を使います。**
+  iGPU（`c6:00.0`）は FLR に非対応で、VM 停止時のリセット手段が**バスリセット
+  しかありません**。`c6:00` は APU 内のひとつの部品で、ホストが使用中の
+  USB（`.3`/`.4`。UPS とキーボードがここ）・暗号チップ（`.2`）・音声（`.5`/`.6`）
+  が同居しているため、GPU を戻すためのリセットが一族を道連れにしてホストが即死
+  します。`qm stop` は QEMU を即殺するので、ゲストが GPU を握ったままこの
+  リセットに入ります。`qm shutdown` なら ACPI 経由でゲストの systemd が
+  amdgpu を正規手順で手放してから終わります。
+
+  ```bash
+  # ○ ゲストOSを正常終了させてから QEMU を終わらせる
+  ssh root@192.168.10.10 'qm shutdown 100 --timeout 120'
+
+  # × これで 2026-09-20 14:57 にホストごと落ちた（＝家中のネット断）
+  ssh root@192.168.10.10 'qm stop 100'
+  ```
+
+  2026-09-20 の実測では `qm stop` 3 回のうち 1 回でハングしました
+  （13:05・14:43 は生存、14:57 でハング）。**確率的に落ちるので「前回平気
+  だった」は根拠になりません。** 停止直後にホストのログが一切残らない
+  （OOM も lockup も MCE もなし）のがこの故障の特徴です。
+
+  **Web UI（ブラウザ）ではボタン名で覚えます。** 右上の青い
+  「**シャットダウン**」ボタンを**そのまま押す**のが `qm shutdown` です。
+  右隣の `∨` を開いて出てくるメニューは、ほぼ全部が危険側です。
+
+  | Web UI の項目 | コマンド | 可否 |
+  | --- | --- | --- |
+  | （青いボタン本体）**シャットダウン** | `qm shutdown` | ○ これを使う |
+  | 再起動 | `qm reboot` | △ 内部で停止→起動するのでリセットを伴う |
+  | 一時停止 / ハイバネート | `qm suspend` | △ GPU の状態は解決しない |
+  | **停止** | **`qm stop`** | × 2026-09-20 14:57 はこれ |
+  | リセット | `qm reset` | × 強制リセット |
+
+  ゲストが固まって「シャットダウン」が完了しないときだけ「停止」を使います。
+  そのときは**家のネットが落ちうると理解した上で**押してください
+  （watchdog が効けば 1〜2 分で戻ります）。
 - **停電**: K11 を UPS のバッテリー側へ接続し、BIOS の「AC 復帰で自動起動」を
   有効にしておくと、復電後にネットまで自動で戻ります（[power.md](power.md)）。
 - **K11 が起動しない・故障したとき（コールドスペア）**:
@@ -352,7 +384,7 @@ Aterm の AP 化を最後にすることで、切替当日の作業は「配線�
 
   ```bash
   TOKEN=$(sops -d platform/sops/proxmox-root.sops.yaml     | grep -E '^PROXMOX_VE_API_TOKEN:' | sed 's/^[^:]*: *//')
-  curl -sk -X DELETE -H "Authorization: PVEAPIToken=$TOKEN"     'https://192.168.10.126:8006/api2/json/nodes/apextox/storage/local/content/local:import/openwrt-router.raw'
+  curl -sk -X DELETE -H "Authorization: PVEAPIToken=$TOKEN"     'https://192.168.10.10:8006/api2/json/nodes/apextox/storage/local/content/local:import/openwrt-router.raw'
   tools/tf router plan   # 0 to destroy になる
   tools/tf router apply
   ```
@@ -373,7 +405,7 @@ MAP-E の割当に収まっているか、PMTU が 1460 か、IPv6 relay が効�
 
 ```bash
 python3 tools/verify-router.py
-python3 tools/verify-router.py --pve root@192.168.10.126   # ホストのリンクも見る
+python3 tools/verify-router.py --pve root@192.168.10.10   # ホストのリンクも見る
 ```
 
 **切替前でも実行できます**（現在の Aterm 回線の基準値が取れ、切替後に
@@ -397,7 +429,7 @@ ping -M do -s 1432 8.8.8.8
 ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
 ```
 
-- LAN 端末が `192.168.10.2〜.99` を DHCP で取得し、IPv4・IPv6 の双方で
+- LAN 端末が `192.168.10.20〜.99` を DHCP で取得し（`.2〜.19` は機器帯）、IPv4・IPv6 の双方で
   外部へ到達する。
 - Aterm が AP としてのみ動作し、**DHCP を返さない**。Wi-Fi の両 SSID で接続
   できる。
@@ -411,7 +443,7 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
 - 2026-09-19: `platform/openwrt/build.sh` でイメージを作成
   （`dist/openwrt-router.raw`、このときの sha256 は `593dd771…eafb229`）。
 - 2026-09-19: ホストへ `vmbr1`（nic0、IP なし）を追加し、実体のない `nic2` の
-  定義を削除。`vmbr0` と `192.168.10.126` は無傷。`tools/site-yaml.py --api` は
+  定義を削除。`vmbr0` と `192.168.10.10` は無傷。`tools/site-yaml.py --api` は
   「すでに一致」で差分なし。
 - 2026-09-19: `tools/tf router apply` で VM 101（`router-01`）を作成。
   イメージは `local:import/openwrt-router.raw`。net0/net1 とも `link_down`。
@@ -496,10 +528,10 @@ N06 の完了条件。K11 を再起動し、`onboot` と `startup order=1` で�
 **数分の全断になるので、利用者がいない時間帯に行う。**
 
 ```bash
-ssh root@192.168.10.126 'qm config 101 | grep -E "^(onboot|startup):"'
-ssh root@192.168.10.126 reboot
+ssh root@192.168.10.10 'qm config 101 | grep -E "^(onboot|startup):"'
+ssh root@192.168.10.10 reboot
 # 戻ったら
-python3 tools/verify-router.py --pve root@192.168.10.126
+python3 tools/verify-router.py --pve root@192.168.10.10
 ```
 
 ## 既知の課題（未確定）

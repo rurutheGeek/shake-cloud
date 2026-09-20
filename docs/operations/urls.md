@@ -22,7 +22,7 @@
 | NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM）。直アクセス `http://192.168.10.200:8000` | 管理者 |
 | Shake Lab Docs | <https://docs.apextox.dpdns.org> | このサイト（直アクセス `http://192.168.10.200:8090`） | 全員 |
 | リポジトリ | <https://github.com/rurutheGeek/shake-cloud> | ソースコード（GitHub） | 管理者 |
-| Proxmox | <https://pve.apextox.dpdns.org:8006> | 仮想化ホストの管理画面。IP 直は `https://192.168.10.126:8006` | 管理者 |
+| Proxmox | <https://pve.apextox.dpdns.org:8006> | 仮想化ホストの管理画面。IP 直は `https://192.168.10.10:8006` | 管理者 |
 
 **Eufy Security（eufy-security-ws）と SwitchBot Cloud は Home Assistant の中の連携**で、独立した URL はありません。HA の「設定 → デバイスとサービス」から使います。
 
@@ -78,7 +78,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 
 | 名前 | アドレス | 用途 |
 | --- | --- | --- |
-| Proxmox ホスト | `root@192.168.10.126` | 仮想化ホスト |
+| Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
 | services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・Eufy 中継 |
 | identity | `debian@192.168.10.204` | Authentik |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |

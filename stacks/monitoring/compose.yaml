@@ -103,7 +103,7 @@ services:
       # この exporter はパスワードだけ環境変数で受ける。
       NUT_EXPORTER_PASSWORD: ${NUT_PASSWORD:-}
     command:
-      - --nut.server=${NUT_SERVER:-192.168.10.126}
+      - --nut.server=${NUT_SERVER:-192.168.10.10}
       - --nut.username=${NUT_USERNAME:-monitor}
       - --nut.vars_enable=battery.charge,battery.runtime,ups.status,ups.load,input.voltage,output.voltage
     ports:

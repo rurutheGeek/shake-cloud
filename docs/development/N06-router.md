@@ -66,7 +66,7 @@ PSID が分かれば、使えるポートは `port = (i << 12) | (psid << 4) | j
 | --- | --- |
 | 有線 NIC | **Intel I226-V × 2**（`0000:02:00.0` = `nic0`、`0000:03:00.0` = `nic1`） |
 | IOMMU グループ | 15 と 16 に**分離済み** → 個別に PCI パススルー可能 |
-| 現在の使用 | `nic1` のみ `vmbr0` に接続（`192.168.10.126/24`）。**`nic0` は未接続・未使用** |
+| 現在の使用 | `nic1` のみ `vmbr0` に接続（`192.168.10.10/24`）。**`nic0` は未接続・未使用** |
 | 無線 | MediaTek MT7922（未使用） |
 | 余力 | 16 スレッド / RAM 59.7GiB（47.0GiB 使用中） |
 
@@ -90,7 +90,7 @@ GPU パススルー（game1）が動作しているため IOMMU は有効。カ�
 ```bash
 TOKEN=$(sops -d platform/sops/proxmox-root.sops.yaml | grep -E '^PROXMOX_VE_API_TOKEN:' | sed 's/^[^:]*: *//')
 curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
-  "https://192.168.10.126:8006/api2/json/nodes/apextox/syslog?start=0&limit=60000" \
+  "https://192.168.10.10:8006/api2/json/nodes/apextox/syslog?start=0&limit=60000" \
   | python3 -c 'import json,sys,re; [print(e["t"]) for e in json.load(sys.stdin)["data"] if re.search(r"NIC Link is", e["t"])]' | tail -20
 ```
 
@@ -241,7 +241,7 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 | 項目 | 値 | 根拠 |
 | --- | --- | --- |
 | LAN アドレス | `192.168.10.1/24` | 現行ゲートウェイを引き継ぐ。`platform/terraform/site.yaml` の `gateway` / `dns_servers` を変更せずに済む |
-| DHCP 配布範囲 | `192.168.10.2` 〜 `.99` | 現行 Aterm と同一。**固定割当は使っていないため移行作業はない** |
+| DHCP 配布範囲 | `192.168.10.20` 〜 `.99` | `.2〜.19` は機器帯（AP・Pi・プリンタ・Proxmox ホスト）として外へ出す。固定は dnsmasq の MAC 予約 |
 | DNS | OpenWrt の dnsmasq が `192.168.10.1` で応答 | 現行と同じ |
 | WAN | `proto map` / `maptype map-e`、`tunlink` は `wan6` | 上表の MAP-E パラメータを設定 |
 | MTU | 1460、MSS clamp 1420 | 実測値 |
@@ -251,13 +251,17 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 
 | レンジ | 用途 |
 | --- | --- |
-| `.2` 〜 `.99` | DHCP（OpenWrt が配る） |
+| `.2` 〜 `.19` | 機器帯（Aterm `.2`、Proxmox ホスト `.10`、Pi `.11`/`.12`。dnsmasq 予約） |
+| `.20` 〜 `.99` | DHCP（OpenWrt が配る） |
 | `.100` 〜 `.180` | cloud プールの利用者 VM（クラウド API が採番） |
 | `.201` 〜 `.239` | 管理（Terraform / NetBox） |
 | `.240` 〜 `.249` | MetalLB |
-| **`.250`** | **Aterm の管理 IP（本作業で新規に確保）** |
+| `.250` 〜 `.254` | 予備 |
 
-**Aterm の管理 IP に注意。** AP モードの既定値は `192.168.10.210` で、これは管理レンジ `.201〜.239` の**内側**にあり NetBox の採番と衝突する。`.250` へ固定すること。
+**Aterm は `.2` に予約する。** AP（BR）モードの既定は DHCP クライアントで、
+放っておくと DHCP プールの住所や IP 自動補正の `.210`（NetBox の管理レンジ
+`.201〜.239` の内側）を名乗りうる。MAC 予約なので Aterm 側の操作は不要。
+2026-09-20 に `.2〜.19` の機器帯と `.20〜.99` の DHCP プールへ整理した。
 
 ### 4. 移行
 
@@ -279,7 +283,7 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 
 ## 検証・完了条件
 
-- LAN の端末が DHCP で `.2〜.99` を取得し、IPv4・IPv6 の双方で外部へ到達する。
+- LAN の端末が DHCP で `.20〜.99` を取得し（`.2〜.19` は機器帯）、IPv4・IPv6 の双方で外部へ到達する。
 - MAP-E の外部ポートが**割り当て範囲内に収まる**（上記 STUN 手順で確認）。IPv4 の PMTU が 1460 で、大きなパケットが通る。
 - IPv6 が LAN 端末へ RA で配られ、GUA で外部へ到達する。
 - `nic1` のリンクが 1000Mbps を維持し、リンク断が発生しない。8 並列で 180Mbps 前後が出る。

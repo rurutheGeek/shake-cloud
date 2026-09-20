@@ -47,7 +47,7 @@
     - {key: GRAFANA_OIDC_ENABLED, value: 'true'}
     - {key: PVE_USER, value: 'monitoring@pve'}
     - {key: PVE_TOKEN_NAME, value: 'monitoring'}
-    - {key: NUT_SERVER, value: '192.168.10.126'}
+    - {key: NUT_SERVER, value: '192.168.10.10'}
     - {key: NUT_USERNAME, value: 'monitor'}
 
 # SMTP は identity と同じ smtp.sops.yaml。無ければ通知だけが無効になる。

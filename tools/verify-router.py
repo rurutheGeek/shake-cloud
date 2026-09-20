@@ -7,7 +7,7 @@ set, that the path MTU is the measured 1460, that IPv6 is relayed, and that the
 router and host agree with the declared configuration.
 
     python3 tools/verify-router.py                       # LAN client only
-    python3 tools/verify-router.py --pve root@192.168.10.126
+    python3 tools/verify-router.py --pve root@192.168.10.10
 
 Every check reads the canonical files (the UCI config in platform/openwrt, the
 declaration in platform/terraform) instead of hardcoding the measured values a
@@ -404,7 +404,7 @@ def main():
                         help='router-01 の SSH ユーザ。イメージに焼く管理者鍵は root 用')
     parser.add_argument('--router-key', default='~/.ssh/id_ed25519_pve')
     parser.add_argument('--pve', default='',
-                        help='Proxmox ホスト（例: root@192.168.10.126）。リンク速度も見る')
+                        help='Proxmox ホスト（例: root@192.168.10.10）。リンク速度も見る')
     parser.add_argument('--pve-key', default='~/.ssh/id_ed25519_pve')
     parser.add_argument('--vm-id', type=int, default=101)
     parser.add_argument('--lan-mac', default='',

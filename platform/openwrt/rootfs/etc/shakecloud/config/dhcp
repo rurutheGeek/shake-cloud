@@ -1,4 +1,5 @@
-# DHCP と IPv6。IPv4 は dnsmasq が 192.168.10.2〜.99 を配る。
+# DHCP と IPv6。IPv4 は dnsmasq が 192.168.10.20〜.99 を配る。
+# **.2〜.19 はネットワーク機器・常時稼働サーバの帯**（DHCP プールの外）。
 # IPv6 は PD がないため、RA と DHCPv6 は odhcpd の relay で中継し、近隣代理は
 # ndppd が受け持つ（/etc/ndppd.conf）。Aterm の ND Proxy と同じ役割。
 config dnsmasq
@@ -27,11 +28,31 @@ config dnsmasq
 	option localservice '1'
 	option ednspacket_max '1232'
 
+# 固定アドレス（.2〜.19 の機器帯）。**DHCP プールの外**に置く。
+# MAC で予約するので機器側は DHCP クライアントのままでよい。
+# 値の根拠: 192.168.10.2 = Aterm（AP）、.11 = tarakoserver（Pi 4）、
+# .12 = shakeserver（Pi 5）。帯の正本は platform/terraform/network.yaml。
+config host
+	option name 'aterm'
+	option mac '80:22:a7:8f:27:80'
+	option ip '192.168.10.2'
+
+config host
+	option name 'tarakoserver'
+	option mac 'e4:5f:01:f2:b8:dc'
+	option ip '192.168.10.11'
+
+config host
+	option name 'shakeserver'
+	option mac '2c:cf:67:2c:e3:4d'
+	option ip '192.168.10.12'
+
 config dhcp 'lan'
 	option interface 'lan'
-	# 現行 Aterm と同じ .2〜.99。固定割当はしていないので移行作業はない。
-	option start '2'
-	option limit '98'
+	# 機器帯 .2〜.19 を空けて .20〜.99 を配る。固定割当は dnsmasq の
+	# `config host` で行うので、端末側の変更は要らない。
+	option start '20'
+	option limit '80'
 	option leasetime '12h'
 	option dhcpv4 'server'
 	option dhcpv6 'relay'

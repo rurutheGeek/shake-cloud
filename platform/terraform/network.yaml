@@ -9,6 +9,14 @@
 #
 # 管理用とクラウド用の範囲は**重ねない**。重ねると管理者Terraformとクラウドが
 # 同じアドレスを別々に配りうる。
+# ネットワーク機器・常時稼働の小型機器（AP・プリンタ・Pi・Proxmox ホスト）。
+# **DHCP プール（.20〜.99）と管理/クラウド帯の外**に置く。実際の固定は
+# OpenWrt の dnsmasq 予約（platform/openwrt/rootfs/etc/shakecloud/config/dhcp）
+# で行い、ここは帯の宣言（正本）。管理VMの採番元（management）とは別物。
+infrastructure:
+  range_start: 192.168.10.2/24
+  range_end: 192.168.10.19/24
+
 management:
   # 基盤VMの静的割り当て。既存: .200 services-01（05-seed が静的に持つ）、
   # .201 probe-01、.202 dev-a、.203 dev-b。

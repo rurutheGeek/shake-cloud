@@ -38,7 +38,7 @@ scrape_configs:
     params:
       module: [default]
     static_configs:
-      - targets: ['192.168.10.126']
+      - targets: ['192.168.10.10']
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

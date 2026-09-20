@@ -4,7 +4,7 @@ pve_nut_ups_name: cyberpower
 pve_nut_vendorid: '0764'
 pve_nut_productid: '0601'
 # monitor-01 から読めるよう、管理LANのアドレスで待ち受ける。
-pve_nut_listen_address: 192.168.10.126
+pve_nut_listen_address: 192.168.10.10
 pve_nut_monitor_user: monitor
 # 低電池時に upsmon（primary）が使うローカル専用ユーザー。
 pve_nut_upsmon_user: upsmon

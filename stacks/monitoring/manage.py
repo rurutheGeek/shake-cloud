@@ -102,7 +102,7 @@ def render_peanut_config():
     path = target / 'settings.yml'
     path.write_text(
         'NUT_SERVERS:\n'
-        f"  - HOST: {values.get('NUT_SERVER', '192.168.10.126')}\n"
+        f"  - HOST: {values.get('NUT_SERVER', '192.168.10.10')}\n"
         '    PORT: 3493\n'
         f"    USERNAME: {values.get('NUT_USERNAME', 'monitor')}\n"
         f'    PASSWORD: {nut_password}\n')
