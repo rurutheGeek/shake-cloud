@@ -90,6 +90,9 @@ class DeviceSpecTests(unittest.TestCase):
         self.assertEqual(devices['apextox']['address'], '192.168.10.10/24')
         self.assertEqual(devices['tarakoserver']['interface']['mac'], 'e4:5f:01:f2:b8:dc')
         self.assertEqual(devices['shakeserver']['address'], '192.168.10.12/24')
+        # Wi-Fi 接続のプリンタ。MAC が無いと予約（dhcp-host）を生成できない。
+        self.assertEqual(devices['printer']['interface']['mac'], 'f8:a2:60:a5:e9:fb')
+        self.assertEqual(devices['printer']['interface']['type'], 'ieee802.11ac')
 
     def test_every_declared_device_sits_in_the_infrastructure_band(self):
         network = sync.load_yaml(sync.NETWORK)

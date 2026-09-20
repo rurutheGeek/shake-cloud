@@ -67,7 +67,7 @@ devices:
   - name: printer
     device_type: TS8430
     role: Printer
-    description: Canon TS8430。MAC が分かったら interface.mac を埋めると予約が有効になる
-    interface: {name: eth0, type: 1000base-t, mac: null}
+    description: Canon TS8430（Wi-Fi 接続）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'f8:a2:60:a5:e9:fb'}
     address: 192.168.10.3/24
     dns_name: printer

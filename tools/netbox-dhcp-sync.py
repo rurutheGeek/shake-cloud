@@ -261,7 +261,8 @@ def ensure_devices(api, spec, dry_run=False):
                 api.post('/ipam/ip-addresses/', payload)
                 actions.append(f"create ip {address} ({device['name']})")
         elif existing.get('status', {}).get('value') != 'reserved' or \
-                existing.get('dns_name') != payload['dns_name']:
+                existing.get('dns_name') != payload['dns_name'] or \
+                existing.get('assigned_object_id') != interface['id']:
             if dry_run:
                 actions.append(f"update ip {address} ({device['name']})")
             else:
