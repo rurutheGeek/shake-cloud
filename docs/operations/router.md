@@ -160,6 +160,10 @@ DNS の窓口は **AdGuard Home**（`192.168.10.1:53`）です。広告・トラ
 - 設定の正本は `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`。
   反映は scp 後に `/etc/init.d/adguardhome restart`（UCI と違い reboot 不要）。
   パッケージは `openwrt.yaml` に入っているので、イメージ再ビルドでも入ります。
+- **作業ディレクトリは `/etc/adguardhome/data`**（UCI の `workdir`）。既定の
+  `/var/lib/adguardhome` は tmpfs で、再起動するとフィルタのキャッシュが消え、
+  WAN が上がる前の起動では再取得に失敗して次回更新まで遮断が効きません
+  （実機で踏んで修正済み）。
 
 ```bash
 ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'  # 0.0.0.0 なら遮断
@@ -561,6 +565,14 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   `adguardhome.config.config` を `/etc/adguardhome/adguardhome.yaml` に合わせた
   （`uci-defaults/97-shakecloud-adguard` が同じことをする）。
   正本は `rootfs/etc/adguardhome/adguardhome.yaml` と `dhcp`。
+- 2026-09-20: **ルータ VM を再起動して AdGuard の永続性を確認。** 起動時に
+  `interface.*.up` の trigger で自動起動し、`:53` を取り戻した（dnsmasq は
+  `:5353`）。ただし**フィルタのキャッシュが `/var`（tmpfs）にあり、起動直後は
+  WAN 未確立で再取得に失敗 → 約18万件が空のまま、次回更新（既定24時間）まで
+  遮断が効かなかった**。UCI `adguardhome.config.workdir` を
+  `/etc/adguardhome/data` へ移して修正し、`uci-defaults/97` にも反映した。
+  `aterm.lan` などの予約名は仕様どおりリース取得後に戻る（リースDBは tmpfs の
+  ため、再起動直後は引けない）。
 
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 

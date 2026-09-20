@@ -6,6 +6,9 @@
 #
 # 24.10 のパッケージは既定で /etc/adguardhome.yaml を見るので、パスを合わせる。
 uci set adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'
+# 作業ディレクトリは既定の /var/lib（tmpfs）ではなく永続領域へ。
+# フィルタのキャッシュと統計が再起動で消えないようにする（/var は RAM）。
+uci set adguardhome.config.workdir='/etc/adguardhome/data'
 uci commit adguardhome
 /etc/init.d/adguardhome enable
 exit 0

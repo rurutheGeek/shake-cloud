@@ -159,6 +159,10 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
   UCI `adguardhome.config.config` で自分のパスに合わせる。移行は
   **AdGuard の導入 → dnsmasq を `:5353` へ → AdGuard 起動**の順で行う
   （逆にすると `:53` が空いて DNS が止まる）。
+- **AdGuard の作業ディレクトリは永続領域へ。** 既定の `/var/lib/adguardhome` は
+  tmpfs で、再起動するとフィルタのキャッシュが消える。起動直後は WAN が未確立で
+  取得に失敗し、次回更新（既定24時間）まで遮断が効かない（実機で踏んだ）。
+  UCI `adguardhome.config.workdir` を `/etc/adguardhome/data` にする。
 - **ローカル名は `.lan` を付ける。** AdGuard の上流指定は末尾一致
   （`[/lan/]…`）なので、1語の `aterm` は dnsmasq へ転送できない。
 - **IPv6 の RDNSS は JPNE の RA に無い。** odhcpd の relay は「上流 RA にある

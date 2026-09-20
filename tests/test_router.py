@@ -294,7 +294,11 @@ class ImageContentsTests(unittest.TestCase):
         self.assertIn('[/lan/]127.0.0.1:5353', config['dns']['upstream_dns'])
         self.assertTrue(any('dns-query' in upstream
                             for upstream in config['dns']['upstream_dns']))
-        self.assertTrue((OPENWRT / 'rootfs/etc/uci-defaults/97-shakecloud-adguard').exists())
+        defaults = (OPENWRT / 'rootfs/etc/uci-defaults/97-shakecloud-adguard').read_text(encoding='utf-8')
+        # 24.10 の既定パスと違い、作業ディレクトリは tmpfs の /var にしない
+        # （フィルタのキャッシュと統計が再起動で消えるため）。
+        self.assertIn("adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'", defaults)
+        self.assertIn("adguardhome.config.workdir='/etc/adguardhome/data'", defaults)
 
     def test_the_management_lan_reaches_the_router(self):
         lan = section(self.firewall, 'zone', 'lan')
