@@ -68,6 +68,12 @@ devices:
     device_type: TS8430
     role: Printer
     description: Canon TS8430（Wi-Fi 接続）
-    interface: {name: wlan0, type: ieee802.11ac, mac: 'f8:a2:60:a5:e9:fb'}
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'f8:a2:6d:a5:e9:fb'}
     address: 192.168.10.3/24
     dns_name: printer
+
+# 固定IPは持たないが、名前だけ付けたい DHCP クライアント。
+# `dhcp-host=MAC,名前` を生成し、動的IPのまま DNS 名が引けるようにする。
+# 台帳（NetBox）の dns_name にもこの名前を使う。
+clients:
+  - {name: eufycam-s4, mac: '2c:8d:48:2c:5a:33'}

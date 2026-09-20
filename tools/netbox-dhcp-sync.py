@@ -128,13 +128,28 @@ def render_hosts(records):
     return lines
 
 
-def render_file(records):
+def render_clients(clients):
+    """名前だけ付けるクライアント。IP は動的のまま、DNS 名だけ登録する。"""
+    return [f"dhcp-host={normalize_mac(client['mac'])},{client['name']}"
+            for client in sorted(clients, key=lambda c: c['name'])]
+
+
+def client_names(spec):
+    return {normalize_mac(client['mac']): client['name'] for client in spec.get('clients', [])}
+
+
+def lease_name(lease, names):
+    """台帳に書く名前。クライアントが送った名前を優先し、無ければ宣言を使う。"""
+    return lease['hostname'] or names.get(lease['mac'], '')
+
+
+def render_file(records, clients=()):
     header = [
         '# NetBox が生成する dnsmasq の予約。**手で編集しない。**',
         '# 正本は NetBox の reserved な IPAddress（宣言は platform/netbox/devices.yaml）。',
         '# 生成: tools/netbox-dhcp-sync.py pull',
     ]
-    return '\n'.join(header + render_hosts(records)) + '\n'
+    return '\n'.join(header + render_hosts(records) + render_clients(clients)) + '\n'
 
 
 def ssh_run(destination, key, command, timeout=30, input_text=None):
@@ -294,7 +309,8 @@ def reserved_records(api, infrastructure):
 def pull(api, args):
     network = load_yaml(NETWORK)
     records = reserved_records(api, network['infrastructure'])
-    desired = render_file(records)
+    clients = load_yaml(DEVICES).get('clients', [])
+    desired = render_file(records, clients)
     current, error = ssh_run(args.router, args.key,
                              f'cat {RESERVATIONS_FILE} 2>/dev/null || true')
     if current is None:
@@ -313,7 +329,7 @@ def pull(api, args):
     if output is None:
         raise SystemExit(f'書き込みに失敗（dnsmasq が起動しない可能性）: {error}')
     missing = [r['name'] for r in records if not r['mac']]
-    print(f'pull: {len(render_hosts(records))} 件の予約を反映'
+    print(f'pull: {len(render_hosts(records))} 件の予約と {len(render_clients(clients))} 件の名前を反映'
           + (f"（MAC 未登録でスキップ: {', '.join(missing)}）" if missing else ''))
     return 0
 
@@ -321,6 +337,7 @@ def pull(api, args):
 def push(api, args):
     network = load_yaml(NETWORK)
     dhcp = network['dhcp']
+    names = client_names(load_yaml(DEVICES))
     text, error = ssh_run(args.router, args.key, f'cat {LEASES_FILE}')
     if text is None:
         raise SystemExit(f'{args.router} へ SSH できない: {error}')
@@ -330,24 +347,25 @@ def push(api, args):
     for lease in leases:
         if not in_range(lease['address'], dhcp):
             continue
+        display_name = lease_name(lease, names)
         # NetBox は dns_name を小文字で保存する。毎回の差分にしないよう揃える。
-        dns_name = lease['hostname'].lower()
+        dns_name = display_name.lower()
         existing = api.one('/ipam/ip-addresses/', address=f"{lease['address']}/24")
-        description = f"DHCP lease {lease['mac']}" + (f" ({lease['hostname']})"
-                                                       if lease['hostname'] else '')
+        description = f"DHCP lease {lease['mac']}" + (f" ({display_name})"
+                                                       if display_name else '')
         if existing:
             if existing.get('status', {}).get('value') == 'reserved':
                 continue  # 固定機器。リースで上書きしない
             if existing.get('description') == description and \
                     existing.get('dns_name') == dns_name:
                 continue
-            actions.append(f"update {lease['address']} ({lease['hostname'] or lease['mac']})")
+            actions.append(f"update {lease['address']} ({display_name or lease['mac']})")
             if not args.dry_run:
                 api.patch(f"/ipam/ip-addresses/{existing['id']}/",
                           {'status': 'dhcp', 'dns_name': dns_name,
                            'description': description})
         else:
-            actions.append(f"create {lease['address']} ({lease['hostname'] or lease['mac']})")
+            actions.append(f"create {lease['address']} ({display_name or lease['mac']})")
             if not args.dry_run:
                 api.post('/ipam/ip-addresses/', {
                     'address': f"{lease['address']}/24", 'status': 'dhcp',
