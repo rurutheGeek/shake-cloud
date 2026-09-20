@@ -170,6 +170,9 @@ ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'  # 0.0.0.0 なら�
 ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'        # ローカル名
 ```
 
+運用の詳細（管理画面の開き方・フィルタ更新・トラブル）は
+[DNS と広告遮断（AdGuard Home）](adguard.md)。
+
 ## 1. ホスト側の準備（既存ネットに影響しない）
 
 `vmbr1` を作り、実体のない `nic2` の定義を消します。**Proxmox の物理コンソール

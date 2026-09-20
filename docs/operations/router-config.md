@@ -87,6 +87,8 @@
   `ssh -L 3000:127.0.0.1:3000 root@192.168.10.1` → `http://localhost:3000/`
 - フィルタは AdGuard DNS filter（約18万件）。設定の正本は
   `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`
+- 運用（管理画面の開き方・フィルタ更新・つまずきやすい点）は
+  [DNS と広告遮断（AdGuard Home）](adguard.md)
 - **作業ディレクトリは `/etc/adguardhome/data`**（UCI の `workdir`）。既定の
   `/var/lib/adguardhome` は tmpfs なので、再起動でフィルタのキャッシュと統計が
   消える。起動直後は WAN がまだ上がっておらずフィルタを取得できないため、
