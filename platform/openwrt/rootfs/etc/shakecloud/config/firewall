@@ -121,3 +121,21 @@ config rule
 	option dest_port '500'
 	option proto 'udp'
 	option target 'ACCEPT'
+
+# AdGuard Home の管理画面（:3000）。HTTPS 入口の Caddy が動く services-01
+# だけに開ける。LAN 全体に開けると SSO（Forward Auth）を迂回できてしまう。
+# ルールは書いた順に評価されるので、許可のあとに拒否を置く。
+config rule
+	option name 'Allow-AdGuard-UI-from-proxy'
+	option src 'lan'
+	option src_ip '192.168.10.200'
+	option proto 'tcp'
+	option dest_port '3000'
+	option target 'ACCEPT'
+
+config rule
+	option name 'Deny-AdGuard-UI-others'
+	option src 'lan'
+	option proto 'tcp'
+	option dest_port '3000'
+	option target 'DROP'

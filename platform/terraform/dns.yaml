@@ -80,6 +80,13 @@ records:
     host: services-01
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
+  # AdGuard Home の管理画面はルータ上。ルータの :3000 はファイアウォールで
+  # services-01 だけに開けてあり、Caddy はその LAN アドレスへ中継する。
+  adguard:
+    host: services-01
+    upstream: 192.168.10.1:3000
+    description: AdGuard Home（DNS・広告遮断。Forward Auth）
+    auth: true
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
     host: monitor-01

@@ -38,7 +38,7 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 | 逆引き（PTR） | `127.0.0.1:5353` | LAN の名前は dnsmasq |
 | フィルタ | AdGuard DNS filter（約18万件） | 広告・トラッカー |
 | クエリログ・統計 | 90日 | ルータ内のディスクに保存 |
-| 管理画面 | `127.0.0.1:3000`（localhost のみ） | LAN に出さない。SSH トンネルで開く |
+| 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は services-01 だけに許可 |
 | 作業ディレクトリ | `/etc/adguardhome/data`（UCI `workdir`） | 既定の `/var/lib` は tmpfs。再起動でフィルタが消えるのを防ぐ |
 | DHCP の DNS 配布 | `192.168.10.1`（dnsmasq の option 6） | 端末は DHCP で AdGuard を知る |
 
@@ -55,15 +55,21 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 
 ## 管理画面の開き方
 
-LAN には出していません。SSH トンネルで開きます。
+**通常は <https://adguard.apextox.dpdns.org>** を開きます（共通ログイン＝SSO）。
+しくみは、ルータの `192.168.10.1:3000` を services-01 の Caddy が中継し、
+Forward Auth（Authentik）で認証する形です。**ルータのファイアウォールは
+`:3000` を services-01 だけに開けている**ので、LAN の端末から
+`http://192.168.10.1:3000` を直接開くことはできません（SSO の迂回防止）。
+
+SSO が使えないときは SSH トンネルで開きます。
 
 ```bash
-ssh -L 3000:127.0.0.1:3000 root@192.168.10.1
+ssh -L 3000:192.168.10.1:3000 root@192.168.10.1
 # ブラウザで http://localhost:3000/
 ```
 
-パスワードは設定していません（`users: []`、localhost のみのため）。
-初回に UI で管理者を作ると設定ファイルが書き換わり、Git の正本と差分が出ます。
+AdGuard 自身にはパスワードを設定していません（`users: []`）。初回に UI で
+管理者を作ると設定ファイルが書き換わり、Git の正本と差分が出ます。
 **作らないでください**（必要になったら正本へ反映してコミットします）。
 
 ## よくある操作
@@ -126,7 +132,7 @@ AdGuard 自体を止めると `:53` が空になり DNS が止まります。止
 | スマホに「インターネットなし」 | DHCP が DNS（option 6）を配っていない | `dhcp.lan` に `list dhcp_option '6,192.168.10.1'`（設定済み）。端末は Wi-Fi 再接続で新しいリースを取る |
 | 広告が消えない | フィルタが空（起動時に取得失敗） | refresh API を叩き、`rules_count` を確認 |
 | `aterm` が引けない | 1語の名前は転送されない | `aterm.lan` と引く |
-| 管理画面が開けない | LAN に出していない | SSH トンネル（上記） |
+| 管理画面が開けない | SSO か Caddy の入口の問題 | `https://adguard.apextox.dpdns.org` を開く。だめなら SSH トンネル（上記） |
 | 名前が全体的に引けない | AdGuard か dnsmasq が落ちている | 下の確認コマンド |
 
 ## 確認コマンド
@@ -139,6 +145,8 @@ ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'   # 0.0.0.0
 ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'         # 192.168.10.2
 # フィルタの件数と更新時刻
 ssh root@192.168.10.1 'curl -s http://127.0.0.1:3000/control/filtering/status | head -c 300'
+# HTTPS 入口（SSO のログインへ 302 すれば正常）
+curl -sI https://adguard.apextox.dpdns.org/ | head -3
 # ログ
 ssh root@192.168.10.1 'logread | grep -i adguard | tail -5'
 ```

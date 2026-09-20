@@ -10,8 +10,11 @@
 # 設計と検証は docs/operations/router-config.md。
 schema_version: 29
 http:
-  # 管理画面はルータの localhost だけ。開くときは SSH トンネルを使う。
-  address: 127.0.0.1:3000
+  # 管理画面はルータの LAN アドレス。**ファイアウォールで services-01（HTTPS
+  # 入口の Caddy）だけに開けてある**（LAN 全体には開けない。SSO を迂回される
+  # ため）。入口は https://adguard.apextox.dpdns.org（Forward Auth）。
+  # SSH トンネルでも開ける: ssh -L 3000:192.168.10.1:3000 root@192.168.10.1
+  address: 192.168.10.1:3000
   session_ttl: 720h
 # 管理者は初回に UI で作る（localhost のみなので露出しない）。
 users: []

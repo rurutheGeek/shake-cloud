@@ -155,8 +155,10 @@ DNS の窓口は **AdGuard Home**（`192.168.10.1:53`）です。広告・トラ
   JPNE の上流 RA に RDNSS が無いため配れません（odhcpd の relay は上流 RA の
   RDNSS を書き換える方式）。実測で確認済み（2026-09-20）。ISP 側が変われば
   `dhcp.lan.dns` の1行で AdGuard へ書き換わります。
-- **管理画面はルータの localhost だけ**（`127.0.0.1:3000`）。開くとき:
-  `ssh -L 3000:127.0.0.1:3000 root@192.168.10.1` → `http://localhost:3000/`
+- **管理画面は HTTPS 入口から**（`https://adguard.apextox.dpdns.org`、SSO）。
+  ルータの `:3000` はファイアウォールで services-01 だけに開けています。
+  SSH トンネルでも開けます:
+  `ssh -L 3000:192.168.10.1:3000 root@192.168.10.1` → `http://localhost:3000/`
 - 設定の正本は `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`。
   反映は scp 後に `/etc/init.d/adguardhome restart`（UCI と違い reboot 不要）。
   パッケージは `openwrt.yaml` に入っているので、イメージ再ビルドでも入ります。
@@ -585,6 +587,13 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   と、スマホが AdGuard で `connectivitycheck.gstatic.com` を引けることを実測。
   あわせて NetBox 同期ツールが**再起動直後の「リース無し」で台帳を削除**して
   いたのを直した（起動がリース期間未満なら削除しない。[netbox.md](netbox.md)）。
+
+- 2026-09-20: **AdGuard の管理画面に HTTPS 入口を付けた。**
+  `adguard.apextox.dpdns.org`（services-01 の Caddy → ルータの
+  `192.168.10.1:3000`、Forward Auth で SSO）。ルータのファイアウォールは
+  `:3000` を services-01 だけに許可し、LAN からの直接アクセス（SSO 迂回）を
+  塞いだ。設定は `dns.yaml`・`stacks/identity/configure.py`・
+  `rootfs/etc/shakecloud/config/firewall`・`adguardhome.yaml`。
 
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 

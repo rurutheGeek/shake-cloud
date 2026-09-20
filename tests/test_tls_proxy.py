@@ -57,10 +57,13 @@ class DnsDeclarationTests(unittest.TestCase):
         # CUPS is the exception: its 631 is the print relay that LAN and VPN
         # clients dial directly, and CUPS rejects a non-localhost Host on
         # loopback connections, so Caddy dials the LAN address and keeps Host.
+        # AdGuard の UI はルータ上にあり、ルータのファイアウォールが :3000 を
+        # services-01（Caddy のホスト）だけに開けている。ここも LAN アドレスへ。
         for name, record in DNS['records'].items():
-            if 'upstream' in record and name != 'cups':
+            if 'upstream' in record and name not in ('cups', 'adguard'):
                 self.assertRegex(record['upstream'], r'^127\.0\.0\.1:\d+$', name)
         self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.200:631')
+        self.assertEqual(DNS['records']['adguard']['upstream'], '192.168.10.1:3000')
 
     def test_upstream_ports_match_the_services(self):
         records = DNS['records']
@@ -74,6 +77,8 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
+        # AdGuard の UI はルータ上。ルータ側のファイアウォールで services-01 だけに開ける。
+        self.assertEqual(records['adguard']['upstream'], '192.168.10.1:3000')
 
     def test_comments_fit_cloudflare_free_plan(self):
         # Cloudflare's free plan rejects record comments over 100 characters.
@@ -116,7 +121,7 @@ class TlsProxyTests(unittest.TestCase):
     def test_forward_auth_is_declared_for_the_browser_tools_only(self):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
-        self.assertEqual(behind_auth, {'navidrome', 'metube', 'khinsider', 'cups'})
+        self.assertEqual(behind_auth, {'navidrome', 'metube', 'khinsider', 'cups', 'adguard'})
         for name in ('nextcloud', 'kavita'):
             self.assertNotIn('auth', records[name], name)
 

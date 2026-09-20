@@ -292,8 +292,9 @@ class ImageContentsTests(unittest.TestCase):
         config = load(OPENWRT / 'rootfs/etc/adguardhome/adguardhome.yaml')
         self.assertEqual(config['schema_version'], 29)
         self.assertEqual(config['dns']['port'], 53)
-        # 管理画面は LAN に出さない（SSH トンネルで開く）。
-        self.assertEqual(config['http']['address'], '127.0.0.1:3000')
+        # LAN アドレスに開けるが、ファイアウォールで services-01 だけに制限する
+        # （HTTPS 入口の Caddy が中継する。SSH トンネルでも開ける）。
+        self.assertEqual(config['http']['address'], '192.168.10.1:3000')
         self.assertIn('[/lan/]127.0.0.1:5353', config['dns']['upstream_dns'])
         self.assertTrue(any('dns-query' in upstream
                             for upstream in config['dns']['upstream_dns']))
@@ -302,6 +303,22 @@ class ImageContentsTests(unittest.TestCase):
         # （フィルタのキャッシュと統計が再起動で消えるため）。
         self.assertIn("adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'", defaults)
         self.assertIn("adguardhome.config.workdir='/etc/adguardhome/data'", defaults)
+
+    def test_only_the_https_proxy_may_reach_the_adguard_ui(self):
+        # AdGuard の管理画面は LAN アドレスに開けるが、HTTPS 入口の Caddy が
+        # 動く services-01 だけ。LAN 全体に開けると SSO を迂回できてしまう。
+        allow = section(self.firewall, 'rule', 'Allow-AdGuard-UI-from-proxy')
+        self.assertEqual(allow['options']['src'], 'lan')
+        self.assertEqual(allow['options']['src_ip'], '192.168.10.200')
+        self.assertEqual(allow['options']['dest_port'], '3000')
+        self.assertEqual(allow['options']['target'], 'ACCEPT')
+        deny = section(self.firewall, 'rule', 'Deny-AdGuard-UI-others')
+        self.assertEqual(deny['options']['dest_port'], '3000')
+        self.assertEqual(deny['options']['target'], 'DROP')
+        # fw4 は書いた順に評価する。許可が先、拒否が後。
+        names = [entry['options'].get('name') for entry in self.firewall]
+        self.assertLess(names.index('Allow-AdGuard-UI-from-proxy'),
+                        names.index('Deny-AdGuard-UI-others'))
 
     def test_the_management_lan_reaches_the_router(self):
         lan = section(self.firewall, 'zone', 'lan')

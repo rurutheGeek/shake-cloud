@@ -117,11 +117,11 @@
     "pingUrl": "https://pve.apextox.dpdns.org:8006/"
   },
   {
-    "name": "AdGuard Home（使い方）",
-    "href": "https://docs.apextox.dpdns.org/operations/adguard/",
-    "description": "DNS・広告遮断の設定と運用（管理画面は SSH トンネル）",
+    "name": "AdGuard Home",
+    "href": "https://adguard.apextox.dpdns.org",
+    "description": "DNS・広告遮断の管理画面（SSO）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adguard-home.svg",
-    "pingUrl": "https://docs.apextox.dpdns.org/operations/adguard/"
+    "pingUrl": "https://adguard.apextox.dpdns.org/"
   },
   {
     "name": "ルータの設定まとめ",
