@@ -57,7 +57,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [N03 VLAN切替](N03-vlan.md) | 宣言済み・実機切替待ち | 既存ネットワーク | 切替待ち（人的作業） |
 | [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち |
 | [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | services-01・接続元 | 一部完了 |
-| [N06 ルータ自作（OpenWrt）](N06-router.md) | 調査完了・新規 | K11（OpenWrt VM）・既存ルータ | 調査済み（実装未着手） |
+| [N06 ルータ自作（OpenWrt）](N06-router.md) | 実装・切替済み | K11（OpenWrt VM）・既存ルータ | 完了（家庭内ルータとして稼働中。検証と再起動復旧を確認済み） |
 | [I01 容量測定・軽量化](I01-resources.md) | 測定・改善 | 既存ホスト・VM | 一部完了（負荷試験未） |
 | [I02 media-01のVM宣言](I02-media-vm.md) | 新規 | media-01 | 完了 |
 | [I03 クラウドVMのAnsible連携](I03-cloud-inventory.md) | 新規 | 配備用ツール | 完了 |

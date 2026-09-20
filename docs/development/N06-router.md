@@ -1,6 +1,6 @@
 # N06 ルータ自作（OpenWrt）
 
-更新日: 2026-09-19。区分: **新規実装・事前調査完了**。状態: 調査済み、実装未着手。
+更新日: 2026-09-20。区分: **新規実装・切替済み**。状態: **router-01 が家庭内ルータとして稼働中。IPv4（MAP-E）・IPv6 とも LAN 端末から疎通する。** `verify-router.py` は 5 PASS / 0 FAIL、ホスト再起動での自動復旧も確認済み（全断 53 秒）。**完了条件はすべて満たした。** 手順と実施記録は [router-01（OpenWrt）](../operations/router.md)。
 
 ## 目的・現状・配備先
 
@@ -16,7 +16,9 @@
 
 ## 実測で確定した前提
 
-すべて 2026-09-19 に実機で測定した。**個別の実値（グローバル IPv4・PSID・IPv6 プレフィックス）は本書に書かない。** 下記の手順でいつでも再取得できる。
+すべて 2026-09-19 に実機で測定した。**個別の実値（グローバル IPv4・PSID・IPv6 プレフィックス）は本書に書かない。** このリポジトリは GitHub で public なので、コミットすると家の住所と「開けられる 240 ポート」が永久に公開される。下記の手順でいつでも再取得でき、**手元の控えは Git 管理外の `.local/router-values.md`** に置いた。
+
+**値は ISP が `/64` を振り直せば変わる。** 変わっても `platform/openwrt/` の設定は触らなくてよい（プレフィックスを書いていないので `mapcalc` が導出し直す）。
 
 ### 回線（MAP-E / v6プラス）
 
@@ -96,6 +98,112 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
 
 ## 変更範囲と実装
 
+### 実装と実機配備（2026-09-19）
+
+| 成果物 | 場所 |
+| --- | --- |
+| UCI 設定の正本（MAP-E・LAN・DHCP・DNS・relay・MTU） | `platform/openwrt/rootfs/etc/shakecloud/config/` |
+| 初回起動と更新の反映スクリプト | `platform/openwrt/rootfs/etc/shakecloud/apply` |
+| Image Builder のビルド（版・チェックサム固定、`.raw` 出力） | `platform/openwrt/openwrt.yaml`・`build.sh` |
+| VM 宣言（2 NIC、cloud-init なし、リンク状態を YAML で） | `platform/terraform/router.yaml`・`router/` |
+| ホスト準備・ビルド・配備・切替・ロールバックの手順 | [router-01（OpenWrt）](../operations/router.md) |
+| 切替後の検証（STUN・PMTU・relay・リンク速度） | `tools/verify-router.py`（切替前の基準取りにも使える） |
+| 補完（ポートセット分散と icmp の SNAT。**実機で検証済み・既定で有効**） | `platform/openwrt/rootfs/etc/hotplug.d/iface/90-mape-ports` |
+| 実機: `vmbr1`（nic0、IP なし）追加と `nic2` 削除 | 2026-09-19。`vmbr0`・管理 IP は無傷 |
+| 実機: `router-01`（VM 101）作成、起動順を `qm set`、両 NIC リンクダウン | 2026-09-19。シリアルコンソールで設定反映を確認、再 plan は No changes |
+
+実装中に確定した事項:
+
+- **`wan6` には `extendprefix '1'` が要る。** mapcalc は PD を `ipv6-prefix` から
+  探すが、PD が無い本構成では RA の /64 がそこに出ない。RFC 7278 の
+  `extendprefix` で RA の /64 を `ipv6-prefix` として見せる（`dhcpv6.script` の
+  実装を確認）。これが無いと `map` は `NO_MATCHING_PD` で止まる。
+- **イメージは `.raw` にする。** Proxmox の import content は `.raw`/`.qcow2`/
+  `.vmdk` のみ受け付け、Image Builder の `.img.gz` はそのままでは取り込めない。
+- **構築中は両 NIC をリンクダウンにする。** LAN を `vmbr0` に繋いだまま起動すると、
+  既存 Aterm と 192.168.10.1・DHCP が衝突する。「WAN を未接続のまま」だけでは
+  足りないため、`router.yaml` の `wan_connected` / `lan_connected` で両方を
+  落とし、切替日に Git の変更で上げる方式にした。
+- **`vmbr1` の追加に `tools/site-yaml.py` の修正が必要だった。** bridge 候補が
+  2つになると再生成が止まるため、「ホストのアドレスを持つ bridge」だけを
+  管理 bridge として選ぶよう変えた（`tests/test_site_yaml.py`）。
+- **`offset=16` の 64bit mapcalc バグ（[openwrt#16080](https://github.com/openwrt/openwrt/issues/16080)）
+  は JPNE の `offset=4` では条件に当たらない。** ただし実機で
+  `/tmp/map-wan.rules` のポートセットを必ず読む。
+- **起動順は terraform@pve では設定できない。** Proxmox は `startup` の設定に
+  `Sys.Modify` on `/` を要求する（`PVE/API2/Qemu.pm` の特別扱い）。広い権限を
+  渡さず、**ホストで `qm set` を一度**実行し、Terraform 側は `ignore_changes` で
+  消しに行かせない（`router.yaml` の値が正本、手順は router.md）。
+- **切替はオフラインで進められる形にした。** opencode の応答はインターネット
+  越しなので切替中は会話できない。WAN は切替前に有効化しておき（ケーブルが
+  無い間は無害で、挿した瞬間に MAP-E が始まる）、LAN は Proxmox UI の
+  「切断」を外して上げる。Terraform の apply と検証は復旧後にまとめて行う。
+- **`wan` には `legacymap '1'` が要る。** JPNE の BR は OpenWrt の既定
+  （RFC 7597）と 1 バイトずれた CE アドレスを期待する。切替当日に IPv4 だけが
+  全滅した原因がこれだった（次節）。
+- **relay の master 側にもモードが要る。** `dhcp.wan6` に `master '1'` を
+  置くだけでは中継は始まらない。odhcpd はモードをインターフェースごとに
+  持つので、**上流側にも `ra`/`dhcpv6` = `relay`** を書く。これが抜けて
+  いて、切替後に LAN へ RA が 1 つも出なかった。
+- **近隣代理は odhcpd ではなく ndppd。** `ndp relay` は端末がアドレスを作る
+  瞬間しか学習できず、**ルータ再起動後に固定アドレスの端末が IPv6 を失う**
+  （後述）。`ndp` は両側 `disabled` にする。
+
+### 切替後に IPv4 だけ通らなかった原因（2026-09-20・解決済み）
+
+切替後、LAN・DHCP・DNS とルータ WAN 側の IPv6 は動いたのに、**IPv4 が一切
+通らなかった**。原因は `wan` の `legacymap` の欠落で、1 行の追加で解決した。
+
+切り分けの経過:
+
+| 見たもの | 結果 |
+| --- | --- |
+| `map-wan` のトンネル | UP。グローバル IPv4 の `/32` が付き、既定ルートもある |
+| SNAT | 正しく割当ポート（PSID の第 1 ブロック）へ書き換わっている |
+| `ip -s link show map-wan` | **TX 245,034 / RX 0** |
+| `/proc/net/nf_conntrack` | 全エントリ `[UNREPLIED]` |
+| CE アドレス発の IPv6 → BR / 外部 | **正常に往復**（片道障害ではない） |
+
+「出ているが一切返らない」ので、WAN 側で上流の Neighbor Solicitation を
+捕まえた。
+
+```
+$ tcpdump -nti eth0 -Q in "icmp6 and ip6[40]==135"
+IP6 <上流のリンクローカル> > ff02::1:ff<…>:
+    ICMP6, neighbor solicitation, who has <上流が期待する CE アドレス>
+```
+
+プレフィックス部は一致していて、**インターフェース ID（下位 64 ビット）の
+並びだけ**が違っていた。
+
+```
+上流が期待（draft-03）  : 00 <IPv4 4byte> <PSID> 00
+OpenWrt 既定（RFC 7597）: 00 00 <IPv4 4byte> <PSID>
+                             ^^ 1 バイト右へずれている
+```
+
+誰もそのアドレスを名乗らないので、BR からの戻りは上流で捨てられていた。
+IPv6 は無傷なので「IPv6 だけ動いている」ように見え、切り分けを難しくする。
+
+`map.sh` は `LEGACY="$legacymap"` を `mapcalc` に渡すだけなので、実機で確かめた。
+
+```
+$ LEGACY=1 mapcalc wan6 type=map-e,ipv6prefix=240b:10::,prefix6len=31,…
+RULE_1_IPV6ADDR=<draft-03 の並びの CE アドレス>   ← NS の宛先と一致
+RULE_1_IPV4ADDR=<グローバル IPv4>                 ← 変わらない
+RULE_1_PORTSETS=<240 ポート>                      ← 変わらない
+```
+
+**IPv4 アドレス・PSID・ポートセットの計算はどちらの形式でも同じ**なので、
+`/tmp/map-wan.rules` や `verify-router.py` のポート検証だけでは気づけない。
+`option legacymap '1'` を入れて `ifup wan` した直後に RX が動き出し、
+LAN から `curl -4 ifconfig.co/json` が MAP-E の割当どおりのグローバル IPv4
+（逆引きは `M<10桁>.v4.enabler.ne.jp`）を返した。
+
+**この形式差は N06 の事前調査で見落としていた項目で、ISP 共通値の表にも
+載っていなかった。** 同型の構成を組むときは、BR アドレスや EA/PSID 長と
+同じ並びで CE アドレス形式を確認すること。
+
 ### 1. ソフトの選定（確定）
 
 MAP-E にネイティブ対応するのは実質 **OpenWrt** のみ。
@@ -133,7 +241,7 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 | DNS | OpenWrt の dnsmasq が `192.168.10.1` で応答 | 現行と同じ |
 | WAN | `proto map` / `maptype map-e`、`tunlink` は `wan6` | 上表の MAP-E パラメータを設定 |
 | MTU | 1460、MSS clamp 1420 | 実測値 |
-| IPv6 | odhcpd の **relay モード**（`ndp relay` + `ra relay`） | PD がないため /64 を LAN へ中継する |
+| IPv6 | RA・DHCPv6 は odhcpd の **relay モード**、近隣代理は **ndppd** | PD がないため /64 を LAN へ中継する。`ndp relay` は再起動に耐えない（下記） |
 
 他レンジとの衝突がないことを確認済み（`platform/terraform/network.yaml`）。
 
@@ -178,6 +286,42 @@ TL-SG605 ←── nic1 (LAN) ┘                     │
 
 ### 未確定事項
 
-- OpenWrt の odhcpd relay モードには「起動時に動かない」「数分でデフォルトルートが消える」といった不安定性の報告がある（[openwrt/odhcpd#37](https://github.com/openwrt/odhcpd/issues/37)）。本環境で安定するかは実機で確認する。不調なら `ndppd` を代替として検討する。
+- OpenWrt の odhcpd relay モードには「起動時に動かない」「数分でデフォルトルートが消える」といった不安定性の報告がある（[openwrt/odhcpd#37](https://github.com/openwrt/odhcpd/issues/37)）。**2026-09-20 に実機で再現し、`ndp` だけ `ndppd` へ移した（解決）。** RA と DHCPv6 の relay は odhcpd のままで問題ない。詳細は次節。
+
+### `ndp relay` が再起動に耐えない（2026-09-20・解決済み）
+
+ホスト再起動の検証中に、**再起動後に dev-b の IPv6 だけが死ぬ**ことが分かった。IPv4 は自力で復旧しており、RA も届いていて、LAN 端末は GUA と既定ルートを持っているのに外へ出られない。
+
+切り分け:
+
+| 見たもの | 結果 |
+| --- | --- |
+| LAN 端末の GUA・既定ルート | ある（RA は届いている） |
+| ルータ WAN 側 (`eth0`) の受信 | **戻りパケットは届いている**（`echo reply` が見える） |
+| ルータの IPv6 経路 | 他の端末の `/128` はあるが、**dev-b のぶんだけ無い** |
+| 手で `/128` を足す | **即座に復旧** |
+
+odhcpd の `ndp relay` は、**端末がアドレスを作る瞬間（DAD）を捕まえて `/128` 経路を入れる**方式だった。学習できていた端末はいずれもランダムな一時アドレスで、定期的に作り直されるから拾えていただけ。**MAC 由来の固定アドレス（サーバ類）は、ルータを再起動しても端末側はアドレスを作り直さないため、二度と学習の機会が来ない。** 上流は古いキャッシュでルータへ届け続けるので近隣要請も飛んでこない（膠着。100 秒待っても NS は 1 つも来なかった）。odhcpd を再起動しても学習し直さない。
+
+**つまり、ルータを再起動するたびに固定アドレスの端末が IPv6 を失う。** 家の中で最も IPv6 を必要とするのがサーバ類なので、受け入れられない。
+
+対処は N06 が最初から代替に挙げていた **ndppd**。学習せず、近隣要請が来るたびに LAN へ転送して、端末が応えたときだけ代理応答する。再起動とは無関係に成立する。
+
+- `openwrt.yaml` に `ndppd` を追加
+- `rootfs/etc/ndppd.conf`（`proxy eth0` → `rule 2000::/3 { iface br-lan }`）
+- `rootfs/etc/hotplug.d/iface/91-lan-prefix-route`（委譲された /64 を `br-lan` へ。ndppd 0.2.5 に `autowire` が無いため転送用の経路は別途要る）
+- `rootfs/etc/uci-defaults/98-shakecloud-ndppd`（初回起動で有効化）
+- `config/dhcp` の `ndp` を `lan`・`wan6` とも `disabled`
+
+**プレフィックスはどちらのファイルにも書かない。** ndppd の rule はグローバル空間 `2000::/3` を対象にし、`iface` 指定なので LAN の端末が実際に応えたときしか代理応答しない。経路のほうは実行時に `ubus` から委譲 /64 を読む。
+
+学習で入っていた `/128` 経路をすべて削除した状態で LAN 端末の IPv6 が通ることを確認済み。
+- MAP-E の fw4 連携は、**fw4 が proto データの `firewall` 配列（map.sh の SNAT ルール）を読むことをソースで確認済み**。ただし実機では 2 つ足りなかった（2026-09-20 に確認・解決）。**(1) fw4 は tcp/udp しか nftables へ translate せず、icmp の SNAT は落とす**（[openwrt#11972](https://github.com/openwrt/openwrt/issues/11972)）。素の masquerade に落ちて割当外の ICMP id で出るため、インターネットへの ping が通らず `ping -M do` による PMTU 実測もできない。**(2) nftables の NAT は範囲が埋まっても次のルールへ落ちない**ため、既定では最初の 16 ポートしか使われず枯渇しうる。補完スクリプト `rootfs/etc/hotplug.d/iface/90-mape-ports` が `{ tcp, udp, icmp }` を 15 ブロックへラウンドロビンさせて両方を解決する。**イメージへ焼いて既定で有効**（投入直後の 226 接続が 15/15 ブロックへ分散、割当外なし。PMTU 1432 = MTU 1460 を実測）。
 - MAP-E のカプセル化トラフィックにはフローオフロードが効かない。1Gbps 回線では問題にならない見込みだが、実測で確認する。
-- ルータを K11 に載せると、**Proxmox の再起動・カーネル更新が家中のネット断になる**。復旧経路の `net-01` も同一ホスト上にあり（[net.md](../operations/net.md)）、K11 が落ちると外からも中からも到達できなくなる。K11 の外に出口を 1 つ残す設計は本作業の範囲外だが、切替前に方針を決めること。
+- **決定（2026-09-19）: 受容＋コールドスペア。** K11 の計画メンテ（Proxmox・
+  カーネル更新、再起動）は家に人がいるときに実施し、切替後に一度 K11 を
+  再起動してルータ VM が自動復旧することを試験する。K11 が直らない故障のときは
+  ONU を Aterm へ戻してルータモードで起動する（設定は保存済み）。**外出中の
+  遠隔復旧は行わない**（`net-01` も K11 上なので当てにしない）。専用ルータ機
+  （K11 の外）や 4G の細い出口は、痛みが大きければ別作業として検討する
+  （手順は [router.md](../operations/router.md)）。
