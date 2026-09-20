@@ -283,9 +283,15 @@ class StackTests(unittest.TestCase):
         self.assertEqual(len(apps), len({row['name'] for row in apps}))
         self.assertEqual(len(apps), len({row['href'] for row in apps}))
         for row in apps:
-            self.assertTrue(row['href'].startswith('https://'), row['href'])
+            # LAN 内の機器（ルータの LuCI など）は http のまま。ブラウザの
+            # 画面遷移なので混在コンテンツにはならない。
+            self.assertTrue(
+                row['href'].startswith('https://') or
+                row['href'].startswith('http://192.168.10.'), row['href'])
             if 'pingUrl' in row:
-                self.assertTrue(row['pingUrl'].startswith('https://'), row['pingUrl'])
+                self.assertTrue(
+                    row['pingUrl'].startswith('https://') or
+                    row['pingUrl'].startswith('http://192.168.10.'), row['pingUrl'])
 
 
 class IntegrationTests(unittest.TestCase):

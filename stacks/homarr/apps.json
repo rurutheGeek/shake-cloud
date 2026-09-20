@@ -117,6 +117,27 @@
     "pingUrl": "https://pve.apextox.dpdns.org:8006/"
   },
   {
+    "name": "AdGuard Home（使い方）",
+    "href": "https://docs.apextox.dpdns.org/operations/adguard/",
+    "description": "DNS・広告遮断の設定と運用（管理画面は SSH トンネル）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adguard-home.svg",
+    "pingUrl": "https://docs.apextox.dpdns.org/operations/adguard/"
+  },
+  {
+    "name": "ルータの設定まとめ",
+    "href": "https://docs.apextox.dpdns.org/operations/router-config/",
+    "description": "router-01（OpenWrt）の設定一覧",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
+    "pingUrl": "https://docs.apextox.dpdns.org/operations/router-config/"
+  },
+  {
+    "name": "ルータ（LuCI）",
+    "href": "http://192.168.10.1",
+    "description": "router-01 の管理画面（LAN 内のみ・http）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
+    "pingUrl": "http://192.168.10.1/"
+  },
+  {
     "name": "GitHub リポジトリ",
     "href": "https://github.com/rurutheGeek/shake-cloud",
     "description": "shake-cloud のソースコード",
