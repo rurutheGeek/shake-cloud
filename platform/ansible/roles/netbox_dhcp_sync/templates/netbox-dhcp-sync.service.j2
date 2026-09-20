@@ -1,0 +1,13 @@
+[Unit]
+Description=Sync NetBox reservations and DHCP leases with router-01
+Documentation=https://docs.apextox.dpdns.org/operations/netbox/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# 実行ユーザーは SOPS の age 鍵・ルータへの SSH 鍵・リポジトリを持つ人。
+User={{ netbox_dhcp_sync_user }}
+Environment=HOME={{ netbox_dhcp_sync_home }}
+WorkingDirectory={{ netbox_dhcp_sync_repo }}
+ExecStart={{ netbox_dhcp_sync_sops }} exec-env platform/sops/netbox.sops.yaml '{{ netbox_dhcp_sync_python }} tools/netbox-dhcp-sync.py ensure && {{ netbox_dhcp_sync_python }} tools/netbox-dhcp-sync.py pull && {{ netbox_dhcp_sync_python }} tools/netbox-dhcp-sync.py push'

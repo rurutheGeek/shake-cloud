@@ -329,6 +329,8 @@ def push(api, args):
     for lease in leases:
         if not in_range(lease['address'], dhcp):
             continue
+        # NetBox は dns_name を小文字で保存する。毎回の差分にしないよう揃える。
+        dns_name = lease['hostname'].lower()
         existing = api.one('/ipam/ip-addresses/', address=f"{lease['address']}/24")
         description = f"DHCP lease {lease['mac']}" + (f" ({lease['hostname']})"
                                                        if lease['hostname'] else '')
@@ -336,19 +338,19 @@ def push(api, args):
             if existing.get('status', {}).get('value') == 'reserved':
                 continue  # 固定機器。リースで上書きしない
             if existing.get('description') == description and \
-                    existing.get('dns_name') == lease['hostname']:
+                    existing.get('dns_name') == dns_name:
                 continue
             actions.append(f"update {lease['address']} ({lease['hostname'] or lease['mac']})")
             if not args.dry_run:
                 api.patch(f"/ipam/ip-addresses/{existing['id']}/",
-                          {'status': 'dhcp', 'dns_name': lease['hostname'],
+                          {'status': 'dhcp', 'dns_name': dns_name,
                            'description': description})
         else:
             actions.append(f"create {lease['address']} ({lease['hostname'] or lease['mac']})")
             if not args.dry_run:
                 api.post('/ipam/ip-addresses/', {
                     'address': f"{lease['address']}/24", 'status': 'dhcp',
-                    'dns_name': lease['hostname'], 'description': description})
+                    'dns_name': dns_name, 'description': description})
 
     live = {lease['address'] for lease in leases}
     for entry in api.get('/ipam/ip-addresses/', status='dhcp', limit=200)['results']:

@@ -1,0 +1,9 @@
+---
+# 同期を実行するユーザー。SOPS の age 鍵、ルータへの SSH 鍵、リポジトリを
+# 持っている人（開発VMの本人）。
+netbox_dhcp_sync_user: ruru
+netbox_dhcp_sync_home: /home/ruru
+# リポジトリの置き場。tools/netbox-dhcp-sync.py と platform/ を読む。
+netbox_dhcp_sync_repo: /home/ruru/project/shake-cloud
+netbox_dhcp_sync_sops: /usr/local/bin/sops
+netbox_dhcp_sync_python: /usr/bin/python3

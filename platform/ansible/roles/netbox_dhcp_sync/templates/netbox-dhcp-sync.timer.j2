@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the NetBox DHCP sync every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+Unit=netbox-dhcp-sync.service
+
+[Install]
+WantedBy=timers.target

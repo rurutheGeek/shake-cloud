@@ -98,5 +98,17 @@ class DeviceSpecTests(unittest.TestCase):
                             device['name'])
 
 
+class TimerTests(unittest.TestCase):
+    def test_the_timer_runs_the_tool(self):
+        role = ROOT / 'platform/ansible/roles/netbox_dhcp_sync'
+        service = (role / 'templates/netbox-dhcp-sync.service.j2').read_text(encoding='utf-8')
+        for command in ('ensure', 'pull', 'push'):
+            self.assertIn(f'tools/netbox-dhcp-sync.py {command}', service)
+        timer = (role / 'templates/netbox-dhcp-sync.timer.j2').read_text(encoding='utf-8')
+        self.assertIn('OnCalendar=', timer)
+        playbook = (ROOT / 'platform/ansible/netbox-dhcp-sync.yml').read_text(encoding='utf-8')
+        self.assertIn('netbox_dhcp_sync', playbook)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -104,6 +104,25 @@ sops exec-env platform/sops/netbox.sops.yaml \
   `ssh root@192.168.10.1 'dnsmasq --test -C /var/etc/dnsmasq.conf.*'`
 - 予約した名前が DNS で引けるのは、その機器が実際にリースを取った後です
 
+### 定期実行
+
+dev-b の systemd timer が **15分ごとに `ensure → pull → push`** を流します
+（`platform/ansible/netbox-dhcp-sync.yml` とロール `netbox_dhcp_sync`）。
+実行ユーザーは `ruru`（SOPS の age 鍵・ルータへの SSH 鍵・リポジトリを持つ人）。
+
+```bash
+# 配備・更新
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+     .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
+       platform/ansible/netbox-dhcp-sync.yml'
+# 状態とログ
+ssh debian@192.168.10.203 \
+  'sudo systemctl list-timers netbox-dhcp-sync.timer; sudo journalctl -u netbox-dhcp-sync -n 20'
+```
+
+dev-b が止まっている間は同期も止まります（台帳が遅れるだけで壊れません）。
+
 ## 関連
 
 - [IaCの所有境界](../architecture/iac.md)（誰が台帳を書くか）
