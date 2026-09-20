@@ -134,12 +134,29 @@ class ImageContentsTests(unittest.TestCase):
         self.assertEqual(start, last + 1, 'DHCP は機器帯の直後から始める')
         self.assertLess(first, last)
 
-    def test_the_infrastructure_hosts_are_reserved_by_mac(self):
-        hosts = {host['options'].get('ip'): host['options'].get('mac')
-                 for host in self.dhcp if host['type'] == 'host'}
-        self.assertEqual(hosts.get('192.168.10.2'), '80:22:a7:8f:27:80')   # Aterm
-        self.assertEqual(hosts.get('192.168.10.11'), 'e4:5f:01:f2:b8:dc')  # tarakoserver
-        self.assertEqual(hosts.get('192.168.10.12'), '2c:cf:67:2c:e3:4d')  # shakeserver
+    def test_the_dhcp_pool_matches_the_declared_range(self):
+        # network.yaml is the ledger declaration (Terraform turns it into a
+        # NetBox IP range); the UCI file is what dnsmasq actually serves.
+        dhcp = load(TERRAFORM / 'network.yaml')['dhcp']
+        first = int(dhcp['range_start'].split('.')[-1].split('/')[0])
+        last = int(dhcp['range_end'].split('.')[-1].split('/')[0])
+        server = section(self.dhcp, 'dhcp', 'lan')
+        self.assertEqual(int(server['options']['start']), first)
+        self.assertEqual(int(server['options']['limit']), last - first + 1)
+
+    def test_the_infrastructure_reservations_come_from_netbox(self):
+        # The router must not carry hand-written `config host` entries: NetBox
+        # is the source, and tools/netbox-dhcp-sync.py writes them into
+        # /etc/dnsmasq.d. The MACs themselves are declared in devices.yaml.
+        hosts = [host for host in self.dhcp if host['type'] == 'host']
+        self.assertEqual(hosts, [], 'UCI に予約を手書きしない')
+        dnsmasq = section(self.dhcp, 'dnsmasq')
+        self.assertEqual(dnsmasq['options']['confdir'], '/etc/dnsmasq.d')
+        devices = load(ROOT / 'platform/netbox/devices.yaml')['devices']
+        macs = {device['name']: device['interface']['mac'] for device in devices}
+        self.assertEqual(macs['aterm'], '80:22:a7:8f:27:80')
+        self.assertEqual(macs['tarakoserver'], 'e4:5f:01:f2:b8:dc')
+        self.assertEqual(macs['shakeserver'], '2c:cf:67:2c:e3:4d')
 
     def test_the_wan_uses_the_measured_map_e_rule(self):
         wan = section(self.network, 'interface', 'wan')

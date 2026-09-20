@@ -17,6 +17,13 @@ infrastructure:
   range_start: 192.168.10.2/24
   range_end: 192.168.10.19/24
 
+# OpenWrt の dnsmasq が配る範囲。**UCI 側（platform/openwrt の dhcp ファイル）と
+# 一致していることを tests/test_router.py が検査する。** NetBox の台帳レンジも
+# この値から作り、リースは tools/netbox-dhcp-sync.py が写す。
+dhcp:
+  range_start: 192.168.10.20/24
+  range_end: 192.168.10.99/24
+
 management:
   # 基盤VMの静的割り当て。既存: .200 services-01（05-seed が静的に持つ）、
   # .201 probe-01、.202 dev-a、.203 dev-b。

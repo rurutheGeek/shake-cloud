@@ -72,6 +72,38 @@ NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**
 - **Postgres の接続が飽和することがあります**（2026-09-12 に発生。`sorry, too many clients already`）。`media-netbox-netbox-1` と worker を再起動すると解放されます。恒久対策（`max_connections` や接続プール）は未実施です。
 - NetBox が落ちると、Terraform `10-platform` と Ansible のインベントリが止まります。**クラウドAPI も IP 採番に NetBox を使うため、新規VMの作成が止まります**（既存VMの操作は続きます）。
 
+## LAN の IP とルータの DHCP を同期する
+
+**分担**: 機器帯（`.2〜.19`）の予約は NetBox が正本、実際に配ったリースは
+ルータが正本。`tools/netbox-dhcp-sync.py` が両者をつなぎます。
+
+| コマンド | 向き | 内容 |
+| --- | --- | --- |
+| `ensure` | devices.yaml → NetBox | 機器・インターフェース（MAC）・reserved な IP を揃える |
+| `pull` | NetBox → ルータ | reserved な IP を dnsmasq の予約（`/etc/dnsmasq.d`）へ反映 |
+| `push` | ルータ → NetBox | DHCP リースを `status=dhcp` の IP として写す |
+
+宣言の正本は `platform/netbox/devices.yaml`。**IP を変えるときはここを直して
+`ensure` → `pull`。** NetBox の画面やルータの UCI を直接編集しません。
+
+```bash
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py ensure'   # 機器・予約を揃える
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py pull'     # ルータへ反映
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py push'     # リースを台帳へ
+```
+
+- レンジは `platform/terraform/network.yaml` の `infrastructure` / `dhcp` が正本で、
+  Terraform が NetBox の IP Range を作ります
+- MAC は NetBox 4.x の `interface.mac_address`。Terraform Provider は読み取り専用
+  なので dcim は API（このツール）で管理します
+- **UCI に `config host` を手書きしない。** 生成ファイルと重複すると dnsmasq は
+  「duplicate dhcp-host」で**起動に失敗**します。起動しないときは
+  `ssh root@192.168.10.1 'dnsmasq --test -C /var/etc/dnsmasq.conf.*'`
+- 予約した名前が DNS で引けるのは、その機器が実際にリースを取った後です
+
 ## 関連
 
 - [IaCの所有境界](../architecture/iac.md)（誰が台帳を書くか）

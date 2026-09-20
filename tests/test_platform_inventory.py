@@ -252,7 +252,7 @@ class AllocationTests(unittest.TestCase):
         return first, last
 
     def test_each_range_is_ordered(self):
-        for name in ('infrastructure', 'management', 'metallb', 'cloud'):
+        for name in ('infrastructure', 'dhcp', 'management', 'metallb', 'cloud'):
             first, last = self.addresses(self.network[name])
             self.assertLess(first, last, name)
 
@@ -274,7 +274,7 @@ class AllocationTests(unittest.TestCase):
         # Proxmox host). If it overlapped a range a tool allocates from, the
         # tool would eventually hand the same address to a VM.
         infra = self.addresses(self.network['infrastructure'])
-        for name in ('management', 'metallb', 'cloud'):
+        for name in ('dhcp', 'management', 'metallb', 'cloud'):
             other = self.addresses(self.network[name])
             self.assertTrue(infra[1] < other[0] or other[1] < infra[0],
                             f'infrastructure {infra} overlaps {name} {other}')
@@ -286,7 +286,7 @@ class AllocationTests(unittest.TestCase):
         if self.site['network']['prefix'] == 'UNMEASURED':
             self.skipTest('prefix not measured yet')
         network = ipaddress.ip_network(self.site['network']['prefix'])
-        for name in ('infrastructure', 'management', 'metallb', 'cloud'):
+        for name in ('infrastructure', 'dhcp', 'management', 'metallb', 'cloud'):
             for address in self.addresses(self.network[name]):
                 self.assertIn(address, network, f'{name}: {address}')
 

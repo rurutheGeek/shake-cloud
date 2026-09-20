@@ -74,3 +74,24 @@ resource "netbox_ip_range" "cloud" {
   description   = "Allocated at runtime by cloud/api. Not managed by Terraform."
   tags          = [netbox_tag.this["managed-by-cloud-api"].name]
 }
+
+# 機器帯（AP・プリンタ・Pi・Proxmox ホスト）。静的な機器が使う。
+# 個々のアドレスは tools/netbox-dhcp-sync.py が reserved として登録し、
+# dnsmasq の予約へ変換する。**Terraform は帯だけを持つ。**
+resource "netbox_ip_range" "infrastructure" {
+  start_address = local.network.infrastructure.range_start
+  end_address   = local.network.infrastructure.range_end
+  status        = "active"
+  description   = "Static LAN devices (AP, printer, Pis, Proxmox host). Owned by tools/netbox-dhcp-sync.py."
+  tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
+}
+
+# DHCP プール。dnsmasq が配り、リースは tools/netbox-dhcp-sync.py が
+# status=dhcp の IPAddress として台帳へ写す。**Terraform は帯だけを持つ。**
+resource "netbox_ip_range" "dhcp" {
+  start_address = local.network.dhcp.range_start
+  end_address   = local.network.dhcp.range_end
+  status        = "active"
+  description   = "DHCP pool served by dnsmasq. Leases are mirrored by tools/netbox-dhcp-sync.py."
+  tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
+}

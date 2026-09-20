@@ -108,6 +108,7 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
 | VM 宣言（2 NIC、cloud-init なし、リンク状態を YAML で） | `platform/terraform/router.yaml`・`router/` |
 | ホスト準備・ビルド・配備・切替・ロールバックの手順 | [router-01（OpenWrt）](../operations/router.md) |
 | 切替後の検証（STUN・PMTU・relay・リンク速度） | `tools/verify-router.py`（切替前の基準取りにも使える） |
+| NetBox 連携（機器帯の予約・リース台帳） | `platform/netbox/devices.yaml`・`tools/netbox-dhcp-sync.py`（[netbox.md](../operations/netbox.md)） |
 | 補完（ポートセット分散と icmp の SNAT。**実機で検証済み・既定で有効**） | `platform/openwrt/rootfs/etc/hotplug.d/iface/90-mape-ports` |
 | 実機: `vmbr1`（nic0、IP なし）追加と `nic2` 削除 | 2026-09-19。`vmbr0`・管理 IP は無傷 |
 | 実機: `router-01`（VM 101）作成、起動順を `qm set`、両 NIC リンクダウン | 2026-09-19。シリアルコンソールで設定反映を確認、再 plan は No changes |

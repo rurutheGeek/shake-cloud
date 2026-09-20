@@ -27,30 +27,18 @@ config dnsmasq
 	option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
 	option localservice '1'
 	option ednspacket_max '1232'
+	# **NetBox 由来の予約（dhcp-host）を読むディレクトリ。**
+	# tools/netbox-dhcp-sync.py が netbox-reservations.conf を書き、
+	# dnsmasq を再読込する。手で編集しない（正本は NetBox の reserved IP）。
+	option confdir '/etc/dnsmasq.d'
 
-# 固定アドレス（.2〜.19 の機器帯）。**DHCP プールの外**に置く。
-# MAC で予約するので機器側は DHCP クライアントのままでよい。
-# 値の根拠: 192.168.10.2 = Aterm（AP）、.11 = tarakoserver（Pi 4）、
-# .12 = shakeserver（Pi 5）。帯の正本は platform/terraform/network.yaml。
-config host
-	option name 'aterm'
-	option mac '80:22:a7:8f:27:80'
-	option ip '192.168.10.2'
-
-config host
-	option name 'tarakoserver'
-	option mac 'e4:5f:01:f2:b8:dc'
-	option ip '192.168.10.11'
-
-config host
-	option name 'shakeserver'
-	option mac '2c:cf:67:2c:e3:4d'
-	option ip '192.168.10.12'
-
+# 固定アドレス（.2〜.19 の機器帯）は **NetBox が正本**。
+# 機器の宣言は platform/netbox/devices.yaml、dnsmasq への反映は
+# tools/netbox-dhcp-sync.py pull（/etc/dnsmasq.d に生成）。
+# UCI に `config host` を手書きしない（二重管理になる）。
 config dhcp 'lan'
 	option interface 'lan'
-	# 機器帯 .2〜.19 を空けて .20〜.99 を配る。固定割当は dnsmasq の
-	# `config host` で行うので、端末側の変更は要らない。
+	# 機器帯 .2〜.19 を空けて .20〜.99 を配る。
 	option start '20'
 	option limit '80'
 	option leasetime '12h'

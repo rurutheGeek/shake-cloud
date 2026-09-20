@@ -100,25 +100,29 @@ Git に入れず、`.local/` など Git 管理外の運用メモへ書きます�
 ### 機器帯と Aterm の住所（`.2〜.19`）
 
 `192.168.10.2〜.19` は**ネットワーク機器・常時稼働サーバの帯**で、DHCP プール
-（`.20〜.99`）の外です。固定は OpenWrt の dnsmasq 予約で行い、機器側は DHCP
-クライアントのままでかまいません（正本は
-`platform/openwrt/rootfs/etc/shakecloud/config/dhcp`）。
+（`.20〜.99`）の外です。**予約の正本は NetBox**（宣言は
+`platform/netbox/devices.yaml`）で、`tools/netbox-dhcp-sync.py` が
+`/etc/dnsmasq.d/netbox-reservations.conf` を生成します。**UCI に `config host` を
+手書きしません**（重複すると dnsmasq が起動に失敗します）。
 
-| 住所 | 機器 | 予約の相手 |
+| 住所 | 機器 | MAC |
 | --- | --- | --- |
-| `.2` | Aterm（AP） | MAC `80:22:a7:8f:27:80` |
-| `.3` | プリンタ（未予約。mDNS で検出中） | — |
-| `.10` | Proxmox ホスト `apextox` | 静的（`/etc/network/interfaces`） |
-| `.11` | tarakoserver（Pi 4） | MAC `e4:5f:01:f2:b8:dc` |
-| `.12` | shakeserver（Pi 5） | MAC `2c:cf:67:2c:e3:4d` |
+| `.2` | Aterm（AP） | `80:22:a7:8f:27:80` |
+| `.3` | プリンタ（MAC 未登録。埋めると予約が有効） | — |
+| `.10` | Proxmox ホスト `apextox` | `c8:ff:bf:0d:fd:6d` |
+| `.11` | tarakoserver（Pi 4） | `e4:5f:01:f2:b8:dc` |
+| `.12` | shakeserver（Pi 5） | `2c:cf:67:2c:e3:4d` |
 
-予約の確認:
+予約の反映と確認:
 
 ```bash
-ssh root@192.168.10.1 'uci show dhcp | grep "=host"; cat /tmp/dhcp.leases'
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py pull'
+ssh root@192.168.10.1 'cat /etc/dnsmasq.d/netbox-reservations.conf'
 ping -c2 192.168.10.2     # Aterm（リース更新後に .2 へ移る）
-curl -s -o /dev/null -w '%{http_code}\n' http://192.168.10.2/   # 302 ならOK
 ```
+
+詳しい分担とトラブルは [NetBox の使い方](netbox.md#lanのipとルータのdhcpを同期する)。
 
 Aterm の UI を開く必要があるときは、BR モードでは `aterm.me` が使えないので
 `http://192.168.10.2/` を直接開きます。住所が分からず開けないときは強制 DHCP
