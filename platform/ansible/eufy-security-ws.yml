@@ -1,7 +1,7 @@
 ---
 # eufy-security-ws を services-01 の独立 Compose プロジェクトへ配備する。
-# HA の compose ネットワーク（services-home-assistant_homeassistant）へ入るので、
-# home-assistant.yml の後に実行する。
+# ホストネットワークで HA の compose ネットワーク（services-home-assistant_homeassistant）
+# のゲートウェイ 172.31.254.1 だけに bind するので、home-assistant.yml の後に実行する。
 - name: Deploy eufy-security-ws
   hosts: netbox_bootstrap
   become: true
@@ -10,6 +10,10 @@
     eufy_project_dir: /opt/services/eufy-security-ws
     eufy_storage_root: /srv/services/eufy-security-ws
     eufy_tz: Asia/Tokyo
+    # S4（T8172）は HomeBase なしの単体。カメラの IP が変わったらここを直す。
+    eufy_station_ip_addresses: T8172P102603060C:192.168.10.4
+    # DEBUG はトークンや鍵をログへ平文で出す。調査時だけ -e eufy_debug=1 で流す。
+    eufy_debug: ''
     eufy_sops_file: '{{ playbook_dir }}/../sops/eufy-security.sops.yaml'
     eufy_keys: [EUFY_USERNAME, EUFY_PASSWORD, EUFY_COUNTRY, EUFY_TRUSTED_DEVICE_NAME]
   tasks:
@@ -56,6 +60,8 @@
       loop:
         - {key: STORAGE_ROOT, value: '{{ eufy_storage_root }}'}
         - {key: TZ, value: '{{ eufy_tz }}'}
+        - {key: EUFY_STATION_IP_ADDRESSES, value: '{{ eufy_station_ip_addresses }}'}
+        - {key: EUFY_DEBUG, value: '{{ eufy_debug }}'}
 
     # Eufy のアカウントは platform/sops/eufy-security.sops.yaml が正本。
     # 未記入の間は起動せず、次のステップを案内する。

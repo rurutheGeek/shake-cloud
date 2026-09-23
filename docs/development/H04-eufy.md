@@ -1,6 +1,6 @@
 ---
 title: H04 EufyCam連携の検証
-updated: 2026-09-13
+updated: 2026-09-23
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # H04 EufyCam連携の検証
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: 実機確認中。`eufy-security-ws` 3.1.0（独立Compose、hostネットワークで `172.31.254.1:3000` のみbind・LAN非公開）＋HA統合 `eufy_security` v8.2.4（host `172.31.254.1:3000`）を配備済み（資格情報は `platform/sops/eufy-security.sops.yaml`）。eufyCam S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作。ライブ映像はS4の新WebRTC（leo_rtc）方式のため現行の公開ソフトでは不可で、後継 `mega-yfue/eufy-sdk` でのRTSPブリッジを検討中。イベント取り込みは確認中
+**状態**: 人物・動体イベントは稼働、ライブ映像は不可。`eufy-security-ws` 3.1.0（独立Compose、hostネットワークで `172.31.254.1:3000` のみbind・LAN非公開）＋HA統合 `eufy_security` v8.2.4（host `172.31.254.1:3000`）を配備済み（資格情報は `platform/sops/eufy-security.sops.yaml`）。eufyCam S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作。ライブ映像はS4の新WebRTC（leo_rtc）方式のため現行の公開ソフトでは不可で、後継 `mega-yfue/eufy-sdk` でのRTSPブリッジを検討中。人物・動体イベントは2026-09-23にHAまで届くことを実機で確認（イベント画像は確認中）
 
 [家電の構成案](../architecture/operations.md#home-devices)ではAnker EufyCam S4と記載される。実機は **eufyCam S4（T8172、fw 1.1.1.2、HomeBaseなしの単体、IP 192.168.10.4）** と **SmartTrack（T87B0）** の2台で確認した。RTSP/NASは使えない前提とし、一般的なEufyのNAS対応をS4の保証にしない。
 
@@ -53,7 +53,7 @@ tags:
 
 ## ライブ映像の結論（2026-09-13。リバースエンジニアリング）
 
-**イベント・push・スナップショットは現行の `eufy-security-ws` + `eufy_security` 統合で扱い、これを維持する（イベント取り込みは確認中）。ライブ映像だけは現行の公開ソフトウェアでは実現できないと実機で確認した。** 理由を根拠つきで残す（次に触る人が同じ調査を繰り返さないため）。
+**イベント・push・スナップショットは現行の `eufy-security-ws` + `eufy_security` 統合で扱い、これを維持する（人物・動体イベントは2026-09-23に確認済み、スナップショットは確認中）。ライブ映像だけは現行の公開ソフトウェアでは実現できないと実機で確認した。** 理由を根拠つきで残す（次に触る人が同じ調査を繰り返さないため）。
 
 一次資料は dev-b から取得した機器の生データ。S4（`T8172P102603060C`、fw `1.1.1.2`、IP `192.168.10.4`、battery、`p2p_did REUPRAA-000134070-D6CBHYKRDK`）はクラウド応答で `p2p_conn`/`app_conn` が空、`signaling_servers=["https://webrtc-signal-eu.eufylife.com","https://75.2.46.73"]`、`webrtc_sdk_version=6.1.3`。つまり旧来の ThroughTek PPCS ではなく **新しい leo_rtc（WebRTC）バックエンド**専用。
 
@@ -70,6 +70,29 @@ tags:
 - 従って**現時点でライブ用の stack は作らない**（動かないものを「利用可能」と案内しない、というリポジトリ方針に従う）。イベント・push・スナップショットは配備済みの `eufy-security-ws` で維持する。
 - 解析成果（復号したポータル手順、`libmega_media_sdk` の関数対応、scall/TURN の実測ログ）はフルRE着手時の出発点として本節に要約した。生成物は作業機の一時領域にあり、Git には置かない（秘密値・APK を含むため）。
 
+### 追試: keesmod/eufy-mega-client 0.18.0（2026-09-23）
+
+HomeBase 3 系カメラ向けの新しい独立クライアント [keesmod/eufy-mega-client](https://github.com/keesmod/eufy-mega-client)（`1792bbc`）を dev-b でビルドし、同じアカウントで試した（独自セッション・Node 24）。
+
+- ログイン: 追加認証なしで `connected`。
+- `discoverDevices()`: S4 を `T8172`・fw `1.1.1.2`・battery 61・`availability: online` として認識する。ただし関係は `unsupported` / `invalid_device_relationship`（親が自分自身＝単体運用）。単体運用のカメラは対象外。
+- `snapshot()`・`startLive()`: どちらも `invalid_device_relationship` で拒否。
+- `startEvents()`: push 接続は成立したが、3分間の受信は0件（その間に動体があったかは未確認）。
+- 結論: このクライアントも現時点では単体 S4 のライブ・スナップショットに対応しない。単体カメラ対応の調査 [#36](https://github.com/keesmod/eufy-mega-client/issues/36) は2026-09-16に閉じ、残りの認証・映像経路は [#142](https://github.com/keesmod/eufy-mega-client/issues/142) で追跡されている（単体カメラ所有者からの伏字済み機器情報と接続手順の証拠を求めている）。進展したら再試験する。
+- 通知の追試は不向き: 0.18.0 は受信した Push を「HomeBase 3 配下のカメラ」かで絞る（`client.ts` の `known`・`device-transport.ts` の `acceptPush`）。単体 S4 の通知は届いても捨てられる。加えて同じアカウントで別クライアントがログインすると、WS の v6 トークンが無効になる疑いがある（次節）。
+
+### 通知が届かなかった原因と復旧（2026-09-23）
+
+WSは9/14から10日間、動体・人物の通知を1件も受け取っていなかった（FCMのデータメッセージ受信0件）。原因はWSの2系統ある通知登録のうち、S4が使うv6（eufy_mega）側の失敗。
+
+- 旧来側（`v1/apppush/register_push_token`）は毎回成功。v6側（`app-push-eu-pr.eufy.com /app/push/register_push_token`）は9/13までは成功していたが、9/14以降は毎回 `401 token not exist`。
+- 9/13に作業機（dev-b）から同じアカウントで検証用のログインを繰り返した直後から失敗しており、サーバ側でWS保存のv6トークンが無効化されたと推定。`eufy-security-client` 4.1.0 の `MegaTransition` はトークンの期限（ローカル値）しか見ず、401で再ログインしないため、期限（10/12）まで失敗し続ける。
+- 復旧: `persistent.json` の `megaApi` だけを退避・削除して再起動（旧来セッションは維持）。v6へ追加認証なしで再ログインし、`v6 push: FCM token registered on the eufy_mega backend` を確認。手順は `manage.py reset-mega-session` として追加した（[README](../../stacks/eufy-security-ws/README.md)）。
+- 結果（2026-09-23 21:56〜21:58 JST、カメラ前を歩いて確認）: WSが人物検知のPush（`type 89` / `event_type 3102`「Someone has been spotted」）を受信し、HAの `binary_sensor.rihinku_person_detected`・`motion_detected` が3回とも約12秒オンになって戻った（`sensor.rihinku_person_name` は `Unknown Person`）。確認の直前に所有者がEufyアプリを初期化しており、アプリ側の状態も通知が届かなかった一因だった可能性がある（v6登録の失敗はそれ以前からログで確認済み。アプリ側の寄与は切り分けていない）。
+- 再起動: Ansibleで再配備（コンテナ作り直し）した後も、保存したv6セッションでPush登録が成功し、HAは約4秒で再接続した。
+- 教訓: **WS稼働中に同じアカウントで他のクライアントをログインさせない**。検証が必要なら別アカウント（Eufyアプリの共有ユーザー）を使う。
+- 同時に、配備中の compose（ホストネットワーク・`172.31.254.1` bind・`STATION_IP_ADDRESSES`・`DEBUG`）と `manage.py reset-session` がリポジトリへ入っていなかったのを取り込んだ。`DEBUG=1` がトークン・鍵をログへ平文で出し、ログが無制限（331MB）だったため、既定をオフにしてログを10MB×3でローテーションする。
+
 ### 次に取り得る選択肢（優先順）
 
 1. **現状維持＋スナップショット運用**（推奨・即時）。HA で動体/人物イベントと静止画を使う。ライブは「未対応」と案内する。
@@ -81,6 +104,6 @@ tags:
 
 1. `sops platform/sops/eufy-security.sops.yaml` に `EUFY_USERNAME`・`EUFY_PASSWORD`・`EUFY_COUNTRY`（必要なら `EUFY_TRUSTED_DEVICE_NAME`）を入れる。2FAがあれば初回ログの確認コードを `docker compose logs -f` で見て、信頼端末を承認する。**資格情報・2FAコードはGit/ログ/この文書へ残さない。**（投入済み。CAPTCHA対策として保存セッションを消さない。）
 2. `.venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/eufy-security-ws.yml` で起動し、healthyを確認する（配備済み）。イメージは `compose.lock.yaml` でdigest固定。
-3. **設定 → デバイスとサービス → 統合を追加 → Eufy Security** でホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識し、ログイン・デバイス一覧・Pushを確認）。**イベントとスナップショットの取り込みを確認中。ライブ映像は上記の理由で当面「未対応」とし、有効化を案内しない。**既存録画・カメラ設定は変更しない。
+3. **設定 → デバイスとサービス → 統合を追加 → Eufy Security** でホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識し、ログイン・デバイス一覧・Pushを確認）。**人物・動体イベントは取り込み済み（上記）。スナップショットは確認中。ライブ映像は上記の理由で当面「未対応」とし、有効化を案内しない。**既存録画・カメラ設定は変更しない。
 4. WS/HAの再起動と一時切断後の再接続を確認し、WS・統合のメモリを[I01](I01-resources.md)の実測に足す。ライブは選択肢2/3の進展があれば再判断する。
 5. HomeBase S380の追加は今回の範囲外。追加する場合は24/7録画と容量・保存先を別計画（[I01](I01-resources.md)）で確認する。

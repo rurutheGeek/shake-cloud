@@ -132,7 +132,7 @@ flowchart TB
 | [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H03 Echo・Alexa連携](development/H03-echo.md) | 2026-09-12 | `plan` `home-assistant` |
-| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-13 | `plan` `home-assistant` |
+| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-23 | `plan` `home-assistant` |
 | [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
