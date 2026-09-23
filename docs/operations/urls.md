@@ -1,6 +1,6 @@
 # 接続先一覧（URL・アドレス）
 
-更新日: 2026-09-13。**サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](handover.md)です。
+更新日: 2026-09-21。**サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](handover.md)です。
 
 ## サービス入口（`*.apextox.dpdns.org`・家庭内LANから）
 
@@ -12,6 +12,7 @@
 | クラウドAPI | `/v1/...`（上と同じホスト） | JSON API。正本は `cloud/openapi/shakecloud.yaml` | CLI・Terraform・アプリ |
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（identity VM。`:9000`・`:9443` は 127.0.0.1） | 全員 |
 | Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（services-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
+| LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ services-01 の実効速度（services-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（services-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
@@ -81,7 +82,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | 名前 | アドレス | 用途 |
 | --- | --- | --- |
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
-| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・Eufy 中継 |
+| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・LibreSpeed・Eufy 中継 |
 | identity | `debian@192.168.10.204` | Authentik |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
 | storage-s3 | `192.168.10.206` | Garage |

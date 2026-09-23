@@ -10,7 +10,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | --- | --- |
 | identity | Authentik（共通ログイン・AWS風ポータルの認証） |
 | cloud-01 | クラウドAPI・管理DB・ポータル |
-| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、Home Assistant、CUPS、eufy-security-ws |
+| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws |
 | media-01 | Nextcloud、Kavita、Navidrome、Picard、LocalSend受信機 |
 | storage-s3 | Garage（S3互換オブジェクトストア） |
 | monitor-01 | Prometheus、Alertmanager、Grafana |
@@ -29,6 +29,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | music-tools | 取込先、変換、Picard、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |
 | Vaultwarden | SSO、登録可否、公開URL | `stacks/vaultwarden/compose.yaml`・`manage.py`。保存された `/data/config.json` が環境変数より優先されることがある |
 | Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
+| LibreSpeed | 端末↔services-01の速度計測、履歴、統計パスワード | `stacks/librespeed/compose.yaml`・`manage.py`。配備は `platform/ansible/librespeed.yml` |
 | Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
 | 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
 | ルータ（router-01） | LAN・DHCP・DNS・MAP-E・ファイアウォール | `platform/openwrt/rootfs/etc/shakecloud/config/`（UCI の正本）。イメージは `platform/openwrt/openwrt.yaml`、VM は `platform/terraform/router.yaml`、手順は [router-01](docs/operations/router.md) |
@@ -41,7 +42,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 - 原本ディスクの増設・移動: media-01 では `LIBRARY_ROOT`（`/srv/media-stack/library`）と `platform/terraform/services/media` の宣言を変更します（データディスクは `prevent_destroy`）。
 - ライブラリ分割: 技術書・漫画・家族用のディレクトリを作り、Kavitaで別ライブラリとして登録し閲覧権限を設定できます。Nextcloudの権限は他サービスへ同期されません。
 - HTTPS: `platform/terraform/dns.yaml` の名前ごとに、各ホストのCaddy（`stacks/tls-proxy`）がLet's Encrypt（DNS-01）で証明書を取って中継します。アプリ自身のポートは 127.0.0.1 に閉じます。
-- バックアップ: 各ユニットの `manage.py backup`（Nextcloud・Kavita・Navidrome・music-tools・Vaultwarden・Home Assistant・NetBox）と、cloud-01の管理DBの定期バックアップ（`cloud-backup.timer`）があります。別ホストへの転送は追加設定が必要です。
+- バックアップ: 各ユニットの `manage.py backup`（Nextcloud・Kavita・Navidrome・music-tools・Vaultwarden・LibreSpeed・Home Assistant・NetBox）と、cloud-01の管理DBの定期バックアップ（`cloud-backup.timer`）があります。別ホストへの転送は追加設定が必要です。
 - 複数ホスト: 新規VMは `platform/terraform/services/<name>/` で宣言します。クラウドVMは `platform/ansible/inventory.cloud.py` でAnsibleの対象にします。サービスごとの分散にはロール分割・接続先・ネットワーク設計の追加が必要です。
 - 冗長化: 現状は各サービス1インスタンスです。コンテナ数を増やすだけではHAになりません。PostgreSQLやSQLiteを含むアプリ状態は原本と分けて保持し、同じ状態ディレクトリを複数インスタンスで共有しないでください。
 

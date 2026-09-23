@@ -68,6 +68,7 @@ nav:
       - 共通ログインの使い方: services/identity.md
       - クラウドの使い方: services/cloud.md
       - Homarrハブ: services/homarr.md
+      - 通信速度テスト（LibreSpeed）: services/librespeed.md
       - Home Assistantと家電の使い方: services/home-assistant.md
       - 音楽・取り込み・タグ: services/music.md
       - タグ管理（MP3）: services/tags.md
@@ -107,6 +108,8 @@ nav:
       - Flux にアプリを足す: operations/flux-apps.md
       - Nextcloud権限変更: operations/nextcloud-permissions.md
       - ディスク増設: operations/disk.md
+      - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
+      - バックアップ（重要VM・セーブ）: operations/backup.md
   - 構成案:
       - 全体構成と前提: architecture/index.md
       - IaCの所有境界: architecture/iac.md
