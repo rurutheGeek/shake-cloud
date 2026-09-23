@@ -1,0 +1,12 @@
+---
+# Proxmoxホストにnode_exporterとSMART/NVMeのtextfile collectorを入れる。
+# Prometheus（monitor-01）の node ジョブが 192.168.10.10:9100 を読む。
+#
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/pve.ini \
+#       platform/ansible/pve-node-exporter.yml
+- name: Host metrics on the Proxmox host
+  hosts: pve
+  become: true
+  roles:
+    - pve_node_exporter

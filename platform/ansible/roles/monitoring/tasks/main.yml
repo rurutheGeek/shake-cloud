@@ -118,6 +118,16 @@
   register: monitoring_nut_password
   no_log: true
 
+# Prometheus は nobody で動くため、bind mount するトークンは 0444 にする
+# （ホスト側の secrets/ は 0700 root なので外へは出ない）。
+- name: Install the game metrics scrape token
+  ansible.builtin.copy:
+    content: '{{ (monitoring_secrets.stdout | from_json).GAME_METRICS_TOKEN }}'
+    dest: '{{ monitoring_project_dir }}/secrets/game_metrics_token'
+    mode: '0444'
+  register: monitoring_game_token
+  no_log: true
+
 # 空なら Watchdog は Alertmanager 内で完結し、外向きの通知はしない。
 - name: Point the dead man's switch at the external check
   ansible.builtin.lineinfile:
@@ -188,6 +198,7 @@
     or monitoring_smtp_env is changed
     or monitoring_alert_email is changed
     or monitoring_watchdog is changed
+    or monitoring_game_token is changed
 
 - name: Wait for the public Grafana entry point
   ansible.builtin.uri:

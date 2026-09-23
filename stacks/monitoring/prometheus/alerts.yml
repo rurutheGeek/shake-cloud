@@ -32,10 +32,11 @@ groups:
           summary: "{{ $labels.instance }} の node_exporter が応答しない"
           description: "VM の停止か node_exporter の異常です。pve_up と合わせて確認してください。"
 
+      # /srv/bulk（6TB HDD）は下の storage グループで専用に鳴らす。
       - alert: NodeFilesystemAlmostFull
         expr: >-
-          (node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660"}
-          / node_filesystem_size_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660"})
+          (node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660",mountpoint!="/srv/bulk"}
+          / node_filesystem_size_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|iso9660",mountpoint!="/srv/bulk"})
           < 0.15
         for: 15m
         labels:
@@ -100,6 +101,100 @@ groups:
           summary: "管理DBバックアップが36時間以上成功していない"
           description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
 
+  - name: storage
+    rules:
+      # 6TB HDD（/srv/bulk）はUSB接続。落ちると node_* のfsが消える。
+      - alert: BulkDiskUnmounted
+        expr: >-
+          absent(node_filesystem_avail_bytes{instance="192.168.10.10:9100",mountpoint="/srv/bulk"})
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "6TB HDD（/srv/bulk）が見えない"
+          description: "USBの切断かマウント失敗です。dmesg・lsblk・findmntを確認し、mount /srv/bulk と exportfs -ra で戻してください（docs/operations/bulk-storage.md）。"
+
+      - alert: BulkDiskAlmostFull
+        expr: >-
+          (node_filesystem_avail_bytes{instance="192.168.10.10:9100",mountpoint="/srv/bulk"}
+          / node_filesystem_size_bytes{instance="192.168.10.10:9100",mountpoint="/srv/bulk"})
+          < 0.10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "6TB HDDの空きが10%未満"
+          description: "vzdumpの世代（keep-last=4）とライブラリの増加を確認してください。"
+
+      - alert: SmartDeviceUnhealthy
+        expr: smartmon_device_smart_healthy == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.disk }} のSMART自己診断がFAILED"
+          description: "ディスク交換を検討してください。先にバックアップの状態を確認してください。"
+
+      # USBの切断・スピンダウン・ブリッジ不調でSMARTが読めなくなる。
+      - alert: SmartDeviceInactive
+        expr: smartmon_device_active == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.disk }} のSMARTが読めない"
+          description: "dmesg と smartctl -a -d sat を確認してください。USBの挿し直しで戻ることがあります。"
+
+      - alert: SmartSectorErrors
+        expr: >-
+          smartmon_current_pending_sector_raw_value > 0
+          or smartmon_offline_uncorrectable_raw_value > 0
+          or increase(smartmon_reallocated_sector_ct_raw_value[24h]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.disk }} に不良・代替処理待ちセクター"
+          description: "増加が続くなら交換時期です。バックアップを確認してください。"
+
+      # CRCはケーブル・ポート・enclosure側で増える。USBで起きやすい。
+      - alert: SmartCableErrors
+        expr: increase(smartmon_udma_crc_error_count_raw_value[24h]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.disk }} のCRCエラーが増加"
+          description: "USBケーブル・ポート・enclosureを確認してください（UAS無効化の判断材料）。"
+
+      - alert: SmartTemperatureHigh
+        expr: smartmon_temperature_celsius_raw_value > 50
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.disk }} が50℃超"
+          description: "風通しと連続アクセスを確認してください。"
+
+      # 収集が止まると式が空になるので、欠測そのものを鳴らす。
+      - alert: SmartCollectorStale
+        expr: absent(smartmon_smartctl_run) or time() - smartmon_smartctl_run > 3600
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SMART収集が1時間以上止まっている"
+          description: "prometheus-node-exporter-smartmon.timer を確認してください。"
+
+      - alert: NvmeWearHigh
+        expr: nvme_percentage_used_ratio > 0.80
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVMeの寿命消費が80%超"
+          description: "書き込みの多い処理とバックアップ世代数を見直してください。"
+
   - name: deadman
     rules:
       # 常時 firing。Alertmanager から外部のdead man's switchへ送り続け、
@@ -122,6 +217,20 @@ groups:
         annotations:
           summary: "{{ $labels.id }} が停止または応答なし"
           description: "Proxmox API から見てゲストが up ではありません。"
+
+      # ホストの空きが乏しくなると、VM の作成・起動が capacity で断られる。
+      - alert: ProxmoxNodeMemoryHigh
+        expr: >-
+          (
+            pve_memory_usage_bytes{id=~"node/.+"}
+            / pve_memory_size_bytes{id=~"node/.+"}
+          ) > 0.90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox ノード {{ $labels.id }} のメモリ使用率が90%超"
+          description: "ゲストの配分か常駐プロセスを見直してください。Grafanaの「Shake Lab VM memory」で内訳を確認できます。"
 
       - alert: UpsOnBattery
         expr: network_ups_tools_ups_status{value="OB"} == 1

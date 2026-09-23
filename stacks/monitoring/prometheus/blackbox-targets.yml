@@ -8,6 +8,7 @@
     - https://homarr.apextox.dpdns.org/api/auth/csrf
     - https://ha.apextox.dpdns.org/manifest.json
     - https://vault.apextox.dpdns.org/alive
+    - https://speed.apextox.dpdns.org/
     - https://play.apextox.dpdns.org/
     - https://cups.apextox.dpdns.org/
     - https://adguard.apextox.dpdns.org/

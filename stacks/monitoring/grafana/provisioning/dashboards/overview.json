@@ -1,6 +1,7 @@
 {
   "title": "Shake Lab overview",
   "uid": "shakelab-overview",
+  "tags": ["overview", "稼働", "資源"],
   "schemaVersion": 39,
   "version": 1,
   "refresh": "1m",
@@ -8,6 +9,32 @@
     "from": "now-6h",
     "to": "now"
   },
+  "links": [
+    {
+      "type": "link",
+      "title": "ホスト詳細",
+      "url": "/d/shakelab-host",
+      "icon": "external link",
+      "targetBlank": false,
+      "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "ストレージ詳細",
+      "url": "/d/shakelab-storage",
+      "icon": "external link",
+      "targetBlank": false,
+      "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "VMメモリ配分",
+      "url": "/d/shakelab-vm-memory",
+      "icon": "external link",
+      "targetBlank": false,
+      "keepTime": true
+    }
+  ],
   "panels": [
     {
       "id": 1,
@@ -108,8 +135,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "pve_cpu_usage_ratio",
-          "legendFormat": "{{instance}}"
+          "expr": "max by (id) (pve_cpu_usage_ratio{id=~\"node/.+\"})",
+          "legendFormat": "{{id}}"
         }
       ],
       "fieldConfig": {
@@ -140,8 +167,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "pve_memory_usage_bytes / pve_memory_size_bytes",
-          "legendFormat": "{{instance}}"
+          "expr": "max by (id) (pve_memory_usage_bytes{id=~\"node/.+\"} / pve_memory_size_bytes{id=~\"node/.+\"})",
+          "legendFormat": "{{id}}"
         }
       ],
       "fieldConfig": {
@@ -252,6 +279,173 @@
       "fieldConfig": {
         "defaults": {
           "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "6TB HDD 使用率",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"} / node_filesystem_size_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "6TB HDD 空き",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "6TB HDD SMART",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_device_smart_healthy{disk=\"/dev/sda\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "NVMe 寿命消費",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 10
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "nvme_percentage_used_ratio{device=\"nvme0n1\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          }
         },
         "overrides": []
       }

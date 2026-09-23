@@ -1,0 +1,45 @@
+---
+# ホストのnode_exporterと、SMART/NVMeのtextfile collectorを有効にする。
+# メトリクスはPrometheusの node ジョブが 9100 から読む。
+- name: Install the host exporters
+  ansible.builtin.apt:
+    name: '{{ pve_node_exporter_packages }}'
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable and start node_exporter
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+
+- name: Enable the textfile collector timers
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: '{{ pve_node_exporter_timers }}'
+
+# 次のtimerまで待つと初回の15分間メトリクスが無い。無いときだけ1回走らせる。
+- name: Look for the SMART textfile
+  ansible.builtin.stat:
+    path: '{{ pve_node_exporter_textfile_dir }}/smartmon.prom'
+  register: pve_node_exporter_smartmon
+
+- name: Collect SMART once when the textfile is missing
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter-smartmon.service
+    state: started
+  when: not pve_node_exporter_smartmon.stat.exists
+
+- name: Look for the NVMe textfile
+  ansible.builtin.stat:
+    path: '{{ pve_node_exporter_textfile_dir }}/nvme.prom'
+  register: pve_node_exporter_nvme
+
+- name: Collect NVMe once when the textfile is missing
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter-nvme.service
+    state: started
+  when: not pve_node_exporter_nvme.stat.exists
