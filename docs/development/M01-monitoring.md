@@ -50,7 +50,7 @@ monitor-01はK11（Proxmoxホスト）の上にあるため、K11ごと落ちる
 - 経路: `Watchdog`（常時firing）→ Alertmanagerの`deadman`宛先 → 1時間ごとにPOST。ping URLは`monitoring.sops.yaml`の`WATCHDOG_PING_URL`。空なら`deadman`は何もせず、`Watchdog`がメールに流れることもない。
 - 差し替え: `sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'` → `monitoring.yml`を流す。`.env`のSMTP・WATCHDOG変更でもAlertmanagerを再読込する（2026-09-16に修正）。
 - 試験: 受信点を一時的に5分/5分にして`docker stop monitoring-alertmanager-1` → 10分ほどで通知 → `docker start`。**鳴ることを一度見たら12時間/1時間に戻す。**
-- ラズパイを別電源で動かせるようになったら、2つ目のwebhookとして追加する（[電源とUPS](../operations/power.md#停電で自動停止させる実装済み)）。
+- K11の外に別電源の機器を置けるようになったら、2つ目のwebhookとして追加する（[電源とUPS](../operations/power.md#停電で自動停止させる実装済み)）。**いまはルータもK11上のVMなので、K11が落ちると通知経路ごと失われる。**
 
 ## 管理DBバックアップの見える化
 

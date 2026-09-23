@@ -1,6 +1,6 @@
 ---
 title: Shake Lab Docs
-updated: 2026-09-18
+updated: 2026-09-23
 section: 入口
 audience: 全員
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # Shake Lab Docs
 
-> **更新日** 2026-09-18 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-09-23 ・ **区分** 入口 ・ **読む人** 全員
 
 Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パスワードから自作のプライベートクラウドまでを、家庭内LANのHTTPS名から使えるようにしている環境の手順書です。原稿の正本は Git の `docs/` で、正本リポジトリは <https://github.com/rurutheGeek/shake-cloud> です。
 
@@ -64,9 +64,10 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 
 | 役割 | VM | 中身 |
 | --- | --- | --- |
+| 家庭内ルータ・DNS | router-01 | OpenWrt。WAN/LAN・DHCP・AdGuard Home（広告遮断） |
 | 共通ログイン | identity | Authentik。招待・メール復旧・パスキー |
 | 自作クラウド | cloud-01 | shakecloud API・CLI・Provider・ポータル・管理DB |
-| 台帳・docs・パスワード・家電 | services-01 | NetBox・Shake Lab Docs・Homarr・Vaultwarden・Home Assistant・CUPS |
+| 台帳・docs・パスワード・家電 | services-01 | NetBox・Shake Lab Docs・Homarr・Vaultwarden・Home Assistant・CUPS・LibreSpeed |
 | S3・バックアップ | storage-s3 | Garage（S3互換） |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02 | Kubernetes・AWX・CloudNativePG（DB）・Knative（関数） |
 | メディア | media-01 | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend |
@@ -74,6 +75,8 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 | ゲーム・AI | game1（GPUパススルー） | Wolf・RomM・SFTPGo |
 | 復旧経路 | net-01 | subnet router（宅外から管理LANへ） |
 | 開発 | dev-a・dev-b | Terraform・Docker・Go |
+
+**インターネットの入口も自作です。** 家庭内ルータは K11 上の OpenWrt VM（`router-01`）で、DNS と DHCP もそこにあります。つまり **K11 が落ちると家中のネットが落ちます**（[障害モード](architecture/failure-modes.md)）。
 
 **基盤VMは Terraform**、**cloudプールのVMは自作API・Provider** が作り、IPはどちらも NetBox から採番します。役割ごとの詳細は[ホームラボの全体像](architecture/overview.md)、実機の状態は[配備台帳](operations/handover.md)が正本です。
 

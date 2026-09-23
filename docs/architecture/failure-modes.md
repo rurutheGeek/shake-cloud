@@ -1,6 +1,6 @@
 ---
 title: 障害モードと単一障害点
-updated: 2026-09-19
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 障害モードと単一障害点
 
-> **更新日** 2026-09-19 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **何が止まると、何が使えなくなるか。** 停止・再起動の判断と、復旧の順番を決めるための表です。各所に1行ずつ散っていた「これを止めると◯◯も止まる」をここへ集めました。
 
@@ -22,9 +22,10 @@ tags:
 
 | 単一点 | 落ちると | いまの受け止め方 |
 | --- | --- | --- |
-| **物理ホスト `apextox`** | すべて。VM・クラウド・認証・家電・監視・復旧経路のTailscaleまで全部 | 受け入れている。`net-01` の subnet router も同じホスト上なので、**カバーできるのはVM単位の故障まで** |
-| **SSD 1台** | すべてと、復元元 | 別ディスク・別機器へのバックアップが要る。**管理DBの外部コピーは未着手**（[O01](../development/O01-cloud-backup.md)） |
-| **ルーター・LAN** | 名前解決と全サービスへの到達 | 受け入れている。LANが死ぬと手元からも入れない |
+| **物理ホスト `apextox`** | すべて。VM・クラウド・認証・家電・監視・復旧経路のTailscaleに加え、**家中のインターネットとDNS**（家庭内ルータ `router-01` がこのホスト上のVMのため） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。`net-01` も同じホスト上なので、**カバーできるのはVM単位の故障まで** |
+| **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](../development/O01-cloud-backup.md)） |
+| **`router-01`（家庭内ルータ）** | **家中のインターネット・DNS・DHCP。** ホームラボだけでなく全端末 | 2026-09-20 に Aterm から切替（[N06](../development/N06-router.md)）。K11上のVMなので上の行と一蓮托生。K11と別電源で残るのは ONU・スイッチ・Aterm（APモード）だけで、**そこにDNSもDHCPも居ない** |
+| **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | `router-01` 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
 | **Garage（storage-s3、単一ノード）** | S3バケットとオブジェクト | **stateとバックアップの唯一の保管先にしない。** Terraform state は外部のS3互換に置く |
 | **Cloudflare（DNS）** | 名前解決と、証明書のDNS-01更新 | 外部依存。既存証明書は期限まで有効なので即死はしない |
 | **ドメイン `apextox.dpdns.org`** | 全サービスの名前 | 無料ドメインの継続性は未確認。取り上げられたら名前の付け替え（[配備台帳 §6](../operations/handover.md)） |
@@ -42,6 +43,7 @@ tags:
 | `monitor-01` | 監視・アラート・Grafana。**監視の停止自体は誰も検知しない** | 他は影響なし |
 | Kubernetes（cp・worker） | **クラウドの database と function の2機能**、AWX | VM・S3の2機能は動く。既に作ったDBは止まる |
 | `game1` | ゲーム、RomM、将来のローカルAIとBot | 他は影響なし |
+| `router-01` | **家中のインターネット・DNS・DHCP。** ホームラボ以外の端末も巻き込む | LAN内のIP直打ちは生きる（すでにリースを持っている端末のみ）。[つながらないときの調べ方](../operations/router-troubleshooting.md) |
 | `net-01` | 宅外からの復旧経路 | LAN内からは全部使える |
 | `dev-a` / `dev-b` | 配備の実行環境（dev-bが自動化の実行ホスト） | 稼働中のサービスは影響なし |
 
@@ -74,12 +76,13 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 
 上から順です。**下のものは上のものに依存します。**
 
-1. **物理ホスト** — Proxmoxが上がること。画面は `https://pve.apextox.dpdns.org:8006`
-2. **`services-01`** — NetBoxが要る。これが無いとAnsibleの動的インベントリが引けず、他の配備が進まない
-3. **`identity`** — ブラウザからのログインが戻る
-4. **`cloud-01`** — VMの操作が戻る。**アクセスキーは identity に依存しないので、2と3を待たずにTerraformは動かせる**
-5. **`storage-s3`・Kubernetes** — S3・database・function
-6. **サービスVM**（`media-01`・`monitor-01`・`game1`・`net-01`） — 利用者向けの機能
+1. **物理ホスト** — Proxmoxが上がること。画面は `https://pve.apextox.dpdns.org:8006`（名前が引けないときはIP直 `https://192.168.10.10:8006`）
+2. **`router-01`** — 起動順1で自動起動する。**これが上がるまで名前解決もDHCPも無い**ので、他のVMの確認は名前ではなくIPで行う
+3. **`services-01`** — NetBoxが要る。これが無いとAnsibleの動的インベントリが引けず、他の配備が進まない
+4. **`identity`** — ブラウザからのログインが戻る
+5. **`cloud-01`** — VMの操作が戻る。**アクセスキーは identity に依存しないので、3と4を待たずにTerraformは動かせる**
+6. **`storage-s3`・Kubernetes** — S3・database・function
+7. **サービスVM**（`media-01`・`monitor-01`・`game1`・`net-01`） — 利用者向けの機能
 
 **Terraform state は外部に置いてあります。** ホストが丸ごと失われても宣言と state は残るので、作り直しは宣言から始められます。ただし**原本・アプリのDB・秘密値は state に入っていません**。復元手順は[O03](../development/O03-restore.md)で整備中です。
 
@@ -88,11 +91,11 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 | 項目 | 状態 |
 | --- | --- |
 | アプリ横断の隔離復元 | ツールはあるが合格していない（[O03](../development/O03-restore.md)） |
-| 管理DBの外部コピー | ローカルに14世代。外部コピーは未着手（[O01](../development/O01-cloud-backup.md)） |
+| バックアップの別筐体・別場所コピー | 週次vzdumpは同じ筐体の6TB HDDまで。別機器・別場所は未着手（[O01](../development/O01-cloud-backup.md)・[バックアップ](../operations/backup.md)） |
 | CloudNativePGのバックアップ | 未整備（[O02](../development/O02-cnpg-backup.md)） |
 | Home Assistantの復元試験 | 未完（[H01](../development/H01-home-assistant.md)） |
 | 低電池での自動シャットダウン | 未整備（[M01](../development/M01-monitoring.md)） |
-| 原本ライブラリのバックアップ | 状態のバックアップに含まれない。別途必要 |
+| 原本ライブラリのバックアップ | メディア原本は6TB HDD上にあり、**同じディスクへは退避できない**。別ディスクが要る（[共有バルクストレージ](../operations/bulk-storage.md)） |
 
 ## 関連
 

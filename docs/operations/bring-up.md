@@ -1,6 +1,6 @@
 ---
 title: K11到着後・Proxmox VE導入後の進め方
-updated: 2026-09-13
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # K11到着後・Proxmox VE導入後の進め方
 
-> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](../architecture/index.md) / [VM配分・サービス配置](../architecture/operations.md#resource-budget)
 
@@ -104,7 +104,7 @@ pveum passwd dev-a@pve
 
 ### セルフホストVPNを追加する
 
-専用vpn-01の旧案を変更し、services-01の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)でラズパイの独立した復旧経路を確認します。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
+専用vpn-01の旧案を変更し、services-01の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)で `net-01` の復旧経路を確認します（ラズパイは導入しませんでした）。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
 
 ## 4. Home Assistantをservices-01へ追加する
 

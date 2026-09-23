@@ -1,6 +1,6 @@
 ---
 title: セルフホストVPNとTailscaleの併用
-updated: 2026-09-16
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # セルフホストVPNとTailscaleの併用
 
-> **更新日** 2026-09-16 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
@@ -40,13 +40,14 @@ OSの対応だけでなく、実際の端末のOS版・CPU・アプリ配布方�
 
 Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Gitに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
 
-## K11とラズパイの配置
+## 配置
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
 | K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
-| ラズパイ | Tailscale SaaSのsubnet routerとDNS（監視はmonitor-01へ分離） | K11外の管理経路。K11停止中も動くことを検証 |
+| K11 / net-01（cloud VM） | Tailscale SaaS の subnet router（**実装済み**。[net-01](../operations/net.md)） | **K11上のVMなので、K11そのものの停止はカバーしない。** 当初はK11外のラズパイを想定していたが導入しなかった |
+| K11 / router-01（OpenWrt VM） | DNS（AdGuard Home）とDHCP。**家庭内ルータそのもの** | 2026-09-20に切替。K11が落ちると家中のネットも落ちる（[障害モード](failure-modes.md)） |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
 NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)

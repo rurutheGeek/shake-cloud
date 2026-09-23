@@ -1,6 +1,6 @@
 ---
 title: 設計と決定の入口
-updated: 2026-09-18
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 設計と決定の入口
 
-> **更新日** 2026-09-18 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **この節は「なぜそう作ったか」を残す場所です。** 手順は[運用手順](../operations/index.md)、実機の状態は[配備台帳](../operations/handover.md)、これからの作業は[開発計画](../development/index.md)が正本で、食い違ったらそちらが正しいと考えてください。
 
@@ -67,7 +67,7 @@ tags:
 | DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **router-01（K11 上の OpenWrt VM）**。2026-09-20 に dnsmasq から移行 |
 | 公開入口 | Caddy（各ホストでTLS終端） | 各VM（identity・services-01・media-01・monitor-01・cloud-01）。公開用VMはN04 |
 | 家電・自動化 | Home Assistant Container（配備済み） | services-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
-| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（新規cloud VM）。UPS・証明書・資源を監視。ラズパイはDNSと復旧経路 |
+| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（新規cloud VM）。UPS・証明書・資源を監視。DNSは router-01 の AdGuard Home、復旧経路は net-01 |
 | 印刷 | CUPS（services-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
 | ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
 | 音楽タグの編集 | Nextcloudの自作アプリ `shake_tags` とタグAPI | media-01。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える（専用GUIコンテナは2026-09-13に撤去） |

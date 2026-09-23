@@ -1,6 +1,6 @@
 ---
 title: 電源と UPS
-updated: 2026-09-20
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 電源と UPS
 
-> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
 
@@ -19,7 +19,7 @@ tags:
 ## いまの電源構成
 
 - K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
-- 管理経路（ルータ・スイッチ・監視ラズパイ）は K11 とは別の電源です（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
+- **ルータ（`router-01`）は K11 上の OpenWrt VM です**（2026-09-20 に切替）。K11 が落ちると家中のインターネットも落ちます。K11 と別電源で残るのは ONU・スイッチ（TL-SG605）・Aterm（APモード）だけで、**そこに DNS も DHCP も居ません**（[router-01](router.md)・[障害モード](../architecture/failure-modes.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
 
 ## K11 が固まったときの自動復旧（watchdog）
@@ -195,7 +195,7 @@ ssh root@192.168.10.10 'systemctl status nut-monitor; upsc cyberpower@localhost 
 - **K11 と周辺の消費電力を実測**してから VA/W を選ぶ（アイドルは数十W、ゲームやビルドで上がる）。UPS の**実効W**（VA×力率）で見る。
 - **バッテリー側コンセント**を使う。レーザープリンタ・掃除機・ドライヤーなどはつながない。
 - 電源アダプタが敏感なら**正弦波**の UPS を選ぶ（疑似正弦波で異音・再起動する機器がある）。
-- **ラズパイ・ルータ・スイッチを別の小さな UPS に載せる**と、停電中も管理経路と VPN が残ります（[復旧経路](../architecture/network-auth.md)）。
+- **ONU・スイッチ・Aterm を別の小さな UPS に載せても、ルータ本体（`router-01`）は K11 上なので通信は復旧しません。** K11 を UPS に載せるのが先です。K11 の外に独立した管理経路を持ちたい場合は、ルータ内蔵VPNか別筐体の小型機器が要ります（[復旧経路](../architecture/network-auth.md)）。
 
 ## 関連
 

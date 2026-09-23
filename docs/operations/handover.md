@@ -51,6 +51,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）で�
 | VMID | 名前 | IP | 役割 | 状態 |
 | --- | --- | --- | --- | --- |
 | 100 | game1 | 192.168.10.127 | ゲームサーバ（Bazzite、GPUパススルー hostpci0/1）。`cloud` プール | 稼働。2026-09-11 にクラウドAPIへ引き取り済み（owner `shunyazhiyuan97`、instance `i-bec54e3a0169b3660`、既定SG） |
+| 101 | router-01 | 192.168.10.1 | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0。AdGuard Home（DNS・広告遮断）と dnsmasq（DHCP） | 稼働。2026-09-20 に Aterm から切替（N06）。`https://router.apextox.dpdns.org`（LuCI。**SSOなし**＝復旧経路）、`https://adguard.apextox.dpdns.org`（Forward Auth）。起動順1・遅延30秒。[router-01](router.md) |
 | 110 | identity | 192.168.10.204 | Authentik | 稼働。`https://auth.apextox.dpdns.org`（`:9000`・`:9443` は 127.0.0.1 に閉じた） |
 | 130 | storage-s3 | 192.168.10.206 | Garage（S3互換オブジェクトストア、単一ノード） | 稼働。S3 `:3900`、管理API `:3903`。データは専用ディスク32GiB（`/srv/garage`） |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI（Phase 1〜7 + database/function）と管理DB | 稼働。`https://cloud.apextox.dpdns.org`（`:8080` は 127.0.0.1 に閉じた）。メモリ使用 約0.4GiB / 2GiB（2026-09-12） |
@@ -71,7 +72,7 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。services-01・identity・cloud-01・storage-s3・dev-a・media-01 は JST です。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
-`cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP はクラウド用に `.100`–`.180`、基盤用に `.201`–`.249` を NetBox の IP Range で分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
+`cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
 
 ## 4. サービスの入口とログイン情報の置き場所
 
