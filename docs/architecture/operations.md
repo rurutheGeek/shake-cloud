@@ -1,6 +1,6 @@
 ---
 title: 配備・Git管理・ストレージ・復旧
-updated: 2026-09-13
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 配備・Git管理・ストレージ・復旧
 
-> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
@@ -23,8 +23,9 @@ tags:
 
 | 配置 | vCPU / RAMの計画値 | ディスク | 機能・起動方針 |
 | --- | --- | --- | --- |
-| Proxmox | ホスト用6GiB枠 | 現行パーティション維持 | ホストとキャッシュの予算。実消費は測定 |
-| services-01（150） | 2 / 4GiB（増枠は実測後） | 現行容量とデータ量を実測 | NetBox・MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）。VPNは追加予定。常時。`05-seed`の所有を維持 |
+| Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
+| router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
+| services-01（150） | 2 / 4GiB（増枠は実測後） | 現行容量とデータ量を実測 | NetBox・MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed。VPNは追加予定。常時。`05-seed`の所有を維持 |
 | identity（110） | 2 / 4GiB（宣言値） | 32GiB | Authentikと専用DB。常時 |
 | cloud-01（140） | 2 / 2GiB（宣言値） | 40GiB | クラウドAPIと管理DB。常時 |
 | storage-s3（130） | 2 / 1GiB（宣言値） | OS16＋データ32GiB | Garage。常時 |
@@ -37,7 +38,7 @@ tags:
 | dev-a / dev-b（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
-| DNS・復旧用Tailscale | 既存ラズパイ、K11枠外 | 現行確認 | K11停止時の管理経路を保持 |
+| net-01（cloud VM） | 1 / 512MiB | 10GiB | Tailscale subnet router（宅外からの復旧経路）。**K11上のVMなので、K11そのものの停止はカバーしない** |
 
 上表は同時稼働を保証する合計ではありません。常用基盤（services-01、identity、cloud-01、storage-s3、cp、worker-01）だけでも計画値で22GiBです。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
 
@@ -132,7 +133,7 @@ Docker・ゲーム・開発の停止単位にはVMを使います。GPUはgame1�
 - FluxでHelm/Kustomizeを反映し、SOPSでSecretを暗号化する。
 - requests、必要なlimits、readiness/startup/liveness probe、NetworkPolicyを設定する。
 - AWXはAnsibleの実行基盤として使うが、クラスタ自身の復旧は管理PCから実行できるようにする。
-- 監視はmonitor-01（新規cloud VM）へPrometheus・Alertmanager・Grafana・exporterを配備済み（M01）。外部公開せず、保持期間と容量を抑える。既存ラズパイはDNSと復旧経路を担う。
+- 監視はmonitor-01（新規cloud VM）へPrometheus・Alertmanager・Grafana・exporterを配備済み（M01）。外部公開せず、保持期間と容量を抑える。DNSはrouter-01のAdGuard Home、宅外からの復旧経路はnet-01が担う。
 
 control plane 1台は、その停止中に新規配置・再配置・設定変更ができなくなる設計です。既存Podは動き続ける場合がありますが、正常性はアプリと障害内容に依存します。VMが3台でも物理ホスト・SSDは1つです。今回のVM追加で物理障害への冗長性が増えるとは扱いません。[kubeadm HA](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
 
@@ -161,7 +162,10 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | CUPS・印刷API | services-01 | 配備済み（D08）。キュー `ts8430`。Nextcloud印刷アプリはmedia-01。ブラウザー操作は未確認 |
 | セルフホストVPN | services-01 | 別ComposeでDB・設定・鍵を保存。N01 |
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
-| AdGuard Home・復旧用Tailscale | 既存ラズパイ | 既存負荷と復旧経路を確認。N02 |
+| AdGuard Home・dnsmasq（DNS・DHCP） | router-01（OpenWrt VM） | 配備済み（2026-09-20、N06）。設定の正本は `platform/openwrt/`。[AdGuard Home](../operations/adguard.md)・[router-01](../operations/router.md) |
+| 復旧用Tailscale | net-01（cloud VM） | 配備済み（2026-09-14、N02）。ルート承認・宅外検証が未了。[net-01](../operations/net.md) |
+| LibreSpeed（速度テスト） | services-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
+| 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
 | 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
 

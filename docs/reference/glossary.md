@@ -1,6 +1,6 @@
 ---
 title: 用語集
-updated: 2026-09-18
+updated: 2026-09-23
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 用語集
 
-> **更新日** 2026-09-18 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-09-23 ・ **区分** リファレンス ・ **読む人** 全員
 
 このドキュメントに出てくる固有名と略語です。**詳しい説明はリンク先が正本**で、ここは「読み進めるために最低限いる説明」だけを置きます。
 
@@ -18,10 +18,11 @@ tags:
 
 | 名前 | 何か |
 | --- | --- |
-| `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる |
+| `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる。管理は `192.168.10.10` |
+| `router-01` | **家庭内ルータ（OpenWrt）。** K11上のVM（`192.168.10.1`）で、ファイアウォール・DHCP・DNSを担う（[router-01](../operations/router.md)） |
 | `identity` | 共通ログイン（Authentik）のVM（[認証基盤](../operations/identity.md)） |
 | `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB（[クラウドAPIの構築](../operations/cloud.md)） |
-| `services-01` | 台帳・手順書サイト・Homarr・パスワード・家電・印刷 |
+| `services-01` | 台帳・手順書サイト・Homarr・パスワード・家電・印刷・速度テスト |
 | `storage-s3` | S3互換オブジェクトストア Garage（[Garage](../operations/garage.md)） |
 | `media-01` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend受信機 |
 | `monitor-01` | Prometheus・Alertmanager・Grafana |
@@ -41,6 +42,8 @@ tags:
 | **配備台帳** | [handover.md](../operations/handover.md)。実機の状態・決定・TODOの正本 |
 | **作業ID** | W・A・G・H・N・I・M・O・D で始まる開発単位（[開発計画](../development/index.md)）。番号は実施順ではない |
 | **正本** | その事実を書いてよい唯一の場所。ほかのページはリンクするだけにする |
+| **機器帯 / DHCP帯** | アドレスの切り分け。機器帯 `.2`–`.19`（ルータ・AP・プリンタ・ホスト）、DHCP `.20`–`.99`（router-01 が配る）、クラウド `.100`–`.180`、管理 `.201`–`.239`、MetalLB `.240`–`.249`。正本は `platform/terraform/network.yaml` |
+| **バルク領域** | Proxmoxホスト直結の6TB USB HDD（`/srv/bulk`）。メディア原本と週次バックアップの置き場（[共有バルクストレージ](../operations/bulk-storage.md)） |
 
 ## 使っているソフト
 
@@ -58,6 +61,10 @@ tags:
 | **CloudNativePG** | Kubernetes上のPostgreSQL。クラウドの「database」機能の実体 |
 | **Knative** | Kubernetes上のHTTP実行。クラウドの「function」機能の実体 |
 | **SOPS / age** | 秘密値を暗号化したままGitに置くための道具（[秘密値の管理](../operations/secrets.md)） |
+| **OpenWrt** | ルータ用のLinux。`router-01` の中身。設定の正本は `platform/openwrt/` |
+| **AdGuard Home** | DNSサーバー兼広告・トラッカー遮断。`router-01` 上で家中の名前解決を担う（[AdGuard Home](../operations/adguard.md)） |
+| **LuCI** | OpenWrt の管理画面。**SSOを付けていない**（復旧経路のため） |
+| **LibreSpeed** | 自前の回線速度テスト。services-01（[LibreSpeed](../services/librespeed.md)） |
 | **Homarr** | サービス一覧のハブ画面 |
 | **Nextcloud / Kavita / Navidrome / FreshRSS** | ファイル／本／音楽／RSS |
 | **Vaultwarden** | パスワード保管庫 |

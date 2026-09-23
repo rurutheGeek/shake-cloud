@@ -1,6 +1,6 @@
 ---
 title: ボリューム・S3・DB・関数
-updated: 2026-09-19
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ボリューム・S3・DB・関数
 
-> **更新日** 2026-09-19 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 [クラウドAPI本体とインスタンス](cloud-api.md)の続きです。インスタンスに足すリソースと、クラウドの残り3機能（S3・database・function）を配備します。
 
@@ -63,7 +63,7 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 
 ```bash
 # 既存VMを cloud プールへ入れる（管理者。APIトークンではできない）
-ssh root@192.168.10.126 qm set 100 --pool cloud
+ssh root@192.168.10.10 qm set 100 --pool cloud
 ```
 
 ```bash

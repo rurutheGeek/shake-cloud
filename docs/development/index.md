@@ -1,6 +1,6 @@
 ---
 title: 機能別VMと並列開発計画
-updated: 2026-09-16
+updated: 2026-09-23
 section: 開発計画
 audience: 開発者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 機能別VMと並列開発計画
 
-> **更新日** 2026-09-16 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
@@ -36,7 +36,7 @@ tags:
 
 AI専用VMは作りません。Homarr・VaultwardenをKubernetesへ移す計画もありません。Kubernetesは既存のOperator・関数実行の仕組みに価値がある用途に残します。identity・cloud-01・storage-s3と既存開発VMの所有・配置は維持します。
 
-services-01のVM再起動では家電・VPNも停止するため、ラズパイの復旧用Tailscaleを維持・検証します。Home AssistantはContainer方式で、HAOSの追加アプリ管理は使いません。game1のゲーム・RomMとAI、ポケモンと汎用RAGのデータ・権限はそれぞれ分けます。media-01を止めるとNextcloudの同期・Calendar・Tasksも止まります。
+services-01のVM再起動では家電も停止します。宅外からの復旧経路は cloud VM `net-01` の Tailscale subnet router です（K11そのものの停止はカバーしません）。Home AssistantはContainer方式で、HAOSの追加アプリ管理は使いません。game1のゲーム・RomMとAI、ポケモンと汎用RAGのデータ・権限はそれぞれ分けます。media-01を止めるとNextcloudの同期・Calendar・Tasksも止まります。
 
 ## 作業ID一覧
 
@@ -63,10 +63,10 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [H02 SwitchBot](H02-switchbot.md) | 機器確認・新規 | services-01 | 実機待ち（Cloud統合追加済み） |
 | [H03 Echo](H03-echo.md) | 機器確認・新規 | services-01 | 見送り（決定済み） |
 | [H04 Eufy](H04-eufy.md) | 機器確認・調査 | services-01 | 実機確認中（ライブ未対応・イベント確認中） |
-| [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | services-01 | 計画（未着手） |
-| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | 既存ラズパイ・端末 | 計画（合格未確認） |
-| [N03 VLAN切替](N03-vlan.md) | 宣言済み・実機切替待ち | 既存ネットワーク | 切替待ち（人的作業） |
-| [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち |
+| [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | services-01 | 計画（未着手）。**N06の実測で前提が変わった**（80/443不可・WireGuardは公開可） |
+| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | cloud VM `net-01`・端末 | 一部完了（tailnet参加済み。ルート承認・宅外検証が未了） |
+| [N03 VLAN切替](N03-vlan.md) | 宣言済み・機材待ち | 既存ネットワーク | **機材待ち。TL-SG605がアンマネージドでVLANを設定できない**（N06で確定）。マネージドスイッチの調達が前提 |
+| [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち。**MAP-Eで80/443が使えない**ため、`https://名前/` での公開はこの回線では不可（N06で確定） |
 | [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | services-01・接続元 | 一部完了 |
 | [N06 ルータ自作（OpenWrt）](N06-router.md) | 実装・切替済み | K11（OpenWrt VM）・既存ルータ | 完了（家庭内ルータとして稼働中。検証と再起動復旧を確認済み） |
 | [I01 容量測定・軽量化](I01-resources.md) | 測定・改善 | 既存ホスト・VM | 一部完了（負荷試験未） |
@@ -123,6 +123,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 
 - サービスのコード・設定はリポジトリの `stacks/<name>/`。READMEは担当ID・配備先・再利用元を示す開発の入口です。実装が加わった場所は個別計画書の状態を参照してください。
 - 新規media-01のVM宣言は `platform/terraform/services/media/`。I02でVMと付属リソースを1 stateで管理する宣言が加わっています。既存コードの正本をコピーして二重管理しません。
+- 作業IDを持たない検討メモもこの節に置きます。[Navidromeの改造案](navidrome-ideas.md)は、本体でできないことと代替手段の控えです（W05の配備そのものとは別）。
 - 作業文書は `<ID>-<name>.md`。共通項目は目的、現状の根拠、配置、変更範囲、開発開始の前提、配備・切替の前提、実装手順、共有変更、検証、完了条件です。
 - [サービスの置き場所](../operations/services.md)・[IaCの所有境界](../architecture/iac.md)と合わせて確認します。秘密値・実データ・stateは通常のGit本文に入れません。
 
