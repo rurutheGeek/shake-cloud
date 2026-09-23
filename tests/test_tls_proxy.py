@@ -76,6 +76,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['netbox']['upstream'], f"127.0.0.1:{defaults('netbox')['netbox_port']}")
         self.assertEqual(records['docs']['upstream'], f"127.0.0.1:{defaults('docs_site')['docs_site_port']}")
         self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
+        self.assertEqual(records['speed']['upstream'], f"127.0.0.1:{defaults('librespeed')['librespeed_port']}")
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
@@ -111,7 +112,8 @@ class TlsProxyTests(unittest.TestCase):
 
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
-                     SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml', 'cups.yml'],
+                     SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml', 'cups.yml',
+                                 'librespeed.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
                      'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}

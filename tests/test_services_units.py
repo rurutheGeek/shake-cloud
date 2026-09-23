@@ -1,7 +1,6 @@
 """Safety checks for the isolated services-01 application units."""
 
 import importlib.util
-import json
 from pathlib import Path
 import shutil
 import tempfile
@@ -31,6 +30,10 @@ class UnitTests(unittest.TestCase):
         'homarr': {
             'service': 'homarr', 'port': '${HOMARR_PORT:-7575}',
             'prefixes': ['/srv/services/homarr', '/srv/homarr-stack'], 'playbook': 'homarr.yml',
+        },
+        'librespeed': {
+            'service': 'librespeed', 'port': '${LIBRESPEED_PORT:-8300}',
+            'prefixes': ['/srv/services/librespeed'], 'playbook': 'librespeed.yml',
         },
         'vaultwarden': {
             'service': 'vaultwarden', 'port': '${VAULTWARDEN_PORT:-8222}',

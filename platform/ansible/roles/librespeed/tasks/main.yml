@@ -1,0 +1,63 @@
+---
+- name: Create the LibreSpeed deployment directory
+  ansible.builtin.file:
+    path: '{{ librespeed_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the LibreSpeed stack
+  ansible.builtin.copy:
+    src: '{{ librespeed_source_dir }}/{{ item }}'
+    dest: '{{ librespeed_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# .env は宣言値だけを role が描画する（秘密値は secrets/ と環境変数へ）。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ librespeed_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize storage and the stats password
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ librespeed_project_dir }}'
+  register: librespeed_init
+  changed_when: "'CHANGED' in librespeed_init.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ librespeed_project_dir }}'
+  register: librespeed_pinned
+  changed_when: "'CHANGED' in librespeed_pinned.stdout"
+
+- name: Start LibreSpeed and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ librespeed_project_dir }}'
+  register: librespeed_up
+  changed_when: "'Recreate' in librespeed_up.stderr or 'Created' in librespeed_up.stderr"
+
+- name: Wait for LibreSpeed on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ librespeed_port }}/'
+  register: librespeed_health
+  retries: 20
+  delay: 3
+  until: librespeed_health.status == 200
+
+# tls_proxy が先に証明書を取る。HTTPS の名前でも 200 が返ることを確かめる。
+- name: Wait for the public entry point
+  ansible.builtin.uri:
+    url: '{{ librespeed_public_url }}/'
+    validate_certs: true
+  register: librespeed_entry
+  retries: 20
+  delay: 3
+  until: librespeed_entry.status == 200

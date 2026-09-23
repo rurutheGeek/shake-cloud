@@ -109,6 +109,10 @@ records:
     host: services-01
     upstream: 127.0.0.1:8222
     description: Vaultwarden（パスワード管理・SSO）
+  speed:
+    host: services-01
+    upstream: 127.0.0.1:8300
+    description: LibreSpeed（端末↔services-01の速度計測）
   ha:
     host: services-01
     upstream: 127.0.0.1:8123

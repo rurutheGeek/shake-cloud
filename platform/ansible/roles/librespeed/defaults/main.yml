@@ -1,0 +1,11 @@
+---
+# LibreSpeed（端末 ↔ services-01 の実効速度）を services-01 に単独で置く。
+librespeed_project_dir: /opt/services/librespeed
+librespeed_storage_root: /srv/services/librespeed
+librespeed_source_dir: '{{ playbook_dir }}/../../stacks/librespeed'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://speed.<ゾーン> で受ける。
+librespeed_bind_address: 127.0.0.1
+librespeed_port: 8300
+librespeed_tz: Asia/Tokyo
+librespeed_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+librespeed_public_url: 'https://speed.{{ librespeed_dns.zone }}'

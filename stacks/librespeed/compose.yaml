@@ -1,0 +1,39 @@
+# LibreSpeed（端末 ↔ services-01 の実効速度）を services-01 に単独で置く。
+#
+# ブラウザー内のJavaScriptが測るので、測っているのは「その端末と services-01 の
+# 間」の速度（Wi-Fi・LANケーブル・仮想NICを含む）。インターネット回線の速度では
+# ない。到達点は端末がページを開いた先（このホスト）になる。
+# イメージは compose.lock.yaml でダイジェスト固定する。
+name: librespeed
+
+services:
+  librespeed:
+    image: ${LIBRESPEED_IMAGE:-ghcr.io/librespeed/speedtest}:${LIBRESPEED_TAG:-6.2.0}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      MODE: standalone
+      # ページの見出しと説明。日本語のままHTMLエスケープされて差し込まれる。
+      TITLE: Shake Lab 速度テスト
+      TAGLINE: 端末 ↔ services-01 の実効速度
+      USE_NEW_DESIGN: 'true'
+      # 履歴を SQLite（/database）に残す。統計ページは下の PASSWORD で守る。
+      TELEMETRY: 'true'
+      DB_TYPE: sqlite
+      REDACT_IP_ADDRESSES: 'true'
+      # 端末↔サーバの速さを見るので、ISP・距離の外部問い合わせは使わない。
+      DISABLE_IPINFO: 'true'
+      # 統計ページのパスワード。秘密値は .env ではなく secrets/ から manage.py が
+      # 環境変数で渡す。既定の "password" のままにしない。
+      PASSWORD: ${LIBRESPEED_STATS_PASSWORD:?run manage.py up}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/services/librespeed}/database:/database
+    ports:
+      # 既定は 127.0.0.1。LAN へ出すのは HTTPS 入口（Caddy）だけにする。
+      - '127.0.0.1:${LIBRESPEED_PORT:-8300}:8080'
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:8080/]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
