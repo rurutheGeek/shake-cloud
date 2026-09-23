@@ -23,6 +23,7 @@ nav:
       - Home Assistantと家電の使い方: services/home-assistant.md
       - プリンター（Canon TS8430）: services/printer.md
       - クラウドの使い方: services/cloud.md
+      - AIエージェントからクラウドを見る（MCP）: services/mcp.md
       - 開発VMの使い方: services/devvm.md
   - 開発に参加する:
       - 開発参加ガイド: onboarding.md

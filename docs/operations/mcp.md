@@ -16,7 +16,7 @@ tags:
 
 クラウドAPIを [MCP（Model Context Protocol）](https://modelcontextprotocol.io/) のツールとしてAIエージェントへ渡すサーバです。**stdin/stdout で動くローカルプロセス**で、エージェントを動かす端末（dev-a・dev-b など）で起動し、APIへは HTTPS で接続します。サーバー側への配備は不要です。
 
-**登録するのは読み取り専用ツールだけです。** 書き込み（作成・電源・削除など）はポータル・CLI・Terraform のままにしています。API側でも**読み取り専用アクセスキー**を使うので、万一ツールに欠陥があっても変更は 403 `AccessDenied` で止まります。
+**登録するのは読み取り専用ツールだけです。** 書き込み（作成・電源・削除など）はポータル・CLI・Terraform のままにしています。API側でも**読み取り専用アクセスキー**を使うので、万一ツールに欠陥があっても変更は 403 `AccessDenied` で止まります。**利用者向けの使い方（質問例・困ったとき）は[AIエージェントからクラウドを見る](../services/mcp.md)にあります。**
 
 ## 1. 準備
 
@@ -115,6 +115,7 @@ cd cloud/mcp && go vet ./... && go test ./...
 
 ## 関連
 
+- [AIエージェントからクラウドを見る（MCP）](../services/mcp.md) — 利用者向けの質問例とトラブルシューティング
 - [クラウドAPI本体とインスタンス](cloud-api.md)（アクセスキーの権限）
 - [shakecloud CLI](cli.md)
 - [shakecloud Terraform Provider](terraform-provider.md)
