@@ -30,6 +30,7 @@ tags:
 
 - **開発開始:** 他IDの完了待ちは不要。模擬OIDC・ローカル設定検証を先行できる。
 - **実機配備:** [I01](I01-resources.md)のservices-01余力確認、[N02](N02-tailscale.md)の独立復旧経路、回線・CGNAT・転送設定・DNSの確認が必要。外部入口を集約する場合のみ[N04](N04-public-edge.md)と接続条件を合わせる。
+- **回線の前提（[N06](N06-router.md)の実測）:** MAP-E（v6プラス）で **80/443 は使えない**が、割り当て済みの240ポートを使えば **WireGuard の公開は可能**。NetBird の公式quickstartが前提にする 80/443 到達はこの回線では満たせないため、選定時の重みが変わる。Tailscale の待ち受けを割当内のポートに固定すると直接接続が成立しやすく、Moonlightの遅延改善も見込める。開放は数個に留める（外向き通信と共有するため）。
 - **競合:** services-01の80/443、共通TLS設定、identityのOIDC設定、ルータのポート転送を[N05](N05-https.md)と調整する。VM再起動は[H01](H01-home-assistant.md)・[W01](W01-homarr.md)・[W02](W02-vaultwarden.md)・NetBox・文書利用者に影響する。
 
 ## 検証・完了条件

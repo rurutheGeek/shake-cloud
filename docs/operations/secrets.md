@@ -1,6 +1,6 @@
 ---
 title: 秘密値の管理（SOPS + age）
-updated: 2026-09-13
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,11 @@ tags:
 
 # 秘密値の管理（SOPS + age）
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 運用中。age鍵は生成済み（`~/.config/sops/age/keys.txt` と外部コピー）。`platform/sops/*.sops.yaml`（Proxmox root・Proxmox/開発VM・NetBox・Cloudflare（state用）・Cloudflare DNS・smtp・k8s・s3・cloudapi・eufy-security・home-assistant・monitoring・print-api・services）と、Flux の `sops-age` Secret で実際に復号しています。
+
+**Proxmoxのアカウントパスワードだけは Terraform では作れません**（`/access/password` がAPIトークンを受け付けずチケットを要求するため）。`tools/ensure-secrets.py` が生成し、SOPSで暗号化したまま持ちます。既存の値は再生成しないので、再実行しても誰かが締め出されることはありません（`platform/ansible/roles/pve_users`・`devbox`が呼びます）。
 
 これまでの秘密値は配備先で生成し、Gitへ入れない方針でした（リポジトリのREADME「GitHubへ置くもの」）。Proxmox・NetBox・Kubernetesを足すと、**配備する前に必要な資格情報**（Proxmox APIトークン、NetBoxの書き込みトークン、SSH鍵）が増えます。これらを暗号化した状態でGitに置くためにSOPSとageを使います。
 

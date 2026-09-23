@@ -141,8 +141,8 @@ flowchart TB
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-09-23 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-09-23 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-09-16 | `plan` `network` |
-| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-12 | `plan` `network` |
-| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-12 | `plan` |
+| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
+| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
 | [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-09-13 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
 | [O01 管理DBの外部バックアップ](development/O01-cloud-backup.md) | 2026-09-16 | `plan` `cloud` `backup` |
@@ -187,7 +187,7 @@ flowchart TB
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-09-20 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-09-20 | `ops` `network` `router` |
-| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-13 | `ops` `secrets` |
+| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-09-13 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-09-13 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
@@ -202,14 +202,14 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-09-13 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-09-19 | `design` `decisions` |
+| [決定ログ](architecture/decisions.md) | 2026-09-23 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-23 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-09-13 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-09-13 | `design` `iac` |
 | [設計と決定の入口](architecture/index.md) | 2026-09-23 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-09-20 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-23 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-21 | `design` `overview` |
+| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-23 | `design` `overview` |
 | [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-23 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-09-23 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-23 | `design` `bootstrap` |
