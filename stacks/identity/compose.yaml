@@ -1,5 +1,5 @@
 # Authentik（共通ログイン）を identity VM に単独で置く。
-# 作業機上の stacks/hub は検証用で、ここへは移行しない（2026-09-10 に新規構築）。
+# 2026-09-10 に新規構築。旧環境の検証用スタックからは移行していない。
 name: identity
 x-authentik: &authentik
   image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.1}

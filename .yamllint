@@ -4,7 +4,6 @@
 extends: default
 ignore: |
   .venv/
-  stacks/hub/site/
   platform/awx/context/
   # 同梱物（本体はアプリ側のリポジトリで管理する）。
   **/node_modules/

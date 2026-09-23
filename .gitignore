@@ -21,15 +21,8 @@ platform/awx/controller.yml
 platform/awx/context/
 
 stacks/docs/site/
-stacks/hub/site/
-stacks/hub/oidc-secrets.json
-stacks/hub/compose.smtp.yaml
-stacks/hub/users.local.json
 stacks/music-tools/tags.local.json
-stacks/sso/ports.env
-stacks/sso/trust/
 
-!stacks/hub/compose.lock.yaml
 !stacks/music-tools/compose.lock.yaml
 
 .hub-venv/

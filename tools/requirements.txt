@@ -2,3 +2,7 @@
 yamllint==1.38.0
 # tools/verify-cloud.py が Proxmox API を叩くのに使う。
 requests==2.32.4
+# ドキュメントサイトの厳格ビルド（mkdocs build --strict）と、
+# YAML を読むテスト・tools/site-yaml.py が使う。
+mkdocs==1.6.1
+PyYAML==6.0.3
