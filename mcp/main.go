@@ -12,6 +12,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rurutheGeek/shake-cloud/cloud/client"
@@ -25,12 +26,14 @@ func main() {
 	log.SetOutput(os.Stderr)
 	log.SetPrefix("shakecloud-mcp: ")
 
-	accessKey := os.Getenv("SHAKECLOUD_ACCESS_KEY")
+	// Trimmed because the key often comes from a file (opencode's {file:...}),
+	// whose trailing newline would make an invalid Authorization header.
+	accessKey := strings.TrimSpace(os.Getenv("SHAKECLOUD_ACCESS_KEY"))
 	if accessKey == "" {
 		log.Fatal("SHAKECLOUD_ACCESS_KEY is not set; issue an access key in the portal (ReadOnly is enough for these tools)")
 	}
 	if *endpoint == "" {
-		*endpoint = os.Getenv("SHAKECLOUD_ENDPOINT")
+		*endpoint = strings.TrimSpace(os.Getenv("SHAKECLOUD_ENDPOINT"))
 	}
 	c := client.NewWithUserAgent(*endpoint, accessKey, "shakecloud-mcp/"+version)
 
