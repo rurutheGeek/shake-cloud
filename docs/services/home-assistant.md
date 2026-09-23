@@ -1,4 +1,16 @@
+---
+title: Home Assistantと家電の使い方（利用者向け）
+updated: 2026-09-13
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - home-assistant
+---
+
 # Home Assistantと家電の使い方（利用者向け）
+
+> **更新日** 2026-09-13 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 Home Assistant（HA）は、家の家電の状態を見たり操作したり、自動化するための入口です。このページは日常的に使う人向けで、サーバーの操作は必要ありません。
 

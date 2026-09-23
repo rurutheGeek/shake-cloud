@@ -1,6 +1,19 @@
+---
+title: Kubernetes クラスタ
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - kubernetes
+  - network
+---
+
 # Kubernetes クラスタ
 
-更新日: 2026-09-13。状態: **クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み**。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
 
 ## 何に使うか
 

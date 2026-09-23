@@ -1,4 +1,16 @@
+---
+title: ゲームと開発環境
+updated: 2026-09-13
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - game
+---
+
 # ゲームと開発環境
+
+> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。更新日: 2026-09-13。既存game1（Bazzite、VMID 100、cloud API管理下・引き取り済み）にGPUが割り当てられています。Wolf・Azahar・AI同居の開発と負荷検証は未完了です。[個別計画](../development/index.md)のG01–G03・A01–A05へ分割して進めます。
 

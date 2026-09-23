@@ -1,6 +1,18 @@
+---
+title: net-01（Tailscale subnet router）
+updated: 2026-09-16
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - network
+---
+
 # net-01（Tailscale subnet router）
 
-更新日: 2026-09-14。状態: **Tailscaleへ参加済み（apply・再plan・再実行とも確認済み）。管理画面でのルート承認・ACL・宅外検証が未了。**
+> **更新日** 2026-09-16 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: Tailscaleへ参加済み（apply・再plan・再実行とも確認済み）。管理画面でのルート承認・ACL・宅外検証が未了。
 
 `net-01` は、宅外から管理LAN（`192.168.10.0/24`）へ戻るための Tailscale の
 subnet router です。[N02](../development/N02-tailscale.md) の復旧経路を、

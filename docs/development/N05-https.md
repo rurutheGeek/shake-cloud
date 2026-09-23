@@ -1,10 +1,22 @@
+---
+title: N05 既存サービスのHTTPS移行完了
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - network
+---
+
 # N05 既存サービスのHTTPS移行完了
 
-更新日: 2026-09-12。区分: **既存実装の検証・資料修正**。状態: TLS基盤あり、各入口の確認・残作業を整理する。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**区分**: 既存実装の検証・資料修正 ・ **状態**: TLS基盤あり、各入口の確認・残作業を整理する。
 
 ## 目的・現状・配備先
 
-既存サービスのHTTPSを実機と資料で一致させる。[URL一覧](../operations/urls.md)にはHTTPS名とNetBox・文書のHTTP直アクセスが併記されている。[クラウド運用](../operations/cloud.md)・[Kubernetes運用](../operations/kubernetes.md)では既にHTTPSが確認されている。`platform/ansible/roles/tls_proxy/`と`platform/terraform/20-dns/`を再利用し、TLSを全て新設する計画にしない。
+既存サービスのHTTPSを実機と資料で一致させる。[URL一覧](../reference/urls.md)にはHTTPS名とNetBox・文書のHTTP直アクセスが併記されている。[クラウド運用](../operations/cloud.md)・[Kubernetes運用](../operations/kubernetes.md)では既にHTTPSが確認されている。`platform/ansible/roles/tls_proxy/`と`platform/terraform/20-dns/`を再利用し、TLSを全て新設する計画にしない。
 
 ## 変更範囲と実装
 

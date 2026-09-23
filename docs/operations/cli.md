@@ -1,6 +1,18 @@
+---
+title: shakecloud CLI
+updated: 2026-09-13
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - cloud
+---
+
 # shakecloud CLI
 
-更新日: 2026-09-11。状態: **実装済み・実機で確認済み**（`cloud/cli`、クライアントは `cloud/client`）。
+> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: 実装済み・実機で確認済み（`cloud/cli`、クライアントは `cloud/client`）。
 
 **クラウドAPIをコマンドから叩く道具です。** Terraform と同じ API・同じアクセスキーを使います。ポータルに入らない機械操作（スクリプト、CI、手元の確認）向けです。
 
@@ -99,7 +111,7 @@ shakecloud function rm fn-...
 - `cloud/client` … APIの型付きクライアント。`Authorization: Bearer sca_...`。エラーは `*client.APIError`（`code`・`message`・`request_id`）として返します。Terraform Provider もこれを使っています。
 - `cloud/cli` … コマンド。`flag`（標準ライブラリ）でサブコマンドを捌き、表は `text/tabwriter` で出します。設定ファイルは持ちません。
 
-**ワイヤ互換（SigV4、本物の `aws` CLI）ではありません。** 語彙と状態遷移を EC2 に揃えた自作 API です（[最小クラウドとProvider](../architecture/cloud.md)）。
+**他社CLIとのワイヤ互換はありません。** 語彙と状態遷移を一般的なクラウドの仮想マシンAPIに揃えた自作APIです（[最小クラウドとProvider](../architecture/cloud.md)）。
 
 ## 5. 確認のしかた
 

@@ -37,7 +37,10 @@ jobs:
               if name.endswith('.py'):
                   py_compile.compile(name,doraise=True)
               if name.endswith(('.yaml','.yml')):
-                  yaml.safe_load(pathlib.Path(name).read_text())
+                  # Flux のマニフェストは `---` 区切りの複数ドキュメント。safe_load は
+                  # 単一ドキュメントしか受け付けないので safe_load_all を使い、
+                  # ジェネレータを list() で消費して全ドキュメントを実際に解析する。
+                  list(yaml.safe_load_all(pathlib.Path(name).read_text()))
           PY
       - name: Read the pinned Terraform version
         id: terraform

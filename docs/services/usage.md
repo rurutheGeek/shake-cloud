@@ -1,8 +1,20 @@
+---
+title: 利用者向け：全サービスの使い方
+updated: 2026-09-13
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - usage
+---
+
 # 利用者向け：全サービスの使い方
+
+> **更新日** 2026-09-13 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 このページは、サーバー管理者ではなく、日常的にサービスを使う人向けです。SSH、Docker、設定ファイルの操作は必要ありません。
 
-**新しい基盤（クラウド・AWX・NetBox・共通ログイン）の使い方は別にあります。** すべての接続先は[接続先一覧](../operations/urls.md)にまとめています。
+自分でVMやストレージを作る側の話（クラウド・AWX・NetBox）は[開発参加ガイド](../onboarding.md)にあります。すべての接続先は[接続先一覧](../reference/urls.md)にまとめています。
 
 | やりたいこと | 行き先 |
 | --- | --- |
@@ -12,22 +24,22 @@
 | 台帳（IP・VM）を見る | [NetBox の使い方](../operations/netbox.md) |
 | 家電を操作する・自動化する | [Home Assistantと家電の使い方](home-assistant.md) |
 
-メディア系は media-01 の新しい基盤へ移行済みで、入口はすべて `*.apextox.dpdns.org` です（旧環境からのデータ移行は進行中）。**MeTube は media-01 への配備が未了です（W06）。**
+メディア系は media-01 で動いており、入口はすべて `*.apextox.dpdns.org` です。**以前の環境からのデータ移行は進行中**で、古いファイルがまだ見えないことがあります（[W03〜W06](../development/index.md)）。
 
 ## まず開く場所
 
-パソコンでは [Homarr](https://homarr.apextox.dpdns.org)（新しい基盤。LAN内）を開き、使いたいサービスのタイルを押します。
+パソコンでは [Homarr](https://homarr.apextox.dpdns.org)（家庭内LANから）を開き、使いたいサービスのタイルを押します。
 
 | やりたいこと | 開く場所 |
 | --- | --- |
-| サービスを選ぶ | [Homarr](https://homarr.apextox.dpdns.org)（新基盤） |
+| サービスを選ぶ | [Homarr](https://homarr.apextox.dpdns.org) |
 | 自宅サーバーとの通信速度を測る | [LibreSpeed](https://speed.apextox.dpdns.org)（[使い方](librespeed.md)） |
 | ファイルを保存・共有する | [Nextcloud](https://nextcloud.apextox.dpdns.org)（[使い方](nextcloud-guide.md)） |
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
 | 本・PDFを読む | [Kavita](https://kavita.apextox.dpdns.org) |
 | 音楽を聴く | [Navidrome](https://navidrome.apextox.dpdns.org) |
 | RSS・ニュースをまとめて読む | [FreshRSS](https://freshrss.apextox.dpdns.org)（[使い方](rss.md)） |
-| URLから音声を取り込む | MeTube（準備中。media-01への配備はW06で進行中） |
+| URLから音声を取り込む | [MeTube](https://metube.apextox.dpdns.org)（[使い方](music.md)） |
 | パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
@@ -35,7 +47,7 @@
 
 ## Nextcloudを使う
 
-**Nextcloudは新しい基盤へ移行済みです。機能・他のサービスとの連携・Androidアプリの設定は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** データ移行は進行中です。
+**機能・他のサービスとの連携・スマートフォンの設定は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** 以前の環境からのデータ移行は進行中です。
 
 ### ファイルを保存・共有する
 
@@ -68,7 +80,7 @@
 
 ## 本・PDFを読む（Kavita）
 
-Kavitaは <https://kavita.apextox.dpdns.org>（新しい基盤。家庭内LANから）です。
+Kavitaは <https://kavita.apextox.dpdns.org>（家庭内LANから）です。
 
 1. Nextcloudの`books`に、作品ごとのフォルダーを作ります。
 2. PDF・EPUBなどをそのフォルダーへアップロードします。
@@ -80,7 +92,7 @@ Kavitaは <https://kavita.apextox.dpdns.org>（新しい基盤。家庭内LANか
 
 ## 音楽を聴く（Navidrome）
 
-Navidromeは <https://navidrome.apextox.dpdns.org>（新しい基盤。家庭内LANから）です。
+Navidromeは <https://navidrome.apextox.dpdns.org>（家庭内LANから）です。
 
 1. Navidromeを開きます。
 2. **Artists / Albums / Songs** から曲を探します。
@@ -169,5 +181,5 @@ Nextcloud公式マニュアルも、Androidのファイル利用には公式ア�
 - [Homarrのタイル編集](homarr.md)
 - [Nextcloudのアクセス権限変更](../operations/nextcloud-permissions.md)
 - [共通ログイン・アカウント管理](../operations/identity.md)
-- [接続先一覧](../operations/urls.md)
+- [接続先一覧](../reference/urls.md)
 - [配備の引き継ぎ](../operations/handover.md)

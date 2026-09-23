@@ -1,16 +1,26 @@
+---
+title: ホームラボの全体像（詳細）
+updated: 2026-09-21
+section: 設計
+audience: 管理者・開発者
+tags:
+  - design
+  - overview
+---
+
 # ホームラボの全体像（詳細）
 
-更新日: 2026-09-20
+> **更新日** 2026-09-21 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
 このページは「このホームラボで何をしているのか」を1枚で伝える詳細版です。**Proxmox VE の1台に役割ごとのVMを分け、自作のプライベートクラウド `shakecloud` でVM・S3・DB・関数を払い出し、共通ログインを Authentik に集約し、メディア・家電・監視を家庭内LANのHTTPS名から使っています。自作部分はクラウドだけではありません（§2）。**
 
-- VMの配分・電源・状態の正本: [クラウド開発の引き継ぎとTODO](operations/handover.md)（配備台帳）
-- サービスを探す入口: [接続先一覧](operations/urls.md)・[Homarr](https://homarr.apextox.dpdns.org)
-- 誰が何を作るかの境界: [IaCの所有境界](architecture/iac.md)
-- 作業IDごとの計画: [機能別VMと並列開発計画](development/index.md)
-- 秘密値の置き場所: [秘密値の管理（SOPS + age）](operations/secrets.md)
+- VMの配分・電源・状態の正本: [クラウド開発の引き継ぎとTODO](../operations/handover.md)（配備台帳）
+- サービスを探す入口: [接続先一覧](../reference/urls.md)・[Homarr](https://homarr.apextox.dpdns.org)
+- 誰が何を作るかの境界: [IaCの所有境界](iac.md)
+- 作業IDごとの計画: [機能別VMと並列開発計画](../development/index.md)
+- 秘密値の置き場所: [秘密値の管理（SOPS + age）](../operations/secrets.md)
 
 ## 1. 全体像（役割とVM）
 
@@ -78,9 +88,9 @@ flowchart TB
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
 | 利用者VM（例） | win11pro（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
-VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](architecture/operations.md)）。
+VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
 
-**ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](architecture/network-auth.md)、設定は[router-01の設定まとめ](operations/router-config.md)。**
+**ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](network-auth.md)、設定は[router-01の設定まとめ](../operations/router-config.md)。**
 
 ## 2. 自作しているもの（OSSとの分担）
 
@@ -200,7 +210,7 @@ flowchart LR
   api --> k8s
 ```
 
-AWS の語彙・状態遷移・フィールド名に揃えた自作のプライベートクラウドです。**`cloud/openapi/shakecloud.yaml` がAPIの正本**で、Go のルート表との一致をテストが検査します。
+広く使われているクラウドAPIの語彙・状態遷移・フィールド名に揃えた自作のプライベートクラウドです（揃える理由は[最小クラウドとProvider](cloud.md)）。**`cloud/openapi/shakecloud.yaml` がAPIの正本**で、Go のルート表との一致をテストが検査します。
 
 | 部分 | 置き場所 | 中身 |
 | --- | --- | --- |
@@ -221,7 +231,7 @@ AWS の語彙・状態遷移・フィールド名に揃えた自作のプライ�
 | database | CloudNativePG | PostgreSQLクラスタの作成、接続情報の発行 |
 | function | Knative | コンテナイメージからサーバレスHTTPを作成しURLを発行 |
 
-設計上の決めごとの要点: 認証はOIDCとアクセスキー `sca_<keyid>.<secret>` の2経路。**VMは全員に見え、操作は所有者と `admins` だけ**。サイズは自由入力で、vCPU・メモリ変更は停止中のみ。イメージは12GiBまでAPIへ直接アップロード。WebコンソールはnoVNCを同梱（CDN不使用）。上限と容量は `platform/terraform/cloud.yaml` を既定に `admins` が上書きでき、「ノードに4GiB残す」「ディスク85%」の保護は常に効きます。詳細は[最小クラウドとProvider](architecture/cloud.md)にあります。
+設計上の決めごとの要点: 認証はOIDCとアクセスキー `sca_<keyid>.<secret>` の2経路。**VMは全員に見え、操作は所有者と `admins` だけ**。サイズは自由入力で、vCPU・メモリ変更は停止中のみ。イメージは12GiBまでAPIへ直接アップロード。WebコンソールはnoVNCを同梱（CDN不使用）。上限と容量は `platform/terraform/cloud.yaml` を既定に `admins` が上書きでき、「ノードに4GiB残す」「ディスク85%」の保護は常に効きます。詳細は[最小クラウドとProvider](cloud.md)にあります。
 
 ## 6. services-01（台帳・docs・パスワード・家電）
 
@@ -300,7 +310,7 @@ media-01 はクラウドAPIで作った `cloud` プールのVMです。データ
 | LocalSend | 受信機（着地はNextcloudの `inbox`）と、Nextcloudから端末へ送る自作連携 | 端末アプリ／Nextcloudから |
 | Picard | タグ編集は `shake_tags` に統合し、コンテナは撤去済み | — |
 
-導線は「MeTubeで取り込む → Nextcloudの `music` に置く → タグを編集する → Navidromeで再生する」です（[音楽・取り込み・タグ](services/music.md)）。
+導線は「MeTubeで取り込む → Nextcloudの `music` に置く → タグを編集する → Navidromeで再生する」です（[音楽・取り込み・タグ](../services/music.md)）。
 
 ## 8. 家電（Home Assistant on services-01）
 
@@ -330,9 +340,9 @@ flowchart LR
 | 対象 | 接続 | 現状 |
 | --- | --- | --- |
 | Home Assistant | HA 2026.9.2。設定は `/srv/services/home-assistant/config` が正本 | SSO＋緊急用ローカル。バックアップと復元試験は未完 |
-| Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](development/H04-eufy.md)） |
+| Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](../development/H04-eufy.md)） |
 | SwitchBot | Hub Mini経由のSwitchBot Cloud統合 | 鍵・ドアセンサー・赤外線家電（エアコン・テレビ・照明等）のエンティティを確認。実機操作は確認待ち |
-| プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](services/printer.md)） |
+| プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](../services/printer.md)） |
 | Alexa / Echo | Home Assistant Cloudも独自Skillも作らない | 見送り。SwitchBotとEufyは各社のAlexaスキルで操作可能 |
 
 ## 9. 監視（monitor-01）
@@ -375,7 +385,7 @@ flowchart LR
 
 ## 10. ゲームとAI（game1・GPUパススルー）
 
-game1 は **GPUをパススルーした** `cloud` プールのVMです（8vCPU・現行12GiB、16GiB候補、256GiB）。ゲーム配信と将来のローカルAI・RAGを同じVMで動かし、**GPUを増設したら Ollama と汎用RAGを載せる予定**です（[A02](development/A02-ollama.md)・[A03](development/A03-rag.md)・[G03](development/G03-game-ai-resources.md)）。VMを停止するとゲーム・AI・Bot・ライブラリも止まります。
+game1 は **GPUをパススルーした** `cloud` プールのVMです（8vCPU・現行12GiB、16GiB候補、256GiB）。ゲーム配信と将来のローカルAI・RAGを同じVMで動かし、**GPUを増設したら Ollama と汎用RAGを載せる予定**です（[A02](../development/A02-ollama.md)・[A03](../development/A03-rag.md)・[G03](../development/G03-game-ai-resources.md)）。VMを停止するとゲーム・AI・Bot・ライブラリも止まります。
 
 ゲームスタックは別の開発者が担当し、Ansible（`site.yml` と `roles/*`）が設定・Compose fragment・env を生成して `game-server-next.service` で起動する構成です。構成ファイルはまだ本リポジトリへ取り込まれていません。
 
@@ -406,7 +416,7 @@ flowchart LR
 
 - **常駐コンテナ**: ingress（自作Go・CaddyとCloudflare DNSプラグインを自前ビルド、TLS終端と振り分け）、portal（自作FastAPIのモノリス。auth・data・runtime・portal・metricsを同梱）、runtime-controller（Wolfの `wolf.sock` を所有しHTTPで公開）、wolf（本家に独自patchを当てたビルド。gamescope/GStreamer、`docker.sock` 保持）、RomM・MariaDB（既製。共有ライブラリの権威）、SFTPGo（既製）、Netdata（既製）。
 - **runner**: FedoraベースにAzahar・Dolphin・RetroArch・Lutris・Wine・Pegasusを固定版で同梱した自作イメージ。Wolfが `docker.sock` 経由で都度起動し、`RUNNER` で中身を切り替えます。起動ロジックは自作Pythonアダプタがargvを組み立てます。
-- 品質の判定は [G01 Wolf](development/G01-wolf.md)・[G02 Azahar](development/G02-azahar.md)・[W07 RomM](development/W07-romm.md) で管理します。
+- 品質の判定は [G01 Wolf](../development/G01-wolf.md)・[G02 Azahar](../development/G02-azahar.md)・[W07 RomM](../development/W07-romm.md) で管理します。
 
 ## 11. Kubernetes（k8s-cp-01 / k8s-worker-01 / k8s-worker-02）
 
@@ -436,7 +446,7 @@ flowchart TB
   w1 --> knative
 ```
 
-kubeadm＋Ciliumのクラスタです。**自作クラウドの「database」と「function」はここで動く**ため、worker-01 には AWX に加えて CloudNativePG と Knative が載っています。**2026-09-12時点で3台とも停止中**で、使うときは容量を確認して `tools/k8s up` で起動します（[Kubernetes クラスタ](operations/kubernetes.md)）。
+kubeadm＋Ciliumのクラスタです。**自作クラウドの「database」と「function」はここで動く**ため、worker-01 には AWX に加えて CloudNativePG と Knative が載っています。**2026-09-12時点で3台とも停止中**で、使うときは容量を確認して `tools/k8s up` で起動します（[Kubernetes クラスタ](../operations/kubernetes.md)）。
 
 | 役割 | ソフト |
 | --- | --- |
@@ -504,8 +514,8 @@ flowchart TB
 
 - **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**各VMのCaddy**（`stacks/tls-proxy/`）が自分の名前だけを受けて `127.0.0.1` のサービスへ中継します。証明書はDNS-01で取得。**入口を1台に集めない**のは、認証基盤を他ホストの障害に巻き込まないためです。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として cloud VM `net-01` の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[net-01（Tailscale subnet router）](operations/net.md)・[N02](development/N02-tailscale.md)。
-- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画です。物理スイッチ・ルーターの作業待ちです（[N03](development/N03-vlan.md)）。
+- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として cloud VM `net-01` の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[net-01（Tailscale subnet router）](../operations/net.md)・[N02](../development/N02-tailscale.md)。
+- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画です。物理スイッチ・ルーターの作業待ちです（[N03](../development/N03-vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。net-01 作成前に確認）。
 
 ## 14. 開発・運用の進め方（dev-a・dev-b）
@@ -526,7 +536,7 @@ flowchart LR
   docs --> tf
 ```
 
-**コードで管理できるものはすべてコードにします。** 残った手作業は[初回セットアップの順番](operations/bootstrap.md)に理由付きで列挙しています。
+**コードで管理できるものはすべてコードにします。** 残った手作業は[初回セットアップの順番](../operations/bootstrap.md)に理由付きで列挙しています。
 
 | 対象 | 道具 | 原則 |
 | --- | --- | --- |
@@ -536,28 +546,29 @@ flowchart LR
 | クラウド | shakecloud API・CLI・Provider | 1サービス1 state。Providerの資格情報はstateへ書かない |
 | 秘密値 | SOPS + age（`platform/sops/`） | 自動生成し、復号鍵は作業機とクラスタにだけ置く |
 
-作業は[機能別VMと並列開発計画](development/index.md)のID（W・A・G・H・N・I・M・O・D）で管理し、**仕様と進捗の正本は個別計画書、実機の配備結果は[配備台帳](operations/handover.md)** に記録します。計画の作成を配備済みとは扱いません。検査は `python3 -m unittest discover -s tests`、`yamllint`、`mkdocs build --strict`、`tools/check-publication.py`、Goの `vet`・`test`、実機E2E（`tools/verify-*.py`）をCIと同じように手元で流せます。
+作業は[機能別VMと並列開発計画](../development/index.md)のID（W・A・G・H・N・I・M・O・D）で管理し、**仕様と進捗の正本は個別計画書、実機の配備結果は[配備台帳](../operations/handover.md)** に記録します。計画の作成を配備済みとは扱いません。検査は `python3 -m unittest discover -s tests`、`yamllint`、`mkdocs build --strict`、`tools/check-publication.py`、Goの `vet`・`test`、実機E2E（`tools/verify-*.py`）をCIと同じように手元で流せます。
 
 ## 15. 既知の制約とこれから
 
 | 項目 | 現状 | これから |
 | --- | --- | --- |
-| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](development/H04-eufy.md)） |
-| VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](development/N01-vpn.md)） |
-| 復旧用Tailscale | **subnet router `net-01` を作成しTailscaleへ参加済み（2026-09-14、`100.91.7.69`）**。ルート承認・ACL・宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](development/N02-tailscale.md)・[net.md](operations/net.md)） |
-| VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](development/N03-vlan.md)） |
-| 管理DBの外部バックアップ | ローカルに14世代。外部コピーなし | 別ディスク・別機器への暗号化コピーと復元照合（[O01](development/O01-cloud-backup.md)） |
-| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](development/O02-cnpg-backup.md)） |
-| 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](development/O03-restore.md)） |
-| 監視（M01） | 稼働。28ターゲットを収集しAWX（k8s停止中）以外のプローブは成功。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了 | ダッシュボードの拡充と、外部監視の冗長化（別電源のラズパイ）（[M01](development/M01-monitoring.md)） |
-| メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](development/W06-music-tools.md)） |
-| Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](development/H01-home-assistant.md)） |
-| Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](operations/kubernetes.md)） |
-| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](development/N04-public-edge.md)） |
+| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](../development/H04-eufy.md)） |
+| VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
+| 復旧用Tailscale | **subnet router `net-01` を作成しTailscaleへ参加済み（2026-09-14、`100.91.7.69`）**。ルート承認・ACL・宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
+| VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
+| 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
+| メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |
+| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](../development/O02-cnpg-backup.md)） |
+| 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](../development/O03-restore.md)） |
+| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・低電池停止・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了 | 外部監視の冗長化（別電源のラズパイ）（[M01](../development/M01-monitoring.md)） |
+| メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](../development/W06-music-tools.md)） |
+| Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](../development/H01-home-assistant.md)） |
+| Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](../operations/kubernetes.md)） |
+| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](../development/N04-public-edge.md)） |
 | タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-bは未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ
 
-- 使い方（利用者向け）: [全サービスの使い方](services/usage.md)・[クラウドの使い方](services/cloud.md)・[Nextcloudの使い方](services/nextcloud-guide.md)・[Home Assistantと家電の使い方](services/home-assistant.md)・[プリンター](services/printer.md)
-- 構築・運用（管理者向け）: [サービスの置き場所とクラウドVM](operations/services.md)・[認証基盤](operations/identity.md)・[Kubernetes クラスタ](operations/kubernetes.md)・[Terraformの実行](operations/terraform.md)・[Garage](operations/garage.md)・[NetBoxの使い方](operations/netbox.md)・[電源とUPS](operations/power.md)
-- 設計: [最小クラウドとProvider](architecture/cloud.md)・[ネットワーク・公開範囲・SSO](architecture/network-auth.md)・[IaCの所有境界](architecture/iac.md)・[配分と運用設計](architecture/operations.md)
+- 使い方（利用者向け）: [全サービスの使い方](../services/usage.md)・[クラウドの使い方](../services/cloud.md)・[Nextcloudの使い方](../services/nextcloud-guide.md)・[Home Assistantと家電の使い方](../services/home-assistant.md)・[プリンター](../services/printer.md)
+- 構築・運用（管理者向け）: [サービスの置き場所とクラウドVM](../operations/services.md)・[認証基盤](../operations/identity.md)・[Kubernetes クラスタ](../operations/kubernetes.md)・[Terraformの実行](../operations/terraform.md)・[Garage](../operations/garage.md)・[NetBoxの使い方](../operations/netbox.md)・[電源とUPS](../operations/power.md)
+- 設計: [最小クラウドとProvider](cloud.md)・[ネットワーク・公開範囲・SSO](network-auth.md)・[IaCの所有境界](iac.md)・[配分と運用設計](operations.md)

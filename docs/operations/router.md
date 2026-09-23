@@ -1,6 +1,19 @@
+---
+title: router-01（OpenWrt・自作ルータ）
+updated: 2026-09-20
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - network
+  - router
+---
+
 # router-01（OpenWrt・自作ルータ）
 
-更新日: 2026-09-20。状態: **切替済み・N06 の完了条件をすべて満たした。**
+> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **切替済み・N06 の完了条件をすべて満たした。**
 `verify-router.py` は 5 PASS / 0 FAIL、ホスト再起動での自動復旧も確認済み
 （全断 53 秒）。IPv6 の近隣代理は odhcpd ではなく **ndppd** が担当する。
 **実機へ `uci`／`opkg` で入れた変更はイメージにまだ焼かれていない**ので、
@@ -127,7 +140,7 @@ ssh root@192.168.10.1 'cat /etc/dnsmasq.d/netbox-reservations.conf'
 ping -c2 192.168.10.2     # Aterm（リース更新後に .2 へ移る）
 ```
 
-詳しい分担とトラブルは [NetBox の使い方](netbox.md#lanのipとルータのdhcpを同期する)。
+詳しい分担とトラブルは [NetBox の使い方](netbox.md#lan-の-ip-とルータの-dhcp-を同期する)。
 
 Aterm の UI を開く必要があるときは、BR モードでは `aterm.me` が使えないので
 `http://192.168.10.2/` を直接開きます。住所が分からず開けないときは強制 DHCP

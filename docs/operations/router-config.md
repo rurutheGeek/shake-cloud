@@ -1,6 +1,19 @@
+---
+title: router-01 の設定まとめ（素の OpenWrt からの変更）
+updated: 2026-09-20
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - network
+  - router
+---
+
 # router-01 の設定まとめ（素の OpenWrt からの変更）
 
-更新日: 2026-09-20。状態: **実機で稼働中の設定を「素の状態からの変更」だけ抜き出した一覧。**
+> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **実機で稼働中の設定を「素の状態からの変更」だけ抜き出した一覧。**
 対象読者: ネットワーク機器に慣れていない人。細かい手順は
 [router-01（OpenWrt・自作ルータ）](router.md)、調査の根拠は
 [N06 ルータ自作](../development/N06-router.md) が正本です。
@@ -63,6 +76,7 @@
 | 予約が UCI と NetBox で二重管理 | — | `confdir=/etc/dnsmasq.d` にして NetBox 生成へ |
 | 再起動後に Wi-Fi 端末が「インターネットなし」 | dnsmasq が DHCP で DNS（option 6）を配らない | `dhcp.lan` に `list dhcp_option '6,192.168.10.1'`（実測で Offer/ACK を確認） |
 
+<a id="3-dns-の構成adguard-home"></a>
 ## 3. DNS の構成（AdGuard Home）
 
 ```

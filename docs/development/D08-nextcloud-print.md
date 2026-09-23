@@ -1,6 +1,19 @@
+---
+title: D08 Nextcloudからの印刷（shake_print）
+updated: 2026-09-13
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - nextcloud
+  - print
+---
+
 # D08 Nextcloudからの印刷（shake_print）
 
-更新日: 2026-09-13。種別: **実装＋資料**。状態: **services-01の印刷APIとmedia-01のNextcloudアプリを配備済み。API経由の実印刷と、ブラウザーでのメニュー出現（「印刷」「タグを編集」「LocalSendで送る」）・タグ編集の起動を実測済み**。
+> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+種別: **実装＋資料**。状態: **services-01の印刷APIとmedia-01のNextcloudアプリを配備済み。API経由の実印刷と、ブラウザーでのメニュー出現（「印刷」「タグを編集」「LocalSendで送る」）・タグ編集の起動を実測済み**。
 
 [開発計画一覧](index.md)へ戻る。番号は実施順を表しません。
 

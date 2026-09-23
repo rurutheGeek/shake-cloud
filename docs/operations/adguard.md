@@ -1,6 +1,19 @@
+---
+title: DNS と広告遮断（AdGuard Home）
+updated: 2026-09-22
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - network
+  - dns
+---
+
 # DNS と広告遮断（AdGuard Home）
 
-更新日: 2026-09-22。状態: **router-01 で稼働中（家の DNS の窓口）。**
+> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **router-01 で稼働中（家の DNS の窓口）。**
 対象読者: 家のネットワークを運用する人。設定の一覧は
 [router-01 の設定まとめ](router-config.md)、ルータ本体は
 [router-01（OpenWrt・自作ルータ）](router.md) が正本です。

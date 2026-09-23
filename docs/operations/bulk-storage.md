@@ -1,6 +1,19 @@
+---
+title: 共有バルクストレージ（6TB USB HDD）
+updated: 2026-09-22
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - storage
+  - nfs
+---
+
 # 共有バルクストレージ（6TB USB HDD）
 
-更新日: 2026-09-22。状態: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
+> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
 
 VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置くのは、大きく・読み取り中心のライブラリだけにします。
 

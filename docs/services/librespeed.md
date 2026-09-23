@@ -1,4 +1,16 @@
+---
+title: 通信速度テスト（LibreSpeed）
+updated: 2026-09-21
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - network
+---
+
 # 通信速度テスト（LibreSpeed）
+
+> **更新日** 2026-09-21 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 端末（パソコン・スマートフォン）と services-01 の間の**実効速度**を測るページです。
 入口は <https://speed.apextox.dpdns.org>（家庭内LANから）。Homarrの

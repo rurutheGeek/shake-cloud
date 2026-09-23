@@ -1,6 +1,18 @@
+---
+title: M01 監視（Prometheus・Grafana）
+updated: 2026-09-23
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - monitoring
+---
+
 # M01 監視（Prometheus・Grafana）
 
-更新日: 2026-09-23。区分: **新規実装**。状態: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み。VMごとの実使用メモリを見るダッシュボード（Shake Lab VM memory）と、ホストのメモリ逼迫アラートを追加済み。game1のホスト・セッション使用量をGrafanaで見るゲームサーバー使用量ダッシュボードを追加済み。**Proxmoxホストへnode_exporterとSMART/NVMeのtextfile collectorを導入し、ホスト詳細（Shake Lab host）・ストレージ詳細（Shake Lab storage）の2ダッシュボードと、6TB HDDの容量・SMART・マウント消失アラートを追加済み。**
+> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**区分**: 新規実装 ・ **状態**: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み。VMごとの実使用メモリを見るダッシュボード（Shake Lab VM memory）と、ホストのメモリ逼迫アラートを追加済み。game1のホスト・セッション使用量をGrafanaで見るゲームサーバー使用量ダッシュボードを追加済み。**Proxmoxホストへnode_exporterとSMART/NVMeのtextfile collectorを導入し、ホスト詳細（Shake Lab host）・ストレージ詳細（Shake Lab storage）の2ダッシュボードと、6TB HDDの容量・SMART・マウント消失アラートを追加済み。**
 
 ## 目的・現状・配備先
 
@@ -123,6 +135,7 @@ Proxmoxホスト（apextox）にもnode_exporterを入れ、VM側からは見え
 - 保持期間とデータディスクの実使用から容量を再計算し、[配分表](../architecture/operations.md#measured-budget)へ実測を渡す。
 - ホストNUTの低電池シャットダウンは`PVE_UPS_SHUTDOWN_DRY_RUN=1`で順番を確認してから有効化する（実停電の試験はUPSのバッテリーで1回行う）。
 
+<a id="検証"></a>
 ## 検証
 
 - アラート規則: `manage.py reload`後にPrometheusの`/api/v1/rules`で`health=ok`を確認。

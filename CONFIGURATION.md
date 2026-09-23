@@ -1,17 +1,17 @@
 # サーバー設定と拡張
 
-設定項目の意味や具体的な操作例は、目的別の[運用ドキュメント](docs/index.md)に分けています。このファイルは現在の構成と変更境界の一覧です。
+設定項目の意味や具体的な操作例は、目的別の手順書に分けています（[トップページ](docs/index.md)・[ドキュメント地図](docs/map.md)）。このファイルは現在の構成と変更境界の一覧です。
 
 ## 現在の構成
 
-Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは独立したDocker Composeプロジェクト群です。Kubernetes（kubeadm + Cilium + Flux）とその上のAWX・CloudNativePG・Knativeは構築済みです（2026-09-12時点で k8s-cp-01・k8s-worker-01 は停止中）。NetBoxをAnsibleの動的インベントリとして利用しています（[接続先一覧](docs/operations/urls.md)・[配備台帳](docs/operations/handover.md)）。
+Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは独立したDocker Composeプロジェクト群です。Kubernetes（kubeadm + Cilium + Flux）とその上のAWX・CloudNativePG・Knativeは構築済みです（2026-09-12時点で k8s-cp-01・k8s-worker-01 は停止中）。NetBoxをAnsibleの動的インベントリとして利用しています（[接続先一覧](docs/reference/urls.md)・[配備台帳](docs/operations/handover.md)）。
 
 | VM | 役割 |
 | --- | --- |
 | identity | Authentik（共通ログイン・AWS風ポータルの認証） |
 | cloud-01 | クラウドAPI・管理DB・ポータル |
 | services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws |
-| media-01 | Nextcloud、Kavita、Navidrome、Picard、LocalSend受信機 |
+| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機 |
 | storage-s3 | Garage（S3互換オブジェクトストア） |
 | monitor-01 | Prometheus、Alertmanager、Grafana |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
@@ -26,7 +26,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | Nextcloud | ユーザー・グループ、容量上限、共有、外部ストレージ、追加アプリ、Notesの表示既定、既存カレンダーの取り込み | `stacks/media/nextcloud/manage.py`（`setup`・`apps`・`config-notes`・`import-calendar`・`config-print`）。配備は `platform/ansible/media-nextcloud.yml`、OIDCは `stacks/media/nextcloud/configure-oidc.py` |
 | Kavita | ライブラリ、OIDC、初期管理者 | `stacks/media/kavita/bootstrap.py`・`configure-oidc.py`。状態は `/srv/media-stack/storage/kavita` |
 | Navidrome | スキャン間隔、トランスコード、Forward Auth | `stacks/media/navidrome/compose.yaml` の `ND_*` 環境変数。状態は `/srv/media-stack/storage/navidrome` |
-| music-tools | 取込先、変換、Picard、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |
+| music-tools | 取込先、変換、タグAPI、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |
 | Vaultwarden | SSO、登録可否、公開URL | `stacks/vaultwarden/compose.yaml`・`manage.py`。保存された `/data/config.json` が環境変数より優先されることがある |
 | Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
 | LibreSpeed | 端末↔services-01の速度計測、履歴、統計パスワード | `stacks/librespeed/compose.yaml`・`manage.py`。配備は `platform/ansible/librespeed.yml` |

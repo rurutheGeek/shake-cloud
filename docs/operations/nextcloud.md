@@ -1,6 +1,19 @@
+---
+title: Nextcloudと追加アプリ
+updated: 2026-09-18
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - nextcloud
+  - cloud
+---
+
 # Nextcloudと追加アプリ
 
-**利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。** このページは管理者向け（アプリの追加・配備）です。
+> **更新日** 2026-09-18 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**利用者向けの操作は[Nextcloudの使い方（利用者向け）](../services/nextcloud-guide.md)にまとめています。** このページは管理者向け（アプリの追加・配備）です。
 
 ## Nextcloudの「追加アプリ」とは
 
@@ -23,7 +36,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 | Group folders | グループ専用フォルダ | `family`だけに見える共有領域 | アプリ側の共有設定が別に必要 |
 | Files external storage (`files_external`) | 外部ストレージをFilesに表示 | `/library/books`やNFSを表示 | ホスト側のマウントと権限が必要 |
 | User OIDC (`user_oidc`) | OIDCでNextcloudへログイン | Authentikを共通ログイン基盤にする | OIDCプロバイダーが別途必要 |
-| 印刷 (`shake_print`) | ファイル一覧の「…」→「印刷」でPDF・画像・テキストを印刷 | スマホ・PCからNextcloudのファイルをそのまま印刷 | 自作アプリ（ストア外）。services-01の印刷APIが必要（[プリンター](printer.md)） |
+| 印刷 (`shake_print`) | ファイル一覧の「…」→「印刷」でPDF・画像・テキストを印刷 | スマホ・PCからNextcloudのファイルをそのまま印刷 | 自作アプリ（ストア外）。services-01の印刷APIが必要（[プリンター](../services/printer.md)） |
 | Memories | 写真をタイムライン表示 | 写真ライブラリを閲覧 | プレビュー生成などで容量・CPUを使う |
 | Preview Generator | サムネイルを事前生成 | PDFや画像の表示を速くする | 定期ジョブと保存領域を使う |
 
@@ -44,7 +57,7 @@ nextcloud_apps:
   - user_oidc
 ```
 
-Nextcloudのファイル一覧には、ログインできる全員が見られる`docs`外部ストレージも自動登録されます（[アクセス権限](../operations/nextcloud-permissions.md)）。手順書サイトはGitの`docs/`から`platform/ansible/docs-site.yml`で配備されるため、Nextcloudの`docs`を編集してもサイトへは自動反映されません。
+Nextcloudのファイル一覧には、ログインできる全員が見られる`docs`外部ストレージも自動登録されます（[アクセス権限](nextcloud-permissions.md)）。手順書サイトはGitの`docs/`から`platform/ansible/docs-site.yml`で配備されるため、Nextcloudの`docs`を編集してもサイトへは自動反映されません。
 
 ローカルComposeで同じ処理を試す場合も、コンテナへ入らずに次のコマンドを使います。
 

@@ -1,6 +1,18 @@
+---
+title: 接続先一覧（URL・アドレス）
+updated: 2026-09-21
+section: リファレンス
+audience: 全員
+tags:
+  - reference
+  - network
+---
+
 # 接続先一覧（URL・アドレス）
 
-更新日: 2026-09-21。**サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](handover.md)です。
+> **更新日** 2026-09-21 ・ **区分** リファレンス ・ **読む人** 全員
+
+**サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
 ## サービス入口（`*.apextox.dpdns.org`・家庭内LANから）
 
@@ -54,7 +66,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | Kavita | <https://kavita.apextox.dpdns.org> | Authentik OIDC（組み込み） |
 | FreshRSS | <https://freshrss.apextox.dpdns.org> | Authentik OIDC（ネイティブ。全員で共通購読・購読の追加はその場で全員へ反映） |
 | Navidrome | <https://navidrome.apextox.dpdns.org> | Authentik Forward Auth |
-| MeTube | <https://metube.apextox.dpdns.org> | Authentik Forward Auth（本体はW06で配備） |
+| MeTube | <https://metube.apextox.dpdns.org> | Authentik Forward Auth。配備済み（2026-09-14、W06。同期タイマーは停止中） |
 | KHInsider | <https://khinsider.apextox.dpdns.org> | Authentik Forward Auth（アルバム一括ダウンロード） |
 
 ### LocalSend（端末 → media-01 の受け渡し）
@@ -95,7 +107,7 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 | media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
 | monitor-01 | `debian@192.168.10.102` | Prometheus・Alertmanager・Grafana・exporter（M01。クラウド管理下） |
 
-VM の正本は[配備台帳](handover.md)と `platform/terraform/hosts.yaml` です。
+VM の正本は[配備台帳](../operations/handover.md)と `platform/terraform/hosts.yaml` です。
 
 ## 外部サービス
 

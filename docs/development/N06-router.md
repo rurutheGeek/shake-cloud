@@ -1,6 +1,19 @@
+---
+title: N06 ルータ自作（OpenWrt）
+updated: 2026-09-20
+section: 開発計画
+audience: 開発者
+tags:
+  - plan
+  - network
+  - router
+---
+
 # N06 ルータ自作（OpenWrt）
 
-更新日: 2026-09-20。区分: **新規実装・切替済み**。状態: **router-01 が家庭内ルータとして稼働中。IPv4（MAP-E）・IPv6 とも LAN 端末から疎通する。** `verify-router.py` は 5 PASS / 0 FAIL、ホスト再起動での自動復旧も確認済み（全断 53 秒）。**完了条件はすべて満たした。** 手順と実施記録は [router-01（OpenWrt）](../operations/router.md)。
+> **更新日** 2026-09-20 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**区分**: 新規実装・切替済み ・ **状態**: **router-01 が家庭内ルータとして稼働中。IPv4（MAP-E）・IPv6 とも LAN 端末から疎通する。** `verify-router.py` は 5 PASS / 0 FAIL、ホスト再起動での自動復旧も確認済み（全断 53 秒）。**完了条件はすべて満たした。** 手順と実施記録は [router-01（OpenWrt）](../operations/router.md)。
 
 ## 目的・現状・配備先
 
@@ -112,7 +125,7 @@ curl -sk -H "Authorization: PVEAPIToken=$TOKEN" \
 | 補完（ポートセット分散と icmp の SNAT。**実機で検証済み・既定で有効**） | `platform/openwrt/rootfs/etc/hotplug.d/iface/90-mape-ports` |
 | 実機: `vmbr1`（nic0、IP なし）追加と `nic2` 削除 | 2026-09-19。`vmbr0`・管理 IP は無傷 |
 | 実機: `router-01`（VM 101）作成、起動順を `qm set`、両 NIC リンクダウン | 2026-09-19。シリアルコンソールで設定反映を確認、再 plan は No changes |
-| DNS の窓口を AdGuard Home へ（広告遮断・DoH・`.lan` 運用） | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`・`dhcp`・`uci-defaults/97-…`（2026-09-20。[router-config.md](../operations/router-config.md#3-dns-adguard-home)） |
+| DNS の窓口を AdGuard Home へ（広告遮断・DoH・`.lan` 運用） | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`・`dhcp`・`uci-defaults/97-…`（2026-09-20。[router-config.md](../operations/router-config.md#3-dns-の構成adguard-home)） |
 
 実装中に確定した事項:
 

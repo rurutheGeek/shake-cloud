@@ -1,6 +1,19 @@
+---
+title: Nextcloudの使い方（利用者向け）
+updated: 2026-09-19
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - nextcloud
+  - cloud
+---
+
 # Nextcloudの使い方（利用者向け）
 
-更新日: 2026-09-19。**招待された利用者向けのマニュアルです。** 管理者向けの設定・アプリ一覧は[Nextcloudと追加アプリ](nextcloud.md)、ログインそのものは[共通ログインの使い方](identity.md)を参照してください。
+> **更新日** 2026-09-19 ・ **区分** 利用ガイド ・ **読む人** 利用者
+
+**招待された利用者向けのマニュアルです。** 管理者向けの設定・アプリ一覧は[Nextcloudと追加アプリ](../operations/nextcloud.md)、ログインそのものは[共通ログインの使い方](identity.md)を参照してください。
 
 ## 入口とログイン
 
@@ -162,10 +175,10 @@ Nextcloudは単体で使えますが、同じ保存領域・同じアカウン�
 | [Homarr](https://homarr.apextox.dpdns.org) | サービスの入口。Nextcloudのタイルあり | 最初に開く場所 |
 | [Kavita](https://kavita.apextox.dpdns.org) | `books`フォルダーを読む | 本・PDF・電子書籍 |
 | [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生（ブラウザーは共通ログインで自動ログイン） | 音楽 |
-| [MeTube](https://metube.apextox.dpdns.org)（media-01への配備は未了） | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
+| [MeTube](https://metube.apextox.dpdns.org) | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
 | [LocalSend](../development/D06-localsend.md) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
 | [プリンター](printer.md)（CUPS） | ファイルの「…」→「印刷」 | Nextcloudのファイルを印刷 |
-| [Vaultwarden](vaultwarden.md) | 同じ共通ログインで使うパスワード管理 | Nextcloudのログイン情報も保管 |
+| [Vaultwarden](../operations/vaultwarden.md) | 同じ共通ログインで使うパスワード管理 | Nextcloudのログイン情報も保管 |
 | [Shake Lab Docs](https://docs.apextox.dpdns.org) | Gitの`docs/`をサイトとして公開 | 手順書の閲覧 |
 
 ## MP3タグを編集する（MP3タグ編集）
@@ -254,6 +267,6 @@ Nextcloudアプリでファイルを開き、**共有 → 印刷** を選びま�
 | 本・音楽・タグ | [音楽・取り込み・タグ](music.md) |
 | 画面を日本語にしたい | [日本語表示](language.md) |
 | 権限・共有・保存場所の変更 | 管理者へ（[アクセス権限の変更](../operations/nextcloud-permissions.md)） |
-| すべての接続先 | [接続先一覧](../operations/urls.md) |
+| すべての接続先 | [接続先一覧](../reference/urls.md) |
 
-管理者向けのページは[Nextcloudと追加アプリ](nextcloud.md)と[配備の引き継ぎ](../operations/handover.md)です。
+管理者向けのページは[Nextcloudと追加アプリ](../operations/nextcloud.md)と[配備の引き継ぎ](../operations/handover.md)です。

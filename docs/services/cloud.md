@@ -1,20 +1,33 @@
+---
+title: クラウドの使い方（ポータル・CLI・Terraform）
+updated: 2026-09-12
+section: 利用ガイド
+audience: 利用者
+tags:
+  - guide
+  - cloud
+---
+
 # クラウドの使い方（ポータル・CLI・Terraform）
 
-更新日: 2026-09-12。状態: **4機能（VM・S3・database・function）実装済み・実機確認済み。**
+> **更新日** 2026-09-12 ・ **区分** 利用ガイド ・ **読む人** 利用者
+
+**状態**: 4機能（VM・S3・database・function）実装済み・実機確認済み。
 
 クラウドは Proxmox の上に次を払い出す仕組みです。入口は**ポータル（ブラウザ）・CLI・Terraform Provider**の3つで、裏の API は同じです。
 
-| 機能 | 何が作れる | AWS の対応物 |
-| --- | --- | --- |
-| インスタンス | VM（電源・コンソール・サイズ変更・削除） | EC2 |
-| ボリューム / セキュリティグループ | 追加ディスク、受信/送信ルール | EBS / セキュリティグループ |
-| バケット | S3 互換のバケットとキー（Garage） | S3 |
-| データベース | PostgreSQL（CloudNativePG） | RDS |
-| 関数 | サーバレス HTTP（Knative） | Lambda |
+| 機能 | 何が作れる |
+| --- | --- |
+| インスタンス | VM。電源の入切、ブラウザからのコンソール、サイズ変更、削除 |
+| ボリューム | インスタンスに足す追加ディスク。拡大はできるが縮小はできない |
+| セキュリティグループ | インスタンスの受信・送信ルール |
+| バケット | S3互換のバケットとアクセスキー（Garage） |
+| データベース | PostgreSQL（CloudNativePG） |
+| 関数 | HTTPで呼ぶサーバレス実行（Knative） |
 
 ## はじめに
 
-1. **アカウント:** 新しい共通ログイン（[はじめる](identity.md)）の招待で作ります。所属は既定で `users`、管理者は `admins`。招待は管理者が発行します。
+1. **アカウント:** 共通ログイン（[はじめる](identity.md)）の招待で作ります。所属は既定で `users`、管理者は `admins`。招待は管理者が発行します。
 2. **ログイン:** <https://cloud.apextox.dpdns.org> → 「Authentik でログイン」。
 3. **アクセスキー:** CLI・Terraform にはポータルの**アクセスキー**画面で発行します。**秘密値は作成時に一度だけ表示**されるので、なくしたら作り直します。ブラウザ操作は SSO のままでキーは不要です。
 
@@ -91,4 +104,4 @@ resource "shakecloud_instance" "dev" {
 - [クラウドAPIの構築](../operations/cloud.md)（管理者向け）
 - [shakecloud CLI](../operations/cli.md)
 - [shakecloud Terraform Provider](../operations/terraform-provider.md)
-- [接続先一覧](../operations/urls.md)
+- [接続先一覧](../reference/urls.md)

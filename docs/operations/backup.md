@@ -1,6 +1,19 @@
+---
+title: バックアップ（重要VM・game1セーブ）
+updated: 2026-09-22
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - backup
+  - storage
+---
+
 # バックアップ（重要VM・game1セーブ）
 
-更新日: 2026-09-22。状態: **週次vzdumpを設定・初回取得済み**。保存先は6TB USB HDD（`/srv/bulk/backups`、Proxmoxの `bulk-backup` ストレージ）です。宣言は Ansible ロール `platform/ansible/roles/pve_backup` と `platform/ansible/pve-backup.yml`、game1のセーブは `tools/game1-saves-backup.sh` です。
+> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **週次vzdumpを設定・初回取得済み**。保存先は6TB USB HDD（`/srv/bulk/backups`、Proxmoxの `bulk-backup` ストレージ）です。宣言は Ansible ロール `platform/ansible/roles/pve_backup` と `platform/ansible/pve-backup.yml`、game1のセーブは `tools/game1-saves-backup.sh` です。
 
 ## 1. 何を「大事」とみなすか
 
