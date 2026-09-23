@@ -1,0 +1,13 @@
+---
+# 重要VM（Tier1）の週次バックアップを6TB USB HDDへ取る。
+# 保存先は pve-bulk-storage.yml が先。判断基準と復元は
+# docs/operations/backup.md。
+#
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/pve.ini \
+#       platform/ansible/pve-backup.yml
+- name: Weekly backups of the important VMs
+  hosts: pve
+  become: true
+  roles:
+    - pve_backup

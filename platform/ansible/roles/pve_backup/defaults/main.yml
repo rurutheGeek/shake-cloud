@@ -1,0 +1,28 @@
+---
+# 重要VMの週次バックアップ（vzdump）を6TB USB HDDへ取る。判断基準と復元は
+# docs/operations/backup.md。保存先のディスクは pve-bulk-storage.yml が先。
+#
+# Tier1: 失うと作り直せないVM。game1（約237G）はゲーム本体・Ollamaモデルを
+# 含むため丸ごとは取らず、セーブを tools/game1-saves-backup.sh で別に取る。
+pve_backup_vmids:
+  - 101   # router-01（OpenWrt設定）
+  - 110   # identity（Authentik）
+  - 130   # storage-s3（Garage）
+  - 140   # cloud-01（管理DB）
+  - 150   # services-01（Home Assistant）
+  - 401   # dev-b（鍵・作業ツリー）
+  - 5001  # media-01（Nextcloud DB・設定。ライブラリ原本はHDD側）
+  - 5002  # monitor-01（監視履歴）
+
+pve_backup_storage_id: bulk-backup
+pve_backup_storage_path: /srv/bulk/backups
+pve_backup_comment: shake-cloud tier1 weekly
+# 深夜は利用者が起きていることがあるため、空いている早朝に取る。
+pve_backup_schedule: 'sun 06:00'
+pve_backup_mode: snapshot
+pve_backup_compress: zstd
+pve_backup_keep_last: 4
+
+# 比較と作成の両方で同じ並びを使う。PVEは作成時の並びを保存する。
+pve_backup_vmid_arg: '{{ pve_backup_vmids | sort | map("string") | join(",") }}'
+pve_backup_prune_arg: 'keep-last={{ pve_backup_keep_last }}'

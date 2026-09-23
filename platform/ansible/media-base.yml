@@ -7,8 +7,12 @@
 # 直るまでの間、ゲスト側で IPv6 を無効にして getaddrinfo と Docker を IPv4 に
 # 揃える。DNS・SG・サービスはもともと IPv4 前提。
 #
+# 6TB USB HDD の共有ライブラリもここで載せる。マウントが済むまで Docker を
+# 起動しない（未マウントのまま原本領域へ書かせない）。正本は
+# platform/ansible/roles/pve_bulk_storage、手順は docs/operations/bulk-storage.md。
+#
 #   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-base.yml
-- name: Prepare the media-01 base (IPv4 egress)
+- name: Prepare the media-01 base (IPv4 egress and the shared library)
   hosts: media
   become: true
   tasks:
@@ -28,3 +32,56 @@
       ansible.builtin.command: sysctl --system
       when: media_base_ipv6 is changed
       changed_when: media_base_ipv6 is changed
+
+    - name: Install the NFS client
+      ansible.builtin.apt:
+        name: nfs-common
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Mount the shared library at boot
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_media_path | regex_escape }}\s'
+        line: >-
+          {{ bulk_storage_server }}:{{ bulk_storage_media_path }} {{ library_root }}
+          nfs4 {{ bulk_storage_mount_opts }} 0 0
+        state: present
+
+    - name: Check whether the shared library is mounted
+      ansible.builtin.command:
+        argv: [mountpoint, -q, '{{ library_root }}']
+      register: media_library_mountpoint
+      failed_when: false
+      changed_when: false
+
+    # ホストが落ちているときに無限に待たないよう、手動マウントは60秒で切る。
+    - name: Mount the shared library now
+      ansible.builtin.command:
+        argv: [timeout, '60', mount, '{{ library_root }}']
+      when: media_library_mountpoint.rc != 0
+      changed_when: true
+      notify: Restart Docker to pick up the shared library
+
+    - name: Require the shared library before Docker starts
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker.service.d/20-media-library.conf
+        content: |
+          [Unit]
+          # 共有ライブラリのマウントが済むまで Docker を起動しない。
+          RequiresMountsFor={{ library_root }}
+        mode: '0644'
+      register: media_library_docker
+
+    - name: Apply the Docker dependency when it changed
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: media_library_docker is changed
+
+  handlers:
+    - name: Restart Docker to pick up the shared library
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+        daemon_reload: true

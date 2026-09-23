@@ -3,6 +3,12 @@ ansible_python_interpreter: /usr/bin/python3
 project_dir: /opt/media-stack
 storage_root: /srv/media-stack/storage
 library_root: /srv/media-stack/library
+# 共有ライブラリ（6TB USB HDD）。ホスト apextox が NFS で出している。
+# 正本は platform/ansible/roles/pve_bulk_storage、手順は
+# docs/operations/bulk-storage.md。media-base.yml が library_root へ載せる。
+bulk_storage_server: 192.168.10.10
+bulk_storage_media_path: /srv/bulk/media
+bulk_storage_mount_opts: _netdev,nofail,x-systemd.mount-timeout=30
 # Each tagged host runs an independent complete stack; this is not a DB cluster.
 # Override with AWX inventory host variables when needed.
 install_docker: true

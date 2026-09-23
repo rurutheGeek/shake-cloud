@@ -1,0 +1,186 @@
+---
+# 6TB USB HDD をホストへ ext4 で載せ、media-01 と game1 へ NFS 共有する。
+# 流れ: デバイス確認 → （必要なら）初期化 → UUIDでマウント → 共有ディレクトリ
+# → /etc/exports.d → exportfs -ra。
+- name: Install the NFS server
+  ansible.builtin.apt:
+    name: nfs-kernel-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Look for the bulk disk
+  ansible.builtin.stat:
+    path: '{{ pve_bulk_storage_device }}'
+    follow: true
+  register: pve_bulk_storage_disk
+
+- name: Require the bulk disk to be attached
+  ansible.builtin.assert:
+    that:
+      - pve_bulk_storage_disk.stat.exists
+      - pve_bulk_storage_disk.stat.isblk
+    fail_msg: >-
+      {{ pve_bulk_storage_device }} がありません。USBの接続を確認し、
+      lsblk -o NAME,SIZE,MODEL,TRAN で by-id の値を確かめてください。
+
+# blkid はファイルシステムが無くても -o value だと rc=0・空出力を返す。
+# rc ではなく、UUID が取れたかどうかで判断する。
+- name: Read the partition's filesystem UUID
+  ansible.builtin.command:
+    argv: [blkid, -s, UUID, -o, value, '{{ pve_bulk_storage_partition }}']
+  register: pve_bulk_storage_blkid
+  failed_when: false
+  changed_when: false
+
+- name: Note whether the partition already has a filesystem
+  ansible.builtin.set_fact:
+    pve_bulk_storage_has_fs: "{{ pve_bulk_storage_blkid.stdout | trim | length > 0 }}"
+
+- name: Refuse to initialize without an explicit request
+  ansible.builtin.assert:
+    that: pve_bulk_storage_has_fs | bool or pve_bulk_storage_initialize | bool
+    fail_msg: >-
+      {{ pve_bulk_storage_partition }} にファイルシステムがありません。消して
+      よいディスクなら -e pve_bulk_storage_initialize=true を付けて再実行して
+      ください（ディスク上のデータは失われます）。
+
+- name: Initialize the bulk disk
+  when: not pve_bulk_storage_has_fs | bool
+  block:
+    - name: Erase the old partition table and signatures
+      ansible.builtin.command:
+        argv: [wipefs, --all, '{{ pve_bulk_storage_device }}']
+
+    - name: Create a fresh GPT with one Linux filesystem partition
+      ansible.builtin.command:
+        argv:
+          - sgdisk
+          - --zap-all
+          - --new=1:0:0
+          - --typecode=1:8300
+          - --change-name=1:{{ pve_bulk_storage_label }}
+          - '{{ pve_bulk_storage_device }}'
+
+    - name: Re-read the partition table
+      ansible.builtin.command:
+        argv: [partx, --update, --nr, 1:1, '{{ pve_bulk_storage_device }}']
+
+    - name: Wait for udev to settle
+      ansible.builtin.command:
+        argv: [udevadm, settle]
+
+    # 6TBの5%は約280GB。メディア用なので予約領域は1%に抑える。
+    - name: Create the ext4 filesystem
+      ansible.builtin.command:
+        argv:
+          - mkfs.ext4
+          - -q
+          - -L
+          - '{{ pve_bulk_storage_label }}'
+          - -m
+          - '1'
+          - '{{ pve_bulk_storage_partition }}'
+
+- name: Read the filesystem UUID
+  ansible.builtin.command:
+    argv: [blkid, -s, UUID, -o, value, '{{ pve_bulk_storage_partition }}']
+  register: pve_bulk_storage_uuid
+  changed_when: false
+
+- name: Require a filesystem UUID before writing fstab
+  ansible.builtin.assert:
+    that: pve_bulk_storage_uuid.stdout | trim | length > 0
+    fail_msg: >-
+      {{ pve_bulk_storage_partition }} のUUIDが読めません。fstabを壊さないよう
+      ここで止めます。lsblk -f と blkid で状態を確認してください。
+
+- name: Create the mount point
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_mount }}'
+    state: directory
+    mode: '0755'
+
+- name: Mount the bulk disk at boot
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^UUID=\S+\s+{{ pve_bulk_storage_mount | regex_escape }}\s'
+    line: >-
+      UUID={{ pve_bulk_storage_uuid.stdout }} {{ pve_bulk_storage_mount }}
+      ext4 {{ pve_bulk_storage_fstab_opts }} 0 2
+    state: present
+
+- name: Check whether the bulk disk is mounted
+  ansible.builtin.command:
+    argv: [mountpoint, -q, '{{ pve_bulk_storage_mount }}']
+  register: pve_bulk_storage_mountpoint
+  failed_when: false
+  changed_when: false
+
+- name: Mount the bulk disk now
+  ansible.builtin.command:
+    argv: [mount, '{{ pve_bulk_storage_mount }}']
+  when: pve_bulk_storage_mountpoint.rc != 0
+  changed_when: true
+
+- name: Create the media share root
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_media_dir }}'
+    state: directory
+    owner: '{{ pve_bulk_storage_media_uid }}'
+    group: '{{ pve_bulk_storage_media_gid }}'
+    mode: '2775'
+
+- name: Create the media library directories
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_media_dir }}/{{ item }}'
+    state: directory
+    owner: '{{ pve_bulk_storage_media_uid }}'
+    group: '{{ pve_bulk_storage_media_gid }}'
+    mode: '2750'
+  loop: '{{ pve_bulk_storage_media_subdirs }}'
+
+- name: Create the ROM library directory
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_roms_dir }}'
+    state: directory
+    owner: '{{ pve_bulk_storage_roms_uid }}'
+    group: '{{ pve_bulk_storage_roms_gid }}'
+    mode: '2775'
+
+- name: Create the backup root
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_backup_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create the game1 saves directory
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_game1_saves_dir }}'
+    state: directory
+    owner: '{{ pve_bulk_storage_roms_uid }}'
+    group: '{{ pve_bulk_storage_roms_gid }}'
+    mode: '2775'
+
+- name: Ensure the export directory exists
+  ansible.builtin.file:
+    path: /etc/exports.d
+    state: directory
+    mode: '0755'
+
+- name: Export the bulk storage to the guests
+  ansible.builtin.template:
+    src: bulk.exports.j2
+    dest: /etc/exports.d/bulk.exports
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Re-export the shares
+
+- name: Ensure the NFS server is running
+  ansible.builtin.service:
+    name: nfs-kernel-server
+    state: started
+    enabled: true
