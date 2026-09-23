@@ -201,7 +201,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | バックアップ | **Tier1 VMの週次vzdumpとgame1セーブを追加（2026-09-22）。** `pve_backup` ロールが `bulk-backup`（`/srv/bulk/backups`）を登録し、毎週日曜06:00・snapshot・zstd・keep-last=4。未マウント時は止まる。game1は `/home` 全体を取らず `tools/game1-saves-backup.sh` でセーブのみ。**同じ筐体・単一ディスクなので外部コピーは未着手** | [backup.md](backup.md) |
 | ✅ | storage | **journald上限・root noatime・Dockerログ上限を `storage_health` ロールで配備（2026-09-23）。** `storage-health.yml` がpve・サービスVMへ適用する。再実行してもnoatimeを重複追加しない | — |
 | 🟨 | API | **アクセスキーに読み取り専用スコープを追加（2026-09-23）。** `access_keys.scope`（migration `0012`）とOpenAPIの `x-shakecloud-scope`、ポータルの権限選択、CLIの `SCOPE` 列。読み取り専用キーの書き込みは 403 `AccessDenied` として監査ログに残る。**cloud-01へ `cloud.yml` で配備済み（2026-09-23、failed=0）。** 実機の `GET /v1/caller-identity` が `access_key_scope` を返すこと（migration `0012` 適用）を確認。**ReadOnlyキーでの拒否確認はキー発行後** | [cloud-api.md](cloud-api.md) |
-| 🟨 | MCP | **読み取り専用のMCPサーバ `cloud/mcp` を実装（2026-09-23）。** 22ツール（VM・ボリューム・SG・S3・DB・関数・監査の参照）。OpenAPIの `x-shakecloud-scope: read` との被覆をテストで検査し、DB資格情報と書き込みは公開しない。**dev-bでビルドし、opencode（`~/.config/opencode/opencode.jsonc`）へ `{file:}` 参照で登録済み。実機APIへの接続確認はReadOnlyキーの発行後** | [mcp.md](mcp.md) |
+| 🟨 | MCP | **読み取り専用のMCPサーバ `cloud/mcp` を実装（2026-09-23）。** 22ツール（VM・ボリューム・SG・S3・DB・関数・監査の参照）。OpenAPIの `x-shakecloud-scope: read` との被覆をテストで検査し、DB資格情報と書き込みは公開しない。**dev-bでビルドし、opencode（`~/.config/opencode/opencode.jsonc`）へ `{file:}` 参照で登録済み。stdioの実機疎通（initialize・tools/list 22件・`get_caller_identity`）も確認済み。ReadOnlyキーでの拒否確認はキー発行後** | [mcp.md](mcp.md) |
 
 各 Phase の詳しい中身と完了条件は[最小クラウドとProvider](../architecture/cloud.md)にあります。
 
