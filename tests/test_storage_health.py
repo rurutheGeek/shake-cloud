@@ -86,7 +86,7 @@ class PlaybookTests(unittest.TestCase):
         self.assertEqual(plays[0]['roles'], ['storage_health'])
 
     def test_the_playbook_parses(self):
-        result = syntax_check(PLAYBOOK, 'platform/ansible/pve.ini')
+        result = syntax_check(PLAYBOOK)
         self.assertEqual(result.returncode, 0,
                          f'{PLAYBOOK.name} did not parse:\n{result.stdout}\n{result.stderr}')
 

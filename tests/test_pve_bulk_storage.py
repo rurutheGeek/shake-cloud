@@ -198,7 +198,7 @@ class DocumentationTests(unittest.TestCase):
 
 class SyntaxTests(unittest.TestCase):
     def test_the_host_playbook_parses(self):
-        result = syntax_check(PLAYBOOK, 'platform/ansible/pve.ini')
+        result = syntax_check(PLAYBOOK)
         self.assertEqual(result.returncode, 0,
                          f'{PLAYBOOK.name} did not parse:\n{result.stdout}\n{result.stderr}')
 
