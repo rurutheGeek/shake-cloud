@@ -12,7 +12,14 @@ type CallerIdentity struct {
 	IsAdmin        bool   `json:"is_admin"`
 	CredentialType string `json:"credential_type"`
 	AccessKeyID    string `json:"access_key_id,omitempty"`
+	AccessKeyScope string `json:"access_key_scope,omitempty"`
 }
+
+// Access key scopes, as accepted by CreateAccessKey and returned on keys.
+const (
+	ScopeReadOnly  = "ReadOnly"
+	ScopeReadWrite = "ReadWrite"
+)
 
 type Instance struct {
 	InstanceID       string                  `json:"instance_id"`
@@ -166,6 +173,17 @@ type Image struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+type ISO struct {
+	ISOID         string     `json:"iso_id"`
+	Name          string     `json:"name"`
+	OS            string     `json:"os,omitempty"`
+	Public        bool       `json:"public,omitempty"`
+	AccountID     string     `json:"account_id,omitempty"`
+	OwnerUsername string     `json:"owner_username,omitempty"`
+	SizeMiB       int64      `json:"size_mib,omitempty"`
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+}
+
 type KeyPair struct {
 	KeyName     string    `json:"key_name"`
 	Fingerprint string    `json:"fingerprint"`
@@ -176,6 +194,7 @@ type AccessKey struct {
 	AccessKeyID  string     `json:"access_key_id"`
 	Status       string     `json:"status"`
 	Description  string     `json:"description"`
+	Scope        string     `json:"scope"`
 	CreateDate   time.Time  `json:"create_date"`
 	ExpireDate   *time.Time `json:"expire_date,omitempty"`
 	LastUsedDate *time.Time `json:"last_used_date,omitempty"`

@@ -68,6 +68,7 @@ jobs:
           cache-dependency-path: |
             cloud/api/go.sum
             cloud/provider/go.sum
+            cloud/mcp/go.sum
       - name: Check Go formatting
         run: |
           unformatted=$(gofmt -l cloud)
@@ -79,9 +80,9 @@ jobs:
         run: |
           go vet ./...
           go test ./...
-      - name: Vet and test the cloud client and CLI
+      - name: Vet and test the cloud client, CLI and MCP server
         run: |
-          for dir in cloud/client cloud/cli; do
+          for dir in cloud/client cloud/cli cloud/mcp; do
             echo "== $dir"
             (cd "$dir" && go vet ./... && go test ./...)
           done

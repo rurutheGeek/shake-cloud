@@ -1,6 +1,6 @@
 ---
 title: 運用手順の入口
-updated: 2026-09-18
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 運用手順の入口
 
-> **更新日** 2026-09-18 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 環境を立ち上げる人と、日々動かす人向けの手順です。**実機の状態・進捗・TODOの正本は[配備台帳](handover.md)** で、この一覧はそこへ至る道順です。
 
@@ -35,6 +35,7 @@ tags:
 | ページ | 何が分かるか |
 | --- | --- |
 | [shakecloud CLI](cli.md) | コマンドからの操作 |
+| [shakecloud MCPサーバ（読み取り専用）](mcp.md) | AIエージェントからの参照（読み取り専用ツール） |
 | [shakecloud Terraform Provider](terraform-provider.md) | Terraformからの操作 |
 | [AWXの使い方](awx.md) | Playbookをブラウザ・APIから実行する |
 | [Flux にアプリを足す](flux-apps.md) | クラスタ側の配備 |

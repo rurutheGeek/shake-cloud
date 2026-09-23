@@ -1,6 +1,6 @@
 ---
 title: shakecloud CLI
-updated: 2026-09-13
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # shakecloud CLI
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 実装済み・実機で確認済み（`cloud/cli`、クライアントは `cloud/client`）。
 
@@ -18,7 +18,7 @@ tags:
 
 ## 1. 準備
 
-アクセスキーは**ポータルで発行**します（`https://cloud.apextox.dpdns.org` → ログイン →「アクセスキー」→ 発行。表示は一度だけ）。ブートストラップ管理キーは 2026-09-11 に無効化済みです。
+アクセスキーは**ポータルで発行**します（`https://cloud.apextox.dpdns.org` → ログイン →「アクセスキー」→ 発行。表示は一度だけ）。発行時に**権限**（読み書き／読み取り専用）を選びます。読み取り専用は参照系だけを呼べ、書き込みは 403 `AccessDenied` になります。AIエージェントなどに渡すキーは読み取り専用にしてください。ブートストラップ管理キーは 2026-09-11 に無効化済みです。
 
 ```bash
 export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
@@ -67,7 +67,7 @@ shakecloud [--endpoint URL] [--json] <command> [args]
 | `sg add ID --direction ingress\|egress --protocol PROTO --cidr CIDR [--from N --to N]` / `sg revoke ID RULE_ID` | ルール |
 | `image ls` / `image upload --name NAME FILE` / `image rm ID` | イメージ |
 | `key ls` / `key import --name NAME (--public-key KEY \| FILE)` / `key rm NAME` | SSH鍵 |
-| `access-key ls` / `access-key rm ID` | アクセスキー（発行はポータルだけ） |
+| `access-key ls` / `access-key rm ID` | アクセスキーの一覧（権限 `SCOPE` 付き）と失効（発行はポータルだけ） |
 | `bucket ls` / `bucket create NAME` / `bucket show NAME` / `bucket rm NAME` | S3バケット |
 | `bucket allow [--read] [--write] [--owner] NAME KEY_ID` / `bucket revoke NAME KEY_ID` | S3キーの権限 |
 | `s3-key ls` / `s3-key create NAME` / `s3-key rm KEY_ID` | S3アクセスキー（秘密値は作成時だけ） |

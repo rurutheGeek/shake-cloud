@@ -56,11 +56,21 @@ const (
 	sessionOnly
 )
 
+// opScope is what an operation requires from an access key. A ReadOnly key
+// may call readOp only; sessions and the bootstrap key are never restricted.
+type opScope int
+
+const (
+	readOp opScope = iota + 1
+	writeOp
+)
+
 type route struct {
 	method      string
 	pattern     string
 	operationID string
 	auth        authMode
+	scope       opScope
 	handle      func(*Server, http.ResponseWriter, *http.Request, *call)
 }
 
@@ -68,72 +78,72 @@ type route struct {
 // document in both directions.
 func routes() []route {
 	return []route{
-		{"GET", "/healthz", "GetHealth", public, (*Server).getHealth},
-		{"GET", "/help", "Help", public, (*Server).helpPage},
-		{"GET", "/auth/login", "StartLogin", public, (*Server).startLogin},
-		{"GET", "/auth/callback", "CompleteLogin", public, (*Server).completeLogin},
-		{"POST", "/auth/logout", "Logout", public, (*Server).logout},
-		{"GET", "/v1/caller-identity", "GetCallerIdentity", anyCredential, (*Server).getCallerIdentity},
-		{"GET", "/v1/access-keys", "ListAccessKeys", anyCredential, (*Server).listAccessKeys},
-		{"POST", "/v1/access-keys", "CreateAccessKey", sessionOnly, (*Server).createAccessKey},
-		{"DELETE", "/v1/access-keys/{access_key_id}", "DeleteAccessKey", anyCredential, (*Server).deleteAccessKey},
-		{"GET", "/v1/audit-events", "LookupEvents", anyCredential, (*Server).lookupEvents},
-		{"GET", "/v1/key-pairs", "DescribeKeyPairs", anyCredential, (*Server).describeKeyPairs},
-		{"POST", "/v1/key-pairs", "ImportKeyPair", anyCredential, (*Server).importKeyPair},
-		{"DELETE", "/v1/key-pairs/{key_name}", "DeleteKeyPair", anyCredential, (*Server).deleteKeyPair},
-		{"GET", "/v1/images", "DescribeImages", anyCredential, (*Server).describeImages},
-		{"POST", "/v1/images", "ImportImage", anyCredential, (*Server).importImage},
-		{"DELETE", "/v1/images/{image_id}", "DeleteImage", anyCredential, (*Server).deleteImage},
-		{"GET", "/v1/isos", "DescribeISOs", anyCredential, (*Server).describeISOs},
-		{"POST", "/v1/isos", "ImportISO", anyCredential, (*Server).importISO},
-		{"DELETE", "/v1/isos/{iso_id}", "DeleteISO", anyCredential, (*Server).deleteISO},
-		{"GET", "/v1/instance-types", "DescribeInstanceTypes", anyCredential, (*Server).describeInstanceTypes},
-		{"GET", "/v1/capacity", "DescribeCapacity", anyCredential, (*Server).describeCapacity},
-		{"GET", "/v1/limits", "DescribeLimits", anyCredential, (*Server).describeLimits},
-		{"PUT", "/v1/limits", "UpdateLimits", anyCredential, (*Server).updateLimits},
-		{"POST", "/v1/instances", "RunInstances", anyCredential, (*Server).runInstances},
-		{"POST", "/v1/instances/adopt", "AdoptInstance", anyCredential, (*Server).adoptInstance},
-		{"GET", "/v1/instances", "DescribeInstances", anyCredential, (*Server).describeInstances},
-		{"GET", "/v1/instances/{instance_id}", "DescribeInstance", anyCredential, (*Server).describeInstance},
-		{"PATCH", "/v1/instances/{instance_id}", "ModifyInstance", anyCredential, (*Server).modifyInstance},
-		{"DELETE", "/v1/instances/{instance_id}", "TerminateInstance", anyCredential, instanceAction(db.ActionTerminate)},
-		{"POST", "/v1/instances/{instance_id}/start", "StartInstance", anyCredential, instanceAction(db.ActionStart)},
-		{"POST", "/v1/instances/{instance_id}/stop", "StopInstance", anyCredential, instanceAction(db.ActionStop)},
-		{"POST", "/v1/instances/{instance_id}/reboot", "RebootInstance", anyCredential, instanceAction(db.ActionReboot)},
-		{"POST", "/v1/instances/{instance_id}/console", "CreateConsoleSession", anyCredential, (*Server).createConsoleSession},
-		{"PUT", "/v1/instances/{instance_id}/security-groups", "ModifyInstanceSecurityGroups", anyCredential, (*Server).modifyInstanceSecurityGroups},
-		{"GET", "/v1/volumes", "DescribeVolumes", anyCredential, (*Server).describeVolumes},
-		{"POST", "/v1/volumes", "CreateVolume", anyCredential, (*Server).createVolume},
-		{"GET", "/v1/volumes/{volume_id}", "DescribeVolume", anyCredential, (*Server).describeVolume},
-		{"PATCH", "/v1/volumes/{volume_id}", "ModifyVolume", anyCredential, (*Server).modifyVolume},
-		{"DELETE", "/v1/volumes/{volume_id}", "DeleteVolume", anyCredential, (*Server).deleteVolume},
-		{"POST", "/v1/volumes/{volume_id}/attach", "AttachVolume", anyCredential, (*Server).attachVolume},
-		{"POST", "/v1/volumes/{volume_id}/detach", "DetachVolume", anyCredential, (*Server).detachVolume},
-		{"GET", "/v1/security-groups", "DescribeSecurityGroups", anyCredential, (*Server).describeSecurityGroups},
-		{"POST", "/v1/security-groups", "CreateSecurityGroup", anyCredential, (*Server).createSecurityGroup},
-		{"GET", "/v1/security-groups/{group_id}", "DescribeSecurityGroup", anyCredential, (*Server).describeSecurityGroup},
-		{"DELETE", "/v1/security-groups/{group_id}", "DeleteSecurityGroup", anyCredential, (*Server).deleteSecurityGroup},
-		{"POST", "/v1/security-groups/{group_id}/ingress", "AuthorizeSecurityGroupIngress", anyCredential, authorizeRules(db.DirectionIngress)},
-		{"POST", "/v1/security-groups/{group_id}/egress", "AuthorizeSecurityGroupEgress", anyCredential, authorizeRules(db.DirectionEgress)},
-		{"DELETE", "/v1/security-groups/{group_id}/rules/{rule_id}", "RevokeSecurityGroupRule", anyCredential, (*Server).revokeSecurityGroupRule},
-		{"GET", "/v1/buckets", "DescribeBuckets", anyCredential, (*Server).describeBuckets},
-		{"POST", "/v1/buckets", "CreateBucket", anyCredential, (*Server).createBucket},
-		{"GET", "/v1/buckets/{bucket_name}", "DescribeBucket", anyCredential, (*Server).describeBucket},
-		{"DELETE", "/v1/buckets/{bucket_name}", "DeleteBucket", anyCredential, (*Server).deleteBucket},
-		{"PUT", "/v1/buckets/{bucket_name}/keys/{key_id}", "PutBucketKey", anyCredential, (*Server).setBucketPermission},
-		{"DELETE", "/v1/buckets/{bucket_name}/keys/{key_id}", "DeleteBucketKey", anyCredential, (*Server).revokeBucketPermission},
-		{"GET", "/v1/s3-keys", "ListS3Keys", anyCredential, (*Server).listS3Keys},
-		{"POST", "/v1/s3-keys", "CreateS3Key", anyCredential, (*Server).createS3Key},
-		{"DELETE", "/v1/s3-keys/{key_id}", "DeleteS3Key", anyCredential, (*Server).deleteS3Key},
-		{"GET", "/v1/databases", "DescribeDatabases", anyCredential, (*Server).describeDatabases},
-		{"POST", "/v1/databases", "CreateDatabase", anyCredential, (*Server).createDatabase},
-		{"GET", "/v1/databases/{database_id}", "DescribeDatabase", anyCredential, (*Server).describeDatabase},
-		{"DELETE", "/v1/databases/{database_id}", "DeleteDatabase", anyCredential, (*Server).deleteDatabase},
-		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, (*Server).getDatabaseCredentials},
-		{"GET", "/v1/functions", "DescribeFunctions", anyCredential, (*Server).describeFunctions},
-		{"POST", "/v1/functions", "CreateFunction", anyCredential, (*Server).createFunction},
-		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, (*Server).describeFunction},
-		{"DELETE", "/v1/functions/{function_id}", "DeleteFunction", anyCredential, (*Server).deleteFunction},
+		{"GET", "/healthz", "GetHealth", public, readOp, (*Server).getHealth},
+		{"GET", "/help", "Help", public, readOp, (*Server).helpPage},
+		{"GET", "/auth/login", "StartLogin", public, readOp, (*Server).startLogin},
+		{"GET", "/auth/callback", "CompleteLogin", public, writeOp, (*Server).completeLogin},
+		{"POST", "/auth/logout", "Logout", public, writeOp, (*Server).logout},
+		{"GET", "/v1/caller-identity", "GetCallerIdentity", anyCredential, readOp, (*Server).getCallerIdentity},
+		{"GET", "/v1/access-keys", "ListAccessKeys", anyCredential, readOp, (*Server).listAccessKeys},
+		{"POST", "/v1/access-keys", "CreateAccessKey", sessionOnly, writeOp, (*Server).createAccessKey},
+		{"DELETE", "/v1/access-keys/{access_key_id}", "DeleteAccessKey", anyCredential, writeOp, (*Server).deleteAccessKey},
+		{"GET", "/v1/audit-events", "LookupEvents", anyCredential, readOp, (*Server).lookupEvents},
+		{"GET", "/v1/key-pairs", "DescribeKeyPairs", anyCredential, readOp, (*Server).describeKeyPairs},
+		{"POST", "/v1/key-pairs", "ImportKeyPair", anyCredential, writeOp, (*Server).importKeyPair},
+		{"DELETE", "/v1/key-pairs/{key_name}", "DeleteKeyPair", anyCredential, writeOp, (*Server).deleteKeyPair},
+		{"GET", "/v1/images", "DescribeImages", anyCredential, readOp, (*Server).describeImages},
+		{"POST", "/v1/images", "ImportImage", anyCredential, writeOp, (*Server).importImage},
+		{"DELETE", "/v1/images/{image_id}", "DeleteImage", anyCredential, writeOp, (*Server).deleteImage},
+		{"GET", "/v1/isos", "DescribeISOs", anyCredential, readOp, (*Server).describeISOs},
+		{"POST", "/v1/isos", "ImportISO", anyCredential, writeOp, (*Server).importISO},
+		{"DELETE", "/v1/isos/{iso_id}", "DeleteISO", anyCredential, writeOp, (*Server).deleteISO},
+		{"GET", "/v1/instance-types", "DescribeInstanceTypes", anyCredential, readOp, (*Server).describeInstanceTypes},
+		{"GET", "/v1/capacity", "DescribeCapacity", anyCredential, readOp, (*Server).describeCapacity},
+		{"GET", "/v1/limits", "DescribeLimits", anyCredential, readOp, (*Server).describeLimits},
+		{"PUT", "/v1/limits", "UpdateLimits", anyCredential, writeOp, (*Server).updateLimits},
+		{"POST", "/v1/instances", "RunInstances", anyCredential, writeOp, (*Server).runInstances},
+		{"POST", "/v1/instances/adopt", "AdoptInstance", anyCredential, writeOp, (*Server).adoptInstance},
+		{"GET", "/v1/instances", "DescribeInstances", anyCredential, readOp, (*Server).describeInstances},
+		{"GET", "/v1/instances/{instance_id}", "DescribeInstance", anyCredential, readOp, (*Server).describeInstance},
+		{"PATCH", "/v1/instances/{instance_id}", "ModifyInstance", anyCredential, writeOp, (*Server).modifyInstance},
+		{"DELETE", "/v1/instances/{instance_id}", "TerminateInstance", anyCredential, writeOp, instanceAction(db.ActionTerminate)},
+		{"POST", "/v1/instances/{instance_id}/start", "StartInstance", anyCredential, writeOp, instanceAction(db.ActionStart)},
+		{"POST", "/v1/instances/{instance_id}/stop", "StopInstance", anyCredential, writeOp, instanceAction(db.ActionStop)},
+		{"POST", "/v1/instances/{instance_id}/reboot", "RebootInstance", anyCredential, writeOp, instanceAction(db.ActionReboot)},
+		{"POST", "/v1/instances/{instance_id}/console", "CreateConsoleSession", anyCredential, writeOp, (*Server).createConsoleSession},
+		{"PUT", "/v1/instances/{instance_id}/security-groups", "ModifyInstanceSecurityGroups", anyCredential, writeOp, (*Server).modifyInstanceSecurityGroups},
+		{"GET", "/v1/volumes", "DescribeVolumes", anyCredential, readOp, (*Server).describeVolumes},
+		{"POST", "/v1/volumes", "CreateVolume", anyCredential, writeOp, (*Server).createVolume},
+		{"GET", "/v1/volumes/{volume_id}", "DescribeVolume", anyCredential, readOp, (*Server).describeVolume},
+		{"PATCH", "/v1/volumes/{volume_id}", "ModifyVolume", anyCredential, writeOp, (*Server).modifyVolume},
+		{"DELETE", "/v1/volumes/{volume_id}", "DeleteVolume", anyCredential, writeOp, (*Server).deleteVolume},
+		{"POST", "/v1/volumes/{volume_id}/attach", "AttachVolume", anyCredential, writeOp, (*Server).attachVolume},
+		{"POST", "/v1/volumes/{volume_id}/detach", "DetachVolume", anyCredential, writeOp, (*Server).detachVolume},
+		{"GET", "/v1/security-groups", "DescribeSecurityGroups", anyCredential, readOp, (*Server).describeSecurityGroups},
+		{"POST", "/v1/security-groups", "CreateSecurityGroup", anyCredential, writeOp, (*Server).createSecurityGroup},
+		{"GET", "/v1/security-groups/{group_id}", "DescribeSecurityGroup", anyCredential, readOp, (*Server).describeSecurityGroup},
+		{"DELETE", "/v1/security-groups/{group_id}", "DeleteSecurityGroup", anyCredential, writeOp, (*Server).deleteSecurityGroup},
+		{"POST", "/v1/security-groups/{group_id}/ingress", "AuthorizeSecurityGroupIngress", anyCredential, writeOp, authorizeRules(db.DirectionIngress)},
+		{"POST", "/v1/security-groups/{group_id}/egress", "AuthorizeSecurityGroupEgress", anyCredential, writeOp, authorizeRules(db.DirectionEgress)},
+		{"DELETE", "/v1/security-groups/{group_id}/rules/{rule_id}", "RevokeSecurityGroupRule", anyCredential, writeOp, (*Server).revokeSecurityGroupRule},
+		{"GET", "/v1/buckets", "DescribeBuckets", anyCredential, readOp, (*Server).describeBuckets},
+		{"POST", "/v1/buckets", "CreateBucket", anyCredential, writeOp, (*Server).createBucket},
+		{"GET", "/v1/buckets/{bucket_name}", "DescribeBucket", anyCredential, readOp, (*Server).describeBucket},
+		{"DELETE", "/v1/buckets/{bucket_name}", "DeleteBucket", anyCredential, writeOp, (*Server).deleteBucket},
+		{"PUT", "/v1/buckets/{bucket_name}/keys/{key_id}", "PutBucketKey", anyCredential, writeOp, (*Server).setBucketPermission},
+		{"DELETE", "/v1/buckets/{bucket_name}/keys/{key_id}", "DeleteBucketKey", anyCredential, writeOp, (*Server).revokeBucketPermission},
+		{"GET", "/v1/s3-keys", "ListS3Keys", anyCredential, readOp, (*Server).listS3Keys},
+		{"POST", "/v1/s3-keys", "CreateS3Key", anyCredential, writeOp, (*Server).createS3Key},
+		{"DELETE", "/v1/s3-keys/{key_id}", "DeleteS3Key", anyCredential, writeOp, (*Server).deleteS3Key},
+		{"GET", "/v1/databases", "DescribeDatabases", anyCredential, readOp, (*Server).describeDatabases},
+		{"POST", "/v1/databases", "CreateDatabase", anyCredential, writeOp, (*Server).createDatabase},
+		{"GET", "/v1/databases/{database_id}", "DescribeDatabase", anyCredential, readOp, (*Server).describeDatabase},
+		{"DELETE", "/v1/databases/{database_id}", "DeleteDatabase", anyCredential, writeOp, (*Server).deleteDatabase},
+		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, readOp, (*Server).getDatabaseCredentials},
+		{"GET", "/v1/functions", "DescribeFunctions", anyCredential, readOp, (*Server).describeFunctions},
+		{"POST", "/v1/functions", "CreateFunction", anyCredential, writeOp, (*Server).createFunction},
+		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, readOp, (*Server).describeFunction},
+		{"DELETE", "/v1/functions/{function_id}", "DeleteFunction", anyCredential, writeOp, (*Server).deleteFunction},
 	}
 }
 
@@ -179,6 +189,12 @@ func (s *Server) endpoint(rt route) http.Handler {
 				s.recordDenied(r.Context(), c.event("UnauthorizedOperation", map[string]any{"reason": "requires a portal session"}))
 				writeError(w, r, http.StatusForbidden, "UnauthorizedOperation",
 					"this operation requires a portal login; an access key cannot create access keys")
+				return
+			}
+			if rt.scope == writeOp && p.credentialType == db.CredentialAccessKey && p.accessKeyScope == db.KeyScopeReadOnly {
+				s.recordDenied(r.Context(), c.event("AccessDenied", map[string]any{"reason": "read_only_access_key"}))
+				writeError(w, r, http.StatusForbidden, "AccessDenied",
+					"this access key is read-only; use a ReadWrite key for this operation")
 				return
 			}
 		}

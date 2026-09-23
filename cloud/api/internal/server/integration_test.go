@@ -145,6 +145,7 @@ type createdKey struct {
 	AccessKey struct {
 		AccessKeyID string `json:"access_key_id"`
 		Status      string `json:"status"`
+		Scope       string `json:"scope"`
 	} `json:"access_key"`
 	Secret string `json:"secret_access_key"`
 }
@@ -268,6 +269,42 @@ func TestExpiredKeysStopWorking(t *testing.T) {
 	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/caller-identity", bearer: key.Secret}), http.StatusUnauthorized)
 }
 
+func TestReadOnlyKeysCannotWrite(t *testing.T) {
+	s := testServer(t, nil)
+	_, cookie := session(t, s, "alice", false)
+	recorder := do(t, s, req{method: "POST", path: "/v1/access-keys",
+		body: map[string]any{"description": "agent", "scope": "ReadOnly"}, cookies: []*http.Cookie{cookie}})
+	expectStatus(t, recorder, http.StatusCreated)
+	key := decode[createdKey](t, recorder)
+	if key.AccessKey.Scope != "ReadOnly" {
+		t.Fatalf("created scope: %+v", key.AccessKey)
+	}
+
+	// Reads work, and the identity says what the key may do.
+	identity := decode[callerIdentity](t, do(t, s, req{method: "GET", path: "/v1/caller-identity", bearer: key.Secret}))
+	if identity.AccessKeyScope != "ReadOnly" {
+		t.Fatalf("identity: %+v", identity)
+	}
+	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/key-pairs", bearer: key.Secret}), http.StatusOK)
+
+	// A write is refused and audited, even revoking the key itself.
+	write := do(t, s, req{method: "POST", path: "/v1/key-pairs", bearer: key.Secret,
+		body: map[string]any{"key_name": "laptop", "public_key": publicKeyLine(t, "agent")}})
+	expectStatus(t, write, http.StatusForbidden)
+	if code := decode[errorBody](t, write).Error.Code; code != "AccessDenied" {
+		t.Fatalf("code %q", code)
+	}
+	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/access-keys/" + key.AccessKey.AccessKeyID, bearer: key.Secret}), http.StatusForbidden)
+
+	// A portal session is not restricted, so the key can still be cleaned up.
+	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/access-keys/" + key.AccessKey.AccessKeyID, cookies: []*http.Cookie{cookie}}), http.StatusNoContent)
+
+	denied := events(t, s, req{path: "/v1/audit-events?event_name=ImportKeyPair", cookies: []*http.Cookie{cookie}})
+	if len(denied.Events) != 1 || denied.Events[0].ErrorCode != "AccessDenied" || denied.Events[0].AccessKeyID != key.AccessKey.AccessKeyID {
+		t.Fatalf("audit: %+v", denied.Events)
+	}
+}
+
 func TestAccessKeysCannotCreateAccessKeys(t *testing.T) {
 	s := testServer(t, nil)
 	_, cookie := session(t, s, "alice", false)
@@ -295,6 +332,7 @@ func TestRequestBodiesMustBeStrictJSON(t *testing.T) {
 	_, cookie := session(t, s, "alice", false)
 	expectStatus(t, do(t, s, req{method: "POST", path: "/v1/access-keys", body: map[string]any{"descripton": "typo"}, cookies: []*http.Cookie{cookie}}), http.StatusBadRequest)
 	expectStatus(t, do(t, s, req{method: "POST", path: "/v1/access-keys", body: map[string]any{"expires_in_days": 0}, cookies: []*http.Cookie{cookie}}), http.StatusBadRequest)
+	expectStatus(t, do(t, s, req{method: "POST", path: "/v1/access-keys", body: map[string]any{"scope": "Admin"}, cookies: []*http.Cookie{cookie}}), http.StatusBadRequest)
 	expectStatus(t, do(t, s, req{method: "POST", path: "/v1/access-keys", cookies: []*http.Cookie{cookie}}), http.StatusUnsupportedMediaType)
 }
 

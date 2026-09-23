@@ -364,6 +364,12 @@
     <p>Terraform と CLI はこのキーで API を呼びます。Authentik が止まっていても使えます。1アカウント5本までです。</p>
     <form id="create-key">
       <label>用途 <input name="description" maxlength="256" placeholder="例: ノートPCの Terraform"></label>
+      <label>権限
+        <select name="scope">
+          <option value="ReadWrite" selected>読み書き（Terraform・CLI）</option>
+          <option value="ReadOnly">読み取り専用（参照だけ。AIエージェント向け）</option>
+        </select>
+      </label>
       <label>有効期限
         <select name="expires_in_days">
           <option value="30">30日</option>
@@ -384,7 +390,7 @@
     </div>
     <div class="scroll">
       <table>
-        <thead><tr><th>キーID</th><th>用途</th><th>状態</th><th>作成</th><th>期限</th><th>最終使用</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+        <thead><tr><th>キーID</th><th>用途</th><th>権限</th><th>状態</th><th>作成</th><th>期限</th><th>最終使用</th><th><span class="visually-hidden">操作</span></th></tr></thead>
         <tbody id="keys"></tbody>
       </table>
     </div>

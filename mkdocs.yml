@@ -97,6 +97,7 @@ nav:
           - サービスの置き場所とクラウドVM: operations/services.md
       - 道具:
           - shakecloud CLI: operations/cli.md
+          - shakecloud MCPサーバ（読み取り専用）: operations/mcp.md
           - shakecloud Terraform Provider: operations/terraform-provider.md
           - AWXの使い方: operations/awx.md
           - Flux にアプリを足す: operations/flux-apps.md

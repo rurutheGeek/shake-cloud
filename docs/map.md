@@ -93,7 +93,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-12 | `guide` `cloud` |
+| [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
 | [Homarrの使い方](services/homarr.md) | 2026-09-12 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
@@ -167,8 +167,8 @@ flowchart TB
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-09-22 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-09-12 | `ops` `bootstrap` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-09-22 | `ops` `storage` `nfs` |
-| [shakecloud CLI](operations/cli.md) | 2026-09-13 | `ops` `cloud` |
-| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-19 | `ops` `cloud` |
+| [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
+| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-23 | `ops` `cloud` |
 | [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-19 | `ops` `cloud` |
 | [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-19 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-09-13 | `ops` `cloud` |
@@ -177,8 +177,9 @@ flowchart TB
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-09-11 | `ops` `storage` `ai` |
 | [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-09-23 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-09-13 | `ops` `identity` |
-| [運用手順の入口](operations/index.md) | 2026-09-18 | `ops` |
+| [運用手順の入口](operations/index.md) | 2026-09-23 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-09-13 | `ops` `kubernetes` `network` |
+| [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [net-01（Tailscale subnet router）](operations/net.md) | 2026-09-16 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-09-13 | `ops` `netbox` `network` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
@@ -229,6 +230,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 113 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 114 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

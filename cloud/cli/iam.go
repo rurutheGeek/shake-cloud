@@ -112,14 +112,14 @@ func (g globals) accessKeys(args []string) error {
 			return g.printJSON(keys)
 		}
 		w := table()
-		fmt.Fprintln(w, "ACCESS_KEY_ID\tSTATUS\tDESCRIPTION\tCREATED\tLAST_USED")
+		fmt.Fprintln(w, "ACCESS_KEY_ID\tSTATUS\tSCOPE\tDESCRIPTION\tCREATED\tLAST_USED")
 		for _, key := range keys {
 			lastUsed := "-"
 			if key.LastUsedDate != nil {
 				lastUsed = key.LastUsedDate.Format("2006-01-02 15:04")
 			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				key.AccessKeyID, key.Status, dash(key.Description), key.CreateDate.Format("2006-01-02 15:04"), lastUsed)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				key.AccessKeyID, key.Status, key.Scope, dash(key.Description), key.CreateDate.Format("2006-01-02 15:04"), lastUsed)
 		}
 		w.Flush()
 		return nil
