@@ -30,13 +30,14 @@ type callerIdentity struct {
 	IsAdmin        bool   `json:"is_admin"`
 	CredentialType string `json:"credential_type"`
 	AccessKeyID    string `json:"access_key_id,omitempty"`
+	AccessKeyScope string `json:"access_key_scope,omitempty"`
 }
 
 func (s *Server) getCallerIdentity(w http.ResponseWriter, r *http.Request, c *call) {
 	p := c.principal
 	writeJSON(w, http.StatusOK, callerIdentity{
 		AccountID: p.account.ID, Username: p.account.Username, IsAdmin: p.account.IsAdmin,
-		CredentialType: p.credentialType, AccessKeyID: p.accessKeyID,
+		CredentialType: p.credentialType, AccessKeyID: p.accessKeyID, AccessKeyScope: p.accessKeyScope,
 	})
 }
 
@@ -44,6 +45,7 @@ type accessKeyBody struct {
 	AccessKeyID  string     `json:"access_key_id"`
 	Status       string     `json:"status"`
 	Description  string     `json:"description"`
+	Scope        string     `json:"scope"`
 	CreateDate   time.Time  `json:"create_date"`
 	ExpireDate   *time.Time `json:"expire_date,omitempty"`
 	LastUsedDate *time.Time `json:"last_used_date,omitempty"`
@@ -51,7 +53,7 @@ type accessKeyBody struct {
 
 func (s *Server) keyBody(k db.AccessKey) accessKeyBody {
 	return accessKeyBody{
-		AccessKeyID: k.ID, Status: k.Status(s.now()), Description: k.Description,
+		AccessKeyID: k.ID, Status: k.Status(s.now()), Description: k.Description, Scope: k.Scope,
 		CreateDate: k.CreatedAt.UTC(), ExpireDate: timeOrNil(k.ExpiresAt), LastUsedDate: timeOrNil(k.LastUsedAt),
 	}
 }
@@ -75,12 +77,21 @@ func (s *Server) createAccessKey(w http.ResponseWriter, r *http.Request, c *call
 	var body struct {
 		Description   string `json:"description"`
 		ExpiresInDays *int   `json:"expires_in_days"`
+		Scope         string `json:"scope"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if utf8.RuneCountInString(body.Description) > 256 {
 		writeError(w, r, http.StatusBadRequest, "ValidationError", "description must be at most 256 characters")
+		return
+	}
+	scope := body.Scope
+	if scope == "" {
+		scope = db.KeyScopeReadWrite
+	}
+	if scope != db.KeyScopeReadOnly && scope != db.KeyScopeReadWrite {
+		writeError(w, r, http.StatusBadRequest, "ValidationError", "scope must be ReadOnly or ReadWrite")
 		return
 	}
 	var expiresAt *time.Time
@@ -109,11 +120,11 @@ func (s *Server) createAccessKey(w http.ResponseWriter, r *http.Request, c *call
 		if active >= maxActiveAccessKeys {
 			return errLimitExceeded
 		}
-		created, err = db.InsertAccessKey(ctx, tx, account.ID, token, body.Description, expiresAt)
+		created, err = db.InsertAccessKey(ctx, tx, account.ID, token, body.Description, scope, expiresAt)
 		if err != nil {
 			return err
 		}
-		event := c.event("", map[string]any{"description": body.Description, "expires_in_days": body.ExpiresInDays})
+		event := c.event("", map[string]any{"description": body.Description, "expires_in_days": body.ExpiresInDays, "scope": scope})
 		event.ResourceID = created.ID
 		return db.RecordAudit(ctx, tx, event)
 	})

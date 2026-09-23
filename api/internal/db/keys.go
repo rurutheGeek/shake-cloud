@@ -16,10 +16,18 @@ const (
 	KeyExpired  = "Expired"
 )
 
+// Key scopes. A ReadOnly key may call only operations that do not change
+// state; a ReadWrite key may call all of them.
+const (
+	KeyScopeReadOnly  = "ReadOnly"
+	KeyScopeReadWrite = "ReadWrite"
+)
+
 type AccessKey struct {
 	ID          string
 	AccountID   string
 	Description string
+	Scope       string
 	CreatedAt   time.Time
 	ExpiresAt   *time.Time
 	RevokedAt   *time.Time
@@ -44,10 +52,10 @@ type Credential struct {
 	Account      Account
 }
 
-const keyColumns = `k.access_key_id, k.account_id, k.description, k.created_at, k.expires_at, k.revoked_at, k.last_used_at`
+const keyColumns = `k.access_key_id, k.account_id, k.description, k.scope, k.created_at, k.expires_at, k.revoked_at, k.last_used_at`
 
 func keyFields(k *AccessKey) []any {
-	return []any{&k.ID, &k.AccountID, &k.Description, &k.CreatedAt, &k.ExpiresAt, &k.RevokedAt, &k.LastUsedAt}
+	return []any{&k.ID, &k.AccountID, &k.Description, &k.Scope, &k.CreatedAt, &k.ExpiresAt, &k.RevokedAt, &k.LastUsedAt}
 }
 
 func scanKey(row pgx.Row) (AccessKey, error) {
@@ -55,11 +63,11 @@ func scanKey(row pgx.Row) (AccessKey, error) {
 	return k, noRows(row.Scan(keyFields(&k)...))
 }
 
-func InsertAccessKey(ctx context.Context, q Querier, accountID string, token accesskey.Token, description string, expiresAt *time.Time) (AccessKey, error) {
+func InsertAccessKey(ctx context.Context, q Querier, accountID string, token accesskey.Token, description, scope string, expiresAt *time.Time) (AccessKey, error) {
 	return scanKey(q.QueryRow(ctx, `INSERT INTO access_keys AS k
-		(access_key_id, account_id, secret_sha256, description, expires_at)
-		VALUES ($1, $2, $3, $4, $5) RETURNING `+keyColumns,
-		token.ID, accountID, token.Hash(), description, expiresAt))
+		(access_key_id, account_id, secret_sha256, description, scope, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING `+keyColumns,
+		token.ID, accountID, token.Hash(), description, scope, expiresAt))
 }
 
 func LookupAccessKey(ctx context.Context, q Querier, id string) (Credential, error) {

@@ -43,7 +43,7 @@ func (s *Server) authenticate(r *http.Request, c *call) (*principal, *authFailur
 			s.log.Error("access key lookup failed", "err", err, "request_id", c.requestID)
 			return nil, &authFailure{http.StatusInternalServerError, "InternalError", "internal error"}
 		}
-		p := &principal{account: credential.Account, credentialType: db.CredentialAccessKey, accessKeyID: token.ID}
+		p := &principal{account: credential.Account, credentialType: db.CredentialAccessKey, accessKeyID: token.ID, accessKeyScope: credential.Key.Scope}
 		reason := ""
 		if !token.Matches(credential.SecretSHA256) {
 			reason = "secret_mismatch"

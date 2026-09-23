@@ -52,7 +52,7 @@ func (s *Server) ReconcileBootstrapKey(ctx context.Context) error {
 			credential, err := db.LookupAccessKey(ctx, tx, token.ID)
 			switch {
 			case errors.Is(err, db.ErrNotFound):
-				if _, err := db.InsertAccessKey(ctx, tx, account.ID, *token, "bootstrap admin key (SHAKECLOUD_BOOTSTRAP_KEY_FILE)", nil); err != nil {
+				if _, err := db.InsertAccessKey(ctx, tx, account.ID, *token, "bootstrap admin key (SHAKECLOUD_BOOTSTRAP_KEY_FILE)", db.KeyScopeReadWrite, nil); err != nil {
 					return err
 				}
 				if err := record("CreateAccessKey", token.ID, "bootstrap key file"); err != nil {

@@ -13,6 +13,7 @@ import (
 type specOperation struct {
 	OperationID string                 `yaml:"operationId"`
 	Security    *[]map[string][]string `yaml:"security"`
+	Scope       string                 `yaml:"x-shakecloud-scope"`
 }
 
 // The OpenAPI document is the API's source of truth. This keeps the route
@@ -43,13 +44,16 @@ func TestRoutesMatchOpenAPI(t *testing.T) {
 			if operation.Security != nil {
 				security = *operation.Security
 			}
-			documented[strings.ToUpper(method)+" "+path] = operation.OperationID + " " + specAuth(security)
+			documented[strings.ToUpper(method)+" "+path] = operation.OperationID + " " + specAuth(security) + " " + operation.Scope
 			ids = append(ids, operation.OperationID)
 		}
 	}
 	implemented := map[string]string{}
 	for _, rt := range routes() {
-		implemented[rt.method+" "+rt.pattern] = rt.operationID + " " + routeAuth(rt.auth)
+		if rt.scope != readOp && rt.scope != writeOp {
+			t.Errorf("%s %s has no scope", rt.method, rt.pattern)
+		}
+		implemented[rt.method+" "+rt.pattern] = rt.operationID + " " + routeAuth(rt.auth) + " " + routeScope(rt.scope)
 	}
 
 	for _, key := range sortedKeys(documented) {
@@ -91,6 +95,10 @@ func specAuth(security []map[string][]string) string {
 
 func routeAuth(mode authMode) string {
 	return map[authMode]string{public: "public", anyCredential: "any-credential", sessionOnly: "session-only"}[mode]
+}
+
+func routeScope(scope opScope) string {
+	return map[opScope]string{readOp: "read", writeOp: "write"}[scope]
 }
 
 func sortedKeys(m map[string]string) []string {

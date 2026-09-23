@@ -137,6 +137,7 @@
       row.append(
         cell(key.access_key_id),
         cell(key.description || '—'),
+        cell(key.scope === 'ReadOnly' ? '読み取り専用' : '読み書き'),
         cell(key.status),
         cell(when(key.create_date)),
         cell(key.expire_date ? when(key.expire_date) : '無期限'),
@@ -2280,7 +2281,7 @@
   onAction(createKeyForm, 'submit', async (submit, scope) => {
     submit.preventDefault();
     const form = new FormData(createKeyForm);
-    const body = { description: form.get('description') };
+    const body = { description: form.get('description'), scope: form.get('scope') };
     if (form.get('expires_in_days')) body.expires_in_days = Number(form.get('expires_in_days'));
     try {
       $('error').hidden = true;

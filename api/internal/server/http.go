@@ -35,6 +35,7 @@ type principal struct {
 	account        db.Account
 	credentialType string
 	accessKeyID    string
+	accessKeyScope string
 }
 
 func newCall(r *http.Request, operation string) *call {
