@@ -152,9 +152,32 @@ class DeploymentTests(unittest.TestCase):
         service = (CLOUD / 'cloud-backup.service.j2').read_text()
         self.assertIn('manage.py backup', service)
         self.assertIn('--keep', service)
+        # 成功時だけ最終成功時刻を公開する（失敗はメトリクスの停滞になる）。
+        self.assertIn('ExecStartPost=', service)
+        self.assertIn('backup-metric', service)
         timer = (CLOUD / 'cloud-backup.timer.j2').read_text()
         self.assertIn('Persistent=true', timer)
         self.assertIn('WantedBy=timers.target', timer)
+
+    def test_the_backup_metric_reports_the_newest_finished_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / 'backups'
+            destination.mkdir()
+            finished = destination / '20260101T000000000000Z'
+            finished.mkdir()
+            (destination / '20260102T000000000000Z.incomplete').mkdir()
+            metric = Path(directory) / 'cloud_backup.prom'
+            manage.backup_metric(destination, metric)
+            text = metric.read_text()
+            self.assertIn('backup_last_success_timestamp_seconds', text)
+            stamp = int(text.strip().splitlines()[-1].split()[-1])
+            self.assertEqual(stamp, int(finished.stat().st_mtime))
+
+    def test_the_backup_metric_is_zero_without_a_finished_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            metric = Path(directory) / 'cloud_backup.prom'
+            manage.backup_metric(Path(directory) / 'missing', metric)
+            self.assertTrue(metric.read_text().strip().endswith('backup_last_success_timestamp_seconds 0'))
 
 
 if __name__ == '__main__':

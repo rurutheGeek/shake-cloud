@@ -107,12 +107,16 @@ def storages(storage, wanted, what, hint, exclude=()):
 
 
 def usable_bridges(bridges):
-    """Keep only bridges that carry traffic off the host.
+    """Keep only bridges that define the management network.
 
     A bridge with no port is internal: a VM attached to it cannot reach the
-    LAN or be reached from it, so it is never the answer here.
+    LAN or be reached from it. A bridge with ports but no host address is a
+    segment for a guest's own link (the router VM's WAN bridge, for example):
+    picking it would put the management prefix on the wrong L2. So the answer
+    is the bridge that carries the host's own address.
     """
-    return [bridge['name'] for bridge in bridges if bridge.get('ports')]
+    return [bridge['name'] for bridge in bridges
+            if bridge.get('ports') and bridge.get('cidr')]
 
 
 def bridges_from_interfaces(interfaces):

@@ -1,6 +1,6 @@
 ---
 title: 接続先一覧（URL・アドレス）
-updated: 2026-09-18
+updated: 2026-09-21
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 接続先一覧（URL・アドレス）
 
-> **更新日** 2026-09-18 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-09-21 ・ **区分** リファレンス ・ **読む人** 全員
 
 **サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
@@ -24,17 +24,20 @@ tags:
 | クラウドAPI | `/v1/...`（上と同じホスト） | JSON API。正本は `cloud/openapi/shakecloud.yaml` | CLI・Terraform・アプリ |
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（identity VM。`:9000`・`:9443` は 127.0.0.1） | 全員 |
 | Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（services-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
+| LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ services-01 の実効速度（services-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（services-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
 | プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（services-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.200:631`（LAN/VPN） | 全員 |
+| AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は services-01 だけに開けている | 全員 |
+| ルータ（LuCI） | <https://router.apextox.dpdns.org> | router-01 の管理画面。**SSO なし**（復旧経路のため）。認証は LuCI の root パスワード。IP 直は `http://192.168.10.1` | 管理者 |
 | Home Assistant | <https://ha.apextox.dpdns.org> | 家電・自動化（[利用者向けの使い方](../services/home-assistant.md)）。services-01 の `127.0.0.1:8123` を Caddy で HTTPS 化。Authentik SSO + 緊急用ローカルオーナー | Authentik（`users` / `admins`）またはローカルオーナー |
 | 招待リンク | `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` | 招待登録（1回限り・24時間） | 招待された人 |
 | AWX | <https://awx.apextox.dpdns.org> | Ansible 実行基盤（Kubernetes・Let's Encrypt） | 管理者 |
 | NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM）。直アクセス `http://192.168.10.200:8000` | 管理者 |
 | Shake Lab Docs | <https://docs.apextox.dpdns.org> | このサイト（直アクセス `http://192.168.10.200:8090`） | 全員 |
 | リポジトリ | <https://github.com/rurutheGeek/shake-cloud> | ソースコード（GitHub） | 管理者 |
-| Proxmox | <https://pve.apextox.dpdns.org:8006> | 仮想化ホストの管理画面。IP 直は `https://192.168.10.126:8006` | 管理者 |
+| Proxmox | <https://pve.apextox.dpdns.org:8006> | 仮想化ホストの管理画面。IP 直は `https://192.168.10.10:8006` | 管理者 |
 
 **Eufy Security（eufy-security-ws）と SwitchBot Cloud は Home Assistant の中の連携**で、独立した URL はありません。HA の「設定 → デバイスとサービス」から使います。
 
@@ -90,8 +93,8 @@ media-01 の `tls_proxy`（Caddy）が TLS を終端し、`127.0.0.1` の各ア�
 
 | 名前 | アドレス | 用途 |
 | --- | --- | --- |
-| Proxmox ホスト | `root@192.168.10.126` | 仮想化ホスト |
-| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・Eufy 中継 |
+| Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
+| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・LibreSpeed・Eufy 中継 |
 | identity | `debian@192.168.10.204` | Authentik |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
 | storage-s3 | `192.168.10.206` | Garage |

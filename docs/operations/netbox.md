@@ -85,6 +85,106 @@ NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**
 - **Postgres の接続が飽和することがあります**（2026-09-12 に発生。`sorry, too many clients already`）。`media-netbox-netbox-1` と worker を再起動すると解放されます。恒久対策（`max_connections` や接続プール）は未実施です。
 - NetBox が落ちると、Terraform `10-platform` と Ansible のインベントリが止まります。**クラウドAPI も IP 採番に NetBox を使うため、新規VMの作成が止まります**（既存VMの操作は続きます）。
 
+<a id="lan-の-ip-とルータの-dhcp-を同期する"></a>
+## LAN の IP とルータの DHCP を同期する
+
+**分担**: 機器帯（`.2〜.19`）の予約は NetBox が正本、実際に配ったリースは
+ルータが正本。`tools/netbox-dhcp-sync.py` が両者をつなぎます。
+
+| コマンド | 向き | 内容 |
+| --- | --- | --- |
+| `ensure` | devices.yaml → NetBox | 機器・インターフェース（MAC）・reserved な IP を揃える |
+| `pull` | NetBox → ルータ | reserved な IP を dnsmasq の予約（`/etc/dnsmasq.d`）へ反映 |
+| `push` | ルータ → NetBox | DHCP リースを `status=dhcp` の IP として写す |
+| `discover` | LAN → 画面 | ARP とリースを一覧し、未宣言の機器を提案する（読むだけ） |
+
+宣言の正本は `platform/netbox/devices.yaml`。**IP を変えるときはここを直して
+`ensure` → `pull`。** NetBox の画面やルータの UCI を直接編集しません。
+
+### どうやって台帳に載るか（登録の仕組み）
+
+| 端末 | 載り方 |
+| --- | --- |
+| **DHCP でリースを取る端末** | `push`（15分ごと）が `status=dhcp` として自動で書く。名前は端末が名乗ったホスト名 |
+| **devices.yaml に宣言した端末** | `ensure` が dcim（機器・MAC）と `status=reserved` の IP を作る。`pull` が dnsmasq の予約にする |
+| **静的 IP を使う端末** | **自動では載らない**（リースを取らないため）。`discover` で見つけて devices.yaml に宣言する |
+
+```bash
+# LAN に居るのに台帳へ無い物を探す（読み取りのみ。候補を YAML で出す）
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py discover'
+```
+
+`discover` の例（Alexa が未宣言だったとき）:
+
+```
+192.168.10.46    4c:ef:c0:58:ea:66  alexa                    未宣言  NetBox: なし
+...
+# devices.yaml に足す候補
+  - name: alexa
+    device_type: Client Device
+    role: Client
+    interface: {name: eth0, type: 1000base-t, mac: '4c:ef:c0:58:ea:66'}
+    address: 192.168.10.46/24
+    dns_name: alexa
+```
+
+- **DHCP プール内（`.20〜.99`）に静的な端末が居ても、reserved にすれば
+  衝突しません。** dnsmasq は予約された IP を他の端末へ配らない（例: Alexa
+  `.46`、Eufy `.98`、SwitchBot `.99`）。プールの外（機器帯 `.2〜.19`）へ
+  引っ越す必要はなく、端末側の設定も変えなくてよい
+- reserved の名前は `host-record` でも DNS に書くので、DHCP を取らない静的 IP の
+  端末（Pi・AP など）でも `.lan` 名が引ける。プール内の予約は他端末への払い出し
+  防止も兼ねる
+
+```bash
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py ensure'   # 機器・予約を揃える
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py pull'     # ルータへ反映
+sops exec-env platform/sops/netbox.sops.yaml \
+  'python3 tools/netbox-dhcp-sync.py push'     # リースを台帳へ
+```
+
+- レンジは `platform/terraform/network.yaml` の `infrastructure` / `dhcp` が正本で、
+  Terraform が NetBox の IP Range を作ります
+- 固定IPを持たないが**名前だけ付けたい機器**（カメラ・家電など）は `devices.yaml`
+  の `clients` に書きます。`dhcp-host=MAC,名前` を生成し、動的IPのまま DNS 名が
+  引けます（例: `eufycam-s4`）
+- **リースが消えた DHCP レコードは削除**します。機器が別の住所へ移ったときに
+  「廃止済」が並び、機器自体が廃止されたように見えるのを避けるためです。
+  ただし**ルータの再起動直後は削除しません**。リースDBは `/tmp`（tmpfs）にあり、
+  再起動で空になって端末が取り直すまで「リース無し」に見えるためです。
+  リースが1件も無いときと、起動からリース期間（12時間）未満のときは見送ります
+  （2026-09-20、再起動後に10件消えた事故の対策。テストは
+  `tests/test_netbox_dhcp_sync.py` の `DeleteGuardTests`）
+- MAC は NetBox 4.x の `interface.mac_address`。Terraform Provider は読み取り専用
+  なので dcim は API（このツール）で管理します
+- **UCI に `config host` を手書きしない。** 生成ファイルと重複すると dnsmasq は
+  「duplicate dhcp-host」で**起動に失敗**します。起動しないときは
+  `ssh root@192.168.10.1 'dnsmasq --test -C /var/etc/dnsmasq.conf.*'`
+- 予約した名前は `host-record`（リース不要）と `dhcp-host`（リース取得後に有効）
+  の両方で書きます。静的 IP の端末も DHCP の端末も `.lan` で引けます
+
+### 定期実行
+
+dev-b の systemd timer が **15分ごとに `ensure → pull → push`** を流します
+（`platform/ansible/netbox-dhcp-sync.yml` とロール `netbox_dhcp_sync`）。
+実行ユーザーは `ruru`（SOPS の age 鍵・ルータへの SSH 鍵・リポジトリを持つ人）。
+
+```bash
+# 配備・更新
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+     .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
+       platform/ansible/netbox-dhcp-sync.yml'
+# 状態とログ
+ssh debian@192.168.10.203 \
+  'sudo systemctl list-timers netbox-dhcp-sync.timer; sudo journalctl -u netbox-dhcp-sync -n 20'
+```
+
+dev-b が止まっている間は同期も止まります（台帳が遅れるだけで壊れません）。
+
 ## 関連
 
 - [IaCの所有境界](../architecture/iac.md)（誰が台帳を書くか）

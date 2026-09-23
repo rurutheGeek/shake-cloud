@@ -23,7 +23,7 @@ iface enp1s0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-        address 192.168.10.126/24
+        address 192.168.10.10/24
         gateway 192.168.10.1
         bridge-ports enp1s0
         bridge-stp off
@@ -94,11 +94,25 @@ iface vmbr1 inet manual
 """
         self.assertEqual(build(interfaces=interfaces)['bridge'], 'vmbr0')
 
-    def test_two_real_bridges_refuse_to_guess(self):
+    def test_a_guest_link_bridge_without_a_host_address_is_not_a_candidate(self):
+        # The router VM's WAN bridge (vmbr1, nic0) has physical ports but no
+        # host address. It is not where the management prefix lives, so adding
+        # it must not make site.yaml refuse to regenerate.
         interfaces = INTERFACES + """
 auto vmbr1
 iface vmbr1 inet manual
-        bridge-ports enp2s0
+        bridge-ports nic0
+"""
+        self.assertEqual(build(interfaces=interfaces)['bridge'], 'vmbr0')
+
+    def test_two_addressed_bridges_refuse_to_guess(self):
+        # Two bridges both claiming to carry the host's address is genuinely
+        # ambiguous; naming them is the honest answer.
+        interfaces = INTERFACES + """
+auto vmbr1
+iface vmbr1 inet static
+        address 10.0.0.1/24
+        bridge-ports nic0
 """
         with self.assertRaises(site.Ambiguous):
             build(interfaces=interfaces)
@@ -134,7 +148,7 @@ class ApiTests(unittest.TestCase):
         'network': [{'iface': 'lo', 'type': 'loopback'},
                     {'iface': 'nic1', 'type': 'eth'},
                     {'iface': 'vmbr0', 'type': 'bridge', 'bridge_ports': 'nic1',
-                     'bridge_vlan_aware': '1', 'cidr': '192.168.10.126/24',
+                     'bridge_vlan_aware': '1', 'cidr': '192.168.10.10/24',
                      'gateway': '192.168.10.1'}],
         'sdn_zones': [],
     }
@@ -145,7 +159,7 @@ class ApiTests(unittest.TestCase):
 
     def test_the_prefix_is_the_network_not_the_host_address(self):
         # Proxmox reports the host's own address; a prefix of
-        # 192.168.10.126/24 would be a ledger entry nobody can allocate from.
+        # 192.168.10.10/24 would be a ledger entry nobody can allocate from.
         self.assertEqual(site.from_api(self.API)['prefix'], '192.168.10.0/24')
 
     def test_the_node_resolvers_win_over_the_gateway_fallback(self):

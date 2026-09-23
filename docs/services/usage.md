@@ -33,6 +33,7 @@ tags:
 | やりたいこと | 開く場所 |
 | --- | --- |
 | サービスを選ぶ | [Homarr](https://homarr.apextox.dpdns.org) |
+| 自宅サーバーとの通信速度を測る | [LibreSpeed](https://speed.apextox.dpdns.org)（[使い方](librespeed.md)） |
 | ファイルを保存・共有する | [Nextcloud](https://nextcloud.apextox.dpdns.org)（[使い方](nextcloud-guide.md)） |
 | 予定・TODOを管理する | Nextcloudの **Calendar / Tasks** |
 | 本・PDFを読む | [Kavita](https://kavita.apextox.dpdns.org) |

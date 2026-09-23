@@ -1,6 +1,6 @@
 ---
 title: 機能別VMと並列開発計画
-updated: 2026-09-13
+updated: 2026-09-16
 section: 開発計画
 audience: 開発者
 tags:
@@ -9,9 +9,9 @@ tags:
 
 # 機能別VMと並列開発計画
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-09-16 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**状態**: 計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter）を配備済み（24/24 targets、UPS取得、通知確認）、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る
+**状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
 作業環境は既存dev-a／dev-bです。[開発参加ガイド](../onboarding.md)から接続し、下のIDから担当する機能を選びます。**W01・A01などの番号は識別用で、優先度や実施順ではありません。** 同じVMへ載せる機能でも独立して着手・完了できるものを別文書にしています。
 
@@ -68,13 +68,14 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | [N03 VLAN切替](N03-vlan.md) | 宣言済み・実機切替待ち | 既存ネットワーク | 切替待ち（人的作業） |
 | [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち |
 | [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | services-01・接続元 | 一部完了 |
+| [N06 ルータ自作（OpenWrt）](N06-router.md) | 実装・切替済み | K11（OpenWrt VM）・既存ルータ | 完了（家庭内ルータとして稼働中。検証と再起動復旧を確認済み） |
 | [I01 容量測定・軽量化](I01-resources.md) | 測定・改善 | 既存ホスト・VM | 一部完了（負荷試験未） |
 | [I02 media-01のVM宣言](I02-media-vm.md) | 新規 | media-01 | 完了 |
 | [I03 クラウドVMのAnsible連携](I03-cloud-inventory.md) | 新規 | 配備用ツール | 完了 |
 | [I04 DNS登録](I04-cloud-dns.md) | 新規 | サービス宣言・DNS | 一部完了（VM連携未） |
 | [I05 サービス用state管理](I05-service-state.md) | 未決事項の具体化 | 既存外部state保存先 | 一部完了（キー投入未） |
 | [I06 AWXのジョブ整備](I06-awx.md) | 既存基盤への設定追加 | 既存Kubernetes | 一部完了（ジョブ未適用） |
-| [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。Homarr連携済み。低電池シャットダウンが残り） |
+| [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了。ダッシュボード拡充が残り） |
 | [O01 管理DBの外部バックアップ](O01-cloud-backup.md) | 既存ローカルバックアップの拡張 | cloud-01・既存外部保存先 | 一部完了（外部保全未） |
 | [O02 CNPGバックアップ](O02-cnpg-backup.md) | 新規 | 既存Kubernetes・Garage・外部保存先 | 一部完了（バックアップ未） |
 | [O03 VM・アプリ状態の復元](O03-restore.md) | 既存手順の拡張・検証 | 対象VM・隔離復元先 | 一部完了（復元合格未） |
@@ -98,7 +99,7 @@ services-01のVM再起動では家電・VPNも停止するため、ラズパイ�
 | A01・A02・A03・A04 | 外部のポケモンAIソース・バックアップはA01の実移行条件。A04は模擬RAG応答で開発し実接続だけA03準備後に確認 |
 | G01・G02・W07とA01–A04 | 設定作成は並行。GPUを同時に負荷試験せず、G03で競合・停止切替を確認。RomMの走査はゲーム・推論と重ねない |
 | H02・H03・H04とH01 | 機種・接続要件は先行調査。家電の実操作はH01と対象機器の準備後 |
-| N01・N02・N03・N04・N05 | 調査・設定を並行。経路・ポート・DNS・TLSを変える実機切替は復旧経路を確認して調整 |
+| N01・N02・N03・N04・N05・N06 | 調査・設定を並行。経路・ポート・DNS・TLSを変える実機切替は復旧経路を確認して調整 |
 | I03・I04・I05・I06 | API模擬応答・宣言・ジョブ設定は並行。対象VM/stateの管理権限と保存先を確認して実機適用 |
 | O01・O02・O03と各アプリ | 復元手順・テストは並行。既存外部保存先の確認と隔離復元合格を本データ切替の条件にする |
 | D01–D08 | 実装・配備から独立して更新。未実施の確認を完了扱いにしない |

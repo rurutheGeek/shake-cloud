@@ -11,6 +11,7 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | `05-seed/` | NetBoxを載せる最初の1台。**NetBoxを使わず静的IP**で作る | `terraform@pve` | 実装済み・適用済み |
 | `10-platform/` | NetBoxの台帳とProxmoxのVM | `terraform@pve` と NetBox書き込みトークン | 実装済み・適用済み |
 | `20-dns/` | LAN の中の名前（`*.apextox.dpdns.org`）を Cloudflare へ書く。アドレスは 10-platform・05-seed の出力から引く | Cloudflare の DNS 編集トークン（`platform/sops/cloudflare-dns.sops.yaml`）。Proxmox は触らない | 実装済み・適用済み |
+| `router/` | 家庭内ルータ `router-01`（OpenWrt VM、2 NIC、起動順1）。NetBox を使わない。イメージは `platform/openwrt/` が作る | `terraform@pve` | 実装済み・適用済み（[手順](../../docs/operations/router.md)） |
 | `modules/managed-host/` | NetBoxのVM＋採番とProxmoxのVMを1組で作る | — | 実装済み |
 | `services/<name>/` | **ホームラボのサービスを載せるクラウドVM**（`cloud` プール、VMID 5000–5999）。`shakecloud` Providerのdev overrideで実行する。基盤VMはここに置かない | ポータルで発行したアクセスキー | media-01・monitor-01 を適用済み（[手順](../../docs/operations/services.md)） |
 
@@ -23,6 +24,7 @@ Proxmox VE と NetBox を宣言的に扱う。所有境界の設計は
 | `tags.yaml` | NetBoxタグとAnsibleグループの対応 |
 | `dns.yaml` | LAN の中の名前と、各ホストの Caddy が中継する先。`20-dns` と Ansible ロール `tls_proxy` が読む |
 | `hosts.yaml` | ホストの宣言。**正本** |
+| `router.yaml` | ルータ VM（`router-01`）の宣言。VMID・サイズ・起動順・NIC の bridge とリンク状態。`router/` が読む |
 
 整合は `tests/test_platform_inventory.py` が検査する。
 

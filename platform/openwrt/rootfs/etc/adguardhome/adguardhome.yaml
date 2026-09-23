@@ -1,0 +1,60 @@
+---
+# router-01 の DNS 窓口。**このファイルが正本**（Image Builder が焼く）。
+#
+# 役割: LAN 端末からの DNS を受け、広告・トラッカーを遮断し、上流は DoH で
+# 暗号化する。ローカル名（*.lan）だけ dnsmasq（127.0.0.1:5353）へ転送する。
+# DHCP は dnsmasq が担当する（AdGuard の DHCP は使わない）。
+#
+# **1語の名前（aterm など）はここを通らない。** AdGuard は末尾一致でしか
+# 転送できないため、ローカル名は `aterm.lan` のように `.lan` を付けて引く。
+# 設計と検証は docs/operations/router-config.md。
+schema_version: 29
+http:
+  # 管理画面はルータの LAN アドレス。**ファイアウォールで services-01（HTTPS
+  # 入口の Caddy）だけに開けてある**（LAN 全体には開けない。SSO を迂回される
+  # ため）。入口は https://adguard.apextox.dpdns.org（Forward Auth）。
+  # SSH トンネルでも開ける: ssh -L 3000:192.168.10.1:3000 root@192.168.10.1
+  address: 192.168.10.1:3000
+  session_ttl: 720h
+# 管理者は初回に UI で作る（localhost のみなので露出しない）。
+users: []
+auth_attempts: 5
+block_auth_min: 15
+dns:
+  bind_hosts:
+    - 0.0.0.0
+    - '::'
+  port: 53
+  # *.lan は dnsmasq（DHCP のリース名・固定名）へ。それ以外は DoH へ。
+  upstream_dns:
+    - '[/lan/]127.0.0.1:5353'
+    - https://dns.cloudflare.com/dns-query
+    - https://dns.google/dns-query
+  # DoH サーバーの名前解決用。システムの DNS に依存しない。
+  bootstrap_dns:
+    - 1.1.1.1
+    - 9.9.9.10
+  # LAN の逆引き（PTR）も dnsmasq へ。
+  local_ptr_upstreams:
+    - 127.0.0.1:5353
+  use_private_ptr_resolvers: true
+  cache_size: 4194304
+filters:
+  # AdGuard DNS filter（広告・トラッカー）
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1
+  # HaGeZi's Pro Blocklist（AdGuard DNS filter の補完。広告・トラッカー・
+  # 計測・テレメトリ）。id は HostlistsRegistry のフィルタ番号に合わせる。
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
+    name: HaGeZi's Pro Blocklist
+    id: 48
+user_rules: []
+querylog:
+  enabled: true
+  interval: 2160h
+statistics:
+  enabled: true
+  interval: 2160h

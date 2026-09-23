@@ -4,12 +4,13 @@ The app is a small custom app: a file action in the Files menu posts the file
 id to Nextcloud, the controller forwards the document to the print API on
 services-01, and that service runs `lp` against the relayed CUPS queue.
 """
-import importlib.util
 import json
 from pathlib import Path
 import unittest
 
 import yaml
+
+from support import load_module, read
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / 'stacks/media/nextcloud/apps/shake_print'
@@ -18,17 +19,6 @@ ROLE = ROOT / 'platform/ansible/roles/cups'
 PLAYBOOK = ROOT / 'platform/ansible/media-nextcloud.yml'
 GROUP_VARS = ROOT / 'platform/ansible/group_vars/media.yml'
 SOPS_EXAMPLE = ROOT / 'platform/sops/print-api.sops.yaml.example'
-
-
-def read(path):
-    return path.read_text(encoding='utf-8')
-
-
-def load_module(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 api = load_module(STACK / 'print_api.py', 'print_api')

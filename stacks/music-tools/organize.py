@@ -201,6 +201,7 @@ class Track:
     composer: str = ''
     date: str = ''
     genre: str = ''
+    comment: str = ''
     tracknumber: str = ''
     discnumber: str = ''
     album_hint: str = ''
@@ -486,7 +487,7 @@ def apply_corrections(tracks, corrections):
         if not fix:
             continue
         for field in ('title', 'artist', 'albumartist', 'album', 'genre', 'date',
-                      'composer'):
+                      'composer', 'comment'):
             value = fix.get(field)
             if value:
                 setattr(track, field, value)
@@ -1027,6 +1028,7 @@ def build_manifest(albums, root):
                 'date': t.date,
                 'genre': t.genre,
                 'composer': t.composer,
+                'comment': t.comment,
                 'tracknumber': str(t.position or ''),
                 'discnumber': str(t.disc or 1),
                 'reason': t.reason,
@@ -1094,19 +1096,26 @@ def command_plan(args):
 
 def write_tags(path, values, backup_dir, relative):
     from mutagen.easyid3 import EasyID3
-    from mutagen.id3 import ID3, ID3NoHeaderError
+    from mutagen.id3 import COMM, ID3, ID3NoHeaderError
+    comment = (values.get('comment') or '').strip()
     try:
         tags = EasyID3(str(path))
     except ID3NoHeaderError:
         tags = EasyID3()
     changes = {}
     for key, value in values.items():
-        if value is None or value == '':
+        if key == 'comment' or value is None or value == '':
             continue
         existing = tags.get(key)
         if existing != [str(value)]:
             changes[key] = str(value)
-    if not changes:
+    try:
+        id3 = ID3(str(path))
+    except ID3NoHeaderError:
+        id3 = ID3()
+    existing_comments = {frame.text[0] for frame in id3.getall('COMM') if frame.text}
+    comment_changed = bool(comment) and comment not in existing_comments
+    if not changes and not comment_changed:
         return False
     backup = Path(backup_dir) / (relative + '.id3')
     backup.parent.mkdir(parents=True, exist_ok=True)
@@ -1115,9 +1124,19 @@ def write_tags(path, values, backup_dir, relative):
             ID3(str(path)).save(str(backup))
         except ID3NoHeaderError:
             backup.with_suffix('.no-id3').touch()
-    for key, value in changes.items():
-        tags[key] = value
-    tags.save(str(path))
+    if changes:
+        for key, value in changes.items():
+            tags[key] = value
+        tags.save(str(path))
+    if comment_changed:
+        # EasyID3 は comment を扱えないため COMM フレームを直接書く。
+        try:
+            id3 = ID3(str(path))
+        except ID3NoHeaderError:
+            id3 = ID3()
+        id3.delall('COMM')
+        id3.add(COMM(encoding=3, lang='jpn', desc='', text=comment))
+        id3.save(str(path))
     os.utime(path, None)
     return True
 
@@ -1145,6 +1164,7 @@ def command_apply(args):
                       'album': track['album'], 'albumartist': track['albumartist'],
                       'date': track['date'], 'genre': track['genre'],
                       'composer': track.get('composer', ''),
+                      'comment': track.get('comment', ''),
                       'tracknumber': track['tracknumber'],
                       'discnumber': track['discnumber']}
             try:
@@ -1166,6 +1186,16 @@ def command_apply(args):
                      'target': str(target.relative_to(root))})
                 counts['moved'] += 1
                 moved_dirs.add(str(Path(track['source']).parent))
+                sidecar = source.with_suffix('.lrc')
+                if sidecar.exists():
+                    sidecar_target = target.with_suffix('.lrc')
+                    if not sidecar_target.exists():
+                        os.replace(sidecar, sidecar_target)
+                        journal['entries'].append(
+                            {'type': 'sidecar',
+                             'source': str(sidecar.relative_to(root)),
+                             'target': str(sidecar_target.relative_to(root))})
+                        counts['sidecar'] += 1
             else:
                 counts['kept'] += 1
         if album_dir.is_dir() and not existing_cover(album_dir):
@@ -1235,6 +1265,13 @@ def command_undo(args):
                 source.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(target, source)
                 counts['moved_back'] += 1
+        elif kind == 'sidecar':
+            source = root / entry['source']
+            target = root / entry['target']
+            if target.exists():
+                source.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(target, source)
+                counts['sidecar_back'] += 1
         elif kind == 'tags':
             source = root / entry['source']
             backup = state / 'tag-backups' / (entry['source'] + '.id3')

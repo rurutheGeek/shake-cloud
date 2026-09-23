@@ -1,0 +1,57 @@
+---
+# ホスト・ゲスト共通の寿命対策。すべて再実行は changed=0 になる。
+- name: Ensure the journald drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Cap the systemd journal
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/20-storage-health.conf
+    content: |
+      # Managed by platform/ansible/roles/storage_health. Do not edit on the host.
+      [Journal]
+      SystemMaxUse={{ storage_health_journald_max_use }}
+      SystemKeepFree={{ storage_health_journald_keep_free }}
+    mode: '0644'
+  notify: Restart systemd-journald
+
+- name: Read the root filesystem's mount options
+  ansible.builtin.command:
+    argv: [findmnt, -n, -o, OPTIONS, /]
+  register: storage_health_root_options
+  changed_when: false
+
+- name: Add noatime to the root filesystem in fstab
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '(?m)^(\S+\s+/\s+ext4\s+)(?!noatime)(\S+)'
+    replace: '\1noatime,\2'
+  when:
+    - storage_health_root_noatime | bool
+    - "'noatime' not in storage_health_root_options.stdout"
+  register: storage_health_fstab
+
+- name: Remount the root filesystem with noatime
+  ansible.builtin.command:
+    argv: [mount, -o, remount, /]
+  when: storage_health_fstab is changed
+  changed_when: true
+
+- name: Look for Docker
+  ansible.builtin.stat:
+    path: /usr/bin/docker
+  register: storage_health_docker
+
+- name: Cap the container logs
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {"max-size": "{{ storage_health_docker_log_max_size }}", "max-file": "{{ storage_health_docker_log_max_file }}"}
+      }
+    mode: '0644'
+  when: storage_health_docker.stat.exists
+  notify: Restart Docker to apply the log limits

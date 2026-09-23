@@ -1,0 +1,12 @@
+---
+# LibreSpeed（端末 ↔ services-01 の実効速度）を services-01 へ配備する。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/librespeed.yml
+- name: Deploy LibreSpeed
+  hosts: netbox_bootstrap
+  become: true
+  roles:
+    - docker
+    # 先に HTTPS の入口を作る。最後の確認は公開名で 200 を見る。
+    - tls_proxy
+    - librespeed

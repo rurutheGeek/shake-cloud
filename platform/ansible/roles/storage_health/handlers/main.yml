@@ -1,0 +1,13 @@
+---
+- name: Restart systemd-journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted
+
+# デーモンが daemon.json を読むために要る。既存コンテナのログ設定は
+# 次に再作成されたときから変わる（再起動だけでは変わらない）。
+- name: Restart Docker to apply the log limits
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  when: storage_health_restart_docker | bool

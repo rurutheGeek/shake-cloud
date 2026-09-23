@@ -50,6 +50,9 @@ HOME_ASSISTANT_REDIRECT_PATH = '/auth/oidc/callback'
 # proxies, so it goes through Forward Auth too; printing itself stays on the
 # plain IPP port (631) and the /admin paths are blocked at the proxy.
 CUPS = 'cups'
+# AdGuard Home runs on the router. Only its browser UI goes through SSO; the
+# router's firewall allows :3000 just from services-01 (where Caddy runs).
+ADGUARD = 'adguard'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -692,6 +695,27 @@ def configure_cups(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'CUPS forward-auth provider')
 
 
+def configure_adguard(api, groups, flows, portal_url):
+    """Reconcile the AdGuard Home UI: Forward Auth provider, access, outpost."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, ADGUARD, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{ADGUARD}.{zone}',
+    })
+    application = ensure_application(api, ADGUARD, {
+        'name': 'AdGuard Home', 'slug': ADGUARD, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{ADGUARD}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['users']['pk']):
+        print(f'CHANGED: users may use {ADGUARD}')
+    else:
+        print(f'OK: users may use {ADGUARD}')
+    ensure_outpost(api, [provider['pk']], zone, 'AdGuard forward-auth provider')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -757,6 +781,7 @@ def main():
     configure_vaultwarden(api, groups, flows, mappings, keys[0], portal_url)
     configure_home_assistant(api, groups, flows, mappings, keys[0], portal_url)
     configure_cups(api, groups, flows, portal_url)
+    configure_adguard(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

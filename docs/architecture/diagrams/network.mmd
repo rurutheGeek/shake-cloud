@@ -1,0 +1,37 @@
+flowchart TB
+  internet["インターネット<br/>IPv6（v6プラス・MAP-E）・IPv4"]
+  onu["ONU"]
+  remote["宅外の端末"]
+
+  subgraph k11["K11（apextox / Proxmox VE）"]
+    subgraph router["router-01（OpenWrt VM）"]
+      adguard["AdGuard Home<br/>192.168.10.1:53<br/>広告遮断・DoH"]
+      dnsmasq["dnsmasq<br/>127.0.0.1:5353<br/>DHCP・*.lan"]
+      mape["MAP-E・ndppd<br/>IPv6中継・NDP代理"]
+    end
+    subgraph lan["LAN の端末（192.168.10.0/24）"]
+      wifi["Wi-Fi 端末"]
+      wired["有線端末"]
+      vms["各VM<br/>services-01・media-01・monitor-01<br/>game1・k8s・dev-a/b"]
+    end
+    caddy["各VMのCaddy<br/>HTTPS入口（Let's Encrypt）"]
+    authentik["Authentik（identity）<br/>SSO・Forward Auth"]
+    netbox["NetBox（services-01）<br/>予約・リースの台帳"]
+  end
+  switch["TL-SG605（スイッチ）"]
+  aterm["Aterm（APモード）"]
+
+  internet --> onu --> router
+  router --> switch
+  switch --> aterm --> wifi
+  switch --> wired
+  switch --> vms
+  lan -- "DNS（:53）" --> adguard
+  lan -- "DHCP" --> dnsmasq
+  adguard -- "*.lan" --> dnsmasq
+  adguard -- "外部ドメイン（DoH）" --> internet
+  netbox -. "予約を配る（pull）" .-> dnsmasq
+  dnsmasq -. "リースを書く（push）" .-> netbox
+  remote -. "Tailscale（net-01）" .-> switch
+  vms --> caddy
+  caddy -. "認証" .-> authentik

@@ -1,0 +1,7 @@
+# 6TB USB HDD の共有。正本は platform/ansible/roles/pve_bulk_storage。
+# all_squash はゲスト側の uid に関係なく anonuid で読み書きする。
+# root_squash だけだと root で動くコンテナ（Kavita など）が 2750 の
+# ディレクトリを読めない。設計は docs/operations/bulk-storage.md。
+{% for export in pve_bulk_storage_exports %}
+{{ export.path }} {{ export.clients }}({{ export.options }})
+{% endfor %}

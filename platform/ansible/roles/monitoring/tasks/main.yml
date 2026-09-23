@@ -47,7 +47,7 @@
     - {key: GRAFANA_OIDC_ENABLED, value: 'true'}
     - {key: PVE_USER, value: 'monitoring@pve'}
     - {key: PVE_TOKEN_NAME, value: 'monitoring'}
-    - {key: NUT_SERVER, value: '192.168.10.126'}
+    - {key: NUT_SERVER, value: '192.168.10.10'}
     - {key: NUT_USERNAME, value: 'monitor'}
 
 # SMTP は identity と同じ smtp.sops.yaml。無ければ通知だけが無効になる。
@@ -67,6 +67,7 @@
     line: '{{ item }}={{ (monitoring_smtp.stdout | from_json)[item] | default("") }}'
     mode: '0600'
   loop: '{{ monitoring_smtp_keys }}'
+  register: monitoring_smtp_env
   no_log: true
 
 - name: Point alerts at the notification mailbox
@@ -75,6 +76,7 @@
     regexp: '^ALERT_EMAIL='
     line: 'ALERT_EMAIL={{ (monitoring_smtp.stdout | from_json).SMTP_FROM | default("") }}'
     mode: '0600'
+  register: monitoring_alert_email
   no_log: true
 
 - name: Create the secrets directory
@@ -114,6 +116,26 @@
     dest: '{{ monitoring_project_dir }}/secrets/nut_password'
     mode: '0400'
   register: monitoring_nut_password
+  no_log: true
+
+# Prometheus は nobody で動くため、bind mount するトークンは 0444 にする
+# （ホスト側の secrets/ は 0700 root なので外へは出ない）。
+- name: Install the game metrics scrape token
+  ansible.builtin.copy:
+    content: '{{ (monitoring_secrets.stdout | from_json).GAME_METRICS_TOKEN }}'
+    dest: '{{ monitoring_project_dir }}/secrets/game_metrics_token'
+    mode: '0444'
+  register: monitoring_game_token
+  no_log: true
+
+# 空なら Watchdog は Alertmanager 内で完結し、外向きの通知はしない。
+- name: Point the dead man's switch at the external check
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^WATCHDOG_PING_URL='
+    line: 'WATCHDOG_PING_URL={{ (monitoring_secrets.stdout | from_json).WATCHDOG_PING_URL | default("") }}'
+    mode: '0600'
+  register: monitoring_watchdog
   no_log: true
 
 - name: Read the Grafana OIDC client credentials on the identity VM
@@ -171,7 +193,12 @@
     argv: [python3, manage.py, reload]
     chdir: '{{ monitoring_project_dir }}'
   changed_when: true
-  when: monitoring_stack_files is changed
+  when: >-
+    monitoring_stack_files is changed
+    or monitoring_smtp_env is changed
+    or monitoring_alert_email is changed
+    or monitoring_watchdog is changed
+    or monitoring_game_token is changed
 
 - name: Wait for the public Grafana entry point
   ansible.builtin.uri:

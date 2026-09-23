@@ -1,6 +1,6 @@
 ---
 title: ホームラボの全体像（詳細）
-updated: 2026-09-18
+updated: 2026-09-21
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,8 +10,7 @@ tags:
 
 # ホームラボの全体像（詳細）
 
-> **更新日** 2026-09-18 ・ **区分** 設計 ・ **読む人** 管理者・開発者
-
+> **更新日** 2026-09-21 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -29,9 +28,12 @@ tags:
 
 ```mermaid
 flowchart TB
-  devices["家庭内LANの端末"]
+  internet["インターネット<br/>IPv6（v6プラス・MAP-E）"]
+  devices["家庭内LANの端末（有線・Wi-Fi）"]
+  remote["宅外の端末（Tailscale）"]
 
   subgraph host["物理ホスト apextox（Proxmox VE）"]
+    router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS（AdGuard Home）"]
     subgraph infra["基盤VM platform プール"]
       identity["identity<br/>共通ログイン"]
       cloud01["cloud-01<br/>自作クラウド"]
@@ -43,9 +45,21 @@ flowchart TB
       media["media-01<br/>メディア"]
       monitor["monitor-01<br/>監視"]
       game["game1<br/>ゲーム・AI（GPU）"]
+      net01["net-01<br/>Tailscale 復旧経路"]
     end
   end
+  switch["TL-SG605"]
+  aterm["Aterm（APモード）"]
 
+  internet --> router
+  router --> switch
+  switch --> aterm --> devices
+  switch --> services01
+  switch --> media
+  switch --> monitor
+  switch --> game
+  remote -. Tailscale .-> net01
+  net01 -. 復旧経路 .-> switch
   devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
   devices --> media
   devices --> monitor
@@ -54,18 +68,20 @@ flowchart TB
   services01 --> storage
   media --> storage
   monitor --> k8s
+  router -. "IP台帳（予約・リース）" .-> services01
 ```
 
 | 役割 | VM（プール） | 配分（計画。実機は台帳） | 中身 |
 | --- | --- | --- | --- |
 | 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
+| ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
 | 共通ログイン | identity（platform） | 2 / 4GiB / 32GiB | Authentik。SSO・招待・復旧 |
 | 自作クラウド | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル |
-| 台帳・docs・パスワード・家電 | services-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | NetBox・Shake Lab Docs・Homarr・Vaultwarden・Home Assistant・Eufy中継・CUPS |
+| 台帳・docs・パスワード・家電 | services-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | NetBox・Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・Home Assistant・Eufy中継・CUPS |
 | S3・バックアップ | storage-s3（platform） | 2 / 1GiB / OS16＋データ32GiB | Garage（S3互換） |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana |
+| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
 | 復旧経路 | net-01（cloud） | 1 / 512MiB / OS10GiB | Tailscale subnet router。宅外から管理LANへ（N02） |
 | 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
@@ -73,6 +89,8 @@ flowchart TB
 | 利用者VM（例） | win11pro（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
 VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
+
+**ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](network-auth.md)、設定は[router-01の設定まとめ](../operations/router-config.md)。**
 
 ## 2. 自作しているもの（OSSとの分担）
 
@@ -125,14 +143,14 @@ flowchart TB
   netbox --> shake
 ```
 
-| 項目 | 実測（2026-09-12、I01） |
+| 項目 | 実測（2026-09-12、I01。VM割当は2026-09-17再測） |
 | --- | --- |
 | CPU | Ryzen 9 8945HS、8コア/16スレッド |
 | RAM | Proxmoxの認識で 59.7GiB（64GB公称からファーム・iGPU予約を引いた値） |
 | SSD | CT1000E100SSD8 1TB。SMART PASSED、Percentage Used 0% |
 | VMディスク | `local-lvm` 794.3GiBのうち使用 226.7GiB（29%）。シンプロビジョニング |
 | イメージ・ISO置き場 | `local` / `cloud-images` 約94GiBのうち使用 22.0GiB |
-| 稼働中VMの割当合計 | 35.1GiB。ホストの空き 25.4GiB |
+| 稼働中VMの割当合計 | 43.6GiB（稼働11台、2026-09-17再測）。ホストの実空き 12GiB |
 
 **GPUは game1 へパススルー**しており、ゲーム配信と将来のローカルAI・RAGで共有します（§10）。停止中も含めた全VMの割当合計は物理RAMを超えるため、全台同時起動はできません。メモリはバルーニングを前提に「ノードに4GiB残す」「ディスク実使用率85%で断る」の2つでホストを守ります。
 
@@ -143,7 +161,7 @@ flowchart LR
   user["利用者"]
   ak["Authentik<br/>identity・VMID 110"]
   oidc["OIDCアプリ<br/>クラウド・Homarr・Grafana・<br/>Nextcloud・Kavita・FreshRSSなど"]
-  forward["Forward Auth<br/>Navidrome・MeTube・CUPS"]
+  forward["Forward Auth<br/>Navidrome・MeTube・KHInsider・CUPS・AdGuard Home"]
   passkey["パスキー・Email OTP<br/>パスワード再設定"]
 
   user --> ak
@@ -164,7 +182,7 @@ Authentik（既製）を identity VM に置き、**その設定を自作コー�
 | クラウド・Homarr・Grafana・Vaultwarden・NetBox | OIDC |
 | Home Assistant | OIDC（community統合。緊急用ローカルも残す） |
 | Nextcloud・Kavita・FreshRSS | 各アプリのOIDC |
-| Navidrome・MeTube・CUPS | Forward Auth（APIは自前認証を分離） |
+| Navidrome・MeTube・KHInsider・CUPS・AdGuard Home | Forward Auth（APIは自前認証を分離） |
 
 ## 5. 自作クラウド shakecloud（cloud-01）
 
@@ -224,6 +242,7 @@ flowchart LR
   docs["Shake Lab Docs<br/>nginx"]
   homarr["Homarr<br/>入口ダッシュボード"]
   vault["Vaultwarden"]
+  speed["LibreSpeed<br/>速度テスト"]
   ha["Home Assistant"]
   eufy["eufy-security-ws"]
   cups["CUPS・print-api"]
@@ -232,6 +251,7 @@ flowchart LR
   caddy --> docs
   caddy --> homarr
   caddy --> vault
+  caddy --> speed
   caddy --> ha
   caddy --> cups
   ha --> eufy
@@ -245,6 +265,7 @@ services-01 は「家の台帳と道具」を置くVMです。サービスは別
 | Shake Lab Docs | この文書サイト。原稿はGitの `docs/` が正本で、Ansibleが `mkdocs --strict` で配備 | なし（LAN内） |
 | Homarr | サービスの入口ダッシュボード。タイルと権限をコードから冪等反映 | OIDC（閲覧 `users`・編集 `admins`） |
 | Vaultwarden | パスワード管理。一般登録と組織招待は無効 | OIDC（マスターパスワードは別） |
+| LibreSpeed | 端末↔services-01の実効速度テスト。履歴はSQLiteに保存 | なし（LAN内。統計ページはパスワード） |
 | Home Assistant | 家電の操作・自動化 | OIDC＋緊急用ローカル（§8） |
 | eufy-security-ws | EufyクラウドとHAをつなぐWebSocket中継。LAN非公開 | HAのComposeネットワーク内だけ |
 | CUPS・print-api | Canon TS8430への印刷と、Nextcloudの「印刷」を受ける自作API | 端末はIPP、`/admin` は入口で拒否 |
@@ -330,30 +351,37 @@ flowchart LR
 flowchart LR
   pve["Proxmoxホスト<br/>pve-exporter"]
   ups["UPS<br/>nut-exporter"]
-  vm["各VM<br/>node-exporter"]
-  https["HTTPS名<br/>blackbox"]
+  vm["各VM 5台<br/>node-exporter"]
+  https["HTTPS名 20件<br/>blackbox"]
   prom["Prometheus<br/>monitor-01"]
   alert["Alertmanager<br/>メール通知"]
   grafana["Grafana<br/>OIDC"]
   peanut["PeaNUT<br/>HomarrのUPS表示"]
+  deadman["healthchecks.io<br/>dead man's switch"]
+  hoststop["k8s worker → cp<br/>→ ホスト停止"]
 
   pve --> prom
   ups --> prom
   vm --> prom
   https --> prom
   prom --> alert
+  alert --> deadman
   prom --> grafana
   ups --> peanut
+  ups --> hoststop
 ```
 
-監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。
+監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
 
 | 見るもの | 方法 |
 | --- | --- |
-| ProxmoxホストとVM | pve-exporter・node-exporter |
-| UPS | nut-exporter。低電池時のシャットダウンは残作業 |
-| HTTPS名 | blackboxが各名前の疎通と証明書を確認（全24ターゲットup・メール通知1通を実機確認） |
-| Homarr連携 | PeaNUTのUPS表示は残作業 |
+| ProxmoxホストとVM | pve-exporter、VM内は node-exporter（5台） |
+| UPS | nut-exporter。低電池時は upsmon が **k8s worker → control plane → ホスト** の順で停止（猶予60秒。2026-09-16実装） |
+| HTTPS名 | blackboxが疎通と証明書を確認。ログイン用のリダイレクト（302）や401/403は「生きている」とみなす |
+| ノード資源 | ディスク空き15%未満・空きメモリ10%未満・OOM kill・systemd unit failed・計画外再起動 |
+| バックアップ | 管理DBの最終成功時刻をメトリクス化（`backup_last_success_timestamp_seconds`）。36時間の停滞と欠測そのものを通知 |
+| 通知 | AlertmanagerがGmailでメール。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
+| Homarr連携 | 実装済み。Proxmox連携のSystem HealthとPeaNUT経由のUPSウィジェット |
 
 ## 10. ゲームとAI（game1・GPUパススルー）
 
@@ -455,7 +483,7 @@ flowchart LR
 | S3互換ストレージ | Garageをstorage-s3に単一ノードで | **冗長性なし。唯一の保存先・唯一のバックアップにしない** |
 | Terraform state | Cloudflare R2 | stateには秘密値が入り得るためGitへ入れない |
 | メディア原本 | media-01のデータディスク。`storage/`（設定・DB）と `library/`（books・music・docs・inbox） | volumeは `prevent_destroy`。アプリのバックアップに原本は含まない |
-| 管理DB | cloud-01で毎日バックアップ（14世代） | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
+| 管理DB | cloud-01で毎日バックアップ（14世代）。最終成功時刻をメトリクス化し36時間停滞でアラート | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
 | 利用者DB | CloudNativePG | バックアップは未整備 |
 | アプリ状態 | 各スタックの `manage.py backup` がサービスを止めて取得 | 復元は空のディレクトリへ。外部保全先の確定が前提 |
 
@@ -528,16 +556,16 @@ flowchart LR
 | VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
 | 復旧用Tailscale | **subnet router `net-01` を作成しTailscaleへ参加済み（2026-09-14、`100.91.7.69`）**。ルート承認・ACL・宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
 | VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
-| 管理DBの外部バックアップ | ローカルに14世代。外部コピーなし | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)） |
+| 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
+| メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |
 | CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](../development/O02-cnpg-backup.md)） |
 | 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](../development/O03-restore.md)） |
-| 監視（M01） | Prometheus・Grafana・exporterは稼働 | 低電池シャットダウンとダッシュボード拡充、Homarr連携（[M01](../development/M01-monitoring.md)） |
+| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・低電池停止・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了 | 外部監視の冗長化（別電源のラズパイ）（[M01](../development/M01-monitoring.md)） |
 | メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](../development/W06-music-tools.md)） |
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](../development/H01-home-assistant.md)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](../operations/kubernetes.md)） |
 | 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](../development/N04-public-edge.md)） |
-| DHCP範囲の重なり | クラウド用レンジがルーターの配布範囲と重複 | VMを増やす前にルーター側を除外するかレンジを移す |
-| タイムゾーン | 宣言はUTC、実機は手動でJST | `common` ロールの既定を直してから配備しないとUTCへ戻る |
+| タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-bは未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ
 

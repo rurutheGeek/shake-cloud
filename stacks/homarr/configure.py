@@ -3,8 +3,10 @@
 
 Runs on services-01 against the local Homarr. The first run finishes Homarr's
 onboarding with the generated local administrator; later runs log in with the
-same account. Reapplying never deletes or moves a tile, so board edits made in
-the UI survive; only the apps listed in apps.json are created or updated.
+same account. apps.json is the source of truth for the board's app tiles:
+declared apps are created or updated in place, and tiles that apps.json no
+longer declares are removed. Tile positions, integration widgets and the app
+records themselves are left alone.
 """
 import html
 import http.cookiejar
@@ -135,6 +137,28 @@ class Homarr:
             raise RuntimeError('Homarr authentication failed')
 
 
+def prune_unmanaged(homarr, board, managed_app_ids):
+    """Remove app tiles that apps.json no longer declares.
+
+    The API has no per-item delete, so saveBoard is called with the unmanaged
+    items filtered out; it deletes whatever the payload is missing. Widget
+    items (kind != 'app') and the app records themselves are kept, so a removed
+    tile can come back by declaring it in apps.json again.
+    """
+    current = homarr.trpc('board.getBoardByName', {'name': board['name']})
+    items = current.get('items', [])
+    kept = [item for item in items
+            if item.get('kind') != 'app' or item_app_id(item) in managed_app_ids]
+    if len(kept) == len(items):
+        return 0
+    homarr.trpc('board.saveBoard', {
+        'id': board['id'],
+        'sections': current.get('sections', []),
+        'items': kept,
+    }, post=True)
+    return len(items) - len(kept)
+
+
 def configure(homarr, options):
     """Bring the board and its permissions to the declared state.
 
@@ -151,7 +175,8 @@ def configure(homarr, options):
     if board is None:
         board = {'id': homarr.trpc('board.createBoard',
                                    {'name': options['board'], 'columnCount': 8,
-                                    'isPublic': False}, post=True)['boardId']}
+                                    'isPublic': False}, post=True)['boardId'],
+                 'name': options['board']}
     homarr.trpc('board.savePartialBoardSettings',
                 {'id': board['id'], 'pageTitle': options['title'],
                  'metaTitle': options['title'], 'disableStatus': False}, post=True)
@@ -161,6 +186,7 @@ def configure(homarr, options):
     by_href = {row.get('href'): row for row in known.values() if row.get('href')}
     current = homarr.trpc('board.getBoardByName', {'name': options['board']})
     existing = current.get('items', [])
+    managed = set()
     for row in load_apps(options['apps_file']):
         data = {key: row[key] for key in ('name', 'description', 'href') if key in row}
         data.update(iconUrl=row.get('iconUrl') or icon_data_uri(
@@ -173,9 +199,11 @@ def configure(homarr, options):
             homarr.trpc('app.update', {**data, 'id': app_id}, post=True)
         else:
             app_id = homarr.trpc('app.create', data, post=True)['appId']
+        managed.add(app_id)
         if not any(item_app_id(item) == app_id for item in existing):
             homarr.trpc('board.addItem',
                         {'boardId': board['id'], 'kind': 'app', 'options': {'appId': app_id}}, post=True)
+    removed = prune_unmanaged(homarr, board, managed)
 
     groups = homarr.trpc('group.getAll')
     everyone = next(row for row in groups if row['name'] == 'everyone')
@@ -198,7 +226,7 @@ def configure(homarr, options):
                         {'principalId': admin['id'], 'permission': 'modify'}],
     }, post=True)
     print(f"Homarr board '{options['board']}' reconciled "
-          f"({len(existing)} items before, {len(known)} apps known)")
+          f"({len(existing)} items before, {len(known)} apps known, {removed} tiles removed)")
 
 
 def main():

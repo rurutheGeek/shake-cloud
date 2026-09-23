@@ -1,0 +1,155 @@
+---
+# NetBox に登録する物理機器。**このファイルが正本**。
+#
+# tools/netbox-dhcp-sync.py の `ensure` が NetBox の dcim（機器・インターフェース・
+# reserved な IPAddress）をここへ合わせ、`pull` が reserved の IP を dnsmasq の
+# 予約（dhcp-host）へ変換してルータへ反映する。
+#
+# **IP を変えるときはここを直して `ensure` → `pull` を流す。** ルータの UCI や
+# NetBox の画面を直接編集しない（正本が二つになる）。
+#
+# MAC は NetBox 4.x の interface.mac_address に入れる。Terraform Provider は
+# この項目を読み取り専用で持つため、dcim は API で管理する（docs/operations/netbox.md）。
+site: Homelab
+
+roles:
+  - {name: Access Point, slug: access-point, color_hex: 00a0d2}
+  - {name: Server, slug: server, color_hex: 00c000}
+  - {name: Printer, slug: printer, color_hex: ffa000}
+  - {name: Hypervisor, slug: hypervisor, color_hex: 8000ff}
+  - {name: Client, slug: client, color_hex: 808080}
+
+manufacturers:
+  - {name: NEC Platforms, slug: nec-platforms}
+  - {name: Raspberry Pi Foundation, slug: raspberry-pi-foundation}
+  - {name: Canon, slug: canon}
+  - {name: Generic, slug: generic}
+
+device_types:
+  - {manufacturer: NEC Platforms, model: Aterm WG1200HP4, slug: aterm-wg1200hp4}
+  - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 4, slug: raspberry-pi-4}
+  - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 5, slug: raspberry-pi-5}
+  - {manufacturer: Canon, model: TS8430, slug: canon-ts8430}
+  - {manufacturer: Generic, model: Mini PC, slug: mini-pc}
+  - {manufacturer: Generic, model: Client Device, slug: client-device}
+
+devices:
+  - name: aterm
+    device_type: Aterm WG1200HP4
+    role: Access Point
+    description: Aterm WG1200HP4（AP モード・Wi-Fi 専用）
+    interface: {name: lan, type: 1000base-t, mac: '80:22:a7:8f:27:80'}
+    address: 192.168.10.2/24
+    dns_name: aterm
+
+  - name: apextox
+    device_type: Mini PC
+    role: Hypervisor
+    description: Proxmox ホスト（K11）。vmbr0 の MAC は nic1 のもの
+    interface: {name: vmbr0, type: bridge, mac: 'c8:ff:bf:0d:fd:6d'}
+    address: 192.168.10.10/24
+    dns_name: apextox
+
+  - name: tarakoserver
+    device_type: Raspberry Pi 4
+    role: Server
+    description: Raspberry Pi 4
+    interface: {name: eth0, type: 1000base-t, mac: 'e4:5f:01:f2:b8:dc'}
+    address: 192.168.10.11/24
+    dns_name: tarakoserver
+
+  - name: shakeserver
+    device_type: Raspberry Pi 5
+    role: Server
+    description: Raspberry Pi 5
+    interface: {name: eth0, type: 1000base-t, mac: '2c:cf:67:2c:e3:4d'}
+    address: 192.168.10.12/24
+    dns_name: shakeserver
+
+  - name: printer
+    device_type: TS8430
+    role: Printer
+    description: Canon TS8430（Wi-Fi 接続）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'f8:a2:6d:a5:e9:fb'}
+    address: 192.168.10.3/24
+    dns_name: printer
+
+# DHCP プール内（.20〜.99）で **静的 IP を使う端末**。
+# リースを取らないので push では台帳に載らない。ここに宣言して reserved に
+# することで、dnsmasq が同じ IP を他の端末へ配るのを防ぐ（衝突対策）。
+# `tools/netbox-dhcp-sync.py discover` が未宣言の機器を見つける。
+  - name: redmi-pad-se-8-7
+    device_type: Client Device
+    role: Client
+    description: Redmi Pad SE 8.7（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'ee:42:3b:45:5e:9d'}
+    address: 192.168.10.33/24
+    dns_name: redmi-pad-se-8-7
+
+  - name: unknown-43
+    device_type: Client Device
+    role: Client
+    description: 未識別（Hon Hai 製。分かったら名前を直す）
+    interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:af:f0:33'}
+    address: 192.168.10.43/24
+    dns_name: unknown-43
+
+  - name: su3
+    device_type: Client Device
+    role: Client
+    description: PC（su3）
+    interface: {name: eth0, type: 1000base-t, mac: '10:a5:1d:32:5e:ec'}
+    address: 192.168.10.45/24
+    dns_name: su3
+
+  - name: alexa
+    device_type: Client Device
+    role: Client
+    description: Amazon Echo（Alexa。旧 .44 から .46 へ）
+    interface: {name: wlan0, type: ieee802.11ac, mac: '4c:ef:c0:58:ea:66'}
+    address: 192.168.10.46/24
+    dns_name: alexa
+
+  - name: unknown-84
+    device_type: Client Device
+    role: Client
+    description: 未識別（Hon Hai 製。分かったら名前を直す）
+    interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:fa:6c:7d'}
+    address: 192.168.10.84/24
+    dns_name: unknown-84
+
+  - name: persothegeek
+    device_type: Client Device
+    role: Client
+    description: PC（persothegeek）
+    interface: {name: eth0, type: 1000base-t, mac: '98:43:fa:9b:fa:1e'}
+    address: 192.168.10.85/24
+    dns_name: persothegeek
+
+  - name: ouchithegeek
+    device_type: Client Device
+    role: Client
+    description: PC（ouchithegeek）
+    interface: {name: eth0, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
+    address: 192.168.10.97/24
+    dns_name: ouchithegeek
+
+  - name: eufycam-s4
+    device_type: Client Device
+    role: Client
+    description: Eufy カメラ（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: '2c:8d:48:2c:5a:33'}
+    address: 192.168.10.98/24
+    dns_name: eufycam-s4
+
+  - name: switchbot-hubmini-ca2a09
+    device_type: Client Device
+    role: Client
+    description: SwitchBot Hub Mini（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'a8:48:fa:ca:2a:09'}
+    address: 192.168.10.99/24
+    dns_name: switchbot-hubmini-ca2a09
+
+# 固定IPは持たないが、名前だけ付けたい DHCP クライアント（いまは空）。
+# 固定IPを持たせる場合は上の devices に書く（reserved として dnsmasq へ入る）。
+clients: []

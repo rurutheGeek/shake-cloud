@@ -1,0 +1,15 @@
+---
+# Proxmoxホストの6TB USB HDDをext4でマウントし、media-01とgame1へNFS共有する。
+# 初回だけディスクを初期化する（既存データは消える）。
+#
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/pve.ini \
+#       -e pve_bulk_storage_initialize=true \
+#       platform/ansible/pve-bulk-storage.yml
+#
+# 再実行は changed=0。設計と手順は docs/operations/bulk-storage.md。
+- name: Bulk storage on the Proxmox host
+  hosts: pve
+  become: true
+  roles:
+    - pve_bulk_storage

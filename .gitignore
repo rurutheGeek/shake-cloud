@@ -67,3 +67,8 @@ platform/sops/*
 /cloud/cli/shakecloud
 /cloud/provider/provider
 /cloud/provider/terraform-provider-shakecloud
+
+# ルータ用 OpenWrt イメージのビルド作業場所と成果物。宣言は openwrt.yaml で、
+# dist/ は build.sh が再生成する。Terraform の router モジュールが取り込む。
+platform/openwrt/.build/
+platform/openwrt/dist/

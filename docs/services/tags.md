@@ -47,13 +47,17 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 | --- | --- | --- |
 | `organize.py` | 整理・タグ・カバー・undo | plan/apply/undo。`--corrections`で個別上書き |
 | `make-review-html.py` | 全曲アルバム確認HTML | コメント入力→CSV出力。`https://navidrome.apextox.dpdns.org/review/`（SSO）で閲覧 |
+| `make-cover-review.py` | アルバム画像チェックHTML | 画像＋アルバム情報を並べて指摘→CSV出力。`/review/covers.html` |
 | `lyrics.py` | 歌詞（`.lrc`）取得 | LRCLIB。既存`.lrc`は保持。曲名のみ検索も試す |
 | `genres.py` / `genres-album.py` | ジャンル推定・アルバム単位で統一 | 既存タグ優先＋キーワード |
 | `composers.py` | 作曲者（TCOM）補完 | Soundtrack/Game/Classicalはアルバムアーティスト＝作曲者 |
 | `strip-embedded-art.py` | 埋め込みAPIC削除 | 画像は `storage/convert/organize/apic-backups/` に保存 |
+| `strip-itunes-comments.py` | iTunesの`iTunSMPB`コメント削除 | コメント欄に出る謎の16進数を除去。バックアップは `storage/convert/organize/itunes-backups/` |
 | `edit-tags.py` | JSONマニフェスト式のタグ編集 | 旧来の一括編集 |
 
 自動ツールは `plan --no-lookup --corrections <出力JSON>` → `apply` の順で反映するのが基本です（ジャンル/作曲者/歌詞も同様）。歌詞は `.lrc` を直接置くため、実行後にNavidrome/Nextcloudのスキャンが必要です。
+
+レビューCSVのコメント欄は自由記入です。1セルに複数の指示（曲名＋作曲者＋「アルバム未収録」など）を混ぜると誤適用の原因になります（2026-09-18、コメントの指示文がそのままアルバム名等になる644件を修正）。
 
 ## ジャンルの方針
 
@@ -78,9 +82,10 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 ## タグ付け方針（迷ったときの基準）
 
 - **曲名 (title)**: 原題を優先（日本語があれば日本語）。`feat.` や `〜` はそのまま。ゲーム曲で曲名から分からない場合は**コメント**に「vs ○○」などを書く
-- **アーティスト (artist)**: 演奏・歌唱した人。ボカロ曲は**ボカロ名**（初音ミク等）、プロデューサーはアルバムアーティスト/作曲者へ
+- **アーティスト (artist)**: 演奏・歌唱した人。ボカロ曲は**ボカロ名**（初音ミク等）、プロデューサーはアルバムアーティスト/作曲者へ。BGM等で歌唱・演奏者がいない曲は作曲者（またはアルバムアーティスト）を入れる（`Unknown Artist`回避。2026-09-18に626曲補完）
 - **アルバム (album)**: **原典**（その曲が最初に収録されたリリース）。ゲーム曲は「元ファイルが入っていた作品のサントラ」。企画盤・ベスト盤より原典を優先
 - **アルバムアーティスト (albumartist)**: リリースのクレジット。ゲームは作曲者（例: すぎやまこういち）または Various Artists、ボカロはプロデューサー名
+- **表記揺れ**: アーティスト名は公式表記に統一（例: `ゲスの極み乙女。`、`Finishing Move Inc.`）。ローマ字表記・訳名・略称を混在させない
 - **作曲者 (composer)**: 分かる場合のみ（Soundtrack/Game/Classicalは自動補完済み）
 - **ジャンル**: ゲーム本編→`Soundtrack`、ゲーム外アレンジ→`Arrange`、ボカロ/ネット→`Vocaloid`、アニメ→`Anime`、クラシック→`Classical`、洋楽系は `Pop`/`Rock`/`Punk`/`Hiphop`/`Jazz` 等
 - **コメント (comment)**: 備考欄。別名や「誰と戦う曲か」など

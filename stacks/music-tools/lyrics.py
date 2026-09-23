@@ -5,6 +5,10 @@ Navidrome reads sidecar lyrics next to the audio file. Existing .lrc files are
 kept. Matching prefers the same duration (file length) and synced lyrics; when
 only plain lyrics exist, they are saved without timestamps.
 
+LYRICS_REFRESH_PLAIN=1 を付けると、タイムスタンプの無い .lrc だけを対象に
+再取得し、同期歌詞が見つかったときだけ置き換える（Web UI は同期歌詞のみ
+表示するため。2026-09-17）。
+
 Run inside the tagger container:
 
   run --rm --entrypoint python3 tagger /tools/lyrics.py
@@ -14,6 +18,7 @@ import concurrent.futures
 import unicodedata
 import json
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -44,6 +49,8 @@ API = 'https://lrclib.net/api/search'
 UA = 'shake-cloud-lyrics/1.0 (+https://github.com/rurutheGeek/shake-cloud)'
 INTERVAL = 0.5
 WORKERS = 3
+REFRESH_PLAIN = os.environ.get('LYRICS_REFRESH_PLAIN') == '1'
+TIMED = re.compile(r'\[\d+:\d+')
 
 
 def read_track(path):
@@ -174,9 +181,15 @@ process_count = 0
 def process(path):
     global process_count
     lrc = path.with_suffix('.lrc')
+    existing_plain = False
     if lrc.exists():
-        bump('exists')
-        return
+        if not REFRESH_PLAIN:
+            bump('exists')
+            return
+        existing_plain = not TIMED.search(lrc.read_text(encoding='utf-8', errors='replace'))
+        if not existing_plain:
+            bump('exists')
+            return
     tags, length = read_track(path)
     if tags is None:
         bump('unreadable')
@@ -204,6 +217,9 @@ def process(path):
     text = entry.get('syncedLyrics') or entry.get('plainLyrics') or ''
     if not text.strip():
         bump('not_found')
+        return
+    if existing_plain and not entry.get('syncedLyrics'):
+        bump('plain_kept')
         return
     lrc.write_text(text, encoding='utf-8')
     bump('synced' if entry.get('syncedLyrics') else 'plain')

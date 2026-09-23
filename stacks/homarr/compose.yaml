@@ -8,6 +8,12 @@ services:
   homarr:
     image: ${HOMARR_IMAGE:-ghcr.io/homarr-labs/homarr}:${HOMARR_TAG:-latest}
     restart: unless-stopped
+    # 内部名（*.apextox.dpdns.org）は AdGuard（192.168.10.1）で引く。
+    # Docker の既定 DNS はホストの systemd-resolved（127.0.0.53）を使えず
+    # 8.8.8.8 へ出るため、追加した名前がネガティブキャッシュで引けない
+    # ことがある（2026-09-20、router のタイルが赤くなった原因）。
+    dns:
+      - 192.168.10.1
     environment:
       # 秘密値は .env ではなく secrets/ から manage.py が環境変数で渡す。
       SECRET_ENCRYPTION_KEY: ${SECRET_ENCRYPTION_KEY:?run manage.py up}

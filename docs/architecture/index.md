@@ -37,7 +37,7 @@ tags:
 ## 前提と合意した範囲
 
 - 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
-- 新しいルータ・スイッチは購入しない。既存のルータ、マネージドスイッチ、ラズパイ（DNS・復旧経路）を利用する。監視は新規のmonitor-01へ置く。
+- 新しいルータ・スイッチは購入しない。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**（[N06](../development/N06-router.md)・[router-config](../operations/router-config.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路はラズパイではなく cloud VM `net-01`（Tailscale subnet router）に置く。
 - サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
 - 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantはservices-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
@@ -63,9 +63,9 @@ tags:
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
 | 自作クラウド | Go API・ジョブ・管理DB、Terraform Provider | APIはcloud-01のCompose、Providerは開発VM |
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外の認証VM |
-| VPN・宅外からの監視 | セルフホストVPN＋Tailscale。NetBird第一検証候補 | services-01＋ラズパイの復旧経路。対象VMへagent |
-| DNS | AdGuard Home | ラズパイの余力に応じて配置 |
-| 公開入口 | Caddy | 公開用VM |
+| VPN・宅外からの監視 | Tailscale（復旧経路は cloud VM `net-01`）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、net-01 は cloud プールのVM。対象VMへagent |
+| DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **router-01（K11 上の OpenWrt VM）**。2026-09-20 に dnsmasq から移行 |
+| 公開入口 | Caddy（各ホストでTLS終端） | 各VM（identity・services-01・media-01・monitor-01・cloud-01）。公開用VMはN04 |
 | 家電・自動化 | Home Assistant Container（配備済み） | services-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
 | 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（新規cloud VM）。UPS・証明書・資源を監視。ラズパイはDNSと復旧経路 |
 | 印刷 | CUPS（services-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
@@ -79,11 +79,11 @@ KnativeのKourierは、クラスタ内の通常HTTP入口であるCilium Ingress
 
 ## 論理構成図
 
-実線は主な通信、点線は設定・管理・認証・バックアップです。線の存在は任意のポートへのアクセス許可を意味しません。
+実線は主な通信、点線は設定・管理・認証・バックアップです。線の存在は任意のポートへのアクセス許可を意味しません。**2026-09-20 時点の実機に合わせて更新しています。**
 
 [![ホームラボ全体の論理構成](diagrams/overview.svg)](diagrams/overview.svg)
 
-図を開くと拡大できます。クラウドの内部経路は[最小クラウドの図](cloud.md)、ゲーム内の分離は[ゲームの図](gaming.md)を参照してください。
+図を開くと拡大できます。**ネットワーク（回線・ルータ・DNS・IP帯）は[ネットワーク・公開範囲・SSO](network-auth.md)の図**、クラウドの内部経路は[最小クラウドの図](cloud.md)、ゲーム内の分離は[ゲームの図](gaming.md)を参照してください。
 
 [編集用Mermaid](diagrams/overview.mmd)
 
@@ -99,8 +99,9 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 ## 現在の実装との差
 
-| 項目 | 現状（2026-09-13） |
+| 項目 | 現状（2026-09-20） |
 | --- | --- |
+| ネットワーク（ルータ・DNS・DHCP） | **router-01（K11 上の OpenWrt VM）へ切替済み（2026-09-20）。** Aterm は AP モードの Wi-Fi 専用。DNS は AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）、IPv6 は odhcpd の relay ＋ ndppd。予約・リースは NetBox と同期する。手順は[router-01](../operations/router.md)・[設定まとめ](../operations/router-config.md) |
 | メディア・認証 | Homarr・Vaultwarden・Home Assistantはservices-01、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
 | ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
@@ -114,9 +115,9 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
 | 公開Web統合 | N04の独立計画。公開条件成立後にVM追加 |
 
-## 残っている確認項目（2026-09-13）
+## 残っている確認項目（2026-09-20）
 
-1. ラズパイの型番・RAM・NIC・実効速度と、既存ネットワークのサブネット・VLAN（[N02](../development/N02-tailscale.md)・[N03](../development/N03-vlan.md)）。
+1. 既存ネットワークのサブネット・VLAN と、TL-SG605 のポート割当（[N03](../development/N03-vlan.md)）。
 2. K11のIOMMUグループ、BIOSのGPUメモリ設定、ゲスト再起動後の780M再利用（[G01](../development/G01-wolf.md)–[G03](../development/G03-game-ai-resources.md)）。
 3. 対象のポケモン作品と更新版、Azaharの固定版での2人プレイと交換・対戦（[G02](../development/G02-azahar.md)・[A01](../development/A01-pokemon-ai.md)）。
 4. S3の利用クライアントと必要API（Garageはバージョニング未対応）。バックアップ保存先と容量（[O01](../development/O01-cloud-backup.md)–[O03](../development/O03-restore.md)）。

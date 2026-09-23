@@ -68,7 +68,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | `stacks/tls-proxy/` | 各ホストのHTTPS入口（CaddyとCloudflare DNSモジュール）。受ける名前は `platform/terraform/dns.yaml` |
 | `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・FreshRSS（共通RSSタイムライン）・LocalSend |
 | `stacks/music-tools/` | MeTube・タグAPI・BCSTM変換・同期（media-01） |
-| `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | services-01・monitor-01の新しい基盤のサービス（ホストごとの独立Compose） |
+| `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/librespeed/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | services-01・monitor-01の新しい基盤のサービス（ホストごとの独立Compose） |
 | `stacks/game/`・`stacks/romm/`・`stacks/pokemon-ai/`・`stacks/rag-bot/` | game1へ載せるゲーム・AIの開発コード（実装・移行は進行中） |
 | `docs/`、`mkdocs.yml` | 日本語の利用・運用手順とサイト構成 |
 | `tools/` | 公開前チェック、Terraform／Kubernetesの実行補助 |

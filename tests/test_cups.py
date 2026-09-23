@@ -5,21 +5,16 @@ clients can print without talking to the printer directly. The admin page must
 never become reachable without authentication, so these are source-text and
 YAML assertions plus an Ansible syntax check -- nothing here touches the host.
 """
-import shutil
 from pathlib import Path
-import subprocess
-import sys
 import unittest
 
 import yaml
 
+from support import read, syntax_check
+
 ROOT = Path(__file__).resolve().parents[1]
 ROLE = ROOT / 'platform/ansible/roles/cups'
 PLAYBOOK = ROOT / 'platform/ansible/cups.yml'
-
-
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 
 def task_argv(task):
@@ -123,13 +118,9 @@ class RoleTests(unittest.TestCase):
 
 class SyntaxTests(unittest.TestCase):
     def test_the_playbook_parses(self):
-        candidate = Path(sys.executable).with_name('ansible-playbook')
-        playbook = str(candidate) if candidate.exists() else shutil.which('ansible-playbook')
-        if not playbook:
-            self.skipTest('ansible-playbook is not installed')
-        result = subprocess.run([playbook, '--syntax-check', '-i', 'localhost,', str(PLAYBOOK)],
-                                capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        result = syntax_check(PLAYBOOK)
+        self.assertEqual(result.returncode, 0,
+                         f'{PLAYBOOK.name} did not parse:\n{result.stdout}\n{result.stderr}')
 
 
 if __name__ == '__main__':

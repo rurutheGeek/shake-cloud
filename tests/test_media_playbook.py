@@ -6,14 +6,12 @@ memory into a check. These are source-text and YAML assertions in the same
 spirit as test_media_nextcloud.py. The only thing executed is
 `ansible-playbook --syntax-check`; nothing here connects to media-01.
 """
-import shutil
-import subprocess
-import sys
-import os
 from pathlib import Path
 import unittest
 
 import yaml
+
+from support import read, syntax_check
 
 ROOT = Path(__file__).resolve().parents[1]
 ANSIBLE = ROOT / 'platform/ansible'
@@ -29,20 +27,6 @@ COMPOSE_FILES = {
     'freshrss': ROOT / 'stacks/media/freshrss/compose.yaml',
     'music-tools': ROOT / 'stacks/music-tools/compose.yaml',
 }
-
-
-def read(path):
-    return path.read_text(encoding='utf-8')
-
-
-def ansible_playbook():
-    candidate = Path(sys.executable).with_name('ansible-playbook')
-    if candidate.exists():
-        return str(candidate)
-    found = shutil.which('ansible-playbook')
-    if found:
-        return found
-    raise unittest.SkipTest('ansible-playbook is not installed')
 
 
 class EntryPointTests(unittest.TestCase):
@@ -109,6 +93,12 @@ class GroupVarsTests(unittest.TestCase):
         self.assertEqual(values['project_dir'], '/opt/media-stack')
         self.assertEqual(values['storage_root'], '/srv/media-stack/storage')
         self.assertEqual(values['library_root'], '/srv/media-stack/library')
+
+    def test_the_nextcloud_apps_include_notes(self):
+        # ストアアプリの一覧は再配備のたびに group_vars から読まれる。
+        # 追加した Notes が消えたらここで気づけるようにする。
+        values = yaml.safe_load(read(GROUP_VARS))
+        self.assertIn('notes', values['nextcloud_apps'])
 
     def test_the_verifier_uses_the_group_vars_project_dir(self):
         text = read(VERIFY)
@@ -242,14 +232,7 @@ class VerifyTests(unittest.TestCase):
 
 class SyntaxTests(unittest.TestCase):
     def check(self, playbook):
-        # The managed development VM may expose /home as read-only.  Ansible
-        # otherwise tries to create its controller-side temporary directory
-        # there before it can perform a syntax check.
-        environment = os.environ.copy()
-        environment.setdefault('ANSIBLE_LOCAL_TEMP', '/tmp/shake-cloud-ansible')
-        result = subprocess.run(
-            [ansible_playbook(), '--syntax-check', '-i', 'localhost,', str(playbook)],
-            cwd=ROOT, capture_output=True, text=True, env=environment)
+        result = syntax_check(playbook)
         self.assertEqual(result.returncode, 0,
                          f'{playbook.name} did not parse:\n{result.stdout}\n{result.stderr}')
 

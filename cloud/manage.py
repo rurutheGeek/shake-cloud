@@ -206,14 +206,37 @@ def backup(destination, keep=0):
     print(f'Cloud backup complete: {target.with_suffix("")}')
 
 
+def backup_metric(destination, metric):
+    """Publish the newest finished backup for node_exporter's textfile collector.
+
+    The alert watches both the age and the absence of this line, so a failed
+    run or a stopped timer cannot look like a quiet healthy system. A backup
+    directory's mtime is when its files were written, i.e. the finish time.
+    """
+    destination = Path(destination).resolve()
+    metric = Path(metric)
+    complete = complete_backups(destination) if destination.is_dir() else []
+    newest = complete[-1] if complete else None
+    stamp = int(newest.stat().st_mtime) if newest else 0
+    metric.parent.mkdir(parents=True, exist_ok=True)
+    metric.write_text(
+        '# HELP backup_last_success_timestamp_seconds Unix time of the newest finished cloud backup.\n'
+        '# TYPE backup_last_success_timestamp_seconds gauge\n'
+        f'backup_last_success_timestamp_seconds {stamp}\n')
+    metric.chmod(0o644)
+    print(f'Cloud backup metric: {newest.name if newest else "none (0)"}')
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup',
+    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup', 'backup-metric',
                                            'rotate-bootstrap-key', 'disable-bootstrap-key'])
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--keep', type=int, default=0,
                         help='keep this many finished backups and delete older ones (0 = keep all)')
+    parser.add_argument('--metric', default='/var/lib/prometheus/node-exporter/cloud_backup.prom',
+                        help='write backup_last_success_timestamp_seconds to this textfile')
     args = parser.parse_args()
     if args.action == 'init':
         init()
@@ -225,6 +248,8 @@ def main():
         compose('ps')
     elif args.action == 'backup':
         backup(args.destination, args.keep)
+    elif args.action == 'backup-metric':
+        backup_metric(args.destination, args.metric)
     elif args.action == 'rotate-bootstrap-key':
         rotate_bootstrap_key()
     else:

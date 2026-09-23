@@ -80,6 +80,20 @@ records:
     host: services-01
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
+  # AdGuard Home の管理画面はルータ上。ルータの :3000 はファイアウォールで
+  # services-01 だけに開けてあり、Caddy はその LAN アドレスへ中継する。
+  adguard:
+    host: services-01
+    upstream: 192.168.10.1:3000
+    description: AdGuard Home（DNS・広告遮断。Forward Auth）
+    auth: true
+  # ルータの管理画面（LuCI）。**SSO は付けない。** ルータは復旧経路なので、
+  # identity（Authentik）が止まっていても開ける必要がある。認証は LuCI 自身の
+  # root パスワード。upstream はルータの LAN アドレス。
+  router:
+    host: services-01
+    upstream: 192.168.10.1:80
+    description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
     host: monitor-01
@@ -95,6 +109,10 @@ records:
     host: services-01
     upstream: 127.0.0.1:8222
     description: Vaultwarden（パスワード管理・SSO）
+  speed:
+    host: services-01
+    upstream: 127.0.0.1:8300
+    description: LibreSpeed（端末↔services-01の速度計測）
   ha:
     host: services-01
     upstream: 127.0.0.1:8123
@@ -121,7 +139,7 @@ records:
     # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
     block: ['/admin', '/admin/*']
   pve:
-    address: 192.168.10.126
+    address: 192.168.10.10
     description: Proxmoxの管理画面（ポート8006）
   awx:
     address: 192.168.10.241

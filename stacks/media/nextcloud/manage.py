@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """Deploy Nextcloud, Calendar and Tasks as an independent Compose project on media-01."""
 import argparse
+import base64
+from datetime import datetime, timedelta
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+import xml.etree.ElementTree
+import xml.sax.saxutils
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -233,13 +242,274 @@ def config_tags():
     ))
 
 
+def config_notes():
+    """Default Notes to the plain Markdown editor.
+
+    The rich text editor hides the Markdown source; users can still choose
+    Rich text or Preview in the Notes settings.
+    """
+    config_app('notes', (('noteMode', 'edit'),))
+
+
+CALENDAR_PROPFIND = (
+    '<?xml version="1.0" encoding="utf-8"?>'
+    '<d:propfind xmlns:d="DAV:" xmlns:cs="urn:ietf:params:xml:ns:caldav">'
+    '<d:prop><d:displayname/><d:resourcetype/><d:getetag/></d:prop>'
+    '</d:propfind>')
+
+CALENDAR_MKCALENDAR = (
+    '<?xml version="1.0" encoding="utf-8"?>'
+    '<C:mkcalendar xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"'
+    ' xmlns:I="http://apple.com/ns/ical/">'
+    '<D:set><D:prop>'
+    '<D:displayname>{name}</D:displayname>'
+    '<I:calendar-color>#0082C9</I:calendar-color>'
+    '<C:supported-calendar-component-set><C:comp name="VEVENT"/></C:supported-calendar-component-set>'
+    '</D:prop></D:set></C:mkcalendar>')
+
+CALENDAR_SHARE = (
+    '<?xml version="1.0" encoding="utf-8"?>'
+    '<oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">'
+    '<oc:set><d:href>principal:principals/users/{sharee}</d:href>{access}</oc:set>'
+    '</oc:share>')
+
+
+def unfold_ics(text):
+    """Undo RFC 5545 line folding so properties can be edited."""
+    lines = []
+    for line in text.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+        if line[:1] in (' ', '\t') and lines:
+            lines[-1] += line[1:]
+        else:
+            lines.append(line)
+    return lines
+
+
+def normalize_event(lines, default_minutes=60):
+    """Fix the KF New Calendar quirks of one VEVENT and return (uid, lines).
+
+    The export writes TZID as a standalone property and stamps DTEND as
+    1970-01-01 for recurring entries; the former becomes a parameter on
+    DTSTART/DTEND and the latter becomes DTSTART + default_minutes.
+    """
+    timezone = None
+    properties = []
+    for line in lines:
+        if line.startswith('TZID:'):
+            timezone = line.split(':', 1)[1]
+        else:
+            properties.append(line)
+    start = None
+    for line in properties:
+        name, sep, value = line.partition(':')
+        if sep and name.split(';')[0] == 'DTSTART' and 'VALUE=DATE' not in name:
+            if re.fullmatch(r'\d{8}T\d{6}', value):
+                start = value
+    result = []
+    uid = None
+    for line in properties:
+        name, sep, value = line.partition(':')
+        base = name.split(';')[0]
+        if sep and base in ('DTSTART', 'DTEND') and 'VALUE=DATE' not in name \
+                and re.fullmatch(r'\d{8}T\d{6}', value):
+            if base == 'DTEND' and value == '19700101T090000' and start:
+                end = datetime.strptime(start, '%Y%m%dT%H%M%S')
+                value = (end + timedelta(minutes=default_minutes)).strftime('%Y%m%dT%H%M%S')
+            if 'TZID=' not in name and timezone:
+                name = '{};TZID={}'.format(name, timezone)
+        if sep and base == 'UID':
+            uid = value
+        result.append('{}:{}'.format(name, value) if sep else line)
+    return uid, result
+
+
+def normalize_ics(text, default_minutes=60):
+    """Split an iCalendar export into (uid, single-event VCALENDAR) pairs."""
+    events = []
+    inside = False
+    lines = []
+    for line in unfold_ics(text):
+        if line == 'BEGIN:VEVENT':
+            inside = True
+            lines = []
+        elif line == 'END:VEVENT' and inside:
+            inside = False
+            uid, event = normalize_event(lines, default_minutes)
+            if uid:
+                events.append((uid, '\r\n'.join([
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//Shake Cloud//Nextcloud calendar import//EN',
+                    'CALSCALE:GREGORIAN',
+                    'BEGIN:VEVENT',
+                ] + event + ['END:VEVENT', 'END:VCALENDAR', ''])))
+        elif inside:
+            lines.append(line)
+    return events
+
+
+def parse_share(value):
+    """Parse a --share value like uid or uid:read into (user, read_only)."""
+    sharee, _, access = value.partition(':')
+    if not sharee or access not in ('', 'read', 'read-write'):
+        raise ValueError('Use --share user or --share user:read')
+    return sharee, access == 'read'
+
+
+def token_ids(listing, name):
+    """Return the token ids of a user:auth-tokens:list table by name."""
+    ids = []
+    for line in listing.splitlines():
+        fields = [field.strip() for field in line.strip().strip('|').split('|')]
+        if len(fields) >= 2 and fields[1] == name:
+            ids.append(fields[0])
+    return ids
+
+
+def create_app_password(user, name='calendar-import'):
+    """Create a temporary app password through occ and return (token, id)."""
+    listing = occ('user:auth-tokens:list', user, capture_output=True).stdout
+    for stale in token_ids(listing, name):
+        occ('user:auth-tokens:delete', user, stale)
+    created = occ('user:auth-tokens:add', user, '--name={}'.format(name), '-n',
+                  capture_output=True).stdout
+    lines = [line.strip() for line in created.splitlines() if line.strip()]
+    token = lines[-1] if lines else ''
+    if len(token) < 20:
+        raise RuntimeError('Could not read the generated app password')
+    listing = occ('user:auth-tokens:list', user, capture_output=True).stdout
+    ids = token_ids(listing, name)
+    if not ids:
+        raise RuntimeError('Could not find the generated app password')
+    return token, ids[-1]
+
+
+def dav_base(config):
+    address = config.get('BIND_ADDRESS', '127.0.0.1')
+    if address in ('0.0.0.0', '::'):
+        address = '127.0.0.1'
+    return 'http://{}:{}'.format(address, config.get('NEXTCLOUD_PORT', '8080'))
+
+
+def dav_request(config, user, token, method, path, body=None, headers=None,
+                ok=(200, 201, 204, 207)):
+    request = urllib.request.Request(
+        dav_base(config) + path,
+        data=body.encode('utf-8') if body is not None else None,
+        method=method)
+    request.add_header('Authorization', 'Basic ' + base64.b64encode(
+        '{}:{}'.format(user, token).encode()).decode())
+    for name, value in (headers or {}).items():
+        request.add_header(name, value)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.status, response.read().decode('utf-8', 'replace')
+    except urllib.error.HTTPError as error:
+        if error.code in ok:
+            return error.code, error.read().decode('utf-8', 'replace')
+        raise RuntimeError('CalDAV {} {} failed: HTTP {}'.format(method, path, error.code))
+
+
+def find_calendar(config, user, token, name):
+    """Return the href of the user's calendar with this display name, if any."""
+    home = '/remote.php/dav/calendars/{}/'.format(urllib.parse.quote(user))
+    _, body = dav_request(config, user, token, 'PROPFIND', home, CALENDAR_PROPFIND,
+                          {'Depth': '1'})
+    for response in xml.etree.ElementTree.fromstring(body).findall('{DAV:}response'):
+        prop = response.find('{DAV:}propstat/{DAV:}prop')
+        if prop is None or prop.findtext('{DAV:}displayname') != name:
+            continue
+        types = prop.find('{DAV:}resourcetype')
+        if types is not None and types.find(
+                '{urn:ietf:params:xml:ns:caldav}calendar') is not None:
+            return response.findtext('{DAV:}href')
+    return None
+
+
+def calendar_objects(config, user, token, href):
+    """Return the object file names already present in the calendar."""
+    _, body = dav_request(config, user, token, 'PROPFIND', href, CALENDAR_PROPFIND,
+                          {'Depth': '1'})
+    names = set()
+    for response in xml.etree.ElementTree.fromstring(body).findall('{DAV:}response'):
+        path = response.findtext('{DAV:}href') or ''
+        if path.rstrip('/') == href.rstrip('/'):
+            continue
+        names.add(urllib.parse.unquote(path.rsplit('/', 1)[-1]))
+    return names
+
+
+def import_calendar(user, path, name, shares, default_minutes=60):
+    """Import an exported iCalendar file into a user's calendar.
+
+    Existing events (matched by UID) are left untouched, so re-running after
+    an import only adds what is missing. The calendar is shared with the
+    requested users; the temporary app password is always removed.
+    """
+    events = normalize_ics(Path(path).read_text(encoding='utf-8-sig'), default_minutes)
+    if not events:
+        raise RuntimeError('No VEVENT found in {}'.format(path))
+    config = settings()
+    token, token_id = create_app_password(user)
+    try:
+        home = '/remote.php/dav/calendars/{}/'.format(urllib.parse.quote(user))
+        href = find_calendar(config, user, token, name)
+        if href:
+            print('OK: calendar exists: {}'.format(name))
+        else:
+            href = home + str(uuid.uuid4()) + '/'
+            dav_request(config, user, token, 'MKCALENDAR', href,
+                        CALENDAR_MKCALENDAR.format(
+                            name=xml.sax.saxutils.escape(name)),
+                        {'Content-Type': 'application/xml; charset=utf-8'})
+            print('CHANGED: calendar created: {}'.format(name))
+        present = calendar_objects(config, user, token, href)
+        imported = 0
+        for uid, object_text in events:
+            filename = urllib.parse.quote(uid, safe='') + '.ics'
+            if urllib.parse.unquote(filename) in present:
+                continue
+            dav_request(config, user, token, 'PUT', href + filename, object_text,
+                        {'Content-Type': 'text/calendar; charset=utf-8'})
+            imported += 1
+        if imported:
+            print('CHANGED: imported {} events into {}'.format(imported, name))
+        else:
+            print('OK: {} events already imported into {}'.format(len(events), name))
+        for sharee, read_only in shares:
+            status, _ = dav_request(
+                config, user, token, 'POST', href,
+                CALENDAR_SHARE.format(
+                    sharee=xml.sax.saxutils.escape(sharee),
+                    access='<oc:read/>' if read_only else '<oc:read-write/>'),
+                {'Content-Type': 'application/xml; charset=utf-8'},
+                ok=(200, 403))
+            access = 'read' if read_only else 'read-write'
+            if status == 200:
+                print('CHANGED: shared with {} ({})'.format(sharee, access))
+            else:
+                print('OK: already shared with {} ({})'.format(sharee, access))
+    finally:
+        occ('user:auth-tokens:delete', user, token_id)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
                         choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
-                                 'config-print', 'config-localsend', 'config-tags',
-                                 'status', 'down'])
+                                 'config-notes', 'config-print', 'config-localsend',
+                                 'config-tags', 'import-calendar', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
+    parser.add_argument('--user', dest='calendar_user',
+                        help='Nextcloud user id for import-calendar')
+    parser.add_argument('--file', dest='calendar_file',
+                        help='iCalendar file on the host for import-calendar')
+    parser.add_argument('--name', dest='calendar_name',
+                        help='Calendar display name for import-calendar')
+    parser.add_argument('--share', dest='calendar_shares', action='append', default=[],
+                        help='User or user:read to share with, repeatable')
+    parser.add_argument('--default-minutes', dest='calendar_minutes', type=int, default=60,
+                        help='Duration for events with the broken 1970 end')
     args = parser.parse_args()
     if args.action in ('init', 'up'):
         init()
@@ -255,6 +525,14 @@ def main():
         if args.app_names is None:
             raise ValueError('Use --apps app1,app2 with the apps action')
         apps(args.app_names)
+    elif args.action == 'import-calendar':
+        if not (args.calendar_user and args.calendar_file and args.calendar_name):
+            raise ValueError('Use --user, --file and --name with the import-calendar action')
+        import_calendar(args.calendar_user, args.calendar_file, args.calendar_name,
+                        [parse_share(value) for value in args.calendar_shares],
+                        args.calendar_minutes)
+    elif args.action == 'config-notes':
+        config_notes()
     elif args.action == 'config-print':
         config_print()
     elif args.action == 'config-localsend':

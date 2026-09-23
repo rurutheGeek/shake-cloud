@@ -1,0 +1,14 @@
+# 低電池でホストを安全に止める（upsmon primary）。停止順は docs/operations/power.md。
+# SHUTDOWNCMD は root で実行される。UPS はホスト直結なので primary。
+RUN_AS_USER nut
+MONITOR {{ pve_nut_ups_name }}@localhost 1 {{ pve_nut_upsmon_user }} {{ (pve_nut_secrets.stdout | from_json).NUT_UPSMON_PASSWORD }} primary
+MINSUPPLIES 1
+SHUTDOWNCMD "{{ pve_nut_shutdown_script }}"
+POLLFREQ 5
+POLLFREQALERT 5
+HOSTSYNC 15
+DEADTIME 15
+POWERDOWNFLAG /etc/killpower
+NOTIFYFLAG ONBATT SYSLOG+WALL
+NOTIFYFLAG LOWBATT SYSLOG+WALL
+NOTIFYFLAG ONLINE SYSLOG

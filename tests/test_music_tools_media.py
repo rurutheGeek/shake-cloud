@@ -15,13 +15,13 @@ from unittest.mock import patch
 
 import yaml
 
+from support import read
+
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
 PLAYBOOK = ROOT / 'platform/ansible/music-tools.yml'
 
 
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 
 class ComposeTests(unittest.TestCase):

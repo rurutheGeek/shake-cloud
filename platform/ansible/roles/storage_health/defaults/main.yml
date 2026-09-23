@@ -1,0 +1,17 @@
+---
+# ストレージの寿命を延ばすための共通設定。SSDへの無駄な書き込みを減らし、
+# ログの暴走を止める。設計と実測は docs/operations/disk.md。
+#
+# - journald: 既定はファイルシステムの10%まで。200Mで十分（実測は~136M）。
+# - noatime: 読み取りのたびに更新されるatimeの書き込みを止める。
+# - Dockerログ: json-fileは既定で無制限。上限を決める。既存コンテナは
+#   次に再作成されたときから適用される（デーモン再起動だけでは変わらない）。
+storage_health_journald_max_use: 200M
+storage_health_journald_keep_free: 1G
+storage_health_root_noatime: true
+storage_health_docker_log_max_size: 10m
+storage_health_docker_log_max_file: '3'
+
+# 既存サービスを一時停止してでもDockerを再起動するか。初回適用時だけ
+# true にし、サービスVMでは次回の配備・再起動に任せる運用もできる。
+storage_health_restart_docker: true

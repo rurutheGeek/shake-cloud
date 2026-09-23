@@ -43,7 +43,7 @@ tags:
 
 中身は Debian 13。Terraform・Docker・git・age が入っています。ホームディレクトリの `~/tf` は各自の作業場所です。
 
-Proxmox の画面は **`https://pve.apextox.dpdns.org:8006`** です（Let's Encrypt 証明書）。IP 直（`https://192.168.10.126:8006`）は名前が合わず警告が出ます。
+Proxmox の画面は **`https://pve.apextox.dpdns.org:8006`** です（Let's Encrypt 証明書）。IP 直（`https://192.168.10.10:8006`）は名前が合わず警告が出ます。
 
 ## 2. 入る
 
@@ -53,11 +53,11 @@ Proxmox の画面は **`https://pve.apextox.dpdns.org:8006`** です（Let's Enc
 ssh debian@192.168.10.203
 ```
 
-ProxmoxホストへのSSH鍵が登録され、`192.168.10.126:22` に届く場合は、ホストを踏み台にして入れます。`~/.ssh/config` に書いておくと `ssh dev-b` だけで済みます。
+ProxmoxホストへのSSH鍵が登録され、`192.168.10.10:22` に届く場合は、ホストを踏み台にして入れます。`~/.ssh/config` に書いておくと `ssh dev-b` だけで済みます。
 
 ```
 Host pve-jump
-  HostName 192.168.10.126
+  HostName 192.168.10.10
   User root
 
 Host dev-b

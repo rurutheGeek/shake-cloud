@@ -50,7 +50,7 @@ VLAN を切るとき、**ホストと基盤VMの管理IPは今のタグなし（
 grep -q 'bridge-vlan-aware yes' /etc/network/interfaces || \
   sed -i '/iface vmbr0/,/^$/ s/^\(\s*\)bridge-stp/\1bridge-vlan-aware yes\n\1bridge-stp/' /etc/network/interfaces
 ifreload -a
-ip -4 addr show vmbr0     # 192.168.10.126/24 が残っていること
+ip -4 addr show vmbr0     # 192.168.10.10/24 が残っていること
 ```
 
 確認できたら、`site.yaml` を実機から作り直して `network.bridge_vlan_aware` を更新する:
@@ -109,7 +109,7 @@ tools/verify-instances.py     # 作成→SSH→削除まで。残骸なし
 
 ```bash
 # 例: game1（VMID 100）。値は実際のMAC・bridge・VLANに合わせる
-ssh root@192.168.10.126 'qm set 100 -net0 virtio=BC:24:11:F1:A4:EF,bridge=vmbr0,firewall=1,tag=20'
+ssh root@192.168.10.10 'qm set 100 -net0 virtio=BC:24:11:F1:A4:EF,bridge=vmbr0,firewall=1,tag=20'
 ```
 
 アドレスも cloud VLAN のサブネットへ移す（seed ISO／静的に設定している場合）。
@@ -127,7 +127,7 @@ tools/tf 10-platform apply
 既存VMのタグを外す:
 
 ```bash
-ssh root@192.168.10.126 'qm set 100 -net0 virtio=BC:24:11:F1:A4:EF,bridge=vmbr0,firewall=1'
+ssh root@192.168.10.10 'qm set 100 -net0 virtio=BC:24:11:F1:A4:EF,bridge=vmbr0,firewall=1'
 ```
 
 bridge の `bridge-vlan-aware` は、タグを使わなくなってから外す。**管理が届かなくなる操作は、必ず物理コンソールの前で行い、直後に到達性を確認する。**

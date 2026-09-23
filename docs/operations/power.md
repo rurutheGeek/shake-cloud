@@ -1,6 +1,6 @@
 ---
 title: 電源と UPS
-updated: 2026-09-13
+updated: 2026-09-20
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,17 +10,84 @@ tags:
 
 # 電源と UPS
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 手順書。UPS（CyberPower CP1200PFCLCDJP）の状態取得は NUT で配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`、読み取り専用）。K11 の電源を UPS のバッテリー側へ入れる作業と、低電池時の自動シャットダウン（upsmon）は未実施。
+**状態**: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 
 ## いまの電源構成
 
-- K11（Proxmox ホスト、`192.168.10.126`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
+- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
 - 管理経路（ルータ・スイッチ・監視ラズパイ）は K11 とは別の電源です（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
+
+## K11 が固まったときの自動復旧（watchdog）
+
+K11 がハングするとルータ VM も止まり、家中のネットが落ちます。手で再起動するまで
+戻りません。そこで **ハードウェア watchdog（SP5100 TCO）** を有効にしています
+（2026-09-20 適用。ホスト側の設定で、Ansible 管理外）。
+
+- PVE の `watchdog-mux` が `/etc/default/pve-ha-manager` の
+  `WATCHDOG_MODULE=sp5100_tco` で TCO を開き、**10秒タイムアウトで毎秒 KEEPALIVE**
+- ホストが固まると約10秒でハードウェアリセット → 起動 → `on_boot`＋起動順1 で
+  `router-01` が自動起動し、**ネットは約1〜2分で戻る**
+- クリーン停止時は MAGICCLOSE（`options=0x8180`）で解除されるので、
+  シャットダウンを妨げない
+- panic でも自動再起動するように `kernel.panic=10` / `kernel.panic_on_oops=1`
+  （`/etc/sysctl.d/90-panic.conf`）
+
+```bash
+ssh root@192.168.10.10 'systemctl is-active watchdog-mux; wdctl | head -4; sysctl kernel.panic kernel.panic_on_oops'
+# Identity: SP5100 TCO timer / Timeout: 10 seconds が出れば有効
+```
+
+**引き金は game1（VM 100）の iGPU パススルーです。** 開始/停止の直後にホストが
+ハングした実績が 2026-09-20 に複数回あります（01:28・01:31・01:34・01:40・14:57）。
+メモリ・ディスク・温度・I/O は実測でシロ（OOM・I/Oエラーなし、SMART PASS）。
+game1 を停止/起動するときは、この自動復旧が働く前提で行ってください。
+
+**なぜ落ちるか**: iGPU `c6:00.0` は FLR に非対応で、リセット手段が**バスリセット
+しかありません**（`cat /sys/bus/pci/devices/0000:c6:00.0/reset_method` → `bus`）。
+`c6:00` は APU 内のひとつの部品で、ホストが使用中の USB（`.3`/`.4`。UPS と
+キーボードがここ）・暗号チップ（`.2`）・音声（`.5`/`.6`）が同居しています。
+VM 停止時に GPU を戻そうとしてバスリセットが走ると、この一族が道連れになり、
+ホストがログを 1 行も残さず即死します。
+
+**まずやること**: `qm stop` をやめ、**`qm shutdown 100 --timeout 120`** を使う
+（[router.md](router.md) の K11 メンテナンス節）。ゲストの systemd が amdgpu を
+正規手順で手放してから QEMU が終わるので、危険なリセットに入りにくくなります。
+それでも落ちる場合の候補は、カーネルパラメータ `initcall_blacklist=sysfb_init`
+（ホストが iGPU を使わないようにする）、`hostpci0` への `disable_vga=1`、
+`reset_method` を空にしてバスリセット自体を封じる udev ルール（代償: VM を
+停止したら次の起動までにホスト再起動が要る）、そして**ルータを K11 の外へ
+出す**ことです。
+
+### 自動復帰は「落ちる直前の状態」に合わせます
+
+ホストが落ちると `shakecloud-guests restore` が、直前に動いていたゲストを
+起こします（`onboot=1` でないものも戻すための補助）。
+
+素朴に作ると、**止めた直後に落ちたゲストが復活します**。スナップショットは
+毎分なのに、game1 の停止で起きるハングは**数秒後**に来るので、記録は
+「running」のまま固まるからです。実際 2026-09-20 08:44:53 に game1 が
+自動起動していました。
+
+そこで `restore` は Proxmox のタスクログ（`/var/log/pve/tasks/`）も読みます。
+**スナップショットより後に停止・シャットダウンされたゲストは起こしません。**
+いったん止めて起動し直したものは、最後が起動なので普通に戻します。結果として
+復帰する組は「ホストが落ちた瞬間に動いていた組」に一致します。
+
+```bash
+# 復帰時に何を起こし、何を見送ったか
+ssh root@192.168.10.10 'journalctl -b 0 -u shakecloud-guests.service | tail'
+# start 401: rc=0
+# skip 100: qmstop after the last snapshot   ← 止めた直後に落ちた場合
+```
+
+判定は `tests/test_pve_guest_state.py` が実機なしで検査します。タスクログが
+読めないときは**復帰を優先**します（停電でゲストが上がってこないほうが困る
+ため）。
 
 ## UPS を間に入れる（稼働中に抜き差ししない）
 
@@ -48,7 +115,7 @@ tools/k8s status    # 3台とも stopped になるまで確認
 **3. ホストを止める**
 
 ```bash
-ssh root@192.168.10.126 'shutdown -h now'
+ssh root@192.168.10.10 'shutdown -h now'
 ```
 
 Proxmox は**ホストの停止時に残りのゲストも止めます**（`on_boot` の逆順、ACPI、既定のタイムアウト付き）。`shutdown` が返ってきてもまだ落ちていないので、電源ランプが消えるまで待ちます。Proxmox の Web UI の「Shutdown」でも同じです。
@@ -58,7 +125,7 @@ Proxmox は**ホストの停止時に残りのゲストも止めます**（`on_b
 **4. 完全に落ちたのを確認してから電源を切る**
 
 ```bash
-ssh root@192.168.10.126 'qm list; pct list'   # running が無いこと
+ssh root@192.168.10.10 'qm list; pct list'   # running が無いこと
 ```
 
 ホストと全ゲストが停止したのを確認してから、**UPS／ブレーカーの電源を切ります。**
@@ -101,18 +168,25 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 - **`onboot` を付けるのは常時動く基盤（identity・cloud-01・services-01・storage-s3）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
 - game1 は起動時に **CD が移動前の `local:iso` を指していて起動できませんでした**。`cloud-images:iso/bazzite-stable-live-amd64.iso` へ直してあります（ISO を `cloud-images` へ移したときの取り残し）。
 
-## 停電で自動停止させる（任意・推奨）
+<a id="停電で自動停止させる実装済み"></a>
+## 停電で自動停止させる（実装済み）
 
-**NUT の読み取り（`upsd` と読み取り専用ユーザー）は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.126:3493` を読んで Grafana に出します（M01）。低電池時に自動で落とす `upsmon` はまだ有効にしていません。
+**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.10:3493` を読んで Grafana に出します（M01）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
 
-**残りの作業（低電池での自動シャットダウン）の骨子:**
+1. **猶予 60 秒**（`pve_nut_shutdown_grace_seconds`）。実行中ジョブの確認は自動ではできないため、短いジョブの完了を待つ。
+2. **k8s worker**（tags `k8s-worker` のVM）を ACPI で停止し、最大 180 秒待つ（`pve_nut_k8s_stop_timeout`）。
+3. **k8s control plane**（tags `k8s-cp`）を同じく停止（etcd を先に止めない順）。
+4. **ホストを `shutdown -h now`**。残りのゲストは Proxmox が止める。
 
-1. `nut-client`（`upsmon`）を入れ、`/etc/nut/upsmon.conf` に
-   `MONITOR <ups>@localhost 1 <user> <pass> master` と
-   `SHUTDOWNCMD "/sbin/shutdown -h +0"`、`MINSUPPLIES 1`、`FINALDELAY 5` を書く。
-2. `systemctl enable --now nut-monitor` と `upsc <ups>` で確認。
+```bash
+# 動作確認（実際には止めない）
+ssh root@192.168.10.10 'PVE_UPS_SHUTDOWN_DRY_RUN=1 /usr/local/sbin/pve-ups-shutdown'
+ssh root@192.168.10.10 'systemctl status nut-monitor; upsc cyberpower@localhost ups.status'
+```
 
-あわせて **BIOS の "Restore on AC Power Loss" を Power On** にすると、復電後に自動で起動します。VM の起動順は `hosts.yaml` の `on_boot` と Proxmox の Startup order で決めます。
+- `monitor` ユーザーは読み取り専用のまま。upsmon 専用ユーザー（`upsmon`）を分けてあり、パスワードは `monitoring.sops.yaml` の `NUT_UPSMON_PASSWORD`。
+- **長い AWX ジョブは停電時に失われます。** 猶予は 60 秒なので、停電前に止められるものは手順どおり止めてください。
+- あわせて **BIOS の "Restore on AC Power Loss" を Power On** にすると、復電後に自動で起動します。VM の起動順は `hosts.yaml` の `on_boot` と Proxmox の Startup order で決めます。
 
 > NUT はホストで動かします。ホストが落ちるときに Proxmox がゲストも止めるので、ゲスト側に別々の NUT は要りません。
 

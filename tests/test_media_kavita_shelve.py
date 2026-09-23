@@ -12,6 +12,8 @@ from unittest import mock
 
 import yaml
 
+from support import read
+
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/media/kavita'
 SOURCE = STACK / 'shelve-loose-books.py'
@@ -22,8 +24,6 @@ shelver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shelver)
 
 
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 
 class ShelveTests(unittest.TestCase):

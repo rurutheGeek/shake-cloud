@@ -28,7 +28,8 @@ for dirpath, dirnames, filenames in os.walk(root):
         try:
             easy = mutagen.File(str(path), easy=True)
             if easy is not None and easy.tags is not None:
-                for key in ('title', 'artist', 'album', 'albumartist', 'genre'):
+                for key in ('title', 'artist', 'album', 'albumartist', 'genre',
+                            'composer'):
                     values = easy.tags.get(key)
                     if values:
                         tags[key] = str(values[0])
@@ -44,6 +45,7 @@ for dirpath, dirnames, filenames in os.walk(root):
             'album': tags.get('album', ''),
             'albumartist': tags.get('albumartist', ''),
             'genre': tags.get('genre', ''),
+            'composer': tags.get('composer', ''),
             'length': length,
         })
 
@@ -69,14 +71,15 @@ a{color:#7ab7ff}
 <input type="text" id="filter" placeholder="絞り込み（曲名・アルバム・パス）" style="width:320px">
 <button onclick="exportCsv()">コメント付きのCSVをダウンロード</button>
 <button onclick="clearAll()">入力を全部消す</button>
+<a href="covers.html">アルバム画像チェックへ</a>
 <span class="count" id="count"></span>
 </div>
 <table><colgroup>
-<col style="width:18%"><col style="width:10%"><col style="width:12%"><col style="width:10%">
-<col style="width:28%"><col style="width:4%"><col style="width:18%">
+<col style="width:16%"><col style="width:9%"><col style="width:12%"><col style="width:9%">
+<col style="width:9%"><col style="width:25%"><col style="width:4%"><col style="width:16%">
 </colgroup><thead><tr>
 <th>曲名</th><th>アーティスト</th><th>アルバム</th><th>アルバムアーティスト</th>
-<th>コメント・指示</th><th>長さ</th><th>パス</th>
+<th>作曲者</th><th>コメント・指示</th><th>長さ</th><th>パス</th>
 </tr></thead><tbody id="tbody"></tbody></table>
 <script>
 const DATA = __DATA__;
@@ -130,6 +133,7 @@ function render() {
     tr.appendChild(cell('td', row.artist, 'small'));
     tr.appendChild(cell('td', row.album, 'small'));
     tr.appendChild(cell('td', row.albumartist, 'small'));
+    tr.appendChild(cell('td', row.composer, 'small'));
     const tdComment = document.createElement('td'); tdComment.className = 'comment';
     const commentWrap = document.createElement('div');
     const commentInput = inputFor(row, 'comment', '指示など');
@@ -170,12 +174,12 @@ function csvCell(value) {
   return /[",\\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
 }
 function exportCsv() {
-  const lines = [['path','title','artist','album','albumartist','comment'].join(',')];
+  const lines = [['path','title','artist','album','albumartist','composer','comment'].join(',')];
   for (const row of DATA) {
     const st = state[row.path] || {};
     if (!(st.comment || '').trim()) continue;
     lines.push([row.path, row.title, row.artist, row.album, row.albumartist,
-                st.comment || ''].map(csvCell).join(','));
+                row.composer, st.comment || ''].map(csvCell).join(','));
   }
   const blob = new Blob(['\\ufeff' + lines.join('\\r\\n')], {type: 'text/csv;charset=utf-8'});
   const link = document.createElement('a');

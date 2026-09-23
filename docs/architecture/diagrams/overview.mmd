@@ -1,40 +1,45 @@
 flowchart TB
-  users["利用者の端末 / LAN・VPN"]
-  pi["既存ラズパイ<br/>復旧用Tailscale・DNS"]
-  internet["インターネット"] --> router["既存ルータ・スイッチ"]
-  subgraph host["現有K11 / Proxmox VE：機能別の配置計画"]
-    services["services-01 / 常用<br/>NetBox・MkDocs・Homarr・Vaultwarden<br/>配備済み：Home Assistant・Eufy中継・印刷<br/>追加予定：VPN"]
-    media["media-01 / 稼働中<br/>Nextcloud・書籍・音楽・Picard<br/>LocalSend受信機<br/>MeTubeは追加予定"]
-    monitor["monitor-01 / 稼働中<br/>Grafana・Prometheus・Alertmanager<br/>資源・証明書・UPSを監視"]
-    game["既存game1 / GPU割当済み<br/>開発対象：Wolf・Azahar・RomM<br/>ポケモンAI・汎用RAG・Bot・Ollama"]
-    identity["identity<br/>Authentik + 専用DB"]
-    cloud["cloud-01<br/>クラウドAPI + 管理DB"]
-    k8s["常用Kubernetes<br/>AWX・CloudNativePG・Knative<br/>起動状態は配備台帳を参照"]
-    s3["storage-s3<br/>Garage"]
-    edge["public-edge / 条件成立後に追加<br/>公開Caddy"]
-    pve["Proxmox API"]
-    dev["既存dev-a / dev-b<br/>各担当の並列開発"]
-    edge -->|許可した公開Webのみ| media
-    cloud -. VM管理 .-> pve
-    cloud -. DB・関数提供 .-> k8s
-    cloud -. S3管理 .-> s3
-    pve -. cloud所有VM .-> media
-    pve -. cloud所有VM .-> monitor
-    pve -. cloud所有VM .-> game
-    monitor -. ノード・VMを読む .-> pve
-    dev -. 作成・設定 .-> cloud
+  internet["インターネット<br/>IPv6（v6プラス・MAP-E）・IPv4"]
+  onu["ONU"]
+  remote["宅外の端末<br/>（Tailscale・net-01 経由）"]
+
+  subgraph host["物理ホスト apextox（K11 / Proxmox VE）"]
+    subgraph netvm["ネットワークVM（platform）"]
+      router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS・NDP代理"]
+    end
+    subgraph infra["基盤VM（platform）"]
+      identity["identity<br/>共通ログイン（Authentik）"]
+      cloud01["cloud-01<br/>自作クラウド API・管理DB"]
+      services01["services-01<br/>NetBox・docs・Homarr<br/>Vaultwarden・家電・CUPS"]
+      storage["storage-s3<br/>Garage（S3）"]
+      k8s["k8s-cp / worker<br/>AWX・CloudNativePG・Knative"]
+    end
+    subgraph svcpool["サービスVM（cloud）"]
+      media["media-01<br/>Nextcloud・Kavita・Navidrome・FreshRSS"]
+      monitor["monitor-01<br/>Prometheus・Grafana・監視"]
+      game["game1<br/>Wolf・RomM・AI（GPU）"]
+      net01["net-01<br/>Tailscale 復旧経路"]
+    end
+    subgraph devpool["開発・検証VM（dev / lab）"]
+      dev["dev-a / dev-b<br/>Terraform・Docker・Go"]
+      probe["probe-01<br/>復元ドリル（停止中）"]
+    end
   end
-  users --> services
-  users --> media
-  users --> monitor
-  users --> game
-  users --> identity
-  users --> pi
-  pi -. 復旧経路 .-> pve
-  router -. 公開条件を確認後 .-> edge
-  git["Git / 管理環境<br/>独立した作業ID・計画書"] -. 基盤構築 .-> pve
-  backup["既存の外部保存先<br/>利用可否・復元はO01-O03で確認"]
-  services -. 整合バックアップ .-> backup
-  media -. 整合バックアップ .-> backup
-  game -. 整合バックアップ .-> backup
-  cloud -. 整合バックアップ .-> backup
+  switch["TL-SG605"]
+  aterm["Aterm（APモード・Wi-Fi）"]
+
+  internet --> onu --> router
+  router --> switch
+  switch --> aterm
+  switch --> services01
+  switch --> media
+  switch --> monitor
+  switch --> game
+  switch --> dev
+  remote -. Tailscale .-> net01
+  net01 -. 復旧経路 .-> switch
+  cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
+  services01 --> storage
+  media --> storage
+  monitor --> k8s
+  router -. "IP台帳（予約・リース）" .-> services01

@@ -1,0 +1,16 @@
+---
+# Proxmoxホストの資源・SMARTをPrometheusへ出す。Debianの
+# prometheus-node-exporter を入れ、SMARTとNVMeは同梱のtextfile collector
+# （smartmon.sh・nvme-cli）をtimerで回す。設計は
+# docs/development/M01-monitoring.md。
+pve_node_exporter_packages:
+  - prometheus-node-exporter
+  - smartmontools
+
+# SMARTは15分ごと、NVMeは15分ごと。aptのtimerは既定のまま使う。
+pve_node_exporter_timers:
+  - prometheus-node-exporter-smartmon.timer
+  - prometheus-node-exporter-nvme.timer
+
+# textfile collector が読むディレクトリ（Debianパッケージの既定）。
+pve_node_exporter_textfile_dir: /var/lib/prometheus/node-exporter

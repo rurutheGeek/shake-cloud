@@ -7,7 +7,6 @@ manual dictionary. The service runs behind the same Forward Auth as MeTube.
 These are source-text and in-memory assertions; nothing here contacts the site.
 """
 import ast
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -17,6 +16,8 @@ from unittest import mock
 
 import yaml
 
+from support import load_module, read
+
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
 SOURCE = STACK / 'khinsider.py'
@@ -24,20 +25,7 @@ DICTIONARY = STACK / 'khinsider-ja.json'
 PLAYBOOK = ROOT / 'platform/ansible/music-tools.yml'
 IDENTITY = ROOT / 'stacks/identity/configure.py'
 
-spec = importlib.util.spec_from_file_location('khinsider', SOURCE)
-khinsider = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(khinsider)
-
-
-def read(path):
-    return path.read_text(encoding='utf-8')
-
-
-def load_module(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+khinsider = load_module(SOURCE, 'khinsider')
 
 
 ALBUM_PAGE = '''<html><body>

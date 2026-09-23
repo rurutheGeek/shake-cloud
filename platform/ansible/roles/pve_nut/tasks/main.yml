@@ -1,9 +1,11 @@
 ---
-# UPS を USB で持つ Proxmox ホストで NUT を動かす。低電池時のシャットダウン
-# （upsmon）は別の手順で有効化する。ここでは状態を読めるようにするだけ。
+# UPS を USB で持つ Proxmox ホストで NUT を動かす。状態を LAN へ出し（upsd）、
+# 低電池では upsmon が power.md の順番でホストを停止する。
 - name: Install NUT
   ansible.builtin.apt:
-    name: nut
+    name:
+      - nut
+      - nut-client
     state: present
 
 - name: Read the NUT monitor password
@@ -52,6 +54,25 @@
     mode: '0640'
   register: pve_nut_nut_conf
 
+- name: Configure upsmon for low-battery shutdown
+  ansible.builtin.template:
+    src: upsmon.conf.j2
+    dest: /etc/nut/upsmon.conf
+    owner: root
+    group: nut
+    mode: '0640'
+  no_log: true
+  register: pve_nut_upsmon_conf
+
+- name: Install the shutdown script
+  ansible.builtin.template:
+    src: pve-ups-shutdown.sh.j2
+    dest: '{{ pve_nut_shutdown_script }}'
+    owner: root
+    group: root
+    mode: '0750'
+  register: pve_nut_shutdown_file
+
 # 既に挿さっているUSB機器には udev ルールが後から効かない。再読込と
 # trigger で /dev/bus/usb/... を nut グループにする。
 - name: Reload udev rules
@@ -92,3 +113,20 @@
   retries: 10
   delay: 3
   until: pve_nut_status.rc == 0
+
+# 低電池で SHUTDOWNCMD を実行する側。upsmon の方が先に動いていてはいけない。
+- name: Enable and start upsmon
+  ansible.builtin.systemd:
+    name: nut-monitor
+    enabled: true
+    state: restarted
+  when: pve_nut_upsmon_conf is changed or pve_nut_shutdown_file is changed or pve_nut_nut_conf is changed
+
+- name: Wait for upsmon to stay active
+  ansible.builtin.command:
+    argv: [systemctl, is-active, nut-monitor]
+  register: pve_nut_upsmon_state
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: pve_nut_upsmon_state.stdout == 'active'

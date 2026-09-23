@@ -1,0 +1,58 @@
+---
+# 6TB USB HDD（WD60EZAX）をホストで ext4 にして、media-01 と game1 へ
+# NFS 共有する。正本はこのロール。設計は docs/operations/bulk-storage.md。
+#
+# 初期化（wipefs/sgdisk/mkfs）は明示されたときだけ行う。既存の
+# ファイルシステムは消さない。消してよいと確認できたときだけ
+#   -e pve_bulk_storage_initialize=true
+# を付けて実行する。
+pve_bulk_storage_initialize: false
+
+# デバイス名（sda 等）ではなく、ディスク自身のATA識別子に固定する。
+# USBの挿し位置・別のenclosureへ移しても同じパスになる。
+pve_bulk_storage_device: /dev/disk/by-id/ata-WDC_WD60EZAX-00C8VB0_WD-WX32D94PX6R8
+pve_bulk_storage_partition: '{{ pve_bulk_storage_device }}-part1'
+pve_bulk_storage_label: bulk6tb
+pve_bulk_storage_mount: /srv/bulk
+
+# nofail: ディスクが無くてもホストのブートを止めない。
+# noatime: 5400rpmのHDDへの読み取り時書き込みを減らす。
+pve_bulk_storage_fstab_opts: defaults,nofail,noatime,x-systemd.device-timeout=30
+
+# メディア共有。media-01 のコンテナ（Nextcloud・Navidrome・LocalSend）は
+# www-data(33) で読み書きする。ホスト側の所有権もそれに合わせる。
+pve_bulk_storage_media_dir: '{{ pve_bulk_storage_mount }}/media'
+pve_bulk_storage_media_subdirs:
+  - books
+  - docs
+  - inbox
+  - music
+pve_bulk_storage_media_uid: 33
+pve_bulk_storage_media_gid: 33
+
+# ROM共有。game1（Bazzite）の利用者がそのままコピーできるよう uid 1000 に
+# 寄せる。RomM コンテナは compose 側で `:ro` を付けて原本を守る。
+pve_bulk_storage_roms_dir: '{{ pve_bulk_storage_mount }}/roms'
+pve_bulk_storage_roms_uid: 1000
+pve_bulk_storage_roms_gid: 1000
+
+# バックアップ。vzdump の保存先（Proxmox の dir ストレージ。pve_backup ロールが
+# 登録する）と、game1 のセーブを受け取る共有。メディア共有とは分ける。
+# このディスク自身が壊れるとバックアップも失う点は docs/operations/backup.md。
+pve_bulk_storage_backup_dir: '{{ pve_bulk_storage_mount }}/backups'
+pve_bulk_storage_game1_saves_dir: '{{ pve_bulk_storage_backup_dir }}/game1-saves'
+
+# ゲストはIPv4の固定IPだけ。all_squash でゲスト側の uid に関係なく
+# anonuid で読み書きする。root_squash だけだと root で動くコンテナ
+# （Kavita など）が 2750 のディレクトリを読めない。
+pve_bulk_storage_exports:
+  - path: '{{ pve_bulk_storage_media_dir }}'
+    clients: 192.168.10.101
+    options: 'rw,sync,no_subtree_check,all_squash,anonuid=33,anongid=33'
+  - path: '{{ pve_bulk_storage_roms_dir }}'
+    clients: 192.168.10.127
+    options: 'rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000'
+  # game1 のセーブ置き場。roms と同じ uid に寄せる。
+  - path: '{{ pve_bulk_storage_game1_saves_dir }}'
+    clients: 192.168.10.127
+    options: 'rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000'

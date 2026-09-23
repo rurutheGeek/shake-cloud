@@ -7,7 +7,6 @@ system extension would only show up on the VM, so these are source-text, YAML,
 JSON and XML assertions. Nothing here connects to media-01 or runs Docker.
 """
 import ast
-import importlib.util
 import json
 from pathlib import Path
 import sys
@@ -15,6 +14,8 @@ import unittest
 import xml.etree.ElementTree as ET
 
 import yaml
+
+from support import load_module
 
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = ROOT / 'stacks/media/freshrss'
@@ -25,13 +26,6 @@ DNS = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='
 PLAYBOOK = ROOT / 'platform/ansible/media-freshrss.yml'
 SSO_PLAYBOOK = ROOT / 'platform/ansible/media-freshrss-sso.yml'
 ZONE = 'apextox.dpdns.org'
-
-
-def load(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class ComposeTests(unittest.TestCase):
@@ -127,7 +121,7 @@ class ExtensionTests(unittest.TestCase):
 class ManageTests(unittest.TestCase):
     def setUp(self):
         self.text = (UNIT / 'manage.py').read_text(encoding='utf-8')
-        self.manage = load(UNIT / 'manage.py', 'freshrss_manage')
+        self.manage = load_module(UNIT / 'manage.py', 'freshrss_manage')
 
     def test_the_required_actions_are_available(self):
         for action in ('init', 'lock', 'up', 'configure', 'seed', 'status', 'down', 'backup'):
@@ -266,7 +260,7 @@ class SsoPlaybookTests(unittest.TestCase):
 
 class IdentityTests(unittest.TestCase):
     def setUp(self):
-        self.configure = load(ROOT / 'stacks/identity/configure.py', 'identity_configure')
+        self.configure = load_module(ROOT / 'stacks/identity/configure.py', 'identity_configure')
 
     def test_freshrss_is_a_native_oidc_client(self):
         self.assertEqual(self.configure.MEDIA_OIDC_CLIENTS['freshrss'], '/i/oidc/')

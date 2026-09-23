@@ -1,0 +1,18 @@
+---
+# ストレージの寿命対策（journald上限・/のnoatime・Dockerログ上限）を
+# ホストとゲストへまとめて当てる。設計は docs/operations/disk.md。
+#
+# インベントリは対象ごとに分かれているので、複数回に分けて流す:
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/storage-health.yml
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/monitor.ini platform/ansible/storage-health.yml
+#   sops exec-env platform/sops/services.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/storage-health.yml'
+#
+# サービスVMのDockerを止めたくないときは -e storage_health_restart_docker=false。
+- name: Storage lifespan settings
+  hosts: pve:monitoring:media:identity_provider:cloud_control:storage
+  become: true
+  roles:
+    - storage_health

@@ -38,7 +38,7 @@ scrape_configs:
     params:
       module: [default]
     static_configs:
-      - targets: ['192.168.10.126']
+      - targets: ['192.168.10.10']
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -57,3 +57,19 @@ scrape_configs:
   - job_name: node
     file_sd_configs:
       - files: ['/etc/prometheus/node-targets.yml']
+
+  # ゲームVM（game1）の使用量。ポータルがW07 metricsをPrometheus形式で
+  # 公開する。トークンは secrets/game_metrics_token（SOPS由来）から読む。
+  # ターゲットはホスト名で指定する（CaddyはHostヘッダで振り分けるため、
+  # IP指定だと空の200が返る）。証明書は Let's Encrypt の play.* と一致する。
+  - job_name: game
+    scheme: https
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    authorization:
+      credentials_file: /etc/prometheus-secrets/game_metrics_token
+    tls_config:
+      server_name: play.apextox.dpdns.org
+    static_configs:
+      - targets: ['play.apextox.dpdns.org:443']

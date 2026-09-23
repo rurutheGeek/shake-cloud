@@ -7,6 +7,7 @@ blackbox targets drift away from dns.yaml, would be worse than no test.
 import importlib.util
 import json
 from pathlib import Path
+import string
 import unittest
 
 import yaml
@@ -78,20 +79,121 @@ class PrometheusTests(unittest.TestCase):
         job = next(j for j in config['scrape_configs'] if j['job_name'] == 'nut')
         self.assertEqual(job['metrics_path'], '/ups_metrics')
 
+    def test_the_game_job_scrapes_the_portal_exporter_over_https(self):
+        config = load(STACK / 'prometheus/prometheus.yml')
+        job = next(j for j in config['scrape_configs'] if j['job_name'] == 'game')
+        self.assertEqual(job['scheme'], 'https')
+        self.assertEqual(job['metrics_path'], '/metrics')
+        self.assertEqual(job['authorization']['credentials_file'],
+                         '/etc/prometheus-secrets/game_metrics_token')
+        # Caddy は Host ヘッダで振り分ける。IP を target にすると空の 200 が返る。
+        self.assertEqual(job['static_configs'][0]['targets'], ['play.apextox.dpdns.org:443'])
+
+    def test_the_game_token_is_mounted_only_into_prometheus(self):
+        services = load(STACK / 'compose.yaml')['services']
+        self.assertIn(
+            './secrets/game_metrics_token:/etc/prometheus-secrets/game_metrics_token:ro',
+            services['prometheus']['volumes'])
+        for name, service in services.items():
+            if name == 'prometheus':
+                continue
+            self.assertNotIn('game_metrics_token', ' '.join(service.get('volumes', [])))
+
     def test_the_alert_rules_cover_the_ups(self):
         rules = load(STACK / 'prometheus/alerts.yml')
         expressions = [rule['expr'] for group in rules['groups'] for rule in group['rules']]
         self.assertTrue(any('network_ups_tools_ups_status' in expr for expr in expressions))
 
+    def test_the_alert_rules_cover_the_proxmox_node_memory(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        self.assertIn('pve_memory_usage_bytes', alerts['ProxmoxNodeMemoryHigh']['expr'])
+        self.assertIn('pve_memory_size_bytes', alerts['ProxmoxNodeMemoryHigh']['expr'])
+
+    def test_the_alert_rules_cover_the_node_exporters(self):
+        # 5台から node_* を集めているのに規則が無い、を防ぐ。
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        for name, metric in (
+                ('NodeExporterDown', 'up{job="node"}'),
+                ('NodeFilesystemAlmostFull', 'node_filesystem_avail_bytes'),
+                ('NodeMemoryLow', 'node_memory_MemAvailable_bytes'),
+                ('NodeOOMKill', 'node_vmstat_oom_kill'),
+                ('NodeSystemdUnitFailed', 'node_systemd_unit_state'),
+                ('NodeRebooted', 'node_boot_time_seconds')):
+            self.assertIn(name, alerts)
+            self.assertIn(metric, alerts[name]['expr'], name)
+
+    def test_the_proxmox_host_is_scraped_for_node_metrics(self):
+        # HDD/NVMeのデバイス別I/OとSMARTはホストのnode_exporterからしか取れない。
+        targets = load(STACK / 'prometheus/node-targets.yml')
+        hosts = {target for group in targets for target in group['targets']}
+        self.assertIn('192.168.10.10:9100', hosts)
+
+    def test_the_alert_rules_cover_the_bulk_disk_and_smart(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        for name, metric in (
+                ('BulkDiskUnmounted', 'absent(node_filesystem_avail_bytes'),
+                ('BulkDiskAlmostFull', 'node_filesystem_avail_bytes'),
+                ('SmartDeviceUnhealthy', 'smartmon_device_smart_healthy'),
+                ('SmartDeviceInactive', 'smartmon_device_active'),
+                ('SmartSectorErrors', 'smartmon_current_pending_sector_raw_value'),
+                ('SmartCableErrors', 'smartmon_udma_crc_error_count_raw_value'),
+                ('SmartTemperatureHigh', 'smartmon_temperature_celsius_raw_value'),
+                ('SmartCollectorStale', 'smartmon_smartctl_run'),
+                ('NvmeWearHigh', 'nvme_percentage_used_ratio')):
+            self.assertIn(name, alerts)
+            self.assertIn(metric, alerts[name]['expr'], name)
+        # 汎用の15%規則と /srv/bulk で二重に鳴らさない。
+        self.assertIn('mountpoint!="/srv/bulk"', alerts['NodeFilesystemAlmostFull']['expr'])
+
+    def test_the_alert_rules_cover_the_backup_age_and_absence(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        self.assertIn('backup_last_success_timestamp_seconds', alerts['CloudBackupStale']['expr'])
+        self.assertIn('absent(', alerts['CloudBackupMetricMissing']['expr'])
+        self.assertTrue(alerts['CloudBackupStale']['for'] == '15m')
+
+    def test_the_watchdog_alert_is_always_firing(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        self.assertEqual(alerts['Watchdog']['expr'], 'vector(1)')
+        self.assertEqual(alerts['Watchdog']['labels']['severity'], 'none')
+
+
+class AlertmanagerTests(unittest.TestCase):
+    def test_the_deadman_switch_is_rendered_only_with_a_ping_url(self):
+        spec = importlib.util.spec_from_file_location('monitoring_manage', STACK / 'manage.py')
+        monitoring = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(monitoring)
+        template = (STACK / 'alertmanager/alertmanager.yml.template').read_text(encoding='utf-8')
+        self.assertIn('${WATCHDOG_PING_URL}', template)
+        self.assertIn('alertname = Watchdog', template)
+        configured = string.Template(template).substitute(
+            {'WATCHDOG_PING_URL': 'https://hc-ping.com/example', 'ALERT_EMAIL': 'a@example.com',
+             'SMTP_HOST': 'smtp', 'SMTP_PORT': '587', 'SMTP_FROM': 'f@example.com',
+             'SMTP_USERNAME': 'u', 'SMTP_PASSWORD': 'p', 'SMTP_REQUIRE_TLS': 'true'})
+        self.assertIn('hc-ping.com', configured)
+        disabled = monitoring.without_watchdog(configured)
+        self.assertNotIn('hc-ping.com', disabled)
+        # 宛先は残す。Watchdog がメールへ流れると12時間ごとに誤通知になる。
+        self.assertIn('name: deadman', disabled)
+        self.assertIn('alertname = Watchdog', disabled)
+        self.assertIn('name: email', disabled)
+
 
 class GrafanaTests(unittest.TestCase):
-    def test_the_datasource_uid_matches_the_dashboard(self):
+    def dashboards(self):
+        return {path.name: json.loads(path.read_text(encoding='utf-8'))
+                for path in sorted((STACK / 'grafana/provisioning/dashboards').glob('*.json'))}
+
+    def test_the_datasource_uid_matches_the_dashboards(self):
         datasource = load(STACK / 'grafana/provisioning/datasources/prometheus.yml')
         uid = datasource['datasources'][0]['uid']
-        dashboard = json.loads(
-            (STACK / 'grafana/provisioning/dashboards/overview.json').read_text(encoding='utf-8'))
-        for panel in dashboard['panels']:
-            self.assertEqual(panel['datasource']['uid'], uid, panel['title'])
+        for name, dashboard in self.dashboards().items():
+            for panel in dashboard['panels']:
+                self.assertEqual(panel['datasource']['uid'], uid, f'{name}: {panel["title"]}')
 
     def test_the_dashboard_provider_points_at_the_mounted_path(self):
         provider = load(STACK / 'grafana/provisioning/dashboards/default.yml')
@@ -99,10 +201,54 @@ class GrafanaTests(unittest.TestCase):
                          '/etc/grafana/provisioning/dashboards')
 
     def test_the_dashboard_shows_the_ups(self):
-        dashboard = json.loads(
-            (STACK / 'grafana/provisioning/dashboards/overview.json').read_text(encoding='utf-8'))
+        dashboard = self.dashboards()['overview.json']
         titles = [panel['title'] for panel in dashboard['panels']]
         self.assertTrue(any('UPS' in title for title in titles), titles)
+
+    def test_the_vm_memory_dashboard_shows_guests_over_time(self):
+        dashboard = self.dashboards()['vm-memory.json']
+        expressions = [target['expr'] for panel in dashboard['panels'] for target in panel['targets']]
+        self.assertTrue(any('pve_memory_usage_bytes' in expr for expr in expressions))
+        self.assertTrue(any('pve_memory_size_bytes' in expr for expr in expressions))
+        # VMID だけでは人が判断できないので、名前を pve_guest_info から引く。
+        self.assertTrue(any('pve_guest_info' in expr for expr in expressions))
+
+    def test_the_host_dashboard_shows_io_and_temperatures(self):
+        dashboard = self.dashboards()['host.json']
+        expressions = [target['expr'] for panel in dashboard['panels'] for target in panel['targets']]
+        for fragment in ('node_disk_read_bytes_total', 'node_disk_written_bytes_total',
+                         'node_cpu_scaling_frequency_hertz', 'node_hwmon_temp_celsius',
+                         'node_network_receive_bytes_total', 'node_filesystem_avail_bytes'):
+            self.assertTrue(any(fragment in expr for expr in expressions), fragment)
+
+    def test_the_storage_dashboard_shows_the_bulk_disk_and_smart(self):
+        dashboard = self.dashboards()['storage.json']
+        expressions = [target['expr'] for panel in dashboard['panels'] for target in panel['targets']]
+        for fragment in ('mountpoint="/srv/bulk"', 'smartmon_device_smart_healthy',
+                         'smartmon_temperature_celsius_raw_value',
+                         'smartmon_udma_crc_error_count_raw_value',
+                         'nvme_percentage_used_ratio', 'pve_disk_usage_bytes',
+                         'nvme_data_units_written_total', 'smartmon_load_cycle_count_raw_value',
+                         'smartmon_start_stop_count_raw_value'):
+            self.assertTrue(any(fragment in expr for expr in expressions), fragment)
+
+    def test_the_overview_links_and_shows_the_bulk_disk(self):
+        dashboard = self.dashboards()['overview.json']
+        titles = [panel['title'] for panel in dashboard['panels']]
+        self.assertIn('6TB HDD 使用率', titles)
+        self.assertIn('6TB HDD SMART', titles)
+        urls = [link['url'] for link in dashboard.get('links', [])]
+        self.assertIn('/d/shakelab-host', urls)
+        self.assertIn('/d/shakelab-storage', urls)
+
+    def test_the_overview_node_panels_do_not_mix_in_guests(self):
+        # pve_* は同じメトリクス名でゲストにも生える。絞らないと凡例が instance だらけになる。
+        dashboard = self.dashboards()['overview.json']
+        for panel in dashboard['panels']:
+            if not panel['title'].startswith('Proxmox ノード'):
+                continue
+            for target in panel['targets']:
+                self.assertIn('node/', target['expr'], panel['title'])
 
 
 class IdentityClientTests(unittest.TestCase):

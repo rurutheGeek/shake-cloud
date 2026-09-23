@@ -14,6 +14,7 @@ nav:
       - 全サービスの使い方: services/usage.md
       - 共通ログインの使い方: services/identity.md
       - Homarrハブ: services/homarr.md
+      - 通信速度テスト（LibreSpeed）: services/librespeed.md
       - 日本語表示: services/language.md
       - Nextcloudの使い方: services/nextcloud-guide.md
       - 音楽・取り込み・タグ: services/music.md
@@ -56,6 +57,7 @@ nav:
           - N03 VLAN切替: development/N03-vlan.md
           - N04 公開Web入口: development/N04-public-edge.md
           - N05 既存サービスのHTTPS移行完了: development/N05-https.md
+      - N06 router-01（自作ルータ）: development/N06-router.md
       - I：基盤:
           - I01 容量測定・軽量化: development/I01-resources.md
           - I02 media-01のVM宣言: development/I02-media-vm.md
@@ -109,9 +111,15 @@ nav:
           - VLAN 分離への切替: operations/vlan.md
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
+          - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
+          - router-01（OpenWrt・自作ルータ）: operations/router.md
+          - router-01 の設定まとめ: operations/router-config.md
+          - DNS と広告遮断（AdGuard Home）: operations/adguard.md
+          - ルータがつながらないときの調べ方: operations/router-troubleshooting.md
       - 電源・確認・引き継ぎ:
           - 電源とUPS: operations/power.md
           - 確認と、はまりどころ: operations/verify.md
+          - バックアップ（重要VM・セーブ）: operations/backup.md
           - 配備台帳（実機の状態とTODO）: operations/handover.md
   - 設計:
       - ホームラボの全体像: architecture/overview.md

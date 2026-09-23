@@ -32,3 +32,6 @@ cloud_api_terraform_dir: '{{ playbook_dir }}/../terraform'
 cloud_api_backup_dir: /var/backups/cloud-api
 cloud_api_backup_keep: 14
 cloud_api_backup_oncalendar: '*-*-* 03:40:00'
+# node_exporter の textfile collector。バックアップの最終成功時刻を1行公開し、
+# 停滞（36h超）と欠測を監視スタックのアラートで見る。
+cloud_api_backup_metric: /var/lib/prometheus/node-exporter/cloud_backup.prom

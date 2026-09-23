@@ -1,0 +1,402 @@
+{
+  "title": "Shake Lab storage",
+  "uid": "shakelab-storage",
+  "tags": ["storage", "SMART", "バックアップ"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {"from": "now-7d", "to": "now"},
+  "links": [
+    {
+      "type": "link",
+      "title": "ホスト詳細",
+      "url": "/d/shakelab-host",
+      "icon": "external link",
+      "targetBlank": false,
+      "keepTime": true
+    },
+    {
+      "type": "link",
+      "title": "バックアップ手順",
+      "url": "https://docs.apextox.dpdns.org/operations/backup/",
+      "icon": "external link",
+      "targetBlank": true,
+      "keepTime": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "6TB HDD 使用率",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"} / node_filesystem_size_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.8},
+              {"color": "red", "value": 0.9}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "6TB HDD 空き",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "none", "graphMode": "area", "textMode": "auto"}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "6TB HDD SMART",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_device_smart_healthy{disk=\"/dev/sda\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {"text": "OK", "color": "green", "index": 0},
+                "0": {"text": "FAILED", "color": "red", "index": 1}
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "6TB HDD 温度",
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_temperature_celsius_raw_value{disk=\"/dev/sda\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 45},
+              {"color": "red", "value": 55}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "NVMe 寿命消費",
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "nvme_percentage_used_ratio{device=\"nvme0n1\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.7},
+              {"color": "red", "value": 0.8}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "value", "graphMode": "area", "textMode": "auto"}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "6TB HDD マウント",
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}) or vector(0)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {"text": "マウント中", "color": "green", "index": 0},
+                "0": {"text": "消失", "color": "red", "index": 1}
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "background", "graphMode": "none", "textMode": "auto"}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "6TB HDD 容量",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "legendFormat": "空き"
+        },
+        {
+          "refId": "B",
+          "expr": "node_filesystem_size_bytes{instance=\"192.168.10.10:9100\",mountpoint=\"/srv/bulk\"}",
+          "legendFormat": "全体"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "6TB HDD I/O",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_disk_read_bytes_total{instance=\"192.168.10.10:9100\",device=\"sda\"}[5m])",
+          "legendFormat": "読取"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_disk_written_bytes_total{instance=\"192.168.10.10:9100\",device=\"sda\"}[5m])",
+          "legendFormat": "書込"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(node_disk_io_time_seconds_total{instance=\"192.168.10.10:9100\",device=\"sda\"}[5m])",
+          "legendFormat": "利用率"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "Bps", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byFrameRefID", "options": "C"},
+            "properties": [{"id": "unit", "value": "percentunit"}, {"id": "custom.axisPlacement", "value": "right"}]
+          }
+        ]
+      },
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "温度（HDD SMART・NVMe）",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_temperature_celsius_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "6TB HDD"
+        },
+        {
+          "refId": "B",
+          "expr": "nvme_temperature_celsius{device=\"nvme0n1\"}",
+          "legendFormat": "NVMe"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "celsius", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 0, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "6TB HDD セクター・CRC異常",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_reallocated_sector_ct_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "代替処理済み"
+        },
+        {
+          "refId": "B",
+          "expr": "smartmon_current_pending_sector_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "代替処理待ち"
+        },
+        {
+          "refId": "C",
+          "expr": "smartmon_offline_uncorrectable_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "オフライン訂正不能"
+        },
+        {
+          "refId": "D",
+          "expr": "smartmon_udma_crc_error_count_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "CRCエラー"
+        }
+      ],
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 0, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "NVMe 異常",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "nvme_media_errors_total{device=\"nvme0n1\"}",
+          "legendFormat": "メディアエラー累計"
+        },
+        {
+          "refId": "B",
+          "expr": "nvme_critical_warning{device=\"nvme0n1\"}",
+          "legendFormat": "クリティカル警告"
+        },
+        {
+          "refId": "C",
+          "expr": "nvme_available_spare_ratio{device=\"nvme0n1\"}",
+          "legendFormat": "予備領域"
+        }
+      ],
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 0, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "バックアップ保存先（bulk-backup）",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pve_disk_usage_bytes{id=\"storage/apextox/bulk-backup\"}",
+          "legendFormat": "使用"
+        },
+        {
+          "refId": "B",
+          "expr": "pve_disk_size_bytes{id=\"storage/apextox/bulk-backup\"}",
+          "legendFormat": "全体"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "NVMe 総書込量",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "nvme_data_units_written_total{device=\"nvme0n1\"} * 512000",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "colorMode": "none", "graphMode": "area", "textMode": "auto"}
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "HDD 機械カウンタ（寿命ペース）",
+      "gridPos": {"h": 6, "w": 16, "x": 8, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "smartmon_load_cycle_count_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "Load Cycle"
+        },
+        {
+          "refId": "B",
+          "expr": "smartmon_start_stop_count_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "Start/Stop"
+        },
+        {
+          "refId": "C",
+          "expr": "smartmon_power_on_hours_raw_value{disk=\"/dev/sda\"}",
+          "legendFormat": "Power-On 時間"
+        }
+      ],
+      "fieldConfig": {"defaults": {"custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 0, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "NVMe 書込速度",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(nvme_data_units_written_total{device=\"nvme0n1\"}[1h]) * 512000",
+          "legendFormat": "書込"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "Bps", "custom": {"drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    }
+  ]
+}
