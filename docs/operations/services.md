@@ -1,6 +1,6 @@
 ---
 title: サービスの置き場所とクラウドVMでの作り方
-updated: 2026-09-13
+updated: 2026-09-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # サービスの置き場所とクラウドVMでの作り方
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。
 
@@ -206,3 +206,29 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 - 既存環境からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
 
 クラウドVMは Ansible のクラウド動的インベントリ（`platform/ansible/inventory.cloud.py`・`cloud-inventory.yml`。I03 で実機確認済み）で配備できます。`media.yml` がこの方式を使います。**基盤の NetBox インベントリとは併用しません**（`media` 群が和集合になるため）。
+
+<a id="media-units"></a>
+### media-01 を単体で配り直す
+
+`media.yml` は下の順で全部を流す傘です。**1つだけ直したいときは、その行のPlaybookを単体で流せます。**
+
+| 順 | Playbook | 対象 |
+| --- | --- | --- |
+| 1 | `media-base.yml` | 共有ライブラリのNFSマウント・土台（[共有バルクストレージ](bulk-storage.md)） |
+| 2 | `media-nextcloud.yml` | Nextcloud・Calendar・Tasks・Notes・自作アプリ（[Nextcloudと追加アプリ](nextcloud.md)） |
+| 3 | `media-kavita.yml` | Kavita |
+| 4 | `media-localsend.yml` | LocalSend受信機 |
+| 5 | `media-navidrome.yml` | Navidrome |
+| 6 | `media-freshrss.yml` | FreshRSS |
+| 7 | `music-tools.yml` | MeTube・変換・タグAPI・KHInsider |
+| 8 | `media-verify.yml` | 各サービスの応答確認 |
+| 9 | `media-tls.yml` | Caddy（HTTPS入口） |
+
+**OIDCは別Playbookです。** Kavita・FreshRSS・Nextcloud は本体のPlaybookだけでは**認証が無効のまま起動します**。identity が作ったクライアント秘密値を配るのが `media-kavita-sso.yml`・`media-freshrss-sso.yml`・`media-sso.yml`（Nextcloud）で、本体を配り直したら**対応するSSO側も流し直してください**。忘れると「ログイン画面が出ないまま中身が見える」状態になります。
+
+```bash
+ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+  .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-navidrome.yml
+```
+
+`media-sso.yml` は identity VM から秘密値を slurp するため、**identity も同じインベントリに居る必要があります**。`cloud-inventory.yml` が出す media-01 のインスタンスIDで `--limit` して対象を絞ってください（Playbook 冒頭のコメントに実例があります）。

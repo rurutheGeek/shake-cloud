@@ -116,7 +116,8 @@ nav:
           - router-01 の設定まとめ: operations/router-config.md
           - DNS と広告遮断（AdGuard Home）: operations/adguard.md
           - ルータがつながらないときの調べ方: operations/router-troubleshooting.md
-      - 電源・確認・引き継ぎ:
+      - 監視・電源・確認・引き継ぎ:
+          - 監視（monitor-01）: operations/monitoring.md
           - 電源とUPS: operations/power.md
           - 確認と、はまりどころ: operations/verify.md
           - バックアップ（重要VM・セーブ）: operations/backup.md
