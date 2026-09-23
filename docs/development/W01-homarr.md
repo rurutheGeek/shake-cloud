@@ -8,13 +8,13 @@
 
 `stacks/homarr/compose.yaml` にHomarr、永続 `/appdata`、暗号鍵、OIDCの定義がある。`stacks/homarr/configure.py` と `apps.json` がリンクの管理元である。[利用手順](../services/homarr.md)のボード・管理者権限を維持する。
 
-**既存環境の実装・データは流用せず、`stacks/homarr/` に新規構築する**（2026-09-12の利用者判断）。他サービスとの同居や既存の資料は持ち込まない。実装済みの内容: Homarr単独Compose（ダイジェスト固定）、`manage.py`（init/lock/up/configure/status/backup、秘密値は`secrets/`生成）、`configure.py`（標準ライブラリのみ、ボード・タイル・権限を冪等反映、既存タイルを削除・移動しない）、`apps.json`、テスト27件。残りは下の「依存と並列作業」に書く配備側。
+**既存環境の実装・データは流用せず、`stacks/homarr/` に新規構築する**（2026-09-12の利用者判断）。他サービスとの同居や既存の資料は持ち込まない。実装済みの内容: Homarr単独Compose（ダイジェスト固定）、`manage.py`（init/lock/up/configure/status/backup、秘密値は`secrets/`生成）、`configure.py`（標準ライブラリのみ、ボード・タイル・権限を冪等反映、`apps.json`に無いタイルは削除、位置は動かさない）、`apps.json`、テスト（`tests/test_homarr_stack.py`）。残りは下の「依存と並列作業」に書く配備側。
 
 配備先: **services-01**。開発先は `stacks/homarr/`。専用Composeと保存先へ切り出す。
 
 ## 実装手順
 
-**2026-09-12の利用者判断で既存環境からの移行は行わない。** 以下は新規構築として読む（既存データの棚卸し・保全・切戻しは対象外）。実装済みは`stacks/homarr/`一式（Compose・`manage.py`・`configure.py`・`apps.json`・テスト27件）と配備IaC（`platform/ansible/roles/homarr`・`platform/ansible/homarr.yml`・`dns.yaml`の`homarr`レコード・identityの`homarr` OIDCクライアント）。実配備は完了（W01・`https://homarr.apextox.dpdns.org`）。残りは実機確認（SSO・閲覧/管理者権限・再実行・再起動）。
+**2026-09-12の利用者判断で既存環境からの移行は行わない。** 以下は新規構築として読む（既存データの棚卸し・保全・切戻しは対象外）。実装済みは`stacks/homarr/`一式（Compose・`manage.py`・`configure.py`・`apps.json`・テスト（`tests/test_homarr_stack.py`））と配備IaC（`platform/ansible/roles/homarr`・`platform/ansible/homarr.yml`・`dns.yaml`の`homarr`レコード・identityの`homarr` OIDCクライアント）。実配備は完了（W01・`https://homarr.apextox.dpdns.org`）。残りは実機確認（SSO・閲覧/管理者権限・再実行・再起動）。
 
 1. 既存環境のボード・アプリ・暗号鍵・ログイン方式は棚卸しのみ行い、持ち込まない。`stacks/homarr/`はHomarr単独のComposeとし、他サービスの認証DBや資料を配備しない。
 2. 設定反映スクリプトの配備先・URLをパラメータ化し、同じデータに再実行してもタイル位置を壊さない構成にする。認証は[identity](../operations/identity.md)のOIDCクライアント `homarr` と `users` / `admins` を使う。既存アカウントを引き継ぐ場合は紐付けを検証し、メール一致だけで別人のデータを結び付けない。

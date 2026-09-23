@@ -8,10 +8,11 @@ import importlib.util
 import json
 from pathlib import Path
 import re
-import tempfile
 import unittest
 
 import yaml
+
+from support import scratch_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/homarr'
@@ -77,13 +78,20 @@ class FakeHomarr:
             return {}
         if path == 'board.addItem':
             if data.get('kind') == 'app':
-                self.items.append({'boardId': data['boardId'], 'kind': 'app',
+                self.items.append({'id': self._id('item'), 'boardId': data['boardId'], 'kind': 'app',
                                    'options': {'json': {'appId': data['options']['appId']}},
                                    'integrationIds': []})
             else:
-                self.items.append({'boardId': data['boardId'], 'kind': data['kind'],
+                self.items.append({'id': self._id('item'), 'boardId': data['boardId'],
+                                   'kind': data['kind'],
                                    'options': data.get('options', {}),
                                    'integrationIds': data.get('integrationIds', [])})
+            return {}
+        if path == 'board.saveBoard':
+            # saveBoard deletes the items the payload does not carry.
+            kept = {item['id'] for item in data['items']}
+            self.items = [item for item in self.items
+                          if item['boardId'] != data['id'] or item['id'] in kept]
             return {}
         if path == 'integration.all':
             return self.integrations
@@ -110,7 +118,7 @@ class FakeHomarr:
 
 
 def options(apps):
-    directory = Path(tempfile.mkdtemp(prefix='homarr-test-'))
+    directory = scratch_dir('homarr-test-')
     path = directory / 'apps.json'
     path.write_text(json.dumps(apps), encoding='utf-8')
     return {
@@ -142,6 +150,36 @@ class ReconcileTests(unittest.TestCase):
         configure.configure(homarr, options(APPS))
         self.assertEqual(len(homarr.items), 2)
         self.assertEqual(len(homarr.apps), 2)
+        self.assertEqual(homarr.calls_to('board.saveBoard'), [],
+                         'an already clean board must not be rewritten')
+
+    def test_an_undeclared_tile_is_removed_from_the_board(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options(APPS))
+        board_id = homarr.boards[0]['id']
+        homarr.apps.append({'id': 'extra', 'name': 'Manual', 'href': 'https://manual.example'})
+        homarr.items.append({'id': 'item-extra', 'boardId': board_id, 'kind': 'app',
+                             'options': {'json': {'appId': 'extra'}}, 'integrationIds': []})
+        configure.configure(homarr, options(APPS))
+        ids = [item['id'] for item in homarr.items]
+        self.assertNotIn('item-extra', ids)
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(len(homarr.calls_to('board.saveBoard')), 1)
+
+    def test_pruning_keeps_the_widgets_and_the_declared_tiles(self):
+        homarr = FakeHomarr()
+        configure.configure(homarr, options(APPS))
+        board_id = homarr.boards[0]['id']
+        homarr.items.append({'id': 'widget-1', 'boardId': board_id,
+                             'kind': 'healthMonitoring', 'options': {}, 'integrationIds': []})
+        homarr.apps.append({'id': 'extra', 'name': 'Manual', 'href': 'https://manual.example'})
+        homarr.items.append({'id': 'item-extra', 'boardId': board_id, 'kind': 'app',
+                             'options': {'json': {'appId': 'extra'}}, 'integrationIds': []})
+        configure.configure(homarr, options(APPS))
+        ids = [item['id'] for item in homarr.items]
+        self.assertIn('widget-1', ids)
+        self.assertNotIn('item-extra', ids)
+        self.assertEqual(len(ids), 3)
 
     def test_an_existing_item_is_not_added_again(self):
         homarr = FakeHomarr()
@@ -217,14 +255,14 @@ class InputTests(unittest.TestCase):
             configure.base_url('host:7575')
 
     def test_a_relative_href_is_rejected(self):
-        directory = Path(tempfile.mkdtemp(prefix='homarr-test-'))
+        directory = scratch_dir('homarr-test-')
         path = directory / 'apps.json'
         path.write_text(json.dumps([{'name': 'x', 'href': '/local'}]), encoding='utf-8')
         with self.assertRaises(ValueError):
             configure.load_apps(path)
 
     def test_a_nameless_entry_is_rejected(self):
-        directory = Path(tempfile.mkdtemp(prefix='homarr-test-'))
+        directory = scratch_dir('homarr-test-')
         path = directory / 'apps.json'
         path.write_text(json.dumps([{'href': 'https://x.example'}]), encoding='utf-8')
         with self.assertRaises(ValueError):

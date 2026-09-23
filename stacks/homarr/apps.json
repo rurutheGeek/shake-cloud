@@ -14,6 +14,13 @@
     "pingUrl": "https://grafana.apextox.dpdns.org/api/health"
   },
   {
+    "name": "LibreSpeed",
+    "href": "https://speed.apextox.dpdns.org",
+    "description": "端末 ↔ services-01 の実効速度（LibreSpeed）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/librespeed.svg",
+    "pingUrl": "https://speed.apextox.dpdns.org/"
+  },
+  {
     "name": "Shake Cloud",
     "href": "https://cloud.apextox.dpdns.org",
     "description": "VM・S3・DB・関数のセルフサービス",
@@ -82,12 +89,6 @@
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz.svg"
   },
   {
-    "name": "Picard",
-    "href": "https://picard.apextox.dpdns.org",
-    "description": "音楽タグの編集（GUI）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz-picard.svg"
-  },
-  {
     "name": "Vaultwarden",
     "href": "https://vault.apextox.dpdns.org",
     "description": "パスワード管理（SSO）",
@@ -124,14 +125,7 @@
     "pingUrl": "https://adguard.apextox.dpdns.org/"
   },
   {
-    "name": "ルータの設定まとめ",
-    "href": "https://docs.apextox.dpdns.org/operations/router-config/",
-    "description": "router-01（OpenWrt）の設定一覧",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
-    "pingUrl": "https://docs.apextox.dpdns.org/operations/router-config/"
-  },
-  {
-    "name": "ルータ（LuCI）",
+    "name": "LuCI",
     "href": "https://router.apextox.dpdns.org",
     "description": "router-01 の管理画面（SSOなし・復旧経路）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
