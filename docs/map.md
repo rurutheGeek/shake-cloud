@@ -85,7 +85,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [ドキュメントの書き方](contributing-docs.md) | 2026-09-19 | `hub` `rules` |
+| [ドキュメントの書き方](contributing-docs.md) | 2026-09-23 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-09-23 | `hub` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 
@@ -136,7 +136,7 @@ flowchart TB
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
 | [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-09-12 | `plan` `cloud` `network` |
-| [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-12 | `plan` `terraform` |
+| [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-23 | `plan` `terraform` |
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-09-23 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-09-23 | `plan` `network` |
@@ -193,7 +193,7 @@ flowchart TB
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-09-18 | `ops` `vaultwarden` |
-| [確認と、はまりどころ](operations/verify.md) | 2026-09-19 | `ops` `verify` |
+| [確認と、はまりどころ](operations/verify.md) | 2026-09-23 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-09-12 | `ops` `network` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-09-12 | `ops` `vm` |
 
