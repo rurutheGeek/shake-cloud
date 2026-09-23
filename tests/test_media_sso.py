@@ -10,18 +10,16 @@ the ansible-playbook syntax check, which parses the file on localhost only.
 """
 import ast
 import contextlib
-import importlib.util
 import io
 import json
-import os
 from pathlib import Path
-import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
 
 import yaml
+
+from support import load_module, syntax_check
 
 ROOT = Path(__file__).resolve().parents[1]
 IDENTITY = ROOT / 'stacks/identity'
@@ -32,15 +30,8 @@ PORTAL = 'https://cloud.apextox.dpdns.org'
 ZONE = 'apextox.dpdns.org'
 
 
-def load(path, name):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-configure = load(IDENTITY / 'configure.py', 'identity_configure')
-nextcloud_oidc = load(NEXTCLOUD / 'configure-oidc.py', 'nextcloud_configure_oidc')
+configure = load_module(IDENTITY / 'configure.py', 'identity_configure')
+nextcloud_oidc = load_module(NEXTCLOUD / 'configure-oidc.py', 'nextcloud_configure_oidc')
 FLOWS = {configure.AUTHORIZATION_FLOW: 'auth', configure.INVALIDATION_FLOW: 'inval'}
 
 
@@ -319,15 +310,7 @@ class MediaSsoPlaybookTests(unittest.TestCase):
 
 class SyntaxTests(unittest.TestCase):
     def test_the_playbook_parses(self):
-        candidate = Path(sys.executable).with_name('ansible-playbook')
-        playbook = str(candidate) if candidate.exists() else shutil.which('ansible-playbook')
-        if not playbook:
-            self.skipTest('ansible-playbook is not installed')
-        environment = os.environ.copy()
-        environment.setdefault('ANSIBLE_LOCAL_TEMP', '/tmp/shake-cloud-ansible')
-        result = subprocess.run(
-            [playbook, '--syntax-check', '-i', 'localhost,', str(PLAYBOOK)],
-            cwd=ROOT, capture_output=True, text=True, env=environment)
+        result = syntax_check(PLAYBOOK)
         self.assertEqual(result.returncode, 0,
                          f'{PLAYBOOK.name} did not parse:\n{result.stdout}\n{result.stderr}')
 

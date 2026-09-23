@@ -10,14 +10,14 @@ import unittest
 
 import yaml
 
+from support import read
+
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/media/localsend'
 PLAYBOOK = ROOT / 'platform/ansible/media-localsend.yml'
 ENTRY = ROOT / 'platform/ansible/media.yml'
 
 
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 
 class UnitTests(unittest.TestCase):

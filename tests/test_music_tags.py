@@ -12,6 +12,8 @@ import urllib.error
 
 import yaml
 
+from support import read
+
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
 SOURCE = STACK / 'tag_api.py'
@@ -23,8 +25,6 @@ tag_api = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tag_api)
 
 
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 
 class FakeResponse:

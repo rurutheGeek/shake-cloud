@@ -23,6 +23,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install documentation and lint dependencies
         run: python3 -m pip install -r stacks/hub/requirements.txt -r tools/requirements.txt
+      # The suite skips the ansible-playbook --syntax-check tests when the
+      # binary is missing, so CI has to install it to keep those guards alive.
+      - name: Install Ansible for the playbook syntax checks
+        run: python3 -m pip install -r platform/ansible/requirements.txt
       - name: Run unit tests
         run: python3 -m unittest discover -s tests
       - name: Compile tracked Python and parse YAML

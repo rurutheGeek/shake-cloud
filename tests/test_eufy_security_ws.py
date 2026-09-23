@@ -46,7 +46,8 @@ class ManageTests(unittest.TestCase):
     def setUp(self):
         self.manage = load_manage()
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name) / 'project'
+        self.root.mkdir()
         self.patch = patch.object(self.manage, 'ROOT', self.root)
         self.patch.start()
         (self.root / '.env.example').write_text(

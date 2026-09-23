@@ -13,6 +13,8 @@ import unittest
 
 import yaml
 
+from support import read
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'stacks/localsend-send/localsend_send.py'
 STACK = ROOT / 'stacks/localsend-send'
@@ -23,8 +25,6 @@ GROUP_VARS = ROOT / 'platform/ansible/group_vars/media.yml'
 SOPS_EXAMPLE = ROOT / 'platform/sops/localsend-send.sops.yaml.example'
 
 
-def read(path):
-    return path.read_text(encoding='utf-8')
 
 spec = importlib.util.spec_from_file_location('localsend_send', SOURCE)
 sender = importlib.util.module_from_spec(spec)
