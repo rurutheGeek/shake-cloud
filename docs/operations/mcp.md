@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: `cloud/mcp` に実装済み（テスト付き）。**クライアント（opencode・Claude Desktop 等）への登録と実機確認はこれから**。
+**状態**: `cloud/mcp` に実装済み（テスト付き）。dev-b でビルドし、opencode へ登録済み。**実機APIへの接続確認は読み取り専用キーの発行後**（キーの手順は「1. 準備」）。
 
 クラウドAPIを [MCP（Model Context Protocol）](https://modelcontextprotocol.io/) のツールとしてAIエージェントへ渡すサーバです。**stdin/stdout で動くローカルプロセス**で、エージェントを動かす端末（dev-a・dev-b など）で起動し、APIへは HTTPS で接続します。サーバー側への配備は不要です。
 
@@ -39,9 +39,9 @@ go build -o ~/.local/bin/shakecloud-mcp .
 
 MCPクライアントの設定例（書式はクライアントごとに違います）:
 
-opencode（`opencode.json` または `~/.config/opencode/opencode.json`）:
+opencode（`~/.config/opencode/opencode.jsonc`）。鍵は設定に直書きせず、`{file:...}` で別ファイルから読みます（サーバー側が前後の空白・改行を除去します）:
 
-```json
+```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
@@ -49,11 +49,18 @@ opencode（`opencode.json` または `~/.config/opencode/opencode.json`）:
       "type": "local",
       "command": ["/home/<利用者>/.local/bin/shakecloud-mcp"],
       "enabled": true,
-      "environment": { "SHAKECLOUD_ACCESS_KEY": "{env:SHAKECLOUD_ACCESS_KEY}" }
+      "environment": { "SHAKECLOUD_ACCESS_KEY": "{file:shakecloud-mcp.key}" }
     }
   }
 }
 ```
+
+```bash
+printf %s 'sca_...' > ~/.config/opencode/shakecloud-mcp.key
+chmod 600 ~/.config/opencode/shakecloud-mcp.key
+```
+
+鍵を置いたら opencode を再起動します。サーバーの起動ログ（stderr）に「connected as …（key scope ReadOnly）」が出れば接続できています。
 
 Claude Desktop など `mcpServers` 形式のクライアント:
 
