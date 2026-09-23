@@ -1,6 +1,6 @@
 # DNS と広告遮断（AdGuard Home）
 
-更新日: 2026-09-20。状態: **router-01 で稼働中（家の DNS の窓口）。**
+更新日: 2026-09-22。状態: **router-01 で稼働中（家の DNS の窓口）。**
 対象読者: 家のネットワークを運用する人。設定の一覧は
 [router-01 の設定まとめ](router-config.md)、ルータ本体は
 [router-01（OpenWrt・自作ルータ）](router.md) が正本です。
@@ -20,7 +20,8 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 
 ## なぜ入れているか
 
-- **広告・トラッカーの遮断**: 約18万件のフィルタ（AdGuard DNS filter）
+- **広告・トラッカーの遮断**: AdGuard DNS filter（約18万件）＋
+  HaGeZi's Pro Blocklist（2026-09-22 追加）
 - **DNS の暗号化（DoH）**: 回線事業者に問い合わせ内容を平文で見せない
 - **ISP の DNS 不調から独立**: 切替前、ISP の DNS が `refused` を返して
   名前が引けないことがあった
@@ -36,7 +37,7 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 | 上流 | `[/lan/]127.0.0.1:5353` → DoH（Cloudflare / Google） | ローカル名は dnsmasq、外部は暗号化 |
 | ブートストラップ | 1.1.1.1 / 9.9.9.10 | DoH サーバー名の解決用 |
 | 逆引き（PTR） | `127.0.0.1:5353` | LAN の名前は dnsmasq |
-| フィルタ | AdGuard DNS filter（約18万件） | 広告・トラッカー |
+| フィルタ | AdGuard DNS filter（約18万件）＋ HaGeZi's Pro Blocklist | 広告・トラッカー。1本では網羅できないため補完 |
 | クエリログ・統計 | 90日 | ルータ内のディスクに保存 |
 | 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は services-01 だけに許可 |
 | 作業ディレクトリ | `/etc/adguardhome/data`（UCI `workdir`） | 既定の `/var/lib` は tmpfs。再起動でフィルタが消えるのを防ぐ |
@@ -96,6 +97,25 @@ user_rules:
 
 反映は scp → `/etc/init.d/adguardhome restart`。
 
+### フィルタ（ブロックリスト）を足す
+
+正本の `adguardhome.yaml` の `filters` に足してコミットします。URL は
+[HostlistsRegistry](https://adguardteam.github.io/HostlistsRegistry/) の
+`filter_N.txt` を使い、`id` も登録所の番号に合わせます。
+
+```yaml
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
+    name: HaGeZi's Pro Blocklist
+    id: 48
+```
+
+**id は一意**にします（重複すると片方が読まれません）。反映は scp →
+`/etc/init.d/adguardhome restart` → フィルタ更新（上記）。追加直後は
+`/control/filtering/status` の `rules_count` が増えていることを確認します。
+リストを増やすほど誤ブロックも増えるので、**1本ずつ足して数日見る**のが安全です。
+
 ### 遮断の様子を見る
 
 管理画面の「クエリログ」。ファイルは
@@ -119,8 +139,12 @@ user_rules:
 （`footprintdns.com`・`minerva.devices.a2z.com` など）だけで、機能に必要な
 名前の遮断は見つかりませんでした。唯一の候補は Alexa のテレメトリで、
 **Alexa の挙動がおかしくなったら上のように除外**してください。
-`stats.grafana.org` はブロックが最多だったため、Grafana 側の匿名統計を
-止めています（`stacks/monitoring/compose.yaml`）。
+`stats.grafana.org` はトラッカーなので**遮断のままでよい**（Grafana 側の
+匿名統計も止めている。`stacks/monitoring/compose.yaml`）。
+
+**2026-09-22 に HaGeZi's Pro Blocklist を追加**したため、遮断はさらに増えます。
+アプリやサイトの機能が壊れたと思ったら、まずクエリログを「遮断」で絞り、
+上の手順で除外してください。
 
 ### 一時的に遮断を止める
 

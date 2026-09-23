@@ -178,6 +178,26 @@ def render_hosts(records):
     return lines
 
 
+def render_names(records):
+    """reserved な機器の名前を dnsmasq の host-record 行にする。
+
+    `dhcp-host` は実際にリースを配った端末にしか DNS 名を付けない。静的 IP の
+    端末（Pi・AP・Proxmox など）は DHCP に来ないため名前が生えない。リースの
+    有無と無関係に引けるよう、名前は `host-record` でも書く。MAC が無い機器
+    （プリンタなど）にも名前を付けられる。
+    """
+    lines = []
+    for record in sorted(records, key=lambda r: ipaddress.ip_interface(r['address']).ip):
+        if not record.get('name'):
+            continue
+        address = str(ipaddress.ip_interface(record['address']).ip)
+        name = record['name']
+        if '.' not in name:
+            name = f'{name}.lan'
+        lines.append(f'host-record={name},{address}')
+    return lines
+
+
 def render_clients(clients):
     """名前だけ付けるクライアント。IP は動的のまま、DNS 名だけ登録する。"""
     return [f"dhcp-host={normalize_mac(client['mac'])},{client['name']}"
@@ -199,7 +219,10 @@ def render_file(records, clients=()):
         '# 正本は NetBox の reserved な IPAddress（宣言は platform/netbox/devices.yaml）。',
         '# 生成: tools/netbox-dhcp-sync.py pull',
     ]
-    return '\n'.join(header + render_hosts(records) + render_clients(clients)) + '\n'
+    names = render_names(records)
+    if names:
+        names = ['# 静的 IP の端末はリースを取らないため、DNS 名は host-record で別に書く。'] + names
+    return '\n'.join(header + render_hosts(records) + names + render_clients(clients)) + '\n'
 
 
 def ssh_run(destination, key, command, timeout=30, input_text=None):
@@ -382,8 +405,9 @@ def pull(api, args):
     if output is None:
         raise SystemExit(f'書き込みに失敗（dnsmasq が起動しない可能性）: {error}')
     missing = [r['name'] for r in records if not r['mac']]
-    print(f'pull: {len(render_hosts(records))} 件の予約と {len(render_clients(clients))} 件の名前を反映'
-          + (f"（MAC 未登録でスキップ: {', '.join(missing)}）" if missing else ''))
+    print(f'pull: {len(render_hosts(records))} 件の予約・{len(render_names(records))} 件の DNS 名・'
+          f'{len(render_clients(clients))} 件のリース名を反映'
+          + (f"（MAC 未登録で DHCP 予約をスキップ: {', '.join(missing)}）" if missing else ''))
     return 0
 
 

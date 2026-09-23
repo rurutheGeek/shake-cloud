@@ -92,7 +92,8 @@
 - **LuCI は `https://router.apextox.dpdns.org`**（SSO なし・復旧経路。IP 直は
   `http://192.168.10.1`）。認証は LuCI の root パスワードで、未設定なら
   SSH で `passwd` を実行して設定する
-- フィルタは AdGuard DNS filter（約18万件）。設定の正本は
+- フィルタは AdGuard DNS filter（約18万件）と HaGeZi's Pro Blocklist
+  （2026-09-22 追加）。設定の正本は
   `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`
 - 運用（管理画面の開き方・フィルタ更新・つまずきやすい点）は
   [DNS と広告遮断（AdGuard Home）](adguard.md)

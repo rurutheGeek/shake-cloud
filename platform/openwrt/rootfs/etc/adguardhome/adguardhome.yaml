@@ -45,6 +45,12 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
     name: AdGuard DNS filter
     id: 1
+  # HaGeZi's Pro Blocklist（AdGuard DNS filter の補完。広告・トラッカー・
+  # 計測・テレメトリ）。id は HostlistsRegistry のフィルタ番号に合わせる。
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
+    name: HaGeZi's Pro Blocklist
+    id: 48
 user_rules: []
 querylog:
   enabled: true

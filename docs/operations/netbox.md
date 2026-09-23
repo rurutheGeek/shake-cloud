@@ -119,8 +119,9 @@ sops exec-env platform/sops/netbox.sops.yaml \
   衝突しません。** dnsmasq は予約された IP を他の端末へ配らない（例: Alexa
   `.46`、Eufy `.98`、SwitchBot `.99`）。プールの外（機器帯 `.2〜.19`）へ
   引っ越す必要はなく、端末側の設定も変えなくてよい
-- プール内の reserved は、その端末が DHCP を取れば名前も引けるようになる
-  （静的のままなら予約と衝突防止だけ）
+- reserved の名前は `host-record` でも DNS に書くので、DHCP を取らない静的 IP の
+  端末（Pi・AP など）でも `.lan` 名が引ける。プール内の予約は他端末への払い出し
+  防止も兼ねる
 
 ```bash
 sops exec-env platform/sops/netbox.sops.yaml \
@@ -148,7 +149,8 @@ sops exec-env platform/sops/netbox.sops.yaml \
 - **UCI に `config host` を手書きしない。** 生成ファイルと重複すると dnsmasq は
   「duplicate dhcp-host」で**起動に失敗**します。起動しないときは
   `ssh root@192.168.10.1 'dnsmasq --test -C /var/etc/dnsmasq.conf.*'`
-- 予約した名前が DNS で引けるのは、その機器が実際にリースを取った後です
+- 予約した名前は `host-record`（リース不要）と `dhcp-host`（リース取得後に有効）
+  の両方で書きます。静的 IP の端末も DHCP の端末も `.lan` で引けます
 
 ### 定期実行
 

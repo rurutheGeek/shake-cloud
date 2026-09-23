@@ -304,6 +304,19 @@ class ImageContentsTests(unittest.TestCase):
         self.assertIn("adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'", defaults)
         self.assertIn("adguardhome.config.workdir='/etc/adguardhome/data'", defaults)
 
+    def test_the_blocklists_are_registered(self):
+        # HostlistsRegistry の他人が保守するリストを購読する。id は一意で、
+        # 重複すると後勝ちで片方が無効になる。
+        config = load(OPENWRT / 'rootfs/etc/adguardhome/adguardhome.yaml')
+        filters = {entry['id']: entry for entry in config['filters']}
+        self.assertEqual(len(config['filters']), len(filters))
+        self.assertTrue(filters[1]['enabled'])
+        self.assertIn('filter_1.txt', filters[1]['url'])
+        # HaGeZi's Pro Blocklist。id 48 は登録所のフィルタ番号。
+        self.assertTrue(filters[48]['enabled'])
+        self.assertEqual(filters[48]['name'], "HaGeZi's Pro Blocklist")
+        self.assertIn('filter_48.txt', filters[48]['url'])
+
     def test_only_the_https_proxy_may_reach_the_adguard_ui(self):
         # AdGuard の管理画面は LAN アドレスに開けるが、HTTPS 入口の Caddy が
         # 動く services-01 だけ。LAN 全体に開けると SSO を迂回できてしまう。

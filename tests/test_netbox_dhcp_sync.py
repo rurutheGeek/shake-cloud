@@ -73,6 +73,30 @@ class RenderTests(unittest.TestCase):
     def test_a_device_without_a_mac_cannot_be_reserved(self):
         self.assertNotIn('printer', '\n'.join(sync.render_hosts(self.RECORDS)))
 
+    def test_reserved_names_are_published_without_a_lease(self):
+        # dnsmasq 2.93 の実測: dhcp-host だけでは、リースを取らない静的 IP の
+        # 端末名が引けない（NXDOMAIN）。host-record ならリースと無関係に引ける。
+        self.assertEqual(sync.render_names(self.RECORDS), [
+            'host-record=aterm.lan,192.168.10.2',
+            'host-record=printer.lan,192.168.10.3',
+            'host-record=tarakoserver.lan,192.168.10.11',
+        ])
+
+    def test_a_device_without_a_mac_still_gets_a_name(self):
+        # MAC が無くても DNS 名は付けられる（プリンタなど）。
+        self.assertIn('host-record=printer.lan,192.168.10.3',
+                      sync.render_file(self.RECORDS))
+
+    def test_a_qualified_name_is_not_rewritten(self):
+        records = [{'mac': '', 'address': '192.168.10.101/24',
+                    'name': 'nextcloud.apextox.dpdns.org'}]
+        self.assertEqual(sync.render_names(records),
+                         ['host-record=nextcloud.apextox.dpdns.org,192.168.10.101'])
+
+    def test_a_record_without_a_name_is_skipped(self):
+        records = [{'mac': 'aa:bb:cc:dd:ee:ff', 'address': '192.168.10.5/24', 'name': ''}]
+        self.assertEqual(sync.render_names(records), [])
+
     def test_the_file_carries_a_generated_header(self):
         text = sync.render_file(self.RECORDS)
         self.assertIn('手で編集しない', text)

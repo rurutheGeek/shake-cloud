@@ -600,6 +600,20 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   塞いだ。設定は `dns.yaml`・`stacks/identity/configure.py`・
   `rootfs/etc/shakecloud/config/firewall`・`adguardhome.yaml`。
 
+- 2026-09-20: **予約名（`.lan`）が静的 IP の端末で引けない問題を直した。**
+  dnsmasq の `dhcp-host` は**実際にリースを配った端末にしか DNS 名を付けない**
+  （実機 2.93 で確認。リース無しの `dhcp-host` は NXDOMAIN、`host-record` は
+  解決）。Pi・AP・Proxmox のように IP を自分で持つ機器は DHCP に来ないため、
+  `tarakoserver.lan` などの予約名が永久に生えなかった。
+  `tools/netbox-dhcp-sync.py` が予約から `host-record=<名前>.lan,<IP>` も生成
+  するようにし、`pull` で反映する（`tests/test_netbox_dhcp_sync.py` が検査）。
+
+- 2026-09-22: **ブロックリストを足した。** 既存の AdGuard DNS filter だけでは
+  網羅が足りないため、HaGeZi's Pro Blocklist（HostlistsRegistry の
+  `filter_48`、`id: 48`）を `filters` に追加。`stats.grafana.org` の遮断は
+  トラッカーなので意図どおり（Grafana の匿名統計は停止済み）。反映は scp →
+  `/etc/init.d/adguardhome restart` → フィルタ更新 API。
+
 ## ホスト再起動での自動復旧（確認済み・2026-09-20）
 
 N06 の完了条件。K11 を再起動し、`onboot` と `startup order=1` でルータ VM が
