@@ -44,15 +44,19 @@ class RestoreTest(unittest.TestCase):
         base = Path(self.tmp.name)
         self.state = base / 'guests-running'
         self.index = base / 'index'
+        self.clean_shutdown = base / 'clean-shutdown'
         self.index.write_text('')
         self.module.STATE = self.state
         self.module.TASK_LOGS = (self.index,)
+        self.module.CLEAN_SHUTDOWN = self.clean_shutdown
 
-    def given(self, saved, tasks=(), up=()):
+    def given(self, saved, tasks=(), up=(), clean_shutdown=False):
         self.state.write_text('\n'.join(saved) + '\n')
         os.utime(self.state, (SNAPSHOT_TIME, SNAPSHOT_TIME))
         self.index.write_text('\n'.join(tasks) + '\n')
         self.module.running = lambda: list(up)
+        if clean_shutdown:
+            self.clean_shutdown.touch()
 
     def restore(self):
         """Run restore() and return the VMIDs it asked Proxmox to start."""
@@ -104,6 +108,55 @@ class RestoreTest(unittest.TestCase):
     def test_no_saved_state_starts_nothing(self):
         self.module.running = lambda: []
         self.assertEqual(self.restore(), [])
+
+    def test_clean_shutdown_restores_despite_the_stopall_shutdowns(self):
+        # A deliberate host reboot's stopall sends every guest a qmshutdown on
+        # the way down; that must not be mistaken for an operator stopping it
+        # by hand (2026-09-25: it wrongly skipped the entire saved set).
+        self.given(
+            ['100', '401'],
+            tasks=[
+                upid('qmshutdown', '100', SNAPSHOT_TIME + 5),
+                upid('qmshutdown', '401', SNAPSHOT_TIME + 6),
+            ],
+            clean_shutdown=True,
+        )
+        self.assertEqual(sorted(self.restore()), ['100', '401'])
+
+    def test_without_the_marker_a_shutdown_still_blocks_the_restore(self):
+        # No marker means this was not a clean host shutdown (a hang or a
+        # power cut): fall back to trusting the task log, as before.
+        self.given(['100'], tasks=[upid('qmshutdown', '100', SNAPSHOT_TIME + 5)])
+        self.assertEqual(self.restore(), [])
+
+    def test_clean_shutdown_marker_is_consumed(self):
+        self.given(['100'], tasks=[upid('qmshutdown', '100', SNAPSHOT_TIME + 5)],
+                   clean_shutdown=True)
+        self.restore()
+        self.assertFalse(self.clean_shutdown.exists())
+
+
+class SaveTest(unittest.TestCase):
+    def setUp(self):
+        self.module = load_script()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name)
+        self.module.STATE = base / 'guests-running'
+        self.module.CLEAN_SHUTDOWN = base / 'clean-shutdown'
+        self.module.running = lambda: ['100']
+
+    def test_save_shutdown_leaves_a_marker(self):
+        self.module.save(clean_shutdown=True)
+        self.assertTrue(self.module.CLEAN_SHUTDOWN.exists())
+
+    def test_a_periodic_save_clears_a_stale_marker(self):
+        # An interrupted restore (e.g. the host crashed again before
+        # finishing) must not leave a marker that fools the next one.
+        self.module.CLEAN_SHUTDOWN.parent.mkdir(parents=True, exist_ok=True)
+        self.module.CLEAN_SHUTDOWN.touch()
+        self.module.save()
+        self.assertFalse(self.module.CLEAN_SHUTDOWN.exists())
 
 
 class ParseTest(unittest.TestCase):

@@ -5,21 +5,32 @@
 when the host was powered off does not come back by itself. This records the
 exact set that was running and restores it after pve-guests has run.
 
-    shakecloud-guests save      # write the running set
-    shakecloud-guests restore   # start the saved set, skipping those already up
+    shakecloud-guests save            # write the running set (periodic snapshot)
+    shakecloud-guests save-shutdown   # write the running set; mark it a deliberate host shutdown
+    shakecloud-guests restore         # start the saved set, skipping those already up
 
-`save` runs every minute (hard power loss leaves the last snapshot) and just
-before pve-guests stops the guests on a clean shutdown (that value is exact).
-Because the saved set follows reality, a guest that was off stays off.
+`save` runs every minute (hard power loss leaves the last snapshot). Because the
+saved set follows reality, a guest that was off stays off.
 
-The minute between snapshots is the gap a hard hang falls into: stopping game1
-hangs the host within seconds through its iGPU passthrough, so the last
-snapshot still says "running" and a plain restore would start a guest the
-operator had just stopped. `restore` therefore also reads the Proxmox task log,
-which timestamps every power task, and skips a guest whose newest power task
-after the snapshot was a stop or a shutdown. A guest that was stopped and
-started again keeps its start, so the restored set is what was really up when
-the host died. See docs/operations/power.md.
+The minute between periodic snapshots is the gap a hard hang falls into:
+stopping game1 hangs the host within seconds through its iGPU passthrough, so
+the last snapshot still says "running" and a plain restore would start a guest
+the operator had just stopped by hand. `restore` therefore also reads the
+Proxmox task log, which timestamps every power task, and skips a guest whose
+newest power task after the snapshot was a stop or a shutdown. A guest that was
+stopped and started again keeps its start, so the restored set is what was
+really up when the host died.
+
+`save-shutdown` runs instead of the periodic `save`, just before pve-guests
+stops the guests on a deliberate host shutdown/reboot, and also drops a marker
+file. pve-guests' stopall then sends every one of those guests a `qmshutdown`
+on its way down -- which the task log cannot tell apart from an operator
+stopping that one guest by hand. Without the marker, `restore` would read that
+qmshutdown and wrongly skip the entire saved set (see docs/operations/power.md
+for the incident that exposed this). With the marker present, `restore` trusts
+the saved set outright instead of re-deriving it from the task log, and then
+consumes the marker so a later hard power loss still falls back to the task-log
+check.
 """
 import pathlib
 import re
@@ -27,6 +38,7 @@ import subprocess
 import sys
 
 STATE = pathlib.Path('/var/lib/shakecloud/guests-running')
+CLEAN_SHUTDOWN = pathlib.Path('/var/lib/shakecloud/clean-shutdown')
 # Completed tasks land in `index`; `active` holds the ones still running.
 TASK_LOGS = (
     pathlib.Path('/var/log/pve/tasks/index'),
@@ -71,10 +83,16 @@ def last_power_action(since):
     return {vmid: action for vmid, (_, action) in newest.items()}
 
 
-def save():
+def save(clean_shutdown=False):
     guests = running()
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text('\n'.join(guests) + '\n')
+    if clean_shutdown:
+        CLEAN_SHUTDOWN.touch()
+    else:
+        # The host is still up for a periodic snapshot: drop any marker left
+        # by an interrupted restore so it cannot mislead a later one.
+        CLEAN_SHUTDOWN.unlink(missing_ok=True)
     print('saved:', ' '.join(guests) if guests else '(none)')
 
 
@@ -82,10 +100,17 @@ def restore():
     if not STATE.exists():
         print('no saved state; nothing to restore')
         return
-    # The snapshot's mtime is the moment reality was last observed.
-    snapshot = STATE.stat().st_mtime
+    clean_shutdown = CLEAN_SHUTDOWN.exists()
+    CLEAN_SHUTDOWN.unlink(missing_ok=True)
     up = set(running())
-    later = last_power_action(snapshot)
+    if clean_shutdown:
+        # The host itself was shut down/rebooted on purpose: every qmshutdown
+        # after the snapshot is pve-guests' stopall, not an operator stopping
+        # that one guest by hand. Trust the saved set outright.
+        later = {}
+    else:
+        # The snapshot's mtime is the moment reality was last observed.
+        later = last_power_action(STATE.stat().st_mtime)
     for vmid in STATE.read_text().split():
         if vmid in up:
             continue
@@ -101,6 +126,8 @@ if __name__ == '__main__':
     command = sys.argv[1] if len(sys.argv) > 1 else ''
     if command == 'save':
         save()
+    elif command == 'save-shutdown':
+        save(clean_shutdown=True)
     elif command == 'restore':
         restore()
     else:
