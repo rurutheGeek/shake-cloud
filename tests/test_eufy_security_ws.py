@@ -26,19 +26,20 @@ class ComposeTests(unittest.TestCase):
     def setUp(self):
         self.compose = yaml.safe_load((STACK / 'compose.yaml').read_text(encoding='utf-8'))
 
-    def test_service_joins_the_home_assistant_network_without_publishing_ports(self):
+    def test_service_binds_only_the_home_assistant_gateway(self):
         service = self.compose['services']['eufy-security-ws']
         self.assertNotIn('ports', service)
-        self.assertEqual(service['networks'], ['homeassistant'])
-        self.assertEqual(self.compose['networks']['homeassistant']['name'],
-                         'services-home-assistant_homeassistant')
-        self.assertTrue(self.compose['networks']['homeassistant']['external'])
+        self.assertEqual(service['network_mode'], 'host')
+        # ホストネットワークなので、0.0.0.0 のままだと LAN へ露出する。
+        self.assertIn('--host 172.31.254.1', ' '.join(service['command']))
+        self.assertIn('172.31.254.1', ' '.join(service['healthcheck']['test']))
 
-    def test_credentials_are_required_and_the_healthcheck_is_local(self):
+    def test_credentials_are_required_and_logs_are_bounded(self):
         service = self.compose['services']['eufy-security-ws']
         self.assertIn(':?', service['environment']['USERNAME'])
         self.assertIn(':?', service['environment']['PASSWORD'])
-        self.assertIn('127.0.0.1', ' '.join(service['healthcheck']['test']))
+        self.assertEqual(service['environment']['DEBUG'], '${EUFY_DEBUG:-}')
+        self.assertIn('max-size', service['logging']['options'])
         self.assertIn('/data', ' '.join(service['volumes']))
 
 
@@ -86,6 +87,21 @@ class ManageTests(unittest.TestCase):
         lock = yaml.safe_load((self.root / 'compose.lock.yaml').read_text(encoding='utf-8'))
         self.assertRegex(lock['services']['eufy-security-ws']['image'], r'@sha256:[0-9a-f]{64}$')
 
+    def test_reset_mega_session_keeps_the_legacy_session(self):
+        state = self.root.parent / f'{self.root.name}-state'
+        (state / 'data').mkdir(parents=True)
+        session = state / 'data' / 'persistent.json'
+        session.write_text(json.dumps({'login_hash': 'x', 'megaApi': {'cloud_token': 'y'}}),
+                           encoding='utf-8')
+        (self.root / '.env').write_text(f'STORAGE_ROOT={state}\n', encoding='utf-8')
+        with patch.object(self.manage, 'compose') as compose:
+            self.manage.reset_mega_session()
+        self.assertEqual(json.loads(session.read_text(encoding='utf-8')), {'login_hash': 'x'})
+        self.assertEqual(compose.call_args_list[0].args, ('stop', 'eufy-security-ws'))
+        with patch.object(self.manage, 'compose') as compose:
+            self.manage.reset_mega_session()
+        compose.assert_not_called()
+
 
 class AnsibleTests(unittest.TestCase):
     def setUp(self):
@@ -98,6 +114,7 @@ class AnsibleTests(unittest.TestCase):
         self.assertIn('no_log: true', self.text)
         self.assertIn('manage.py', self.text)
         self.assertIn("when: eufy_configured", self.text)
+        self.assertEqual(self.play['vars']['eufy_debug'], '')
 
 
 if __name__ == '__main__':

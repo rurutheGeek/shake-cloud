@@ -91,9 +91,42 @@ def up():
     compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '180')
 
 
+def reset_session():
+    """Drop the saved Eufy session and restart so the client logs in again.
+
+    The client can restore a session into a state where it sees no devices;
+    this forces a fresh login (Eufy may ask for a CAPTCHA in the HA UI).
+    """
+    session = storage_path(settings()) / 'data' / 'persistent.json'
+    session.unlink(missing_ok=True)
+    compose('restart', 'eufy-security-ws')
+    compose('up', '-d', '--wait', '--wait-timeout', '180')
+    print('CHANGED: eufy session removed and service restarted')
+
+
+def reset_mega_session():
+    """Drop only the v6 (eufy_mega) session and restart.
+
+    The client keeps a v6 token the server has revoked (another login with the
+    same account) and then fails `register_push_token` with 401 "token not
+    exist", so motion/person pushes never arrive. The legacy session is kept to
+    avoid a CAPTCHA; the client logs in to v6 again on start.
+    """
+    session = storage_path(settings()) / 'data' / 'persistent.json'
+    data = json.loads(session.read_text(encoding='utf-8'))
+    if data.pop('megaApi', None) is None:
+        print('OK: no v6 session stored')
+        return
+    compose('stop', 'eufy-security-ws')
+    session.write_text(json.dumps(data), encoding='utf-8')
+    compose('up', '-d', '--wait', '--wait-timeout', '180')
+    print('CHANGED: v6 session removed and service restarted')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'down'])
+    parser.add_argument('action', choices=[
+        'init', 'lock', 'up', 'status', 'down', 'reset-session', 'reset-mega-session'])
     args = parser.parse_args()
     if args.action in ('init', 'up'):
         init()
@@ -105,6 +138,10 @@ def main():
         compose('ps')
     elif args.action == 'down':
         compose('down')
+    elif args.action == 'reset-session':
+        reset_session()
+    elif args.action == 'reset-mega-session':
+        reset_mega_session()
 
 
 if __name__ == '__main__':

@@ -24,6 +24,7 @@ nav:
       - Home Assistantと家電の使い方: services/home-assistant.md
       - プリンター（Canon TS8430）: services/printer.md
       - クラウドの使い方: services/cloud.md
+      - AIエージェントからクラウドを見る（MCP）: services/mcp.md
       - 開発VMの使い方: services/devvm.md
   - 開発に参加する:
       - 開発参加ガイド: onboarding.md
@@ -100,6 +101,7 @@ nav:
           - サービスの置き場所とクラウドVM: operations/services.md
       - 道具:
           - shakecloud CLI: operations/cli.md
+          - shakecloud MCPサーバ（読み取り専用）: operations/mcp.md
           - shakecloud Terraform Provider: operations/terraform-provider.md
           - AWXの使い方: operations/awx.md
           - Flux にアプリを足す: operations/flux-apps.md

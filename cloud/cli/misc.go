@@ -28,6 +28,7 @@ func (g globals) identity(args []string) error {
 	fmt.Fprintf(w, "credential\t%s\n", identity.CredentialType)
 	if identity.AccessKeyID != "" {
 		fmt.Fprintf(w, "access_key_id\t%s\n", identity.AccessKeyID)
+		fmt.Fprintf(w, "access_key_scope\t%s\n", identity.AccessKeyScope)
 	}
 	w.Flush()
 	return nil

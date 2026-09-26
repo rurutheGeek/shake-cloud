@@ -93,7 +93,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-12 | `guide` `cloud` |
+| [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
 | [Homarrの使い方](services/homarr.md) | 2026-09-12 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
@@ -101,13 +101,14 @@ flowchart TB
 | [利用ガイドの入口](services/index.md) | 2026-09-23 | `guide` `usage` |
 | [日本語に切り替える](services/language.md) | 2026-09-08 | `guide` `usage` |
 | [通信速度テスト（LibreSpeed）](services/librespeed.md) | 2026-09-21 | `guide` `network` |
+| [AIエージェントからクラウドを見る（MCP）](services/mcp.md) | 2026-09-23 | `guide` `cloud` `ai` |
 | [音楽の取り込み・タグ編集・BCSTM](services/music.md) | 2026-09-16 | `guide` `music` |
 | [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-09-26 | `guide` `nextcloud` |
 | [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-09-19 | `guide` `nextcloud` `cloud` |
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
 | [共通RSSタイムライン（FreshRSS）](services/rss.md) | 2026-09-16 | `guide` `rss` |
 | [タグ管理（MP3）](services/tags.md) | 2026-09-16 | `guide` `music` |
-| [利用者向け：全サービスの使い方](services/usage.md) | 2026-09-13 | `guide` `usage` |
+| [利用者向け：全サービスの使い方](services/usage.md) | 2026-09-23 | `guide` `usage` |
 
 ### 開発計画
 
@@ -133,7 +134,7 @@ flowchart TB
 | [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H03 Echo・Alexa連携](development/H03-echo.md) | 2026-09-12 | `plan` `home-assistant` |
-| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-13 | `plan` `home-assistant` |
+| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-23 | `plan` `home-assistant` |
 | [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-09-23 | `plan` `home-assistant` `reverse-engineering` |
 | [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
@@ -170,8 +171,8 @@ flowchart TB
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-09-22 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-09-12 | `ops` `bootstrap` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-09-22 | `ops` `storage` `nfs` |
-| [shakecloud CLI](operations/cli.md) | 2026-09-13 | `ops` `cloud` |
-| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-19 | `ops` `cloud` |
+| [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
+| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-23 | `ops` `cloud` |
 | [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-23 | `ops` `cloud` |
 | [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-09-13 | `ops` `cloud` |
@@ -182,6 +183,7 @@ flowchart TB
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-09-13 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-09-23 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-09-13 | `ops` `kubernetes` `network` |
+| [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [net-01（Tailscale subnet router）](operations/net.md) | 2026-09-16 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-09-13 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-26 | `ops` `nextcloud` |
@@ -233,6 +235,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 117 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 119 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

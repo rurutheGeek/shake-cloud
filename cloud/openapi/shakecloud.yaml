@@ -1,7 +1,7 @@
 openapi: 3.1.0
 # The API's source of truth. cloud/api/internal/server/routes_test.go fails when
 # the Go route table and this document disagree about any path, method,
-# operationId or whether a credential is required.
+# operationId, whether a credential is required, or the operation's scope.
 #
 # Vocabulary follows AWS (IAM access keys, CloudTrail LookupEvents) in
 # snake_case. It is not wire-compatible: no SigV4, no Query API.
@@ -18,6 +18,11 @@ info:
     Browsers log in through Authentik and hold a session cookie. Terraform
     and the CLI send `Authorization: Bearer sca_<access_key_id>.<secret>`.
     Keys work while Authentik is down.
+
+    An access key has a scope. `ReadWrite` (the default) may call every
+    operation; `ReadOnly` may call only the operations marked
+    `x-shakecloud-scope: read`, which do not change state. A refused call is
+    audited as AccessDenied.
 servers:
   - url: http://192.168.10.205:8080
 security:
@@ -38,6 +43,7 @@ paths:
   /healthz:
     get:
       operationId: GetHealth
+      x-shakecloud-scope: read
       summary: Report whether the API can reach its database.
       description: Does not contact Authentik; the API is healthy without it.
       security: []
@@ -56,6 +62,7 @@ paths:
   /help:
     get:
       operationId: Help
+      x-shakecloud-scope: read
       tags: [portal]
       summary: The portal help page.
       description: Static HTML page; it is public so it works even without a session.
@@ -70,6 +77,7 @@ paths:
   /auth/login:
     get:
       operationId: StartLogin
+      x-shakecloud-scope: read
       tags: [auth]
       summary: Redirect the browser to Authentik.
       security: []
@@ -81,6 +89,7 @@ paths:
   /auth/callback:
     get:
       operationId: CompleteLogin
+      x-shakecloud-scope: write
       tags: [auth]
       summary: Finish the OIDC login and start a session.
       description: |
@@ -103,6 +112,7 @@ paths:
   /auth/logout:
     post:
       operationId: Logout
+      x-shakecloud-scope: write
       tags: [auth]
       summary: End the browser session.
       security: []
@@ -113,6 +123,7 @@ paths:
   /v1/caller-identity:
     get:
       operationId: GetCallerIdentity
+      x-shakecloud-scope: read
       tags: [iam]
       summary: Return who the credential belongs to.
       description: Like STS GetCallerIdentity. Useful to check a key before running Terraform.
@@ -127,6 +138,7 @@ paths:
   /v1/access-keys:
     get:
       operationId: ListAccessKeys
+      x-shakecloud-scope: read
       tags: [iam]
       summary: List the caller's access keys that have not been deleted.
       responses:
@@ -144,6 +156,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateAccessKey
+      x-shakecloud-scope: write
       tags: [iam]
       summary: Create an access key. Portal session only.
       description: |
@@ -166,6 +179,15 @@ paths:
                   minimum: 1
                   maximum: 3650
                   description: Omit for a key that does not expire.
+                scope:
+                  type: string
+                  enum: [ReadOnly, ReadWrite]
+                  default: ReadWrite
+                  description: |
+                    ReadOnly may call only operations marked
+                    `x-shakecloud-scope: read`. Omit for ReadWrite, which may
+                    call everything. Use ReadOnly for automation that should
+                    never change state, e.g. an AI agent's key.
       responses:
         '201':
           description: Created.
@@ -187,6 +209,7 @@ paths:
   /v1/access-keys/{access_key_id}:
     delete:
       operationId: DeleteAccessKey
+      x-shakecloud-scope: write
       tags: [iam]
       summary: Delete (revoke) an access key.
       description: |
@@ -206,6 +229,7 @@ paths:
   /v1/key-pairs:
     get:
       operationId: DescribeKeyPairs
+      x-shakecloud-scope: read
       tags: [iam]
       summary: List the caller's SSH keys.
       description: A caller sees only their own.
@@ -224,6 +248,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: ImportKeyPair
+      x-shakecloud-scope: write
       tags: [iam]
       summary: Register an SSH public key.
       description: |
@@ -256,6 +281,7 @@ paths:
   /v1/key-pairs/{key_name}:
     delete:
       operationId: DeleteKeyPair
+      x-shakecloud-scope: write
       tags: [iam]
       summary: Delete one of the caller's SSH keys.
       parameters:
@@ -272,6 +298,7 @@ paths:
   /v1/audit-events:
     get:
       operationId: LookupEvents
+      x-shakecloud-scope: read
       tags: [audit]
       summary: Read the audit log, newest first.
       description: |
@@ -315,6 +342,7 @@ paths:
   /v1/images:
     get:
       operationId: DescribeImages
+      x-shakecloud-scope: read
       tags: [compute]
       summary: List the deployment's shared images and every account's uploaded ones.
       description: 'So people can see what is available to launch from, and who added it.'
@@ -333,6 +361,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: ImportImage
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Upload a disk image.
       description: |
@@ -375,6 +404,7 @@ paths:
   /v1/images/{image_id}:
     delete:
       operationId: DeleteImage
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Delete an uploaded image.
       description: |
@@ -397,6 +427,7 @@ paths:
   /v1/isos:
     get:
       operationId: DescribeISOs
+      x-shakecloud-scope: read
       tags: [compute]
       summary: List every account's uploaded installation ISOs.
       description: 'ISO media is attached as a CD-ROM; it never becomes a root disk. Everyone sees the list, as with images.'
@@ -415,6 +446,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: ImportISO
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Upload an installation ISO.
       description: |
@@ -455,6 +487,7 @@ paths:
   /v1/isos/{iso_id}:
     delete:
       operationId: DeleteISO
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Delete an uploaded ISO.
       description: An owner or a cloud-admin may delete it. Refused while a live instance still attaches it.
@@ -471,6 +504,7 @@ paths:
   /v1/instance-types:
     get:
       operationId: DescribeInstanceTypes
+      x-shakecloud-scope: read
       tags: [compute]
       summary: List the instance sizes, smallest first.
       description: The same names Terraform uses in platform/terraform/flavors.yaml.
@@ -502,6 +536,7 @@ paths:
   /v1/capacity:
     get:
       operationId: DescribeCapacity
+      x-shakecloud-scope: read
       tags: [compute]
       summary: Report what the host has, what the cloud has handed out, and the limits in force.
       description: |
@@ -524,6 +559,7 @@ paths:
   /v1/limits:
     get:
       operationId: DescribeLimits
+      x-shakecloud-scope: read
       tags: [compute]
       summary: Read the limits in force, the deployment's defaults, and what an administrator changed.
       responses:
@@ -536,6 +572,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     put:
       operationId: UpdateLimits
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Change the limits. admins only.
       description: |
@@ -570,6 +607,7 @@ paths:
   /v1/instances:
     post:
       operationId: RunInstances
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Launch an instance.
       description: |
@@ -672,6 +710,7 @@ paths:
           $ref: '#/components/responses/Error'
     get:
       operationId: DescribeInstances
+      x-shakecloud-scope: read
       tags: [compute]
       summary: List instances, newest first.
       description: |
@@ -704,6 +743,7 @@ paths:
   /v1/instances/adopt:
     post:
       operationId: AdoptInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Register a VM that already exists into the cloud. admins only.
       description: |
@@ -739,6 +779,7 @@ paths:
   /v1/instances/{instance_id}:
     get:
       operationId: DescribeInstance
+      x-shakecloud-scope: read
       tags: [compute]
       summary: Read one instance.
       parameters:
@@ -753,6 +794,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
     delete:
       operationId: TerminateInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Terminate an instance.
       description: |
@@ -771,6 +813,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
     patch:
       operationId: ModifyInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Change an instance's cpu, memory, ballooning or disk size. admins only.
       description: |
@@ -816,6 +859,7 @@ paths:
   /v1/instances/{instance_id}/start:
     post:
       operationId: StartInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Start a stopped instance.
       parameters:
@@ -832,6 +876,7 @@ paths:
   /v1/instances/{instance_id}/stop:
     post:
       operationId: StopInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Stop a running instance.
       description: The guest is asked to shut down first, and forced after two minutes.
@@ -849,6 +894,7 @@ paths:
   /v1/instances/{instance_id}/reboot:
     post:
       operationId: RebootInstance
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Reboot a running instance.
       parameters:
@@ -865,6 +911,7 @@ paths:
   /v1/instances/{instance_id}/console:
     post:
       operationId: CreateConsoleSession
+      x-shakecloud-scope: write
       tags: [compute]
       summary: Open a browser console to a running instance.
       description: |
@@ -913,6 +960,7 @@ paths:
   /v1/volumes:
     get:
       operationId: DescribeVolumes
+      x-shakecloud-scope: read
       tags: [volumes]
       summary: List volumes, newest first.
       description: |
@@ -935,6 +983,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateVolume
+      x-shakecloud-scope: write
       tags: [volumes]
       summary: Create a detachable block volume.
       description: |
@@ -966,6 +1015,7 @@ paths:
   /v1/volumes/{volume_id}:
     get:
       operationId: DescribeVolume
+      x-shakecloud-scope: read
       tags: [volumes]
       summary: Read one volume.
       parameters:
@@ -980,6 +1030,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
     patch:
       operationId: ModifyVolume
+      x-shakecloud-scope: write
       tags: [volumes]
       summary: Grow a volume.
       description: |
@@ -1013,6 +1064,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteVolume
+      x-shakecloud-scope: write
       tags: [volumes]
       summary: Delete a volume.
       description: |
@@ -1035,6 +1087,7 @@ paths:
   /v1/volumes/{volume_id}/attach:
     post:
       operationId: AttachVolume
+      x-shakecloud-scope: write
       tags: [volumes]
       summary: Attach a volume to an instance.
       description: |
@@ -1070,6 +1123,7 @@ paths:
   /v1/volumes/{volume_id}/detach:
     post:
       operationId: DetachVolume
+      x-shakecloud-scope: write
       tags: [volumes]
       summary: Detach a volume from its instance.
       description: |
@@ -1097,6 +1151,7 @@ paths:
   /v1/security-groups:
     get:
       operationId: DescribeSecurityGroups
+      x-shakecloud-scope: read
       tags: [security-groups]
       summary: List the caller's security groups.
       description: Callers see their own groups; admins see every account's.
@@ -1115,6 +1170,7 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateSecurityGroup
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Create a security group.
       description: |
@@ -1139,6 +1195,7 @@ paths:
   /v1/security-groups/{group_id}:
     get:
       operationId: DescribeSecurityGroup
+      x-shakecloud-scope: read
       tags: [security-groups]
       summary: Read one security group.
       description: Owner or admins only (403 UnauthorizedOperation otherwise).
@@ -1155,6 +1212,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteSecurityGroup
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Delete a security group.
       description: |
@@ -1175,6 +1233,7 @@ paths:
   /v1/security-groups/{group_id}/ingress:
     post:
       operationId: AuthorizeSecurityGroupIngress
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Add ingress rules to a security group.
       description: |
@@ -1205,6 +1264,7 @@ paths:
   /v1/security-groups/{group_id}/egress:
     post:
       operationId: AuthorizeSecurityGroupEgress
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Add egress rules to a security group.
       description: |
@@ -1232,6 +1292,7 @@ paths:
   /v1/security-groups/{group_id}/rules/{rule_id}:
     delete:
       operationId: RevokeSecurityGroupRule
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Remove one rule (ingress or egress) from a security group.
       description: Owner or admins only (403 UnauthorizedOperation otherwise).
@@ -1251,6 +1312,7 @@ paths:
   /v1/instances/{instance_id}/security-groups:
     put:
       operationId: ModifyInstanceSecurityGroups
+      x-shakecloud-scope: write
       tags: [security-groups]
       summary: Replace the security groups an instance uses.
       description: |
@@ -1284,6 +1346,7 @@ paths:
   /v1/buckets:
     get:
       operationId: DescribeBuckets
+      x-shakecloud-scope: read
       tags: [storage]
       summary: List buckets. Users see their own; admins see every account's.
       responses:
@@ -1302,6 +1365,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateBucket
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Create an S3 bucket.
       description: |
@@ -1334,6 +1398,7 @@ paths:
   /v1/buckets/{bucket_name}:
     get:
       operationId: DescribeBucket
+      x-shakecloud-scope: read
       tags: [storage]
       summary: Read one bucket and the keys allowed on it.
       parameters:
@@ -1348,6 +1413,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteBucket
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Delete an empty bucket.
       description: Garage refuses a bucket that still holds objects; that refusal is passed through.
@@ -1361,6 +1427,7 @@ paths:
   /v1/buckets/{bucket_name}/keys/{key_id}:
     put:
       operationId: PutBucketKey
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Grant an S3 key read, write or owner on a bucket.
       description: The key must belong to the same account as the bucket.
@@ -1384,6 +1451,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteBucketKey
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Revoke all of an S3 key's permissions on a bucket.
       parameters:
@@ -1401,6 +1469,7 @@ paths:
   /v1/s3-keys:
     get:
       operationId: ListS3Keys
+      x-shakecloud-scope: read
       tags: [storage]
       summary: List S3 access keys. Users see their own; admins see every account's.
       responses:
@@ -1419,6 +1488,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateS3Key
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Create an S3 access key.
       description: |
@@ -1443,6 +1513,7 @@ paths:
   /v1/s3-keys/{key_id}:
     delete:
       operationId: DeleteS3Key
+      x-shakecloud-scope: write
       tags: [storage]
       summary: Delete an S3 access key.
       description: Garage removes its permissions on every bucket.
@@ -1456,6 +1527,7 @@ paths:
   /v1/databases:
     get:
       operationId: DescribeDatabases
+      x-shakecloud-scope: read
       tags: [database]
       summary: List database appliances. Users see their own; admins see every account's.
       responses:
@@ -1474,6 +1546,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateDatabase
+      x-shakecloud-scope: write
       tags: [database]
       summary: Create a PostgreSQL database appliance.
       description: |
@@ -1498,6 +1571,7 @@ paths:
   /v1/databases/{database_id}:
     get:
       operationId: DescribeDatabase
+      x-shakecloud-scope: read
       tags: [database]
       summary: Describe one database appliance.
       parameters:
@@ -1513,6 +1587,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteDatabase
+      x-shakecloud-scope: write
       tags: [database]
       summary: Delete a database appliance and its data.
       parameters:
@@ -1525,6 +1600,7 @@ paths:
   /v1/databases/{database_id}/credentials:
     get:
       operationId: GetDatabaseCredentials
+      x-shakecloud-scope: read
       tags: [database]
       summary: Read the database's connection credentials.
       parameters:
@@ -1543,6 +1619,7 @@ paths:
   /v1/functions:
     get:
       operationId: DescribeFunctions
+      x-shakecloud-scope: read
       tags: [function]
       summary: List serverless functions. Users see their own; admins see every account's.
       responses:
@@ -1561,6 +1638,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     post:
       operationId: CreateFunction
+      x-shakecloud-scope: write
       tags: [function]
       summary: Create a serverless function from a container image.
       description: |
@@ -1585,6 +1663,7 @@ paths:
   /v1/functions/{function_id}:
     get:
       operationId: DescribeFunction
+      x-shakecloud-scope: read
       tags: [function]
       summary: Describe one serverless function.
       parameters:
@@ -1600,6 +1679,7 @@ paths:
         '503': {$ref: '#/components/responses/Error'}
     delete:
       operationId: DeleteFunction
+      x-shakecloud-scope: write
       tags: [function]
       summary: Delete a serverless function.
       parameters:
@@ -1716,6 +1796,10 @@ components:
         is_admin: {type: boolean}
         credential_type: {type: string, enum: [session, access_key]}
         access_key_id: {type: string}
+        access_key_scope:
+          type: string
+          enum: [ReadOnly, ReadWrite]
+          description: Present only for an access key credential.
     InstanceEnvelope:
       type: object
       required: [instance]
@@ -1864,13 +1948,17 @@ components:
         console: {$ref: '#/components/schemas/ConsoleSession'}
     AccessKey:
       type: object
-      required: [access_key_id, status, description, create_date]
+      required: [access_key_id, status, description, scope, create_date]
       properties:
         access_key_id: {type: string, pattern: '^[a-z2-7]{20}$'}
         status:
           type: string
           enum: [Active, Inactive, Expired]
         description: {type: string}
+        scope:
+          type: string
+          enum: [ReadOnly, ReadWrite]
+          description: What the key may call. See x-shakecloud-scope on each operation.
         create_date: {type: string, format: date-time}
         expire_date: {type: string, format: date-time}
         last_used_date: {type: string, format: date-time}

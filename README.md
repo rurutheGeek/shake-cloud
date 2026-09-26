@@ -65,7 +65,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | `platform/ansible/`、`ansible.cfg` | Docker導入、NetBox／クラウドのインベントリ、配備順序・ホスト変数、ゲストOSのロール |
 | `platform/flux/` | Fluxが反映するクラスタ構成（`main` を監視）。AWX・CNPG・Knative などを配る |
 | `platform/awx/` | AWX移行用のEE・Playbook例（AWX本体は `platform/flux/apps/` で配備済み） |
-| `cloud/` | 自作クラウドAPI・CLI・Terraform Provider・共通クライアント（APIの正本は `cloud/openapi/`） |
+| `cloud/` | 自作クラウドAPI・CLI・Terraform Provider・読み取り専用MCPサーバ・共通クライアント（APIの正本は `cloud/openapi/`） |
 | `stacks/identity/` | Authentik（招待・復旧・パスキー、`platform/ansible/identity.yml`）とポータル用OIDC |
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
 | `stacks/docs/` | ドキュメントサイトを配るnginx（services-01、`platform/ansible/docs-site.yml`） |
@@ -107,11 +107,17 @@ gofmt -l cloud
 cd cloud/api && go vet ./... && go test ./...
 ```
 
+読み取り専用MCPサーバのテストはDBを使いません。
+
+```bash
+cd cloud/mcp && go vet ./... && go test ./...
+```
+
 Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platform/ansible/requirements.yml` の依存も導入し、対象Playbookの `--syntax-check` と対象一覧を確認します。公開チェックは既知の秘密値・禁止パスの検出を補助するもので、ステージした差分の目視確認も必要です。GitHubへのpushとサーバー配備は別操作です。
 
 ### 現状と未完了事項
 
-- クラウドは VM・S3・database・function の4機能を API・Provider・CLI・ポータルまで実装・実機確認済みです。Kubernetes は kubeadm + Cilium + Flux で構築し、AWX・CloudNativePG・Knative を配備しています（[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)）。
+- クラウドは VM・S3・database・function の4機能を API・Provider・CLI・ポータルまで実装・実機確認済みです。Kubernetes は kubeadm + Cilium + Flux で構築し、AWX・CloudNativePG・Knative を配備しています（[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)）。アクセスキーの読み取り専用スコープと、それを前提にした読み取り専用MCPサーバ（`cloud/mcp`、22ツール）を実装しました。**MCPのクライアント登録と実機確認はこれから**です（[MCPサーバ](docs/operations/mcp.md)）。
 - メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と identity の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
 - Home Assistant Container は services-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
 - identity は外部SMTPリレーで招待・復旧メールを送信済みです（[メール設定](docs/operations/smtp.md)）。MeTube・音楽変換・タグ編集は media-01 へ配備済みです（W06）。**同期タイマーの切替と、共有Cookieを使う実ダウンロードは未確認です。**

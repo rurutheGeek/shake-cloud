@@ -35,6 +35,7 @@ tags:
 | ページ | 何が分かるか |
 | --- | --- |
 | [shakecloud CLI](cli.md) | コマンドからの操作 |
+| [shakecloud MCPサーバ（読み取り専用）](mcp.md) | AIエージェントからの参照（読み取り専用ツール） |
 | [shakecloud Terraform Provider](terraform-provider.md) | Terraformからの操作 |
 | [AWXの使い方](awx.md) | Playbookをブラウザ・APIから実行する |
 | [Flux にアプリを足す](flux-apps.md) | クラスタ側の配備 |

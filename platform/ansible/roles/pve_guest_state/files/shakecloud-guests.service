@@ -10,8 +10,13 @@ RemainAfterExit=yes
 # 起動時: onboot=1 のゲストを pve-guests が起こしたあと、残りを戻す。
 # 停止時: pve-guests がゲストを止める前に、いま動いている組を記録する。
 #         (After= なので停止順は逆になり、この ExecStop が先に走る)
+#         save-shutdown はこれがホスト自身の意図的な shutdown/reboot だという
+#         印を残す。この直後に pve-guests の stopall が全ゲストへ qmshutdown を
+#         送るが、それは「オペレーターがそのゲストだけ手で止めた」のとタスク
+#         ログ上で区別がつかないため、印が無いと restore が誤って全員をスキップ
+#         する（2026-09-25 に実機で発生）。
 ExecStart=/usr/local/sbin/shakecloud-guests restore
-ExecStop=/usr/local/sbin/shakecloud-guests save
+ExecStop=/usr/local/sbin/shakecloud-guests save-shutdown
 TimeoutStopSec=60
 
 [Install]
