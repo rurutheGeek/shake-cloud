@@ -22,6 +22,7 @@ nav:
       - タグ管理（MP3）: services/tags.md
       - 共通RSSタイムライン: services/rss.md
       - Home Assistantと家電の使い方: services/home-assistant.md
+      - Android VMの画面を使う（RDP）: services/android.md
       - プリンター（Canon TS8430）: services/printer.md
       - クラウドの使い方: services/cloud.md
       - AIエージェントからクラウドを見る（MCP）: services/mcp.md
