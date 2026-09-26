@@ -29,7 +29,7 @@ class MigrationTests(unittest.TestCase):
         self.assertRegex(group['nextcloud_mcp_version'], r'^\d+\.\d+\.\d+$')
         self.assertRegex(group['nextcloud_mcp_sha256'], r'^[0-9a-f]{64}$')
         self.assertEqual(group['nextcloud_mcp_sha256'],
-                         '8708deae480889a633b654d630f7eb53b5017e634fdee210dd19d60067bb87d8')
+                         '1de830942d2255258d0805915a5cad91fca28225a974a07dad1631ea33fc4b3e')
 
     def test_the_play_pulls_the_pinned_release_with_a_checksum(self):
         play = yaml.safe_load(read(PLAYBOOK))[0]

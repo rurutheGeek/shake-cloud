@@ -43,7 +43,7 @@ Python・systemdユニット）を追加し、既存の`tag-api`（`:5810`、W06
 
 - 開発開始: なし。本体・テストはdev VMだけで完結する（実機Nextcloudに触れない）。
 - 配備・切替: [W03](W03-nextcloud.md)（Nextcloud本体）・[W06](W06-music-tools.md)（tag-api）が先に稼働している必要がある。DNS/Caddyの反映は`tls_proxy`ロールの再適用。
-- **2026-09-26: 実装を公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp) へ切り出し、`v1.0.0` をリリース。media-01へはプレイがリリース資産（`nextcloud_mcp.py`、sha256固定）を取得する方式へ移行。** パス設定（`NEXTCLOUD_MCP_MUSIC_ROOT`・`NEXTCLOUD_MCP_WRITE_DENY`）と、tag-api連携のオプション化（URLとトークンの両方が設定されたときだけタグ3ツールを公開）を追加した。単体テストは公開リポジトリ側（103件）。実機は`/healthz`が`version: 1.0.0`・`tag_tools: true`を返すことを確認。
+- **2026-09-26: 実装を公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp) へ切り出し、`v1.0.0` をリリース。**2026-09-26に外部レビューを受けて `v1.0.1` へ更新（tools/call前のwhoami必須化、タグreadのstat、write-denyの祖先拒否と展開メンバー検査、max_bytesの負値/非整数拒否、アーカイブの事前サイズ検査、Origin検証、-32600応答。テスト139件）**。media-01へはプレイがリリース資産（`nextcloud_mcp.py`、sha256固定）を取得する方式へ移行。** パス設定（`NEXTCLOUD_MCP_MUSIC_ROOT`・`NEXTCLOUD_MCP_WRITE_DENY`）と、tag-api連携のオプション化（URLとトークンの両方が設定されたときだけタグ3ツールを公開）を追加した。単体テストは公開リポジトリ側（103件）。実機は`/healthz`が`version: 1.0.1`・`tag_tools: true`を返し、MCP経由の`whoami`とMusicBrainz検索が成功することを確認。
 - 競合調整: media-01の他サービス（Nextcloud・Kavita・Navidrome・MeTube・khinsider・LocalSend）とポート・SGを共有しない。新しいポートをLANへ開けない（Caddy経由のみ）。
 
 ## 検証・完了条件
