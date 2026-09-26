@@ -1,0 +1,14 @@
+---
+# メールビューア（Gmail 読み取り専用）を services-01 へ配備する。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
+#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/mail-view.yml
+# Forward Auth のプロバイダとアプリは identity の configure.py が作るので、
+# 先に identity.yml を流す。
+- name: Deploy the Gmail viewer
+  hosts: netbox_bootstrap
+  become: true
+  roles:
+    - docker
+    # 先に HTTPS の入口を作る。最後の確認は公開名の SSO リダイレクトを見る。
+    - tls_proxy
+    - mail_view
