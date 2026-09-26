@@ -244,6 +244,13 @@ class ManageTests(unittest.TestCase):
         self.assertIn('external storage available to every user', self.text)
         self.assertIn('external storage opened to every user', self.text)
 
+    def test_disk_changes_are_picked_up_without_a_manual_scan(self):
+        # KHInsider・organize.py・rsync はディスクへ直接書く。アクセス時の
+        # 変更確認が無いと、新しい曲がFilesページに出ない。
+        self.assertIn('filesystem_check_changes', self.text)
+        self.assertIn("'filesystem_check_changes', '1'", self.text)
+        self.assertIn('external storage checks for changes', self.text)
+
     def test_existing_mounts_are_preserved_and_conflicts_are_rejected(self):
         self.assertIn('files_external:list', self.text)
         self.assertIn("matching[0]['configuration'].get('datadir') != datadir", self.text)

@@ -53,6 +53,10 @@ CUPS = 'cups'
 # AdGuard Home runs on the router. Only its browser UI goes through SSO; the
 # router's firewall allows :3000 just from services-01 (where Caddy runs).
 ADGUARD = 'adguard'
+# The Gmail viewer runs on services-01. It only reads the notification mailbox,
+# which also carries Authentik invitations and recovery links, so its browser
+# UI goes through Forward Auth like the media tools.
+MAIL_VIEW = 'mail-view'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -716,6 +720,27 @@ def configure_adguard(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'AdGuard forward-auth provider')
 
 
+def configure_mail_view(api, groups, flows, portal_url):
+    """Reconcile the read-only Gmail viewer: Forward Auth provider and access."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, MAIL_VIEW, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{MAIL_VIEW}.{zone}',
+    })
+    application = ensure_application(api, MAIL_VIEW, {
+        'name': 'Mail View', 'slug': MAIL_VIEW, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{MAIL_VIEW}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['users']['pk']):
+        print(f'CHANGED: users may use {MAIL_VIEW}')
+    else:
+        print(f'OK: users may use {MAIL_VIEW}')
+    ensure_outpost(api, [provider['pk']], zone, 'mail-view forward-auth provider')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -782,6 +807,7 @@ def main():
     configure_home_assistant(api, groups, flows, mappings, keys[0], portal_url)
     configure_cups(api, groups, flows, portal_url)
     configure_adguard(api, groups, flows, portal_url)
+    configure_mail_view(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

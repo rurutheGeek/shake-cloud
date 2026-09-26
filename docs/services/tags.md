@@ -82,7 +82,7 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 ## タグ付け方針（迷ったときの基準）
 
 - **曲名 (title)**: 原題を優先（日本語があれば日本語）。`feat.` や `〜` はそのまま。ゲーム曲で曲名から分からない場合は**コメント**に「vs ○○」などを書く
-- **アーティスト (artist)**: 演奏・歌唱した人。ボカロ曲は**ボカロ名**（初音ミク等）、プロデューサーはアルバムアーティスト/作曲者へ。BGM等で歌唱・演奏者がいない曲は作曲者（またはアルバムアーティスト）を入れる（`Unknown Artist`回避。2026-09-18に626曲補完）
+- **アーティスト (artist)**: 制作した人（ボカロP・バンド・歌手など）。ボカロ曲は**作曲P**を入れる（アーティスト検索・一覧がP名でまとまるようにする。`feat.`や複数値でボカロを並べない。2026-09-26変更）。歌唱ボカロは ID3v2.4 の **`TMCL`**（musician credits、role=`vocal`）と **`TXXX:PERFORMER`** に入れる（Picard準拠。Navidromeには表示されない）。BGM等で歌唱・演奏者がいない曲は作曲者（またはアルバムアーティスト）を入れる（`Unknown Artist`回避）
 - **アルバム (album)**: **原典**（その曲が最初に収録されたリリース）。ゲーム曲は「元ファイルが入っていた作品のサントラ」。企画盤・ベスト盤より原典を優先
 - **アルバムアーティスト (albumartist)**: リリースのクレジット。ゲームは作曲者（例: すぎやまこういち）または Various Artists、ボカロはプロデューサー名
 - **表記揺れ**: アーティスト名は公式表記に統一（例: `ゲスの極み乙女。`、`Finishing Move Inc.`）。ローマ字表記・訳名・略称を混在させない
@@ -97,13 +97,13 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 | --- | --- | --- |
 | YouTube等のURL | `music/YouTube/`（MeTubeが自動保存） | MeTubeで追加 → 必要なら organize.py で整理 |
 | KHInsiderのアルバム | `music/Khinsider/<アルバム名>/`（KHInsiderツールが自動保存） | 取り込み後に organize.py で整理 |
-| 手元のファイル・CD rip | `music/inbox/`（無ければ作成） | アップロード → `organize.py plan` → 確認 → `apply` |
+| 手元のファイル・CD rip | `music/00_未整理/` | アップロード → `organize.py plan` → 確認 → `apply` |
 | ネット限定・配信のみ | 同上 | 配信リリース名をアルバムに。分からなければ `Singles` |
 
 追加後の基本の流れ:
 
 ```bash
-# 1) 追加（MeTube/KHInsider or music/inbox へアップロード）
+# 1) 追加（MeTube/KHInsider or music/00_未整理 へアップロード）
 # 2) 計画（MusicBrainz照合。見つからない曲は既存タグ/ファイル名で整理）
 sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py plan \
   --aliases /tools/organize-aliases.json

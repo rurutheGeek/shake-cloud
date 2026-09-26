@@ -89,6 +89,13 @@
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz.svg"
   },
   {
+    "name": "メールビューア",
+    "href": "https://mail-view.apextox.dpdns.org",
+    "description": "通知メール（Gmail）を読み取り専用で読む（SSO）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/gmail.svg",
+    "pingUrl": "https://mail-view.apextox.dpdns.org/"
+  },
+  {
     "name": "Vaultwarden",
     "href": "https://vault.apextox.dpdns.org",
     "description": "パスワード管理（SSO）",

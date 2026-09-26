@@ -132,7 +132,7 @@ systemctl --user enable --now game1-saves-backup.timer
 ## 7. 限界と注意
 
 - **同じ筐体・単一ディスクです。** NVMe故障には効きますが、HDD自身の故障・火災・盗難・ランサムウェアには無力です。特に重要なものは別機器・別拠点へもコピーしてください。
-- **メディア原本（12G+）はこのHDD上にあり、同じHDDへバックアップできません。** 別の外付けやGarageなど、別の障害単位へコピーします。
+- **メディア原本とNextcloudのユーザーファイル（`/srv/bulk/media`・`/srv/bulk/nextcloud-data`）はこのHDD上にあり、同じHDDへバックアップできません。** media-01のvzdumpには含まれない（NFSはVMのディスクではない）ため、**これらは別の外付けやGarageなど、別の障害単位へコピーしてください**。
 - **DBの整合はクラッシュ整合です。** PostgreSQL/MariaDBはWALで概ね戻せますが、厳密な論理ダンプ（`pg_dump`・`mariadb-dump`）は未実装です（[O01](../development/O01-cloud-backup.md)・[O02](../development/O02-cnpg-backup.md)）。
 - **age鍵のコピーを忘れない。** 秘密値は鍵とセットで初めて復元できます。
 - 保存先が未マウントのままバックアップするとrootを埋めます。`pve_backup` ロールはマウントを確認して止まりますが、手動の `vzdump` はその限りではありません。
