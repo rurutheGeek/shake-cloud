@@ -164,6 +164,14 @@
     group: '{{ pve_bulk_storage_roms_gid }}'
     mode: '2775'
 
+- name: Create the Nextcloud data directory
+  ansible.builtin.file:
+    path: '{{ pve_bulk_storage_nextcloud_dir }}'
+    state: directory
+    owner: '{{ pve_bulk_storage_media_uid }}'
+    group: '{{ pve_bulk_storage_media_gid }}'
+    mode: '2775'
+
 - name: Ensure the export directory exists
   ansible.builtin.file:
     path: /etc/exports.d

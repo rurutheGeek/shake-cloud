@@ -45,6 +45,7 @@ tags:
 | --- | --- |
 | [Nextcloudと追加アプリ](nextcloud.md) | アプリの追加・配備 |
 | [Nextcloudのアクセス権限](nextcloud-permissions.md) | 共有ライブラリの見え方 |
+| [Nextcloud MCPサーバ](nextcloud-mcp.md) | AIエージェント用のファイル操作サーバ |
 | [Vaultwardenの管理](vaultwarden.md) | 保管庫・SSO・招待 |
 | [メール設定（SMTP）](smtp.md) | 招待・復旧メールの送信 |
 | [Windows 11 Pro のVMを作る](windows.md) | ポータルからのISOインストール |

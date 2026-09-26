@@ -122,6 +122,49 @@ class AdguardEntryTests(unittest.TestCase):
         self.assertEqual(outpost['config']['authentik_host'], 'https://auth.example.org')
 
 
+class MailViewEntryTests(unittest.TestCase):
+    """Gmail ビューアは Forward Auth で SSO の下に置く（全ログインユーザー）。"""
+
+    class RecordingAPI:
+        def __init__(self):
+            self.calls = []
+
+        def rows(self, path):
+            self.calls.append(('rows', path, None))
+            if path == 'outposts/instances/':
+                return [{'pk': 'outpost1', 'name': 'Embedded Outpost',
+                         'providers': [], 'config': {}}]
+            return []
+
+        def call(self, method, path, body=None):
+            self.calls.append((method, path, body))
+            if path == 'providers/proxy/':
+                return {'pk': 'proxy1', 'name': body['name']}
+            if path == 'core/applications/':
+                return {'pk': 'app1', 'slug': body['slug']}
+            return {}
+
+    def test_mail_view_is_a_forward_auth_application_for_every_user(self):
+        api = self.RecordingAPI()
+        configure.configure_mail_view(api, {'users': {'pk': 'group-users'}},
+                                      FLOWS, 'https://cloud.example.org')
+        provider = next(body for method, path, body in api.calls
+                        if method == 'POST' and path == 'providers/proxy/')
+        self.assertEqual(provider['name'], 'mail-view')
+        self.assertEqual(provider['mode'], 'forward_single')
+        self.assertEqual(provider['external_host'], 'https://mail-view.example.org')
+        application = next(body for method, path, body in api.calls
+                           if method == 'POST' and path == 'core/applications/')
+        self.assertEqual(application['slug'], 'mail-view')
+        self.assertEqual(application['name'], 'Mail View')
+        binding = next(body for method, path, body in api.calls
+                       if method == 'POST' and path == 'policies/bindings/')
+        self.assertEqual(binding, {'target': 'app1', 'group': 'group-users', 'order': 10})
+        outpost = next(body for method, path, body in api.calls
+                       if method == 'PATCH' and path.startswith('outposts/instances/'))
+        self.assertEqual(outpost['providers'], ['proxy1'])
+
+
 class InvitationTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

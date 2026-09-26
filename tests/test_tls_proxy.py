@@ -77,7 +77,9 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['docs']['upstream'], f"127.0.0.1:{defaults('docs_site')['docs_site_port']}")
         self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
         self.assertEqual(records['speed']['upstream'], f"127.0.0.1:{defaults('librespeed')['librespeed_port']}")
+        self.assertEqual(records['mail-view']['upstream'], f"127.0.0.1:{defaults('mail_view')['mail_view_port']}")
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
+        self.assertEqual(records['nextcloud-mcp']['upstream'], '127.0.0.1:5811')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
         # AdGuard の UI はルータ上。ルータ側のファイアウォールで services-01 だけに開ける。
@@ -113,7 +115,7 @@ class TlsProxyTests(unittest.TestCase):
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
                      SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml', 'cups.yml',
-                                 'librespeed.yml'],
+                                 'librespeed.yml', 'mail-view.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
                      'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
@@ -127,10 +129,11 @@ class TlsProxyTests(unittest.TestCase):
     def test_forward_auth_is_declared_for_the_browser_tools_only(self):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
-        self.assertEqual(behind_auth, {'navidrome', 'metube', 'khinsider', 'cups', 'adguard'})
+        self.assertEqual(behind_auth,
+                         {'navidrome', 'metube', 'khinsider', 'cups', 'adguard', 'mail-view'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
-        for name in ('nextcloud', 'kavita'):
+        for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):
             self.assertNotIn('auth', records[name], name)
 
     def test_blocked_paths_are_answered_before_forward_auth(self):
@@ -174,7 +177,7 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 7)
+        self.assertEqual(len(sites), 8)
         # navidrome は通常の認証に加え、/review/ の静的ページにも forward_auth を付ける。
         self.assertEqual(rendered.count('forward_auth https://'), 4)
         for name in ('navidrome', 'metube', 'khinsider'):
@@ -189,7 +192,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertIn('handle_path /review/*', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
-        for name in ('nextcloud', 'kavita', 'freshrss'):
+        for name in ('nextcloud', 'kavita', 'freshrss', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)
 

@@ -69,6 +69,13 @@ class HostRoleTests(unittest.TestCase):
         self.assertEqual(export['clients'], '192.168.10.127')
         self.assertIn('anonuid=1000', export['options'])
 
+    def test_the_nextcloud_data_is_exported_to_media_01(self):
+        export = [item for item in DEFAULTS['pve_bulk_storage_exports']
+                  if 'nextcloud_dir' in item['path']][0]
+        self.assertEqual(export['clients'], '192.168.10.101')
+        self.assertIn('all_squash', export['options'])
+        self.assertIn('anonuid=33', export['options'])
+
     def test_the_backup_root_is_not_exported(self):
         # vzdumpの保存先をゲストに見せない。共有するのは game1-saves だけ。
         paths = [item['path'] for item in DEFAULTS['pve_bulk_storage_exports']]
@@ -80,6 +87,7 @@ class HostRoleTests(unittest.TestCase):
                    and task['ansible.builtin.file']['state'] == 'directory']
         self.assertIn('{{ pve_bulk_storage_backup_dir }}', targets)
         self.assertIn('{{ pve_bulk_storage_game1_saves_dir }}', targets)
+        self.assertIn('{{ pve_bulk_storage_nextcloud_dir }}', targets)
 
     def task_names(self):
         return [task.get('name', '') for task in TASKS]
@@ -154,11 +162,20 @@ class MediaBaseTests(unittest.TestCase):
             self.assertIn(fragment, line)
         self.assertIn('mountpoint', self.text)
 
+    def test_it_mounts_the_nextcloud_data_on_the_host_share(self):
+        task = [task for task in self.tasks
+                if task.get('name') == 'Mount the Nextcloud data at boot'][0]
+        line = task['ansible.builtin.lineinfile']['line']
+        for fragment in ('bulk_storage_server', 'bulk_storage_nextcloud_path',
+                         'nextcloud_data_dir', 'nfs4', 'bulk_storage_mount_opts'):
+            self.assertIn(fragment, line)
+
     def test_docker_will_not_start_without_the_library(self):
         task = [task for task in self.tasks
-                if task.get('name') == 'Require the shared library before Docker starts'][0]
+                if task.get('name') == 'Require the shared storage before Docker starts'][0]
         content = task['ansible.builtin.copy']['content']
         self.assertIn('RequiresMountsFor={{ library_root }}', content)
+        self.assertIn('{{ nextcloud_data_dir }}', content)
         self.assertIn('20-media-library.conf', task['ansible.builtin.copy']['dest'])
 
     def test_an_added_mount_restarts_docker(self):
@@ -173,6 +190,8 @@ class MediaBaseTests(unittest.TestCase):
         values = yaml.safe_load(read(GROUP_VARS))
         self.assertEqual(values['bulk_storage_server'], '192.168.10.10')
         self.assertEqual(values['bulk_storage_media_path'], '/srv/bulk/media')
+        self.assertEqual(values['bulk_storage_nextcloud_path'], '/srv/bulk/nextcloud-data')
+        self.assertEqual(values['nextcloud_data_dir'], '/srv/media-stack/storage/nextcloud/data')
         self.assertIn('_netdev', values['bulk_storage_mount_opts'])
         self.assertIn('nofail', values['bulk_storage_mount_opts'])
 

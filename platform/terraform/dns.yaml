@@ -55,6 +55,13 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:4533
     description: Navidrome Subsonic API（アプリ用・SSOなし）
+  # AIエージェント（opencode等）用のMCP。navidrome-apiと同じくSSOを通さず、
+  # 呼び出し元のNextcloud資格情報をそのまま転送する（自前認証）。
+  nextcloud-mcp:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:5811
+    description: NextcloudのAIエージェント用MCP（読み書き・タグ・圧縮解凍。SSOなし・自前認証）
   metube:
     host: media-01
     address: 192.168.10.101
@@ -138,6 +145,11 @@ records:
     # CUPS の /admin は localhost 限定。Caddy 経由だと接続元が 127.0.0.1 に
     # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
     block: ['/admin', '/admin/*']
+  mail-view:
+    host: services-01
+    upstream: 127.0.0.1:8310
+    description: Gmailビューア（通知メールを読み取り専用で表示。Forward Auth）
+    auth: true
   pve:
     address: 192.168.10.10
     description: Proxmoxの管理画面（ポート8006）

@@ -130,3 +130,26 @@ SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
 読み、Gmail 経由で配送）。値を変えるときは `smtp.sops.yaml` を更新し、
 `platform/ansible/identity.yml` を流し直します。配信の迷惑メール・SPF・DKIM・DMARC は
 Google 側で通ります。
+
+## 受信メールボックスを読む（メールビューア）
+
+送信だけでなく、届いた通知メール（招待・確認・アラート）を Gmail へログインせず
+ブラウザーで読むための**読み取り専用ビューア**を services-01 に置いています
+（`stacks/mail-view/`、`https://mail-view.apextox.dpdns.org`）。
+
+- **IMAP**（`imap.gmail.com:993`）にアプリパスワードでログインし、メールボックスを
+  `EXAMINE`（readonly）で開きます。**表示しても既読は付きません。** 一覧と本文だけを
+  表示し、添付のダウンロード・返信・削除はしません。
+- 認証情報は SMTP と同じアプリパスワードを共用できます。Gmail 側で
+  **IMAP アクセスを有効**にしてください（Gmail → 設定 → メール転送と POP/IMAP）。
+  専用のアプリパスワードへ分ける場合は `platform/sops/mail-view.sops.yaml`
+  （書式は同 `.example`）を作ります。無ければ `smtp.sops.yaml` の
+  `SMTP_USERNAME` / `SMTP_PASSWORD` を IMAP にも使います。
+- 入口は services-01 の Caddy の Forward Auth で、**Authentik にログインした
+  全ユーザー**が閲覧できます。このメールボックスには identity の招待・復旧
+  メールが届くため、**SSO を外さないでください。** LAN の中だけに公開します。
+- 配備は `platform/ansible/mail-view.yml`。Forward Auth のプロバイダとアプリは
+  `stacks/identity/configure.py` が作るので、先に `identity.yml` を流します。
+
+読み取り専用の理由と制限は `stacks/mail-view/README.md`、利用者向けの操作は
+[全サービスの使い方](../services/usage.md)にあります。
