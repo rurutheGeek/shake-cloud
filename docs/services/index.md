@@ -30,6 +30,7 @@ tags:
 | [Nextcloudの使い方](nextcloud-guide.md) | ファイル・カレンダー・TODO・スマートフォン連携 |
 | [音楽の取り込み・タグ編集](music.md) | 取り込みからNavidromeで聴くまでの流れ |
 | [タグ管理（MP3）](tags.md) | タグの直し方と整理 |
+| [Nextcloudファイルエージェント（AI用MCP）](nextcloud-agent.md) | AIエージェントから自分のNextcloudを読み書きする |
 | [共通RSSタイムライン](rss.md) | FreshRSSの購読を全員で共有する |
 
 ## 家電・印刷

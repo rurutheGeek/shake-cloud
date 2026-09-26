@@ -87,7 +87,7 @@ WSは9/14から10日間、動体・人物の通知を1件も受け取ってい�
 
 - 旧来側（`v1/apppush/register_push_token`）は毎回成功。v6側（`app-push-eu-pr.eufy.com /app/push/register_push_token`）は9/13までは成功していたが、9/14以降は毎回 `401 token not exist`。
 - 9/13に作業機（dev-b）から同じアカウントで検証用のログインを繰り返した直後から失敗しており、サーバ側でWS保存のv6トークンが無効化されたと推定。`eufy-security-client` 4.1.0 の `MegaTransition` はトークンの期限（ローカル値）しか見ず、401で再ログインしないため、期限（10/12）まで失敗し続ける。
-- 復旧: `persistent.json` の `megaApi` だけを退避・削除して再起動（旧来セッションは維持）。v6へ追加認証なしで再ログインし、`v6 push: FCM token registered on the eufy_mega backend` を確認。手順は `manage.py reset-mega-session` として追加した（[README](../../stacks/eufy-security-ws/README.md)）。
+- 復旧: `persistent.json` の `megaApi` だけを退避・削除して再起動（旧来セッションは維持）。v6へ追加認証なしで再ログインし、`v6 push: FCM token registered on the eufy_mega backend` を確認。手順は `manage.py reset-mega-session` として追加した（[README](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/eufy-security-ws/README.md)）。
 - 結果（2026-09-23 21:56〜21:58 JST、カメラ前を歩いて確認）: WSが人物検知のPush（`type 89` / `event_type 3102`「Someone has been spotted」）を受信し、HAの `binary_sensor.rihinku_person_detected`・`motion_detected` が3回とも約12秒オンになって戻った（`sensor.rihinku_person_name` は `Unknown Person`）。確認の直前に所有者がEufyアプリを初期化しており、アプリ側の状態も通知が届かなかった一因だった可能性がある（v6登録の失敗はそれ以前からログで確認済み。アプリ側の寄与は切り分けていない）。
 - 再起動: Ansibleで再配備（コンテナ作り直し）した後も、保存したv6セッションでPush登録が成功し、HAは約4秒で再接続した。
 - 教訓: **WS稼働中に同じアカウントで他のクライアントをログインさせない**。検証が必要なら別アカウント（Eufyアプリの共有ユーザー）を使う。

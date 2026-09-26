@@ -1,0 +1,18 @@
+---
+# メールビューア（Gmail 読み取り専用）を services-01 に単独で置く。
+mail_view_project_dir: /opt/services/mail-view
+mail_view_source_dir: '{{ playbook_dir }}/../../stacks/mail-view'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://mail-view.<ゾーン> で受ける。
+mail_view_port: 8310
+mail_view_imap_host: imap.gmail.com
+mail_view_imap_port: 993
+mail_view_mailbox: INBOX
+mail_view_message_limit: 50
+mail_view_cache_seconds: 30
+mail_view_tz: Asia/Tokyo
+mail_view_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+mail_view_public_url: 'https://mail-view.{{ mail_view_dns.zone }}'
+# IMAP の資格情報の正本。専用ファイルがあればそれを、無ければ Gmail SMTP と
+# 共用する smtp.sops.yaml を使う（キー名だけが違う）。
+mail_view_sops_file: '{{ playbook_dir }}/../sops/mail-view.sops.yaml'
+mail_view_fallback_sops_file: '{{ playbook_dir }}/../sops/smtp.sops.yaml'

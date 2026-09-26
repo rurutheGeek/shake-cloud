@@ -36,10 +36,13 @@ services:
       KHINSIDER_PORT: '5820'
       KHINSIDER_MUSIC: /music
       KHINSIDER_JA: /tools/khinsider-ja.json
+      KHINSIDER_STATE: /state
+      KHINSIDER_WORKERS: ${KHINSIDER_WORKERS:-3}
     ports:
     - 127.0.0.1:${KHINSIDER_PORT:-5820}:5820
     volumes:
     - ${LIBRARY_ROOT:-../library}/music:/music
+    - ./storage/khinsider:/state
     - ./khinsider.py:/tools/khinsider.py:ro
     - ./khinsider-ja.json:/tools/khinsider-ja.json:ro
     healthcheck:

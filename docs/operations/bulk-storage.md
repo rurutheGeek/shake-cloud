@@ -25,7 +25,7 @@ VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置�
 | 接続 | Sharkoon SATA QuickPort Duo（JMicron JMS551）のUSB。**USB3ポートを使う**（USB2では実効40MB/s前後） |
 | ファイルシステム | ext4、ラベル `bulk6tb`、`/srv/bulk` へUUIDマウント（`nofail,noatime`、予約領域1%） |
 | 共有 | ホストの NFS。`/etc/exports.d/bulk.exports` をロールが書く |
-| 内容 | `/srv/bulk/media`（media-01用の `books`・`docs`・`inbox`・`music`）、`/srv/bulk/roms`（game1用）、`/srv/bulk/backups`（vzdumpの保存先とgame1セーブ。[バックアップ](backup.md)） |
+| 内容 | `/srv/bulk/media`（media-01用の `books`・`docs`・`inbox`・`music`）、`/srv/bulk/nextcloud-data`（Nextcloudのユーザーホーム・appdata）、`/srv/bulk/roms`（game1用）、`/srv/bulk/backups`（vzdumpの保存先とgame1セーブ。[バックアップ](backup.md)） |
 | 冗長性 | **無い**。単一ディスク・USB接続。唯一の保存先・唯一のバックアップにしない |
 
 ## 2. セットアップと再実行
@@ -52,10 +52,12 @@ sops exec-env platform/sops/services.sops.yaml \
 
 ## 3. media-01 のマウント
 
-- `/srv/media-stack/library` へ `192.168.10.10:/srv/bulk/media` を `nfs4` でマウントします。fstabは `_netdev,nofail,x-systemd.mount-timeout=30`。
+- `/srv/media-stack/library` へ `192.168.10.10:/srv/bulk/media`、`/srv/media-stack/storage/nextcloud/data` へ `192.168.10.10:/srv/bulk/nextcloud-data` を `nfs4` でマウントします。fstabは `_netdev,nofail,x-systemd.mount-timeout=30`。**Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdataもHDD上**にあります。
 - `docker.service` に `RequiresMountsFor=/srv/media-stack/library` のdrop-inがあります。**共有ライブラリをマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない。データディスクと同じ考え方）。
 - マウントを後から足したときは、起動済みコンテナが古いローカルディスクを掴んだままです。ロールはマウントしたときに `docker` を再起動します。
 - Nextcloudの外部ストレージ・Kavita・Navidrome・LocalSendの `LIBRARY_ROOT` は今までどおり `/srv/media-stack/library` です。見え方は[Nextcloudの共有ライブラリのアクセス権限](nextcloud-permissions.md)のままです。
+- **Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdata（プレビュー等）もHDD上**になりました（2026-09-23移行。303MB・408ファイルをバイト一致で確認）。画像の多いフォルダの表示はSSD時代より遅くなる可能性があります。
+- 移行前のデータはSSDに `data.ssd-backup-20260923` として残っています。Nextcloudのログインとファイル表示を確認したあと、`sudo rm -rf /srv/media-stack/storage/nextcloud/data.ssd-backup-20260923` で消せます。
 
 ## 4. game1 のマウント（Bazzite）
 
@@ -83,6 +85,7 @@ RomMは `/srv/game1/games` を `/romm/library:ro` で読みます（正本は `s
 | 項目 | 値 | 理由 |
 | --- | --- | --- |
 | media | `all_squash,anonuid=33,anongid=33` | コンテナはwww-data(33)で読み書きする。root_squashだけだとroot実行のKavitaがnobodyになり、2750のディレクトリを読めない |
+| nextcloud-data | `all_squash,anonuid=33,anongid=33` | Nextcloudのユーザーホーム・appdata。mediaと同じ扱い |
 | roms | `all_squash,anonuid=1000,anongid=1000` | game1の利用者がそのままコピーできる。ゲスト側のuidに依存しない |
 | game1-saves | `all_squash,anonuid=1000,anongid=1000` | game1のセーブの受け取り先。romsと同じ扱い |
 | 公開先 | 192.168.10.101（media-01）と192.168.10.127（game1） | LAN全体には出さない。`backups` 自体は公開しない |

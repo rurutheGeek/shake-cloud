@@ -1,0 +1,79 @@
+---
+# Nextcloud MCPサーバ（AIエージェント用のファイル操作・MP3タグ・圧縮/解凍）を
+# media-01 へ配備する。受ける名前とTLSは dns.yaml / tls_proxy ロールが担当する。
+#   ansible-playbook -i <inventory> platform/ansible/media-nextcloud-mcp.yml
+- name: Deploy the Nextcloud MCP server
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    nextcloud_mcp_dir: /opt/nextcloud-mcp
+    nextcloud_mcp_port: 5811
+    nextcloud_mcp_tmp: /var/tmp/nextcloud-mcp
+  tasks:
+    - name: Create the MCP deployment directory
+      ansible.builtin.file:
+        path: '{{ nextcloud_mcp_dir }}'
+        state: directory
+        mode: '0750'
+    - name: Copy the MCP server
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/nextcloud-mcp/nextcloud_mcp.py'
+        dest: '{{ nextcloud_mcp_dir }}/nextcloud_mcp.py'
+        mode: '0755'
+      notify: Restart Nextcloud MCP
+    - name: Create the MCP temporary directory
+      # zip/tar の作業領域。GB級になりうるので tmpfs ではなくディスクに置く。
+      ansible.builtin.file:
+        path: '{{ nextcloud_mcp_tmp }}'
+        state: directory
+        mode: '0700'
+    - name: Read the music tag API token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json,
+               '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
+      register: nextcloud_mcp_tag_secrets
+      changed_when: false
+      no_log: true
+    - name: Write the MCP environment
+      # 利用者の資格情報は保存しない。ここにあるのはtag-apiの共有トークンだけ。
+      ansible.builtin.copy:
+        content: |
+          NEXTCLOUD_MCP_PORT={{ nextcloud_mcp_port }}
+          NEXTCLOUD_MCP_BIND=127.0.0.1
+          NEXTCLOUD_MCP_BASE_URL=http://127.0.0.1:8080
+          NEXTCLOUD_MCP_TAG_API_URL=http://127.0.0.1:5810
+          NEXTCLOUD_MCP_TAG_API_TOKEN={{ (nextcloud_mcp_tag_secrets.stdout | from_json).TAG_API_TOKEN }}
+          NEXTCLOUD_MCP_TMP={{ nextcloud_mcp_tmp }}
+        dest: '{{ nextcloud_mcp_dir }}/nextcloud-mcp.env'
+        mode: '0400'
+      no_log: true
+      notify: Restart Nextcloud MCP
+    - name: Install the MCP unit
+      ansible.builtin.template:
+        src: '{{ source_dir }}/nextcloud-mcp/nextcloud-mcp.service.j2'
+        dest: /etc/systemd/system/nextcloud-mcp.service
+        mode: '0644'
+      notify: Restart Nextcloud MCP
+    - name: Enable and start the MCP server
+      ansible.builtin.systemd:
+        name: nextcloud-mcp
+        enabled: true
+        state: started
+        daemon_reload: true
+    - name: Wait for the MCP server
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ nextcloud_mcp_port }}/healthz'
+        status_code: [200]
+      register: nextcloud_mcp_health
+      retries: 10
+      delay: 2
+      until: nextcloud_mcp_health is succeeded
+  handlers:
+    - name: Restart Nextcloud MCP
+      ansible.builtin.systemd:
+        name: nextcloud-mcp
+        state: restarted
+        daemon_reload: true

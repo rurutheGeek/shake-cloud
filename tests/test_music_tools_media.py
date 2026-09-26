@@ -221,6 +221,15 @@ class PlaybookTests(unittest.TestCase):
         copied = self.tasks['Copy cache synchronization code']
         self.assertIn('sync-music.py', copied['ansible.builtin.copy']['dest'])
 
+    def test_the_music_sync_does_not_need_stored_credentials(self):
+        # runtime/ が無く、access.json のパスワードも無いVMでタイマーが毎回
+        # 失敗していた（2026-09-24修正）。Navidromeは同梱CLIのscanを使う。
+        text = read(ROOT / 'stacks/scripts/sync-music.py')
+        self.assertIn("(ROOT/'runtime').mkdir", text)
+        self.assertIn("ROOT/'media'", text)
+        self.assertIn("'navidrome','navidrome','scan'", text)
+        self.assertNotIn('access.json', text)
+
     def test_the_organizer_and_its_aliases_are_deployed(self):
         loop = self.tasks['Copy tool definitions']['loop']
         self.assertIn('organize.py', loop)

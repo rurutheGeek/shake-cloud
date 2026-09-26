@@ -10,7 +10,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | --- | --- |
 | identity | Authentik（共通ログイン・AWS風ポータルの認証） |
 | cloud-01 | クラウドAPI・管理DB・ポータル |
-| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws |
+| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws、Gmailビューア |
 | media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機 |
 | storage-s3 | Garage（S3互換オブジェクトストア） |
 | monitor-01 | Prometheus、Alertmanager、Grafana |
@@ -30,6 +30,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | Vaultwarden | SSO、登録可否、公開URL | `stacks/vaultwarden/compose.yaml`・`manage.py`。保存された `/data/config.json` が環境変数より優先されることがある |
 | Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
 | LibreSpeed | 端末↔services-01の速度計測、履歴、統計パスワード | `stacks/librespeed/compose.yaml`・`manage.py`。配備は `platform/ansible/librespeed.yml` |
+| Gmailビューア | 通知メールの表示件数・キャッシュ・IMAP接続 | `stacks/mail-view/compose.yaml`・`app.py`・`.env.example`。資格情報は `platform/sops/mail-view.sops.yaml`（無ければ `smtp.sops.yaml`）。配備は `platform/ansible/mail-view.yml` |
 | Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
 | 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
 | ルータ（router-01） | LAN・DHCP・DNS・MAP-E・ファイアウォール | `platform/openwrt/rootfs/etc/shakecloud/config/`（UCI の正本）。イメージは `platform/openwrt/openwrt.yaml`、VM は `platform/terraform/router.yaml`、手順は [router-01](docs/operations/router.md) |

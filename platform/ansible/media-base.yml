@@ -7,12 +7,13 @@
 # 直るまでの間、ゲスト側で IPv6 を無効にして getaddrinfo と Docker を IPv4 に
 # 揃える。DNS・SG・サービスはもともと IPv4 前提。
 #
-# 6TB USB HDD の共有ライブラリもここで載せる。マウントが済むまで Docker を
-# 起動しない（未マウントのまま原本領域へ書かせない）。正本は
-# platform/ansible/roles/pve_bulk_storage、手順は docs/operations/bulk-storage.md。
+# 6TB USB HDD の共有ライブラリと Nextcloud のデータディレクトリもここで載せる。
+# マウントが済むまで Docker を起動しない（未マウントのまま原本領域へ書かせない）。
+# 正本は platform/ansible/roles/pve_bulk_storage、手順は
+# docs/operations/bulk-storage.md。
 #
 #   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-base.yml
-- name: Prepare the media-01 base (IPv4 egress and the shared library)
+- name: Prepare the media-01 base (IPv4 egress and the shared storage)
   hosts: media
   become: true
   tasks:
@@ -64,13 +65,37 @@
       changed_when: true
       notify: Restart Docker to pick up the shared library
 
-    - name: Require the shared library before Docker starts
+    - name: Mount the Nextcloud data at boot
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_nextcloud_path | regex_escape }}\s'
+        line: >-
+          {{ bulk_storage_server }}:{{ bulk_storage_nextcloud_path }} {{ nextcloud_data_dir }}
+          nfs4 {{ bulk_storage_mount_opts }} 0 0
+        state: present
+
+    - name: Check whether the Nextcloud data is mounted
+      ansible.builtin.command:
+        argv: [mountpoint, -q, '{{ nextcloud_data_dir }}']
+      register: media_nextcloud_mountpoint
+      failed_when: false
+      changed_when: false
+
+    - name: Mount the Nextcloud data now
+      ansible.builtin.command:
+        argv: [timeout, '60', mount, '{{ nextcloud_data_dir }}']
+      when: media_nextcloud_mountpoint.rc != 0
+      changed_when: true
+      notify: Restart Docker to pick up the shared library
+
+    - name: Require the shared storage before Docker starts
       ansible.builtin.copy:
         dest: /etc/systemd/system/docker.service.d/20-media-library.conf
         content: |
           [Unit]
-          # 共有ライブラリのマウントが済むまで Docker を起動しない。
-          RequiresMountsFor={{ library_root }}
+          # 共有ライブラリと Nextcloud データのマウントが済むまで Docker を
+          # 起動しない。未マウントのまま書き込ませない。
+          RequiresMountsFor={{ library_root }} {{ nextcloud_data_dir }}
         mode: '0644'
       register: media_library_docker
 

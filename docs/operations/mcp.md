@@ -102,7 +102,7 @@ APIの `x-shakecloud-scope: read` の操作のうち、資格情報が要るも�
 
 - APIはLAN内のみです。MCPサーバはエージェントの端末からHTTPSで接続します。
 - 監査ログには `user_agent` が `shakecloud-mcp/0.1.0` として残ります（CLI・Terraformと区別できます）。
-- 読み取り専用キーの書き込みは 403 `AccessDenied` になり、監査ログに残ります（[クラウドAPI本体](cloud-api.md#アクセスキー)）。
+- 読み取り専用キーの書き込みは 403 `AccessDenied` になり、監査ログに残ります（[クラウドAPI本体](cloud-api.md)）。
 - キーを失効させれば、次の呼び出しから 401 になります。
 
 ## 5. 確認のしかた

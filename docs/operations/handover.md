@@ -1,6 +1,6 @@
 ---
 title: クラウド開発の引き継ぎとTODO
-updated: 2026-09-23
+updated: 2026-09-26
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # クラウド開発の引き継ぎとTODO
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-26 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**`main` と cloud 機能のブランチは `e2fb0d9` で統合済み。以後の router・NetBox・AdGuard・監視・ストレージ・LibreSpeed の追補はブランチ `feat/ops-monitoring-storage` にあり、origin の旧ブランチより先行している。**media-01 は新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備済み。既存環境からのデータ移行（W03〜W06。RomMはgame1でW07）が残る。残りは Phase 8（VLAN 分離の実機切替。**TL-SG605 がアンマネージドのため、マネージドスイッチを調達するまで着手できない**）、DB の外部バックアップ、既存環境からのメディアデータ移行。**2026-09-12のI01実測を反映し、k8s-cp-01・k8s-worker-01・probe-01は停止中、dev-a/dev-bの宣言RAMは6GiB。Homarrはservices-01へ新規配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC）。2026-09-13にNextcloudの「…」→「印刷」からservices-01のCUPSへ送る自作アプリをmedia-01へ配備した（D08）。2026-09-12に監視スタック（Prometheus・Alertmanager・Grafana・exporter）をmonitor-01へ配備した（M01）。2026-09-12〜13にHome Assistant（services-01）へAuthentik SSO・Eufy（イベント・スナップショット）・SwitchBot Cloudを設定した（H01/H02/H04。Eufyのライブ映像は不可、Alexaは見送り）。2026-09-14に復旧経路のTailscale subnet routerをcloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）として作成し、tailnetへ参加した（N02。ルート承認・ACL・宅外検証が未了）。**2026-09-21〜23: LibreSpeed（`https://speed.apextox.dpdns.org`）をservices-01へ配備し、Proxmoxホスト直結の6TB USB HDDをext4・NFSでmedia-01とgame1へ共有、Tier1 VMの週次vzdumpとgame1セーブ、Proxmoxホストのnode_exporter・SMART/NVMe、Grafanaのホスト・ストレージ・VMメモリ・ゲーム使用量ダッシュボード、storage health（journald上限・root noatime・Dockerログ上限）、AdGuardのHaGeZi's Pro Blocklistを追加した。**
 
@@ -203,6 +203,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | ✅ | storage | **journald上限・root noatime・Dockerログ上限を `storage_health` ロールで配備（2026-09-23）。** `storage-health.yml` がpve・サービスVMへ適用する。再実行してもnoatimeを重複追加しない | — |
 | 🟨 | API | **アクセスキーに読み取り専用スコープを追加（2026-09-23）。** `access_keys.scope`（migration `0012`）とOpenAPIの `x-shakecloud-scope`、ポータルの権限選択、CLIの `SCOPE` 列。読み取り専用キーの書き込みは 403 `AccessDenied` として監査ログに残る。**cloud-01へ `cloud.yml` で配備済み（2026-09-23、failed=0）。** 実機の `GET /v1/caller-identity` が `access_key_scope` を返すこと（migration `0012` 適用）を確認。**ReadOnlyキーでの拒否確認はキー発行後** | [cloud-api.md](cloud-api.md) |
 | 🟨 | MCP | **読み取り専用のMCPサーバ `cloud/mcp` を実装（2026-09-23）。** 22ツール（VM・ボリューム・SG・S3・DB・関数・監査の参照）。OpenAPIの `x-shakecloud-scope: read` との被覆をテストで検査し、DB資格情報と書き込みは公開しない。**dev-bでビルドし、opencode（`~/.config/opencode/opencode.jsonc`）へ `{file:}` 参照で登録済み。stdioの実機疎通（initialize・tools/list 22件・`get_caller_identity`）も確認済み。ReadOnlyキーでの拒否確認はキー発行後** | [mcp.md](mcp.md) |
+| ✅ | mail-view | **Gmail通知メールの読み取り専用ビューアをservices-01へ配備（2026-09-26）。** `stacks/mail-view/`（標準ライブラリのみ・`python:3.13-alpine` digest固定・`127.0.0.1:8310`・read_only・cap_drop ALL）。IMAPは `imap.gmail.com:993` にアプリパスワードで入り `EXAMINE`（readonly）で**既読を付けない**。入口はCaddy Forward Auth（identityの `mail-view` プロバイダ、`users` 全員）で、未認証は `https://auth.apextox.dpdns.org` へ302。`mail-view.apextox.dpdns.org` をDNS登録、Homarrタイル追加、blackboxプローブup。実機で `/healthz` 200・IMAP取得50件を確認。資格情報は `platform/sops/smtp.sops.yaml` のアプリパスワードをIMAPと共用（IMAP有効化済みを実測）。**配備中にAnsibleの `copy` が `{{ "\n" }}` をリテラル2文字で書く問題を発見し、改行を書かない形へ修正・テスト化** | `stacks/mail-view/README.md`・[SMTPとメール送信](smtp.md) |
 
 各 Phase の詳しい中身と完了条件は[最小クラウドとProvider](../architecture/cloud.md)にあります。
 

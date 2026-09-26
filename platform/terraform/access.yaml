@@ -20,6 +20,11 @@ admin_ssh_public_keys:
   # 新規VMに入れず、待ちを解けない。詳細は docs/operations/bootstrap.md。
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICTH4vzwMtR18mFWJyQprDla1KiMzqtDiCOIddzMeein shake-cloud automation on dev-b
 
+  # dev-b の opencode セッション鍵（~/.ssh/id_ed25519_shake）。開発対象VMを
+  # 触るために 2026-09-26 に各VMへ配り、以後の新規VMにも入れる。人が使う鍵は
+  # これまでどおり ssh-copy-id で各自が足す（この並びの先頭2鍵）。
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAf6bUWJhHu0IOTKHGJYGbG0w9SEjfvcT4pzKfSOn2L0 dev-b@ruru (opencode diagnostic)
+
 # 05-seed（services-01）だけは別の並びを使う。ブートストラップ時はこの順で適用済みで、
 # **変えると services-01 の cloud-init に差分が出る**（Proxmox は鍵を1つの文字列で持つ）。
 # admin の先頭2鍵の**逆順**で、automation 鍵は入っていない（当時まだ無かった）。

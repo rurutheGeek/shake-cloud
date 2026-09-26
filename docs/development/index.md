@@ -56,6 +56,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [A03 汎用RAG](A03-rag.md) | 新規 | game1 | 計画（未着手） |
 | [A04 Discord Bot](A04-discord-bot.md) | 新規 | game1 | 外部待ち |
 | [A05 OpenHomeの製品・要件調査](A05-openhome.md) | 調査 | game1候補 | 調査・外部待ち |
+| [A06 NextcloudファイルAIエージェント](A06-nextcloud-mcp.md) | 新規 | media-01 | 一部完了（配備・監視反映済み・稼働中。実データ確認は残る） |
 | [G01 Wolf](G01-wolf.md) | 開発・実機検証 | game1 | 計画（実機未） |
 | [G02 Azahar・非公開ルーム](G02-azahar.md) | 開発・実機検証 | game1 | 計画（実機未） |
 | [G03 ゲームとAIの負荷調整](G03-game-ai-resources.md) | 実機検証・調整 | game1 | 計画（実機未） |
@@ -63,6 +64,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [H02 SwitchBot](H02-switchbot.md) | 機器確認・新規 | services-01 | 実機待ち（Cloud統合追加済み） |
 | [H03 Echo](H03-echo.md) | 機器確認・新規 | services-01 | 見送り（決定済み） |
 | [H04 Eufy](H04-eufy.md) | 機器確認・調査 | services-01 | 実機確認中（ライブ未対応・イベント確認中） |
+| [H05 Eufy leo_rtc クライアント](H05-eufy-leo-rtc.md) | 開発・RE | dev-b | 実機確認中（wake・ICE candidate まで） |
 | [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | services-01 | 計画（未着手）。**N06の実測で前提が変わった**（80/443不可・WireGuardは公開可） |
 | [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | cloud VM `net-01`・端末 | 一部完了（tailnet参加済み。ルート承認・宅外検証が未了） |
 | [N03 VLAN切替](N03-vlan.md) | 宣言済み・機材待ち | 既存ネットワーク | **機材待ち。TL-SG605がアンマネージドでVLANを設定できない**（N06で確定）。マネージドスイッチの調達が前提 |

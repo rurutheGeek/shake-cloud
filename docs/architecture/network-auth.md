@@ -89,6 +89,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `ha.apextox.dpdns.org` | Home Assistant（services-01。本体は `127.0.0.1:8123`） |
 | `docs.apextox.dpdns.org` | ドキュメントサイト（services-01） |
 | `cups.apextox.dpdns.org` | CUPSの印刷状況（services-01。`/admin` は入口で403） |
+| `mail-view.apextox.dpdns.org` | メールビューア（services-01。通知メールを読み取り専用表示。Forward Auth） |
 | `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は services-01 だけに許可） |
 | `router.apextox.dpdns.org` | router-01 の管理画面（LuCI）。**SSO なし**（復旧経路。identity が止まっていても開ける。認証は LuCI 自身の root パスワード） |
 | `nextcloud.apextox.dpdns.org` | Nextcloud（media-01） |
@@ -127,7 +128,7 @@ VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範�
 | OIDC対応Webアプリ | ネイティブOIDC。アプリごとにclientとredirect URIを設定 |
 | Home Assistant | コミュニティ統合 `hass-oidc-auth` のOIDC（公開クライアント・PKCE）。WebSocket・CompanionアプリのためForward Authは使わず、ローカルオーナーを緊急用に残す |
 | Proxmox Web UI | OIDC。Proxmox内のロールは別途設定 |
-| OIDC非対応のブラウザ専用ツール（Navidrome・MeTube・KHInsider・CUPS・AdGuard Home） | Authentik Forward Auth。API経路はサービス自身の認証を残す |
+| OIDC非対応のブラウザ専用ツール（Navidrome・MeTube・KHInsider・CUPS・AdGuard Home・メールビューア） | Authentik Forward Auth。API経路はサービス自身の認証を残す |
 | 自作クラウドAPI／Terraform | Authentikログインから発行するアクセスキー。呼出し時はBearerで認証し、APIのアカウント所有権を確認 |
 | S3クライアント | S3 access key／secretと署名 |
 | DBクライアント | DBロール・パスワード等。必要に応じてTLS |
