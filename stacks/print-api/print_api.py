@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
-"""Print API for the Nextcloud print action (services-01). Standard library only.
+"""CUPS print relay for the cups_print Nextcloud app. Standard library only.
 
-The shake_print Nextcloud app POSTs the document to /print with a bearer token.
-The service accepts only the configured client address, stores the body in a
-temporary file and runs `lp` against the local CUPS queue.
+The Nextcloud app POSTs the document to /print with a bearer token. This
+service accepts only the configured client addresses, stores the body in a
+temporary file and runs `lp` against the configured CUPS queue.
 
-systemd EnvironmentFile keys:
-  PRINT_API_TOKEN      shared secret (SOPS)
-  PRINT_API_ALLOWED    comma-separated client addresses (empty = no allowlist)
+Accepted documents: PDF, PNG, JPEG, plain text and Markdown (Markdown is
+handed to the CUPS text filter). Optional headers: X-Print-Copies (1-99),
+X-Print-Color (color|monochrome), X-Print-Ranges ("1-3,5").
+
+It can also be called by anything else that can speak HTTP (scripts, Home
+Assistant, ...) as long as it sends the shared token.
+
+Environment:
+  PRINT_API_TOKEN      shared secret (required)
+  PRINT_QUEUE          CUPS queue name (required)
+  PRINT_API_ALLOWED    comma-separated client addresses (empty = any client
+                       that knows the token)
   PRINT_API_BIND       default 0.0.0.0
   PRINT_API_PORT       default 6320
-  PRINT_QUEUE          default ts8430
   PRINT_API_MAX_BYTES  default 50 MiB
+  CUPS_SERVER          passed through to `lp`, e.g. cups.example.net:631
+                       (unset = the local CUPS)
 """
 import hmac
 import json
@@ -22,8 +32,11 @@ import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
 
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt'}
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt', 'md'}
+# Markdown has no CUPS filter; hand it to the text filter instead.
+TEMP_SUFFIX = {'md': 'txt'}
 JOB_PATTERN = re.compile(r'request id is (\S+)')
+RANGES_PATTERN = re.compile(r'[0-9,\-\s]{1,64}')
 
 
 def authorized(header, client, token, allowed):
@@ -50,9 +63,22 @@ def bounded(value, low, high, fallback):
     return max(low, min(high, number))
 
 
-def lp_command(queue, name, copies, color, path):
-    return ['lp', '-d', queue, '-t', name, '-n', str(copies),
-            '-o', f'print-color-mode={color}', path]
+def lp_command(queue, name, copies, color, path, ranges=None):
+    command = ['lp', '-d', queue, '-t', name, '-n', str(copies),
+               '-o', f'print-color-mode={color}']
+    if ranges:
+        command += ['-o', f'page-ranges={ranges}']
+    return command + [path]
+
+
+def parse_ranges(value):
+    """Accept '1-3,5' style CUPS page ranges; reject anything else."""
+    ranges = (value or '').strip()
+    if not ranges:
+        return None
+    if not RANGES_PATTERN.fullmatch(ranges):
+        return None
+    return ranges
 
 
 def parse_job_id(output):
@@ -61,7 +87,7 @@ def parse_job_id(output):
 
 
 class PrintHandler(BaseHTTPRequestHandler):
-    server_version = 'shake-print/1.0'
+    server_version = 'cups-print-relay/1.0'
     timeout = 60
 
     def _respond(self, status, payload):
@@ -99,8 +125,13 @@ class PrintHandler(BaseHTTPRequestHandler):
             return
         copies = bounded(self.headers.get('X-Print-Copies'), 1, 99, 1)
         color = 'monochrome' if self.headers.get('X-Print-Color') == 'monochrome' else 'color'
+        ranges = parse_ranges(self.headers.get('X-Print-Ranges'))
+        if self.headers.get('X-Print-Ranges') and ranges is None:
+            self._respond(400, {'error': 'invalid page range'})
+            return
 
-        handle = tempfile.NamedTemporaryFile(delete=False, suffix='.' + extension)
+        suffix = TEMP_SUFFIX.get(extension, extension)
+        handle = tempfile.NamedTemporaryFile(delete=False, suffix='.' + suffix)
         try:
             remaining = length
             while remaining > 0:
@@ -111,7 +142,7 @@ class PrintHandler(BaseHTTPRequestHandler):
                 remaining -= len(chunk)
             handle.close()
             result = subprocess.run(
-                lp_command(self.server.queue, name, copies, color, handle.name),
+                lp_command(self.server.queue, name, copies, color, handle.name, ranges),
                 capture_output=True, text=True, timeout=30)
         finally:
             os.unlink(handle.name)
@@ -129,15 +160,22 @@ class PrintHandler(BaseHTTPRequestHandler):
         print(f'{self.address_string()} {fmt % args}', flush=True)
 
 
+def env_required(name):
+    value = os.environ.get(name, '').strip()
+    if not value:
+        raise SystemExit(f'{name} is not set')
+    return value
+
+
 def main():
     server = ThreadingHTTPServer(
         (os.environ.get('PRINT_API_BIND', '0.0.0.0'),
          int(os.environ.get('PRINT_API_PORT', '6320'))),
         PrintHandler)
-    server.token = os.environ['PRINT_API_TOKEN']
+    server.token = env_required('PRINT_API_TOKEN')
+    server.queue = env_required('PRINT_QUEUE')
     server.allowed = {ip.strip() for ip in
                       os.environ.get('PRINT_API_ALLOWED', '').split(',') if ip.strip()}
-    server.queue = os.environ.get('PRINT_QUEUE', 'ts8430')
     server.max_bytes = int(os.environ.get('PRINT_API_MAX_BYTES', str(50 * 1024 * 1024)))
     server.serve_forever()
 

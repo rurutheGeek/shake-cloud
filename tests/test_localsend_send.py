@@ -18,7 +18,6 @@ from support import read
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'stacks/localsend-send/localsend_send.py'
 STACK = ROOT / 'stacks/localsend-send'
-APP = ROOT / 'stacks/media/nextcloud/apps/shake_localsend'
 PLAYBOOK = ROOT / 'platform/ansible/media-nextcloud.yml'
 MEDIA_PLAYBOOK = ROOT / 'platform/ansible/media-localsend.yml'
 GROUP_VARS = ROOT / 'platform/ansible/group_vars/media.yml'
@@ -136,52 +135,28 @@ class SendTests(unittest.TestCase):
             server.server_close()
 
 
-class AppTests(unittest.TestCase):
-    def test_info_declares_the_app_and_the_namespace(self):
-        info = read(APP / 'appinfo/info.xml')
-        application = read(APP / 'lib/AppInfo/Application.php')
-        self.assertIn('<id>shake_localsend</id>', info)
-        self.assertIn('<namespace>ShakeLocalSend</namespace>', info)
-        self.assertIn('namespace OCA\\ShakeLocalSend\\AppInfo;', application)
-        self.assertIn('<nextcloud min-version="30" max-version="33"/>', info)
+class MigrationTests(unittest.TestCase):
+    def test_the_app_is_no_longer_vendored_here(self):
+        # アプリ本体は公開リポジトリ rurutheGeek/nextcloud-localsend が正本。
+        self.assertFalse((ROOT / 'stacks/media/nextcloud/apps/shake_localsend').exists())
 
-    def test_the_files_script_is_registered(self):
-        app = read(APP / 'lib/AppInfo/Application.php')
-        listener = read(APP / 'lib/Listener/LoadAdditionalScripts.php')
-        self.assertIn('LoadAdditionalScriptsEvent::class', app)
-        self.assertIn("Util::addInitScript('shake_localsend', 'localsend')", listener)
+    def test_the_release_is_pinned_in_group_vars(self):
+        group = yaml.safe_load(read(GROUP_VARS))
+        pinned = {app['name']: app for app in group['nextcloud_custom_apps']}
+        self.assertEqual(pinned['localsend_share']['repo'],
+                         'rurutheGeek/nextcloud-localsend')
+        self.assertRegex(pinned['localsend_share']['version'], r'^\d+\.\d+\.\d+$')
 
-    def test_the_controller_proxies_devices_and_send(self):
-        controller = read(APP / 'lib/Controller/SendController.php')
-        self.assertIn("#[FrontpageRoute(verb: 'GET', url: '/devices')]", controller)
-        self.assertIn("#[FrontpageRoute(verb: 'POST', url: '/send')]", controller)
-        self.assertIn("getAppValue('shake_localsend', 'send_api_url'", controller)
-        self.assertIn("getAppValue('shake_localsend', 'send_api_token'", controller)
-        self.assertIn("'X-Send-To' => $fingerprint", controller)
-        self.assertIn("'Bearer '", controller)
+    def test_the_retired_app_is_removed(self):
+        group = yaml.safe_load(read(GROUP_VARS))
+        self.assertIn('shake_localsend', group['nextcloud_retired_apps'])
+        self.assertIn('remove-apps', read(PLAYBOOK))
 
-    def test_the_action_uses_the_files_context_signature(self):
-        source = read(APP / 'src/localsend.js')
-        self.assertIn('enabled: ({ nodes })', source)
-        self.assertIn('exec: async ({ nodes })', source)
-
-    def test_non_admins_may_use_the_send_routes(self):
-        # AppFramework は既定で管理者のみ。付けないと一般ユーザーは403になる（実測）。
-        controller = read(APP / 'lib/Controller/SendController.php')
-        self.assertIn('use OCP\\AppFramework\\Http\\Attribute\\NoAdminRequired;', controller)
-        self.assertEqual(controller.count('#[NoAdminRequired]'), 2)
-
-    def test_the_bundle_registers_the_send_action(self):
-        bundle = read(APP / 'js/localsend.js')
-        self.assertIn('registerFileAction', bundle)
-        self.assertIn('/apps/shake_localsend/devices', bundle)
-        self.assertIn('/apps/shake_localsend/send', bundle)
-        self.assertIn('shake-localsend', bundle)
-        # コアと同じ @nextcloud/files v4 のグローバルレジストリへ登録する。
-        self.assertIn('_nc_files_scope', bundle)
-        self.assertIn('register:action', bundle)
-        package = json.loads(read(APP / 'package.json'))
-        self.assertNotIn('@nextcloud/dialogs', package['dependencies'])
+    def test_manage_py_points_the_app_at_the_relay(self):
+        manage = read(ROOT / 'stacks/media/nextcloud/manage.py')
+        self.assertIn("config_app('localsend_share'", manage)
+        self.assertIn("('relay_url', os.environ['SEND_API_URL'])", manage)
+        self.assertIn("('relay_token', os.environ['SEND_API_TOKEN'])", manage)
 
 
 class DeploymentTests(unittest.TestCase):
@@ -193,21 +168,23 @@ class DeploymentTests(unittest.TestCase):
     def task(self, name):
         return next(task for task in self.tasks if task['name'] == name)
 
-    def test_the_app_is_copied_into_the_nextcloud_html_volume(self):
-        task = self.task('Copy the LocalSend send app')
-        self.assertIn('apps/shake_localsend/',
-                      task['ansible.builtin.copy']['src'])
-        self.assertIn('custom_apps/shake_localsend',
-                      task['ansible.builtin.copy']['dest'])
+    def test_the_custom_apps_are_installed_from_pinned_releases(self):
+        commands = [task['ansible.builtin.command']['argv'] for task in self.tasks
+                    if 'ansible.builtin.command' in task]
+        custom = [argv for argv in commands if len(argv) > 2 and argv[2] == 'custom-apps']
+        self.assertEqual(len(custom), 1)
+        self.assertIn('--repos', custom[0])
+        self.assertIn('--versions', custom[0])
 
     def test_the_app_list_includes_the_send_app(self):
-        apps = [task for task in self.tasks if '--apps' in str(task)]
+        commands = [task['ansible.builtin.command']['argv'] for task in self.tasks
+                    if 'ansible.builtin.command' in task]
+        apps = [argv for argv in commands if len(argv) > 2 and argv[2] == 'apps']
         self.assertEqual(len(apps), 1)
-        self.assertIn("+ ['shake_print', 'shake_localsend', 'shake_tags']",
-                      str(apps[0]['ansible.builtin.command']['argv']))
+        self.assertIn("localsend_share", str(apps[0]))
 
     def test_the_relay_url_and_token_are_configured(self):
-        task = self.task('Point the LocalSend send app at the media-01 sender')
+        task = self.task('Point the localsend_share app at the media-01 relay')
         self.assertIn('SEND_API_URL', task['environment'])
         self.assertIn('SEND_API_TOKEN', task['environment'])
         self.assertTrue(task['no_log'])

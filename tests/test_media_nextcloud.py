@@ -9,8 +9,10 @@ media-01 or runs Docker.
 """
 import ast
 import importlib.util
+import io
 from pathlib import Path
 import sys
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -171,6 +173,7 @@ class ManageTests(unittest.TestCase):
 
     def test_the_required_actions_are_available(self):
         for action in ('init', 'lock', 'up', 'upgrade', 'setup', 'apps',
+                       'custom-apps', 'remove-apps',
                        'config-notes', 'config-print', 'config-localsend',
                        'config-tags', 'import-calendar', 'status', 'down'):
             self.assertIn(f"'{action}'", self.text)
@@ -278,6 +281,58 @@ class ManageTests(unittest.TestCase):
         for name in ('occ', 'setup', 'apps'):
             self.assertNotRegex(functions[name], r'(?i)password|token|secret')
 
+    def test_custom_apps_install_versioned_releases_idempotently(self):
+        self.assertIn('def custom_apps(', self.text)
+        self.assertIn('releases/download/v{version}', self.text)
+        self.assertIn("marker.read_text().strip() == version", self.text)
+        self.assertIn('CHANGED: custom app installed', self.text)
+        self.assertIn('OK: custom app up to date', self.text)
+
+    def test_retired_apps_are_removed_from_occ_and_disk(self):
+        self.assertIn('def remove_apps(', self.text)
+        self.assertIn("occ('app:enable', name)", self.text)
+        self.assertIn("occ('app:remove', name)", self.text)
+        self.assertIn('retired app removed', self.text)
+        self.assertIn('retired app already absent', self.text)
+
+    def test_check_archive_accepts_only_the_app_folder(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+            payload = b'<info/>'
+            info = tarfile.TarInfo('cups_print/appinfo/info.xml')
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
+        buffer.seek(0)
+        with tarfile.open(fileobj=buffer) as tar:
+            manage.check_archive(tar, 'cups_print')
+
+    def test_check_archive_rejects_foreign_paths_and_links(self):
+        for name in ('other/appinfo/info.xml', 'cups_print/../../etc/passwd'):
+            buffer = io.BytesIO()
+            with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+                payload = b'x'
+                info = tarfile.TarInfo(name)
+                info.size = len(payload)
+                tar.addfile(info, io.BytesIO(payload))
+            buffer.seek(0)
+            with tarfile.open(fileobj=buffer) as tar:
+                with self.assertRaises(ValueError):
+                    manage.check_archive(tar, 'cups_print')
+
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+            info = tarfile.TarInfo('cups_print/link')
+            info.type = tarfile.SYMTYPE
+            info.linkname = '/etc/passwd'
+            tar.addfile(info)
+        buffer.seek(0)
+        with tarfile.open(fileobj=buffer) as tar:
+            with self.assertRaises(ValueError):
+                manage.check_archive(tar, 'cups_print')
+
+    def test_split_values_ignores_empty_items(self):
+        self.assertEqual(manage.split_values('a, b ,,c'), ['a', 'b', 'c'])
+
 
 class CalendarImportTests(unittest.TestCase):
     def test_normalize_fixes_timezone_and_broken_end(self):
@@ -341,6 +396,14 @@ class CalendarImportTests(unittest.TestCase):
 class AnsibleTests(unittest.TestCase):
     def setUp(self):
         self.play = yaml.safe_load(PLAYBOOK.read_text(encoding='utf-8'))[0]
+        self.commands = [task['ansible.builtin.command']['argv']
+                         for task in self.play['tasks']
+                         if 'ansible.builtin.command' in task]
+
+    def action(self, name):
+        """The argv of the manage.py call for one action."""
+        return next(argv for argv in self.commands
+                    if len(argv) > 2 and argv[2] == name)
 
     def test_it_targets_the_media_group_as_root(self):
         self.assertEqual(self.play['hosts'], 'media')
@@ -362,41 +425,46 @@ class AnsibleTests(unittest.TestCase):
         self.assertIn('{{ library_root }}', env[0]['content'])
 
     def test_it_prepares_and_starts_the_unit_with_manage_py(self):
-        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
-                    if 'ansible.builtin.command' in task]
-        self.assertTrue(any(argv[-1] == 'init' and argv[-2].endswith('manage.py')
-                            for argv in commands))
-        self.assertTrue(any(argv[-1] == 'up' and argv[-2].endswith('manage.py')
-                            for argv in commands))
+        self.assertTrue(self.action('init'))
+        self.assertTrue(self.action('up'))
 
     def test_it_runs_setup_and_apps_after_starting_the_unit(self):
-        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
-                    if 'ansible.builtin.command' in task]
-        actions = {argv[-1]: index for index, argv in enumerate(commands)
-                   if len(argv) > 1 and argv[-2].endswith('manage.py')}
-        self.assertIn('up', actions)
-        self.assertIn('upgrade', actions)
-        self.assertIn('setup', actions)
-        self.assertGreater(actions['upgrade'], actions['up'])
-        self.assertGreater(actions['setup'], actions['upgrade'])
-        apps = [argv for argv in commands if '--apps' in argv]
-        self.assertEqual(len(apps), 1)
-        self.assertGreater(commands.index(apps[0]), actions['up'])
+        order = {argv[2]: index for index, argv in enumerate(self.commands)
+                 if len(argv) > 2 and argv[1].endswith('manage.py')}
+        self.assertIn('up', order)
+        self.assertIn('upgrade', order)
+        self.assertIn('setup', order)
+        self.assertGreater(order['upgrade'], order['up'])
+        self.assertGreater(order['setup'], order['upgrade'])
+        self.assertGreater(order['apps'], order['up'])
+
+    def test_the_custom_apps_come_from_pinned_releases(self):
+        custom = self.action('custom-apps')
+        self.assertIn('--repos', custom)
+        self.assertIn('--versions', custom)
+        order = [argv[2] for argv in self.commands
+                 if len(argv) > 2 and argv[1].endswith('manage.py')]
+        self.assertLess(order.index('custom-apps'), order.index('up'))
+
+    def test_the_retired_apps_are_removed(self):
+        retired = self.action('remove-apps')
+        self.assertIn('--apps', retired)
+        group = yaml.safe_load(
+            (ROOT / 'platform/ansible/group_vars/media.yml').read_text(encoding='utf-8'))
+        self.assertEqual(group['nextcloud_retired_apps'],
+                         ['shake_print', 'shake_localsend'])
 
     def test_apps_use_the_group_var_and_always_add_the_custom_apps(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn(
-            "nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']",
+            "nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags']",
             text)
 
     def test_notes_default_is_set_through_manage_py_after_apps(self):
-        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
-                    if 'ansible.builtin.command' in task]
-        notes = [argv for argv in commands if argv[-1] == 'config-notes']
-        self.assertEqual(len(notes), 1)
-        self.assertTrue(notes[0][-2].endswith('manage.py'))
-        apps = [argv for argv in commands if '--apps' in argv]
-        self.assertGreater(commands.index(notes[0]), commands.index(apps[0]))
+        order = [argv[2] for argv in self.commands
+                 if len(argv) > 2 and argv[1].endswith('manage.py')]
+        self.assertIn('config-notes', order)
+        self.assertGreater(order.index('config-notes'), order.index('apps'))
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn("'CHANGED:' in nextcloud_notes_config.stdout", text)
 
@@ -404,6 +472,8 @@ class AnsibleTests(unittest.TestCase):
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn("'CHANGED:' in nextcloud_setup.stdout", text)
         self.assertIn("'CHANGED:' in nextcloud_apps_result.stdout", text)
+        self.assertIn("'CHANGED:' in nextcloud_custom_apps_result.stdout", text)
+        self.assertIn("'CHANGED:' in nextcloud_retired_apps_result.stdout", text)
 
 
 class SecretTests(unittest.TestCase):

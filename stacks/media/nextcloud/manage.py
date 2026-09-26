@@ -7,8 +7,11 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -237,16 +240,16 @@ def config_app(app, values):
 
 
 def config_print():
-    config_app('shake_print', (
-        ('print_api_url', os.environ['PRINT_API_URL']),
-        ('print_api_token', os.environ['PRINT_API_TOKEN']),
+    config_app('cups_print', (
+        ('relay_url', os.environ['PRINT_API_URL']),
+        ('relay_token', os.environ['PRINT_API_TOKEN']),
     ))
 
 
 def config_localsend():
-    config_app('shake_localsend', (
-        ('send_api_url', os.environ['SEND_API_URL']),
-        ('send_api_token', os.environ['SEND_API_TOKEN']),
+    config_app('localsend_share', (
+        ('relay_url', os.environ['SEND_API_URL']),
+        ('relay_token', os.environ['SEND_API_TOKEN']),
     ))
 
 
@@ -264,6 +267,86 @@ def config_notes():
     Rich text or Preview in the Notes settings.
     """
     config_app('notes', (('noteMode', 'edit'),))
+
+
+def custom_apps(names, repos, versions):
+    """Install or update custom apps from their GitHub release archives.
+
+    Every app lives in its own public repository and publishes a release
+    archive whose only top-level folder is the app id. A `.version` marker in
+    the deployed app keeps redeploys idempotent (Nextcloud ignores dot files).
+    """
+    storage, _ = paths(settings())
+    root = storage / 'nextcloud' / 'html' / 'custom_apps'
+    for name, repo, version in zip(split_values(names), split_values(repos), split_values(versions)):
+        target = root / name
+        marker = target / '.version'
+        if marker.exists() and marker.read_text().strip() == version:
+            print(f'OK: custom app up to date: {name} {version}')
+            continue
+        url = f'https://github.com/{repo}/releases/download/v{version}/{name}.tar.gz'
+        with urllib.request.urlopen(url, timeout=120) as response:
+            archive = response.read()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / f'{name}.tar.gz'
+            path.write_bytes(archive)
+            with tarfile.open(path) as tar:
+                check_archive(tar, name)
+                try:
+                    tar.extractall(tmp, filter='data')
+                except TypeError:  # Python < 3.11.4 has no extraction filters
+                    tar.extractall(tmp)
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.move(str(Path(tmp) / name), target)
+        chown_tree(target)
+        marker.write_text(version + '\n')
+        print(f'CHANGED: custom app installed: {name} {version}')
+
+
+def remove_apps(names):
+    """Remove retired custom apps from occ and from the html volume."""
+    storage, _ = paths(settings())
+    root = storage / 'nextcloud' / 'html' / 'custom_apps'
+    state = json.loads(occ('app:list', '--output=json', capture_output=True).stdout)
+    enabled = set(state.get('enabled', {}))
+    disabled = set(state.get('disabled', {}))
+    for name in split_values(names):
+        changed = False
+        if name in enabled or name in disabled:
+            if name in disabled:
+                # occ app:remove は有効なアプリにしか使えない。
+                occ('app:enable', name)
+            occ('app:remove', name)
+            changed = True
+        target = root / name
+        if target.exists():
+            shutil.rmtree(target)
+            changed = True
+        if changed:
+            print(f'CHANGED: retired app removed: {name}')
+        else:
+            print(f'OK: retired app already absent: {name}')
+
+
+def split_values(value):
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+def check_archive(tar, name):
+    """Refuse archives that do not contain exactly the app folder."""
+    for member in tar.getmembers():
+        parts = Path(member.name).parts
+        if not parts or parts[0] != name or member.name.startswith('/') or '..' in parts:
+            raise ValueError(f'{name}.tar.gz contains an unexpected path: {member.name}')
+        if member.issym() or member.islnk():
+            raise ValueError(f'{name}.tar.gz contains a link: {member.name}')
+
+
+def chown_tree(root):
+    os.chown(root, CONTAINER_UID, CONTAINER_GID)
+    for path in root.rglob('*'):
+        os.chown(path, CONTAINER_UID, CONTAINER_GID)
 
 
 CALENDAR_PROPFIND = (
@@ -512,9 +595,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
                         choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
+                                 'custom-apps', 'remove-apps',
                                  'config-notes', 'config-print', 'config-localsend',
                                  'config-tags', 'import-calendar', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
+    parser.add_argument('--repos', dest='app_repos',
+                        help='Comma-separated GitHub repositories for custom-apps')
+    parser.add_argument('--versions', dest='app_versions',
+                        help='Comma-separated release versions for custom-apps')
     parser.add_argument('--user', dest='calendar_user',
                         help='Nextcloud user id for import-calendar')
     parser.add_argument('--file', dest='calendar_file',
@@ -540,6 +628,15 @@ def main():
         if args.app_names is None:
             raise ValueError('Use --apps app1,app2 with the apps action')
         apps(args.app_names)
+    elif args.action == 'custom-apps':
+        if not (args.app_names and args.app_repos and args.app_versions):
+            raise ValueError(
+                'Use --apps, --repos and --versions with the custom-apps action')
+        custom_apps(args.app_names, args.app_repos, args.app_versions)
+    elif args.action == 'remove-apps':
+        if args.app_names is None:
+            raise ValueError('Use --apps app1,app2 with the remove-apps action')
+        remove_apps(args.app_names)
     elif args.action == 'import-calendar':
         if not (args.calendar_user and args.calendar_file and args.calendar_name):
             raise ValueError('Use --user, --file and --name with the import-calendar action')

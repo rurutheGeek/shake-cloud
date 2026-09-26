@@ -175,7 +175,7 @@
   changed_when: false
   failed_when: cups_queue_state.rc != 0
 
-# Nextcloud（shake_print）から印刷するための小さなAPI。トークンと送信元IPで
+# Nextcloud（cups_print）から印刷するための小さなAPI。トークンと送信元IPで
 # 縛り、受けた本文を lp でキューへ流すだけの役割。
 - name: Read the print API token
   delegate_to: localhost

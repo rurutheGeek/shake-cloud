@@ -93,6 +93,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
+| [Android VMの画面を使う（RDP）](services/android.md) | 2026-09-26 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
 | [Homarrの使い方](services/homarr.md) | 2026-09-12 | `guide` `homarr` |
@@ -127,15 +128,15 @@ flowchart TB
 | [D05 Picardのメディア統合](development/D05-picard.md) | 2026-09-13 | `plan` `music` |
 | [D06 LocalSendの受信機と端末間転送資料](development/D06-localsend.md) | 2026-09-13 | `plan` `transfer` |
 | [D07 Tailcatの一時接続資料](development/D07-tailcat.md) | 2026-09-12 | `plan` `network` |
-| [D08 Nextcloudからの印刷（shake_print）](development/D08-nextcloud-print.md) | 2026-09-13 | `plan` `nextcloud` `print` |
+| [D08 Nextcloudからの印刷（cups_print）](development/D08-nextcloud-print.md) | 2026-09-26 | `plan` `nextcloud` `print` |
 | [G01 Wolfの構成管理と実機確認](development/G01-wolf.md) | 2026-09-12 | `plan` `game` |
 | [G02 Azahar二人利用・非公開ルーム](development/G02-azahar.md) | 2026-09-12 | `plan` `game` |
 | [G03 ゲームとAIの負荷調整](development/G03-game-ai-resources.md) | 2026-09-12 | `plan` `game` `placement` |
 | [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H03 Echo・Alexa連携](development/H03-echo.md) | 2026-09-12 | `plan` `home-assistant` |
-| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-23 | `plan` `home-assistant` |
-| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-09-23 | `plan` `home-assistant` `reverse-engineering` |
+| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-26 | `plan` `home-assistant` |
+| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-09-26 | `plan` `home-assistant` `reverse-engineering` |
 | [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
@@ -159,7 +160,7 @@ flowchart TB
 | [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-09-13 | `plan` `navidrome` |
 | [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-09-16 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-09-23 | `plan` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-09-26 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
@@ -236,6 +237,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 120 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 121 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
