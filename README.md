@@ -90,7 +90,11 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 
 ### 検証
 
-リポジトリのルートで、CIと同じ検査を流します。Pythonの検査には mkdocs・yamllint などを入れた `.venv` を使います。
+リポジトリのルートで、CIと同じ検査を流します。Pythonの検査用の依存は `tools/requirements.txt` に集約してあり、CIもこれだけを入れます（配備先には入れません）。
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
+```
 
 ```bash
 python3 -m unittest discover -s tests

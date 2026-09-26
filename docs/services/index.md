@@ -46,6 +46,10 @@ tags:
 | --- | --- |
 | [LibreSpeed（速度テスト）](librespeed.md) | 宅内の回線速度を自前で測る |
 
+## 様子を見る
+
+[Grafana](https://grafana.apextox.dpdns.org) は共通ログインで開けます。**一般の利用者は閲覧のみ**（Viewer）で、サーバーの混み具合・ディスクの空き・UPSの状態などを見られます。設定の変更はできません。アラートの意味と対処は管理者向けの[監視（monitor-01）](../operations/monitoring.md)にあります。
+
 ## 自分でVMやストレージを作る
 
 | ページ | 何が分かるか |

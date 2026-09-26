@@ -1,8 +1,0 @@
-[Unit]
-Description=Build Nextcloud-managed Markdown documentation
-After=docker.service
-
-[Service]
-Type=oneshot
-WorkingDirectory={{ project_dir }}
-ExecStart={{ project_dir }}/.hub-venv/bin/python {{ project_dir }}/hub/manage.py build

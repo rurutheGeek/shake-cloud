@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install documentation and lint dependencies
-        run: python3 -m pip install -r stacks/hub/requirements.txt -r tools/requirements.txt
+        run: python3 -m pip install -r tools/requirements.txt
       # The suite skips the ansible-playbook --syntax-check tests when the
       # binary is missing, so CI has to install it to keep those guards alive.
       - name: Install Ansible for the playbook syntax checks

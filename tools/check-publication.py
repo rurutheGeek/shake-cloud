@@ -12,12 +12,12 @@ def walk(value,key=''):
  elif isinstance(value,list):
   for v in value:walk(v,key)
  elif isinstance(value,str) and secret_key.search(key) and len(value)>=12:needles.add(value.encode())
-for path in [ROOT/'stacks/.env',ROOT/'stacks/hub/.env',ROOT/'stacks/netbox/.env']:
+for path in [ROOT/'stacks/.env',ROOT/'stacks/netbox/.env']:
  if path.exists():
   for line in path.read_text().splitlines():
    if '=' in line:
     k,v=line.split('=',1);walk(v.strip("'\""),k)
-for path in [ROOT/'stacks/hub/oidc-secrets.json',ROOT/'stacks/runtime/access.json',ROOT/'stacks/runtime/accounts.json',ROOT/'stacks/runtime/user-bootstrap.json']:
+for path in [ROOT/'stacks/runtime/access.json',ROOT/'stacks/runtime/accounts.json',ROOT/'stacks/runtime/user-bootstrap.json']:
  if path.exists():walk(json.loads(path.read_text()))
 for folder in [ROOT/'stacks/secrets',ROOT/'stacks/netbox/secrets']:
  if folder.exists():

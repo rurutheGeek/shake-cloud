@@ -184,6 +184,7 @@ flowchart TB
 | [運用手順の入口](operations/index.md) | 2026-09-23 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-09-13 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
+| [監視（monitor-01）](operations/monitoring.md) | 2026-09-23 | `ops` `monitoring` |
 | [net-01（Tailscale subnet router）](operations/net.md) | 2026-09-16 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-09-13 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-26 | `ops` `nextcloud` |
@@ -194,7 +195,7 @@ flowchart TB
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-09-20 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
-| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-09-13 | `ops` `placement` |
+| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-09-23 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-09-13 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
@@ -235,6 +236,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 119 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 120 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
