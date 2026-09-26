@@ -23,7 +23,8 @@ AIエージェント（opencode等）にNextcloudのファイル操作・MP3タ�
 
 | 対象 | 場所 |
 | --- | --- |
-| 本体・systemdユニット | `stacks/nextcloud-mcp/` |
+| 本体 | 公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp)（`group_vars/media.yml` の `nextcloud_mcp_version`/`_sha256` で固定し、プレイがGitHub Releaseから取得） |
+| systemdユニット | `stacks/nextcloud-mcp/nextcloud-mcp.service.j2` |
 | 配備 | `platform/ansible/media-nextcloud-mcp.yml` |
 | DNS/Caddy | `platform/terraform/dns.yaml`（`nextcloud-mcp`レコード）・`tls_proxy`ロール |
 | 監視 | `stacks/monitoring/prometheus/blackbox-targets.yml`（`/healthz`をhttps probe） |
@@ -99,5 +100,5 @@ python3 -m unittest discover -s tests -p 'test_tls_proxy.py'
 python3 -m unittest discover -s tests -p 'test_monitoring_stack.py'
 ```
 
-`test_nextcloud_mcp.py`は疑似Nextcloud/tag-apiサーバーを相手に実ソケットで
-HTTP往復まで検査します（実機のNextcloudには触れません）。
+本体の単体テスト（疑似Nextcloud/tag-apiとの実ソケットHTTP往復を含む）は公開リポジトリ側にあります。
+ここの`test_nextcloud_mcp.py`は、固定バージョン・取得・systemdユニット・playbook構文を守ります。

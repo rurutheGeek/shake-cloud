@@ -16,11 +16,14 @@
         path: '{{ nextcloud_mcp_dir }}'
         state: directory
         mode: '0750'
-    - name: Copy the MCP server
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/nextcloud-mcp/nextcloud_mcp.py'
+    - name: Install the MCP server
+      # 本体は公開リポジトリ（rurutheGeek/nextcloud-mcp）のリリースが正本。
+      # バージョンとsha256は group_vars/media.yml が持つ。
+      ansible.builtin.get_url:
+        url: 'https://github.com/rurutheGeek/nextcloud-mcp/releases/download/v{{ nextcloud_mcp_version }}/nextcloud_mcp.py'
         dest: '{{ nextcloud_mcp_dir }}/nextcloud_mcp.py'
         mode: '0755'
+        checksum: 'sha256:{{ nextcloud_mcp_sha256 }}'
       notify: Restart Nextcloud MCP
     - name: Create the MCP temporary directory
       # zip/tar の作業領域。GB級になりうるので tmpfs ではなくディスクに置く。
