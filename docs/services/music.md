@@ -58,7 +58,7 @@ KHInsiderは日本語のゲームでもアルバム名・曲名を英語で載�
 
 曲名は **MusicBrainz**（無ければiTunes JP）で公式の日本語名を照合し、ファイル名とID3のタイトルを日本語にします。曲数・曲順・尺が一致し、日本語名が半数以上のときだけ採用するため、誤った名前や別のアルバム（コンサート・リミックス等）の名前は付きません。見つからなかった曲は英語のまま残ります（ゲームリップには公式の日本語トラックリストが無いことが多く、その場合は曲名は英語のままです）。曲名を手動で補う場合は `stacks/music-tools/khinsider-ja.json` に書きます（詳細は[music-toolsのREADME](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/music-tools/README.md)）。
 
-実装は `stacks/music-tools/khinsider.py`、配備は同じplaybook（`platform/ansible/music-tools.yml`）に含まれます。
+実装は `stacks/music-tools/khinsider.py`、配備は同じplaybook（`platform/ansible/music-tools.yml`）に含まれます。KHInsiderはCloudflare配下で、普通のHTTPクライアントには `403 Forbidden` を返します。このサービスはブラウザと同じTLS指紋（curl_cffi）で接続し、`403` は待って再試行します。それでも失敗するときは時間を置いて再実行してください（取得済みファイルはスキップされます）。
 
 ## タグ付け（Nextcloudの「MP3タグ編集」）
 

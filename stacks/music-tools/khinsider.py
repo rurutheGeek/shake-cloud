@@ -7,6 +7,12 @@ page and a per-song page, so this small browser tool turns
 under ``music/Khinsider/<album>/``. Navidrome and organize.py pick that up like
 any other import. It runs next to MeTube and sits behind the same Forward Auth.
 
+KHInsider sits behind Cloudflare and answers a plain HTTP client with a bot
+challenge (403 ``cf-mitigated: challenge``). The service uses the curl_cffi
+that ships with the MeTube image (via yt-dlp) for a Chrome TLS/HTTP2
+fingerprint, keeps one session so the clearance cookie is reused across song
+pages and downloads, and retries 403/429/503 with backoff before failing.
+
 KHInsider lists track names in English even for Japanese games. When the
 "Japanese titles" option is used the service looks the album up on MusicBrainz
 (falling back to iTunes JP) and writes the official Japanese names into the
@@ -40,6 +46,14 @@ import urllib.parse
 import urllib.request
 import uuid
 
+# metube イメージ（yt-dlp 経由）は curl_cffi を同梱する。KHInsider は
+# Cloudflare のbot challengeを返すため、ブラウザのTLS/HTTP2指紋で接続する。
+# 無い環境（テスト・最小構成）でも urllib で動くようにしておく。
+try:
+    from curl_cffi import requests as curl_requests
+except ImportError:  # pragma: no cover - テスト環境には入っていない
+    curl_requests = None
+
 SITE = 'downloads.khinsider.com'
 # KHInsider の HTML には href に生の非ASCII（é など）が混ざる。urllib は
 # ASCII 以外のURLを拒否するため、予約文字と %XX を保ったまま percent-encode する。
@@ -49,7 +63,20 @@ URL_SAFE = ":/?#[]@!$&'()*+,;=%~"
 def ascii_url(url):
     return urllib.parse.quote(url or '', safe=URL_SAFE)
 ALBUM_PREFIX = '/game-soundtracks/album/'
-USER_AGENT = 'shake-cloud-khinsider/1.0 (+https://github.com/rurutheGeek/shake-cloud)'
+# MusicBrainz はアプリ名を名乗るよう求めている。KHInsider本体へは下のブラウザ
+# 偽装で接続する（Cloudflareのbot challenge対策）。
+API_USER_AGENT = 'shake-cloud-khinsider/1.0 (+https://github.com/rurutheGeek/shake-cloud)'
+# curl_cffi が無い環境用の保険。challengeはTLS/HTTP2の指紋も見るため urllib では
+# 通りにくいが、ヘッダだけでもブラウザに寄せておく。
+FALLBACK_USER_AGENT = (
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+    '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36')
+# Cloudflareがbot判定で返すコード。少し待ってやり直す。
+CHALLENGE_CODES = (403, 429, 503)
+CHALLENGE_WAITS = (5, 15, 30, 60)
+# 再試行ではセッションを作り直し、指紋も切り替える。一度challengeされた
+# セッションは待っても回復しないことがあるため（2026-09-23実測）。
+IMPERSONATIONS = ('chrome', 'chrome131', 'firefox133')
 MUSICBRAINZ = 'https://musicbrainz.org/ws/2/'
 ITUNES_SEARCH = 'https://itunes.apple.com/search'
 ITUNES_LOOKUP = 'https://itunes.apple.com/lookup'
@@ -59,11 +86,26 @@ MUSICBRAINZ_INTERVAL = 1.0
 JOBS = {}
 JOBS_LOCK = threading.Lock()
 WORK = queue.Queue()
-DELAY = float(os.environ.get('KHINSIDER_DELAY', '0.4'))
+DELAY = float(os.environ.get('KHINSIDER_DELAY', '0.8'))
 JA_DICTIONARY = os.environ.get('KHINSIDER_JA', '/tools/khinsider-ja.json')
+# ジョブ履歴はコンテナ再作成でも残す。どこまで終わったかを一覧で確認できる。
+STATE_DIR = Path(os.environ.get('KHINSIDER_STATE', '/state'))
+JOBS_FILE = STATE_DIR / 'jobs.json'
+MUSIC_ROOT = Path(os.environ.get('KHINSIDER_MUSIC', '/music'))
+JOBS_LIMIT = 100
+STATE_LABELS = {'queued': '待機中', 'running': '実行中', 'done': '完了', 'failed': '失敗'}
 MUSICBRAINZ_LOCK = threading.Lock()
 MUSICBRAINZ_LAST = [0.0]
 MUSICBRAINZ_CACHE = {}
+# 並列はアルバム単位。同一アルバムは直列にして、上限は3ワーカー。
+MAX_WORKERS = 3
+# 全ワーカー合計のリクエスト間隔。並列でも叩きすぎないようにする。
+REQUEST_INTERVAL = float(os.environ.get('KHINSIDER_REQUEST_INTERVAL', '0.4'))
+REQUEST_LOCK = threading.Lock()
+REQUEST_LAST = [0.0]
+SAVE_LOCK = threading.Lock()
+ALBUM_LOCKS = {}
+ALBUM_LOCKS_LOCK = threading.Lock()
 
 
 def validate_album_url(url):
@@ -236,23 +278,170 @@ def parse_mp3_url(markup):
     return parser.audio or parser.link
 
 
+def worker_count():
+    """How many album workers to start; 1..MAX_WORKERS (default 3)."""
+    try:
+        value = int(os.environ.get('KHINSIDER_WORKERS', str(MAX_WORKERS)))
+    except ValueError:
+        value = MAX_WORKERS
+    return max(1, min(MAX_WORKERS, value))
+
+
+def throttle_request():
+    """Space KHInsider requests across all workers so 3 albums stay polite."""
+    with REQUEST_LOCK:
+        wait = REQUEST_INTERVAL - (time.time() - REQUEST_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        REQUEST_LAST[0] = time.time()
+
+
+def album_lock(url):
+    """One lock per album URL, so two workers never write the same folder."""
+    with ALBUM_LOCKS_LOCK:
+        lock = ALBUM_LOCKS.get(url)
+        if lock is None:
+            lock = threading.Lock()
+            ALBUM_LOCKS[url] = lock
+        return lock
+
+
+_SESSIONS = threading.local()
+
+
+def reset_sessions():
+    """Drop this thread's session (used on retry and by the tests)."""
+    if getattr(_SESSIONS, 'session', None) is not None:
+        _SESSIONS.session = None
+
+
+def browser_session(reset=False, impersonation='chrome'):
+    """Return this worker's browser-impersonating session, or ``None`` without curl_cffi.
+
+    ワーカーごとに別スレッドなので、セッションは thread-local に持つ。同じ
+    ワーカー内では1つのセッションを使って cf_clearance を引き継ぎ、challenge
+    されたら ``reset=True`` で作り直す（待つだけでは回復しないことがある）。
+    """
+    if curl_requests is None:
+        return None
+    session = getattr(_SESSIONS, 'session', None)
+    if session is None or reset:
+        session = curl_requests.Session(impersonate=impersonation)
+        _SESSIONS.session = session
+    return session
+
+
+def site_headers():
+    return {'Referer': 'https://' + SITE + '/'}
+
+
+def urllib_request(url):
+    return urllib.request.Request(ascii_url(url), headers={
+        'User-Agent': FALLBACK_USER_AGENT, **site_headers()})
+
+
+def attempts():
+    """Return ``[(wait, impersonation), ...]`` for the first try and each retry."""
+    plan = [(0, IMPERSONATIONS[0])]
+    for position, wait in enumerate(CHALLENGE_WAITS):
+        plan.append((wait, IMPERSONATIONS[(position + 1) % len(IMPERSONATIONS)]))
+    return plan
+
+
+def refresh_session(index, impersonation):
+    """The first try reuses the warm session; every retry starts a fresh one."""
+    return browser_session(reset=index > 0, impersonation=impersonation)
+
+
+def retryable(error):
+    """A network error is worth a retry; a definite 4xx (404 etc.) is not."""
+    code = getattr(error, 'code', None) or getattr(
+        getattr(error, 'response', None), 'status_code', None)
+    return code is None or code in CHALLENGE_CODES
+
+
 def http_get(url, timeout=60):
-    request = urllib.request.Request(ascii_url(url), headers={
-        'User-Agent': USER_AGENT, 'Referer': 'https://' + SITE + '/'})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read()
+    """Fetch a page with a browser fingerprint, retrying Cloudflare challenges."""
+    last = ''
+    for index, (wait, impersonation) in enumerate(attempts()):
+        if wait:
+            time.sleep(wait)
+        session = refresh_session(index, impersonation)
+        throttle_request()
+        if session is None:
+            try:
+                with urllib.request.urlopen(urllib_request(url), timeout=timeout) as response:
+                    return response.read()
+            except urllib.error.HTTPError as error:
+                if error.code in CHALLENGE_CODES:
+                    last = 'HTTP %d' % error.code
+                    continue
+                raise
+        try:
+            response = session.get(ascii_url(url), timeout=timeout, headers=site_headers())
+            if response.status_code in CHALLENGE_CODES:
+                last = 'HTTP %d' % response.status_code
+                response.close()
+                continue
+            response.raise_for_status()
+            return response.content
+        except Exception as error:  # noqa: BLE001 - retry network/curl failures
+            if not retryable(error):
+                raise
+            last = '%s: %s' % (type(error).__name__, error)
+            continue
+    raise RuntimeError(
+        'KHInsiderがbot判定で拒否しました（%s）。少し時間を置いて再試行してください: '
+        '%s' % (last, url))
 
 
 def http_download(url, destination, timeout=600):
-    request = urllib.request.Request(ascii_url(url), headers={
-        'User-Agent': USER_AGENT, 'Referer': 'https://' + SITE + '/'})
-    with urllib.request.urlopen(request, timeout=timeout) as response, \
-            open(destination, 'wb') as handle:
-        shutil.copyfileobj(response, handle, length=64 * 1024)
+    """Download a file with the same session, retrying Cloudflare challenges."""
+    last = ''
+    for index, (wait, impersonation) in enumerate(attempts()):
+        if wait:
+            time.sleep(wait)
+        session = refresh_session(index, impersonation)
+        throttle_request()
+        if session is None:
+            try:
+                with urllib.request.urlopen(urllib_request(url), timeout=timeout) as response, \
+                        open(destination, 'wb') as handle:
+                    shutil.copyfileobj(response, handle, length=64 * 1024)
+                return
+            except urllib.error.HTTPError as error:
+                if error.code in CHALLENGE_CODES:
+                    last = 'HTTP %d' % error.code
+                    continue
+                raise
+        response = None
+        try:
+            response = session.get(ascii_url(url), timeout=timeout,
+                                   headers=site_headers(), stream=True)
+            if response.status_code in CHALLENGE_CODES:
+                last = 'HTTP %d' % response.status_code
+                response.close()
+                continue
+            response.raise_for_status()
+            with open(destination, 'wb') as handle:
+                for chunk in response.iter_content(64 * 1024):
+                    if chunk:
+                        handle.write(chunk)
+            return
+        except Exception as error:  # noqa: BLE001 - retry network/curl failures
+            if not retryable(error):
+                raise
+            last = '%s: %s' % (type(error).__name__, error)
+            if response is not None:
+                response.close()
+            continue
+    raise RuntimeError(
+        'KHInsiderの配信元がbot判定で拒否しました（%s）。少し時間を置いて再試行して'
+        'ください: %s' % (last, url))
 
 
 def fetch_json(url, timeout=30):
-    request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
+    request = urllib.request.Request(url, headers={'User-Agent': API_USER_AGENT})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.loads(response.read())
 
@@ -648,11 +837,71 @@ class Job:
     def percent(self):
         return int(self.done * 100 / self.total) if self.total else 0
 
+    @property
+    def label(self):
+        return STATE_LABELS.get(self.state, self.state)
+
+    def to_dict(self):
+        return {'id': self.id, 'url': self.url, 'japanese': self.japanese,
+                'state': self.state, 'done': self.done, 'total': self.total,
+                'detail': self.detail, 'error': self.error, 'created': self.created}
+
+    @classmethod
+    def from_dict(cls, data):
+        job = cls(str(data.get('url', '')), bool(data.get('japanese')))
+        job.id = str(data.get('id') or job.id)
+        job.state = str(data.get('state', 'queued'))
+        job.done = int(data.get('done', 0) or 0)
+        job.total = int(data.get('total', 0) or 0)
+        job.detail = str(data.get('detail', ''))
+        job.error = str(data.get('error', ''))
+        job.created = float(data.get('created', time.time()) or time.time())
+        return job
+
+
+def save_jobs():
+    """Write the job list so the history survives a container recreation.
+
+    Several workers report progress at once, so the write is serialized.
+    """
+    with JOBS_LOCK:
+        jobs = [job.to_dict() for job in JOBS.values()]
+    jobs.sort(key=lambda item: item['created'], reverse=True)
+    payload = json.dumps(jobs[:JOBS_LIMIT], ensure_ascii=False)
+    with SAVE_LOCK:
+        try:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            temp = JOBS_FILE.with_name(JOBS_FILE.name + '.tmp')
+            temp.write_text(payload)
+            os.replace(temp, JOBS_FILE)
+        except OSError:
+            pass
+
+
+def load_jobs():
+    """Restore the history; an interrupted job becomes retryable, not lost."""
+    try:
+        data = json.loads(JOBS_FILE.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    if not isinstance(data, list):
+        return
+    with JOBS_LOCK:
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            job = Job.from_dict(item)
+            if job.state in ('queued', 'running'):
+                job.state = 'failed'
+                job.error = '再起動で中断しました。「再試行」で続きから取得できます。'
+            JOBS[job.id] = job
+
 
 def reporter(job):
     def report(done, total, detail):
         with JOBS_LOCK:
             job.done, job.total, job.detail = done, total, detail
+        save_jobs()
     return report
 
 
@@ -662,8 +911,11 @@ def worker(music_root):
         try:
             with JOBS_LOCK:
                 job.state, job.detail = 'running', 'アルバムページを取得中'
-            download_album(job.url, music_root, reporter(job),
-                           japanese=job.japanese, dictionary=load_dictionary())
+            save_jobs()
+            # Albums run in parallel, but the same album never does.
+            with album_lock(job.url):
+                download_album(job.url, music_root, reporter(job),
+                               japanese=job.japanese, dictionary=load_dictionary())
             with JOBS_LOCK:
                 job.state = 'done'
                 job.detail = f'{job.total}曲を保存しました'
@@ -671,6 +923,7 @@ def worker(music_root):
             with JOBS_LOCK:
                 job.state, job.error = 'failed', f'{type(error).__name__}: {error}'
         finally:
+            save_jobs()
             WORK.task_done()
 
 
@@ -679,6 +932,7 @@ def enqueue(url, japanese=False):
     with JOBS_LOCK:
         JOBS[job.id] = job
     WORK.put(job)
+    save_jobs()
     return job
 
 
@@ -688,60 +942,173 @@ def find_job(job_id):
 
 
 STYLE = '''<style>
- body{font-family:system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#1f2937}
- h1{font-size:1.4rem} .muted{color:#6b7280} input[type=url]{width:100%;padding:.6rem;font-size:1rem;box-sizing:border-box}
- button{margin-top:.6rem;padding:.55rem 1.2rem;font-size:1rem;cursor:pointer}
- ul{list-style:none;padding:0} li{border-top:1px solid #e5e7eb;padding:.6rem 0}
- .bar{background:#e5e7eb;border-radius:4px;height:12px;overflow:hidden}
- .bar>span{display:block;height:100%;background:#2563eb}
- code{word-break:break-all} .error{color:#b91c1c} label{display:block;margin-top:.6rem}
+:root{--fg:#1f2937;--muted:#6b7280;--bg:#f9fafb;--card:#fff;--line:#e5e7eb;--accent:#2563eb;--ok:#15803d;--err:#b91c1c;--warn:#b45309}
+@media(prefers-color-scheme:dark){:root{--fg:#e5e7eb;--muted:#9ca3af;--bg:#111827;--card:#1f2937;--line:#374151;--accent:#60a5fa;--ok:#4ade80;--err:#f87171;--warn:#fbbf24}}
+*{box-sizing:border-box}
+body{font-family:system-ui,sans-serif;max-width:760px;margin:0 auto;padding:1.5rem 1rem;color:var(--fg);background:var(--bg);line-height:1.6}
+h1{font-size:1.3rem;margin:0 0 .8rem} h2{font-size:1rem;margin:1.6rem 0 .4rem}
+a{color:var(--accent)} .muted{color:var(--muted);font-size:.9rem} .error{color:var(--err)}
+code{word-break:break-all;font-size:.85em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem;margin:.8rem 0}
+input[type=url]{width:100%;padding:.6rem;font-size:1rem;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+label{display:block;margin-top:.6rem;font-size:.95rem}
+button{margin-top:.8rem;padding:.55rem 1.2rem;font-size:1rem;cursor:pointer;border:0;border-radius:6px;background:var(--accent);color:#fff}
+ul{list-style:none;padding:0;margin:0} li{border-top:1px solid var(--line);padding:.7rem 0} li:first-child{border-top:0}
+.title{font-weight:600;text-decoration:none;word-break:break-all}
+.bar{background:var(--line);border-radius:4px;height:8px;overflow:hidden;margin:.35rem 0}
+.bar>span{display:block;height:100%;background:var(--accent)}
+.badge{display:inline-block;font-size:.75rem;padding:0 .5rem;border-radius:99px;border:1px solid currentColor;margin-right:.4rem}
+.s-running,.s-queued{color:var(--accent)} .s-done{color:var(--ok)} .s-failed{color:var(--err)}
+.stats{display:flex;gap:1rem;font-size:.9rem}
+.back{display:inline-block;margin-top:1rem}
 </style>'''
+
+
+# ブラウザタブ用。音符と下向き矢印のSVGをdata URIで埋め込み、追加の配信を不要にする。
+ICON = ('<link rel="icon" href="data:image/svg+xml,'
+        '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%2'
+        '7%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23256'
+        '3eb%27/%3E%3Ccircle cx=%2711%27 cy=%2721%27 r=%273.5%27 fill=%27%23f'
+        'ff%27/%3E%3Cpath d=%27M14.5 21V8h6v3.5h-4%27 stroke=%27%23fff%27 str'
+        'oke-width=%272%27 fill=%27none%27/%3E%3Cpath d=%27M24 14v8m-3-3 3 3 '
+        '3-3%27 stroke=%27%23fff%27 stroke-width=%272%27 fill=%27none%27 stro'
+        'ke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E'
+        '">')
+
+
+def page(title, body, refresh=0):
+    """Wrap a body in the shared page shell."""
+    meta = f'<meta http-equiv="refresh" content="{refresh}">' if refresh else ''
+    return f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">{meta}
+<title>{html.escape(title)}</title>{ICON}{STYLE}</head><body>{body}</body></html>'''
+
+
+def album_slug(url):
+    """A readable album name from the URL, for lists before tags exist."""
+    return urllib.parse.unquote(url.rstrip('/').rsplit('/', 1)[-1]) or url
+
+
+def badge(job):
+    return f'<span class="badge s-{html.escape(job.state)}">{html.escape(job.label)}</span>'
+
+
+def progress(job):
+    return f'<div class="bar"><span style="width:{job.percent}%"></span></div>'
+
+
+def album_folder(album_url, album, alt_titles, japanese, dictionary):
+    """The folder this album would use, without the slow MusicBrainz lookup."""
+    slug = album_url.rstrip('/').rsplit('/', 1)[-1]
+    entry = (dictionary.get('albums') or {}).get(slug) or {}
+    japanese_album = ''
+    if japanese:
+        japanese_album = entry.get('album') or next(
+            (name for name in alt_titles if has_japanese(name)), '')
+    return safe_component(japanese_album or album or slug)
+
+
+def album_overview(album_url, japanese, dictionary):
+    """Fetch the album page and report what is already in the library.
+
+    Used before starting so the operator can see how far a previous run got
+    when the job history is gone.
+    """
+    markup = http_get(album_url).decode('utf-8', 'replace')
+    album, tracks = parse_album(markup)
+    alt_titles = parse_alt_titles(markup)
+    folder_name = album_folder(album_url, album, alt_titles, japanese, dictionary)
+    folder = MUSIC_ROOT / 'Khinsider' / folder_name
+    names = (sorted(path.name for path in folder.glob('*.mp3'))
+             if folder.is_dir() else [])
+    return folder_name, len(tracks), names
+
+
+def confirm_page(url, japanese, folder_name, total, names):
+    """Ask before re-running an album that already has files on disk."""
+    existing = len(names)
+    sample = ''.join(f'<li>{html.escape(name)}</li>' for name in names[:20])
+    more = (f'<p class="muted">ほか {existing - 20} 件</p>' if existing > 20 else '')
+    remaining = max(0, total - existing)
+    state = ('すべて保存済みのようです（再実行してもスキップされます）'
+             if total and existing >= total
+             else f'未取得は {remaining} 曲です')
+    japanese_field = '<input type="hidden" name="japanese" value="1">' if japanese else ''
+    mode = '日本語の曲名' if japanese else '英語のまま'
+    return page('KHInsider: 確認', f'''
+<h1>このアルバムは既に一部保存されています</h1>
+<div class="card">
+<p><code>{html.escape(url)}</code>（{mode}）</p>
+<p class="muted">保存先: <code>music/Khinsider/{html.escape(folder_name)}/</code></p>
+<p><b>{existing} / {total} 曲</b>が保存済みです。{html.escape(state)}</p>
+<ul class="muted">{sample}</ul>{more}
+<form method="post" action="/download">
+<input type="hidden" name="url" value="{html.escape(url, quote=True)}">{japanese_field}
+<input type="hidden" name="confirm" value="1">
+<button type="submit">続きからダウンロード</button>
+</form></div>
+<a class="back" href="/">キャンセル</a>''')
 
 
 def index_page():
     with JOBS_LOCK:
         jobs = sorted(JOBS.values(), key=lambda job: job.created, reverse=True)
+        running = sum(1 for job in jobs if job.state in ('queued', 'running'))
+        done = sum(1 for job in jobs if job.state == 'done')
+        failed = sum(1 for job in jobs if job.state == 'failed')
     rows = []
     for job in jobs:
         tag = '・日本語' if job.japanese else ''
+        count = f'{job.done}/{job.total}曲・' if job.total else ''
+        detail = html.escape(job.detail)
+        if job.error:
+            detail += f' <span class="error">{html.escape(job.error)}</span>'
+        bar = progress(job) if job.state in ('queued', 'running') else ''
         rows.append(
-            f'<li><a href="/jobs/{job.id}">{html.escape(job.url)}</a><br>'
-            f'<span class="muted">{html.escape(job.state)}・{job.percent}%{tag}・'
-            f'{html.escape(job.detail)}</span></li>')
+            f'<li>{badge(job)}<a class="title" href="/jobs/{job.id}">'
+            f'{html.escape(album_slug(job.url))}</a>{bar}'
+            f'<div class="muted">{count}{job.percent}%{tag}・{detail}</div></li>')
     listing = ''.join(rows) or '<li class="muted">まだジョブはありません</li>'
-    return f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KHInsider 一括ダウンロード</title>{STYLE}</head><body>
+    return page('KHInsider 一括ダウンロード', f'''
 <h1>KHInsider アルバム一括ダウンロード</h1>
-<p class="muted">downloads.khinsider.com のアルバムURLを貼り付けると、収録MP3を
-<code>music/Khinsider/&lt;アルバム名&gt;/</code> へ順に保存します。
-ダウンロードできる権利のある音源だけを指定してください。</p>
-<form method="post" action="/download">
-<input type="url" name="url" required placeholder="https://downloads.khinsider.com/game-soundtracks/album/...">
+<form class="card" method="post" action="/download">
+<input type="url" name="url" required autofocus placeholder="https://downloads.khinsider.com/game-soundtracks/album/...">
 <label><input type="checkbox" name="japanese" value="1">
-日本語の曲名に戻す（MusicBrainz照合。見つからない曲は英語のまま）</label>
+日本語の曲名に戻す<span class="muted">（MusicBrainz照合。見つからない曲は英語のまま）</span></label>
 <button type="submit">すべてダウンロード</button>
+<p class="muted">収録MP3を <code>music/Khinsider/&lt;アルバム名&gt;/</code> へ保存します。
+ダウンロードできる権利のある音源だけを指定してください。</p>
 </form>
-<h2 style="font-size:1rem">実行履歴</h2>
-<ul>{listing}</ul></body></html>'''
+<h2>実行履歴</h2>
+<div class="stats"><span class="s-running">実行中 {running}</span>
+<span class="s-done">完了 {done}</span><span class="s-failed">失敗 {failed}</span></div>
+<div class="card"><ul>{listing}</ul></div>''', refresh=5 if running else 0)
 
 
 def job_page(job):
     if job is None:
         return None
     running = job.state in ('queued', 'running')
-    refresh = '<meta http-equiv="refresh" content="3">' if running else ''
     error = (f'<p class="error">{html.escape(job.error)}</p>' if job.error else '')
     mode = '日本語の曲名' if job.japanese else '英語のまま'
-    return f'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">{refresh}
-<title>KHInsider: {html.escape(job.state)}</title>{STYLE}</head><body>
-<h1>KHInsider 一括ダウンロード</h1>
-<p><code>{html.escape(job.url)}</code>（{mode}）</p>
-<div class="bar"><span style="width:{job.percent}%"></span></div>
+    retry = ''
+    if job.state in ('failed', 'done'):
+        # Same album, same option. Saved files are skipped, so a retry resumes.
+        japanese = ('<input type="hidden" name="japanese" value="1">'
+                    if job.japanese else '')
+        retry = (f'<form method="post" action="/download">'
+                 f'<input type="hidden" name="url" '
+                 f'value="{html.escape(job.url, quote=True)}">{japanese}'
+                 f'<button type="submit">再試行</button></form>')
+    return page(f'KHInsider: {job.label}', f'''
+<h1>{html.escape(album_slug(job.url))}</h1>
+<div class="card">
+<p>{badge(job)}<span class="muted">{mode}</span></p>
+{progress(job)}
 <p>{job.done} / {job.total} 曲（{job.percent}%）</p>
-<p>{html.escape(job.detail)}</p>{error}
-<p><a href="/">戻る</a></p></body></html>'''
+<p class="muted">{html.escape(job.detail)}</p>{error}{retry}
+<p class="muted"><code>{html.escape(job.url)}</code></p></div>
+<a class="back" href="/">戻る</a>''', refresh=3 if running else 0)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -782,10 +1149,34 @@ class Handler(BaseHTTPRequestHandler):
         try:
             validate_album_url(url)
         except ValueError as error:
-            self._send(400, f'<p class="error">{html.escape(str(error))}</p>'
-                            '<p><a href="/">戻る</a></p>')
+            self._send(400, page('KHInsider: 入力エラー',
+                                f'<p class="error">{html.escape(str(error))}</p>'
+                                '<a class="back" href="/">戻る</a>'))
             return
-        job = enqueue(url, japanese=bool(values.get('japanese')))
+        japanese = bool(values.get('japanese'))
+        # Before starting, check the library and ask if files already exist.
+        if not values.get('confirm'):
+            try:
+                folder_name, total, names = album_overview(
+                    url, japanese, load_dictionary())
+            except Exception as error:  # noqa: BLE001 - show it and allow a forced run
+                japanese_field = ('<input type="hidden" name="japanese" value="1">'
+                                  if japanese else '')
+                self._send(200, page('KHInsider: 確認できません', f'''
+<h1>既存の確認ができませんでした</h1>
+<div class="card">
+<p class="error">{html.escape(type(error).__name__ + ': ' + str(error))}</p>
+<p>そのまま実行しますか？</p>
+<form method="post" action="/download">
+<input type="hidden" name="url" value="{html.escape(url, quote=True)}">{japanese_field}
+<input type="hidden" name="confirm" value="1">
+<button type="submit">そのままダウンロード</button></form></div>
+<a class="back" href="/">戻る</a>'''))
+                return
+            if names:
+                self._send(200, confirm_page(url, japanese, folder_name, total, names))
+                return
+        job = enqueue(url, japanese=japanese)
         self.send_response(303)
         self.send_header('Location', f'/jobs/{job.id}')
         self.send_header('Content-Length', '0')
@@ -797,9 +1188,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     music_root = Path(os.environ.get('KHINSIDER_MUSIC', '/music'))
+    load_jobs()
     server = ThreadingHTTPServer(
         ('0.0.0.0', int(os.environ.get('KHINSIDER_PORT', '5820'))), Handler)
-    threading.Thread(target=worker, args=(music_root,), daemon=True).start()
+    for _ in range(worker_count()):
+        threading.Thread(target=worker, args=(music_root,), daemon=True).start()
     server.serve_forever()
 
 

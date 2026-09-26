@@ -8,6 +8,7 @@ These are source-text and in-memory assertions; nothing here contacts the site.
 """
 import ast
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -414,6 +415,237 @@ class DownloadTests(unittest.TestCase):
                          ['Song (2).mp3', 'Song.mp3'])
 
 
+class BrowserFetchTests(unittest.TestCase):
+    """KHInsider is behind Cloudflare; the fetcher must look like a browser.
+
+    A plain urllib request with a bot User-Agent gets ``cf-mitigated: challenge``
+    (403). The service reuses the curl_cffi that ships with the MeTube image for
+    a Chrome TLS/HTTP2 fingerprint, keeps one session for the cf_clearance
+    cookie, and retries the challenge codes before giving up.
+    """
+
+    def setUp(self):
+        self.addCleanup(khinsider.reset_sessions)
+        khinsider.reset_sessions()
+
+    def fake_session(self, status, content=b'ok'):
+        response = mock.Mock()
+        response.status_code = status
+        response.content = content
+        response.raise_for_status = mock.Mock()
+        session = mock.Mock()
+        session.get.return_value = response
+        requests_module = mock.Mock()
+        requests_module.Session.return_value = session
+        return session, requests_module
+
+    def test_the_fallback_user_agent_is_a_browser(self):
+        self.assertIn('Mozilla/5.0', khinsider.FALLBACK_USER_AGENT)
+        self.assertNotIn('shake-cloud-khinsider', khinsider.FALLBACK_USER_AGENT)
+
+    def test_musicbrainz_keeps_the_identifying_user_agent(self):
+        self.assertIn('shake-cloud-khinsider', khinsider.API_USER_AGENT)
+
+    def test_it_uses_the_browser_session_when_available(self):
+        session, requests_module = self.fake_session(200, b'<html>ok</html>')
+        khinsider.reset_sessions()
+        with mock.patch.object(khinsider, 'curl_requests', requests_module):
+            self.assertEqual(khinsider.http_get('https://downloads.khinsider.com/x'),
+                             b'<html>ok</html>')
+        requests_module.Session.assert_called_once_with(impersonate='chrome')
+        self.assertEqual(session.get.call_args.kwargs['headers']['Referer'],
+                         'https://downloads.khinsider.com/')
+
+    def test_a_challenge_is_retried_then_reported(self):
+        session, requests_module = self.fake_session(403)
+        khinsider.reset_sessions()
+        with mock.patch.object(khinsider, 'curl_requests', requests_module), \
+                mock.patch.object(khinsider.time, 'sleep'):
+            with self.assertRaises(RuntimeError) as caught:
+                khinsider.http_get('https://downloads.khinsider.com/x')
+        self.assertIn('403', str(caught.exception))
+        self.assertEqual(session.get.call_count, 1 + len(khinsider.CHALLENGE_WAITS))
+
+    def test_it_downloads_through_the_session(self):
+        response = mock.Mock()
+        response.status_code = 200
+        response.raise_for_status = mock.Mock()
+        response.iter_content.return_value = [b'id3', b'data']
+        session = mock.Mock()
+        session.get.return_value = response
+        requests_module = mock.Mock()
+        requests_module.Session.return_value = session
+        khinsider.reset_sessions()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'song.mp3'
+            with mock.patch.object(khinsider, 'curl_requests', requests_module):
+                khinsider.http_download('https://example.test/song.mp3', target)
+            self.assertEqual(target.read_bytes(), b'id3data')
+        self.assertTrue(session.get.call_args.kwargs['stream'])
+
+    def test_a_challenged_download_writes_nothing(self):
+        session, requests_module = self.fake_session(403)
+        khinsider.reset_sessions()
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'song.mp3'
+            with mock.patch.object(khinsider, 'curl_requests', requests_module), \
+                    mock.patch.object(khinsider.time, 'sleep'):
+                with self.assertRaises(RuntimeError):
+                    khinsider.http_download('https://example.test/song.mp3', target)
+            self.assertFalse(target.exists())
+
+
+class ParallelTests(unittest.TestCase):
+    """Albums run up to three at a time; one album never runs twice at once."""
+
+    def test_the_worker_count_is_capped_at_three(self):
+        for value, expected in {'1': 1, '2': 2, '3': 3, '0': 1, '9': 3,
+                                'x': 3, '': 3}.items():
+            with mock.patch.dict(os.environ, {'KHINSIDER_WORKERS': value}):
+                self.assertEqual(khinsider.worker_count(), expected, value)
+
+    def test_the_same_album_shares_one_lock(self):
+        first = khinsider.album_lock('https://downloads.khinsider.com/a')
+        second = khinsider.album_lock('https://downloads.khinsider.com/a')
+        other = khinsider.album_lock('https://downloads.khinsider.com/b')
+        self.assertIs(first, second)
+        self.assertIsNot(first, other)
+
+
+class ConfirmTests(unittest.TestCase):
+    """Before starting, show how far a previous run got (the log may be gone)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.music = Path(self.tmp.name)
+
+    def test_the_folder_prefers_the_japanese_name(self):
+        self.assertEqual(
+            khinsider.album_folder(
+                'https://downloads.khinsider.com/game-soundtracks/album/kirby-super-star',
+                'Kirby Super Star', ["Kirby's Fun Pak", '星のカービィ スーパーデラックス'],
+                True, {}),
+            '星のカービィ スーパーデラックス')
+        self.assertEqual(
+            khinsider.album_folder(
+                'https://downloads.khinsider.com/game-soundtracks/album/kirby-super-star',
+                'Kirby Super Star', ['星のカービィ スーパーデラックス'], False, {}),
+            'Kirby Super Star')
+        self.assertEqual(
+            khinsider.album_folder('https://downloads.khinsider.com/game-soundtracks/album/x',
+                                   'Album', [], True, {'albums': {'x': {'album': '手動'}}}),
+            '手動')
+
+    def test_the_overview_counts_only_mp3_files(self):
+        folder = self.music / 'Khinsider' / 'Kirby Super Star'
+        folder.mkdir(parents=True)
+        (folder / 'a.mp3').write_bytes(b'x')
+        (folder / 'b.mp3').write_bytes(b'x')
+        (folder / '.b.mp3.part').write_bytes(b'x')
+        (folder / 'cover.jpg').write_bytes(b'x')
+        with mock.patch.object(khinsider, 'MUSIC_ROOT', self.music), \
+                mock.patch.object(khinsider, 'http_get', return_value=ALBUM_PAGE.encode()):
+            name, total, names = khinsider.album_overview(
+                'https://downloads.khinsider.com/game-soundtracks/album/kirby-super-star',
+                False, {})
+        self.assertEqual(name, 'Kirby Super Star')
+        self.assertEqual(total, 2)
+        self.assertEqual(names, ['a.mp3', 'b.mp3'])
+
+    def test_the_confirmation_shows_counts_and_resumes(self):
+        page = khinsider.confirm_page(
+            'https://downloads.khinsider.com/game-soundtracks/album/x',
+            True, 'アルバム', 10, ['a.mp3', 'b.mp3'])
+        self.assertIn('2 / 10 曲', page)
+        self.assertIn('続きからダウンロード', page)
+        self.assertIn('name="confirm"', page)
+        self.assertIn('name="japanese"', page)
+        self.assertIn('アルバム', page)
+
+
+class ProgressTests(unittest.TestCase):
+    """The job list is a persisted, live dashboard so progress is visible."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.state = Path(self.tmp.name)
+        patches = [
+            mock.patch.object(khinsider, 'STATE_DIR', self.state),
+            mock.patch.object(khinsider, 'JOBS_FILE', self.state / 'jobs.json'),
+            mock.patch.object(khinsider, 'JOBS', {}),
+        ]
+        for item in patches:
+            item.start()
+        self.addCleanup(lambda: [item.stop() for item in reversed(patches)])
+
+    def test_jobs_survive_a_restart(self):
+        job = khinsider.Job(
+            'https://downloads.khinsider.com/game-soundtracks/album/x', japanese=True)
+        job.state, job.done, job.total, job.detail = 'running', 3, 70, 'song.mp3'
+        khinsider.JOBS[job.id] = job
+        khinsider.save_jobs()
+        khinsider.JOBS.clear()
+        khinsider.load_jobs()
+        restored = khinsider.JOBS[job.id]
+        self.assertEqual(restored.done, 3)
+        self.assertEqual(restored.total, 70)
+        self.assertTrue(restored.japanese)
+        # A job interrupted by the restart is kept and can be retried.
+        self.assertEqual(restored.state, 'failed')
+        self.assertIn('再試行', restored.error)
+
+    def test_index_page_is_a_live_dashboard(self):
+        job = khinsider.Job('https://downloads.khinsider.com/game-soundtracks/album/x')
+        job.state, job.done, job.total, job.detail = 'running', 2, 10, 'song.mp3'
+        khinsider.JOBS[job.id] = job
+        page = khinsider.index_page()
+        self.assertIn('実行中', page)
+        self.assertIn('http-equiv="refresh"', page)
+        self.assertIn('2/10曲', page)
+
+    def test_a_settled_history_does_not_refresh(self):
+        job = khinsider.Job('https://downloads.khinsider.com/game-soundtracks/album/x')
+        job.state, job.done, job.total = 'done', 1, 1
+        khinsider.JOBS[job.id] = job
+        self.assertNotIn('http-equiv="refresh"', khinsider.index_page())
+
+    def test_index_page_shows_the_failure_reason(self):
+        job = khinsider.Job('https://downloads.khinsider.com/game-soundtracks/album/x')
+        job.state, job.error = 'failed', 'RuntimeError: HTTP 403'
+        khinsider.JOBS[job.id] = job
+        page = khinsider.index_page()
+        self.assertIn('失敗', page)
+        self.assertIn('HTTP 403', page)
+
+
+class JobPageTests(unittest.TestCase):
+    def test_a_failed_job_offers_a_retry_form(self):
+        job = khinsider.Job(
+            'https://downloads.khinsider.com/game-soundtracks/album/x', japanese=True)
+        job.state, job.error = 'failed', 'RuntimeError: HTTP 403'
+        page = khinsider.job_page(job)
+        self.assertIn('再試行', page)
+        self.assertIn('action="/download"', page)
+        self.assertIn('name="url"', page)
+        self.assertIn('name="japanese"', page)
+        self.assertIn(
+            'value="https://downloads.khinsider.com/game-soundtracks/album/x"', page)
+
+    def test_a_done_job_can_be_retried_without_the_japanese_option(self):
+        job = khinsider.Job('https://downloads.khinsider.com/game-soundtracks/album/x')
+        job.state = 'done'
+        page = khinsider.job_page(job)
+        self.assertIn('再試行', page)
+        self.assertNotIn('name="japanese"', page)
+
+    def test_a_running_job_has_no_retry_form(self):
+        job = khinsider.Job('https://downloads.khinsider.com/game-soundtracks/album/x')
+        job.state = 'running'
+        self.assertNotIn('再試行', khinsider.job_page(job))
+
+
 class DeploymentTests(unittest.TestCase):
     def setUp(self):
         self.compose = yaml.safe_load(read(STACK / 'compose.yaml'))
@@ -436,6 +668,12 @@ class DeploymentTests(unittest.TestCase):
                       service['volumes'])
         self.assertEqual(service['environment']['KHINSIDER_JA'],
                          '/tools/khinsider-ja.json')
+
+    def test_the_job_history_directory_is_mounted_and_created(self):
+        service = self.compose['services']['khinsider']
+        self.assertIn('./storage/khinsider:/state', service['volumes'])
+        self.assertEqual(service['environment']['KHINSIDER_STATE'], '/state')
+        self.assertIn("'khinsider'", read(STACK / 'manage.py'))
 
     def test_the_image_is_pinned_in_the_lock(self):
         image = self.lock['services']['khinsider']['image']
@@ -466,16 +704,17 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('khinsider', configure.MEDIA_PROXY_PROVIDERS)
         self.assertIn('khinsider', configure.MEDIA_APPLICATIONS)
 
-    def test_the_service_only_needs_the_standard_library_and_mutagen(self):
-        # mutagen is used for the ID3 tags and is already in the MeTube image
-        # (the tag API imports it too). Everything else is stdlib.
+    def test_the_service_only_needs_the_image_and_the_standard_library(self):
+        # mutagen is used for the ID3 tags, and curl_cffi for the browser TLS
+        # fingerprint against Cloudflare. Both are already in the MeTube image
+        # (yt-dlp depends on curl_cffi; the tag API imports mutagen).
         modules = set()
         for node in ast.walk(ast.parse(read(SOURCE))):
             if isinstance(node, ast.Import):
                 modules.update(alias.name.split('.')[0] for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
                 modules.add((node.module or '').split('.')[0])
-        self.assertLessEqual(modules, set(sys.stdlib_module_names) | {'mutagen'})
+        self.assertLessEqual(modules, set(sys.stdlib_module_names) | {'mutagen', 'curl_cffi'})
 
 
 if __name__ == '__main__':
