@@ -36,7 +36,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt', 'md'}
 # Markdown has no CUPS filter; hand it to the text filter instead.
 TEMP_SUFFIX = {'md': 'txt'}
 JOB_PATTERN = re.compile(r'request id is (\S+)')
-RANGES_PATTERN = re.compile(r'[0-9,\-\s]{1,64}')
+RANGES_PATTERN = re.compile(r'[0-9,\- ]{1,64}')
 
 
 def authorized(header, client, token, allowed):

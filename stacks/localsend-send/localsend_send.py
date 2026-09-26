@@ -35,6 +35,7 @@ often block. The scan probes every address in LOCALSEND_SEND_SCAN outbound, so
 it also works when inbound traffic is restricted.
 """
 import concurrent.futures
+import hmac
 import ipaddress
 import json
 import mimetypes
@@ -364,7 +365,7 @@ class SendHandler(BaseHTTPRequestHandler):
 
     def _authorized(self):
         header = self.headers.get('Authorization') or ''
-        return header == 'Bearer ' + self.server.token
+        return hmac.compare_digest(header, 'Bearer ' + self.server.token)
 
     def do_GET(self):
         if self.path == '/healthz':

@@ -30,10 +30,10 @@ nextcloud_apps:
 nextcloud_custom_apps:
   - name: cups_print
     repo: rurutheGeek/nextcloud-cups-print
-    version: 1.0.1
+    version: 1.0.2
   - name: localsend_share
     repo: rurutheGeek/nextcloud-localsend
-    version: 1.0.1
+    version: 1.0.2
 # 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
 # 片付けが済んだら空リストにしてよい。
 nextcloud_retired_apps:
