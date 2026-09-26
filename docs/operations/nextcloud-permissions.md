@@ -34,6 +34,10 @@ Nextcloudの `books`・`music`・`docs`・`inbox` は、media-01の共有デー�
 全員に戻ります。制限を続けたい場合は `manage.py` の `setup()` を変更してください
 （`('books', '/library/books'), ...` のループに、作りたい適用先を足す）。
 
+## ディスクへ直接置いたファイルの反映
+
+外部ストレージ（`/books`・`/music`・`/docs`・`/inbox`）は**アクセス時に変更を確認**する設定（`filesystem_check_changes=1`）です。KHInsider・`organize.py`・`rsync`のようにNextcloudの外からディスクへ直接書いたファイルも、**フォルダを開いた時点で表示されます**（2026-09-24追加。正本は `stacks/media/nextcloud/manage.py` の `setup()`）。それ以前は、手動で `occ files:scan` を回すまで新しい曲などが見えませんでした。
+
 ## 画面から変更する（一時的）
 
 1. 管理者でNextcloudへログインし、右上のメニュー → **設定** → **外部ストレージ**

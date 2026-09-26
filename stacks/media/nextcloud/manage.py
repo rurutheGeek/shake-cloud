@@ -141,12 +141,13 @@ def setup():
     """
     occ('app:enable', 'files_external')
     occ('background:cron')
+    library = (('books', '/library/books'),
+               ('music', '/library/music'),
+               ('docs', '/docs'),
+               ('inbox', '/library/inbox'))
     raw = json.loads(occ('files_external:list', '--output=json', capture_output=True).stdout)
     mounts = list(raw.values()) if isinstance(raw, dict) else raw
-    for name, datadir in (('books', '/library/books'),
-                          ('music', '/library/music'),
-                          ('docs', '/docs'),
-                          ('inbox', '/library/inbox')):
+    for name, datadir in library:
         matching = [m for m in mounts if m['mount_point'].strip('/') == name]
         if not matching:
             occ('files_external:create', '/' + name, 'local', 'null::null',
@@ -167,6 +168,20 @@ def setup():
             print(f'CHANGED: external storage opened to every user: /{name}')
         else:
             print(f'OK: external storage available to every user: /{name}')
+
+    # KHInsider や organize.py はディスクへ直接ファイルを書く。アクセス時の
+    # 変更確認を有効にしないと、フォルダを開いても新しい曲が現れない。
+    # create では指定できない項目なので、作成後にまとめて設定する。
+    wanted = {'/' + name for name, _ in library}
+    raw = json.loads(occ('files_external:list', '--output=json', capture_output=True).stdout)
+    for mount in (list(raw.values()) if isinstance(raw, dict) else raw):
+        if mount['mount_point'] not in wanted:
+            continue
+        if mount['configuration'].get('filesystem_check_changes') == '1':
+            continue
+        occ('files_external:config', str(mount['mount_id']),
+            'filesystem_check_changes', '1')
+        print(f"CHANGED: external storage checks for changes: {mount['mount_point']}")
 
 
 def upgrade():

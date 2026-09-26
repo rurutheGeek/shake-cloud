@@ -1,6 +1,6 @@
 ---
 title: 利用者向け：全サービスの使い方
-updated: 2026-09-13
+updated: 2026-09-23
 section: 利用ガイド
 audience: 利用者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 利用者向け：全サービスの使い方
 
-> **更新日** 2026-09-13 ・ **区分** 利用ガイド ・ **読む人** 利用者
+> **更新日** 2026-09-23 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 このページは、サーバー管理者ではなく、日常的にサービスを使う人向けです。SSH、Docker、設定ファイルの操作は必要ありません。
 
@@ -19,6 +19,7 @@ tags:
 | やりたいこと | 行き先 |
 | --- | --- |
 | VM・S3・DB・関数を使う | [クラウドの使い方](cloud.md) |
+| AIエージェントにクラウドの状態を調べさせる | [AIエージェントからクラウドを見る（MCP）](mcp.md) |
 | 共通アカウント・パスキー・パスワード再設定 | [共通ログインの使い方](identity.md) |
 | Ansible を実行する | [AWX の使い方](../operations/awx.md) |
 | 台帳（IP・VM）を見る | [NetBox の使い方](../operations/netbox.md) |
@@ -41,6 +42,7 @@ tags:
 | RSS・ニュースをまとめて読む | [FreshRSS](https://freshrss.apextox.dpdns.org)（[使い方](rss.md)） |
 | URLから音声を取り込む | [MeTube](https://metube.apextox.dpdns.org)（[使い方](music.md)） |
 | パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
+| 届いた通知メールを読む | [メールビューア](https://mail-view.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
 ログインを求められたら、案内に従って共通ログイン画面へ進みます。サービスによっては、最初に招待されたアカウントの登録や、サービス専用のパスワード設定が必要です。
@@ -142,6 +144,18 @@ Vaultwardenでは、Webサイトやアプリのログイン情報を保管しま
 公式Bitwardenアプリをインストールし、ログイン画面で **Self-hosted** を選びます。**Server URL** には `https://vault.apextox.dpdns.org` を入力します。[Bitwarden公式のセルフホスト接続手順](https://bitwarden.com/en-gb/help/change-client-environment/)
 
 このURLは家庭内LANの名前です。外出先からはVPN（準備中）が必要です。
+
+## 通知メールを読む（メールビューア）
+
+サーバーが送る通知・招待メール（`shake.notify@gmail.com`）を、Gmail へログイン
+せずに読むページです。<https://mail-view.apextox.dpdns.org> を開き、共通ログインを
+済ませてから一覧の件名を選ぶと本文が表示されます。
+
+- 表示してもメールは**既読になりません**。返信・送信・削除はできません。
+- 一覧は最初は新しい50件です。**「全件を表示」**を押すと受信トレイ全体を出します。
+- 添付ファイルは名前とサイズだけが分かります。ダウンロードしたいときは管理者へ
+  伝えてください。
+- パソコンのほか、スマートフォンのブラウザーでも開けます（家庭内LANから）。
 
 ## 手順書を読む・更新する
 

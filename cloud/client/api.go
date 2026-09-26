@@ -279,6 +279,16 @@ func (c *Client) DescribeImages(ctx context.Context) ([]Image, error) {
 	return out.Images, err
 }
 
+// DescribeISOs lists installation media: the caller's uploads plus the
+// administrator's shared ones.
+func (c *Client) DescribeISOs(ctx context.Context) ([]ISO, error) {
+	var out struct {
+		ISOs []ISO `json:"isos"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/isos", nil, nil, &out)
+	return out.ISOs, err
+}
+
 // ImportImage uploads a disk image. The name part must precede the file part,
 // which is why this streams the multipart body rather than buffering it: an
 // image can be gigabytes.
@@ -376,11 +386,15 @@ func (c *Client) ListAccessKeys(ctx context.Context) ([]AccessKey, error) {
 }
 
 // CreateAccessKey needs a portal session cookie, not an access key, so the CLI
-// cannot use it. It is here for the provider and tests.
-func (c *Client) CreateAccessKey(ctx context.Context, description string, expiresInDays *int) (CreatedAccessKey, error) {
+// cannot use it. It is here for the provider and tests. An empty scope means
+// ScopeReadWrite, the API's default.
+func (c *Client) CreateAccessKey(ctx context.Context, description string, expiresInDays *int, scope string) (CreatedAccessKey, error) {
 	body := map[string]any{"description": description}
 	if expiresInDays != nil {
 		body["expires_in_days"] = *expiresInDays
+	}
+	if scope != "" {
+		body["scope"] = scope
 	}
 	var out CreatedAccessKey
 	err := c.do(ctx, http.MethodPost, "/v1/access-keys", nil, body, &out)

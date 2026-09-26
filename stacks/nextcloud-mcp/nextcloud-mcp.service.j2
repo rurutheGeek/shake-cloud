@@ -1,0 +1,22 @@
+[Unit]
+Description=Nextcloud MCP server for AI agents
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 {{ nextcloud_mcp_dir }}/nextcloud_mcp.py
+EnvironmentFile={{ nextcloud_mcp_dir }}/nextcloud-mcp.env
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+# PrivateTmp=true は付けない。/var/tmp も専用の空tmpfsに差し替えてしまい、
+# 下のReadWritePathsが指す実ディスク上のディレクトリと衝突して
+# 「Failed to set up mount namespacing: ...: No such file or directory」で
+# 起動に失敗する（2026-09-26実機で発生）。GB級アーカイブをtmpfsに置かない
+# 設計上、そもそもPrivateTmpは要らない。
+ReadWritePaths={{ nextcloud_mcp_tmp }}
+
+[Install]
+WantedBy=multi-user.target

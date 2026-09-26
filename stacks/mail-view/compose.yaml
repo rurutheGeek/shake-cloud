@@ -1,0 +1,44 @@
+# Gmail の通知メールボックス（shake.notify@gmail.com）を読み取り専用で表示する。
+#
+# IMAP にはアプリパスワードでログインし、EXAMINE（readonly）で開くので既読は
+# 付けない。パスワードは manage.py が secrets/imap_password から環境変数として
+# 渡す（.env には残さない）。入口は services-01 の Caddy（Forward Auth）だけで、
+# サービスのポートは 127.0.0.1 に閉じる。イメージは compose.lock.yaml で固定する。
+name: mail-view
+
+services:
+  mail-view:
+    image: python:3.13-alpine
+    restart: unless-stopped
+    command: [python, /app/app.py]
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      IMAP_HOST: ${IMAP_HOST:-imap.gmail.com}
+      IMAP_PORT: ${IMAP_PORT:-993}
+      IMAP_USERNAME: ${IMAP_USERNAME:?run manage.py up}
+      IMAP_PASSWORD: ${IMAP_PASSWORD:?run manage.py up}
+      MAILBOX: ${MAILBOX:-INBOX}
+      MESSAGE_LIMIT: ${MESSAGE_LIMIT:-50}
+      CACHE_SECONDS: ${CACHE_SECONDS:-30}
+      TZ_OFFSET_HOURS: ${TZ_OFFSET_HOURS:-9}
+      # コンテナ内は 8080。ホストへは 127.0.0.1 の MAIL_VIEW_PORT だけを開ける。
+      BIND_ADDRESS: 0.0.0.0
+      PORT: '8080'
+      # read_only なので .pyc を書かせない。アプリは状態を持たない。
+      PYTHONDONTWRITEBYTECODE: '1'
+    volumes:
+      - ./app.py:/app/app.py:ro
+    ports:
+      - '127.0.0.1:${MAIL_VIEW_PORT:-8310}:8080'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      # IMAP ではなくプロセスの生存だけを見る。Gmail 側の障害でコンテナを
+      # 再起動しても直らないので、深いチェックはページ側に任せる。
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

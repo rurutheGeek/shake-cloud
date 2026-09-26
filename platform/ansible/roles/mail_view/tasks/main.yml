@@ -1,0 +1,139 @@
+---
+- name: Create the deployment directories
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    mode: '{{ item.mode }}'
+  loop:
+    - {path: '{{ mail_view_project_dir }}', mode: '0750'}
+    - {path: '{{ mail_view_project_dir }}/secrets', mode: '0700'}
+
+- name: Copy the mail-view stack
+  ansible.builtin.copy:
+    src: '{{ mail_view_source_dir }}/{{ item }}'
+    dest: '{{ mail_view_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - app.py
+    - .env.example
+  register: mail_view_stack_files
+
+# .env は宣言値だけを role が描画する。IMAP_USERNAME はこの後 SOPS から重ね、
+# パスワードは secrets/imap_password へ置いて manage.py が環境変数で渡す。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ mail_view_project_dir }}/.env'
+    mode: '0600'
+
+# アプリパスワードは SMTP と IMAP で共用できる。専用ファイル（IMAP_*）があれば
+# それを優先し、無ければ smtp.sops.yaml（SMTP_*）を IMAP にも使う。
+- name: Look for the dedicated IMAP credentials
+  ansible.builtin.stat:
+    path: '{{ mail_view_sops_file }}'
+  delegate_to: localhost
+  become: false
+  register: mail_view_sops
+
+- name: Look for the shared SMTP credentials
+  ansible.builtin.stat:
+    path: '{{ mail_view_fallback_sops_file }}'
+  delegate_to: localhost
+  become: false
+  register: mail_view_fallback
+
+- name: Refuse to deploy without an app password
+  ansible.builtin.assert:
+    that: mail_view_sops.stat.exists or mail_view_fallback.stat.exists
+    fail_msg: >-
+      platform/sops/mail-view.sops.yaml か platform/sops/smtp.sops.yaml が必要。
+      Gmail のアプリパスワードで IMAP へログインする。
+    quiet: true
+
+- name: Choose the credential source
+  ansible.builtin.set_fact:
+    mail_view_credentials_file: >-
+      {{ mail_view_sops_file if mail_view_sops.stat.exists else mail_view_fallback_sops_file }}
+    mail_view_username_key: '{{ "IMAP_USERNAME" if mail_view_sops.stat.exists else "SMTP_USERNAME" }}'
+    mail_view_password_key: '{{ "IMAP_PASSWORD" if mail_view_sops.stat.exists else "SMTP_PASSWORD" }}'
+
+- name: Read the app password
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ mail_view_credentials_file }}']
+  delegate_to: localhost
+  become: false
+  register: mail_view_credentials
+  changed_when: false
+  no_log: true
+
+- name: Converge the IMAP username
+  ansible.builtin.lineinfile:
+    path: '{{ mail_view_project_dir }}/.env'
+    regexp: '^IMAP_USERNAME='
+    line: 'IMAP_USERNAME={{ (mail_view_credentials.stdout | from_json)[mail_view_username_key] }}'
+    mode: '0600'
+  no_log: true
+
+# 改行を足さない。`{{ "\n" }}` と書くと Ansible の copy はリテラルの
+# バックスラッシュ+n を書いてしまい、パスワードに2文字混入する（2026-09-26 実測）。
+# manage.py が読むときに strip するので、末尾の改行は無くてよい。
+- name: Install the app password
+  ansible.builtin.copy:
+    content: '{{ (mail_view_credentials.stdout | from_json)[mail_view_password_key] }}'
+    dest: '{{ mail_view_project_dir }}/secrets/imap_password'
+    mode: '0400'
+  no_log: true
+
+- name: Initialize the deployment
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ mail_view_project_dir }}'
+  register: mail_view_init
+  changed_when: "'CHANGED' in mail_view_init.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ mail_view_project_dir }}'
+  register: mail_view_pinned
+  changed_when: "'CHANGED' in mail_view_pinned.stdout"
+
+- name: Start the viewer and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ mail_view_project_dir }}'
+  register: mail_view_up
+  changed_when: "'Recreate' in mail_view_up.stderr or 'Created' in mail_view_up.stderr"
+
+# app.py はファイルをマウントしている。up は設定が同じだと作り直さないので、
+# コードが変わった配備では作り直して読み直させる。
+- name: Recreate the viewer after a code change
+  ansible.builtin.command:
+    argv: [python3, manage.py, restart]
+    chdir: '{{ mail_view_project_dir }}'
+  when: mail_view_stack_files is changed
+  changed_when: true
+
+- name: Wait for the viewer on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ mail_view_port }}/healthz'
+  register: mail_view_health
+  retries: 20
+  delay: 3
+  until: mail_view_health.status == 200
+
+# 公開名は Forward Auth の下にある。Cookie を持たない検査は認証画面への
+# リダイレクト（302/303）になる。200 が返るなら SSO が素通りしている。
+- name: Wait for the SSO entry point to answer
+  ansible.builtin.uri:
+    url: '{{ mail_view_public_url }}/healthz'
+    validate_certs: true
+    follow_redirects: none
+    status_code: [302, 303]
+  register: mail_view_entry
+  retries: 20
+  delay: 6
+  until: mail_view_entry is succeeded

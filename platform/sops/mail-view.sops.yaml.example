@@ -1,0 +1,12 @@
+# platform/sops/mail-view.sops.yaml の中身の例。メールビューア専用の Gmail
+# アプリパスワードを使うときだけ作る。**無ければ smtp.sops.yaml の
+# SMTP_USERNAME / SMTP_PASSWORD を IMAP にも流用します**（同じアプリパスワードで
+# SMTP と IMAP の両方にログインできる）。専用にすると、漏れたときに
+# ビューアだけ失効させられます。
+#
+# **Google アカウントのパスワードではなく「アプリパスワード」を使う。**
+# 2段階認証を有効にしたうえで発行する。
+#   https://myaccount.google.com/apppasswords
+# Gmail 側で IMAP アクセスを有効にする（Gmail → 設定 → メール転送と POP/IMAP）。
+IMAP_USERNAME: shake.notify@gmail.com
+IMAP_PASSWORD: "xxxxxxxxxxxxxxxx"

@@ -4,32 +4,47 @@ services:
   eufy-security-ws:
     image: ${EUFY_WS_IMAGE:-bropat/eufy-security-ws:3.1.0}
     restart: unless-stopped
+    # P2P はホストの実NIC（LAN）で動く必要があるためホストネットワークにする。
+    # そのままだと 0.0.0.0:3000 で LAN へ露出するので、run.sh の bind を
+    # Home Assistant のネットワークのゲートウェイだけに差し替える。
+    network_mode: host
+    # ログインを繰り返すとEufyがCAPTCHAを要求するため、保存セッションを
+    # 消さずに使う。セッション復元で「No houses」になったら
+    # `manage.py reset-session` で消して再ログインする。
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        sed -i 's/--host 0.0.0.0/--host 172.31.254.1/' /usr/src/app/run.sh
+        && exec /usr/src/app/run.sh
     environment:
       USERNAME: ${EUFY_USERNAME:?EUFY_USERNAME is required}
       PASSWORD: ${EUFY_PASSWORD:?EUFY_PASSWORD is required}
       COUNTRY: ${EUFY_COUNTRY:-JP}
       TRUSTED_DEVICE_NAME: ${EUFY_TRUSTED_DEVICE_NAME:-shake-cloud}
+      # クラウドが古いIPを返す間もローカルP2Pを試せるように、カメラのIPを渡す。
+      STATION_IP_ADDRESSES: ${EUFY_STATION_IP_ADDRESSES:-}
       PORT: '3000'
+      # DEBUG はトークンや鍵をログへ平文で出す。調査の間だけ .env で 1 にする。
+      DEBUG: ${EUFY_DEBUG:-}
       EVENT_DURATION_SECONDS: ${EUFY_EVENT_DURATION_SECONDS:-10}
       TZ: ${TZ:-Asia/Tokyo}
     volumes:
       - ${STORAGE_ROOT:-/srv/services/eufy-security-ws}/data:/data
-    networks: [homeassistant]
+      # イメージに tzdata が無いので、ホストの zoneinfo を読ませて TZ を効かせる。
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
     healthcheck:
       test:
         - CMD
         - node
         - -e
-        - "const s=require('net').connect(3000,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"
+        - "const s=require('net').connect(3000,'172.31.254.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
-
-networks:
-  # Home Assistant と同じユーザー定義ネットワークへ入れる。ポートは LAN へ
-  # 公開せず、HA からは `eufy-security-ws:3000` で届く。HA の compose が
-  # 先に作るネットワークなので、HA を止めて `down` した状態では起動しない。
-  homeassistant:
-    external: true
-    name: services-home-assistant_homeassistant

@@ -11,6 +11,7 @@
     - https://speed.apextox.dpdns.org/
     - https://play.apextox.dpdns.org/
     - https://cups.apextox.dpdns.org/
+    - https://mail-view.apextox.dpdns.org/
     - https://adguard.apextox.dpdns.org/
     - https://router.apextox.dpdns.org/
     - https://grafana.apextox.dpdns.org/api/health
@@ -27,6 +28,7 @@
     - https://metube.apextox.dpdns.org/
     - https://khinsider.apextox.dpdns.org/
     - https://navidrome-api.apextox.dpdns.org/
+    - https://nextcloud-mcp.apextox.dpdns.org/healthz
   labels:
     group: media
 - targets:

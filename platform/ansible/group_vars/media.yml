@@ -8,7 +8,11 @@ library_root: /srv/media-stack/library
 # docs/operations/bulk-storage.md。media-base.yml が library_root へ載せる。
 bulk_storage_server: 192.168.10.10
 bulk_storage_media_path: /srv/bulk/media
+bulk_storage_nextcloud_path: /srv/bulk/nextcloud-data
 bulk_storage_mount_opts: _netdev,nofail,x-systemd.mount-timeout=30
+# Nextcloud のデータディレクトリ（ユーザーホーム・appdata）。共有ライブラリとは
+# 別のHDDパスをNFSで載せる。正本は roles/pve_bulk_storage と media-base.yml。
+nextcloud_data_dir: /srv/media-stack/storage/nextcloud/data
 # Each tagged host runs an independent complete stack; this is not a DB cluster.
 # Override with AWX inventory host variables when needed.
 install_docker: true

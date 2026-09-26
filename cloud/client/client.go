@@ -50,6 +50,16 @@ func New(endpoint, accessKey string) *Client {
 	}
 }
 
+// NewWithUserAgent is New with a caller-chosen User-Agent, so the audit log
+// can tell which tool made the request. An empty userAgent keeps the default.
+func NewWithUserAgent(endpoint, accessKey, userAgent string) *Client {
+	c := New(endpoint, accessKey)
+	if userAgent != "" {
+		c.userAgent = userAgent
+	}
+	return c
+}
+
 // Endpoint is the base URL the client calls.
 func (c *Client) Endpoint() string { return c.baseURL }
 

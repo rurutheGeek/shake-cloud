@@ -42,6 +42,11 @@ pve_bulk_storage_roms_gid: 1000
 pve_bulk_storage_backup_dir: '{{ pve_bulk_storage_mount }}/backups'
 pve_bulk_storage_game1_saves_dir: '{{ pve_bulk_storage_backup_dir }}/game1-saves'
 
+# Nextcloud のデータディレクトリ（各ユーザーのホーム・appdata・ログ）。media-01 が
+# www-data(33) で読み書きする。共有ライブラリとは分けて、バックアップの単位を
+# 分けられるようにする。
+pve_bulk_storage_nextcloud_dir: '{{ pve_bulk_storage_mount }}/nextcloud-data'
+
 # ゲストはIPv4の固定IPだけ。all_squash でゲスト側の uid に関係なく
 # anonuid で読み書きする。root_squash だけだと root で動くコンテナ
 # （Kavita など）が 2750 のディレクトリを読めない。
@@ -56,3 +61,7 @@ pve_bulk_storage_exports:
   - path: '{{ pve_bulk_storage_game1_saves_dir }}'
     clients: 192.168.10.127
     options: 'rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000'
+  # Nextcloud のユーザーホーム・appdata。media-01 が www-data で読み書き。
+  - path: '{{ pve_bulk_storage_nextcloud_dir }}'
+    clients: 192.168.10.101
+    options: 'rw,sync,no_subtree_check,all_squash,anonuid=33,anongid=33'
