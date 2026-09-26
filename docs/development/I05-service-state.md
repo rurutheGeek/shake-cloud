@@ -1,6 +1,6 @@
 ---
 title: I05 サービス用state管理
-updated: 2026-09-12
+updated: 2026-09-23
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # I05 サービス用state管理
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **区分**: 既存機構の拡張 ・ **状態**: services分岐・state分離・ロック確認まで実装済み。実アクセスキーの`services.sops.yaml`投入だけ未了（それまで環境変数で動作）。
 
@@ -32,7 +32,7 @@ tags:
 - `services.sops.yaml`が無い間は、呼び出し元が`export`した`SHAKECLOUD_ACCESS_KEY`を使う（移行用）。ファイルがあればSOPSの値が環境変数より優先される。
 - 呼び出し元の環境に残ったProxmox・NetBox・Cloudflareの資格情報と`TF_VAR_cloudflare_dns_api_token`は分岐の先頭で`unset`し、子プロセスへ持ち込まない。Cloudflare Providerを宣言したサービスモジュールだけ、zone限定のDNSトークン（`cloudflare-dns.sops.yaml`）を足す。
 - キーが無いときは`init`・`fmt`・`validate`が警告のみで続行し、`plan`・`apply`・`destroy`・`import`・`refresh`・`console`はterraformを実行する前に停止する。`init`はS3 backendとProvider取得だけでProvider APIを呼ばないためキー無しでも通る。
-- 資格情報境界を`tests/test_tf_services.py`の22件で固定した。実スクリプトを偽`sops`・偽`terraform`で動かし、サービスに基盤資格情報が渡らないこと、親環境の管理資格情報が落ちること、SOPSが環境変数に優先すること、Cloudflare宣言時だけDNSトークンが付くこと、`-chdir`と`init`のbucket注入、既存モジュール（state-store・00-bootstrap・05-seed・10-platform・20-dns）が従来どおりであることを検査する。実行: `python3 -m unittest tests.test_tf_services -v`。
+- 資格情報境界を`tests/test_tf_services.py`で固定した。実スクリプトを偽`sops`・偽`terraform`で動かし、サービスに基盤資格情報が渡らないこと、親環境の管理資格情報が落ちること、SOPSが環境変数に優先すること、Cloudflare宣言時だけDNSトークンが付くこと、`-chdir`と`init`のbucket注入、既存モジュール（state-store・00-bootstrap・05-seed・10-platform・20-dns）が従来どおりであることを検査する。実行: `python3 -m unittest tests.test_tf_services -v`。
 - `platform/sops/services.sops.yaml.example`を追加し、`docs/operations/terraform.md`にservicesの`init`／`plan`／`apply`例と資格情報境界を追記した。
 - ロックを実機確認した。R2は条件付き書込みに対応し（2本目のPUTが412 PreconditionFailed）、同じstateへの同時`plan`は`Error acquiring the state lock`で拒否された。`kill -9`で残したロックを`force-unlock`で解除し、次の`plan`が通ることも確認した。検証用のstate・ロックはR2から削除済み。
 - media-01のstateは既にR2の`shake-cloud/services/media/terraform.tfstate`にあり、8リソースを管理している（media担当がapply済み）。`tools/tf services/media`でそのまま扱える。

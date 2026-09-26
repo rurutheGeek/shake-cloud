@@ -1,6 +1,6 @@
 ---
 title: 信頼境界とセキュリティ方針
-updated: 2026-09-19
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 信頼境界とセキュリティ方針
 
-> **更新日** 2026-09-19 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **何を信頼していて、何を信頼していないか**を1枚にまとめます。個々の決定の理由は[決定ログ](decisions.md)、手順は[秘密値の管理](../operations/secrets.md)と[認証基盤](../operations/identity.md)にあります。
 
@@ -25,6 +25,8 @@ tags:
 | `apextox.dpdns.org` のDNS応答 | Cloudflareの公開DNSに**内部IPをそのまま**書いている。名前は誰でも引けるが、応答は `192.168.10.x` なので外からは届かない |
 | それ以外 | 無い。ポート転送もリバースプロキシも置いていない |
 
+**2026-09-20 から、インターネットとの境界は自作です。** 家庭内ルータを市販機（Aterm）から K11 上の OpenWrt VM `router-01` へ移しました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。WANは `vmbr1`、LANは `vmbr0` で、**`vmbr1` にホストのIPを与えていません**。ファイアウォール・DHCP・DNSの設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消えます。
+
 内部IPを公開DNSに書いているのは、**証明書をDNS-01で取るためだけ**です。`home.arpa` と自前CAにしなかったのは、全端末へCAを登録する手間と、スマートフォンのアプリが自前CAを信用しない問題を避けるためです。代償として、名前の一覧と内部IPの割り当ては外から推測できます（[決定ログ](decisions.md)）。
 
 LANの外から使うにはVPNが要ります。未構築です（[VPNの比較と併用](vpn.md)）。復旧経路として `net-01` の subnet router だけがあります（[net-01](../operations/net.md)）。
@@ -34,6 +36,7 @@ LANの外から使うにはVPNが要ります。未構築です（[VPNの比較�
 ```mermaid
 flowchart TB
   net["インターネット"]
+  router["router-01（OpenWrt）<br/>ファイアウォール・DHCP・AdGuard Home<br/>K11上のVM"]
   lan["家庭内LAN 192.168.10.0/24<br/>ここにいる端末は信頼する"]
   edge["各VMのCaddy（HTTPS入口）<br/>TLS終端"]
   app["アプリ本体<br/>127.0.0.1 に閉じる"]
@@ -41,7 +44,9 @@ flowchart TB
   pve["Proxmox VE apextox"]
   git["Git リポジトリ（公開）"]
 
-  net -. "DNS応答だけ" .-> lan
+  net -->|"WAN。着信は遮断"| router
+  router --> lan
+  net -. "公開DNSの応答だけ" .-> lan
   lan -->|"名前 + TLS"| edge
   edge -->|"OIDC / Forward Auth を通した後だけ"| app
   lan -->|"アクセスキー or OIDC"| api
@@ -51,12 +56,15 @@ flowchart TB
 
 | 境界 | 通すもの | 止めるもの |
 | --- | --- | --- |
-| インターネット → LAN | DNSの応答のみ | 通信そのもの。到達経路が無い |
+| インターネット → LAN | DNSの応答のみ | 通信そのもの。`router-01` のファイアウォールが遮断し、ポート転送も置いていない |
+| 端末 → 名前解決 | `router-01` の AdGuard Home が応答（広告・トラッカーのブロックリスト付き） | ブロックリストに載った名前。**DNSは全端末の単一経路**（[AdGuard Home](../operations/adguard.md)） |
 | LAN → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。identityのCaddyだけはcatch-allでAuthentikへ渡す |
 | HTTPS入口 → アプリ | 認証を通したリクエスト | アプリ本体は `127.0.0.1` に閉じており、入口を経由しないと触れない |
 | 利用者 → 他人のVM | 一覧の閲覧（所有者名・イメージ・割り当て・状態） | 電源・削除・サイズ変更は403。他人の `client_token` は返さない。`user_data` は一覧に出さない |
 | クラウドAPI → Proxmox | `cloudapi@pve` に割り当てたロールの範囲 | それ以外。APIが唯一の経路で、利用者はProxmoxの資格情報を持たない |
 | 実行環境 → Git | コード・設定例・Markdown・digestロック・SOPS暗号文 | `.env`、Cookie、CA秘密鍵、実データ、state |
+
+**ルータの管理画面（LuCI）にだけSSOを付けていません。** `https://router.apextox.dpdns.org` は LuCI 自身の root パスワードで守り、Authentik を通しません。**ルータは復旧経路だから**で、identity が止まっているときに開けなくなると詰みます。AdGuard の管理画面（`https://adguard.apextox.dpdns.org`）は復旧に必須ではないので Forward Auth を通します。
 
 **入口を1台に集めていません。** 各VMが自分のCaddyでTLSを終端します。認証基盤（identity）を他ホストの障害に巻き込まないためです。代償として、Cloudflare の DNS 編集トークンが各ホストに載ります。
 
@@ -110,6 +118,7 @@ flowchart TB
 | 内部構成の秘匿 | 名前と内部IPは公開DNSから引ける。証明書をDNS-01で取る代償として受け入れている |
 | 内部犯行 | 2人とも `admins` に入りうる運用。操作は監査ログに残るが、権限で止めていない |
 | VLANによる分離 | 宣言と手順は用意済みだが、**実機は未切替**。いまは管理面と利用者VMが同じL2にいる（[VLAN 分離への切替](../operations/vlan.md)） |
+| ルータと被保護資産の分離 | `router-01` は守る対象と同じ物理ホストに載っている。ルータVMを破られるとホスト内部へ近い。分離するには別筐体が要る |
 | 外部依存の停止 | Cloudflare（DNS）・DigitalPlat（ドメイン）・外部SMTPが止まると、証明書更新と招待・復旧メールが止まる（[障害モード](failure-modes.md)） |
 | S3の冗長性 | Garageは単一ノード。**stateやバックアップの唯一の保管先にしない** |
 

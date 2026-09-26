@@ -1,6 +1,6 @@
 ---
 title: セルフホストVPNとTailscaleの併用
-updated: 2026-09-16
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # セルフホストVPNとTailscaleの併用
 
-> **更新日** 2026-09-16 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
@@ -40,13 +40,14 @@ OSの対応だけでなく、実際の端末のOS版・CPU・アプリ配布方�
 
 Tailcatの接続アドレスは接続権を与える情報を含むため、公開文書・Gitに貼らない。試す場合は必要なポートだけを指定し、認証を省いたシェルや全ポート公開を標準にしない。導入枠はdev-aまたは管理PC内、常設VMは追加しない。
 
-## K11とラズパイの配置
+## 配置
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
 | K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
-| ラズパイ | Tailscale SaaSのsubnet routerとDNS（監視はmonitor-01へ分離） | K11外の管理経路。K11停止中も動くことを検証 |
+| K11 / net-01（cloud VM） | Tailscale SaaS の subnet router（**実装済み**。[net-01](../operations/net.md)） | **K11上のVMなので、K11そのものの停止はカバーしない。** 当初はK11外のラズパイを想定していたが導入しなかった |
+| K11 / router-01（OpenWrt VM） | DNS（AdGuard Home）とDHCP。**家庭内ルータそのもの** | 2026-09-20に切替。K11が落ちると家中のネットも落ちる（[障害モード](failure-modes.md)） |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
 NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
@@ -69,7 +70,7 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 
 **初回VPN接続に必要な管理サーバーとAuthentikが、そのVPNに接続しないと開けない構成は避ける。** 宅外で新規接続・再認証できるように、限定したHTTPS認証入口を外部到達可能にするか、登録・再認証を宅内LAN／予備Tailscaleで行う運用を明記する。前者を採るなら、既存の「内部WebはVPNのみ」方針に対する明示的な例外として設計・確認してから公開する。
 
-NetBird公式quickstartは公開ドメインとTCP 80/443・UDP 3478への到達を前提にする。HeadscaleやWireGuardはそれぞれ導入構成の到達要件を確認する。既存ルータのポート転送、IPv4／IPv6、CGNAT、ドメイン、公開Caddyとのポート競合が未確認なので、今は公開・導入コマンドを適用しない。宅外から直接到達できなければ、外部の公開入口を別途用意するかTailscaleを通常経路として使い続ける。
+**回線の条件は2026-09-20に実測で確定した（[N06](../development/N06-router.md)）。** CGNATではなく **MAP-E（v6プラス・JPNE）** で、ポート開放は可能だが**割り当てられた240個に限られ、80/443は含まれない**。したがって **NetBird公式quickstartが前提にする TCP 80/443 への到達は、この回線では満たせない。** 一方 **WireGuard は割当ポートで公開できる**ので、選定の重みが変わった。ポート転送は `router-01`（OpenWrt）で設定する。公開Caddyとのポート競合だけは引き続き調整が要る。宅外から直接到達できなければ、外部の公開入口を別途用意するかTailscaleを通常経路として使い続ける。
 
 ## 選定の合格条件
 

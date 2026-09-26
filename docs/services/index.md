@@ -39,6 +39,12 @@ tags:
 | [Home Assistantと家電の使い方](home-assistant.md) | 家電の操作・自動化・通知 |
 | [プリンター](printer.md) | LAN内の端末やNextcloudから印刷する |
 
+## 回線の速度を測る
+
+| ページ | 何が分かるか |
+| --- | --- |
+| [LibreSpeed（速度テスト）](librespeed.md) | 宅内の回線速度を自前で測る |
+
 ## 自分でVMやストレージを作る
 
 | ページ | 何が分かるか |

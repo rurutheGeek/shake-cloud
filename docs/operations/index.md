@@ -50,16 +50,29 @@ tags:
 | [メール設定（SMTP）](smtp.md) | 招待・復旧メールの送信 |
 | [Windows 11 Pro のVMを作る](windows.md) | ポータルからのISOインストール |
 
-## 4. ネットワークとストレージ
+## 4. ネットワーク
+
+**家庭内ルータは自作です。** K11上のOpenWrt VM（`router-01`）がファイアウォール・DHCP・DNSを担います。
 
 | ページ | 何が分かるか |
 | --- | --- |
+| [router-01（OpenWrt・自作ルータ）](router.md) | 構成・配線・切替・再生成。**まずここ** |
+| [router-01 の設定まとめ](router-config.md) | 素のOpenWrtから何を変えたか |
+| [ルータがつながらないときの調べ方](router-troubleshooting.md) | 通信が落ちたときの切り分け |
+| [AdGuard Home](adguard.md) | DNSと広告遮断の運用 |
 | [net-01（subnet router）](net.md) | 宅外から管理LANへの復旧経路 |
 | [VLAN 分離への切替](vlan.md) | 管理面と利用者VMを分ける |
+
+## 5. ストレージとバックアップ
+
+| ページ | 何が分かるか |
+| --- | --- |
+| [共有バルクストレージ](bulk-storage.md) | 6TB HDDのNFS共有（メディア原本・バックアップ先） |
+| [バックアップ](backup.md) | 週次vzdumpとgame1セーブ。何を大事とみなすか |
 | [Garage（S3互換ストレージ）](garage.md) | バケットとキー |
 | [ディスク増設](disk.md) | 容量を足す |
 
-## 5. 電源・確認・引き継ぎ
+## 6. 電源・確認・引き継ぎ
 
 | ページ | 何が分かるか |
 | --- | --- |

@@ -1,6 +1,6 @@
 ---
 title: ホームラボの全体像（詳細）
-updated: 2026-09-21
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ホームラボの全体像（詳細）
 
-> **更新日** 2026-09-21 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -98,6 +98,7 @@ VMの管理方法はプールで揃えています。**基盤VMは Terraform（`
 
 | 自作部分 | 場所 | 何をする |
 | --- | --- | --- |
+| 家庭内ルータ | `platform/openwrt/`・`platform/terraform/router/` | **ルータそのもの。** OpenWrtのUCI設定・AdGuard Home設定・イメージのビルド（`build.sh`）とVM宣言。2026-09-20に市販ルータから切替（§13） |
 | shakecloud | `cloud/` | VM・S3・DB・関数を払い出すAPI、OpenAPI、CLI、Terraform Provider、ポータル（§5） |
 | identityの運用自動化 | `stacks/identity/` | グループ・OIDCクライアント・招待フロー・メール復旧・Email OTP・パスキーを冪等に整える（§4） |
 | Nextcloud連携アプリ | `stacks/media/nextcloud/apps/` | `shake_print`（印刷）・`shake_localsend`（送信）・`shake_tags`（タグ編集） |
@@ -493,6 +494,8 @@ flowchart LR
 
 ```mermaid
 flowchart TB
+  net["インターネット<br/>MAP-E（v6プラス）"]
+  router["router-01（OpenWrt）<br/>FW・DHCP・AdGuard Home"]
   lan["家庭内LAN"]
   dns["Cloudflare DNS<br/>内部IPを名前で引く"]
   caddy["各VMのCaddy<br/>Let's Encrypt DNS-01"]
@@ -502,6 +505,8 @@ flowchart TB
   tailscale["net-01<br/>Tailscale subnet router（N02）"]
   vpn["セルフホストVPN<br/>未構築"]
 
+  net -->|"80/443は使えない"| router
+  router --> lan
   lan --> caddy
   dns --> caddy
   caddy --> fixed
@@ -512,10 +517,12 @@ flowchart TB
   vpn -.-> cloudips
 ```
 
+- **入口も自作**: 家庭内ルータは K11 上の OpenWrt VM `router-01`（`192.168.10.1`）です。ファイアウォール・DHCP・DNS（AdGuard Home）を担い、設定の正本は `platform/openwrt/`。2026-09-20 に市販ルータから切り替えました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。**K11が落ちると家中のネットも落ちます**（[障害モード](failure-modes.md)）。ネットワーク単体の図は[ネットワーク・公開範囲・SSO](network-auth.md)にあります。
+- **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
 - **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**各VMのCaddy**（`stacks/tls-proxy/`）が自分の名前だけを受けて `127.0.0.1` のサービスへ中継します。証明書はDNS-01で取得。**入口を1台に集めない**のは、認証基盤を他ホストの障害に巻き込まないためです。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
 - **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として cloud VM `net-01` の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[net-01（Tailscale subnet router）](../operations/net.md)・[N02](../development/N02-tailscale.md)。
-- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画です。物理スイッチ・ルーターの作業待ちです（[N03](../development/N03-vlan.md)）。
+- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。net-01 作成前に確認）。
 
 ## 14. 開発・運用の進め方（dev-a・dev-b）

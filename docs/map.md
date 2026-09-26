@@ -1,6 +1,6 @@
 ---
 title: ドキュメント地図
-updated: 2026-09-18
+updated: 2026-09-23
 section: 入口
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ドキュメント地図
 
-> **更新日** 2026-09-18 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-09-23 ・ **区分** 入口 ・ **読む人** 全員
 
 どこに何が書いてあるかの一覧です。目的から探すときは[トップページ](index.md)、名前から探すときはこのページを使ってください。
 
@@ -85,8 +85,8 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [ドキュメントの書き方](contributing-docs.md) | 2026-09-19 | `hub` `rules` |
-| [Shake Lab Docs](index.md) | 2026-09-18 | `hub` |
+| [ドキュメントの書き方](contributing-docs.md) | 2026-09-23 | `hub` `rules` |
+| [Shake Lab Docs](index.md) | 2026-09-23 | `hub` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 
 ### 利用ガイド
@@ -137,13 +137,13 @@ flowchart TB
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
 | [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-09-12 | `plan` `cloud` `network` |
-| [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-12 | `plan` `terraform` |
+| [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-23 | `plan` `terraform` |
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-09-23 | `plan` `monitoring` |
-| [N01 セルフホストVPN](development/N01-vpn.md) | 2026-09-13 | `plan` `network` |
+| [N01 セルフホストVPN](development/N01-vpn.md) | 2026-09-23 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-09-16 | `plan` `network` |
-| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-12 | `plan` `network` |
-| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-12 | `plan` |
+| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
+| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
 | [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-09-13 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
 | [O01 管理DBの外部バックアップ](development/O01-cloud-backup.md) | 2026-09-16 | `plan` `cloud` `backup` |
@@ -156,7 +156,7 @@ flowchart TB
 | [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-09-13 | `plan` `navidrome` |
 | [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-09-16 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-09-16 | `plan` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-09-23 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
@@ -170,8 +170,8 @@ flowchart TB
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-09-22 | `ops` `storage` `nfs` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
 | [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-09-23 | `ops` `cloud` |
-| [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-19 | `ops` `cloud` |
-| [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-19 | `ops` `cloud` `verify` |
+| [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-23 | `ops` `cloud` |
+| [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-09-13 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-09-13 | `ops` `storage` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
@@ -185,17 +185,17 @@ flowchart TB
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-09-13 | `ops` `netbox` `network` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-09-18 | `ops` `nextcloud` `cloud` |
-| [電源と UPS](operations/power.md) | 2026-09-20 | `ops` `power` |
+| [電源と UPS](operations/power.md) | 2026-09-23 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-09-20 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-09-20 | `ops` `network` `router` |
-| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-13 | `ops` `secrets` |
+| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-09-13 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-09-13 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-09-18 | `ops` `vaultwarden` |
-| [確認と、はまりどころ](operations/verify.md) | 2026-09-19 | `ops` `verify` |
+| [確認と、はまりどころ](operations/verify.md) | 2026-09-23 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-09-12 | `ops` `network` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-09-12 | `ops` `vm` |
 
@@ -204,23 +204,23 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-09-13 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-09-19 | `design` `decisions` |
-| [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-19 | `design` `failure` |
+| [決定ログ](architecture/decisions.md) | 2026-09-23 | `design` `decisions` |
+| [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-23 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-09-13 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-09-13 | `design` `iac` |
-| [設計と決定の入口](architecture/index.md) | 2026-09-18 | `design` |
+| [設計と決定の入口](architecture/index.md) | 2026-09-23 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-09-20 | `design` `network` |
-| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-13 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-21 | `design` `overview` |
-| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-19 | `design` `security` |
-| [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-09-16 | `design` `network` |
-| [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-13 | `design` `bootstrap` |
+| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-23 | `design` `placement` |
+| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-23 | `design` `overview` |
+| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-23 | `design` `security` |
+| [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-09-23 | `design` `network` |
+| [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-23 | `design` `bootstrap` |
 
 ### リファレンス
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [用語集](reference/glossary.md) | 2026-09-18 | `reference` `glossary` |
+| [用語集](reference/glossary.md) | 2026-09-23 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
 | [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-09-21 | `reference` `network` |
 

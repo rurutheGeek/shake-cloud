@@ -100,6 +100,36 @@ class DocsStructureTests(unittest.TestCase):
                     broken.append(f'{rel} -> {page}#{fragment}')
         self.assertEqual(broken, [])
 
+    def test_every_page_is_reachable_from_its_section_hub(self):
+        # mkdocs' nav is not the only way in: each section's index.md is the
+        # curated entry point a reader actually lands on. A page added to the
+        # nav but not to its hub is invisible to anyone browsing the handbook.
+        link = re.compile(r'\]\(([^)\s#]+)')
+        for section in sorted({Path(rel).parent.as_posix()
+                               for rel, _ in pages() if '/' in rel}):
+            hub = DOCS / section / 'index.md'
+            if not hub.exists():
+                continue
+            members = {rel for rel, _ in pages()
+                       if Path(rel).parent.as_posix() == section
+                       and Path(rel).name != 'index.md'}
+            reached, frontier = set(), [(section + '/index.md')]
+            while frontier:
+                current = frontier.pop()
+                path = DOCS / current
+                if not path.exists():
+                    continue
+                for target in link.findall(path.read_text(encoding='utf-8')):
+                    if target.startswith(('http://', 'https://', 'mailto:')):
+                        continue
+                    rel = Path(
+                        os.path.normpath(str(Path(current).parent / target))).as_posix()
+                    if rel in members and rel not in reached:
+                        reached.add(rel)
+                        frontier.append(rel)
+            with self.subTest(section=section):
+                self.assertEqual(sorted(members - reached), [])
+
     def test_the_generated_map_is_up_to_date(self):
         result = subprocess.run(
             ['python3', str(ROOT / 'tools/docs-map.py'), '--check'],

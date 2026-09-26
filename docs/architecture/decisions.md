@@ -1,6 +1,6 @@
 ---
 title: 決定ログ
-updated: 2026-09-19
+updated: 2026-09-23
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 決定ログ
 
-> **更新日** 2026-09-19 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 このホームラボで**すでに決まっていること**と、その理由です。`operations/handover.md` の「確定した決定」を、進捗と分けてここへ移しました。
 
@@ -68,4 +68,8 @@ tags:
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
 | ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、Nextcloudからは編集しない。今回の方針ではservices-01に維持する。家電（H01）は2026-09-12に配備済みで、Authentik SSO・Eufy・SwitchBot Cloud を設定済み。VPNの同居は未配備 |
 | game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
+| 回線とポート | **MAP-E（v6プラス・JPNE）。CGNATではない。** ポート開放は可能だが**割り当てられた240個に限られ、80/443 は使えない**（2026-09-20の実測。[N06](../development/N06-router.md)）。公開Webを `https://名前/` で出す設計は採らない。WireGuard など割当ポートで済むものは公開できる |
+| 家庭内ルータ | **K11 上の OpenWrt VM `router-01` として自作する。** 市販ルータ（Aterm）はAPモードのWi-Fi専用機へ降格。設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消える。**代償としてK11が落ちると家中のネットが落ちる**（[障害モード](failure-modes.md)） |
+| ルータ管理画面の認証 | **LuCI にはSSOを付けない。** ルータは復旧経路なので、identity が止まっていても開ける必要がある。認証は LuCI 自身の root パスワード。AdGuard の管理画面は復旧に必須でないので Forward Auth を通す |
+| VLAN分離の前提 | **アンマネージドスイッチ（TL-SG605）ではVLANを設定できない。** N03 はマネージドスイッチの調達が前提条件で、機器購入なしには完了できない |
 | メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。**2026-09-12 に Gmail（`shake.notify@gmail.com`、アプリパスワード）を設定済み・実送信確認済み。** SMTP の資格情報は `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](../operations/smtp.md)） |
