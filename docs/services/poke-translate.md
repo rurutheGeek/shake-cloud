@@ -51,5 +51,8 @@ tags:
 
 ## 用語を足したいとき
 
-俗称や対戦用語は `stacks/poke-translate/custom-terms.json` に足します（管理者作業）。
-仕組みと書き方は `stacks/poke-translate/README.md` を参照してください。
+実装は公開リポジトリ [rurutheGeek/poke-translate](https://github.com/rurutheGeek/poke-translate)
+にあります。俗称や対戦用語はそこの `custom-terms.json` に足してリリースし、
+このリポジトリの固定版を上げて配備します（管理者作業。手順は
+`stacks/poke-translate/README.md`）。拡張機能のzipは、公開リポジトリの
+[リリース](https://github.com/rurutheGeek/poke-translate/releases)からも取れます。

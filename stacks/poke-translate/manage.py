@@ -1,48 +1,32 @@
 #!/usr/bin/env python3
-"""Build and serve the Pokémon-aware translator.
+"""Serve the poke-translate site on services-01. Run with sudo.
 
-``build`` writes the dictionary, the static translation site under
-``STORAGE_ROOT/site`` (``./storage`` when there is no .env) and the browser extension (``extension/`` plus a zip for
-phones).  The PokéAPI download is cached in ``STORAGE_ROOT/pokeapi.json`` and kept
-unless ``--refresh`` is given, so rebuilding never changes official names
-silently; custom-terms.json is always applied fresh.
+The implementation lives in the public repository rurutheGeek/poke-translate.
+Ansible downloads a release archive (version and sha256 pinned in the role
+defaults) and ``install`` unpacks it into ``STORAGE_ROOT/site``: only files
+whose content changed are replaced, and files that are not in the archive are
+removed, so the static server never sees a half-written site.
 """
 import argparse
-import hashlib
-import io
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
-import zipfile
-
-import dictionary
+import tarfile
 
 ROOT = Path(__file__).resolve().parent
-EXTENSION = ROOT / 'extension'
-ZIP_NAME = 'poke-translate-extension.zip'
-# 辞書の元データの版。更新するときはここを変えて ``build --refresh`` する。
-POKEAPI_REF = '168b1e89467054cda2e7df43ccebbb69b459497a'
-# 拡張機能に同梱する生成物（Git管理外）。
-GENERATED = ['poketr.js', 'dictionary.json']
+# Files the site must contain; a release without them is refused.
+REQUIRED = {'index.html', 'poketr.js', 'dictionary.json', 'poke-translate-extension.zip'}
 
 
 def settings():
-    env = ROOT / '.env'
-    if not env.exists():
-        return {}
-    return dict(line.split('=', 1) for line in env.read_text(encoding='utf-8').splitlines()
+    return dict(line.split('=', 1) for line in (ROOT / '.env').read_text(encoding='utf-8').splitlines()
                 if line and not line.startswith('#') and '=' in line)
 
 
 def storage():
-    """配備先は .env の STORAGE_ROOT。.env が無い手元では ./storage に作る。"""
-    configured = settings().get('STORAGE_ROOT')
-    if not configured:
-        return ROOT / 'storage'
-    path = Path(configured).resolve()
+    path = Path(settings().get('STORAGE_ROOT', '/srv/services/poke-translate')).resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')
     return path
@@ -62,58 +46,44 @@ def init():
     if not env.exists():
         shutil.copyfile(ROOT / '.env.example', env)
     env.chmod(0o600)
-    storage().mkdir(mode=0o755, parents=True, exist_ok=True)
+    site = storage() / 'site'
+    site.mkdir(mode=0o755, parents=True, exist_ok=True)
 
 
-def write(path, data):
-    """中身が変わったときだけ置き換え、置き換えたかを返す。"""
-    if path.exists() and path.read_bytes() == data:
-        return False
-    temporary = path.with_name(path.name + '.tmp')
-    temporary.write_bytes(data)
-    temporary.chmod(0o644)
-    temporary.replace(path)
-    return True
+def read_release(archive):
+    """Return {name: bytes} for the flat files of a release tarball."""
+    files = {}
+    with tarfile.open(archive, 'r:gz') as tar:
+        for member in tar.getmembers():
+            name = member.name
+            if not member.isfile() or '/' in name or name.startswith('.'):
+                raise ValueError(f'unexpected entry in release archive: {name}')
+            files[name] = tar.extractfile(member).read()
+    missing = REQUIRED - set(files)
+    if missing:
+        raise ValueError(f'release archive lacks {sorted(missing)}')
+    return files
 
 
-def extension_zip():
-    """同じ中身なら同じバイト列になるよう、時刻と順序を固定して zip にする。"""
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(EXTENSION.iterdir()):
-            if path.is_file() and not path.name.endswith('.tmp'):
-                info = zipfile.ZipInfo(path.name, date_time=(2026, 1, 1, 0, 0, 0))
-                info.compress_type = zipfile.ZIP_DEFLATED
-                info.external_attr = 0o644 << 16
-                archive.writestr(info, path.read_bytes())
-    return buffer.getvalue()
-
-
-def build(refresh=False, ref=POKEAPI_REF):
-    state = storage()
-    state.mkdir(mode=0o755, parents=True, exist_ok=True)
-    pokeapi, site = state / 'pokeapi.json', state / 'site'
-    if refresh or not pokeapi.exists():
-        base = dictionary.fetch_pokeapi(ref)
-        write(pokeapi, json.dumps(base, ensure_ascii=False).encode('utf-8'))
-        print(f'CHANGED: {len(base["entries"])} official terms from {base["source"]}')
-    base = json.loads(pokeapi.read_text(encoding='utf-8'))
-    custom = json.loads((ROOT / 'custom-terms.json').read_text(encoding='utf-8'))
-    built = json.dumps(dictionary.build(base, custom), ensure_ascii=False,
-                       separators=(',', ':')).encode('utf-8')
-    core = (ROOT / 'core/poketr.js').read_bytes()
-
-    changed = [write(EXTENSION / name, data)
-               for name, data in [('poketr.js', core), ('dictionary.json', built)]]
-    site.mkdir(mode=0o755, exist_ok=True)
-    changed += [write(site / name, data)
-                for name, data in [('index.html', (ROOT / 'site/index.html').read_bytes()),
-                                   ('poketr.js', core), ('dictionary.json', built)]]
-    # スマホのブラウザは zip から読み込むので、同じ中身をまとめて配る。
-    changed.append(write(site / ZIP_NAME, extension_zip()))
-    digest = hashlib.sha256(built).hexdigest()[:12]
-    status = 'CHANGED' if any(changed) else 'OK'
-    print(f'{status}: site and extension built (dictionary {digest})')
+def install(archive):
+    files = read_release(archive)
+    site = storage() / 'site'
+    site.mkdir(mode=0o755, parents=True, exist_ok=True)
+    changed = False
+    for name, data in sorted(files.items()):
+        path = site / name
+        if path.exists() and path.read_bytes() == data:
+            continue
+        temporary = site / f'.{name}.tmp'
+        temporary.write_bytes(data)
+        temporary.chmod(0o644)
+        temporary.replace(path)
+        changed = True
+    for path in site.iterdir():
+        if path.name not in files:
+            path.unlink()
+            changed = True
+    print(f'{"CHANGED" if changed else "OK"}: site installed from {Path(archive).name}')
 
 
 def lock():
@@ -137,19 +107,19 @@ def lock():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'build', 'lock', 'up', 'status', 'down'])
-    parser.add_argument('--refresh', action='store_true', help='PokéAPI から取り直す')
-    parser.add_argument('--ref', default=POKEAPI_REF, help='PokéAPI の commit')
+    parser.add_argument('action', choices=['init', 'install', 'lock', 'up', 'status', 'down'])
+    parser.add_argument('archive', nargs='?', help='release tarball for install')
     args = parser.parse_args()
     if args.action == 'init':
         init()
-    elif args.action == 'build':
-        build(args.refresh, args.ref)
+    elif args.action == 'install':
+        if not args.archive:
+            parser.error('install requires the release tarball')
+        install(args.archive)
     elif args.action == 'lock':
         lock()
     elif args.action == 'up':
         init()
-        build()
         lock()
         compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '120')
     elif args.action == 'status':
@@ -161,6 +131,7 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, RuntimeError, tarfile.TarError,
+            subprocess.CalledProcessError) as error:
         print(f'ERROR: {error}', file=sys.stderr)
         sys.exit(1)

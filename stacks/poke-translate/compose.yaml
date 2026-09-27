@@ -1,9 +1,10 @@
 # ポケモン用語対応翻訳の翻訳サイト（services-01）。
 #
-# 翻訳は閲覧者のブラウザ内（core/poketr.js）で行い、Google翻訳へも閲覧者の
-# ブラウザから直接つなぐ。このサーバは manage.py build が STORAGE_ROOT/site に
-# 作った静的ファイル（ページ・辞書・拡張機能のzip）を配るだけ。ディレクトリごと
-# 読み取り専用で渡すので、再ビルド（ファイルの置き換え）は再起動なしで反映される。
+# 本体は公開リポジトリ rurutheGeek/poke-translate。翻訳は閲覧者のブラウザ内で
+# 行い、Google翻訳へも閲覧者のブラウザから直接つなぐ。このサーバは、そのリリースを
+# manage.py install が STORAGE_ROOT/site に展開した静的ファイル（ページ・辞書・
+# 拡張機能のzip）を配るだけ。ディレクトリごと読み取り専用で渡すので、
+# 版の更新（ファイルの置き換え）は再起動なしで反映される。
 # イメージは compose.lock.yaml でダイジェスト固定する（mail-view と同じ python）。
 name: poke-translate
 

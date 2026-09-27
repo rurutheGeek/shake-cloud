@@ -1,10 +1,9 @@
 ---
-- name: Create the translator deployment directories
+- name: Create the translator deployment directory
   ansible.builtin.file:
-    path: '{{ poke_translate_project_dir }}/{{ item }}'
+    path: '{{ poke_translate_project_dir }}/releases'
     state: directory
     mode: '0755'
-  loop: ['', core, site, extension]
 
 - name: Copy the translator stack
   ansible.builtin.copy:
@@ -15,17 +14,22 @@
     - compose.yaml
     - compose.lock.yaml
     - manage.py
-    - dictionary.py
-    - custom-terms.json
     - .env.example
-    - core/poketr.js
-    - site/index.html
-    - extension/manifest.json
-    - extension/background.js
-    - extension/content.js
-    - extension/content.css
-    - extension/options.html
-    - extension/options.js
+
+# 2026-09-27 の初回配備はこのリポジトリで辞書をビルドしていた。公開リポジトリの
+# リリースへ移ったので、その時のコードと PokéAPI のキャッシュを片付ける。
+- name: Remove the files of the in-repository build
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ poke_translate_project_dir }}/core'
+    - '{{ poke_translate_project_dir }}/site'
+    - '{{ poke_translate_project_dir }}/extension'
+    - '{{ poke_translate_project_dir }}/dictionary.py'
+    - '{{ poke_translate_project_dir }}/custom-terms.json'
+    - '{{ poke_translate_project_dir }}/__pycache__'
+    - '{{ poke_translate_storage_root }}/pokeapi.json'
 
 - name: Render the deployment environment
   ansible.builtin.template:
@@ -39,13 +43,21 @@
     chdir: '{{ poke_translate_project_dir }}'
   changed_when: false
 
-# PokéAPI は初回だけ取得し、以後は保存した公式名に custom-terms.json を重ねる。
-- name: Build the dictionary, site and extension
+- name: Download the pinned release
+  ansible.builtin.get_url:
+    url: '{{ poke_translate_release_url }}'
+    dest: '{{ poke_translate_project_dir }}/releases/poke-translate-site-v{{ poke_translate_version }}.tar.gz'
+    checksum: 'sha256:{{ poke_translate_sha256 }}'
+    mode: '0644'
+
+# 変わったファイルだけ置き換え、リリースに無いファイルは消す。再起動は要らない。
+- name: Install the release into the site directory
   ansible.builtin.command:
-    argv: [python3, manage.py, build]
+    argv: [python3, manage.py, install,
+           'releases/poke-translate-site-v{{ poke_translate_version }}.tar.gz']
     chdir: '{{ poke_translate_project_dir }}'
-  register: poke_translate_build
-  changed_when: "'CHANGED' in poke_translate_build.stdout"
+  register: poke_translate_install
+  changed_when: "'CHANGED' in poke_translate_install.stdout"
 
 - name: Pin images
   ansible.builtin.command:
