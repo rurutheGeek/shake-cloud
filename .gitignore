@@ -65,3 +65,7 @@ platform/sops/*
 # dist/ は build.sh が再生成する。Terraform の router モジュールが取り込む。
 platform/openwrt/.build/
 platform/openwrt/dist/
+
+# ポケモン翻訳の拡張機能に同梱する生成物（manage.py build）
+stacks/poke-translate/extension/poketr.js
+stacks/poke-translate/extension/dictionary.json

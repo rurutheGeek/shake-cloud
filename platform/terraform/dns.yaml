@@ -120,6 +120,10 @@ records:
     host: services-01
     upstream: 127.0.0.1:8300
     description: LibreSpeed（端末↔services-01の速度計測）
+  poke:
+    host: services-01
+    upstream: 127.0.0.1:8320
+    description: ポケモン用語対応翻訳（翻訳サイトと拡張機能の配布）
   ha:
     host: services-01
     upstream: 127.0.0.1:8123

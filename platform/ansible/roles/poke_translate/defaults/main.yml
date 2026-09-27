@@ -1,0 +1,9 @@
+---
+# ポケモン用語対応翻訳の翻訳サイトを services-01 に単独で置く（manage.py を使う）。
+poke_translate_project_dir: /opt/services/poke-translate
+poke_translate_storage_root: /srv/services/poke-translate
+poke_translate_source_dir: '{{ playbook_dir }}/../../stacks/poke-translate'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://poke.<ゾーン> で受ける。
+poke_translate_port: 8320
+poke_translate_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+poke_translate_public_url: 'https://poke.{{ poke_translate_dns.zone }}'

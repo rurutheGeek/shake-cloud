@@ -1,0 +1,20 @@
+poke-tr {
+  display: block;
+  margin: 0.25em 0 0.5em;
+  padding: 0.1em 0 0.1em 0.6em;
+  border-left: 3px solid #e3350d;
+  color: inherit;
+  font-size: 0.95em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+poke-tr[data-kind="code"] { font-family: ui-monospace, monospace; font-size: 0.9em; line-height: 1.5; }
+/* 訳のみ表示: 段落直下の文字はCSSで選べないので、段落の文字を0にして訳文だけ戻す。 */
+html.poke-tr-only [data-poke-tr-source] { font-size: 0 !important; }
+html.poke-tr-only [data-poke-tr-code] { display: none !important; }
+html.poke-tr-only poke-tr { font-size: 16px !important; border-left: 0; padding-left: 0; }
+#poke-tr-status {
+  position: fixed; right: 12px; bottom: 12px; z-index: 2147483647;
+  padding: 6px 12px; border-radius: 8px; background: #1d1d1b; color: #fff;
+  font: 13px/1.5 system-ui, sans-serif; box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}

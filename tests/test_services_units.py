@@ -35,6 +35,10 @@ class UnitTests(unittest.TestCase):
             'service': 'librespeed', 'port': '${LIBRESPEED_PORT:-8300}',
             'prefixes': ['/srv/services/librespeed'], 'playbook': 'librespeed.yml',
         },
+        'poke-translate': {
+            'service': 'site', 'port': '${POKE_TRANSLATE_PORT:-8320}',
+            'prefixes': ['/srv/services/poke-translate'], 'playbook': 'poke-translate.yml',
+        },
         'vaultwarden': {
             'service': 'vaultwarden', 'port': '${VAULTWARDEN_PORT:-8222}',
             'prefixes': ['/srv/services/vaultwarden'], 'playbook': 'vaultwarden.yml',
@@ -78,10 +82,11 @@ class UnitTests(unittest.TestCase):
             self.assertEqual(play['hosts'], 'netbox_bootstrap', name)
             # Services may be entered directly through manage.py (the new
             # units) or through the existing role wrapper (Homarr).
-            role_based = 'manage.py' not in text and name in str(play.get('roles', []))
+            role = name.replace('-', '_')
+            role_based = 'manage.py' not in text and role in str(play.get('roles', []))
             self.assertTrue('manage.py' in text or role_based, name)
             if role_based:
-                role_defaults = ROOT / 'platform/ansible/roles' / name / 'defaults/main.yml'
+                role_defaults = ROOT / 'platform/ansible/roles' / role / 'defaults/main.yml'
                 text += role_defaults.read_text(encoding='utf-8')
             self.assertTrue(any(prefix in text for prefix in expected['prefixes']), name)
 

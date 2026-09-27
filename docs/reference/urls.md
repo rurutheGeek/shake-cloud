@@ -25,6 +25,7 @@ tags:
 | 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（identity VM。`:9000`・`:9443` は 127.0.0.1） | 全員 |
 | Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（services-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
 | LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ services-01 の実効速度（services-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
+| ポケモン翻訳 | <https://poke.apextox.dpdns.org> | ポケモン用語を公式名に固定する翻訳と拡張機能の配布（services-01。`127.0.0.1:8320`） | 全員 |
 | メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（services-01。`127.0.0.1:8310`。Forward Auth） | 全員 |
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（services-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
@@ -97,7 +98,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | 名前 | アドレス | 用途 |
 | --- | --- | --- |
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
-| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・LibreSpeed・Eufy 中継・メールビューア |
+| services-01 | `debian@192.168.10.200` | NetBox・ドキュメント・Homarr・Vaultwarden・Home Assistant・CUPS・LibreSpeed・Eufy 中継・メールビューア・ポケモン翻訳 |
 | identity | `debian@192.168.10.204` | Authentik |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
 | storage-s3 | `192.168.10.206` | Garage |

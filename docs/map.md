@@ -105,6 +105,7 @@ flowchart TB
 | [音楽の取り込み・タグ編集・BCSTM](services/music.md) | 2026-09-16 | `guide` `music` |
 | [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-09-26 | `guide` `nextcloud` |
 | [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-09-19 | `guide` `nextcloud` `cloud` |
+| [ポケモン翻訳](services/poke-translate.md) | 2026-09-27 | `guide` |
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
 | [共通RSSタイムライン（FreshRSS）](services/rss.md) | 2026-09-16 | `guide` `rss` |
 | [タグ管理（MP3）](services/tags.md) | 2026-09-16 | `guide` `music` |
@@ -236,6 +237,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-09-18 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 120 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 121 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

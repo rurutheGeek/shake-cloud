@@ -15,6 +15,7 @@ nav:
       - 共通ログインの使い方: services/identity.md
       - Homarrハブ: services/homarr.md
       - 通信速度テスト（LibreSpeed）: services/librespeed.md
+      - ポケモン翻訳: services/poke-translate.md
       - 日本語表示: services/language.md
       - Nextcloudの使い方: services/nextcloud-guide.md
       - Nextcloudファイルエージェント（AI用MCP）: services/nextcloud-agent.md

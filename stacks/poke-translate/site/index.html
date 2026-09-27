@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ポケモン翻訳</title>
+<style>
+:root { color-scheme: light dark; --bg: #f7f7f5; --fg: #1d1d1b; --muted: #6b6b66; --line: #d9d9d4; --card: #fff; --accent: #c0392b; --mark: #fff1c2; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ececea; --muted: #9a9a94; --line: #34342f; --card: #1f1f1d; --accent: #ef6f5e; --mark: #4a3f14; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 20px; margin: 0 0 16px; }
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+select, button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .panes { grid-template-columns: 1fr; } }
+textarea, .out { width: 100%; min-height: 260px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--fg); font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+.muted { color: var(--muted); font-size: 14px; }
+ul { padding-left: 20px; margin: 8px 0; }
+li code { background: var(--mark); padding: 0 4px; border-radius: 4px; }
+.warn { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>ポケモン用語対応翻訳</h1>
+  <div class="bar">
+    <select id="source" aria-label="原文の言語"><option value="auto">自動判定</option></select>
+    <button id="swap" type="button" aria-label="入れ替え">⇄</button>
+    <select id="target" aria-label="訳文の言語"></select>
+    <label class="muted"><input id="termsOnly" type="checkbox"> 用語だけ置き換え（Showdown形式の型など）</label>
+    <button id="go" class="primary" type="button">翻訳（Ctrl+Enter）</button>
+    <span id="status" class="muted"></span>
+  </div>
+  <div class="panes">
+    <textarea id="q" placeholder="ガブリアスのじしんとげきりんで、こだわりスカーフを持たせる。"></textarea>
+    <div id="out" class="out" aria-live="polite"></div>
+  </div>
+  <p id="warnings" class="warn"></p>
+  <div id="terms" class="muted"></div>
+  <p class="muted">見ているページをそのまま訳すには<a href="poke-translate-extension.zip">拡張機能（zip）</a>を入れる。翻訳は閲覧中のブラウザから Google翻訳を直接呼ぶ。</p>
+</main>
+<script src="poketr.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+function recall(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+for (const [code, name] of Object.entries(PokeTr.LANGUAGES)) {
+  $('source').add(new Option(name, code));
+  $('target').add(new Option(name, code));
+}
+$('source').value = recall('source') || 'auto';
+$('target').value = recall('target') || 'ja';
+$('termsOnly').checked = recall('termsOnly') === '1';
+const engine = new PokeTr.GoogleWeb();
+// 辞書は約1MB。最初の翻訳までに読み終えればよいので、表示と並行して読む。
+const glossary = fetch('dictionary.json').then((r) => {
+  if (!r.ok) throw new Error(`辞書を読めません（HTTP ${r.status}）`);
+  return r.json();
+}).then((dictionary) => new PokeTr.Glossary(dictionary));
+glossary.then((g) => { $('status').textContent = `用語 ${Object.keys(g.entries).length} 件`; },
+  (error) => { $('status').textContent = error.message; });
+async function go() {
+  const q = $('q').value;
+  if (!q.trim()) return;
+  const source = $('source').value, target = $('target').value, termsOnly = $('termsOnly').checked;
+  remember('source', source); remember('target', target); remember('termsOnly', termsOnly ? '1' : '0');
+  $('status').textContent = '翻訳中…';
+  try {
+    const g = await glossary;
+    let data;
+    if (termsOnly) {
+      data = PokeTr.replaceTerms(g, [q], source, target);
+      data.translatedText = data.translatedText[0];
+    } else {
+      data = await PokeTr.translate(g, engine, q, source, target);
+    }
+    $('out').textContent = data.translatedText;
+    $('warnings').textContent = data.warnings.join(' / ');
+    const list = document.createElement('ul');
+    for (const term of data.terms) {
+      const item = document.createElement('li');
+      const from = document.createElement('code'); from.textContent = term.source;
+      const to = document.createElement('code'); to.textContent = term.target;
+      item.append(from, ' → ', to, ` (${term.key})`);
+      list.append(item);
+    }
+    $('terms').replaceChildren(data.terms.length ? '辞書で固定した用語:' : '', list);
+    $('status').textContent = '';
+  } catch (error) {
+    $('status').textContent = '失敗: ' + error.message;
+  }
+}
+$('go').addEventListener('click', go);
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) go(); });
+$('swap').addEventListener('click', () => {
+  if ($('source').value === 'auto') return;
+  [$('source').value, $('target').value] = [$('target').value, $('source').value];
+  [$('q').value, $('out').textContent] = [$('out').textContent, $('q').value];
+});
+</script>
+</body>
+</html>
