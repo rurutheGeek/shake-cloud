@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
@@ -248,4 +249,25 @@ func TestOneRefusedEntryDoesNotHoldBackTheOthers(t *testing.T) {
 	if vm, ok := ledger.byName(mediaID); !ok || vm.PrimaryIP4 != 41 {
 		t.Fatalf("the other instance was not registered: %+v, found %v", vm, ok)
 	}
+}
+
+func TestAWakeUpSyncsWithoutWaitingForTheTimer(t *testing.T) {
+	ledger := newFakeLedger()
+	s := ledgerService(ledger)
+	s.ledgerWake = make(chan struct{}, 1)
+	// Asking twice before the sync runs must not block the caller.
+	s.wakeLedger()
+	s.wakeLedger()
+	select {
+	case <-s.ledgerWake:
+	case <-time.After(time.Second):
+		t.Fatal("no wake-up was queued")
+	}
+	select {
+	case <-s.ledgerWake:
+		t.Fatal("a second wake-up was queued; one is enough")
+	default:
+	}
+	// A service built without the channel (no ledger) ignores the request.
+	(&Service{}).wakeLedger()
 }

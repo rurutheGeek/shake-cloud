@@ -214,7 +214,7 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 | --- | --- | --- |
 | 基盤VM（identity・cloud-01 など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
 | services-01 | `10-platform`（VM本体は `05-seed`。台帳の器だけ足す） | タグ `services` |
-| クラウドAPIが作ったVM（media-01・net-01・monitor-01 など） | **クラウドAPI自身**（1分ごとに同期） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
+| クラウドAPIが作ったVM（media-01・net-01・monitor-01 など） | **クラウドAPI自身**（VMの状態が変わったらすぐ同期。取りこぼし対策に15分ごとにも見比べる） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
 
 クラウドVMの扱いは次のとおりです。
 
@@ -235,7 +235,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 1. `tools/tf 10-platform apply` — NetBox にタグ `media-stack`・`monitoring`・`services` と、services-01 の台帳（VM・インターフェース・primary IP）を作る
 2. `cloud.yml` を流してクラウドAPIを更新する（`site.json` に `ledger` が入り、API が台帳への登録を始める）
-3. 1〜2分待って上の `ansible-inventory --graph` を流し、`media`・`vpn`・`monitoring`・`services`・`cloud_instances` に期待したホストが居ることを確かめる
+3. 上の `ansible-inventory --graph` を流し、`media`・`vpn`・`monitoring`・`services`・`cloud_instances` に期待したホストが居ることを確かめる
 4. 以後の配備は `-i platform/ansible/inventory.netbox.yml` で流す
 
 切替が済むまでは従来の入口も使えます。済んだら 1〜3 行目を削除します。
