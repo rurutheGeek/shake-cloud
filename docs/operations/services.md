@@ -1,6 +1,6 @@
 ---
 title: サービスの置き場所とクラウドVMでの作り方
-updated: 2026-09-23
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # サービスの置き場所とクラウドVMでの作り方
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。
 
@@ -205,7 +205,48 @@ ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
 - クラウドVMへの DNS **自動**登録（`dns.yaml` へ手で宣言する）。
 - 既存環境からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
 
-クラウドVMは Ansible のクラウド動的インベントリ（`platform/ansible/inventory.cloud.py`・`cloud-inventory.yml`。I03 で実機確認済み）で配備できます。`media.yml` がこの方式を使います。**基盤の NetBox インベントリとは併用しません**（`media` 群が和集合になるため）。
+<a id="inventory"></a>
+## Ansibleのインベントリ（NetBoxへ統一）
+
+**配備対象は NetBox の動的インベントリ（`platform/ansible/inventory.netbox.yml`）1本から見つけます。** グループは NetBox のタグで決まり、タグの正本は `platform/terraform/tags.yaml` です。
+
+| 対象 | NetBoxへ載せるもの | グループの決まり方 |
+| --- | --- | --- |
+| 基盤VM（identity・cloud-01 など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
+| services-01 | `10-platform`（VM本体は `05-seed`。台帳の器だけ足す） | タグ `services` |
+| クラウドAPIが作ったVM（media-01・net-01・monitor-01 など） | **クラウドAPI自身**（1分ごとに同期） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
+
+クラウドVMの扱いは次のとおりです。
+
+- **ホスト名はインスタンスID（`i-...`）**、表示名（`tags.Name`）は変数 `cloud_name` に入ります。`--limit` はグループ名（`media` など）で絞ります。
+- **稼働中のVMだけが対象になります。** 止めると NetBox 上で `offline` になり、インベントリから外れます。削除すると台帳からも消えます。
+- **グループはVM自身のタグでは決めません。** グループは「どの秘密値をそのホストへ配るか」を決めるので、誰でも付けられる名前には任せません。`cloud.yaml` の `ledger.group_accounts` に書いたアカウントの、`ledger.tags_by_name` に書いた名前のVMだけにタグが付きます。他の利用者のVMは台帳に載るだけで、どのグループにも入りません（共通の `cloud_instances` を除く）。
+- **VMを作り直しても、名前が同じなら宣言の修正は要りません**（以前の `cloud-inventory.yml` はインスタンスIDで書いていたので、作り直すたびに直す必要がありました）。
+- 新しいサービスVMを足すときは、`tags.yaml` にタグ、`inventory.netbox.yml` にグループ、`cloud.yaml` の `ledger.tags_by_name` に名前を足し、`10-platform` と `cloud.yml` を流します。
+
+```bash
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  '.venv/bin/ansible-inventory -i platform/ansible/inventory.netbox.yml --graph'
+```
+
+### 切替の手順と、まだ残っている手書きインベントリ
+
+**2026-10-02 時点ではコードだけ入っていて、実機への切替は未実施です。** 次の順で切り替えます。
+
+1. `tools/tf 10-platform apply` — NetBox にタグ `media-stack`・`monitoring`・`services` と、services-01 の台帳（VM・インターフェース・primary IP）を作る
+2. `cloud.yml` を流してクラウドAPIを更新する（`site.json` に `ledger` が入り、API が台帳への登録を始める）
+3. 1〜2分待って上の `ansible-inventory --graph` を流し、`media`・`vpn`・`monitoring`・`services`・`cloud_instances` に期待したホストが居ることを確かめる
+4. 以後の配備は `-i platform/ansible/inventory.netbox.yml` で流す
+
+切替が済むまでは従来の入口も使えます。済んだら 1〜3 行目を削除します。
+
+| インベントリ | 役割 | 切替後 |
+| --- | --- | --- |
+| `inventory.cloud.py`・`cloud-inventory.yml` | クラウドVM（インスタンスIDで宣言） | 削除する。**NetBox のインベントリと併用しない**（同じVMが2つのホスト名で出る） |
+| `monitor.ini` | monitor-01 | 削除する |
+| `seed.ini` の `services` グループ | services-01 | NetBox が使えないときの予備として残す |
+| `seed.ini` の `netbox_bootstrap` | NetBox 自身を作る初回（`netbox.yml`） | 残す。NetBox が無いと動的インベントリは使えない |
+| `pve.ini` | Proxmox ホスト | 残す。NetBox へ載せるには機器の primary IP とタグの同期（`tools/netbox-dhcp-sync.py`）が要り、未着手 |
 
 <a id="media-units"></a>
 ### media-01 を単体で配り直す
@@ -231,4 +272,4 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-navidrome.yml
 ```
 
-`media-sso.yml` は identity VM から秘密値を slurp するため、**identity も同じインベントリに居る必要があります**。`cloud-inventory.yml` が出す media-01 のインスタンスIDで `--limit` して対象を絞ってください（Playbook 冒頭のコメントに実例があります）。
+`media-sso.yml` は identity VM から秘密値を slurp するため、**identity も同じインベントリに居る必要があります**。NetBox のインベントリなら両方が居ます（切替前は `cloud-inventory.yml` が出す media-01 のインスタンスIDで `--limit` して対象を絞ります。Playbook 冒頭のコメントに実例があります）。

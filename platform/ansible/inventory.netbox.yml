@@ -34,6 +34,15 @@ groups:
   storage: "'storage' in tags or 'storage' in (tags | map(attribute='slug', default='') | list)"
   vpn: "'vpn' in tags or 'vpn' in (tags | map(attribute='slug', default='') | list)"
   lab: "'lab' in tags or 'lab' in (tags | map(attribute='slug', default='') | list)"
+  monitoring: "'monitoring' in tags or 'monitoring' in (tags | map(attribute='slug', default='') | list)"
+  services: "'services' in tags or 'services' in (tags | map(attribute='slug', default='') | list)"
+  cloud_instances: "'managed-by-cloud-api' in tags or 'managed-by-cloud-api' in (tags | map(attribute='slug', default='') | list)"
+# クラウドAPIが登録したVMは、ホスト名がインスタンスID（i-...）になる。作り直しても
+# 変わらない表示名は primary IP の dns_name にあるので、cloud_name として渡す
+# （tls_proxy ロールが dns.yaml の host と照合するのに使う）。式は NetBox が返す
+# 生のオブジェクトに対して評価される（上の tags と同じ）。
+compose:
+  cloud_name: (primary_ip4 | default({}, true)).dns_name | default('')
 # ansible_host is set to Primary IP by nb_inventory itself.
 strict: true
 cache: false

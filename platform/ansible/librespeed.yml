@@ -3,7 +3,7 @@
 #   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 #     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/librespeed.yml
 - name: Deploy LibreSpeed
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   roles:
     - docker

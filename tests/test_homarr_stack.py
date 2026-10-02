@@ -418,7 +418,7 @@ class IntegrationTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_homarr_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/homarr.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'services')
         roles = play[0]['roles']
         # tls_proxy first: configure logs in through the public name, where
         # NextAuth's cookies are Secure and only HTTPS carries them.

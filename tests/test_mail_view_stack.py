@@ -437,7 +437,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_the_viewer_behind_tls_and_sso(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/mail-view.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'services')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('mail_view'))
         self.assertLess(roles.index('tls_proxy'), roles.index('mail_view'))

@@ -283,7 +283,7 @@ class IdentityTests(unittest.TestCase):
 class AnsibleTests(unittest.TestCase):
     def test_playbook_uses_independent_project_and_storage(self):
         play = yaml.safe_load(PLAYBOOK.read_text(encoding='utf-8'))[0]
-        self.assertEqual(play['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play['hosts'], 'services')
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn('home_assistant_project_dir', text)
         self.assertIn('home_assistant_storage_root', text)

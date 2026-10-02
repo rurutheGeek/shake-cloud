@@ -109,7 +109,7 @@ class AnsibleTests(unittest.TestCase):
         self.play = yaml.safe_load(self.text)[0]
 
     def test_playbook_targets_services_01_and_reads_credentials_from_sops(self):
-        self.assertEqual(self.play['hosts'], 'netbox_bootstrap')
+        self.assertEqual(self.play['hosts'], 'services')
         self.assertIn('eufy_credentials', self.text)
         self.assertIn('no_log: true', self.text)
         self.assertIn('manage.py', self.text)

@@ -243,7 +243,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_vaultwarden_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/vaultwarden.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'services')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('vaultwarden'))
         # tls_proxy first: Caddy serves https://vault.<zone> and owns the cert.

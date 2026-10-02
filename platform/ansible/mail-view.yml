@@ -5,7 +5,7 @@
 # Forward Auth のプロバイダとアプリは identity の configure.py が作るので、
 # 先に identity.yml を流す。
 - name: Deploy the Gmail viewer
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   roles:
     - docker

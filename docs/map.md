@@ -197,7 +197,7 @@ flowchart TB
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-09-20 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
-| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-09-23 | `ops` `placement` |
+| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-02 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-09-13 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |

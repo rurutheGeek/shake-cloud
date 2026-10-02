@@ -4,7 +4,7 @@
 # services-01 は NetBox より前に固定IPで作ったので、NetBox の動的インベントリに
 # 載っていない。NetBox 本体と同じ静的インベントリのグループを使う。
 - name: Publish the documentation site
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   roles:
     - docker
