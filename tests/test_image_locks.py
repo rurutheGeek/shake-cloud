@@ -20,7 +20,7 @@ DIGEST = re.compile(r'@sha256:[0-9a-f]{64}$')
 UNPINNED = {
     # game1（Bazzite）へ構成管理の鍵で入れず、稼働中の digest を読めていない。
     'stacks/romm/compose.yaml',
-    # 未配備。配備時に `manage.py lock` の結果をリポジトリへ入れる。
+    # 配備先を確認できておらず、稼働中の digest を読めていない。
     'stacks/pokemon-ai/ollama/compose.yaml',
 }
 

@@ -113,6 +113,7 @@ nav:
           - Vaultwardenの管理: operations/vaultwarden.md
           - メール設定: operations/smtp.md
           - Windows 11 ProのVMを作る: operations/windows.md
+          - android-01（Waydroid）の環境: operations/android-01.md
       - ネットワークとストレージ:
           - net-01（subnet router）: operations/net.md
           - VLAN 分離への切替: operations/vlan.md
@@ -148,6 +149,7 @@ nav:
   - 記録:
       - 記録の入口: audits/index.md
       - Web GUI監査・改善案: audits/webgui-2026-09-12.md
+      - 構成監査の未対応指摘: audits/config-audit-2026-09-16.md
 
 # Mermaidをオフラインで描画する（docs/assets/js/README.md参照）。
 extra_javascript:

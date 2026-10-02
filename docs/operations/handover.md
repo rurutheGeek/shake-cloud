@@ -227,6 +227,11 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | state の置き場 | Cloudflare R2。基盤は `shake-cloud/<module>/…`、サービスは `shake-cloud/services/<name>/terraform.tfstate`（I05で`tools/tf services/*`分岐とロックを実機確認済み） | 資格情報は`s3.sops.yaml`と`services.sops.yaml`（`services.sops.yaml` は作成済み。キーの有効性・権限は未確認）。Garageは復旧時にstateの唯一の保管先にしない |
 | AWX | **配備済み（2026-09-12）**: 24.6.1 を Flux で配備（[kubernetes.md](kubernetes.md)・[AWXの使い方](awx.md)） | ジョブテンプレート・プロジェクトの整備はこれから |
 | Terraform の版 | **解決済み（2026-09-12）**: `.terraform-version`＝`1.15.8` が唯一の出所。CI は同ファイルを読み、`devbox` ロールも同版のバイナリを入れる（`tests/test_terraform_version.py` が検査） | — |
+| 構成監査の残り指摘 | 2026-09-16の監査で残っている指摘は[構成監査の未対応指摘](../audits/config-audit-2026-09-16.md)にまとめた（2026-10-02） | 優先順は ①age受信者を3本に（30分）→ ②既定SGのingressを閉じる／管理CIDRへのegress DROP → ③NetBox・print-apiのHTTPS化／127.0.0.1束縛 → ④`mem_limit`と`retention.size` → ⑤復元ドリルの月次化と最終復元成功日の記録 |
+| android-01 の環境 | 環境スクリプト（`/opt/leo/persist.sh`・`ui-loop.sh`・`recover.sh`・`verify.sh`・`hook.js`・`android-env.service`）は VM 上にしか無く Git に入っていない。VM を作り直すと失われる | Ansible 化が未了（[android-01](android-01.md)） |
+| Nextcloud MCP の実データ確認 | 人間の Nextcloud アカウントでの実データ確認（タグ編集→同期タイマー→Navidrome 反映、大きい zip の解凍、MOVE での fileid 維持、tag-api のトークン付き呼び出し）は未了 | 確認までは動作確認済みと書かない（[A06](../development/A06-nextcloud-mcp.md#design-decisions)） |
+| 依存更新の自動化 | **設定を追加（2026-10-02）**: `renovate.json`（週次・自動マージなし）とCIの `govulncheck`・`ruff`・`shellcheck`。👤 RenovateのGitHub Appをリポジトリへ入れるまでPRは作られない | `compose.lock.yaml` のdigestはRenovateの対象外。更新はリポジトリのlockを書き換えて配り直す |
+| イメージのdigest固定 | **monitoring・home-assistant・eufy-security-ws の配備先lockをリポジトリへ取り込んだ（2026-10-02。稼働中のdigestと同一で、実機は変更していない）。** 残る例外は `romm`（game1へ構成管理の鍵で入れない）と `pokemon-ai/ollama`（配備先を未確認） | 例外は `tests/test_image_locks.py` の `UNPINNED`。増やさない |
 
 ## 7. 引き継ぐ人のアクセス
 

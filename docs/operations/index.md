@@ -1,6 +1,6 @@
 ---
 title: 運用手順の入口
-updated: 2026-09-23
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 運用手順の入口
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 環境を立ち上げる人と、日々動かす人向けの手順です。**実機の状態・進捗・TODOの正本は[配備台帳](handover.md)** で、この一覧はそこへ至る道順です。
 
@@ -50,6 +50,7 @@ tags:
 | [Vaultwardenの管理](vaultwarden.md) | 保管庫・SSO・招待 |
 | [メール設定（SMTP）](smtp.md) | 招待・復旧メールの送信 |
 | [Windows 11 Pro のVMを作る](windows.md) | ポータルからのISOインストール |
+| [android-01（Waydroid）の環境](android-01.md) | Android VMの構成・復旧・FROZEN対策・Frida未解決の課題 |
 
 ## 4. ネットワーク
 
