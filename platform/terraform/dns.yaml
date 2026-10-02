@@ -45,8 +45,14 @@ records:
     upstream: 127.0.0.1:4533
     description: Navidrome（音楽ストリーミング。Forward Auth）
     auth: true
-    # アルバム確認HTMLをダウンロードせず表示する（/review/、同じSSO）。
-    static_prefix: /review
+    # 全曲レビュー（いいね・指摘・試聴）を同じSSOで /review/ へ中継する。
+    # 実体は music-tools の review サービス（127.0.0.1:5830）。
+    path_routes:
+      - path: /review
+        upstream: 127.0.0.1:5830
+        description: 全曲レビュー（いいね・指摘・試聴）
+    # 生成した確認HTML（カバー・歌詞など）は /review-static/ で見る。
+    static_prefix: /review-static
     static_data: /data/review
   # Subsonicクライアント（Ultrasonic等）用の入口。SSOを通さず、Navidromeの
   # 自前認証（ユーザー名とパスワード）を使う。Web UIは上の名前（SSO）のまま。

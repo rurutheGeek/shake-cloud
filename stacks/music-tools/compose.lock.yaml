@@ -6,3 +6,4 @@ services:
   tagger: *id001
   tag-api: *id001
   khinsider: *id001
+  review: *id001
