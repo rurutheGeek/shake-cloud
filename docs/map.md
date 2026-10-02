@@ -211,7 +211,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-09-13 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-09-23 | `design` `decisions` |
+| [決定ログ](architecture/decisions.md) | 2026-10-02 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-23 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-09-13 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-09-27 | `design` `iac` |
