@@ -16,7 +16,6 @@ import secrets
 import shutil
 import string
 import subprocess
-import sys
 
 ROOT = Path(__file__).resolve().parent
 # Alertmanager の dead man's switch ブロック。ping URL が無いときは丸ごと外す

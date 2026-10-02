@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from dcim.models import Site

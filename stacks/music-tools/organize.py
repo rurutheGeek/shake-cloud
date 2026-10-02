@@ -1147,7 +1147,6 @@ def command_apply(args):
     state = Path(args.state)
     backups = state / 'tag-backups'
     journal = {'created': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'entries': []}
-    covers_done = set()
     moved_dirs = set()
     counts = collections.Counter()
     for album in manifest['albums']:

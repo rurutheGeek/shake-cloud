@@ -1,7 +1,13 @@
 name: Validate
 on:
+  # PRでは pull_request だけで走らせ、push との二重実行を避ける。
   push:
+    branches: [main]
   pull_request:
+# 同じrefの古い実行は新しい実行で置き換える。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -20,7 +26,7 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
       - name: Install documentation and lint dependencies
         run: python3 -m pip install -r tools/requirements.txt
       # The suite skips the ansible-playbook --syntax-check tests when the
@@ -46,7 +52,7 @@ jobs:
         id: terraform
         run: echo "version=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
         with:
           terraform_version: ${{ steps.terraform.outputs.version }}
           terraform_wrapper: false
@@ -62,7 +68,7 @@ jobs:
             terraform -chdir="$dir" validate
           done
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
           go-version-file: cloud/api/go.mod
           cache-dependency-path: |
@@ -91,8 +97,21 @@ jobs:
         run: |
           go vet ./...
           go test ./...
+      # 脆弱性のある依存・標準ライブラリを実際に呼んでいる場合だけ失敗する。
+      - name: Scan Go modules for vulnerabilities
+        run: |
+          for dir in cloud/api cloud/client cloud/cli cloud/mcp cloud/provider; do
+            echo "== $dir"
+            (cd "$dir" && go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...)
+          done
       - name: Lint YAML
         run: python3 -m yamllint -c .yamllint .
+      # 整形ではなく壊れたコード・明確なバグだけを見る。ルールは ruff.toml。
+      - name: Lint Python
+        run: python3 -m ruff check .
+      # ubuntu-24.04 ランナーにはプリインストール済み。
+      - name: Lint shell scripts
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck
       - name: Check publication contents
         run: python3 tools/check-publication.py
       - name: Build Japanese documentation

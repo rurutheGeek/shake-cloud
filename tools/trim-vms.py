@@ -25,7 +25,6 @@ import json
 from pathlib import Path
 import re
 import subprocess
-import sys
 
 # Addresses match docs/operations/handover.md, the deployment ledger. The
 # management VMs are the ones the automation owns; the dev VMs belong to their

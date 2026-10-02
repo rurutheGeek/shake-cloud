@@ -1,5 +1,7 @@
 # リポジトリ検証用。配備先へは入れない。
 yamllint==1.38.0
+# Pythonの壊れたコード（構文エラー・未定義名・未使用import）を落とす。設定は ruff.toml。
+ruff==0.16.10
 # tools/verify-cloud.py が Proxmox API を叩くのに使う。
 requests==2.32.4
 # ドキュメントサイトの厳格ビルド（mkdocs build --strict）と、
