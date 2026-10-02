@@ -1,6 +1,6 @@
 ---
 title: W03 Nextcloud・Calendar・Tasksのmedia-01移行
-updated: 2026-09-19
+updated: 2026-10-02
 section: 開発計画
 audience: 開発者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # W03 Nextcloud・Calendar・Tasksのmedia-01移行
 
-> **更新日** 2026-09-19 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -40,3 +40,12 @@ tags:
 - 共有books/musicは対象者だけに見え、私有ファイルは他人へ公開されない。既存利用者のファイル所有者が変わらない。
 - アップロード・ダウンロード・共有、Calendar予定とTasksの作成・更新、スマホCalDAV同期、cronの実行を確認する。
 - 整合バックアップからファイル件数とDB内容を確認し、再配備・VM停止再開後に同期が復帰する。media-01停止中の同期・予定表停止を案内する。
+
+<a id="handover-log"></a>
+
+## handover移動分の作業記録
+
+handover.md の「5. 進捗とTODO」表の該当行から移した記録（原文のまま。表セルを日付ごとの箇条書きに整形しただけ）。いまの状態と未完は handover.md の該当行を参照。
+
+- **2026-09-19: NextcloudへNotes（ストアアプリ）を追加。** `group_vars/media.yml` の `nextcloud_apps` に足して `media-nextcloud.yml` を再配備し、`manage.py apps` が全アプリを `OK:`（変更ゼロ・Notes有効）と確認。あわせて `manage.py config-notes` で表示既定を生Markdown（`noteMode=edit`）に揃え、`occ config:app:get notes noteMode` が `edit` を返すことを確認。利用者はNotes設定の「表示」からRich text／Previewへ変更できる。
+- **2026-09-19: 旧Androidアプリのカレンダーを移行（884件）。** LocalSendで`inbox`へ届いたICSを`manage.py import-calendar`（独立`TZID`の付け替え・`DTEND:19700101T090000`を1時間へ補正・UIDで再実行可能・`--share`対応）でCalDAVへ取り込み、ルルザギークの「ルルザギークのカレンダー」としてすすすへ編集可で共有。実測は閲覧可能884件（`@kfsoft.info` 197＋`@local` 687）・共有側一覧のWritable表示で確認し、検証用オブジェクトと一時アプリパスワードは削除済み。

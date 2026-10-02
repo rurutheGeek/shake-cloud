@@ -1,6 +1,6 @@
 ---
 title: I02 media-01のVM宣言
-updated: 2026-09-12
+updated: 2026-10-02
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # I02 media-01のVM宣言
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **区分**: 新規実装 ・ **状態**: media-01 作成済み・実機確認済み（2026-09-12）。アプリの配備とデータ切替はW03〜W06（RomMはgame1側）。
 
@@ -51,3 +51,13 @@ Terraform validate・planで基盤VMへの変更がなく、作成後の再plan�
 - apply で Provider の SG ルール同時作成の競合（3ルールが同じIDを state に持つ）を発見し、`findNewRule` を属性一致へ修正した。state は `state rm` → `import` で復旧。詳細は[確認と、はまりどころ](../operations/verify.md)。
 
 **残る前提:** ホスト空き容量はI01で測定済み。移行する原本・DB・索引・復元領域の実データ量は未確定。`tools/tf` はサービス向けの資格情報分岐がまだ無い（I05）。アプリの配備とデータ切替はW03〜W06（RomMはgame1側でW07）。
+
+<a id="handover-log"></a>
+
+## handover移動分の作業記録
+
+handover.md の「5. 進捗とTODO」表の該当行から移した記録（原文のまま。表セルを日付ごとの箇条書きに整形しただけ）。いまの状態と未完は handover.md の該当行を参照。
+
+- **media-01 を cloud VM として作成し、実機確認（2026-09-12、I02）。** `platform/terraform/services/media` の apply で `i-a06df9a2dfd1ce6db`・`192.168.10.101`・4vCPU／6GiB・OS32GiB＋データ64GiB（`vol-cff33af40771b2b74`）。SG は LAN から 22/80/443 だけ（8080 の遮断を実測）。データディスクは `/dev/disk/by-id/virtio-...` を systemd が `/srv/media-stack` へ ext4 でマウントし、**マウント完了まで Docker を起動しない**（未マウント時に原本領域へ書かない）。再 plan は No changes、再起動後もマウントと Docker が復帰。volume は `prevent_destroy`。**apply 中に Provider の SG ルール同時作成の競合を発見・修正**（[はまりどころ](../operations/verify.md)）。PicardのWeb GUI（`jlesage/musicbrainz-picard`）をW06の一部として先行配備（`/opt/media-stack/music-tools`、`127.0.0.1:5800`、HTTP 200・healthy）。
+- **2026-09-12: `media.yml`（クラウドinventory使用）で Nextcloud・Kavita・Navidrome をmedia-01へ配備し、`media-verify.yml` が Nextcloud `/status.php` `installed=true`・Kavita HTTP応答・Navidrome `/ping` 200・Picard 200 を確認。** music-toolsはPicardのみ（`music_tools_services`限定、同期タイマー停止）で、MeTube・変換の切替はW06。配備中にmusic-tools playが`/opt/media-stack/scripts`未作成で失敗したため、ディレクトリ作成タスクを追加して修正（実機で再実行成功）。
+- **2026-09-12: HTTPSとSSOを実配備。** `nextcloud/kavita/navidrome/metube/picard.apextox.dpdns.org` をLet's Encrypt（DNS-01）で受けるCaddyをmedia-01へ配備し、証明書と応答を実測。Nextcloud `user_oidc`・Kavita組み込みOIDC・Navidrome/MeTube/Picard Forward Auth（未認証は `auth.apextox.dpdns.org` の authorize へ302）を設定し、Kavitaは `bootstrap.py` で初期管理者とBooksを作成。**既存環境からのデータ移行とブラウザでのログイン実測は未了**（W03〜W06。RomMはgame1側でW07）。
