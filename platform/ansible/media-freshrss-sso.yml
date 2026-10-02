@@ -60,4 +60,9 @@
     - name: Restart FreshRSS with OIDC enabled
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/freshrss/manage.py', up]
-      changed_when: true
+      register: freshrss_sso_up
+      changed_when: >-
+        'CHANGED' in freshrss_sso_up.stdout
+        or 'Created' in freshrss_sso_up.stderr
+        or 'Recreated' in freshrss_sso_up.stderr
+        or 'Started' in freshrss_sso_up.stderr

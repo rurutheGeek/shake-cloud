@@ -109,7 +109,12 @@
     - name: Start eufy-security-ws and wait for its healthcheck
       ansible.builtin.command:
         argv: [python3, '{{ eufy_project_dir }}/manage.py', up]
-      changed_when: true
+      register: eufy_up
+      changed_when: >-
+        'CHANGED' in eufy_up.stdout
+        or 'Created' in eufy_up.stderr
+        or 'Recreated' in eufy_up.stderr
+        or 'Started' in eufy_up.stderr
       when: eufy_configured
 
     - name: Report the remaining credential step

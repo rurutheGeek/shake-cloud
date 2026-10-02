@@ -33,7 +33,12 @@
     - name: Prepare Nextcloud directories and secrets
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
-      changed_when: true
+      register: nextcloud_init
+      changed_when: >-
+        'CHANGED' in nextcloud_init.stdout
+        or 'Created' in nextcloud_init.stderr
+        or 'Recreated' in nextcloud_init.stderr
+        or 'Started' in nextcloud_init.stderr
     # 自作アプリはそれぞれの公開リポジトリのGitHub Releaseから入れる。
     # バージョンは group_vars の nextcloud_custom_apps が正本で、上げると更新される。
     - name: Install or update the custom Nextcloud apps
@@ -80,7 +85,12 @@
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
-      changed_when: true
+      register: nextcloud_up
+      changed_when: >-
+        'CHANGED' in nextcloud_up.stdout
+        or 'Created' in nextcloud_up.stderr
+        or 'Recreated' in nextcloud_up.stderr
+        or 'Started' in nextcloud_up.stderr
     # アプリのバージョンを上げた配備では occ が「upgrade required」で止まる。
     - name: Apply pending Nextcloud upgrades
       ansible.builtin.command:

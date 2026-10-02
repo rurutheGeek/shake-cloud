@@ -173,16 +173,32 @@ terraform -chdir=platform/terraform/services/<name> apply
 
 ### 4. ソフトを配備する
 
-`user_data`（cloud-init）で、ユーザー・パッケージ・Docker など最小限を最初に整えます。ソフト本体は `stacks/<name>/` に置き、VM へコピーして Compose で起動します。`stacks/identity/manage.py` と同じ「init / lock / up / status」の形にすると再実行が楽です。
+`user_data`（cloud-init）で、ユーザー・パッケージ・Docker など最小限を最初に整えます。ソフト本体は `stacks/<name>/` に置き、`manage.py` を `stacks/identity/manage.py` と同じ「init / lock / up / status」の形にします。
 
-```bash
-scp -r stacks/<name> debian@<address>:/tmp/
-ssh debian@<address> 'sudo install -d -m 750 /opt/<name> \
-  && sudo cp -a /tmp/<name>/. /opt/<name>/ \
-  && cd /opt/<name> && sudo python3 manage.py init && sudo python3 manage.py up'
+**配備は Playbook に書きます**（手で `scp` して `ssh` で起動しない）。Compose スタックを1つ配備する流れ（ディレクトリ作成 → 定義ファイルの配置 → `.env`（0600）→ `manage.py init` → `manage.py up`）は共通ロール `compose_stack` が持っているので、Playbook には「どこへ・何を・どんな `.env` で」だけを書きます。
+
+```yaml
+- name: Deploy <name>
+  hosts: <グループ>
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Deploy the <name> stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/<name>'
+        compose_stack_project_dir: /opt/<name>
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_env: |
+          STORAGE_ROOT=/srv/<name>
 ```
 
-秘密は `.env`（VM 上 0600）へ、または SOPS から写します。**Git へ入れません。**
+- `compose.lock.yaml`（イメージのdigest）は**必ずリポジトリに置いて配ります**。配備先で `pull` して決めさせません（`tests/test_image_locks.py`）。
+- `manage.py` は、何かを作った・変えたときだけ `CHANGED:` を、そうでなければ `OK:` を出します。ロールはこれと `docker compose` の出力を見て、**変わったときだけ「changed」と報告します**。再実行して `changed=0` なら、実機はリポジトリと揃っています。
+- 追加の手順（初期ユーザーの作成、systemd タイマーなど）は、ロールの呼び出しの後ろへタスクとして足します（例: `platform/ansible/media-kavita.yml`）。
+- 秘密は SOPS から写すか、`manage.py init` に配備先で生成させます。**Git へ入れません。** `.env` に秘密値を書く場合は `compose_stack_env_no_log: true` を付けます。
 
 ### 5. 名前を付ける（任意）
 
