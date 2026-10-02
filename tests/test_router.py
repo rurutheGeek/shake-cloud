@@ -303,6 +303,10 @@ class ImageContentsTests(unittest.TestCase):
         # （フィルタのキャッシュと統計が再起動で消えるため）。
         self.assertIn("adguardhome.config.config='/etc/adguardhome/adguardhome.yaml'", defaults)
         self.assertIn("adguardhome.config.workdir='/etc/adguardhome/data'", defaults)
+        # querylog.json をファイルへ書かない。512MiB の rootfs を 413MB のログが
+        # 埋め、2026-10-01 にログと stats.db の更新が止まった。直近のログは
+        # メモリに残り、集計は stats.db が持つ。
+        self.assertFalse(config['querylog']['file_enabled'])
 
     def test_the_blocklists_are_registered(self):
         # HostlistsRegistry の他人が保守するリストを購読する。id は一意で、
