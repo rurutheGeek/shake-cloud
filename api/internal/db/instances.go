@@ -409,6 +409,14 @@ func SettledInstances(ctx context.Context, q Querier) ([]Instance, error) {
 		  AND (i.lease_until IS NULL OR i.lease_until < now())`))
 }
 
+// UnterminatedInstances returns every instance that still exists, in any
+// state. The ledger sync uses it to tell an instance that is merely busy from
+// one that is gone.
+func UnterminatedInstances(ctx context.Context, q Querier) ([]Instance, error) {
+	return collectInstances(q.Query(ctx, `SELECT `+instanceColumns+` FROM instances i
+		WHERE i.state <> 'terminated' ORDER BY i.instance_id`))
+}
+
 // ObserveState corrects a settled instance's state, unless something changed it first.
 func ObserveState(ctx context.Context, q Querier, id, from, to, reason string) error {
 	_, err := q.Exec(ctx, `UPDATE instances SET state = $3, state_reason = $4, updated_at = now()

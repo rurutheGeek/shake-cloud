@@ -93,9 +93,12 @@ func refuse(status int, code, format string, args ...any) *Error {
 const NetBoxTag = "managed-by-cloud-api"
 
 type Service struct {
-	Pool    *pgxpool.Pool
-	PVE     Hypervisor
-	IPAM    IPAM
+	Pool *pgxpool.Pool
+	PVE  Hypervisor
+	IPAM IPAM
+	// Ledger registers instances as NetBox virtual machines. It is nil when
+	// the deployment declares no ledger cluster.
+	Ledger  Ledger
 	Site    site.Site
 	Log     *slog.Logger
 	WorkDir string
