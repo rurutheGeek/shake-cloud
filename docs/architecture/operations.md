@@ -26,8 +26,8 @@ tags:
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
 | router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
 | services-01（150） | 2 / 4GiB（増枠は実測後） | 現行容量とデータ量を実測 | NetBox・MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed。VPNは追加予定。常時。`05-seed`の所有を維持 |
-| identity（110） | 2 / 4GiB（宣言値） | 32GiB | Authentikと専用DB。常時 |
-| cloud-01（140） | 2 / 2GiB（宣言値） | 40GiB | クラウドAPIと管理DB。常時 |
+| identity（110） | 2 / 4GiB（下限3GiB） | 32GiB | Authentikと専用DB。常時。スワップが無く、2026-09-26のメモリ逼迫でOOMしたため下限を3GiBへ |
+| cloud-01（140） | 2 / 2GiB（下限1GiB） | 40GiB | クラウドAPIと管理DB。常時 |
 | storage-s3（130） | 2 / 1GiB（宣言値） | OS16＋データ32GiB | Garage。常時 |
 | k8s-cp-01（200） | 2 / 3GiB（固定） | 32GiB | control plane。既存構成維持 |
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
