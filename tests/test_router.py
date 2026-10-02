@@ -154,11 +154,17 @@ class ImageContentsTests(unittest.TestCase):
         self.assertEqual(hosts, [], 'UCI に予約を手書きしない')
         dnsmasq = section(self.dhcp, 'dnsmasq')
         self.assertEqual(dnsmasq['options']['confdir'], '/etc/dnsmasq.d')
+        # ネット接続の無い機器（マイコン・アンマネージドスイッチ）は MAC を持たない。
         devices = load(ROOT / 'platform/netbox/devices.yaml')['devices']
-        macs = {device['name']: device['interface']['mac'] for device in devices}
-        self.assertEqual(macs['aterm'], '80:22:a7:8f:27:80')
-        self.assertEqual(macs['tarakoserver'], 'e4:5f:01:f2:b8:dc')
-        self.assertEqual(macs['shakeserver'], '2c:cf:67:2c:e3:4d')
+        macs = set()
+        for device in devices:
+            interfaces = ([device['interface']] if device.get('interface') else []) + \
+                device.get('interfaces', [])
+            macs.update(interface['mac'] for interface in interfaces
+                        if interface.get('mac'))
+        self.assertIn('80:22:a7:8f:27:80', macs)   # aterm
+        self.assertIn('e4:5f:01:f2:b8:dc', macs)   # tarakoserver
+        self.assertIn('2c:cf:67:2c:e3:4d', macs)   # shakeserver
 
     def test_the_wan_uses_the_measured_map_e_rule(self):
         wan = section(self.network, 'interface', 'wan')

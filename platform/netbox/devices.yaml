@@ -1,6 +1,11 @@
 ---
 # NetBox に登録する物理機器。**このファイルが正本**。
 #
+# ネット接続の無い機器（USB のマイコン・マイク、アンマネージドスイッチなど）も
+# ここに書く。`interface` と `address` は省略でき、その場合は dcim にだけ載る。
+# `serial`・`asset_tag`・`status`（既定 active）・型番の `part_number`・仕様などの
+# `comments` も書ける（実機と型番の両方）。
+#
 # tools/netbox-dhcp-sync.py の `ensure` が NetBox の dcim（機器・インターフェース・
 # reserved な IPAddress）をここへ合わせ、`pull` が reserved の IP を dnsmasq の
 # 予約（dhcp-host）へ変換してルータへ反映する。
@@ -12,44 +17,327 @@
 # この項目を読み取り専用で持つため、dcim は API で管理する（docs/operations/netbox.md）。
 site: Homelab
 
+# 購入・保証の構造化フィールド（NetBox のカスタムフィールド。Device 用）。
+# 実機の値は各 device に書く。`ensure` は器を作るだけで、既存は型を変えない。
+custom_fields:
+  - {name: purchase_date, label: 購入日, type: date}
+  - {name: purchase_from, label: 購入元, type: text}
+  - {name: price_jpy, label: 価格（円）, type: integer}
+  - {name: warranty_until, label: 保証期限, type: date}
+
 roles:
   - {name: Access Point, slug: access-point, color_hex: 00a0d2}
   - {name: Server, slug: server, color_hex: 00c000}
   - {name: Printer, slug: printer, color_hex: ffa000}
   - {name: Hypervisor, slug: hypervisor, color_hex: 8000ff}
   - {name: Client, slug: client, color_hex: 808080}
+  - {name: Switch, slug: switch, color_hex: 0040ff}
+  - {name: Microcontroller, slug: microcontroller, color_hex: 00b0b0}
+  - {name: Audio, slug: audio, color_hex: b000b0}
+  - {name: Capture, slug: capture, color_hex: ff4080}
+  - {name: Adapter, slug: adapter, color_hex: 808000}
+  - {name: Power, slug: power, color_hex: c00000}
+  - {name: Storage, slug: storage, color_hex: 606000}
+  - {name: Peripheral, slug: peripheral, color_hex: 0080ff}
+  - {name: Tool, slug: tool, color_hex: 806000}
+  - {name: Camera, slug: camera, color_hex: 00a080}
+  - {name: Appliance, slug: appliance, color_hex: a0a0ff}
+  - {name: Modem, slug: modem, color_hex: 008080}
+  - {name: Desktop, slug: desktop, color_hex: 404040}
+  - {name: Laptop, slug: laptop, color_hex: 606060}
+  - {name: Sensor, slug: sensor, color_hex: 40c0a0}
 
 manufacturers:
   - {name: NEC Platforms, slug: nec-platforms}
   - {name: Raspberry Pi Foundation, slug: raspberry-pi-foundation}
   - {name: Canon, slug: canon}
+  - {name: Arduino, slug: arduino}
+  - {name: KEYESTUDIO, slug: keyestudio}
+  - {name: TP-Link, slug: tplink}
+  - {name: RACEN, slug: racen}
+  - {name: KKHMF, slug: kkhmf}
+  - {name: CyberPower, slug: cyberpower}
+  - {name: GMKtec, slug: gmktec}
+  - {name: Anker, slug: anker}
+  - {name: HOLLYLAND, slug: hollyland}
+  - {name: Western Digital, slug: western-digital}
+  - {name: Toshiba, slug: toshiba}
+  - {name: Samsung, slug: samsung}
+  - {name: Google, slug: google}
+  - {name: Xiaomi, slug: xiaomi}
+  - {name: Geekworm, slug: geekworm}
+  - {name: RasTech, slug: rastech}
+  - {name: OSOYOO, slug: osoyoo}
+  - {name: ELECROW, slug: elecrow}
+  - {name: Acer, slug: acer}
+  - {name: Logitech, slug: logitech}
+  - {name: Elecom, slug: elecom}
+  - {name: Makita, slug: makita}
+  - {name: AstroAI, slug: astroai}
+  - {name: Meta, slug: meta}
+  - {name: Amazon, slug: amazon}
+  - {name: 玄人志向, slug: kuroutoshikou}
+  - {name: UGREEN, slug: ugreen}
+  - {name: HORI, slug: hori}
+  - {name: SwitchBot, slug: switchbot}
+  - {name: Sharp, slug: sharp}
+  - {name: Twinbird, slug: twinbird}
+  - {name: Fujitsu General, slug: fujitsu-general}
+  - {name: SanDisk, slug: sandisk}
+  - {name: KIOXIA, slug: kioxia}
+  - {name: Transcend, slug: transcend}
   - {name: Generic, slug: generic}
 
 device_types:
-  - {manufacturer: NEC Platforms, model: Aterm WG1200HP4, slug: aterm-wg1200hp4}
+  - {manufacturer: NEC Platforms, model: Aterm PA-WG1200HP, slug: aterm-pa-wg1200hp}
   - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 4, slug: raspberry-pi-4}
   - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 5, slug: raspberry-pi-5}
+  - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi Zero 2 W, slug: raspberry-pi-zero-2-w}
+  - {manufacturer: Arduino, model: Arduino Nano, slug: arduino-nano}
+  - {manufacturer: Arduino, model: Arduino Leonardo, slug: arduino-leonardo, part_number: A000057}
+  - {manufacturer: TP-Link, model: TL-SG605, slug: tl-sg605}
   - {manufacturer: Canon, model: TS8430, slug: canon-ts8430}
   - {manufacturer: Generic, model: Mini PC, slug: mini-pc}
   - {manufacturer: Generic, model: Client Device, slug: client-device}
+  - manufacturer: RACEN
+    model: ゲーミングビデオキャプチャ Light
+    slug: racen-crc-gvcap03
+    part_number: CRC-GVCAP03
+    comments: |
+      JAN 4549032017595 / 保証6ヶ月 / 本体色 黒
+      入力 HDMI 1.4・ライン入力(3.5mmステレオミニ) / 出力 HDMI 1.4
+      最大入出力 4K30・WQHD60・FHD120 / 保存 4K30・WQHD60・FHD120・720p60
+      保存形式 MP4・TS / USB Type-A 3.2 Gen1・ケーブル約60cm
+      寸法 98.5×63×22mm・約57g
+  - manufacturer: KKHMF
+    model: CH340 USB-TTLシリアルモジュール
+    slug: kkhmf-ch340-usb-ttl
+    comments: |
+      STC マイコン書き込み用の USB-TTL 変換（3個セット）。
+      入手: https://amzn.asia/d/0b8QDU2g
+  - manufacturer: KEYESTUDIO
+    model: Leonardo R3 互換ボード
+    slug: keyestudio-leonardo-r3
+    comments: |
+      Arduino Leonardo 互換（5V・USB ケーブル付き）
+  - manufacturer: CyberPower
+    model: CP1200PFCLCDJP
+    slug: cyberpower-cp1200pfclcdjp
+    comments: |
+      無停電電源装置 1200VA/780W・ラインインタラクティブ・正弦波・3年保証
+  - manufacturer: GMKtec
+    model: NucBox K11
+    slug: gmktec-nucbox-k11
+  - manufacturer: Anker
+    model: eufyCam S4
+    slug: anker-eufycam-s4
+  - manufacturer: Anker
+    model: 675 USB-C ドッキングステーション
+    slug: anker-675-dock
+  - manufacturer: Anker
+    model: HDMI Switch 4-in-1
+    slug: anker-hdmi-switch
+  - manufacturer: HOLLYLAND
+    model: LARK A1 Mini Duo
+    slug: hollyland-lark-a1-mini-duo
+    comments: |
+      ワイヤレスマイク。トランスミッター×2 + Lightning レシーバー×1・充電ケース付き
+  - manufacturer: Western Digital
+    model: WD Blue WD60EZAX
+    slug: wd-blue-wd60ezax
+    part_number: WD60EZAX
+    comments: |
+      3.5インチ 6TB・2年保証
+  - manufacturer: Western Digital
+    model: WD Blue SN580
+    slug: wd-blue-sn580
+    comments: |
+      NVMe 1TB
+  - manufacturer: Western Digital
+    model: WD10JPVT
+    slug: wd-wd10jpvt
+    comments: |
+      2.5インチ 1TB 5400rpm SATA
+  - manufacturer: Toshiba
+    model: MK1255GSX
+    slug: toshiba-mk1255gsx
+    comments: |
+      2.5インチ 120GB SATA
+  - manufacturer: Samsung
+    model: T7 1TB
+    slug: samsung-t7-1tb
+    part_number: MU-PC1T0T
+  - manufacturer: 玄人志向
+    model: KURO-DACHI/CLONE/CRU3
+    slug: kuroutoshikou-kuro-dachi-cru3
+    comments: |
+      2.5/3.5インチ 2ベイ USB3.2 Gen1 ドック
+  - manufacturer: Geekworm
+    model: X1200
+    slug: geekworm-x1200
+    comments: |
+      Raspberry Pi 5 UPS 電源管理拡張ボード
+  - manufacturer: Geekworm
+    model: X1001 V1.1
+    slug: geekworm-x1001
+    comments: |
+      Raspberry Pi 5 PCIe NVMe M.2 2280 拡張ボード
+  - manufacturer: RasTech
+    model: Raspberry Pi カメラモジュール 500万画素
+    slug: rastech-rpi-camera-5mp
+  - manufacturer: OSOYOO
+    model: 5インチ DSI タッチスクリーン
+    slug: osoyoo-5inch-dsi
+  - manufacturer: ELECROW
+    model: 3.5インチ モニター
+    slug: elecrow-3-5inch
+  - manufacturer: Acer
+    model: EK271Ebmix
+    slug: acer-ek271ebmix
+    comments: |
+      27インチ IPS フルHD 100Hz
+  - manufacturer: Logitech
+    model: MX ERGO (MXTB1s)
+    slug: logitech-mx-ergo
+  - manufacturer: Logitech
+    model: M575S
+    slug: logitech-m575s
+  - manufacturer: Elecom
+    model: TK-FCM107KBK
+    slug: elecom-tk-fcm107kbk
+  - manufacturer: Makita
+    model: DF033DSHS
+    slug: makita-df033dshs
+    comments: |
+      充電式ドライバドリル 10.8V 1.5Ah
+  - manufacturer: AstroAI
+    model: デジタルマルチメーター 2000カウント
+    slug: astroai-multimeter-2000
+  - manufacturer: Generic
+    model: USB CABLE CHECKER 2
+    slug: usb-cable-checker-2
+  - manufacturer: Meta
+    model: Quest 3 128GB
+    slug: meta-quest-3-128gb
+  - manufacturer: Amazon
+    model: Fire HD 8 (第10世代)
+    slug: amazon-fire-hd-8-gen10
+  - manufacturer: Amazon
+    model: Echo 第2世代
+    slug: amazon-echo-2nd-gen
+  - manufacturer: Xiaomi
+    model: Redmi Pad SE 8.7
+    slug: xiaomi-redmi-pad-se-8-7
+    comments: |
+      4G 128GB セルラーモデル
+  - manufacturer: Samsung
+    model: Galaxy S23 Ultra
+    slug: samsung-galaxy-s23-ultra
+  - manufacturer: Samsung
+    model: Galaxy Z Flip 8
+    slug: samsung-galaxy-z-flip-8
+  - manufacturer: Google
+    model: Pixel 8a
+    slug: google-pixel-8a
+  - manufacturer: Anker
+    model: SmartTrack T87B0
+    slug: anker-smarttrack-t87b0
+    comments: |
+      電池式のトラッカー（ネット接続なし）
+  - manufacturer: SwitchBot
+    model: 開閉センサー
+    slug: switchbot-contact-sensor
+  - manufacturer: TP-Link
+    model: UB500
+    slug: tplink-ub500
+    comments: |
+      Bluetooth 5.4 USB アダプター
+  - manufacturer: UGREEN
+    model: USB-C 有線LANアダプター
+    slug: ugreen-usb-c-lan
+    comments: |
+      1000Mbps ギガビットイーサネット
+  - manufacturer: SwitchBot
+    model: Hub Mini
+    slug: switchbot-hub-mini
+  - manufacturer: SwitchBot
+    model: Lock（無印）
+    slug: switchbot-lock
+  - manufacturer: HORI
+    model: ワイヤードホリパッド TURBO for Nintendo Switch 2
+    slug: hori-wired-horipad-turbo
+  - manufacturer: Sharp
+    model: ヘルシオ AX-RS1B
+    slug: sharp-helesio-ax-rs1b
+    comments: |
+      ウォーターオーブン 30L（Wi-Fi）
+  - manufacturer: Sharp
+    model: ヘルシオ ホットクック KN-HW24H
+    slug: sharp-hotcook-kn-hw24h
+    comments: |
+      自動調理鍋（Wi-Fi）
+  - manufacturer: Twinbird
+    model: WM-ED70W
+    slug: twinbird-wm-ed70w
+  - manufacturer: Fujitsu General
+    model: AS-L365S
+    slug: fujitsu-general-as-l365s
+  - manufacturer: Toshiba
+    model: REGZA 32A2
+    slug: toshiba-regza-32a2
+  - manufacturer: Generic
+    model: GE-PON-ONU
+    slug: ge-pon-onu
+    comments: |
+      光回線の ONU（NTT 貸与）
+  - manufacturer: SanDisk
+    model: microSD 高耐久 SDSQQNR-256G-GH3IA
+    slug: sandisk-sdsqqnr-256g
+    part_number: SDSQQNR-256G-GH3IA
+  - manufacturer: KIOXIA
+    model: microSD 128GB KLMEA128G
+    slug: kioxia-klmea128g
+    part_number: KLMEA128G
+  - manufacturer: Samsung
+    model: EVO Plus microSD 128GB
+    slug: samsung-evo-plus-128gb
+    part_number: MB-MC128KA/EC
+  - manufacturer: Transcend
+    model: microSD 32GB TS32GUSD300S-AE
+    slug: transcend-ts32gusd300s
+    part_number: TS32GUSD300S-AE
+  - manufacturer: Transcend
+    model: USBメモリ 32GB TS32GJF890S
+    slug: transcend-ts32gjf890s
+    part_number: TS32GJF890S
 
 devices:
   - name: aterm
-    device_type: Aterm WG1200HP4
+    device_type: Aterm PA-WG1200HP
     role: Access Point
-    description: Aterm WG1200HP4（AP モード・Wi-Fi 専用）
-    interface: {name: lan, type: 1000base-t, mac: '80:22:a7:8f:27:80'}
+    description: Aterm PA-WG1200HP（AP モード・Wi-Fi 専用）
+    purchase_date: 2026-02-20
+    purchase_from: 中古
+    power_ports: [ac]
+    interfaces:
+      - {name: lan, type: 1000base-t, mac: '80:22:a7:8f:27:80'}
+      - {name: wan, type: 1000base-t}
     address: 192.168.10.2/24
     dns_name: aterm
 
   - name: apextox
-    device_type: Mini PC
+    device_type: NucBox K11
     role: Hypervisor
     description: Proxmox ホスト（K11）。vmbr0 の MAC は nic1 のもの
-    interface: {name: vmbr0, type: bridge, mac: 'c8:ff:bf:0d:fd:6d'}
+    purchase_date: 2026-09-07
+    purchase_from: 中古
+    power_ports: [ac]
+    interfaces:
+      - {name: vmbr0, type: bridge, mac: 'c8:ff:bf:0d:fd:6d'}
+      - {name: nic0, type: 1000base-t}
+      - {name: nic1, type: 1000base-t}
     address: 192.168.10.10/24
     dns_name: apextox
-
   - name: tarakoserver
     device_type: Raspberry Pi 4
     role: Server
@@ -57,11 +345,15 @@ devices:
     interface: {name: eth0, type: 1000base-t, mac: 'e4:5f:01:f2:b8:dc'}
     address: 192.168.10.11/24
     dns_name: tarakoserver
-
   - name: shakeserver
     device_type: Raspberry Pi 5
     role: Server
-    description: Raspberry Pi 5
+    description: Raspberry Pi 5（8GB）
+    purchase_date: 2024-05-16
+    purchase_from: Raspberry Pi Shop by KSY
+    power_ports: [ac]
+    comments: |
+      （アクティブクーラー付き）
     interface: {name: eth0, type: 1000base-t, mac: '2c:cf:67:2c:e3:4d'}
     address: 192.168.10.12/24
     dns_name: shakeserver
@@ -74,18 +366,95 @@ devices:
     address: 192.168.10.3/24
     dns_name: printer
 
+# ネット接続の無い機器・IP 未記入の機器。dcim にだけ載る（DHCP 予約は作られない）。
+# 名前・シリアル・MAC が分かったらここを直して `ensure` を流し直す。
+  - name: negitoroserver
+    device_type: Raspberry Pi Zero 2 W
+    role: Server
+    description: Raspberry Pi Zero 2 W（リモート。eth0 がグローバル IP・Tailscale 参加）
+    purchase_date: 2026-03-24
+    purchase_from: パソコンパーツのグラプラス
+    price_jpy: 3699
+    comments: |
+      eth0: 133.80.183.83 / Tailscale: 100.92.253.28
+      （技適あり）
+    dhcp: false
+    interfaces:
+      - {name: eth0, type: other, mac: '00:1c:be:b7:21:f7'}
+      - {name: wlan0, type: ieee802.11ac, mac: '88:a2:9e:c8:4a:ae'}
+
+  - name: arduino-nano-1
+    device_type: Arduino Nano
+    role: Microcontroller
+    description: Arduino Nano（USB。ATmega328P）
+  - name: arduino-leonardo-1
+    device_type: Arduino Leonardo
+    role: Microcontroller
+    description: Arduino Leonardo（正規品。USB。ATmega32u4）
+    purchase_date: 2022-11-30
+    purchase_from: Amazon
+    comments: |
+      （テルモ 開発ボード A000057）
+  - name: keyestudio-leonardo-1
+    device_type: Leonardo R3 互換ボード
+    role: Microcontroller
+    description: KEYESTUDIO Leonardo R3 互換（USB。ATmega32u4）
+  - name: keyestudio-leonardo-2
+    device_type: Leonardo R3 互換ボード
+    role: Microcontroller
+    description: KEYESTUDIO Leonardo R3 互換（USB。ATmega32u4）
+  - name: tl-sg605
+    device_type: TL-SG605
+    role: Switch
+    description: TP-Link TL-SG605（5ポート・アンマネージド。管理LANの幹線）
+    purchase_date: 2026-03-09
+    purchase_from: Amazon
+    power_ports: [ac]
+    comments: |
+      port 番号は配線図用の仮。実機に合わせて直す
+    interfaces:
+      - {name: port1, type: 1000base-t}
+      - {name: port2, type: 1000base-t}
+      - {name: port3, type: 1000base-t}
+      - {name: port4, type: 1000base-t}
+      - {name: port5, type: 1000base-t}
+
+  - name: capture-racen-1
+    device_type: ゲーミングビデオキャプチャ Light
+    role: Capture
+    description: RACEN CRC-GVCAP03（HDMI→USB。PC で録画・配信）
+  - name: ch340-1
+    device_type: CH340 USB-TTLシリアルモジュール
+    role: Adapter
+    description: STC マイコン書き込み用 USB-TTL 変換
+    purchase_date: 2026-03-22
+    purchase_from: Amazon
+  - name: ch340-2
+    device_type: CH340 USB-TTLシリアルモジュール
+    role: Adapter
+    description: STC マイコン書き込み用 USB-TTL 変換
+    purchase_date: 2026-03-22
+    purchase_from: Amazon
+  - name: ch340-3
+    device_type: CH340 USB-TTLシリアルモジュール
+    role: Adapter
+    description: STC マイコン書き込み用 USB-TTL 変換
+    purchase_date: 2026-03-22
+    purchase_from: Amazon
+
 # DHCP プール内（.20〜.99）で **静的 IP を使う端末**。
 # リースを取らないので push では台帳に載らない。ここに宣言して reserved に
 # することで、dnsmasq が同じ IP を他の端末へ配るのを防ぐ（衝突対策）。
 # `tools/netbox-dhcp-sync.py discover` が未宣言の機器を見つける。
   - name: redmi-pad-se-8-7
-    device_type: Client Device
+    device_type: Redmi Pad SE 8.7
     role: Client
-    description: Redmi Pad SE 8.7（Wi-Fi）
+    description: Redmi Pad SE 8.7（4G 128GB）
+    purchase_date: 2025-08-13
+    purchase_from: 中古
     interface: {name: wlan0, type: ieee802.11ac, mac: 'ee:42:3b:45:5e:9d'}
     address: 192.168.10.33/24
     dns_name: redmi-pad-se-8-7
-
   - name: unknown-43
     device_type: Client Device
     role: Client
@@ -93,23 +462,27 @@ devices:
     interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:af:f0:33'}
     address: 192.168.10.43/24
     dns_name: unknown-43
-
   - name: su3
     device_type: Client Device
-    role: Client
-    description: PC（su3）
-    interface: {name: eth0, type: 1000base-t, mac: '10:a5:1d:32:5e:ec'}
+    role: Laptop
+    description: PC（su3。ペン対応）
+    comments: |
+      Core i7-1195G7 / RAM 16GB / Iris Xe / 512GB SSD（使用446GB）
+      メーカ・型番は未取得（設定 → システム → バージョン情報では出ない。msinfo32 のシステムモデルか筐体ラベル）
+    interfaces:
+      - {name: eth0, type: 1000base-t, mac: '10:a5:1d:32:5e:ec'}
+      - {name: wlan0, type: ieee802.11ac, mac: '9c:69:d3:40:ab:60'}
     address: 192.168.10.45/24
     dns_name: su3
-
   - name: alexa
-    device_type: Client Device
+    device_type: Echo 第2世代
     role: Client
-    description: Amazon Echo（Alexa。旧 .44 から .46 へ）
+    description: Amazon Echo 第2世代（Alexa。旧 .44 から .46 へ）
+    purchase_date: 2019-10-24
+    purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: '4c:ef:c0:58:ea:66'}
     address: 192.168.10.46/24
     dns_name: alexa
-
   - name: unknown-84
     device_type: Client Device
     role: Client
@@ -117,39 +490,431 @@ devices:
     interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:fa:6c:7d'}
     address: 192.168.10.84/24
     dns_name: unknown-84
-
   - name: persothegeek
     device_type: Client Device
-    role: Client
-    description: PC（persothegeek）
+    role: Laptop
+    description: PC（persothegeek。タッチ・ペン対応）
+    comments: |
+      Core i7-1165G7 / RAM 16GB / Iris Xe / 512GB SSD（使用377GB）
+      メーカ・型番は未取得（msinfo32 のシステムモデルか筐体ラベル）
     interface: {name: eth0, type: 1000base-t, mac: '98:43:fa:9b:fa:1e'}
     address: 192.168.10.85/24
     dns_name: persothegeek
-
   - name: ouchithegeek
     device_type: Client Device
-    role: Client
-    description: PC（ouchithegeek）
-    interface: {name: eth0, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
+    role: Desktop
+    description: PC（ouchithegeek。6TB を D ドライブに使用）
+    power_ports: [ac]
+    comments: |
+      Ryzen 7 5700X / RAM 48GB / GeForce RTX 4060 8GB / ストレージ 6.37TB（使用1.97TB）
+      メーカ・型番は未取得（自作ならその旨をここに書く）
+    interfaces:
+      - {name: eth0, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
+      - {name: wlan0, type: ieee802.11ac, mac: '9c:6b:00:3f:92:99'}
     address: 192.168.10.97/24
     dns_name: ouchithegeek
-
   - name: eufycam-s4
-    device_type: Client Device
-    role: Client
-    description: Eufy カメラ（Wi-Fi）
+    device_type: eufyCam S4
+    role: Camera
+    description: Anker Eufy eufyCam S4（Wi-Fi。単体バッテリーカメラ）
+    purchase_date: 2026-03-03
+    purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: '2c:8d:48:2c:5a:33'}
     address: 192.168.10.98/24
     dns_name: eufycam-s4
-
   - name: switchbot-hubmini-ca2a09
-    device_type: Client Device
+    device_type: Hub Mini
     role: Client
     description: SwitchBot Hub Mini（Wi-Fi）
+    purchase_date: 2022-07-12
+    purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: 'a8:48:fa:ca:2a:09'}
     address: 192.168.10.99/24
     dns_name: switchbot-hubmini-ca2a09
 
+# 家族の端末。MAC は discover の実測（端末側のランダム化で変わりうる）。
+# address を書かないので DHCP は名前だけ付く（IP は動的のまま）。
+  - name: arashisan-s23-ultra
+    device_type: Galaxy S23 Ultra
+    role: Client
+    description: 家族のスマートフォン（あらしさん）
+    comments: |
+      ホスト名から機種を推定。MAC はランダム化（4a:99:... はローカル管理）
+    interface: {name: wlan0, type: ieee802.11ac, mac: '4a:99:12:71:5d:6e'}
+    dns_name: arashisan-s23-ultra
+
+  - name: shunsan-z-flip8
+    device_type: Galaxy Z Flip 8
+    role: Client
+    description: 家族のスマートフォン（しゅんさん）
+    comments: |
+      ホスト名から機種を推定。MAC はランダム化
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'da:eb:02:08:d5:d9'}
+    dns_name: shunsan-z-flip8
+
+  - name: pixel-8a
+    device_type: Pixel 8a
+    role: Client
+    description: Google Pixel 8a（スマートフォン）
+    comments: |
+      ホスト名から機種を推定。MAC はランダム化
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'de:78:35:35:ac:8c'}
+    dns_name: pixel-8a
+
+# 周辺機器・ストレージ・工具などの資産。ネット接続の有無を問わず dcim に載せる。
+# 購入日・購入元は comments へ（保証・買い替えの判断材料）。ケーブル・電源タップ・
+# 充電器・SDカード・電子部品は消耗品なので載せない（方針は docs/operations/netbox.md）。
+  - name: ups-1
+    device_type: CP1200PFCLCDJP
+    role: Power
+    description: CyberPower 無停電電源装置（1200VA/780W。ネット機器とデスクトップを接続）
+    purchase_date: 2026-03-11
+    purchase_from: Amazon
+    warranty_until: 2029-03-11
+    power_ports: [ac]
+    power_outlets:
+      - battery1
+      - battery2
+      - battery3
+      - battery4
+      - battery5
+      - battery6
+      - surge1
+      - surge2
+      - surge3
+      - surge4
+      - surge5
+      - surge6
+  - name: ups-2
+    device_type: CP1200PFCLCDJP
+    role: Power
+    description: CyberPower 無停電電源装置（1200VA/780W。予備）
+    purchase_date: 2026-03-11
+    purchase_from: Amazon
+    warranty_until: 2029-03-11
+    power_ports: [ac]
+    power_outlets:
+      - battery1
+      - battery2
+      - battery3
+      - battery4
+      - battery5
+      - battery6
+      - surge1
+      - surge2
+      - surge3
+      - surge4
+      - surge5
+      - surge6
+  - name: dock-kuro-dachi-1
+    device_type: KURO-DACHI/CLONE/CRU3
+    role: Storage
+    description: 玄人志向 2ベイ HDD/SSD ドック
+    purchase_date: 2025-01-21
+    purchase_from: OCNオンラインショップ
+    price_jpy: 3780
+    warranty_until: 2026-01-21
+  - name: hdd-wd60ezax-1
+    device_type: WD Blue WD60EZAX
+    role: Storage
+    description: 3.5インチ 6TB（Proxmox ホストの bulk 用）
+    purchase_date: 2025-01-21
+    purchase_from: OCNオンラインショップ
+    price_jpy: 28820
+    warranty_until: 2027-01-21
+  - name: hdd-wd60ezax-2
+    device_type: WD Blue WD60EZAX
+    role: Storage
+    description: 3.5インチ 6TB（ouchithegeek の D ドライブ）
+    purchase_date: 2025-01-21
+    purchase_from: OCNオンラインショップ
+    price_jpy: 28820
+    warranty_until: 2027-01-21
+  - name: hdd-wd10jpvt-1
+    device_type: WD10JPVT
+    role: Storage
+    description: 2.5インチ 1TB（旧ノートPC引き取り）
+    comments: |
+      通電971時間・SMART PASSED。G-Sense が多く長期保管には不向き
+    serial: WD-WXB1C22E3421
+  - name: hdd-toshiba-mk1255gsx-1
+    device_type: MK1255GSX
+    role: Storage
+    description: 2.5インチ 120GB（旧ノートPC引き取り）
+    comments: |
+      通電2,285時間・SMART PASSED
+    serial: Z9BGPD03T
+  - name: ssd-samsung-t7-1
+    device_type: T7 1TB
+    role: Storage
+    description: Samsung T7 ポータブル SSD 1TB
+    purchase_date: 2024-07-16
+    purchase_from: Amazon
+  - name: nvme-wd-sn580-1
+    device_type: WD Blue SN580
+    role: Storage
+    description: NVMe SSD 1TB
+    comments: |
+      Healthy（SMART 実測 2026-09-27）
+  - name: geekworm-x1200-1
+    device_type: X1200
+    role: Power
+    description: Raspberry Pi 5 UPS 電源管理ボード
+    purchase_date: 2024-11-30
+    purchase_from: Amazon
+  - name: geekworm-x1001-1
+    device_type: X1001 V1.1
+    role: Storage
+    description: Raspberry Pi 5 PCIe NVMe 拡張ボード
+    purchase_date: 2024-05-16
+    purchase_from: Amazon
+  - name: camera-rpi-5mp-1
+    device_type: Raspberry Pi カメラモジュール 500万画素
+    role: Camera
+    description: RasTech カメラモジュール（Pi 用）
+    purchase_date: 2024-12-06
+    purchase_from: Amazon
+  - name: monitor-osoyoo-5-1
+    device_type: 5インチ DSI タッチスクリーン
+    role: Peripheral
+    description: OSOYOO 5インチ DSI タッチ（Pi 用）
+    purchase_date: 2023-06-07
+    purchase_from: Amazon
+  - name: monitor-elecrow-3-5-1
+    device_type: 3.5インチ モニター
+    role: Peripheral
+    description: ELECROW 3.5インチ LCD（Pi 用）
+    purchase_date: 2022-10-08
+    purchase_from: Amazon
+  - name: monitor-acer-ek271e-1
+    device_type: EK271Ebmix
+    role: Peripheral
+    description: Acer 27インチ モニター
+    power_ports: [ac]
+    purchase_date: 2024-07-16
+    purchase_from: Amazon
+  - name: mouse-mx-ergo-1
+    device_type: MX ERGO (MXTB1s)
+    role: Peripheral
+    description: ロジクール トラックボールマウス MX ERGO
+    purchase_date: 2023-03-18
+    purchase_from: Amazon
+  - name: mouse-m575s-1
+    device_type: M575S
+    role: Peripheral
+    description: ロジクール トラックボールマウス M575S
+    purchase_date: 2024-03-05
+    purchase_from: Amazon
+  - name: keyboard-elecom-1
+    device_type: TK-FCM107KBK
+    role: Peripheral
+    description: エレコム 有線キーボード（テンキーレス）
+    purchase_date: 2023-06-09
+    purchase_from: Amazon
+  - name: dock-anker-675-1
+    device_type: 675 USB-C ドッキングステーション
+    role: Peripheral
+    description: Anker 675 USB-C ドック（12-in-1・モニタースタンド）
+    purchase_date: 2024-07-16
+    purchase_from: Amazon
+  - name: hdmi-switch-anker-1
+    device_type: HDMI Switch 4-in-1
+    role: Peripheral
+    description: Anker HDMI セレクター（4-in-1）
+    purchase_date: 2024-08-06
+    purchase_from: Amazon
+  - name: adapter-ub500-1
+    device_type: UB500
+    role: Adapter
+    description: TP-Link Bluetooth 5.4 アダプター
+    purchase_date: 2024-08-31
+    purchase_from: Amazon
+    warranty_until: 2027-08-31
+  - name: adapter-ugreen-usb-lan-1
+    device_type: USB-C 有線LANアダプター
+    role: Adapter
+    description: UGREEN USB-C→ギガビットLAN
+    purchase_date: 2026-03-03
+    purchase_from: Amazon
+  - name: mic-lark-a1-1
+    device_type: LARK A1 Mini Duo
+    role: Audio
+    description: HOLLYLAND ワイヤレスマイク（Tx×2 + レシーバー）
+    purchase_date: 2025-12-10
+    purchase_from: Amazon
+  - name: quest-3-1
+    device_type: Quest 3 128GB
+    role: Client
+    description: Meta Quest 3（VR/MR ヘッドセット）
+    purchase_date: 2024-07-16
+    purchase_from: Amazon
+  - name: fire-hd-8-1
+    device_type: Fire HD 8 (第10世代)
+    role: Client
+    description: Amazon Fire HD 8（タブレット）
+    purchase_date: 2022-07-12
+    purchase_from: Amazon
+  - name: controller-hori-1
+    device_type: ワイヤードホリパッド TURBO for Nintendo Switch 2
+    role: Peripheral
+    description: HORI 有線コントローラー（連射ホールド付き）
+    purchase_date: 2026-03-07
+    purchase_from: Amazon
+  - name: switchbot-lock-1
+    device_type: Lock（無印）
+    role: Client
+    description: SwitchBot Lock（玄関）
+    purchase_date: 2022-07-12
+    purchase_from: Amazon
+
+  - name: switchbot-contact-1
+    device_type: 開閉センサー
+    role: Sensor
+    description: SwitchBot 開閉センサー（電池。Hub Mini 経由）
+
+  - name: eufy-smarttrack-1
+    device_type: SmartTrack T87B0
+    role: Sensor
+    description: Eufy SmartTrack（電池。ネット接続なし）
+  - name: tool-makita-df033-1
+    device_type: DF033DSHS
+    role: Tool
+    description: マキタ 充電式ドライバドリル
+    purchase_date: 2025-07-24
+    purchase_from: Amazon
+  - name: tool-multimeter-1
+    device_type: デジタルマルチメーター 2000カウント
+    role: Tool
+    description: AstroAI デジタルマルチメーター
+    purchase_date: 2023-05-15
+    purchase_from: Amazon
+  - name: tool-usb-cable-checker-1
+    device_type: USB CABLE CHECKER 2
+    role: Tool
+    description: USB ケーブルチェッカー
+    purchase_date: 2024-07-20
+    purchase_from: 共立エレショップ
+  - name: onu-1
+    device_type: GE-PON-ONU
+    role: Modem
+    description: 光回線の ONU（NTT 貸与）
+    power_ports: [ac]
+    interface: {name: lan, type: 1000base-t}
+  - name: helesio-ax-rs1b-1
+    device_type: ヘルシオ AX-RS1B
+    role: Appliance
+    description: シャープ ヘルシオ オーブンレンジ（Wi-Fi）
+    purchase_date: 2026-03-03
+    purchase_from: Amazon
+    interface: {name: wlan0, type: ieee802.11ac}
+  - name: hotcook-kn-hw24h-1
+    device_type: ヘルシオ ホットクック KN-HW24H
+    role: Appliance
+    description: シャープ ヘルシオ ホットクック（Wi-Fi）
+    interface: {name: wlan0, type: ieee802.11ac}
+  - name: washer-wm-ed70w-1
+    device_type: WM-ED70W
+    role: Appliance
+    description: ツインバード 洗濯機
+  - name: aircon-as-l365s-1
+    device_type: AS-L365S
+    role: Appliance
+    description: ゼネラル エアコン AS-L365S
+  - name: tv-regza-32a2-1
+    device_type: REGZA 32A2
+    role: Appliance
+    description: 東芝 REGZA 32A2（テレビ）
+  - name: sdcard-sandisk-256-1
+    device_type: microSD 高耐久 SDSQQNR-256G-GH3IA
+    role: Storage
+    description: SanDisk microSD 256GB（高耐久）
+    purchase_date: 2026-03-03
+    purchase_from: Amazon
+  - name: sdcard-kioxia-128-1
+    device_type: microSD 128GB KLMEA128G
+    role: Storage
+    description: KIOXIA microSD 128GB
+    purchase_date: 2024-12-04
+    purchase_from: Amazon
+    warranty_until: 2029-12-04
+  - name: sdcard-samsung-128-1
+    device_type: EVO Plus microSD 128GB
+    role: Storage
+    description: Samsung EVO Plus microSD 128GB
+    purchase_date: 2023-06-07
+    purchase_from: Amazon
+  - name: sdcard-transcend-32-1
+    device_type: microSD 32GB TS32GUSD300S-AE
+    role: Storage
+    description: Transcend microSD 32GB
+    purchase_date: 2022-12-19
+    purchase_from: Amazon
+  - name: usbmem-transcend-32-1
+    device_type: USBメモリ 32GB TS32GJF890S
+    role: Storage
+    description: Transcend USBメモリ 32GB（Type-A/Type-C）
+    purchase_date: 2023-12-25
+    purchase_from: Amazon
+
 # 固定IPは持たないが、名前だけ付けたい DHCP クライアント（いまは空）。
 # 固定IPを持たせる場合は上の devices に書く（reserved として dnsmasq へ入る）。
 clients: []
+
+# 接続図（NetBox の Cables）。両端は上の devices で宣言した口。
+# ラベルは端点から自動で作る。ケーブルを差し替えたらここを直して `ensure`。
+cables:
+  - a: {device: onu-1, interface: lan}
+    b: {device: apextox, interface: nic0}
+    type: cat6a
+    description: ONU → Proxmox ホスト nic0（WAN）
+
+  - a: {device: apextox, interface: nic1}
+    b: {device: tl-sg605, interface: port1}
+    type: cat6a
+    description: Proxmox ホスト nic1 → スイッチ（LAN 幹線）
+
+  - a: {device: tl-sg605, interface: port2}
+    b: {device: aterm, interface: wan}
+    type: cat6a
+    description: スイッチ → Aterm WAN（AP モード）
+
+  - a: {device: tl-sg605, interface: port3}
+    b: {device: ouchithegeek, interface: eth0}
+    type: cat6a
+    description: スイッチ → デスクトップ（有線）
+
+  - a: {device: tl-sg605, interface: port4}
+    b: {device: shakeserver, interface: eth0}
+    type: cat6a
+    description: スイッチ → Raspberry Pi 5
+
+  - a: {device: aterm, interface: lan}
+    b: {device: tarakoserver, interface: eth0}
+    type: cat6a
+    description: Aterm LAN → Raspberry Pi 4
+
+# 電源系統（UPS1 のバッテリー口。UPS2 は予備）。
+  - a: {device: ups-1, power_outlet: battery1}
+    b: {device: apextox, power_port: ac}
+    type: power
+    description: UPS1 バッテリー1 → ミニPC（K11）
+
+  - a: {device: ups-1, power_outlet: battery2}
+    b: {device: onu-1, power_port: ac}
+    type: power
+    description: UPS1 バッテリー2 → ONU
+
+  - a: {device: ups-1, power_outlet: battery3}
+    b: {device: aterm, power_port: ac}
+    type: power
+    description: UPS1 バッテリー3 → Aterm（AP モード）
+
+  - a: {device: ups-1, power_outlet: battery4}
+    b: {device: ouchithegeek, power_port: ac}
+    type: power
+    description: UPS1 バッテリー4 → デスクトップ
+
+  - a: {device: ups-1, power_outlet: battery5}
+    b: {device: shakeserver, power_port: ac}
+    type: power
+    description: UPS1 バッテリー5 → Raspberry Pi 5
