@@ -1,6 +1,6 @@
 ---
 title: クラウドAPI本体とインスタンス
-updated: 2026-09-23
+updated: 2026-10-01
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # クラウドAPI本体とインスタンス
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-01 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 [クラウドAPIの構築](cloud.md)の続きです。**3-1〜3-7 の土台が終わっていることが前提**で、ここでは API 本体を上げ、名前と HTTPS を付け、インスタンスを作れるところまで進めます。
 
@@ -172,7 +172,7 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | --- | --- |
 | レコードを作った直後に、ルーターや 1.1.1.1 が「名前が無い」と返す（Google は SERVFAIL） | Cloudflare の中で反映が終わる前に問い合わせた。1分ほどで全部引けるようになった。権威サーバー（`daisy.ns.cloudflare.com`）に直接聞くと、作った時点で答えている |
 | ルーターは答えるのに、あるホストだけ名前を引けない（`docs.apextox.dpdns.org` で起きた） | そのホストの systemd-resolved が、反映前の「名前が無い」を最大30分覚えていた。`sudo resolvectl flush-caches` で直った。`tls_proxy` の HTTPS 確認がこれで失敗することがある |
-| Tailscale の DNS（100.100.100.100）がどの名前にも SERVFAIL を返す | Tailscale 側の DNS 設定の問題で、この名前に限らない。LAN の中では使わないので影響しない。外出先から使うときの課題（サブネットルートも未設定） |
+| Tailscale の DNS（100.100.100.100）がどの名前にも SERVFAIL を返す | tailnet の global nameserver が未設定のまま MagicDNS だけが有効だった。**2026-10-01 に tailnet DNS を AdGuard Home（`192.168.10.1`）+ `overrideLocalDNS` に設定して解消**（[net-01](net.md)） |
 
 ### 3-10. インスタンス（Phase 2）
 

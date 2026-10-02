@@ -1,7 +1,8 @@
-# net-01（Tailscale subnet router）の認証キー。正本は SOPS
-# （platform/sops/tailscale.sops.yaml）。Git へ平文を入れない。
+# Tailscale の秘密値。正本は SOPS（platform/sops/tailscale.sops.yaml）。
+# Git へ平文を入れない。
 #
-# 作り方:
+# TAILSCALE_AUTH_KEY: net-01（subnet router）を tailnet へ登録する認証キー。
+#   作り方:
 #   1. Tailscale の管理画面 → Settings → Keys → Generate auth key
 #      - Reusable: 端末を作り直す前提なら on
 #      - Ephemeral: off（停止しても tailnet から消さない）
@@ -19,4 +20,23 @@
 #      SHAKECLOUD_ACCESS_KEY=$(sops --decrypt --extract '["SHAKECLOUD_ACCESS_KEY"]' platform/sops/services.sops.yaml) \
 #      ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 #      .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/net.yml
+#
+# TAILSCALE_API_TOKEN: 管理画面の設定（ルート承認・Tailscale DNS）を
+#   tools/tailscale-net.py から適用するための API アクセストークン。
+#   作り方:
+#   1. Tailscale の管理画面 → Settings → Keys → API access tokens →
+#      Generate access token
+#      - 権限は発行した管理者と同じ（細かい scope 指定は OAuth client /
+#        trust credential の機能。ここではフル権限でよい）
+#      - 期限は最大90日。切れたら再発行して tools/tailscale-net.py の
+#        status が 401 を返すので、この値を差し替える
+#   2. `sops platform/sops/tailscale.sops.yaml` で開き、次の行を足す
+#      TAILSCALE_API_TOKEN: tskey-api-...
+#      （平文をシェル履歴へ残さないため、対話エディタで入れる）
+#   3. 次のように使う（値はプロセスの環境変数としてだけ渡す）
+#      TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
+#      python3 tools/tailscale-net.py status
+#
+# 使い終えた auth key は失効させる。API トークンも不要になったら失効する。
 TAILSCALE_AUTH_KEY: REPLACE_WITH_A_TAILSCALE_AUTH_KEY
+TAILSCALE_API_TOKEN: REPLACE_WITH_A_TAILSCALE_API_ACCESS_TOKEN
