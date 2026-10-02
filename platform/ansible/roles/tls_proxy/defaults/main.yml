@@ -14,3 +14,11 @@ tls_proxy_sops_file: '{{ playbook_dir }}/../sops/cloudflare-dns.sops.yaml'
 # リクエストの Host（=アプリの外部名）でプロバイダを選ぶため、Caddy 側で
 # header_up Host {http.request.host} を付けている。
 tls_proxy_authentik_url: 'https://auth.apextox.dpdns.org'
+# 入口（dns.yaml の edge）。入口の後ろのホストは Cloudflare のトークンを持たず、
+# 自分の内部CAの証明書で入口からの中継を受ける。
+tls_proxy_edge: "{{ tls_proxy_dns.edge | default({'host': '', 'backends': []}) }}"
+# 中継先の内部CA（公開してよい証明書）。中継先の配備が取ってきて、入口の配備が配る。
+# ホストを作り直すとCAも変わるので、取り直してコミットする。
+tls_proxy_backend_ca_dir: '{{ playbook_dir }}/files/backend-ca'
+# Forward Auth の問い合わせ先になっているレコード（dns.yaml の名前）。
+tls_proxy_auth_record: auth

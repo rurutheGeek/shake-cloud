@@ -233,6 +233,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 | 依存更新の自動化 | **設定を追加（2026-10-02）**: `renovate.json`（週次・自動マージなし）とCIの `govulncheck`・`ruff`・`shellcheck`。👤 RenovateのGitHub Appをリポジトリへ入れるまでPRは作られない | `compose.lock.yaml` のdigestはRenovateの対象外。更新はリポジトリのlockを書き換えて配り直す |
 | イメージのdigest固定 | **monitoring・home-assistant・eufy-security-ws の配備先lockをリポジトリへ取り込んだ（2026-10-02。稼働中のdigestと同一で、実機は変更していない）。** 残る例外は `romm`（game1へ構成管理の鍵で入れない）と `pokemon-ai/ollama`（配備先を未確認） | 例外は `tests/test_image_locks.py` の `UNPINNED`。増やさない |
 | インベントリの統一 | **コードを追加（2026-10-02）。実機への切替は未実施。** クラウドAPIが自分のVMをNetBoxの仮想マシンとして登録し（`cloud/api/internal/compute/ledger.go`。状態が変わったらすぐ、加えて15分ごと。稼働中だけ `active`）、Ansibleは NetBox の動的インベントリ1本で対象を見つける。グループは `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ）で決め、VM自身のタグでは決めない。services-01 は `10-platform` が台帳へ載せ、共有サービスのPlaybookは `hosts: services` に変えた | 切替は ①`tools/tf 10-platform apply` ②`cloud.yml` ③`ansible-inventory --graph` で確認（[サービスの置き場所](services.md#inventory)）。**`10-platform` の plan には今回と無関係の未適用差分が9件ある**（`access.yaml` に足したSSH鍵が6台へ未反映、dev-b のballoon下限、k8sの説明文）。切替後に `inventory.cloud.py`・`cloud-inventory.yml`・`monitor.ini` を削除する。`pve.ini` は残る |
+| HTTPSの入口 | **コードを追加（2026-10-02）。実機への切替は未実施**（`dns.yaml` の `edge.backends` は空で、5台とも従来どおり自分で証明書を取っている）。入口は services-01。各ホストの Caddy は内部CAの証明書で入口からの中継を受け、Cloudflare のトークンを持たなくなる | 切替は monitor-01 → media-01 → cloud-01 → identity の順に1台ずつ（[手順](edge.md)）。**インベントリの統一が先。** 1台につき数分つながらない時間がある。トークンは入口・Proxmoxホスト・k8sのcert-managerに残る |
 
 ## 7. 引き継ぐ人のアクセス
 

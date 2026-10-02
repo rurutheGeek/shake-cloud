@@ -179,6 +179,7 @@ flowchart TB
 | [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-09-13 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-09-13 | `ops` `storage` |
+| [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-02 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-09-11 | `ops` `storage` `ai` |
 | [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-02 | `ops` `handover` |
@@ -239,6 +240,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 123 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 124 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
