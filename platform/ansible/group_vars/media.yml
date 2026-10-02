@@ -35,8 +35,8 @@ nextcloud_custom_apps:
     repo: rurutheGeek/nextcloud-localsend
     version: 1.0.2
 # Nextcloud MCPサーバ（公開リポジトリのGitHub Releaseが正本。bumpで更新）。
-nextcloud_mcp_version: 1.0.1
-nextcloud_mcp_sha256: 1de830942d2255258d0805915a5cad91fca28225a974a07dad1631ea33fc4b3e
+nextcloud_mcp_version: 1.1.0
+nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6
 # 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
 # 片付けが済んだら空リストにしてよい。
 nextcloud_retired_apps:

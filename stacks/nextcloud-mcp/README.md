@@ -1,8 +1,8 @@
 # Nextcloud MCPサーバ（media-01）
 
 Nextcloudのアカウントを持つ全員が、AIエージェント（opencode等）からファイルの
-読み書き・MP3タグ編集・圧縮/解凍をできるようにするMCPサーバーです。
-標準ライブラリだけで動きます。
+読み書き・MP3タグ編集・圧縮/解凍・カレンダー予定の一覧/追加をできるようにする
+MCPサーバーです。標準ライブラリだけで動きます。
 
 **実装の正本は公開リポジトリ
 [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp)**

@@ -1,6 +1,6 @@
 ---
 title: A06 NextcloudファイルAIエージェント（nextcloud-mcp）
-updated: 2026-09-26
+updated: 2026-09-28
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,15 @@ tags:
 
 # A06 NextcloudファイルAIエージェント（nextcloud-mcp）
 
-> **更新日** 2026-09-26 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-09-28 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-状態: **media-01へ実機配備済み・稼働中。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusでも`probe_success==1`を確認済み。残るのは人間のNextcloudアカウントでの実データ確認（アプリパスワード・タグ編集反映・大きいzipの解凍）だけ**。
+状態: **media-01へ実機配備済み・稼働中（v1.1.0）。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusでも`probe_success==1`を確認済み。残るのは人間のNextcloudアカウントでの実データ確認（アプリパスワード・タグ編集反映・大きいzipの解凍）だけ**。アプリパスワード（Basic）でのログインは実機で確認済み（2026-09-28）。
+
+2026-09-28に `v1.1.0` でカレンダー3ツールを追加した。要件を「ファイルの読み書き・圧縮解凍・タグ編集」から**CalDAVカレンダーの予定追加**へ広げ、AIが自然文から整えた予定を、既存の予定とかぶらない場合だけ追加できるようにした（かぶりは競合を列挙して拒否し、`allow_overlap=true`で強制）。繰り返し予定の展開・読み取り専用/VTODOカレンダーの拒否・Calendarアプリ未有効時の明示エラー・`NEXTCLOUD_MCP_TIMEZONE` を含む。予定の更新・削除は次版以降。
 
 GeminiのGoogle Drive連携のように、AIエージェント（opencode等）がNextcloudの
 ファイルを「ネイティブに」読み書きできるようにする。要求は3つ：ファイルの
