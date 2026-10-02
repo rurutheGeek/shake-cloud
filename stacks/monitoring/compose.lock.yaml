@@ -1,0 +1,25 @@
+{
+  "services": {
+    "alertmanager": {
+      "image": "prom/alertmanager@sha256:690c7b525f4367aa91f73e2f91c632206d32e97c6384bdbf2fb7a861b420340d"
+    },
+    "blackbox": {
+      "image": "prom/blackbox-exporter@sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc"
+    },
+    "grafana": {
+      "image": "grafana/grafana@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283"
+    },
+    "nut-exporter": {
+      "image": "ghcr.io/druggeri/nut_exporter@sha256:276460d141c732772f8b1fcd785a7de272473e6d39fd85c32b163efc2999cb9a"
+    },
+    "peanut": {
+      "image": "brandawg93/peanut@sha256:6629dce915da8b313f08b2e73dd2e54b60e7c0f642c21a8ebc37fe0a820bf41e"
+    },
+    "prometheus": {
+      "image": "prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0"
+    },
+    "pve-exporter": {
+      "image": "prompve/prometheus-pve-exporter@sha256:4867684c0a937716f11f770a32d32958bded507cf570fc334f774392afcb2f37"
+    }
+  }
+}

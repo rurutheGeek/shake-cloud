@@ -42,12 +42,12 @@
         mode: '0644'
       loop: [compose.yaml, manage.py, .env.example]
 
-    - name: Copy reviewed image lock if present
+    # digest の正本はリポジトリの lock。配備先で pull して決めさせない。
+    - name: Copy the reviewed image lock
       ansible.builtin.copy:
         src: '{{ source_dir }}/compose.lock.yaml'
         dest: '{{ home_assistant_project_dir }}/compose.lock.yaml'
         mode: '0644'
-      when: lookup('ansible.builtin.fileglob', source_dir + '/compose.lock.yaml', wantlist=True) | length > 0
 
     - name: Render Home Assistant environment
       ansible.builtin.copy:
