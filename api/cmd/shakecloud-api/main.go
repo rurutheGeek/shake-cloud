@@ -109,7 +109,7 @@ func run(log *slog.Logger) error {
 		srv.Compute = service
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)
-		go service.RunLedger(ctx, time.Minute)
+		go service.RunLedger(ctx, 15*time.Minute)
 		log.Info("instances enabled", "node", deployment.Node, "pool", deployment.Pool,
 			"vmid_range", fmt.Sprintf("%d-%d", deployment.VMIDFrom, deployment.VMIDTo), "images", len(deployment.Images))
 	} else {

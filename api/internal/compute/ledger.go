@@ -31,6 +31,11 @@ var ledgerName = regexp.MustCompile(`^i-[0-9a-f]{17}$`)
 
 // RunLedger keeps NetBox's virtual machines in step with the instances, until
 // ctx ends. It does nothing when the site declares no ledger cluster.
+//
+// A sync runs as soon as an instance settles into a new state (launched,
+// started, stopped, terminated, or seen to have changed outside the API).
+// Instances change rarely, so the timer is only the safety net: it picks up
+// what a wake-up missed, such as a sync that failed while NetBox was down.
 func (s *Service) RunLedger(ctx context.Context, every time.Duration) {
 	if s.Ledger == nil || s.Site.Ledger.Cluster == "" {
 		return
@@ -44,8 +49,18 @@ func (s *Service) RunLedger(ctx context.Context, every time.Duration) {
 		select {
 		case <-ctx.Done():
 			return
+		case <-s.ledgerWake:
 		case <-ticker.C:
 		}
+	}
+}
+
+// wakeLedger asks for a sync now. It never blocks: one pending request is
+// enough, since a sync looks at every instance.
+func (s *Service) wakeLedger() {
+	select {
+	case s.ledgerWake <- struct{}{}:
+	default:
 	}
 }
 

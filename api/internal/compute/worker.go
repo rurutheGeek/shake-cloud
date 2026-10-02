@@ -74,6 +74,7 @@ func (s *Service) process(ctx context.Context, instance db.Instance) {
 			s.Wake()
 		} else {
 			log.Info("instance action finished", "state", state)
+			s.wakeLedger()
 		}
 		return
 	}
