@@ -110,8 +110,9 @@ jobs:
       - name: Lint Python
         run: python3 -m ruff check .
       # ubuntu-24.04 ランナーにはプリインストール済み。
+      # 整形の好み（info・style）では落とさない。warning 以上だけを見る。
       - name: Lint shell scripts
-        run: git ls-files -z '*.sh' | xargs -0 shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning
       - name: Check publication contents
         run: python3 tools/check-publication.py
       - name: Build Japanese documentation

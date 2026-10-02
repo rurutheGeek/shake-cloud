@@ -13,7 +13,7 @@ Proxmox VE（ホスト `apextox`）上のホームラボをTerraform・Ansible�
 terraform fmt -check -recursive platform/terraform
 .venv/bin/yamllint -c .yamllint .
 .venv/bin/ruff check .                           # 壊れたPython（ruff.toml）
-git ls-files '*.sh' | xargs shellcheck           # シェルスクリプト
+git ls-files '*.sh' | xargs shellcheck --severity=warning  # シェルスクリプト（警告以上）
 .venv/bin/mkdocs build --strict
 python3 tools/check-publication.py               # 秘密値・禁止パスの公開前チェック
 gofmt -l cloud
