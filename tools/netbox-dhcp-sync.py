@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Keep NetBox and the OpenWrt router's DHCP in step.
 
-NetBox is the source of truth for the infrastructure band (static devices:
-AP, printer, Pis, the Proxmox host) and for reserved addresses in the DHCP
-pool (static clients that must not collide with leases). The router's dnsmasq
-is the source of truth for what is actually leased. This tool bridges them:
+NetBox is the source of truth for the physical devices (not only the ones on
+the network: microcontrollers, microphones and unmanaged switches live in the
+dcim without an interface or an address) and for reserved addresses in the
+DHCP pool (static clients that must not collide with leases). The router's
+dnsmasq is the source of truth for what is actually leased. This tool bridges
+them:
 
-    ensure    NetBox の dcim を platform/netbox/devices.yaml に合わせる
+    ensure    NetBox の dcim を platform/netbox/devices.yaml に合わせる（ネット接続の無い機器も含む）
     pull      NetBox の reserved IP を dnsmasq の予約（/etc/dnsmasq.d）へ反映
     push      ルータの DHCP リースを NetBox の IPAddress(status=dhcp) へ写す
     discover  LAN の ARP とリースを一覧し、未宣言の機器を提案する（読むだけ）
@@ -24,6 +26,7 @@ NetBox の資格情報は環境変数で渡す（リポジトリの他のツー�
 interface.mac_address に持つ（Terraform Provider は読み取り専用なので API で扱う）。
 """
 import argparse
+from datetime import date
 import ipaddress
 from pathlib import Path
 import os
@@ -150,13 +153,26 @@ def parse_neigh(text):
     return entries
 
 
+def interface_specs(device):
+    """devices.yaml の `interface` / `interfaces` を1つの並びにする。
+
+    `interface` は口が1つのとき、`interfaces` は複数のとき（PC の eth0 + wlan0、
+    Pi の有線 + Wi-Fi など）。両方は書かない。
+    """
+    specs = []
+    if device.get('interface'):
+        specs.append(device['interface'])
+    specs.extend(device.get('interfaces', []))
+    return specs
+
+
 def declared_macs(spec):
     """devices.yaml で宣言済みの MAC（devices と clients の両方）。"""
     macs = set()
     for device in spec.get('devices', []):
-        mac = device.get('interface', {}).get('mac')
-        if mac:
-            macs.add(normalize_mac(mac))
+        for interface in interface_specs(device):
+            if interface.get('mac'):
+                macs.add(normalize_mac(interface['mac']))
     for client in spec.get('clients', []):
         if client.get('mac'):
             macs.add(normalize_mac(client['mac']))
@@ -204,8 +220,29 @@ def render_clients(clients):
             for client in sorted(clients, key=lambda c: c['name'])]
 
 
+def declared_clients(spec):
+    """名前だけ付ける DHCP クライアント（固定IPを持たない機器）。
+
+    `clients` の宣言に加え、devices のうち address を持たず MAC を持つ口も
+    含める（Wi-Fi 家電など。MAC が分かったら interface に書くだけで名前が付く）。
+    同じ MAC は1つに畳む（dnsmasq は重複した dhcp-host で起動に失敗する）。
+    """
+    names = {}
+    for client in spec.get('clients', []):
+        names[normalize_mac(client['mac'])] = client['name']
+    for device in spec.get('devices', []):
+        if device.get('address') or device.get('dhcp') is False:
+            continue
+        for interface in interface_specs(device):
+            mac = interface.get('mac')
+            if mac:
+                names.setdefault(normalize_mac(mac), device.get('dns_name', device['name']))
+    return [{'mac': mac, 'name': name} for mac, name in names.items()]
+
+
 def client_names(spec):
-    return {normalize_mac(client['mac']): client['name'] for client in spec.get('clients', [])}
+    return {normalize_mac(client['mac']): client['name']
+            for client in declared_clients(spec)}
 
 
 def lease_name(lease, names):
@@ -242,8 +279,222 @@ def ssh_run(destination, key, command, timeout=30, input_text=None):
     return result.stdout, ''
 
 
+def reference_id(value):
+    """参照フィールド（NetBox は {'id': ..} で返す）から id を取り出す。"""
+    return value.get('id') if isinstance(value, dict) else value
+
+
+def choice_value(value):
+    """選択フィールド（NetBox は {'value': ..} で返す）から値を取り出す。"""
+    return value.get('value') if isinstance(value, dict) else value
+
+
+# ケーブルの端点。YAML のキー → NetBox の object_type → API の置き場。
+CABLE_ENDPOINTS = (
+    ('interface', 'dcim.interface', '/dcim/interfaces/'),
+    ('power_port', 'dcim.powerport', '/dcim/power-ports/'),
+    ('power_outlet', 'dcim.poweroutlet', '/dcim/power-outlets/'),
+)
+
+
+def custom_field_values(device, names):
+    """devices.yaml の項目を NetBox の custom_fields へ書ける形にする。
+
+    names は spec の `custom_fields` に宣言した名前。日付は API が受け取る
+    ISO 文字列にする（YAML は date として読むため）。
+    """
+    values = {}
+    for field in names:
+        if field in device:
+            value = device[field]
+            if isinstance(value, date):
+                value = value.isoformat()
+            values[field] = value
+    return values
+
+
+def endpoint_name(end):
+    """ケーブル端点の口の名前（interface / power_port / power_outlet）。"""
+    for kind, _, _ in CABLE_ENDPOINTS:
+        if end.get(kind):
+            return end[kind]
+    return '?'
+
+
+def device_payload(device, device_types, roles, site, custom_field_names=()):
+    """devices.yaml の1件を NetBox の Device へ書ける形にする。
+
+    serial・asset_tag・comments・custom_fields は宣言があるときだけ入れる。
+    書いていない項目を空にして、画面で入れた値を消さないため。
+    """
+    payload = {
+        'name': device['name'],
+        'device_type': device_types[device['device_type']]['id'],
+        'role': roles[device['role']]['id'],
+        'site': site['id'],
+        'status': device.get('status', 'active'),
+        'description': device.get('description', ''),
+    }
+    for field in ('serial', 'asset_tag'):
+        if field in device:
+            payload[field] = device[field]
+    if 'comments' in device:
+        # YAML の `|` は末尾に改行を入れるが、NetBox は落として保存する。
+        # そのまま送ると毎回「差分あり」になるので、ここで揃える。
+        payload['comments'] = device['comments'].strip()
+    custom = custom_field_values(device, custom_field_names)
+    if custom:
+        payload['custom_fields'] = custom
+    return payload
+
+
+def device_updates(existing, desired):
+    """既存 Device と宣言の差を PATCH できる形で返す。"""
+    updates = {}
+    for field in ('device_type', 'role', 'site'):
+        if reference_id(existing.get(field)) != desired[field]:
+            updates[field] = desired[field]
+    if choice_value(existing.get('status')) != desired['status']:
+        updates['status'] = desired['status']
+    if (existing.get('description') or '') != desired['description']:
+        updates['description'] = desired['description']
+    for field in ('serial', 'asset_tag', 'comments'):
+        if field in desired and (existing.get(field) or '') != (desired[field] or ''):
+            updates[field] = desired[field]
+    existing_custom = existing.get('custom_fields') or {}
+    custom_updates = {}
+    for field, value in (desired.get('custom_fields') or {}).items():
+        if (existing_custom.get(field) or '') != (value or ''):
+            custom_updates[field] = value
+    if custom_updates:
+        updates['custom_fields'] = custom_updates
+    return updates
+
+
+def device_type_updates(existing, desired):
+    """既存 DeviceType と宣言の差を PATCH できる形で返す。"""
+    updates = {}
+    if reference_id(existing.get('manufacturer')) != desired['manufacturer']:
+        updates['manufacturer'] = desired['manufacturer']
+    for field in ('model', 'part_number', 'comments'):
+        if field in desired and (existing.get(field) or '') != desired[field]:
+            updates[field] = desired[field]
+    return updates
+
+
+def cable_updates(existing, desired):
+    """既存 Cable と宣言の差を PATCH できる形で返す。"""
+    updates = {}
+    for field in ('a_terminations', 'b_terminations'):
+        current = [end.get('object_id') for end in existing.get(field) or []]
+        wanted = [end['object_id'] for end in desired[field]]
+        if current != wanted:
+            updates[field] = desired[field]
+    if choice_value(existing.get('status')) != desired['status']:
+        updates['status'] = desired['status']
+    if (existing.get('description') or '') != desired['description']:
+        updates['description'] = desired['description']
+    if 'type' in desired and choice_value(existing.get('type')) != desired['type']:
+        updates['type'] = desired['type']
+    if 'length' in desired:
+        current = existing.get('length')
+        if current is None or float(current) != float(desired['length']) or \
+                choice_value(existing.get('length_unit')) != desired['length_unit']:
+            updates['length'] = desired['length']
+            updates['length_unit'] = desired['length_unit']
+    return updates
+
+
+def ensure_custom_fields(api, spec, dry_run=False):
+    """devices.yaml の custom_fields（Device 用）を NetBox に用意する。
+
+    器を作るだけ。既にある物は触らない（型を変えると既存データに影響する）。
+    """
+    actions = []
+    for field in spec.get('custom_fields', []):
+        if api.one('/extras/custom-fields/', name=field['name']):
+            continue
+        if dry_run:
+            actions.append(f"create custom_field {field['name']}")
+            continue
+        api.post('/extras/custom-fields/', {
+            'name': field['name'],
+            'label': field.get('label', field['name']),
+            'type': field['type'],
+            'object_types': field.get('object_types', ['dcim.device']),
+        })
+        actions.append(f"create custom_field {field['name']}")
+    return actions
+
+
+def ensure_cables(api, spec, dry_run=False):
+    """devices.yaml の cables を NetBox の接続図（Cables）へ合わせる。
+
+    両端は devices で宣言した口（interface / power_port / power_outlet）。
+    `label`（既定は端点から作る）で突き合わせる。
+    """
+    actions = []
+    for cable in spec.get('cables', []):
+        ends = []
+        for end in (cable['a'], cable['b']):
+            kind = next((k for k, _, _ in CABLE_ENDPOINTS if end.get(k)), None)
+            if not kind:
+                raise NetBoxError(
+                    f"cable {end.get('device')}: interface / power_port / "
+                    "power_outlet のどれかを書く")
+            _, object_type, path = next(e for e in CABLE_ENDPOINTS if e[0] == kind)
+            device = api.one('/dcim/devices/', name=end['device'])
+            if not device:
+                raise NetBoxError(
+                    f"cable {end['device']}/{end[kind]}: 機器が NetBox に無い")
+            port = api.one(path, device_id=device['id'], name=end[kind])
+            if not port and not dry_run:
+                raise NetBoxError(
+                    f"cable {end['device']}/{end[kind]}: 口が NetBox に無い"
+                    f"（devices の {kind}s に宣言する）")
+            ends.append({'object_type': object_type,
+                         'object_id': port['id'] if port else None})
+        label = cable.get('label') or (
+            f"{cable['a']['device']}/{endpoint_name(cable['a'])} - "
+            f"{cable['b']['device']}/{endpoint_name(cable['b'])}")
+        desired = {
+            'a_terminations': [ends[0]],
+            'b_terminations': [ends[1]],
+            'status': cable.get('status', 'connected'),
+            'label': label,
+            'description': cable.get('description', ''),
+        }
+        if cable.get('type'):
+            desired['type'] = cable['type']
+        if cable.get('length_m'):
+            desired['length'] = cable['length_m']
+            desired['length_unit'] = 'm'
+        existing = api.one('/dcim/cables/', label=label)
+        if not existing:
+            if dry_run:
+                actions.append(f"create cable {label}")
+            else:
+                api.post('/dcim/cables/', desired)
+                actions.append(f"create cable {label}")
+            continue
+        updates = cable_updates(existing, desired)
+        if updates:
+            if dry_run:
+                actions.append(f"update cable {label} "
+                               f"({', '.join(sorted(updates))})")
+            else:
+                api.patch(f"/dcim/cables/{existing['id']}/", updates)
+                actions.append(f"update cable {label} "
+                               f"({', '.join(sorted(updates))})")
+    return actions
+
+
 def ensure_devices(api, spec, dry_run=False):
-    """NetBox の dcim を devices.yaml に合わせる（足りない物だけ作る）。"""
+    """NetBox の dcim を devices.yaml に合わせる（足りない物は作り、違えば直す）。
+
+    ネット接続の無い機器（USB のマイコン・マイク、アンマネージドスイッチ）は
+    interface と address を省いて宣言できる。その場合は dcim にだけ載る。
+    """
     actions = []
 
     def find_or_create(path, lookup, payload, label):
@@ -260,6 +511,9 @@ def ensure_devices(api, spec, dry_run=False):
     site = api.one('/dcim/sites/', name=spec['site'])
     if not site:
         raise NetBoxError(f"NetBox に site {spec['site']} が無い")
+
+    actions.extend(ensure_custom_fields(api, spec, dry_run))
+    custom_field_names = [field['name'] for field in spec.get('custom_fields', [])]
 
     roles = {}
     for role in spec.get('roles', []):
@@ -281,86 +535,142 @@ def ensure_devices(api, spec, dry_run=False):
     device_types = {}
     for entry in spec.get('device_types', []):
         found = api.one('/dcim/device-types/', slug=entry['slug'])
+        payload = {
+            'manufacturer': manufacturers[entry['manufacturer']]['id'],
+            'model': entry['model'], 'slug': entry['slug'],
+        }
+        if entry.get('part_number'):
+            payload['part_number'] = entry['part_number']
+        if entry.get('comments'):
+            payload['comments'] = entry['comments'].strip()
         if not found:
             if dry_run:
                 actions.append(f"create device_type {entry['slug']}")
                 found = {'id': None, 'dry': True}
             else:
-                found = api.post('/dcim/device-types/', {
-                    'manufacturer': manufacturers[entry['manufacturer']]['id'],
-                    'model': entry['model'], 'slug': entry['slug']})
+                found = api.post('/dcim/device-types/', payload)
                 actions.append(f"create device_type {entry['slug']}")
+        else:
+            updates = device_type_updates(found, payload)
+            if updates:
+                if not dry_run:
+                    api.patch(f"/dcim/device-types/{found['id']}/", updates)
+                actions.append(f"update device_type {entry['slug']} "
+                               f"({', '.join(sorted(updates))})")
         device_types[entry['model']] = found
 
     for device in spec['devices']:
+        desired = device_payload(device, device_types, roles, site, custom_field_names)
         found = api.one('/dcim/devices/', name=device['name'])
         if not found:
             if dry_run:
                 actions.append(f"create device {device['name']}")
                 continue
-            found = api.post('/dcim/devices/', {
-                'name': device['name'],
-                'device_type': device_types[device['device_type']]['id'],
-                'role': roles[device['role']]['id'],
-                'site': site['id'],
-                'status': 'active',
-                'description': device.get('description', ''),
-            })
+            found = api.post('/dcim/devices/', desired)
             actions.append(f"create device {device['name']}")
+        else:
+            updates = device_updates(found, desired)
+            if updates:
+                if not dry_run:
+                    found = api.patch(f"/dcim/devices/{found['id']}/", updates)
+                actions.append(f"update device {device['name']} "
+                               f"({', '.join(sorted(updates))})")
 
-        interface = api.one('/dcim/interfaces/', device_id=found['id'],
-                            name=device['interface']['name'])
-        if not interface:
-            if dry_run:
-                actions.append(f"create interface {device['name']}/{device['interface']['name']}")
-                continue
-            interface = api.post('/dcim/interfaces/', {
-                'device': found['id'],
-                'name': device['interface']['name'],
-                'type': device['interface']['type'],
-            })
-            actions.append(f"create interface {device['name']}/{device['interface']['name']}")
+        interfaces = {}
+        for spec_interface in interface_specs(device):
+            interface = api.one('/dcim/interfaces/', device_id=found['id'],
+                                name=spec_interface['name'])
+            if not interface:
+                if dry_run:
+                    actions.append(
+                        f"create interface {device['name']}/{spec_interface['name']}")
+                    interfaces[spec_interface['name']] = None
+                    continue
+                interface = api.post('/dcim/interfaces/', {
+                    'device': found['id'],
+                    'name': spec_interface['name'],
+                    'type': spec_interface['type'],
+                })
+                actions.append(
+                    f"create interface {device['name']}/{spec_interface['name']}")
+            updates = {}
+            if choice_value(interface.get('type')) != spec_interface['type']:
+                updates['type'] = spec_interface['type']
+            mac = spec_interface.get('mac')
+            if mac and normalize_mac(interface.get('mac_address') or '') != normalize_mac(mac):
+                updates['mac_address'] = normalize_mac(mac)
+            if updates:
+                if dry_run:
+                    actions.append(
+                        f"update interface {device['name']}/{spec_interface['name']}")
+                else:
+                    api.patch(f"/dcim/interfaces/{interface['id']}/", updates)
+                    actions.append(
+                        f"update interface {device['name']}/{spec_interface['name']}")
+            interfaces[spec_interface['name']] = interface
 
-        mac = device['interface'].get('mac')
-        if mac and normalize_mac(interface.get('mac_address') or '') != normalize_mac(mac):
-            if dry_run:
-                actions.append(f"set mac {device['name']} -> {mac}")
-            else:
-                api.patch(f"/dcim/interfaces/{interface['id']}/",
-                          {'mac_address': normalize_mac(mac)})
-                actions.append(f"set mac {device['name']} -> {mac}")
+        for label, path, key in (
+                ('power port', '/dcim/power-ports/', 'power_ports'),
+                ('power outlet', '/dcim/power-outlets/', 'power_outlets')):
+            for name in device.get(key, []):
+                if api.one(path, device_id=found['id'], name=name):
+                    continue
+                if dry_run:
+                    actions.append(f"create {label} {device['name']}/{name}")
+                else:
+                    api.post(path, {'device': found['id'], 'name': name})
+                    actions.append(f"create {label} {device['name']}/{name}")
 
         address = device.get('address')
         if not address:
             continue
+        # IP を割り当てる口。既定は最初に宣言した口（address_interface で指名できる）。
+        wanted = device.get('address_interface')
+        if wanted and wanted not in interfaces:
+            raise NetBoxError(f"{device['name']}: address_interface {wanted} が宣言に無い")
+        interface = interfaces.get(wanted) if wanted else next(iter(interfaces.values()), None)
+        if interface is None and interfaces:
+            continue  # dry-run で口がまだ無い。IP の差分は次回に出す。
         existing = api.one('/ipam/ip-addresses/', address=address)
         payload = {
             'address': address,
             'status': 'reserved',
             'dns_name': device.get('dns_name', device['name']),
             'description': f"{device['name']} ({device['role']})",
-            'assigned_object_type': 'dcim.interface',
-            'assigned_object_id': interface['id'],
         }
+        if interface:
+            payload['assigned_object_type'] = 'dcim.interface'
+            payload['assigned_object_id'] = interface['id']
         if not existing:
             if dry_run:
                 actions.append(f"create ip {address} ({device['name']})")
             else:
                 api.post('/ipam/ip-addresses/', payload)
                 actions.append(f"create ip {address} ({device['name']})")
-        elif existing.get('status', {}).get('value') != 'reserved' or \
-                existing.get('dns_name') != payload['dns_name'] or \
-                existing.get('assigned_object_id') != interface['id']:
+            continue
+        updates = {}
+        if choice_value(existing.get('status')) != 'reserved':
+            updates['status'] = 'reserved'
+        if existing.get('dns_name') != payload['dns_name']:
+            updates['dns_name'] = payload['dns_name']
+        if existing.get('description') != payload['description']:
+            updates['description'] = payload['description']
+        if interface:
+            if existing.get('assigned_object_id') != interface['id']:
+                updates['assigned_object_type'] = 'dcim.interface'
+                updates['assigned_object_id'] = interface['id']
+        elif existing.get('assigned_object_id'):
+            # interface を宣言から外した場合。NetBox 側の割り当ても外す。
+            updates['assigned_object_type'] = None
+            updates['assigned_object_id'] = None
+        if updates:
             if dry_run:
                 actions.append(f"update ip {address} ({device['name']})")
             else:
-                api.patch(f"/ipam/ip-addresses/{existing['id']}/",
-                          {'status': 'reserved', 'dns_name': payload['dns_name'],
-                           'description': payload['description'],
-                           'assigned_object_type': 'dcim.interface',
-                           'assigned_object_id': interface['id']})
+                api.patch(f"/ipam/ip-addresses/{existing['id']}/", updates)
                 actions.append(f"update ip {address} ({device['name']})")
 
+    actions.extend(ensure_cables(api, spec, dry_run))
     return actions
 
 
@@ -385,7 +695,7 @@ def reserved_records(api, sections):
 def pull(api, args):
     network = load_yaml(NETWORK)
     records = reserved_records(api, [network['infrastructure'], network['dhcp']])
-    clients = load_yaml(DEVICES).get('clients', [])
+    clients = declared_clients(load_yaml(DEVICES))
     desired = render_file(records, clients)
     current, error = ssh_run(args.router, args.key,
                              f'cat {RESERVATIONS_FILE} 2>/dev/null || true')

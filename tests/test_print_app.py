@@ -4,7 +4,6 @@ The app is a small custom app: a file action in the Files menu posts the file
 id to Nextcloud, the controller forwards the document to the print API on
 services-01, and that service runs `lp` against the relayed CUPS queue.
 """
-import json
 from pathlib import Path
 import unittest
 
@@ -13,7 +12,6 @@ import yaml
 from support import load_module, read
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'stacks/media/nextcloud/apps/shake_print'
 STACK = ROOT / 'stacks/print-api'
 ROLE = ROOT / 'platform/ansible/roles/cups'
 PLAYBOOK = ROOT / 'platform/ansible/media-nextcloud.yml'
@@ -130,83 +128,42 @@ class RoleTests(unittest.TestCase):
         self.assertEqual(self.defaults['cups_printer_name'], 'ts8430')
 
 
-class AppTests(unittest.TestCase):
-    def test_info_declares_the_app_and_the_supported_versions(self):
-        info = read(APP / 'appinfo/info.xml')
-        self.assertIn('<id>shake_print</id>', info)
-        self.assertIn('<nextcloud min-version="30" max-version="33"/>', info)
-        self.assertIn('<php min-version="8.1"/>', info)
+class MigrationTests(unittest.TestCase):
+    def test_the_app_is_no_longer_vendored_here(self):
+        # アプリ本体は公開リポジトリ rurutheGeek/nextcloud-cups-print が正本。
+        self.assertFalse((ROOT / 'stacks/media/nextcloud/apps/shake_print').exists())
 
-    def test_the_namespace_matches_the_php_namespace(self):
-        # 宣言が無いと Nextcloud は ucfirst した OCA\Shake_print を探し、
-        # OCA\ShakePrint と噛み合わず二重includeで落ちる（2026-09-13 実測）。
-        info = read(APP / 'appinfo/info.xml')
-        application = read(APP / 'lib/AppInfo/Application.php')
-        self.assertIn('<namespace>ShakePrint</namespace>', info)
-        self.assertIn('namespace OCA\\ShakePrint\\AppInfo;', application)
+    def test_the_release_is_pinned_in_group_vars(self):
+        group = yaml.safe_load(read(GROUP_VARS))
+        pinned = {app['name']: app for app in group['nextcloud_custom_apps']}
+        self.assertEqual(pinned['cups_print']['repo'],
+                         'rurutheGeek/nextcloud-cups-print')
+        self.assertRegex(pinned['cups_print']['version'], r'^\d+\.\d+\.\d+$')
 
-    def test_the_files_script_is_registered_on_the_files_page(self):
-        application = read(APP / 'lib/AppInfo/Application.php')
-        listener = read(APP / 'lib/Listener/LoadAdditionalScripts.php')
-        self.assertIn('LoadAdditionalScriptsEvent::class', application)
-        self.assertIn("Util::addInitScript('shake_print', 'shake_print')", listener)
+    def test_manage_py_installs_versioned_releases_idempotently(self):
+        manage = read(ROOT / 'stacks/media/nextcloud/manage.py')
+        self.assertIn('releases/download/v{version}', manage)
+        self.assertIn('def custom_apps(', manage)
+        self.assertIn('.version', manage)
+        self.assertIn('def check_archive(', manage)
 
-    def test_the_controller_forwards_with_a_token_to_the_relay(self):
-        controller = read(APP / 'lib/Controller/PrintController.php')
-        self.assertIn("#[FrontpageRoute(verb: 'POST', url: '/print')]", controller)
-        self.assertIn("getAppValue('shake_print', 'print_api_url'", controller)
-        self.assertIn("getAppValue('shake_print', 'print_api_token'", controller)
-        self.assertIn("'Bearer ' . $token", controller)
-        self.assertIn("'allow_local_address' => true", controller)
-        self.assertIn('isReadable()', controller)
-
-    def test_the_action_uses_the_files_context_signature(self):
-        # NC33は enabled/exec を {nodes, ...} のコンテキストで呼ぶ。配列前提だと
-        # nodes.length が undefined になり、無効化されてメニューに出ない。
-        source = read(APP / 'src/print.js')
-        self.assertIn('enabled: ({ nodes })', source)
-        self.assertIn('exec: async ({ nodes })', source)
-
-    def test_non_admins_may_use_the_print_route(self):
-        # AppFramework は既定で管理者のみ。付けないと一般ユーザーは403になる（実測）。
-        controller = read(APP / 'lib/Controller/PrintController.php')
-        self.assertIn('use OCP\\AppFramework\\Http\\Attribute\\NoAdminRequired;', controller)
-        self.assertEqual(controller.count('#[NoAdminRequired]'), 1)
-
-    def test_the_bundle_registers_the_print_action(self):
-        bundle = read(APP / 'js/shake_print.js')
-        self.assertIn('registerFileAction', bundle)
-        self.assertIn('/apps/shake_print/print', bundle)
-        self.assertIn('shake-print', bundle)
-        # コアと同じ @nextcloud/files v4 のグローバルレジストリへ登録する。
-        self.assertIn('_nc_files_scope', bundle)
-        self.assertIn('register:action', bundle)
-
-    def test_the_action_matches_the_v4_dotted_extension(self):
-        source = read(APP / 'src/print.js')
-        self.assertIn("replace(/^\\./, '')", source)
-        package = json.loads(read(APP / 'package.json'))
-        self.assertEqual(package['dependencies']['@nextcloud/files'], '^4.0.0')
-
-    def test_the_bundle_does_not_pull_the_dialog_vue_tree(self):
-        # dialogs は FilePicker 経由で path/Vue/CSS を引き込むため使わない。
-        package = json.loads(read(APP / 'package.json'))
-        self.assertNotIn('@nextcloud/dialogs', package['dependencies'])
-        self.assertFalse((APP / 'js/shake_print.css').exists())
-        self.assertTrue((APP / 'package-lock.json').exists())
+    def test_the_retired_app_is_removed(self):
+        group = yaml.safe_load(read(GROUP_VARS))
+        self.assertIn('shake_print', group['nextcloud_retired_apps'])
+        self.assertIn('remove-apps', read(PLAYBOOK))
 
 
 class DeploymentTests(unittest.TestCase):
     def setUp(self):
         self.play = yaml.safe_load(read(PLAYBOOK))[0]
 
-    def test_the_app_is_copied_into_the_nextcloud_html_volume(self):
-        copies = [task for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task
-                  and 'shake_print' in str(task['ansible.builtin.copy'].get('src', ''))]
-        self.assertEqual(len(copies), 1)
-        task = copies[0]
-        self.assertIn('custom_apps/shake_print', task['ansible.builtin.copy']['dest'])
+    def test_the_custom_apps_are_installed_from_pinned_releases(self):
+        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
+                    if 'ansible.builtin.command' in task]
+        custom = [argv for argv in commands if len(argv) > 2 and argv[2] == 'custom-apps']
+        self.assertEqual(len(custom), 1)
+        self.assertIn('--repos', custom[0])
+        self.assertIn('--versions', custom[0])
 
     def test_the_relay_url_and_token_are_configured(self):
         commands = [task for task in self.play['tasks']

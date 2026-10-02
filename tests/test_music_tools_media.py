@@ -47,6 +47,13 @@ class ComposeTests(unittest.TestCase):
         volumes = self.compose['services']['tagger']['volumes']
         self.assertIn('./:/tools:ro', volumes)
 
+    def test_the_review_board_only_reads_the_library(self):
+        # 全曲レビューは読み取りと試聴だけ。修正は指摘を読んだ側が行う。
+        service = self.compose['services']['review']
+        self.assertIn('${LIBRARY_ROOT:-../library}/music:/music:ro', service['volumes'])
+        self.assertIn('127.0.0.1:${REVIEW_PORT:-5830}:5830', service['ports'])
+        self.assertIn('review', self.lock['services'])
+
 
 class ManageTests(unittest.TestCase):
     """manage.py creates the Picard config dir and supports staged `up`."""
@@ -190,7 +197,14 @@ class PlaybookTests(unittest.TestCase):
 
     def test_the_default_is_still_every_service(self):
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'convert', 'tag-api', 'khinsider'])
+                         ['metube', 'convert', 'tag-api', 'khinsider', 'review'])
+
+    def test_the_review_board_is_deployed_with_the_stack(self):
+        loop = self.tasks['Copy tool definitions']['loop']
+        self.assertIn('review.py', loop)
+        content = self.tasks['Configure environment']['ansible.builtin.copy']['content']
+        self.assertIn("REVIEW_PORT=' ~ music_tools_review_port", content)
+        self.assertIn('review', self.vars['music_tools_services'])
 
     def test_a_subset_can_be_selected(self):
         argv = self.tasks['Deploy selected music tools']['ansible.builtin.command']['argv']

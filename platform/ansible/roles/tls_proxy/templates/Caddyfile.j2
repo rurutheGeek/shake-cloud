@@ -33,16 +33,42 @@
 			reverse_proxy {{ site.value.upstream }}
 		}
 {% endif %}
-{% if site.value.static_prefix | default('') %}
-		# 静的な確認ページ（例: /review/）。同じ SSO を通す。
-		handle_path {{ site.value.static_prefix }}/* {
-			forward_auth {{ tls_proxy_authentik_url }} {
-				uri /outpost.goauthentik.io/auth/caddy
-				copy_headers X-Authentik-Username
-				header_up Host {http.request.host}
+{% if site.value.path_routes | default([]) %}
+		# パスごとの入口（例: /review/ の全曲レビュー）。同じ SSO を通す。
+		# forward_auth には元のパス（/review/...）を見せ、戻り先がずれない
+		# よう、前置きの除去は認証の後ろで行う（2026-09-26 実測）。
+{% for route in site.value.path_routes %}
+		@{{ route.path | replace('/', '') }}_exact path {{ route.path }}
+		redir @{{ route.path | replace('/', '') }}_exact {{ route.path }}/ 308
+		handle {{ route.path }}/* {
+			route {
+				forward_auth {{ tls_proxy_authentik_url }} {
+					uri /outpost.goauthentik.io/auth/caddy
+					copy_headers X-Authentik-Username
+					header_up Host {http.request.host}
+				}
+				uri strip_prefix {{ route.path }}
+				reverse_proxy {{ route.upstream }} {
+					header_up Remote-User sso_{http.request.header.X-Authentik-Username}
+					header_up -X-Authentik-Username
+				}
 			}
-			root * {{ site.value.static_data | default('/data') }}
-			file_server
+		}
+{% endfor %}
+{% endif %}
+{% if site.value.static_prefix | default('') %}
+		# 静的な確認ページ（例: /review-static/）。同じ SSO を通す。
+		handle {{ site.value.static_prefix }}/* {
+			route {
+				forward_auth {{ tls_proxy_authentik_url }} {
+					uri /outpost.goauthentik.io/auth/caddy
+					copy_headers X-Authentik-Username
+					header_up Host {http.request.host}
+				}
+				uri strip_prefix {{ site.value.static_prefix }}
+				root * {{ site.value.static_data | default('/data') }}
+				file_server
+			}
 		}
 {% endif %}
 		handle {

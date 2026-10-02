@@ -2,7 +2,7 @@
 
 media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → タグ編集 → Navidrome 表示）を担うスタックです。仕様・進捗の正本は [W06](../../docs/development/W06-music-tools.md)、タグ編集の使い方は [Nextcloudの使い方](../../docs/services/nextcloud-guide.md)、Picard廃止の経緯は [D05](../../docs/development/D05-picard.md) です。
 
-状態: **media-01 で MeTube・変換・タグAPI・KHInsiderが稼働中（2026-09-14）。タグAPIはNextcloudの「MP3タグ編集」が使う。同期タイマーは停止中（W06の残り）**。共有 Cookie の実物は未登録です。
+状態: **media-01 で MeTube・変換・タグAPI・KHInsider・全曲レビューが稼働中（2026-09-26）。タグAPIはNextcloudの「MP3タグ編集」が使う。同期タイマーは停止中（W06の残り）**。共有 Cookie の実物は未登録です。
 
 ## 構成
 
@@ -10,6 +10,7 @@ media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → タグ�
 | --- | --- | --- |
 | metube | 音源・動画の取込 | `127.0.0.1:${METUBE_PORT:-8081}` |
 | khinsider | KHInsiderのアルバム一括取込（`khinsider.py`） | `127.0.0.1:${KHINSIDER_PORT:-5820}`（SSOのForward Auth経由） |
+| review | 全曲レビュー（いいね・指摘・試聴、[review.py](review.py)） | `127.0.0.1:${REVIEW_PORT:-5830}`（`https://navidrome.apextox.dpdns.org/review/`、SSO） |
 | convert | BCSTM 変換ワーカー | なし（常駐） |
 | tag-api | タグの読み書きとMusicBrainz検索（Nextcloudの「MP3タグ編集」用、[tag_api.py](tag_api.py)） | `0.0.0.0:${TAG_API_PORT:-5810}`（トークン認証） |
 | tagger | 手動タグ付け（profile: tools） | なし |
@@ -64,6 +65,15 @@ sudo python3 manage.py backup --destination /srv/backups/music-tools
 ## タグ編集
 
 通常はNextcloudの `music` にあるMP3の **…** → **MP3タグを編集** を使います（[Nextcloudの使い方](../../docs/services/nextcloud-guide.md)）。MusicBrainz検索つきで、変更前のタグは `storage/tags/tag-backups/` に保存されます。Navidromeへの反映は通常1時間以内です。
+
+## 全曲レビュー（review）
+
+`https://navidrome.apextox.dpdns.org/review/`（SSO）を開くと、アーティスト → アルバム → 曲の順にライブラリを見られます。ページ遷移なしで試聴でき、正しい曲は **👍 いいね**、間違いは **⚠ 指摘**（項目・正しい値・メモ）を付けます。確認した曲・アルバム・アーティストには印が付き、ユーザーごとの確認数が残ります。
+
+- 索引は Navidrome の SQLite（`media_file` 表）から作ります（`${NAVIDROME_DATA_ROOT:-/srv/media-stack/storage/navidrome}` を読み取り専用でマウント）。タグの正本はファイルですが、一覧は Navidrome が見ている内容と揃え、NFS 上の全曲読み直しを避けます。再構築は数秒で、「再読込」でいつでも更新できます。
+- 状態は `storage/review/events.jsonl`（追記のみ）と `storage/review/index.json`（索引のキャッシュ）。**修正はここには書かず**、指摘を読んだ側（AI・運用）がタグを直して「再読込」を押します（索引は Navidrome のスキャン後に追随します）。
+- 指摘の一覧は画面のほか `GET /api/reports` と `events.jsonl` で読めます。
+- 静的だった旧確認HTML（カバー・歌詞）は `/review-static/` に移動しました（`make-review-html.py` などの生成先は変わりません）。
 
 ## KHInsiderのアルバム一括ダウンロード（khinsider.py）
 

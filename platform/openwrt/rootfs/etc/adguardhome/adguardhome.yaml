@@ -53,7 +53,12 @@ filters:
     id: 48
 user_rules: []
 querylog:
+  # **ファイルへ書かない。** ルータの rootfs は 512MiB で、querylog.json が
+  # 413MB まで育って 2026-10-01 にディスクを埋め、ログの書き込みと stats.db の
+  # 更新が止まった。UI の直近ログはメモリ（size_memory）に残り、集計は
+  # stats.db が持つ。
   enabled: true
+  file_enabled: false
   interval: 2160h
 statistics:
   enabled: true

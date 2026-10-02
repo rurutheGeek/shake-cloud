@@ -14,7 +14,7 @@
 
 | サービス | 実装 | 状態（2026-09-12〜13） |
 | --- | --- | --- |
-| Nextcloud | [nextcloud/](nextcloud/README.md) | media-01へ配備済み。HTTPS＋`user_oidc`、`shake_print`（D08） |
+| Nextcloud | [nextcloud/](nextcloud/README.md) | media-01へ配備済み。HTTPS＋`user_oidc`、`cups_print`・`localsend_share`（各公開リポジトリ。D08・D06） |
 | Kavita | [kavita/](kavita/README.md) | media-01へ配備済み。HTTPS＋組み込みOIDC |
 | Navidrome | [navidrome/](navidrome/README.md) | media-01へ配備済み。HTTPS＋Forward Auth |
 | FreshRSS（共通RSSタイムライン） | [freshrss/](freshrss/README.md) | media-01へ配備済み（2026-09-13）。HTTPS＋ネイティブOIDC＋SharedFeeds拡張（全ユーザーで購読をリアルタイム共有） |

@@ -101,7 +101,7 @@ VMの管理方法はプールで揃えています。**基盤VMは Terraform（`
 | 家庭内ルータ | `platform/openwrt/`・`platform/terraform/router/` | **ルータそのもの。** OpenWrtのUCI設定・AdGuard Home設定・イメージのビルド（`build.sh`）とVM宣言。2026-09-20に市販ルータから切替（§13） |
 | shakecloud | `cloud/` | VM・S3・DB・関数を払い出すAPI、OpenAPI、CLI、Terraform Provider、ポータル（§5） |
 | identityの運用自動化 | `stacks/identity/` | グループ・OIDCクライアント・招待フロー・メール復旧・Email OTP・パスキーを冪等に整える（§4） |
-| Nextcloud連携アプリ | `stacks/media/nextcloud/apps/` | `shake_print`（印刷）・`shake_localsend`（送信）・`shake_tags`（タグ編集） |
+| Nextcloud連携アプリ | `stacks/media/nextcloud/apps/`（自作は`shake_tags`のみ）と公開リポジトリ | `cups_print`（印刷。`rurutheGeek/nextcloud-cups-print`）・`localsend_share`（送信。`rurutheGeek/nextcloud-localsend`）・`shake_tags`（タグ編集） |
 | 印刷・転送の橋渡し | `stacks/print-api/`・`stacks/localsend-send/` | Nextcloud → CUPS の自作API、Nextcloud → 端末のLocalSend送信 |
 | 音楽ライブラリの整理 | `stacks/music-tools/`（`tag_api.py`・`organize.py`・同期） | タグ編集API、ライブラリ整理（plan/apply/undo）、同期 |
 | FreshRSSの共有タイムライン | `stacks/media/freshrss/extensions/` | 全員で1つの購読リストを共有する system 拡張 `SharedFeeds` |

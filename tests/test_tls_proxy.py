@@ -63,6 +63,9 @@ class DnsDeclarationTests(unittest.TestCase):
         for name, record in DNS['records'].items():
             if 'upstream' in record and name not in ('cups', 'adguard', 'router'):
                 self.assertRegex(record['upstream'], r'^127\.0\.0\.1:\d+$', name)
+            for route in record.get('path_routes', []):
+                self.assertRegex(route['upstream'], r'^127\.0\.0\.1:\d+$',
+                                 f'{name}{route["path"]}')
         self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.200:631')
         self.assertEqual(DNS['records']['adguard']['upstream'], '192.168.10.1:3000')
         self.assertEqual(DNS['records']['router']['upstream'], '192.168.10.1:80')
@@ -80,6 +83,12 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['mail-view']['upstream'], f"127.0.0.1:{defaults('mail_view')['mail_view_port']}")
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         self.assertEqual(records['nextcloud-mcp']['upstream'], '127.0.0.1:5811')
+        # 全曲レビューは navidrome の /review/ から music-tools の review へ中継する。
+        music_tools = yaml.safe_load((ROOT / 'platform/ansible/music-tools.yml').read_text())[0]
+        review_port = music_tools['vars']['music_tools_review_port']
+        self.assertEqual(records['navidrome']['path_routes'][0]['path'], '/review')
+        self.assertEqual(records['navidrome']['path_routes'][0]['upstream'],
+                         f'127.0.0.1:{review_port}')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
         # AdGuard の UI はルータ上。ルータ側のファイアウォールで services-01 だけに開ける。
@@ -178,8 +187,9 @@ class TlsProxyTests(unittest.TestCase):
         rendered = caddyfile(sites)
 
         self.assertEqual(len(sites), 8)
-        # navidrome は通常の認証に加え、/review/ の静的ページにも forward_auth を付ける。
-        self.assertEqual(rendered.count('forward_auth https://'), 4)
+        # navidrome は通常の認証に加え、/review/ の全曲レビューと
+        # /review-static/ の生成HTMLにも forward_auth を付ける。
+        self.assertEqual(rendered.count('forward_auth https://'), 5)
         for name in ('navidrome', 'metube', 'khinsider'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
@@ -189,7 +199,14 @@ class TlsProxyTests(unittest.TestCase):
             self.assertIn('header_up Remote-User sso_{http.request.header.X-Authentik-Username}', block, name)
             self.assertIn('header_up -X-Authentik-Username', block, name)
         navidrome = site_block(rendered, 'navidrome')
-        self.assertIn('handle_path /review/*', navidrome)
+        self.assertIn('@review_exact path /review', navidrome)
+        self.assertIn('redir @review_exact /review/ 308', navidrome)
+        self.assertIn('handle /review/*', navidrome)
+        self.assertIn('reverse_proxy 127.0.0.1:5830', navidrome)
+        # 前置きの除去は認証の後ろ。先に消すと SSO の戻り先が / になる。
+        self.assertIn('uri strip_prefix /review', navidrome)
+        self.assertIn('handle /review-static/*', navidrome)
+        self.assertIn('uri strip_prefix /review-static', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
         for name in ('nextcloud', 'kavita', 'freshrss', 'nextcloud-mcp'):

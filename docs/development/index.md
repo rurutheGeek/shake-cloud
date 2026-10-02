@@ -1,6 +1,6 @@
 ---
 title: 機能別VMと並列開発計画
-updated: 2026-09-23
+updated: 2026-10-01
 section: 開発計画
 audience: 開発者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 機能別VMと並列開発計画
 
-> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-01 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベント取り込みは確認中、ライブ映像は新WebRTC方式のため未対応）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
@@ -66,7 +66,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [H04 Eufy](H04-eufy.md) | 機器確認・調査 | services-01 | 実機確認中（ライブ未対応・イベント確認中） |
 | [H05 Eufy leo_rtc クライアント](H05-eufy-leo-rtc.md) | 開発・RE | dev-b | 実機確認中（wake・ICE candidate まで） |
 | [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | services-01 | 計画（未着手）。**N06の実測で前提が変わった**（80/443不可・WireGuardは公開可） |
-| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | cloud VM `net-01`・端末 | 一部完了（tailnet参加済み。ルート承認・宅外検証が未了） |
+| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | cloud VM `net-01`・端末 | 一部完了（ルート承認・tailnet DNS=AdGuard Home 適用済み。宅外の実機検証が未了） |
 | [N03 VLAN切替](N03-vlan.md) | 宣言済み・機材待ち | 既存ネットワーク | **機材待ち。TL-SG605がアンマネージドでVLANを設定できない**（N06で確定）。マネージドスイッチの調達が前提 |
 | [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち。**MAP-Eで80/443が使えない**ため、`https://名前/` での公開はこの回線では不可（N06で確定） |
 | [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | services-01・接続元 | 一部完了 |

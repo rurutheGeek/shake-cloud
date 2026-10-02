@@ -25,6 +25,23 @@ nextcloud_apps:
   - tasks
   - text
   - user_oidc
+# 自作アプリはそれぞれの公開リポジトリのGitHub Releaseから配る。バージョンを
+# 上げると再配備で更新される（manage.py custom-apps が .version で冪等に管理）。
+nextcloud_custom_apps:
+  - name: cups_print
+    repo: rurutheGeek/nextcloud-cups-print
+    version: 1.0.2
+  - name: localsend_share
+    repo: rurutheGeek/nextcloud-localsend
+    version: 1.0.2
+# Nextcloud MCPサーバ（公開リポジトリのGitHub Releaseが正本。bumpで更新）。
+nextcloud_mcp_version: 1.1.0
+nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6
+# 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
+# 片付けが済んだら空リストにしてよい。
+nextcloud_retired_apps:
+  - shake_print
+  - shake_localsend
 # 自作アプリの送り先。アプリ本体は media-nextcloud.yml が一緒に配る
 # （旧スタックの deploy.yml は store から入れる前提なので触らない）。
 nextcloud_print_api_url: 'http://192.168.10.200:6320'

@@ -17,6 +17,7 @@
       - convert
       - tag-api
       - khinsider
+      - review
     # 既定は有効のまま（現行配備の挙動を変えない）。切替中に旧タイマーと
     # 二重に走らせたくない場合だけ -e music_tools_sync_enabled=false にする。
     music_tools_sync_enabled: true
@@ -26,6 +27,7 @@
     music_tools_tz: 'Asia/Tokyo'
     music_tools_tag_port: 5810
     music_tools_khinsider_port: 5820
+    music_tools_review_port: 5830
   tasks:
     - name: Create tool directory
       # tagger コンテナ (33:33) は /tools 以下を名前で読むため、他者に x を
@@ -39,7 +41,7 @@
         src: '{{ source_dir }}/music-tools/{{ item }}'
         dest: '{{ project_dir }}/music-tools/{{ item }}'
         mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, organize.py, organize-aliases.json, strip-embedded-art.py, strip-itunes-comments.py, lyrics.py, embed_sylt.py, rename-lrc-sidecars.py, make-review-html.py, make-lyrics-pages.py, make-cover-review.py, .env.example]
+      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, review.py, organize.py, organize-aliases.json, strip-embedded-art.py, strip-itunes-comments.py, lyrics.py, embed_sylt.py, rename-lrc-sidecars.py, make-review-html.py, make-lyrics-pages.py, make-cover-review.py, .env.example]
     - name: Copy pinned tool images
       ansible.builtin.copy:
         src: '{{ item }}'
@@ -69,6 +71,7 @@
           {{ ('TAG_API_TOKEN=' ~ (music_tools_tag_secrets.stdout | from_json).TAG_API_TOKEN) if 'tag-api' in music_tools_services else '' }}
           {{ ('TAG_API_PORT=' ~ music_tools_tag_port) if 'tag-api' in music_tools_services else '' }}
           {{ ('KHINSIDER_PORT=' ~ music_tools_khinsider_port) if 'khinsider' in music_tools_services else '' }}
+          {{ ('REVIEW_PORT=' ~ music_tools_review_port) if 'review' in music_tools_services else '' }}
         dest: '{{ project_dir }}/music-tools/.env'
         mode: '0600'
       no_log: true

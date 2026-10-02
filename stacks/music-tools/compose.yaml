@@ -87,6 +87,41 @@ services:
       timeout: 5s
       retries: 4
       start_period: 20s
+  review:
+    labels:
+      media-stack.review-code: ${REVIEW_CODE_SHA:-unmanaged}
+    image: ghcr.io/alexta69/metube:latest
+    restart: unless-stopped
+    user: '33:33'
+    entrypoint:
+    - python3
+    - /tools/review.py
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      REVIEW_PORT: '5830'
+      REVIEW_MUSIC: /music
+      REVIEW_STATE: /state
+      NAVIDROME_DB: /navidrome/navidrome.db
+    ports:
+    - 127.0.0.1:${REVIEW_PORT:-5830}:5830
+    volumes:
+    # 試聴とタグの読み取りだけ。修正は指摘を読んだ側（AI・運用）が行う。
+    - ${LIBRARY_ROOT:-../library}/music:/music:ro
+    # 索引は Navidrome が見ている内容（media_file 表）から作る。
+    - ${NAVIDROME_DATA_ROOT:-/srv/media-stack/storage/navidrome}:/navidrome:ro
+    - ./storage/review:/state
+    - ./review.py:/tools/review.py:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5830/healthz',
+        timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
   convert:
     labels:
       media-stack.converter-code: ${CONVERTER_CODE_SHA:-unmanaged}
