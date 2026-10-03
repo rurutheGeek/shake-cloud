@@ -142,7 +142,7 @@ if [ "$module" = 10-platform ]; then
   require_file netbox.sops.yaml
   NETBOX_SERVER_URL=$(secret netbox.sops.yaml NETBOX_SERVER_URL)
   NETBOX_API_TOKEN=$(secret netbox.sops.yaml NETBOX_API_TOKEN)
-  # services-01 の名前とアドレスを 05-seed の state から読むのに bucket 名が要る。
+  # core-01 の名前とアドレスを 05-seed の state から読むのに bucket 名が要る。
   TF_VAR_state_bucket=$TF_STATE_BUCKET
   export NETBOX_SERVER_URL NETBOX_API_TOKEN TF_VAR_state_bucket
 fi

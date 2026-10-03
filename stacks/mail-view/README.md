@@ -1,7 +1,7 @@
 # メールビューア（mail-view）
 
 Gmail の通知用メールボックス（`shake.notify@gmail.com`）の受信トレイを、
-Gmail へログインせずブラウザーで読むための読み取り専用ビューアです。**services-01
+Gmail へログインせずブラウザーで読むための読み取り専用ビューアです。**apps-01
 に単独の Compose プロジェクトとして置いています。** メールの実体は Gmail にあり、
 このスタックは状態を持ちません。
 
@@ -26,7 +26,7 @@ Gmail へログインせずブラウザーで読むための読み取り専用�
 ## セキュリティ
 
 このページは Gmail の全文検索・本文と、**identity（Authentik）の招待メールや
-復旧リンク**が見える場所です。入口は services-01 の Caddy だけで、Forward Auth
+復旧リンク**が見える場所です。入口は apps-01 の Caddy だけで、Forward Auth
 （全ログインユーザー）を通します。アプリ自身のポートは `127.0.0.1` に閉じており、
 LAN から直接は開けません。コンテナは `read_only`・`cap_drop: [ALL]`・
 `no-new-privileges` で動かし、パスワードは `manage.py` が環境変数で渡します。
@@ -50,7 +50,7 @@ LAN から直接は開けません。コンテナは `read_only`・`cap_drop: [A
 
 ## 配備（IaC）
 
-services-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。先に
+apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。先に
 `identity.yml` を流して Forward Auth のプロバイダを作ってから配備します。
 
 ```bash
@@ -59,7 +59,7 @@ tools/tf 20-dns apply
 # 2. Forward Auth のプロバイダとアプリを作る（configure.py）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/identity.yml
-# 3. services-01 へ配備（role: platform/ansible/roles/mail_view、play: mail-view.yml）
+# 3. apps-01 へ配備（role: platform/ansible/roles/mail_view、play: mail-view.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/mail-view.yml
 ```

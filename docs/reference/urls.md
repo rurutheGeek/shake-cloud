@@ -100,9 +100,9 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | 名前 | アドレス | 用途 |
 | --- | --- | --- |
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
-| services-01 | `debian@192.168.10.200` | NetBox・入口のCaddy（AdGuard・ルータの画面の中継）・Home Assistant・eufy。アプリは apps-01 へ移設中 |
+| core-01（旧 services-01） | `debian@192.168.10.200` | Authentik・NetBox・入口のCaddy（AdGuard・ルータの画面の中継） |
 | apps-01 | `debian@192.168.10.105` | Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳（クラウドVM） |
-| identity | `debian@192.168.10.204` | Authentik |
+| identity | `debian@192.168.10.204` | 退役予定（Authentik は 2026-10-03 に core-01 へ移した。コンテナは停止中） |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
 | storage-s3 | `192.168.10.206` | Garage |
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |

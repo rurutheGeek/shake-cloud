@@ -38,7 +38,7 @@ variable "netbox_cluster_name" {
 
 variable "state_bucket" {
   description = <<-EOT
-    他のモジュールの state がある bucket。05-seed が持つ services-01 の名前と
+    他のモジュールの state がある bucket。05-seed が持つ core-01 の名前と
     アドレスを読んで NetBox の台帳へ載せるのに要る。tools/tf が
     TF_VAR_state_bucket で渡す。
   EOT

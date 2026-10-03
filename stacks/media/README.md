@@ -28,8 +28,8 @@ Nextcloud／Kavita／Navidromeの配備実装は `nextcloud/`・`kavita/`・`nav
 
 ## 実装時の境界
 
-ここは共有保存先・依存DB・移行調整の入口。各W計画は独立して進め、既存Composeと管理コードの変更は担当サービスの差分を調整して統合する。原本をVM内で共有し、アプリのDB・設定・索引は分離する。Vaultwardenはservices-01の独立Compose（[W02](../../docs/development/W02-vaultwarden.md)）で、media-01とは共有しない。media-01を停止するとファイル同期・Calendar・Tasksも停止する。
+ここは共有保存先・依存DB・移行調整の入口。各W計画は独立して進め、既存Composeと管理コードの変更は担当サービスの差分を調整して統合する。原本をVM内で共有し、アプリのDB・設定・索引は分離する。Vaultwardenはcore-01の独立Compose（[W02](../../docs/development/W02-vaultwarden.md)）で、media-01とは共有しない。media-01を停止するとファイル同期・Calendar・Tasksも停止する。
 
 同居サービスのCompose名・ポート・永続保存先を衝突させない。共有DNS／TLS・同一state適用・VM再起動だけを調整し、コードと資料の作業は並列に進める。サービスの起動確認・認証・再配備・停止再開・データ復元は各担当計画の完了条件を使う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。services-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-09-12 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
-Homarrは、各サービスを開くための入口です。**services-01 で動いており、家庭内LANから `https://homarr.apextox.dpdns.org` で開きます。** ファイルや本そのものを保存する場所ではありません。
+Homarrは、各サービスを開くための入口です。**apps-01 で動いており、家庭内LANから `https://homarr.apextox.dpdns.org` で開きます。** ファイルや本そのものを保存する場所ではありません。
 
 ## 利用者として使う
 
@@ -55,7 +55,7 @@ SSOで入った人が管理グループに入るには、Homarr側でそのア�
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/homarr.yml
 
-# services-01へ入って直接
+# apps-01へ入って直接
 ssh debian@192.168.10.200
 sudo python3 /opt/homarr-stack/manage.py configure
 ```
@@ -77,7 +77,7 @@ UIでタイルを足した場合も、`apps.json` に無いものは次の反映
 
 ## 管理者がログインできないとき
 
-SSOが使えないときは、ローカル管理者で入れます。パスワードはservices-01の
+SSOが使えないときは、ローカル管理者で入れます。パスワードはapps-01の
 `/opt/homarr-stack/secrets/admin_password` にあります。**チャットやGitへ貼り付けないで
 ください。** SSOのアカウントやグループは[共通ログイン（identity）](../operations/identity.md)
 で管理します。

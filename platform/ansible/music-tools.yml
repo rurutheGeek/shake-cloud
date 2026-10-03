@@ -9,7 +9,7 @@
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
-    # 既定は従来どおり全サービス。services-01 を含む既存ホストの再実行が
+    # 既定は従来どおり全サービス。core-01 を含む既存ホストの再実行が
     # 同じ結果になるよう、全リストを既定にしておく。Picard の段階配備は
     # -e music_tools_services=picard で限定する。
     music_tools_services:
@@ -71,7 +71,7 @@
           {{ ('KHINSIDER_PORT=' ~ music_tools_khinsider_port) if 'khinsider' in music_tools_services else '' }}
           {{ ('REVIEW_PORT=' ~ music_tools_review_port) if 'review' in music_tools_services else '' }}
     - name: Create synchronization code directory
-      # services-01 では既にあったが、media-01 の新規配備では無い。
+      # core-01 では既にあったが、media-01 の新規配備では無い。
       # copy 先の親ディレクトリが無いと失敗する（2026-09-12 実機で発見）。
       ansible.builtin.file:
         path: '{{ project_dir }}/scripts'

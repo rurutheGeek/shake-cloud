@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reconcile the managed Homarr board from apps.json. Standard library only.
 
-Runs on services-01 against the local Homarr. The first run finishes Homarr's
+Runs on apps-01 against the local Homarr. The first run finishes Homarr's
 onboarding with the generated local administrator; later runs log in with the
 same account. apps.json is the source of truth for the board's app tiles:
 declared apps are created or updated in place, and tiles that apps.json no

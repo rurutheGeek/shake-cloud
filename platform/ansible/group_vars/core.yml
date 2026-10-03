@@ -1,5 +1,5 @@
 ---
-# services-01（05-seed が作る、NetBox など共有サービスの置き場）。
+# core-01（05-seed が作る、NetBox など共有サービスの置き場）。
 ansible_user: debian
 ansible_python_interpreter: /usr/bin/python3
 # Authentik がこのホストに居る（core-01）。

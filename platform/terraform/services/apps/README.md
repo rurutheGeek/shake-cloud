@@ -1,6 +1,6 @@
 # apps（apps-01）
 
-利用者向けアプリを載せるクラウドVMです。services-01 に同居していたアプリ（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy・CUPS・mail-view・ドキュメント）を1つずつここへ移します。方針は [配置と命名の再編](../../../../docs/architecture/placement-naming.md)。
+利用者向けアプリを載せるクラウドVMです。core-01 に同居していたアプリ（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy・CUPS・mail-view・ドキュメント）を1つずつここへ移します。方針は [配置と命名の再編](../../../../docs/architecture/placement-naming.md)。
 
 **状態（2026-10-03）: 作成済み（192.168.10.105）。LibreSpeed を移設済み。**
 

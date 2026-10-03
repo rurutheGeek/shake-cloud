@@ -1,6 +1,6 @@
 """Guard the Vaultwarden stack's isolation, SSO declaration and deployment wiring.
 
-Vaultwarden is its own Compose project on services-01 and a native OIDC client
+Vaultwarden is its own Compose project on apps-01 and a native OIDC client
 of the new identity. It holds no data from the old staging host. A test that
 let the old media-hub installation creep back in, that enabled open signups,
 or that put the admin token or the OIDC secret in Git, would be worse than no

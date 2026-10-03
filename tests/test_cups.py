@@ -1,6 +1,6 @@
-"""Guard the CUPS print relay for the Canon TS8430 (services-01).
+"""Guard the CUPS print relay for the Canon TS8430 (apps-01).
 
-The printer is a LAN device; services-01 sits in front of it so LAN and VPN
+The printer is a LAN device; apps-01 sits in front of it so LAN and VPN
 clients can print without talking to the printer directly. The admin page must
 never become reachable without authentication, so these are source-text and
 YAML assertions plus an Ansible syntax check -- nothing here touches the host.

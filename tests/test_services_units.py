@@ -1,4 +1,4 @@
-"""Safety checks for the isolated services-01 application units."""
+"""Safety checks for the isolated apps-01 application units."""
 
 import importlib.util
 from pathlib import Path
@@ -79,7 +79,7 @@ class UnitTests(unittest.TestCase):
             path = ROOT / 'platform/ansible' / expected['playbook']
             text = path.read_text(encoding='utf-8')
             play = yaml.safe_load(text)[0]
-            # Units move from services-01 to apps-01 one at a time
+            # Units move from apps-01 to apps-01 one at a time
             # (docs/architecture/placement-naming.md).
             self.assertEqual(play['hosts'], expected.get('hosts', 'services'), name)
             # Services may be entered directly through manage.py (the new

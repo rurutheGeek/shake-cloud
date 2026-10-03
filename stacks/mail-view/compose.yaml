@@ -2,7 +2,7 @@
 #
 # IMAP にはアプリパスワードでログインし、EXAMINE（readonly）で開くので既読は
 # 付けない。パスワードは manage.py が secrets/imap_password から環境変数として
-# 渡す（.env には残さない）。入口は services-01 の Caddy（Forward Auth）だけで、
+# 渡す（.env には残さない）。入口は apps-01 の Caddy（Forward Auth）だけで、
 # サービスのポートは 127.0.0.1 に閉じる。イメージは compose.lock.yaml で固定する。
 name: mail-view
 

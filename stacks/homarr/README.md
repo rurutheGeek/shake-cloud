@@ -1,6 +1,6 @@
 # Homarr
 
-サービスの入口（ダッシュボード）です。**services-01 に単独の Compose
+サービスの入口（ダッシュボード）です。**apps-01 に単独の Compose
 プロジェクトとして置いています。** 旧ハブの `media-hub`（Authentik・docs・他サービス
 同居）は流用せず、認証は新しい identity の OIDC へ接続しています。
 
@@ -21,7 +21,7 @@
 
 ## 配備（IaC）
 
-services-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
+apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
 
 ```bash
 # 1. identity の homarr OIDCクライアントを作る
@@ -29,7 +29,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 # 2. homarr.apextox.dpdns.org の A レコードを作る
 tools/tf 20-dns apply
-# 3. services-01 へ配備（role: platform/ansible/roles/homarr、play: homarr.yml）
+# 3. apps-01 へ配備（role: platform/ansible/roles/homarr、play: homarr.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/homarr.yml
 ```
@@ -69,7 +69,7 @@ sudo python3 manage.py status
 
 ## 実配備の状態（2026-09-12）
 
-- services-01 へ配備済み。`https://homarr.apextox.dpdns.org`（Let's Encrypt・identity の OIDC）。
+- apps-01 へ配備済み。`https://homarr.apextox.dpdns.org`（Let's Encrypt・identity の OIDC）。
 - `manage.py configure` がボード `home`・タイル・`admins` 権限・`users` 閲覧許可を
   反映し、再実行してもタイルが増えないことを実配備で確認済み。
 - 未確認: ブラウザーでの SSO ログイン、閲覧/管理者権限の実操作、コンテナ再作成・

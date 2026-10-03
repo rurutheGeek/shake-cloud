@@ -74,7 +74,7 @@ ssh debian@<address> 'findmnt /srv/media-stack'
   宣言変更と復旧手順を先にレビューし、削除対象を plan で確認する。
 - vCPU・メモリの変更は停止中のみ（APIが拒否する）。ディスク拡張は
   in-place で、VMは置換されない。
-- services-01 は既存 `05-seed`、game1 は既存 cloud 管理のまま。この state に
+- core-01 は既存 `05-seed`、game1 は既存 cloud 管理のまま。この state に
   他のVMを宣言しない。
 
 ## 検証

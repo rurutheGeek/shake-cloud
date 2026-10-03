@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reconcile the Homarr integrations and board widgets. Standard library only.
 
-Runs on services-01 after configure.py. Integrations are matched by name and
+Runs on apps-01 after configure.py. Integrations are matched by name and
 granted to the `everyone` group so every viewer sees data. Widgets are added
 once with their integrations attached. Secrets are only written on create and
 on explicit rotation; an update keeps the stored values.

@@ -16,7 +16,7 @@
   {
     "name": "LibreSpeed",
     "href": "https://speed.apextox.dpdns.org",
-    "description": "端末 ↔ services-01 の実効速度（LibreSpeed）",
+    "description": "端末 ↔ apps-01 の実効速度（LibreSpeed）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/librespeed.svg",
     "pingUrl": "https://speed.apextox.dpdns.org/"
   },

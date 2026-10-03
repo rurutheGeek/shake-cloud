@@ -18,7 +18,7 @@ variable "image_file_id" {
 
 variable "name" {
   type    = string
-  default = "services-01"
+  default = "core-01"
 }
 
 variable "vm_id" {

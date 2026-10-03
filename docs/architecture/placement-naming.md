@@ -102,7 +102,7 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 | 段階 | 内容 | 状態 |
 | --- | --- | --- |
 | 1 | apps-01 を作り、services-01 のアプリを移す | **完了（2026-10-03）**。LibreSpeed・ドキュメント・mail-view・Homarr・Vaultwarden・CUPS・ポケモン翻訳・Home Assistant・eufy 2つ。services-01 に残るのは NetBox と入口の Caddy |
-| 2 | core-01 を作る（Authentik・NetBox・入口） | 手順を決めた（下）。未着手 |
+| 2 | core-01 を作る（Authentik・NetBox・入口） | **完了（2026-10-03）**。services-01 を 6GiB にして Authentik を移し、`core-01` へ改名した（Proxmox のVM名・ゲストのホスト名・NetBox・`dns.yaml`・インベントリのグループ `core`）。identity のVMは停止前の状態で残してある |
 | 3 | storage-s3 を cloud-01 へ合流する | 未着手 |
 | 4 | Tailscale をルータへ移し、net-01 を消す | 未着手 |
 | 5 | monitor-01 を基盤へ移す | 未着手 |

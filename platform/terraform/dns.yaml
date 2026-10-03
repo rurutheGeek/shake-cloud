@@ -9,7 +9,7 @@
 # （docs/operations/handover.md の「ドメイン」の決定）。
 #
 #   host     : アドレスの出どころ。10-platform の hosts 出力（NetBox の採番）か、
-#              05-seed が静的に持つ services-01。ここへアドレスを書き写さない
+#              05-seed が静的に持つ core-01。ここへアドレスを書き写さない
 #   address  : 台帳に居ない機器（Proxmox 本体）だけ直接書く
 #   upstream : そのホストの Caddy が中継する先。サービス自身のポートは 127.0.0.1 に
 #              閉じる。省くと Caddy を置かない（Proxmox は自分で証明書を持つ）
@@ -29,13 +29,13 @@ zone: apextox.dpdns.org
 # **1台ずつ足す。** 手順は docs/operations/edge.md。空のあいだは、各ホストが
 # 従来どおり自分で証明書を取る。
 edge:
-  host: services-01
+  host: core-01
   backends: []
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
   auth:
-    host: services-01
+    host: core-01
     upstream: 127.0.0.1:9000
     description: Authentik（共通ログイン）
   cloud:
@@ -117,7 +117,7 @@ records:
     upstream: 127.0.0.1:8082
     description: FreshRSS（共通RSSタイムライン。OIDC）
   netbox:
-    host: services-01
+    host: core-01
     upstream: 127.0.0.1:8000
     description: NetBox
   homarr:
@@ -126,9 +126,9 @@ records:
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
   # AdGuard Home の管理画面はルータ上。ルータの :3000 はファイアウォールで
-  # services-01 だけに開けてあり、Caddy はその LAN アドレスへ中継する。
+  # core-01 だけに開けてあり、Caddy はその LAN アドレスへ中継する。
   adguard:
-    host: services-01
+    host: core-01
     upstream: 192.168.10.1:3000
     description: AdGuard Home（DNS・広告遮断。Forward Auth）
     auth: true
@@ -136,7 +136,7 @@ records:
   # identity（Authentik）が止まっていても開ける必要がある。認証は LuCI 自身の
   # root パスワード。upstream はルータの LAN アドレス。
   router:
-    host: services-01
+    host: core-01
     upstream: 192.168.10.1:80
     description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。

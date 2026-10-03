@@ -27,7 +27,7 @@ variable "image_id" {
   default     = "img-debian13"
 }
 
-# services-01 から移すアプリの実測（2026-10-03、合計約1.4GiB）に余裕を足した開始値。
+# core-01 から移すアプリの実測（2026-10-03、合計約1.4GiB）に余裕を足した開始値。
 variable "vcpus" {
   type    = number
   default = 2
@@ -56,7 +56,7 @@ variable "root_disk_gib" {
 }
 
 variable "data_disk_gib" {
-  description = "各アプリのデータを置くデータディスク。縮小はできない（services-01 での実使用は約0.2GiB）。"
+  description = "各アプリのデータを置くデータディスク。縮小はできない（core-01 での実使用は約0.2GiB）。"
   type        = number
   default     = 16
 }

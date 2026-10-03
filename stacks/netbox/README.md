@@ -1,6 +1,6 @@
 # NetBoxの初回構築
 
-NetBoxもこのリポジトリから構築します。このディレクトリは **services-01 の NetBox** を配備するためのスタックです。**新しい基盤の Kubernetes（kubeadm・Cilium・Flux）とその上の AWX 24.6.1 は構築済み**です（2026-09-12時点で cp-01・worker-01 は停止中）。NetBox は services-01 のままです（[配備台帳](../../docs/operations/handover.md)）。
+NetBoxもこのリポジトリから構築します。このディレクトリは **core-01 の NetBox** を配備するためのスタックです。**新しい基盤の Kubernetes（kubeadm・Cilium・Flux）とその上の AWX 24.6.1 は構築済み**です（2026-09-12時点で cp-01・worker-01 は停止中）。NetBox は core-01 のままです（[配備台帳](../../docs/operations/handover.md)）。
 
 起動順序は **Docker → NetBox → 配備先登録 → NetBox動的インベントリ → アプリ配備** です。NetBox本体を作る初回だけ静的なSSH指定を使用します。
 

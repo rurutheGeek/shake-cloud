@@ -11,7 +11,7 @@ the script runs the reclamation, then shows the disk before and after.
     python3 tools/trim-vms.py                       # report only
     python3 tools/trim-vms.py --apply               # build cache + apt
     python3 tools/trim-vms.py --apply --images --journal-max 100M
-    python3 tools/trim-vms.py --apply --only cloud-01,services-01
+    python3 tools/trim-vms.py --apply --only cloud-01,core-01
     python3 tools/trim-vms.py --apply --include-dev # dev-a / dev-b too
 
 Run it from dev-b (or the admin machine) where ~/.ssh/id_ed25519_pve opens the
@@ -30,7 +30,7 @@ import subprocess
 # management VMs are the ones the automation owns; the dev VMs belong to their
 # users (--include-dev).
 VMS = [
-    {'name': 'services-01', 'address': '192.168.10.200', 'user_vm': False},
+    {'name': 'core-01', 'address': '192.168.10.200', 'user_vm': False},
     {'name': 'identity', 'address': '192.168.10.204', 'user_vm': False},
     {'name': 'cloud-01', 'address': '192.168.10.205', 'user_vm': False},
     {'name': 'storage-s3', 'address': '192.168.10.206', 'user_vm': False},

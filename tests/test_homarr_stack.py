@@ -1,6 +1,6 @@
 """Guard the Homarr stack's reconcile rules and its separation from the old hub.
 
-The stack is Homarr alone on services-01. A test that let the old media-hub
+The stack is Homarr alone on apps-01. A test that let the old media-hub
 services (Authentik, docs, other storage) creep back in, or that let a reapply
 duplicate tiles, would be worse than no test.
 """

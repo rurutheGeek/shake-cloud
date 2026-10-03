@@ -35,7 +35,7 @@ groups:
   vpn: "'vpn' in tags or 'vpn' in (tags | map(attribute='slug', default='') | list)"
   lab: "'lab' in tags or 'lab' in (tags | map(attribute='slug', default='') | list)"
   monitoring: "'monitoring' in tags or 'monitoring' in (tags | map(attribute='slug', default='') | list)"
-  services: "'services' in tags or 'services' in (tags | map(attribute='slug', default='') | list)"
+  core: "'core' in tags or 'core' in (tags | map(attribute='slug', default='') | list)"
   apps: "'apps' in tags or 'apps' in (tags | map(attribute='slug', default='') | list)"
   cloud_instances: "'managed-by-cloud-api' in tags or 'managed-by-cloud-api' in (tags | map(attribute='slug', default='') | list)"
 # クラウドAPIが登録したVMは、ホスト名がインスタンスID（i-...）になる。作り直しても

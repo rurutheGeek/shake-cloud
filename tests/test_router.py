@@ -298,7 +298,7 @@ class ImageContentsTests(unittest.TestCase):
         config = load(OPENWRT / 'rootfs/etc/adguardhome/adguardhome.yaml')
         self.assertEqual(config['schema_version'], 29)
         self.assertEqual(config['dns']['port'], 53)
-        # LAN アドレスに開けるが、ファイアウォールで services-01 だけに制限する
+        # LAN アドレスに開けるが、ファイアウォールで core-01 だけに制限する
         # （HTTPS 入口の Caddy が中継する。SSH トンネルでも開ける）。
         self.assertEqual(config['http']['address'], '192.168.10.1:3000')
         self.assertIn('[/lan/]127.0.0.1:5353', config['dns']['upstream_dns'])
@@ -329,7 +329,7 @@ class ImageContentsTests(unittest.TestCase):
 
     def test_only_the_https_proxy_may_reach_the_adguard_ui(self):
         # AdGuard の管理画面は LAN アドレスに開けるが、HTTPS 入口の Caddy が
-        # 動く services-01 だけ。LAN 全体に開けると SSO を迂回できてしまう。
+        # 動く core-01 だけ。LAN 全体に開けると SSO を迂回できてしまう。
         allow = section(self.firewall, 'rule', 'Allow-AdGuard-UI-from-proxy')
         self.assertEqual(allow['options']['src'], 'lan')
         self.assertEqual(allow['options']['src_ip'], '192.168.10.200')

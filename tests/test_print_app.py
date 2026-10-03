@@ -2,7 +2,7 @@
 
 The app is a small custom app: a file action in the Files menu posts the file
 id to Nextcloud, the controller forwards the document to the print API on
-services-01, and that service runs `lp` against the relayed CUPS queue.
+core-01, and that service runs `lp` against the relayed CUPS queue.
 """
 from pathlib import Path
 import unittest

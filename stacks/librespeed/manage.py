@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Independent LibreSpeed lifecycle on services-01. Run with sudo.
+"""Independent LibreSpeed lifecycle on apps-01. Run with sudo.
 
 The stack is LibreSpeed alone: the browser measures the path between the
-device that opens the page and services-01. Test history is kept in a local
+device that opens the page and apps-01. Test history is kept in a local
 SQLite database under the storage root. The stats-page password is generated
 here and passed to Compose as an environment variable, so it never lands in
 .env.

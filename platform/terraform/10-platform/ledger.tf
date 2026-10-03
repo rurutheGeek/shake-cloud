@@ -106,8 +106,8 @@ resource "netbox_ip_range" "dhcp" {
 }
 
 
-# services-01（05-seed）は NetBox より先に存在するので、台帳には後からここで載せる。
-# これが無いと Ansible の動的インベントリに出てこず、services-01 だけ手書きの
+# core-01（05-seed）は NetBox より先に存在するので、台帳には後からここで載せる。
+# これが無いと Ansible の動的インベントリに出てこず、core-01 だけ手書きの
 # インベントリ（seed.ini）で配備し続けることになる。VM 本体は 05-seed の持ち物で、
 # ここは台帳の器と primary IP だけを作る。
 data "terraform_remote_state" "seed" {
@@ -127,7 +127,7 @@ resource "netbox_virtual_machine" "seed" {
   status      = "active"
   # identity: Authentik もこのホストに置く（2026-10-03。core-01 への統合）。
   # Ansible の identity_provider グループがこのホストを指す。
-  tags = ["services", "identity"]
+  tags = ["core", "identity"]
 
   depends_on = [netbox_tag.this]
 }
@@ -144,7 +144,7 @@ resource "netbox_ip_address" "seed" {
   object_type  = "virtualization.vminterface"
   interface_id = tonumber(netbox_interface.seed.id)
   dns_name     = data.terraform_remote_state.seed.outputs.name
-  tags         = ["services"]
+  tags         = ["core"]
 
   depends_on = [netbox_tag.this]
 }

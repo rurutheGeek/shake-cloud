@@ -6,7 +6,7 @@ invitations and alerts arrive there. The app signs in over IMAP with the same
 Gmail app password as SMTP and selects the mailbox read-only (EXAMINE), so
 opening a message never changes the \Seen flag. HTML mail is reduced to text,
 remote images are never loaded, and the page is only reachable through the
-Caddy Forward Auth entry on services-01.
+Caddy Forward Auth entry on apps-01.
 """
 import argparse
 import contextlib

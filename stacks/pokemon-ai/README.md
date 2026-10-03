@@ -26,4 +26,4 @@ Ollama を一つだけ起動する。ホスト側は loopback のみ、モデル
 `manage.py pull <model>` を明示しない限りモデルを取得しない。GPUイメージと
 Vulkan設定は game1 のドライバ確認後に環境変数で切り替える。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。services-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
