@@ -195,6 +195,11 @@ class MediaBaseTests(unittest.TestCase):
         line = bind['ansible.builtin.lineinfile']['line']
         self.assertIn('bind', line)
         self.assertIn('x-systemd.requires-mounts-for={{ media_bulk_mount }}', line)
+        # データディスクが後から載って bind を隠さないよう、順序を固定する。
+        self.assertIn('x-systemd.after={{ media_data_mount_unit }}', line)
+        self.assertIn('x-systemd.requires={{ media_data_mount_unit }}', line)
+        unit = yaml.safe_load(read(GROUP_VARS))['media_data_mount_unit']
+        self.assertIn(unit, read(ROOT / 'platform/terraform/services/media/cloud-init.yaml'))
 
     def test_the_nfs_mounts_are_removed(self):
         self.assertNotIn('nfs-common', self.text)
