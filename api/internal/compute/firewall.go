@@ -140,7 +140,41 @@ func (s *Service) applyFirewall(ctx context.Context, instance db.Instance) error
 	if err := s.pinAddress(ctx, vmid, instance.IPAddress); err != nil {
 		return err
 	}
-	return s.setFilteredOptions(ctx, vmid)
+	if err := s.setFilteredOptions(ctx, vmid); err != nil {
+		return err
+	}
+	return s.filterNIC(ctx, vmid)
+}
+
+// filterNIC makes net0 pass through the VM firewall. A launch creates the NIC
+// that way, but an adopted VM arrives as it was: with firewall=0 on the NIC,
+// Proxmox enforces none of the rules written above, and the instance looks
+// filtered while it is not. It comes last, so the rules are already in place
+// when the NIC starts to be filtered.
+func (s *Service) filterNIC(ctx context.Context, vmid int) error {
+	config, err := s.PVE.VMConfig(ctx, vmid)
+	if err != nil {
+		return err
+	}
+	net0 := configString(config, "net0")
+	if net0 == "" {
+		return nil
+	}
+	parts := strings.Split(net0, ",")
+	found := false
+	for i, part := range parts {
+		if !strings.HasPrefix(part, "firewall=") {
+			continue
+		}
+		if part == "firewall=1" {
+			return nil
+		}
+		parts[i], found = "firewall=1", true
+	}
+	if !found {
+		parts = append(parts, "firewall=1")
+	}
+	return s.PVE.UpdateVMConfig(ctx, vmid, url.Values{"net0": {strings.Join(parts, ",")}})
 }
 
 // replaceRules makes the VM's rules exactly desired.
