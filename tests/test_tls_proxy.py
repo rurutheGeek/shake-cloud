@@ -304,7 +304,10 @@ class EdgeRenderingTests(unittest.TestCase):
         # Forward Auth and the header hygiene stay on the host that runs the app.
         navidrome = site_block(rendered, 'navidrome')
         self.assertIn('request_header -Remote-User', navidrome)
-        self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'), 5)
+        # As many Forward Auth calls as the host makes when it is not behind the edge.
+        self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'),
+                         caddyfile(sites_of(CLOUD_NAME)).count('forward_auth https://'))
+        self.assertGreater(rendered.count('forward_auth https://'), 0)
         # Every hop to an app passes the real client, not the edge.
         self.assertEqual(rendered.count('reverse_proxy 127.0.0.1:'),
                          rendered.count('header_up X-Forwarded-For {client_ip}'))

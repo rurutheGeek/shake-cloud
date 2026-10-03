@@ -45,12 +45,22 @@
     - name: Prepare the UrBackup data directories and admin password
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', init]
-      changed_when: true
+      register: urbackup_init
+      changed_when: >-
+        'CHANGED' in urbackup_init.stdout
+        or 'Created' in urbackup_init.stderr
+        or 'Recreated' in urbackup_init.stderr
+        or 'Started' in urbackup_init.stderr
 
     - name: Deploy UrBackup
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', up]
-      changed_when: true
+      register: urbackup_up
+      changed_when: >-
+        'CHANGED' in urbackup_up.stdout
+        or 'Created' in urbackup_up.stderr
+        or 'Recreated' in urbackup_up.stderr
+        or 'Started' in urbackup_up.stderr
 
     # portal.py / portal-backup.js は単一ファイルのバインドマウントなので、
     # 置き換えてもコンテナは古い inode を見続ける（tls_proxy と同じ）。
@@ -68,4 +78,9 @@
     - name: Apply the UrBackup server settings
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', configure]
-      changed_when: true
+      register: urbackup_configure
+      changed_when: >-
+        'CHANGED' in urbackup_configure.stdout
+        or 'Created' in urbackup_configure.stderr
+        or 'Recreated' in urbackup_configure.stderr
+        or 'Started' in urbackup_configure.stderr
