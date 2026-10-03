@@ -1,0 +1,36 @@
+# ポケモン用語対応翻訳の翻訳サイト（apps-01）。
+#
+# 本体は公開リポジトリ rurutheGeek/poke-translate。翻訳は閲覧者のブラウザ内で
+# 行い、Google翻訳へも閲覧者のブラウザから直接つなぐ。このサーバは、そのリリースを
+# manage.py install が STORAGE_ROOT/site に展開した静的ファイル（ページ・辞書・
+# 拡張機能のzip）を配るだけ。ディレクトリごと読み取り専用で渡すので、
+# 版の更新（ファイルの置き換え）は再起動なしで反映される。
+# イメージは compose.lock.yaml でダイジェスト固定する（mail-view と同じ python）。
+name: poke-translate
+
+services:
+  site:
+    image: python:3.13-alpine
+    restart: unless-stopped
+    user: '65534:65534'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [python3, -m, http.server, '8080', --directory, /srv]
+    environment:
+      PYTHONDONTWRITEBYTECODE: '1'
+    volumes:
+      - ${STORAGE_ROOT:-/srv/poke-translate}/site:/srv:ro
+    ports:
+      # LAN へ出すのは HTTPS 入口（Caddy）だけにする。
+      - '127.0.0.1:${POKE_TRANSLATE_PORT:-8320}:8080'
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/dictionary.json', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 10s

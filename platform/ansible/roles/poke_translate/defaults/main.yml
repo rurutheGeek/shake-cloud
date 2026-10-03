@@ -1,0 +1,14 @@
+---
+# ポケモン用語対応翻訳の翻訳サイト（静的配信のみ）を apps-01 に単独で置く（manage.py を使う）。
+poke_translate_project_dir: /opt/poke-translate
+poke_translate_storage_root: /srv/poke-translate
+poke_translate_source_dir: '{{ playbook_dir }}/../../stacks/poke-translate'
+# 本体は公開リポジトリ（rurutheGeek/poke-translate）のリリースが正本。
+# 版を上げるときはリリースの SHA256SUMS の値へ揃える。
+poke_translate_version: 1.0.0
+poke_translate_sha256: cd69bcad555d25a86ff4c71242722a3d6e798f82661ec1134864998b3d470638
+poke_translate_release_url: 'https://github.com/rurutheGeek/poke-translate/releases/download/v{{ poke_translate_version }}/poke-translate-site-v{{ poke_translate_version }}.tar.gz'
+# 入口は同じホストの Caddy（tls_proxy ロール）が https://poke.<ゾーン> で受ける。
+poke_translate_port: 8320
+poke_translate_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+poke_translate_public_url: 'https://poke.{{ poke_translate_dns.zone }}'

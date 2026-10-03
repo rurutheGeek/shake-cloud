@@ -1,0 +1,12 @@
+---
+# ポケモン用語対応翻訳の翻訳サイト（静的ファイルと拡張機能のzip）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/poke-translate.yml'
+- name: Deploy the Pokémon-aware translator site
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    # 先に HTTPS の入口を作る。最後の確認は公開名で 200 を見る。
+    - tls_proxy
+    - poke_translate

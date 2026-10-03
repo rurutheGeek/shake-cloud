@@ -1,0 +1,93 @@
+---
+- name: Create the translator deployment directory
+  ansible.builtin.file:
+    path: '{{ poke_translate_project_dir }}/releases'
+    state: directory
+    mode: '0755'
+
+- name: Copy the translator stack
+  ansible.builtin.copy:
+    src: '{{ poke_translate_source_dir }}/{{ item }}'
+    dest: '{{ poke_translate_project_dir }}/{{ item }}'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# 2026-09-27 の初回配備はこのリポジトリで辞書をビルドしていた。公開リポジトリの
+# リリースへ移ったので、その時のコードと PokéAPI のキャッシュを片付ける。
+- name: Remove the files of the in-repository build
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ poke_translate_project_dir }}/core'
+    - '{{ poke_translate_project_dir }}/site'
+    - '{{ poke_translate_project_dir }}/extension'
+    - '{{ poke_translate_project_dir }}/dictionary.py'
+    - '{{ poke_translate_project_dir }}/custom-terms.json'
+    - '{{ poke_translate_project_dir }}/__pycache__'
+    - '{{ poke_translate_storage_root }}/pokeapi.json'
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ poke_translate_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize storage
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ poke_translate_project_dir }}'
+  changed_when: false
+
+- name: Download the pinned release
+  ansible.builtin.get_url:
+    url: '{{ poke_translate_release_url }}'
+    dest: '{{ poke_translate_project_dir }}/releases/poke-translate-site-v{{ poke_translate_version }}.tar.gz'
+    checksum: 'sha256:{{ poke_translate_sha256 }}'
+    mode: '0644'
+
+# 変わったファイルだけ置き換え、リリースに無いファイルは消す。再起動は要らない。
+- name: Install the release into the site directory
+  ansible.builtin.command:
+    argv: [python3, manage.py, install,
+           'releases/poke-translate-site-v{{ poke_translate_version }}.tar.gz']
+    chdir: '{{ poke_translate_project_dir }}'
+  register: poke_translate_install
+  changed_when: "'CHANGED' in poke_translate_install.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ poke_translate_project_dir }}'
+  register: poke_translate_pinned
+  changed_when: "'CHANGED' in poke_translate_pinned.stdout"
+
+- name: Start the translator site and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ poke_translate_project_dir }}'
+  register: poke_translate_up
+  changed_when: "'Recreate' in poke_translate_up.stderr or 'Created' in poke_translate_up.stderr"
+
+- name: Wait for the translator on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ poke_translate_port }}/dictionary.json'
+  register: poke_translate_health
+  retries: 20
+  delay: 3
+  until: poke_translate_health.status == 200
+
+# tls_proxy が先に証明書を取る。HTTPS の名前でも 200 が返ることを確かめる。
+- name: Wait for the public entry point
+  ansible.builtin.uri:
+    url: '{{ poke_translate_public_url }}/{{ item }}'
+    validate_certs: true
+  register: poke_translate_entry
+  retries: 20
+  delay: 3
+  until: poke_translate_entry.status == 200
+  loop: ['', poke-translate-extension.zip]

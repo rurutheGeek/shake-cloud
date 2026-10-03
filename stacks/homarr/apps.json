@@ -21,6 +21,14 @@
     "pingUrl": "https://speed.apextox.dpdns.org/"
   },
   {
+    "name": "ポケモン翻訳",
+    "href": "https://poke.apextox.dpdns.org",
+    "description": "ポケモン用語を公式名に固定する翻訳（拡張機能の配布も）",
+    "iconText": "POKE",
+    "iconColor": "#e3350d",
+    "pingUrl": "https://poke.apextox.dpdns.org/"
+  },
+  {
     "name": "Shake Cloud",
     "href": "https://cloud.apextox.dpdns.org",
     "description": "VM・S3・DB・関数のセルフサービス",

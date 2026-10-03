@@ -165,6 +165,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | AdGuard Home・dnsmasq（DNS・DHCP） | router-01（OpenWrt VM） | 配備済み（2026-09-20、N06）。設定の正本は `platform/openwrt/`。[AdGuard Home](../operations/adguard.md)・[router-01](../operations/router.md) |
 | 復旧用Tailscale | net-01（cloud VM） | 配備済み（2026-09-14、N02）。ルート承認・宅外検証が未了。[net-01](../operations/net.md) |
 | LibreSpeed（速度テスト） | apps-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
+| ポケモン翻訳 | apps-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
 | 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
 | 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
