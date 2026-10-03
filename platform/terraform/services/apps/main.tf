@@ -63,6 +63,39 @@ resource "shakecloud_security_group_rule" "ipp" {
   description = "IPP (CUPS) from the LAN"
 }
 
+# プリンターは mDNS（AirPrint の広告）で探す。応答を受け取れるようにする。
+resource "shakecloud_security_group_rule" "mdns" {
+  group_id    = shakecloud_security_group.apps.id
+  direction   = "ingress"
+  protocol    = "udp"
+  from_port   = 5353
+  to_port     = 5353
+  cidr        = local.lan_cidr
+  description = "mDNS from the LAN (printer discovery)"
+}
+
+# Nextcloud の「印刷」アクションが叩く小さなAPI。media-01 だけに開ける。
+resource "shakecloud_security_group_rule" "print_api" {
+  group_id    = shakecloud_security_group.apps.id
+  direction   = "ingress"
+  protocol    = "tcp"
+  from_port   = 6320
+  to_port     = 6320
+  cidr        = "192.168.10.101/32"
+  description = "Print API from media-01"
+}
+
+# node_exporter。監視（monitor-01）だけに開ける。
+resource "shakecloud_security_group_rule" "node_exporter" {
+  group_id    = shakecloud_security_group.apps.id
+  direction   = "ingress"
+  protocol    = "tcp"
+  from_port   = 9100
+  to_port     = 9100
+  cidr        = "192.168.10.102/32"
+  description = "node_exporter from monitor-01"
+}
+
 resource "shakecloud_instance" "apps" {
   image_id = var.image_id
 

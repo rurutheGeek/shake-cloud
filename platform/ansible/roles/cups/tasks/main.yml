@@ -103,8 +103,8 @@
     - item.startswith('=;')
     - item.split(';')[2] == 'IPv4'
     - cups_printer_mdns_model in item.split(';')[3]
-    # CUPS 自身の広告（名前が "@ services-01" で終わる）は拾わない。
-    - "'services-01' not in item.split(';')[3]"
+    # CUPS 自身の広告（名前が "@ <このホスト名>" で終わる）は拾わない。
+    - "(cloud_name | default(inventory_hostname, true)) not in item.split(';')[3]"
   loop: '{{ cups_mdns.stdout_lines | default([]) }}'
 
 - name: Make sure the printer is reachable before building the queue

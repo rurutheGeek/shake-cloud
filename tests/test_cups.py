@@ -92,7 +92,7 @@ class RoleTests(unittest.TestCase):
         uri = str(pick['ansible.builtin.set_fact']['cups_printer_uri'])
         self.assertIn('item.split(";")[6]', uri)
         self.assertIn('/ipp/print', uri)
-        self.assertIn('services-01', str(pick['when']))
+        self.assertIn('cloud_name | default(inventory_hostname, true)', str(pick['when']))
 
     def test_the_proxy_hostname_is_accepted(self):
         # Caddy は元の Host を保って 127.0.0.1:631 へ中継する。CUPS は未知の
@@ -112,7 +112,7 @@ class RoleTests(unittest.TestCase):
 
     def test_the_playbook_targets_services_01(self):
         play = yaml.safe_load(read(PLAYBOOK))[0]
-        self.assertEqual(play['hosts'], 'services')
+        self.assertEqual(play['hosts'], 'apps')
         self.assertTrue(play['become'])
         self.assertIn('cups', play['roles'])
 

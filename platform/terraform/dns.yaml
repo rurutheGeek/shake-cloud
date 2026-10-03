@@ -176,11 +176,12 @@ records:
     address: 192.168.10.101
     description: LocalSend受信機（media-01・53317）
   cups:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     # loopback でつなぐと CUPS は Host を localhost に限定して 400 を返す
     # （valid_host）。631 は印刷クライアントへ意図的に開けた中継なので、
     # Caddy は LAN 側アドレスへつなぎ、実Hostをそのまま渡す。
-    upstream: 192.168.10.200:631
+    upstream: 192.168.10.105:631
     description: CUPS（印刷状況。Forward Auth）
     auth: true
     # CUPS の /admin は localhost 限定。Caddy 経由だと接続元が 127.0.0.1 に

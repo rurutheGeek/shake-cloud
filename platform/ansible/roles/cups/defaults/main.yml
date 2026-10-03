@@ -1,5 +1,5 @@
 ---
-# Canon TS8430シリーズへのプリント中継（services-01）。
+# Canon TS8430シリーズへのプリント中継（apps-01）。
 # 端末は CUPS のキュー `ts8430` を使う。プリンター自体はドライバーレスの
 # IPP Everywhere（AirPrint）なので `-m everywhere` で登録する。
 cups_printer_name: ts8430

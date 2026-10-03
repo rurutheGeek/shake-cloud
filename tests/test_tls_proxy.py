@@ -77,7 +77,7 @@ class DnsDeclarationTests(unittest.TestCase):
             for route in record.get('path_routes', []):
                 self.assertRegex(route['upstream'], r'^127\.0\.0\.1:\d+$',
                                  f'{name}{route["path"]}')
-        self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.200:631')
+        self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.105:631')
         self.assertEqual(DNS['records']['adguard']['upstream'], '192.168.10.1:3000')
         self.assertEqual(DNS['records']['router']['upstream'], '192.168.10.1:80')
 
@@ -101,7 +101,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['navidrome']['path_routes'][0]['upstream'],
                          f'127.0.0.1:{review_port}')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
-        self.assertEqual(records['cups']['upstream'], '192.168.10.200:631')
+        self.assertEqual(records['cups']['upstream'], '192.168.10.105:631')
         # AdGuard の UI はルータ上。ルータ側のファイアウォールで services-01 だけに開ける。
         self.assertEqual(records['adguard']['upstream'], '192.168.10.1:3000')
         # ルータの LuCI もルータ上。認証は LuCI 自身（SSO を付けない）。
@@ -134,9 +134,9 @@ class TlsProxyTests(unittest.TestCase):
 
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
-                     SEED_HOST: ['netbox.yml', 'cups.yml'],
+                     SEED_HOST: ['netbox.yml'],
                      'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml',
-                                 'vaultwarden.yml'],
+                                 'vaultwarden.yml', 'cups.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
                      'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
