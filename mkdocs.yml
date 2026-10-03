@@ -138,7 +138,7 @@ nav:
       - 信頼境界とセキュリティ方針: architecture/security.md
       - 障害モードと単一障害点: architecture/failure-modes.md
       - IaCの所有境界: architecture/iac.md
-      - 配置と命名の再編（提案）: architecture/placement-naming.md
+      - 配置と命名の再編: architecture/placement-naming.md
       - 最小クラウドとProvider: architecture/cloud.md
       - ネットワーク・SSO: architecture/network-auth.md
       - VPNの比較と併用: architecture/vpn.md

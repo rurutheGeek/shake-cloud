@@ -220,7 +220,7 @@ flowchart TB
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-01 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-23 | `design` `placement` |
 | [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-23 | `design` `overview` |
-| [配置と命名の再編（提案）](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
+| [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
 | [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-23 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-01 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-23 | `design` `bootstrap` |
