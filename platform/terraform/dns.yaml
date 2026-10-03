@@ -30,7 +30,7 @@ zone: apextox.dpdns.org
 # 従来どおり自分で証明書を取る。
 edge:
   host: core-01
-  backends: []
+  backends: [monitor-02, media-01, apps-01, cloud-01]
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
