@@ -1,11 +1,11 @@
 # Vaultwarden
 
-パスワード管理です。**services-01 に単独の Compose プロジェクトとして置いています。**
+パスワード管理です。**apps-01 に単独の Compose プロジェクトとして置いています。**
 旧ホスト（検証用ステージング）のデータは移行せず、新規に構築しました。認証は
 新しい identity（Authentik）の OIDC へ接続し、HTTPS 名は
 `vault.apextox.dpdns.org` です。
 
-- 担当計画: [W02 Vaultwardenのservices-01移行](../../docs/development/W02-vaultwarden.md)
+- 担当計画: [W02 Vaultwardenのapps-01移行](../../docs/development/W02-vaultwarden.md)
 - 利用・SSO手順: [Vaultwarden](../../docs/operations/vaultwarden.md)
 - 所有境界: [IaCの所有境界](../../docs/architecture/iac.md)
 
@@ -20,7 +20,7 @@
 
 ## 配備（IaC）
 
-services-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
+apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
 
 ```bash
 # 1. identity の vaultwarden OIDCクライアントを作る
@@ -28,7 +28,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 # 2. vault.apextox.dpdns.org の A レコードを作る
 tools/tf 20-dns apply
-# 3. services-01 へ配備（role: platform/ansible/roles/vaultwarden、play: vaultwarden.yml）
+# 3. apps-01 へ配備（role: platform/ansible/roles/vaultwarden、play: vaultwarden.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/vaultwarden.yml
 ```
@@ -79,7 +79,7 @@ sudo python3 manage.py backup --destination /var/backups/vaultwarden
 127.0.0.1:8222 へ直接接続して使います。
 
 ```bash
-ssh -N -L 8222:127.0.0.1:8222 <services-01 のホスト>
+ssh -N -L 8222:127.0.0.1:8222 <apps-01 のホスト>
 # ブラウザーで http://127.0.0.1:8222/admin を開き、secrets/admin_token を入力
 ```
 
@@ -92,7 +92,7 @@ DB・添付・鍵・`config.json` は `${STORAGE_ROOT}/data`（`/data`）です�
 
 ## 実配備の状態（2026-09-12）
 
-- services-01 へ配備済み。`https://vault.apextox.dpdns.org`（Let's Encrypt）、`/alive` 200、
+- apps-01 へ配備済み。`https://vault.apextox.dpdns.org`（Let's Encrypt）、`/alive` 200、
   一般登録無効（登録 API は 400）・`INVITATIONS_ALLOWED=false` で Web UI に
   「Create account」が出ないことを実機で確認済み。
 - 未確認: ブラウザーでの SSO ログイン、マスターパスワードの設定・保管庫の作成、
