@@ -126,6 +126,17 @@ groups:
           summary: "6TB HDDの空きが10%未満"
           description: "vzdumpの世代（keep-last=4）とライブラリの増加を確認してください。"
 
+      # HDD は「バックアップ」と「クラウド」の2領域に上限を持たせている。上限に
+      # 達した領域への書き込みは失敗する（クラウド領域ならVMのディスクが止まる）。
+      - alert: BulkAreaAlmostFull
+        expr: bulk_quota_used_bytes / bulk_quota_limit_bytes > 0.85
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HDDの{{ $labels.area }}領域が上限の85%を超えた"
+          description: "repquota -P /srv/bulk で確認し、不要なものを消すか、上限（pve_bulk_storage_quotas）を見直してください（docs/operations/bulk-storage.md）。"
+
       - alert: SmartDeviceUnhealthy
         expr: smartmon_device_smart_healthy == 0
         for: 5m

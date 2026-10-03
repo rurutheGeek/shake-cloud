@@ -77,7 +77,7 @@ media-01 のデータは、クラウドの HDD ボリューム（`platform/terra
 | バックアップ | `/srv/bulk/backups` | 2000GiB |
 | クラウド | `/srv/bulk/disks` | 3400GiB |
 
-値は `platform/ansible/roles/pve_bulk_storage/defaults/main.yml` の `pve_bulk_storage_quotas` です。使用量は `repquota -P /srv/bulk` で見ます。クォータの機能を初めて入れるときだけアンマウントが要るので、HDD を使うVMを止めてから `-e pve_bulk_storage_enable_quota_offline=true` を付けて実行します。
+値は `platform/ansible/roles/pve_bulk_storage/defaults/main.yml` の `pve_bulk_storage_quotas` です。使用量は15分ごとに監視へ出していて（`bulk_quota_used_bytes`・`bulk_quota_limit_bytes`）、85%を超えると `BulkAreaAlmostFull` が鳴ります。使用量は `repquota -P /srv/bulk` で見ます。クォータの機能を初めて入れるときだけアンマウントが要るので、HDD を使うVMを止めてから `-e pve_bulk_storage_enable_quota_offline=true` を付けて実行します。
 
 ## 4. game1 のマウント（Bazzite）
 

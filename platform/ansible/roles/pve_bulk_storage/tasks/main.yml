@@ -310,3 +310,55 @@
   loop: '{{ pve_bulk_storage_quotas }}'
   loop_control:
     label: '{{ item.name }} {{ item.hard_gib }}GiB'
+
+# --- 領域ごとの使用量を監視へ出す -------------------------------------------
+- name: Install the quota textfile script
+  ansible.builtin.template:
+    src: bulk-quota-textfile.sh.j2
+    dest: /usr/local/sbin/bulk-quota-textfile
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the quota textfile units
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item.name }}'
+    content: '{{ item.content }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - name: bulk-quota-textfile.service
+      content: |
+        [Unit]
+        Description=Export the bulk disk quota usage for node_exporter
+        RequiresMountsFor={{ pve_bulk_storage_mount }}
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/bulk-quota-textfile
+    - name: bulk-quota-textfile.timer
+      content: |
+        [Unit]
+        Description=Export the bulk disk quota usage every 15 minutes
+
+        [Timer]
+        OnBootSec=2min
+        OnUnitActiveSec=15min
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Enable the quota textfile timer
+  ansible.builtin.systemd_service:
+    name: bulk-quota-textfile.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Export the quota usage once now
+  ansible.builtin.command:
+    argv: [/usr/local/sbin/bulk-quota-textfile]
+  changed_when: false

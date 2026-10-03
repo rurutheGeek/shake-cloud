@@ -87,6 +87,7 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 | --- | --- |
 | `BulkDiskUnmounted` | `/srv/bulk` が見えない。**HDD上のクラウドVMのディスク（media-01 のデータなど）と、NFS越しの game1 も巻き込む** |
 | `BulkDiskAlmostFull` | 空きが10%未満 |
+| `BulkAreaAlmostFull` | HDDのバックアップ領域・クラウド領域のどちらかが上限の85%を超えた |
 | `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。唯一の critical。** ディスク交換の検討 |
 | `SmartSectorErrors` | 不良・代替処理待ちセクター |
 | `SmartCableErrors` | CRCエラーの増加。**多くはケーブル側** |

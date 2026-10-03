@@ -186,3 +186,19 @@ func TestAnAdoptedAddressIsRecordedInTheLedgerOnce(t *testing.T) {
 		t.Fatalf("recorded %+v", recorded)
 	}
 }
+
+func TestAnAdoptedNICIsPutBehindTheFirewall(t *testing.T) {
+	s, pve, _ := testService(t)
+	ownerID := newAccount(t, s, "alice")
+	config := adoptableConfig()
+	config["net0"] = "virtio=BC:24:11:AA:BB:CC,bridge=vmbr0,firewall=0"
+	addFakeVM(pve, 5100, "running", config)
+	if _, err := s.Adopt(context.Background(), AdoptRequest{VMID: 5100, AccountID: ownerID, PrivateIPAddress: "192.168.10.202"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	work(t, s, 5)
+	// Without this the default group's rules are written but never enforced.
+	if net0, _ := pve.vms[5100].config["net0"].(string); net0 != "virtio=BC:24:11:AA:BB:CC,bridge=vmbr0,firewall=1" {
+		t.Fatalf("net0 = %q", net0)
+	}
+}

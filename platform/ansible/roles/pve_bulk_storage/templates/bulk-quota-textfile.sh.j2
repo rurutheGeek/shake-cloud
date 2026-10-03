@@ -1,0 +1,22 @@
+#!/bin/sh
+# platform/ansible/roles/pve_bulk_storage が書く。ホスト上で直さない。
+# 領域ごとの使用量と上限を node_exporter の textfile へ出す。
+set -eu
+out="{{ pve_bulk_storage_textfile_dir }}/bulk_quota.prom"
+tmp="$out.$$"
+# repquota の行: "#<id>  --  <使用KiB> <soft> <hard> ..."
+repquota -P "{{ pve_bulk_storage_mount }}" | awk '
+BEGIN {
+{% for quota in pve_bulk_storage_quotas %}
+  area["#{{ quota.id }}"] = "{{ quota.name }}"
+{% endfor %}
+  print "# HELP bulk_quota_used_bytes Bytes used by an area of the bulk disk."
+  print "# TYPE bulk_quota_used_bytes gauge"
+  print "# HELP bulk_quota_limit_bytes Hard limit of an area of the bulk disk."
+  print "# TYPE bulk_quota_limit_bytes gauge"
+}
+$1 in area {
+  printf "bulk_quota_used_bytes{area=\"%s\"} %d\n", area[$1], $3 * 1024
+  printf "bulk_quota_limit_bytes{area=\"%s\"} %d\n", area[$1], $5 * 1024
+}' > "$tmp"
+mv "$tmp" "$out"
