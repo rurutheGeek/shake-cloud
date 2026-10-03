@@ -81,10 +81,26 @@ button.danger, .button.danger { color: var(--danger); border-color: var(--danger
 #confirm-message { white-space: pre-line; }
 dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); max-width: min(32rem, 92vw); }
 dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
-.scroll { overflow-x: auto; }
+.scroll { overflow-x: visible; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
-pre { padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); overflow-x: auto; }
+/* No sideways scrolling: cells wrap, and below 72rem a row becomes a card
+   whose cells are labelled with their column heading (portal-ui.js copies
+   the headings into data-label). */
+th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { white-space: nowrap; }
+td { overflow-wrap: anywhere; }
+td button, td .button { margin: 0.1rem 0.25rem 0.1rem 0; }
+@media (max-width: 72rem) {
+  table, tbody, tr, td { display: block; }
+  thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+  tbody tr { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 0.6rem; padding: 0.35rem 0.25rem; }
+  td { border-bottom: 0; }
+  td[data-label] { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.5rem; }
+  td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.85rem; }
+  td[data-label] > * { grid-column: 2; }
+  tr.edit-row { border-style: dashed; }
+}
+pre { padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
 .notice { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
 .error { color: var(--danger); }
 h3 { font-size: 0.95rem; margin: 1rem 0 0.25rem; }
@@ -139,7 +155,7 @@ code { padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4
 .checklist > .muted { flex-basis: 100%; margin: 0.25rem 0 0; }
 
 /* Narrow screens: a form is one column and no field pushes the page wider
-   than the viewport. Tables keep their own horizontal scroll inside .scroll. */
+   than the viewport. Tables become cards instead of scrolling sideways. */
 @media (max-width: 40rem) {
   main { padding: 1rem; }
   section { padding: 0.75rem 0.9rem; }

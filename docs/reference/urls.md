@@ -102,7 +102,6 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
 | core-01（旧 services-01） | `debian@192.168.10.200` | Authentik・NetBox・入口のCaddy（AdGuard・ルータの画面の中継） |
 | apps-01 | `debian@192.168.10.105` | Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳（クラウドVM） |
-| identity | `debian@192.168.10.204` | 退役予定（Authentik は 2026-10-03 に core-01 へ移した。コンテナは停止中） |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
 | storage-s3 | `192.168.10.206` | Garage |
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |
@@ -112,7 +111,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
 | media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
-| monitor-02 | `debian@192.168.10.210` | 監視（Prometheus・Grafana・Alertmanager・PeaNUT）。基盤VM。旧 monitor-01（192.168.10.102）は停止中 |
+| monitor-01 | `debian@192.168.10.210` | 監視（Prometheus・Grafana・Alertmanager・PeaNUT）。基盤VM |
 
 VM の正本は[配備台帳](../operations/handover.md)と `platform/terraform/hosts.yaml` です。
 
