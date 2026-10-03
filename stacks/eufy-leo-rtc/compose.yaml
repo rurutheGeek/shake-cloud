@@ -8,7 +8,7 @@ services:
     network_mode: host
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-      - ${STORAGE_ROOT:-/srv/services/eufy-leo-rtc}/state:/state
+      - ${STORAGE_ROOT:-/srv/eufy-leo-rtc}/state:/state
 
   leo-live:
     build: .
@@ -63,4 +63,4 @@ services:
       LEO_TURN_MODE: ${LEO_TURN_MODE:-only}
       FFMPEG: ffmpeg
     volumes:
-      - ${STORAGE_ROOT:-/srv/services/eufy-leo-rtc}/state:/state
+      - ${STORAGE_ROOT:-/srv/eufy-leo-rtc}/state:/state

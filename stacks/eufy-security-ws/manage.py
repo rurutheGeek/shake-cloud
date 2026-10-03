@@ -29,7 +29,7 @@ def settings():
 
 def storage_path(config=None):
     config = settings() if config is None else config
-    path = Path(config.get('STORAGE_ROOT', '/srv/services/eufy-security-ws')).resolve()
+    path = Path(config.get('STORAGE_ROOT', '/srv/eufy-security-ws')).resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must be outside the project directory')
     return path

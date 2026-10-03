@@ -25,7 +25,7 @@ class UnitTests(unittest.TestCase):
     units = {
         'home-assistant': {
             'service': 'homeassistant', 'port': '${HOME_ASSISTANT_PORT:-8123}',
-            'prefixes': ['/srv/services/home-assistant'], 'playbook': 'home-assistant.yml',
+            'prefixes': ['/srv/home-assistant'], 'playbook': 'home-assistant.yml', 'hosts': 'apps',
         },
         'homarr': {
             'service': 'homarr', 'port': '${HOMARR_PORT:-7575}',

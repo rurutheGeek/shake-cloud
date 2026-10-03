@@ -41,7 +41,7 @@ variable "memory_mib" {
 variable "memory_min_mib" {
   description = "バルーニングでホストが回収できる下限。"
   type        = number
-  default     = 2048
+  default     = 3072
 }
 
 variable "ballooning" {

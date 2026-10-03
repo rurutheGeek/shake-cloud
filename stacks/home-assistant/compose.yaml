@@ -7,7 +7,7 @@ services:
     environment:
       TZ: ${TZ:-Asia/Tokyo}
     volumes:
-      - ${STORAGE_ROOT:-/srv/services/home-assistant}/config:/config
+      - ${STORAGE_ROOT:-/srv/home-assistant}/config:/config
     ports:
       - 127.0.0.1:${HOME_ASSISTANT_PORT:-8123}:8123
     networks: [homeassistant]

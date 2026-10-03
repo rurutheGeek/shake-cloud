@@ -1,14 +1,14 @@
 ---
-# Eufy leo_rtc ライブ配信を services-01（Home Assistant と同じホスト）へ配備する。
+# Eufy leo_rtc ライブ配信を apps-01（Home Assistant と同じホスト）へ配備する。
 # カメラと同じ LAN に居る必要があるので HA と同居させ、RTSP は docker ゲートウェイ
 # （HA の compose ネットワーク）だけに開く。home-assistant.yml の後に実行する。
 - name: Deploy the Eufy leo_rtc live stream
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks/eufy-leo-rtc'
-    leo_project_dir: /opt/services/eufy-leo-rtc
-    leo_storage_root: /srv/services/eufy-leo-rtc
+    leo_project_dir: /opt/eufy-leo-rtc
+    leo_storage_root: /srv/eufy-leo-rtc
     leo_tz: Asia/Tokyo
     leo_idle_wait: '120'
     leo_demand_wait: '5'

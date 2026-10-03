@@ -106,9 +106,9 @@ HA と同じ LAN に居ればよいので、常駐は services-01 の独立 Comp
 - `mediamtx`（RTSP。`172.31.254.1:8554` だけに開く＝HA の docker ゲートウェイ）と
   `leo-live`（クライアント＋スーパーバイザ）の 2 コンテナ。両方 `network_mode: host`。
 - 秘密値は `platform/sops/eufy-security.sops.yaml`（EUFY_SN/DID/LICENSE/ACCOUNT/CONTACT）
-  が正本で、Ansible が `/opt/services/eufy-leo-rtc/.env` へ流す。
+  が正本で、Ansible が `/opt/eufy-leo-rtc/.env` へ流す。
 - 状態（捕捉・鍵・スナップショット・sessions.csv）は
-  `/srv/services/eufy-leo-rtc/state`。`manage.py status|logs|restart|down` で操作。
+  `/srv/eufy-leo-rtc/state`。`manage.py status|logs|restart|down` で操作。
 - HA のカメラ: `rtsp://172.31.254.1:8554/eufy`（映像のみ）＋
   `http://172.31.254.1:8888/snapshot.jpg`（カードの絵）。録画用は `eufy_av`（映像＋音声）。
 
@@ -144,7 +144,7 @@ HA 側は Generic Camera（UI 専用）として登録する:
 
 ```bash
 # services-01（HA ホスト）で
-sudo python3 /opt/services/home-assistant/manage.py ensure-camera \
+sudo python3 /opt/home-assistant/manage.py ensure-camera \
   --name 'eufyCam S4 (leo_rtc)' --stream rtsp://<leo_rtc ホスト>:8554/eufy \
   --still http://<leo_rtc ホスト>:8888/snapshot.jpg
 ```

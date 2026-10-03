@@ -96,6 +96,18 @@ resource "shakecloud_security_group_rule" "node_exporter" {
   description = "node_exporter from monitor-01"
 }
 
+# Eufy のカメラ（eufyCam S4）は P2P で、カメラ側から UDP を送ってくる。
+# カメラのアドレスだけに開ける（platform/ansible/eufy-security-ws.yml と同じアドレス）。
+resource "shakecloud_security_group_rule" "eufy_camera" {
+  group_id    = shakecloud_security_group.apps.id
+  direction   = "ingress"
+  protocol    = "udp"
+  from_port   = 1
+  to_port     = 65535
+  cidr        = "192.168.10.4/32"
+  description = "UDP from the Eufy camera (P2P)"
+}
+
 resource "shakecloud_instance" "apps" {
   image_id = var.image_id
 

@@ -52,7 +52,7 @@ class ManageTests(unittest.TestCase):
         self.patch = patch.object(self.manage, 'ROOT', self.root)
         self.patch.start()
         (self.root / '.env.example').write_text(
-            'STORAGE_ROOT=/srv/services/eufy-security-ws\nTZ=Asia/Tokyo\n', encoding='utf-8')
+            'STORAGE_ROOT=/srv/eufy-security-ws\nTZ=Asia/Tokyo\n', encoding='utf-8')
 
     def tearDown(self):
         self.patch.stop()
@@ -109,7 +109,7 @@ class AnsibleTests(unittest.TestCase):
         self.play = yaml.safe_load(self.text)[0]
 
     def test_playbook_targets_services_01_and_reads_credentials_from_sops(self):
-        self.assertEqual(self.play['hosts'], 'services')
+        self.assertEqual(self.play['hosts'], 'apps')
         self.assertIn('eufy_credentials', self.text)
         self.assertIn('no_log: true', self.text)
         self.assertIn('manage.py', self.text)
