@@ -3,7 +3,8 @@
 # 読み取り（manage.py status）と loopback 経由の HTTP 確認だけで、ホストの
 # 状態は変えない。変更系は一切実行しないので何度でも再実行できる。
 #
-#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-verify.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-verify.yml'
 #
 # media_units は確認するユニット。既定は6ユニットすべて。段階配備の途中で
 # 配備済みだけを確認したいときは -e で絞る。`key=["a"]` 形式は Ansible が

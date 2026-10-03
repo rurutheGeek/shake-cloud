@@ -4,8 +4,8 @@
 # media-verify.yml で running/healthy と HTTP 応答を確認してから、
 # media-tls.yml で HTTPS の入口を張る。
 #
-#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
-#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media.yml'
 #
 # 段階実行: import_playbook は when を持てないため、このファイルから特定の
 # ユニットだけを選んで実行することはできない。`--start-at-task` で途中から
@@ -27,12 +27,9 @@
 #   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
 #     -e '{"music_tools_services": ["picard"]}'
 #
-# 注意: `media` グループは基盤の NetBox インベントリ（inventory.netbox.yml）
-# にも存在し、media-stack タグの付いた基盤ホストを含み得る。この playbook が
-# 対象にするのはクラウドVMの media-01 だけなので、クラウド用インベントリ
-# （inventory.cloud.py）を単独で使う。NetBox インベントリと併用するときは
-# `--limit <cloud-inventory.yml の media-01 のインスタンスID>` のように対象を
-# 明示し、基盤ホストへ誤配備しない。
+# 配備先は NetBox の動的インベントリ（inventory.netbox.yml）の `media` グループ
+# （media-stack タグ。実体は media-01 だけ）。ホスト名はインスタンスID（i-...）
+# なので、対象を絞るときは `--limit media` のようにグループ名を使う。
 #
 # RomM（W07）は game1 側のユニットなので、ここには含めない。
 - import_playbook: media-base.yml

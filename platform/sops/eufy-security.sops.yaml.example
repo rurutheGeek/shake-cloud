@@ -4,7 +4,7 @@
 #   sops platform/sops/eufy-security.sops.yaml   # 値を編集
 #
 # 2FA を有効にしている場合、初回起動時に確認コードが要る。TRUSTED_DEVICE_NAME の
-# 端末が信頼されると /srv/services/eufy-security-ws/data に保存される。
+# 端末が信頼されると /srv/eufy-security-ws/data（apps-01）に保存される。
 EUFY_USERNAME: you@example.net
 EUFY_PASSWORD: ""
 EUFY_COUNTRY: JP

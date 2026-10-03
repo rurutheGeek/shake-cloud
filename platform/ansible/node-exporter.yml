@@ -1,8 +1,10 @@
 ---
 # 各VMへ node_exporter を入れる。監視スタックの Prometheus が 9100 を読む。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/node-exporter.yml \
-#       --limit core-01,identity,cloud-01,storage-s3
+# 既定の対象は NetBox の動的インベントリの terraform_managed グループ（基盤VM）。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/node-exporter.yml'
+# クラウドVM（media-01・apps-01）へ入れるときは -e '{"node_exporter_hosts": "media"}' のように
+# グループを指定する（ホスト名はインスタンスIDなので --limit はグループ名で使う）。
 - name: Install node_exporter on the service VMs
   hosts: "{{ node_exporter_hosts | default('terraform_managed') }}"
   become: true

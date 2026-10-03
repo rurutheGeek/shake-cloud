@@ -1,7 +1,11 @@
 # Tailscale の秘密値。正本は SOPS（platform/sops/tailscale.sops.yaml）。
 # Git へ平文を入れない。
 #
-# TAILSCALE_AUTH_KEY: net-01（subnet router）を tailnet へ登録する認証キー。
+# TAILSCALE_AUTH_KEY: router-01（OpenWrt 上の subnet router）を tailnet へ
+#   登録し直すときの認証キー。通常は端末の状態ファイル
+#   （/etc/tailscale/tailscaled.state）を引き継ぐので使わない。ルータを
+#   作り直して身元を引き継がない場合だけ、ルータ上で
+#   `tailscale up --advertise-routes=<LAN> --auth-key=<キー>` に渡す。
 #   作り方:
 #   1. Tailscale の管理画面 → Settings → Keys → Generate auth key
 #      - Reusable: 端末を作り直す前提なら on
@@ -14,12 +18,8 @@
 #      $EDITOR platform/sops/tailscale.sops.yaml
 #   3. 暗号化する（.sops.yaml の creation_rules が適用される）
 #      sops --encrypt --in-place platform/sops/tailscale.sops.yaml
-#   4. 配備する（Tailscale の認証キーとクラウドinventory用のアクセスキーの
-#      2つを、そのプロセスの環境変数として渡す）
-#      TAILSCALE_AUTH_KEY=$(sops --decrypt --extract '["TAILSCALE_AUTH_KEY"]' platform/sops/tailscale.sops.yaml) \
-#      SHAKECLOUD_ACCESS_KEY=$(sops --decrypt --extract '["SHAKECLOUD_ACCESS_KEY"]' platform/sops/services.sops.yaml) \
-#      ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#      .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/net.yml
+#   4. 値はルータへ渡すときだけ、そのプロセスの環境変数として使い、履歴へ残さない。
+#      手順と復旧は docs/operations/net.md。
 #
 # TAILSCALE_API_TOKEN: 管理画面の設定（ルート承認・Tailscale DNS）を
 #   tools/tailscale-net.py から適用するための API アクセストークン。

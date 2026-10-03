@@ -1,8 +1,8 @@
 ---
-# 監視スタック（Prometheus・Grafana・exporter）を monitor-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/monitor.ini platform/ansible/monitoring.yml
-# OIDC クライアントの秘密値を identity VM から読むので、identity.yml の後に流す。
+# 監視スタック（Prometheus・Grafana・exporter）を monitor-01（基盤VM）へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
+# OIDC クライアントの秘密値を core-01（Authentik）から読むので、identity.yml の後に流す。
 - name: Deploy the monitoring stack
   hosts: monitoring
   become: true
