@@ -64,6 +64,29 @@ resource "shakecloud_security_group_rule" "localsend" {
   description = "LocalSend HTTPS and TCP discovery from the LAN"
 }
 
+# クライアントバックアップ（stacks/media/urbackup）。Windows クライアントは
+# Forward Auth を通せないため、55413 へ LAN から直接つなぐ。35623/UDP は
+# 同じ LAN 内のサーバー自動発見に使う。Web UI はループバックのみ。
+resource "shakecloud_security_group_rule" "urbackup_client" {
+  group_id    = shakecloud_security_group.media.id
+  direction   = "ingress"
+  protocol    = "tcp"
+  from_port   = 55413
+  to_port     = 55413
+  cidr        = local.lan_cidr
+  description = "UrBackup client backups from the LAN"
+}
+
+resource "shakecloud_security_group_rule" "urbackup_discovery" {
+  group_id    = shakecloud_security_group.media.id
+  direction   = "ingress"
+  protocol    = "udp"
+  from_port   = 35623
+  to_port     = 35623
+  cidr        = local.lan_cidr
+  description = "UrBackup LAN discovery broadcast"
+}
+
 resource "shakecloud_instance" "media" {
   image_id = var.image_id
 

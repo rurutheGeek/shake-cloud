@@ -13,6 +13,7 @@ locals {
   # 壊れたACLができてしまう。
   site_unknown = [for name, value in {
     "storage.vm_disks"     = local.site.storage.vm_disks
+    "storage.vm_disks_hdd" = try(local.site.storage.vm_disks_hdd, "")
     "storage.admin_images" = local.site.storage.admin_images
     "network.sdn_zone"     = local.site.network.sdn_zone
   } : name if value == "UNMEASURED"]
@@ -20,8 +21,18 @@ locals {
   # NICへ bridge を割り当てるのに要る SDN.Use のパス。
   # 素の Linux bridge は既定ゾーンに入る。ゾーン名は site.yaml が正本。
   sdn_acl_path          = "/sdn/zones/${local.site.network.sdn_zone}"
-  vm_storage_acl_path   = "/storage/${local.site.storage.vm_disks}"
   admin_images_acl_path = "/storage/${local.site.storage.admin_images}"
+
+  # ディスクティアごとのストレージ名。HDDティアは無いデプロイもあり得る。
+  vm_disk_storages = {
+    ssd = local.site.storage.vm_disks
+    hdd = try(local.site.storage.vm_disks_hdd, "")
+  }
+  # ACLを作るのは名前があるプールだけ。空文字から /storage/ を作らない。
+  vm_storage_acl_paths = {
+    for tier, name in local.vm_disk_storages : tier => "/storage/${name}"
+    if name != "" && name != "UNMEASURED"
+  }
 
   pool_spec = yamldecode(file("${path.module}/../pools.yaml"))
   pools     = local.pool_spec.pools

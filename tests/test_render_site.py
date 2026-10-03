@@ -26,6 +26,7 @@ class RenderSiteTests(unittest.TestCase):
         network, flavors = self.yaml('network.yaml'), self.yaml('flavors.yaml')
         self.assertEqual(self.site['node'], site['node_name'])
         self.assertEqual(self.site['storage'], {'vm_disks': site['storage']['vm_disks'],
+                                                'vm_disks_hdd': site['storage']['vm_disks_hdd'],
                                                 'images': site['storage']['cloud_images'],
                                                 'admin_images': site['storage']['admin_images']})
         self.assertEqual(self.site['network']['bridge'], site['network']['bridge'])
@@ -53,6 +54,24 @@ class RenderSiteTests(unittest.TestCase):
             loaded = yaml.safe_load((TERRAFORM / name).read_text())
             change(loaded)
             (Path(directory) / name).write_text(yaml.safe_dump(loaded))
+
+    def test_a_missing_hdd_tier_renders_as_empty(self):
+        # A deployment with one disk pool leaves the key out; the API then
+        # refuses disk_tier=hdd instead of pointing at a storage that is not
+        # there.
+        with tempfile.TemporaryDirectory() as directory:
+            def remove(storage):
+                storage['storage'].pop('vm_disks_hdd', None)
+            self.edit_declarations(directory, {'site.yaml': remove})
+            self.assertEqual(render_site.render(directory)['storage']['vm_disks_hdd'], '')
+
+    def test_an_unmeasured_hdd_tier_stops_rendering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def break_it(storage):
+                storage['storage']['vm_disks_hdd'] = 'UNMEASURED'
+            self.edit_declarations(directory, {'site.yaml': break_it})
+            with self.assertRaises(SystemExit):
+                render_site.render(directory)
 
     def test_a_windows_image_carries_its_os(self):
         # The guest OS decides the API's virtual hardware, so it must survive

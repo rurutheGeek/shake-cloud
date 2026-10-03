@@ -155,7 +155,7 @@ class SiteTests(unittest.TestCase):
 
     def test_every_key_the_modules_read_is_present(self):
         self.assertIn('node_name', self.site)
-        for key in ('vm_disks', 'admin_images', 'cloud_images', 'cloud_images_path'):
+        for key in ('vm_disks', 'vm_disks_hdd', 'admin_images', 'cloud_images', 'cloud_images_path'):
             self.assertIn(key, self.site['storage'], key)
         for key in ('bridge', 'sdn_zone', 'prefix', 'gateway', 'dns_servers'):
             self.assertIn(key, self.site['network'], key)
@@ -168,6 +168,10 @@ class SiteTests(unittest.TestCase):
         cloud = self.site['storage']['cloud_images']
         self.assertNotEqual(cloud, self.site['storage']['vm_disks'])
         self.assertNotEqual(cloud, self.site['storage']['admin_images'])
+        # The HDD tier shares disks with the default tier's ACLs; pointing them
+        # at the same store would silently make both tiers one pool.
+        self.assertNotEqual(self.site['storage']['vm_disks_hdd'], self.site['storage']['vm_disks'])
+        self.assertNotEqual(self.site['storage']['vm_disks_hdd'], cloud)
 
     def test_every_unmeasured_value_is_one_a_module_checks_for(self):
         # UNMEASURED means "nobody has asked the host yet". A value carrying

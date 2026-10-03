@@ -41,14 +41,50 @@ type ISO struct {
 	OS     string `json:"os,omitempty"`
 }
 
+// Disk tiers are the names callers choose between; the pools behind them stay
+// a deployment detail. TierSSD is the default and the pool of every disk made
+// before tiers existed.
+const (
+	TierSSD = "ssd"
+	TierHDD = "hdd"
+)
+
+// DiskTiers are the names the API accepts, in the order they are offered.
+var DiskTiers = []string{TierSSD, TierHDD}
+
 type Storage struct {
 	// VMDisks holds instance root disks (thin provisioned).
 	VMDisks string `json:"vm_disks"`
+	// VMDisksHDD is the pool of the "hdd" tier, on the bulk disk. Empty when
+	// this deployment has only one disk pool, and the tier is refused.
+	VMDisksHDD string `json:"vm_disks_hdd,omitempty"`
 	// Images holds shared images and per-instance seed ISOs.
 	Images string `json:"images"`
 	// AdminImages is the administrator's store. The API only lists its ISOs,
 	// so an ISO dropped there from Proxmox is usable without a declaration.
 	AdminImages string `json:"admin_images"`
+}
+
+// DiskTierStorage returns the pool a tier's disks live on, and whether this
+// deployment has that tier. tier is "" or "ssd" for the default pool.
+func (s Storage) DiskTierStorage(tier string) (string, bool) {
+	switch tier {
+	case "", TierSSD:
+		return s.VMDisks, s.VMDisks != ""
+	case TierHDD:
+		return s.VMDisksHDD, s.VMDisksHDD != ""
+	}
+	return "", false
+}
+
+// TierOfStorage names the tier a pool belongs to. It is how an adopted VM's
+// or an existing volume's tier is derived: the HDD pool is hdd, and anything
+// else (including pools this deployment does not know) is the default tier.
+func (s Storage) TierOfStorage(pool string) string {
+	if pool != "" && pool == s.VMDisksHDD {
+		return TierHDD
+	}
+	return TierSSD
 }
 
 type Network struct {
@@ -142,6 +178,9 @@ func (s Site) Validate() error {
 	check(s.Pool != "", "site: pool is empty")
 	check(s.VMIDFrom >= 100 && s.VMIDTo > s.VMIDFrom, "site: bad VMID range %d-%d", s.VMIDFrom, s.VMIDTo)
 	check(s.Storage.VMDisks != "" && s.Storage.Images != "" && s.Storage.AdminImages != "", "site: storage names are empty")
+	check(s.Storage.VMDisksHDD == "" || (s.Storage.VMDisksHDD != s.Storage.VMDisks &&
+		s.Storage.VMDisksHDD != s.Storage.Images && s.Storage.VMDisksHDD != s.Storage.AdminImages),
+		"site: storage.vm_disks_hdd %q collides with another store", s.Storage.VMDisksHDD)
 	check(s.Network.Bridge != "", "site: bridge is empty")
 	_, err := netip.ParseAddr(s.Network.Gateway)
 	check(err == nil, "site: gateway %q is not an address", s.Network.Gateway)

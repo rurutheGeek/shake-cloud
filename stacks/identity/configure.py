@@ -22,11 +22,13 @@ CLIENT = 'cloud'
 # their own authentication on the API paths.
 MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc',
                       'freshrss': '/i/oidc/'}
-MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider')
+# UrBackup も Forward Auth の内側（ポータルと管理画面。クライアント通信は LAN 直結）。
+MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup')
 MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
                       'freshrss': 'FreshRSS',
                       'navidrome': 'Navidrome', 'metube': 'MeTube',
-                      'khinsider': 'KHInsider'}
+                      'khinsider': 'KHInsider', 'backup': 'バックアップポータル',
+                      'urbackup': 'UrBackup管理画面'}
 MEDIA_OUTPOST = 'Embedded'
 # The service entry point lives on services-01, not media-01, but it is an
 # OIDC client of the same identity and is reachable by every invited person.

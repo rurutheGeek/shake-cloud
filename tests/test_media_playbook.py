@@ -19,13 +19,15 @@ ENTRY = ANSIBLE / 'media.yml'
 VERIFY = ANSIBLE / 'media-verify.yml'
 GROUP_VARS = ANSIBLE / 'group_vars/media.yml'
 UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-localsend.yml',
-                  'media-navidrome.yml', 'media-freshrss.yml', 'music-tools.yml']
+                  'media-navidrome.yml', 'media-freshrss.yml', 'music-tools.yml',
+                  'media-urbackup.yml']
 COMPOSE_FILES = {
     'nextcloud': ROOT / 'stacks/media/nextcloud/compose.yaml',
     'kavita': ROOT / 'stacks/media/kavita/compose.yaml',
     'navidrome': ROOT / 'stacks/media/navidrome/compose.yaml',
     'freshrss': ROOT / 'stacks/media/freshrss/compose.yaml',
     'music-tools': ROOT / 'stacks/music-tools/compose.yaml',
+    'urbackup': ROOT / 'stacks/media/urbackup/compose.yaml',
 }
 
 
@@ -145,7 +147,8 @@ class VerifyTests(unittest.TestCase):
 
     def test_the_default_selection_is_all_units(self):
         self.assertEqual(self.vars['media_units'],
-                         ['nextcloud', 'kavita', 'navidrome', 'freshrss', 'music-tools'])
+                         ['nextcloud', 'kavita', 'navidrome', 'freshrss',
+                          'music-tools', 'urbackup'])
 
     def test_the_unit_directories_are_under_the_project_dir(self):
         directories = self.vars['media_unit_dirs']
@@ -206,7 +209,7 @@ class VerifyTests(unittest.TestCase):
         # The runtime check is an equality on the number of running services;
         # here it is enough that the expectations name real services and the
         # health count is the number of healthchecks among them.
-        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss'):
+        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss', 'urbackup'):
             compose = yaml.safe_load(read(COMPOSE_FILES[name]))
             expected = self.vars['media_unit_services'][name]
             self.assertLessEqual(set(expected), set(compose['services']), name)
@@ -216,18 +219,22 @@ class VerifyTests(unittest.TestCase):
 
     def test_music_tools_expectations_follow_the_deploy_selection(self):
         # W06 deploys a subset with -e music_tools_services=[...]; the verifier
-        # reads the same variable instead of hard-coding the full list.
+        # reads the same variable instead of hard-coding the full list. The
+        # default must match the deploy playbook (review is part of it).
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'convert', 'tag-api', 'khinsider'])
+                         ['metube', 'convert', 'tag-api', 'khinsider', 'review'])
         self.assertNotIn('music-tools', self.vars['media_unit_services'])
         self.assertIn('default(music_tools_services)', self.conditions())
+        self.assertIn('default(music_tools_healthchecked)', self.conditions())
         compose = yaml.safe_load(read(COMPOSE_FILES['music-tools']))
         self.assertLessEqual(set(self.vars['music_tools_services']), set(compose['services']))
         # The verifier counts the healthchecked music-tools services; convert,
-        # the tag API and KHInsider all have one.
+        # the tag API, KHInsider and the review UI all have one.
         healthchecked = [service for service in self.vars['music_tools_services']
                          if 'healthcheck' in compose['services'][service]]
-        self.assertEqual(healthchecked, ['convert', 'tag-api', 'khinsider'])
+        self.assertEqual(healthchecked, ['convert', 'tag-api', 'khinsider', 'review'])
+        self.assertIn("intersect(['convert', 'tag-api', 'khinsider', 'review'])",
+                      self.vars['music_tools_healthchecked'])
 
 
 class SyntaxTests(unittest.TestCase):

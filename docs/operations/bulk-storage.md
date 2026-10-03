@@ -1,6 +1,6 @@
 ---
 title: 共有バルクストレージ（6TB USB HDD）
-updated: 2026-09-22
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,9 +11,9 @@ tags:
 
 # 共有バルクストレージ（6TB USB HDD）
 
-> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
+**状態**: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ・Nextcloudデータ・クライアント端末バックアップ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
 
 VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置くのは、大きく・読み取り中心のライブラリだけにします。
 
@@ -25,7 +25,7 @@ VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置�
 | 接続 | Sharkoon SATA QuickPort Duo（JMicron JMS551）のUSB。**USB3ポートを使う**（USB2では実効40MB/s前後） |
 | ファイルシステム | ext4、ラベル `bulk6tb`、`/srv/bulk` へUUIDマウント（`nofail,noatime`、予約領域1%） |
 | 共有 | ホストの NFS。`/etc/exports.d/bulk.exports` をロールが書く |
-| 内容 | `/srv/bulk/media`（media-01用の `books`・`docs`・`inbox`・`music`）、`/srv/bulk/nextcloud-data`（Nextcloudのユーザーホーム・appdata）、`/srv/bulk/roms`（game1用）、`/srv/bulk/backups`（vzdumpの保存先とgame1セーブ。[バックアップ](backup.md)） |
+| 内容 | `/srv/bulk/media`（media-01用の `books`・`docs`・`inbox`・`music`）、`/srv/bulk/nextcloud-data`（Nextcloudのユーザーホーム・appdata）、`/srv/bulk/client-backups`（media-01用のUrBackupの端末バックアップ。[端末バックアップ](client-backup.md)）、`/srv/bulk/roms`（game1用）、`/srv/bulk/backups`（vzdumpの保存先とgame1セーブ。[バックアップ](backup.md)）、`/srv/bulk/disks`（クラウドAPIのHDDティアのVMディスク。Proxmoxの dir ストレージ `bulk-disks`） |
 | 冗長性 | **無い**。単一ディスク・USB接続。唯一の保存先・唯一のバックアップにしない |
 
 ## 2. セットアップと再実行
@@ -41,6 +41,8 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 
 `pve_bulk_storage_initialize=true` は**ファイルシステムが無いときだけ**初期化します。既存のext4には触れません。指定せずに実行した場合、ファイルシステムが無ければ安全のため「無い」で止まります。再実行は `changed=0` です。
 
+このロールはマウント後、クラウドAPIのHDDティア用に `/srv/bulk/disks` を作り、Proxmoxの dir ストレージ `bulk-disks`（`content=images`）として登録します（未登録のときだけ）。**マウント前に登録するとVMディスクがrootに載る**ため、ロールは `mountpoint` を確認してから登録します。`bulk-backup`（vzdump）とはディレクトリもストレージも分けています。ストレージのACLは `platform/terraform/00-bootstrap`（`/storage/bulk-disks`、`CloudApiStorage` ロール）が付与します。利用者から見た使い方は[クラウドAPIとインスタンス](cloud-api.md)の `disk_tier` です。
+
 media-01（共有ライブラリのマウント。`media.yml` が最初に通す `media-base.yml` に含まれる）:
 
 ```bash
@@ -52,8 +54,8 @@ sops exec-env platform/sops/services.sops.yaml \
 
 ## 3. media-01 のマウント
 
-- `/srv/media-stack/library` へ `192.168.10.10:/srv/bulk/media`、`/srv/media-stack/storage/nextcloud/data` へ `192.168.10.10:/srv/bulk/nextcloud-data` を `nfs4` でマウントします。fstabは `_netdev,nofail,x-systemd.mount-timeout=30`。**Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdataもHDD上**にあります。
-- `docker.service` に `RequiresMountsFor=/srv/media-stack/library` のdrop-inがあります。**共有ライブラリをマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない。データディスクと同じ考え方）。
+- `/srv/media-stack/library` へ `192.168.10.10:/srv/bulk/media`、`/srv/media-stack/storage/nextcloud/data` へ `192.168.10.10:/srv/bulk/nextcloud-data` を `nfs4` でマウントします。fstabは `_netdev,nofail,x-systemd.mount-timeout=30`。**Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdataもHDD上**にあります。`/srv/media-stack/client-backups` へ `192.168.10.10:/srv/bulk/client-backups` も載せ、UrBackup のバックアップ本体を置きます。
+- `docker.service` に `RequiresMountsFor` のdrop-in（`20-media-library.conf`）があります。**この3つの共有をマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない。データディスクと同じ考え方）。
 - マウントを後から足したときは、起動済みコンテナが古いローカルディスクを掴んだままです。ロールはマウントしたときに `docker` を再起動します。
 - Nextcloudの外部ストレージ・Kavita・Navidrome・LocalSendの `LIBRARY_ROOT` は今までどおり `/srv/media-stack/library` です。見え方は[Nextcloudの共有ライブラリのアクセス権限](nextcloud-permissions.md)のままです。
 - **Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdata（プレビュー等）もHDD上**になりました（2026-09-23移行。303MB・408ファイルをバイト一致で確認）。画像の多いフォルダの表示はSSD時代より遅くなる可能性があります。
@@ -86,6 +88,7 @@ RomMは `/srv/game1/games` を `/romm/library:ro` で読みます（正本は `s
 | --- | --- | --- |
 | media | `all_squash,anonuid=33,anongid=33` | コンテナはwww-data(33)で読み書きする。root_squashだけだとroot実行のKavitaがnobodyになり、2750のディレクトリを読めない |
 | nextcloud-data | `all_squash,anonuid=33,anongid=33` | Nextcloudのユーザーホーム・appdata。mediaと同じ扱い |
+| client-backups | `all_squash,anonuid=101,anongid=101` | UrBackupコンテナの `urbackup`（PUID/PGID=101）に合わせる。イメージの重複排除がハードリンクを使うため、同じ共有に置く |
 | roms | `all_squash,anonuid=1000,anongid=1000` | game1の利用者がそのままコピーできる。ゲスト側のuidに依存しない |
 | game1-saves | `all_squash,anonuid=1000,anongid=1000` | game1のセーブの受け取り先。romsと同じ扱い |
 | 公開先 | 192.168.10.101（media-01）と192.168.10.127（game1） | LAN全体には出さない。`backups` 自体は公開しない |
@@ -111,5 +114,6 @@ ssh debian@192.168.10.101 'sudo -u www-data touch /srv/media-stack/library/inbox
 - **USBの挿し替え。** 識別子で固定しているので挿し位置を変えても同じパスです。**必ず `umount /srv/bulk` してから**抜いてください。
 - **UASのエラーが繰り返すとき。** JMS551はUASで不安定な例があります（2026-09-22の設置時に1回、UAS abortと再接続を記録）。USB3ポートでも続くなら `/etc/default/grub` の `GRUB_CMDLINE_LINUX_DEFAULT` へ `usb-storage.quirks=152d:0561:u` を足して `update-grub` → 再起動し、UASを無効化します。
 - **SMART。** ホストのnode_exporterが15分ごとに `smartmon_*` として集め、Grafanaの「Shake Lab storage」で健康・温度・セクター/CRC・マウント状態が見えます（[M01](../development/M01-monitoring.md)）。手元では `smartctl -a -d sat /dev/sda`。異常時は `storage` グループのアラートが鳴ります。
+- **HDDティアのVMディスク。** クラウドAPIの `disk_tier: hdd` は `/srv/bulk/disks` へ qcow2 で置きます。**5400rpm・USB接続なのでランダムI/Oは得意ではなく、DBやOSの起動ディスクには向きません。** 大きいが普段は眠っているVM（アーカイブ、検証、メディア処理の作業台）向けです。**この1台が落ちるとHDD上のVMはI/Oエラーで止まり、バックアップ・メディア・Nextcloudも同時に落ちます。**vzdumpの `vm_disk_max_used_percent`（既定85%）はHDDのファイルシステム全体（バックアップ・メディア含む）の使用率で判定するので、HDDを埋めると新規作成が止まります。
 - **バックアップ。** このディスクはバックアップではありません（[Garage](garage.md)とは別物）。唯一のコピーになるライブラリは、別ディスク・別機器へもコピーしてください。
 - **旧データの掃除。** 移行元は `/srv/media-stack/library` の下（データディスク `/dev/vdb` 上）に隠れたまま残っています。回収するときはDockerを止めてNFSを外し、ローカルの同名ディレクトリを消してから戻します。消す前に `findmnt` でNFSが外れていることを必ず確認してください。

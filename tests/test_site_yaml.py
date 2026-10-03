@@ -56,6 +56,7 @@ class SelectionTests(unittest.TestCase):
         result = build()
         self.assertEqual(result['node_name'], 'apextox')
         self.assertEqual(result['vm_disks'], 'local-lvm')
+        self.assertEqual(result['vm_disks_hdd'], site.BULK_DISKS_STORE)
         self.assertEqual(result['admin_images'], 'local')
         self.assertEqual(result['bridge'], 'vmbr0')
         self.assertEqual(result['bridge_vlan_aware'], 'true')
@@ -72,6 +73,18 @@ class SelectionTests(unittest.TestCase):
             ])
         self.assertIn('local-lvm', str(raised.exception))
         self.assertIn('fast-nvme', str(raised.exception))
+
+    def test_the_bulk_disk_store_never_becomes_the_default_disk_pool(self):
+        # pve_bulk_storage registers bulk-disks with content images. Without
+        # the exclusion, the host would suddenly offer two candidates for
+        # storage.vm_disks and site.yaml could not regenerate.
+        result = build(storage=[
+            {'storage': 'local', 'content': 'iso,backup,import'},
+            {'storage': 'local-lvm', 'content': 'images'},
+            {'storage': 'bulk-disks', 'content': 'images'},
+        ])
+        self.assertEqual(result['vm_disks'], 'local-lvm')
+        self.assertEqual(result['vm_disks_hdd'], 'bulk-disks')
 
     def test_the_cloud_image_store_is_not_a_candidate_for_the_admin_store(self):
         # 00-bootstrap creates cloud-images with content import,iso. Without

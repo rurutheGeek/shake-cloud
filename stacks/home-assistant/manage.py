@@ -8,11 +8,13 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import zipfile
 
@@ -134,6 +136,87 @@ def ensure_http_proxy(proxy):
     return True
 
 
+def ensure_generic_camera(name, stream_source, still_source=None):
+    """Add a stream-only Generic Camera config entry.
+
+    Home Assistant 2026.9 configures the Generic Camera integration only
+    through the UI, so the entry is written into
+    ``.storage/core.config_entries`` the same way ``ensure_http_proxy`` writes
+    the HTTP store.  The camera has no still image URL: Home Assistant derives
+    snapshots from the stream.  Repeated runs are a no-op and return False.
+    """
+    if not re.fullmatch(r'[^"\n]{1,64}', name):
+        raise ValueError('camera name must be a short single line')
+    if not stream_source.startswith('rtsp://'):
+        raise ValueError('stream source must be an rtsp:// URL')
+    if still_source is not None and not still_source.startswith('http'):
+        raise ValueError('still image source must be an http(s) URL')
+    store = storage_path(settings()) / 'config' / '.storage' / 'core.config_entries'
+    if not store.exists():
+        raise FileNotFoundError(
+            f'{store} is missing; start Home Assistant once before adding a camera')
+    document = json.loads(store.read_text(encoding='utf-8'))
+    entries = document['data']['entries']
+    options = {
+        'content_type': 'image/jpeg',
+        'stream_source': stream_source,
+        'still_image_url': still_source,
+        'advanced': {
+            'authentication': 'basic',
+            'framerate': 2.0,
+            'limit_refetch_to_url_change': False,
+            'rtsp_transport': 'tcp',
+            'use_wallclock_as_timestamps': False,
+            'verify_ssl': True,
+        },
+    }
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    for entry in entries:
+        # 名前で探して更新する。URL を変えたときに二重登録しないため
+        # （stream_source で探すと、URL 変更＝新規作成になってしまう）。
+        if entry.get('domain') != 'generic' or entry.get('title') != name:
+            continue
+        if entry.get('title') == name and entry.get('options') == options:
+            print(f'OK: Home Assistant already streams {name}')
+            return False
+        entry['title'] = name
+        entry['options'] = options
+        entry['modified_at'] = now
+        print(f'CHANGED: Home Assistant camera {name} -> {stream_source}')
+        break
+    else:
+        entries.append({
+            'created_at': now,
+            'data': {},
+            'disabled_by': None,
+            'discovery_keys': {},
+            'domain': 'generic',
+            'entry_id': generate_ulid(),
+            'minor_version': 1,
+            'modified_at': now,
+            'options': options,
+            'pref_disable_new_entities': False,
+            'pref_disable_polling': False,
+            'source': 'user',
+            'subentries': [],
+            'title': name,
+            'unique_id': None,
+            'version': 2,
+        })
+        print(f'CHANGED: Home Assistant camera {name} -> {stream_source}')
+    mode = store.stat().st_mode & 0o777
+    store.write_text(json.dumps(document, indent=2) + '\n', encoding='utf-8')
+    store.chmod(mode)
+    return True
+
+
+def generate_ulid():
+    """Return a 26-character ULID, the entry id shape Home Assistant stores."""
+    alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+    value = (int(time.time() * 1000) << 80) | secrets.randbits(80)
+    return ''.join(alphabet[(value >> shift) & 0x1F] for shift in range(125, -1, -5))
+
+
 def restart():
     compose('restart', 'homeassistant')
     compose('up', '-d', '--wait', '--wait-timeout', '180')
@@ -239,13 +322,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=[
         'init', 'lock', 'up', 'status', 'down', 'backup', 'restart',
-        'ensure-http-proxy', 'install-integration'])
+        'ensure-http-proxy', 'ensure-camera', 'install-integration'])
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--proxy', default='')
     parser.add_argument('--name', default='')
     parser.add_argument('--url', default='')
     parser.add_argument('--sha256', default='')
     parser.add_argument('--member', default='')
+    parser.add_argument('--stream', default='')
+    parser.add_argument('--still', default=None)
     args = parser.parse_args()
     if args.action in ('init', 'up'):
         init()
@@ -265,6 +350,11 @@ def main():
         if not args.proxy:
             raise ValueError('ensure-http-proxy requires --proxy')
         if ensure_http_proxy(args.proxy):
+            restart()
+    elif args.action == 'ensure-camera':
+        if not (args.name and args.stream):
+            raise ValueError('ensure-camera requires --name and --stream')
+        if ensure_generic_camera(args.name, args.stream, args.still):
             restart()
     elif args.action == 'install-integration':
         if not all([args.name, args.url, args.sha256]):

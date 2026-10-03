@@ -251,11 +251,15 @@ func (s *Server) describeCapacity(w http.ResponseWriter, r *http.Request, c *cal
 	}
 	stores := make([]map[string]any, 0, len(capacity.Storage))
 	for _, store := range capacity.Storage {
-		stores = append(stores, map[string]any{
+		entry := map[string]any{
 			"name": store.Name, "purpose": store.Purpose, "total_mib": store.TotalMiB,
 			"used_mib": store.UsedMiB, "avail_mib": store.AvailMiB, "used_percent": round1(store.UsedPercent),
 			"max_used_percent": store.MaxUsedPercent, "min_free_mib": store.MinFreeMiB,
-		})
+		}
+		if store.DiskTier != "" {
+			entry["disk_tier"] = store.DiskTier
+		}
+		stores = append(stores, entry)
 	}
 	body["storage"] = stores
 	if account.IsAdmin {

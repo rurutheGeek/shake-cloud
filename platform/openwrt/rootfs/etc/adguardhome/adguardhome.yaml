@@ -51,7 +51,35 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt
     name: HaGeZi's Pro Blocklist
     id: 48
-user_rules: []
+# Xbox Live の実績（Minecraft・Minecraft Dungeons など）は Microsoft の
+# テレメトリ系ドメインを実績の記録・同期に使うため、フィルタで遮断されると
+# 実績が解除されない（2026-10-02 に HaGeZi's Pro が該当を遮断していたのを
+# 実測・除外）。フィルタ更新で再遮断されても効くよう、ここで明示的に許可する。
+# 出典: https://github.com/hagezi/dns-blocklists/blob/main/share/microsoft.txt
+user_rules:
+  - '@@||v10.events.data.microsoft.com^'
+  - '@@||v20.events.data.microsoft.com^'
+  - '@@||win-global-asimov-leafs-events-data.trafficmanager.net^'
+  - '@@||vortex.data.microsoft.com^'
+  - '@@||vortex-win.data.microsoft.com^'
+  - '@@||pipe.aria.microsoft.com^'
+  # HaGeZi の Microsoft 一覧の残り（地域版・Defender・診断）。Windows/Xbox の
+  # 実績・Game Pass が地域エンドポイントを使う場合に備えて許可する。
+  - '@@||v10c.events.data.microsoft.com^'
+  - '@@||au-v10.events.data.microsoft.com^'
+  - '@@||eu-v10.events.data.microsoft.com^'
+  - '@@||jp-v10.events.data.microsoft.com^'
+  - '@@||us-v10.events.data.microsoft.com^'
+  - '@@||au-v20.events.data.microsoft.com^'
+  - '@@||eu-v20.events.data.microsoft.com^'
+  - '@@||in-v20.events.data.microsoft.com^'
+  - '@@||jp-v20.events.data.microsoft.com^'
+  - '@@||uk-v20.events.data.microsoft.com^'
+  - '@@||us-v20.events.data.microsoft.com^'
+  - '@@||us4-v20.events.data.microsoft.com^'
+  - '@@||us5-v20.events.data.microsoft.com^'
+  - '@@||watson.events.data.microsoft.com^'
+  - '@@||watson.telemetry.microsoft.com^'
 querylog:
   # **ファイルへ書かない。** ルータの rootfs は 512MiB で、querylog.json が
   # 413MB まで育って 2026-10-01 にディスクを埋め、ログの書き込みと stats.db の

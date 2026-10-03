@@ -59,6 +59,45 @@ func TestAVolumeHolderOutsideThePoolOrOnAProbeIsRefused(t *testing.T) {
 	}
 }
 
+func TestDiskTiersMapToTheirPools(t *testing.T) {
+	s := sample()
+	s.Storage.VMDisksHDD = "bulk-disks"
+	for _, tier := range []string{"", TierSSD} {
+		if pool, ok := s.Storage.DiskTierStorage(tier); !ok || pool != "local-lvm" {
+			t.Fatalf("tier %q -> %q, %v", tier, pool, ok)
+		}
+	}
+	if pool, ok := s.Storage.DiskTierStorage(TierHDD); !ok || pool != "bulk-disks" {
+		t.Fatalf("hdd tier -> %q, %v", pool, ok)
+	}
+	if _, ok := s.Storage.DiskTierStorage("nvme"); ok {
+		t.Fatal("an unknown tier was accepted")
+	}
+	// A disk on a pool this deployment does not know is the default tier: the
+	// label matters, not where an adopted VM's disk sat.
+	if s.Storage.TierOfStorage("some-old-pool") != TierSSD {
+		t.Fatal("an unknown pool was not the default tier")
+	}
+	if s.Storage.TierOfStorage("bulk-disks") != TierHDD {
+		t.Fatal("the HDD pool was not the hdd tier")
+	}
+
+	s.Storage.VMDisksHDD = ""
+	if _, ok := s.Storage.DiskTierStorage(TierHDD); ok {
+		t.Fatal("a deployment without an HDD pool offered the tier")
+	}
+}
+
+func TestTheHDDPoolCannotCollideWithAnotherStore(t *testing.T) {
+	for _, pool := range []string{"local-lvm", "cloud-images", "local"} {
+		s := sample()
+		s.Storage.VMDisksHDD = pool
+		if err := s.Validate(); err == nil || !strings.Contains(err.Error(), "vm_disks_hdd") {
+			t.Fatalf("pool %q: %v", pool, err)
+		}
+	}
+}
+
 func TestEveryProblemIsReported(t *testing.T) {
 	s := sample()
 	s.Network.Gateway = "gateway"

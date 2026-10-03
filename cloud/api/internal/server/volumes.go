@@ -27,6 +27,7 @@ type volumeBody struct {
 	AccountID         string                `json:"account_id"`
 	OwnerUsername     string                `json:"owner_username,omitempty"`
 	SizeGiB           int                   `json:"size_gib"`
+	DiskTier          string                `json:"disk_tier"`
 	State             string                `json:"state"`
 	StateReason       string                `json:"state_reason,omitempty"`
 	ModificationState string                `json:"modification_state,omitempty"`
@@ -41,7 +42,8 @@ func volumeJSON(v db.Volume, owned bool) volumeBody {
 	serial := compute.VolumeSerial(v.ID)
 	body := volumeBody{
 		VolumeID: v.ID, AccountID: v.AccountID, OwnerUsername: v.OwnerUsername, SizeGiB: v.SizeGiB,
-		State: v.State, StateReason: v.StateReason, Serial: serial, Tags: v.Tags, CreateTime: v.CreatedAt.UTC(),
+		DiskTier: v.DiskTier,
+		State:    v.State, StateReason: v.StateReason, Serial: serial, Tags: v.Tags, CreateTime: v.CreatedAt.UTC(),
 	}
 	if v.PendingAction == db.VolumeActionResize {
 		body.ModificationState = "modifying"
@@ -151,7 +153,7 @@ func (s *Server) createVolume(w http.ResponseWriter, r *http.Request, c *call) {
 		return
 	}
 	volume, created, err := service.CreateVolume(r.Context(), c.principal.account.ID, request,
-		volumeAudit(r, c, map[string]any{"size_gib": request.SizeGiB}))
+		volumeAudit(r, c, map[string]any{"size_gib": request.SizeGiB, "disk_tier": request.DiskTier}))
 	if err != nil {
 		s.volumeRefused(w, r, c, "", err)
 		return

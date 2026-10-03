@@ -83,7 +83,7 @@ provider "shakecloud" {
 | --- | --- |
 | `shakecloud_caller_identity` | キーの持ち主（`account_id`・`username`・`is_admin`） |
 
-**サイズは自由入力です。** `instance_type` は値を埋めるだけの近道で、`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定できます。指定した値はAPIが決めた実値で読み戻されます。
+**サイズは自由入力です。** `instance_type` は値を埋めるだけの近道で、`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib`・`disk_tier` を直接指定できます。指定した値はAPIが決めた実値で読み戻されます。**`disk_tier`（`ssd` 既定 / `hdd`）は作成時だけ**で、変えるとインスタンス（ボリューム）を作り直します。
 
 ## 4. 例
 

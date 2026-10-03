@@ -284,7 +284,6 @@ class LeoRtcClient:
         return self.session
 
     def build_call_json(self, call_type: int, contact: str, timestamp: int, *, boot_action: int = 0, sdp_info: bytes | None = None) -> dict:
-        usec = int(time.time() * 1_000_000)
         account = hashlib.md5(f'0{self.account}{int(time.time())}'.encode()).hexdigest()
         token = base64.b64encode(
             self.encrypt_attach(f'{self.did}:{self.license}'.encode(), timestamp)

@@ -66,7 +66,7 @@ func (g globals) instanceLs(args []string) error {
 
 func printInstances(instances []client.Instance) {
 	w := table()
-	fmt.Fprintln(w, "INSTANCE_ID\tNAME\tOWNER\tSTATE\tIP\tSPEC\tDISK\tSECURITY_GROUPS")
+	fmt.Fprintln(w, "INSTANCE_ID\tNAME\tOWNER\tSTATE\tIP\tSPEC\tDISK\tTIER\tSECURITY_GROUPS")
 	for _, i := range instances {
 		spec := i.InstanceType
 		if spec == "" {
@@ -81,9 +81,9 @@ func printInstances(instances []client.Instance) {
 		if i.Adopted {
 			name += " (adopted)"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%dGiB\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%dGiB\t%s\t%s\n",
 			i.InstanceID, dash(name), dash(i.OwnerUsername), i.State, dash(i.PrivateIPAddress),
-			spec, i.RootDiskGiB, dash(strings.Join(groups, ",")))
+			spec, i.RootDiskGiB, dash(i.DiskTier), dash(strings.Join(groups, ",")))
 	}
 	w.Flush()
 }
@@ -142,6 +142,7 @@ func printInstanceDetail(i client.Instance) {
 	fmt.Fprintf(w, "image\t%s\n", dash(i.ImageName))
 	fmt.Fprintf(w, "spec\t%d vCPU / %d MiB%s\n", i.VCPUs, i.MemoryMiB, balloonNote(i))
 	fmt.Fprintf(w, "root_disk\t%d GiB\n", i.RootDiskGiB)
+	fmt.Fprintf(w, "disk_tier\t%s\n", dash(i.DiskTier))
 	fmt.Fprintf(w, "adopted\t%t\n", i.Adopted)
 	fmt.Fprintf(w, "firewall\t%s\n", i.FirewallState)
 	fmt.Fprintf(w, "launched\t%s\n", i.LaunchTime.Format(time.RFC3339))
@@ -166,6 +167,7 @@ func (g globals) instanceRun(args []string) error {
 	balloon := &optionalBool{}
 	flags.Var(balloon, "balloon", "use ballooning (true|false)")
 	disk := flags.Int("disk", 0, "root disk GiB")
+	diskTier := flags.String("disk-tier", "", "disk tier: ssd or hdd (default ssd)")
 	keyName := flags.String("key", "", "SSH key pair name")
 	groups := &stringsFlag{}
 	flags.Var(groups, "sg", "security group id (repeatable)")
@@ -188,7 +190,7 @@ func (g globals) instanceRun(args []string) error {
 	request := client.RunRequest{
 		ImageID: *image, InstanceType: *instanceType, KeyName: *keyName,
 		VCPUs: vcpus.pointer(), MemoryMiB: memory.pointer(), MemoryMinMiB: minMemory.pointer(),
-		Ballooning: balloon.pointer(), RootDiskGiB: *disk, ClientToken: *clientToken,
+		Ballooning: balloon.pointer(), RootDiskGiB: *disk, DiskTier: *diskTier, ClientToken: *clientToken,
 		Tags: tags, SecurityGroupIDs: *groups,
 	}
 	if *userData != "" {

@@ -68,6 +68,22 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:5811
     description: NextcloudのAIエージェント用MCP（読み書き・タグ・圧縮解凍。SSOなし・自前認証）
+  # クライアント端末のバックアップの入口（ポータル）。Web UI だけを SSO の
+  # 内側に置く。Windows クライアントは Forward Auth を通せないので、Caddy
+  # ではなく media-01 の LAN アドレス:55413 へ直接つなぐ。
+  backup:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:55416
+    description: バックアップポータル（UrBackupの状態と端末手順。Forward Auth）
+    auth: true
+  # UrBackup の管理画面（クライアント配布・世代・復元）。ポータルからリンクする。
+  urbackup:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:55414
+    description: UrBackup管理画面（配布・世代・復元。Forward Auth）
+    auth: true
   metube:
     host: media-01
     address: 192.168.10.101

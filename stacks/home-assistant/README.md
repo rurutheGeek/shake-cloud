@@ -16,9 +16,11 @@
 .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/home-assistant.yml
 ```
 
-- `manage.py init|lock|up|status|down|backup|restart|ensure-http-proxy|install-integration` は `stacks/identity/` と同じ形。`backup` はsudoで実行し、HAを一時停止して状態と配備ファイルを整合の取れたtarにする。
+- `manage.py init|lock|up|status|down|backup|restart|ensure-http-proxy|ensure-camera|install-integration` は `stacks/identity/` と同じ形。`backup` はsudoで実行し、HAを一時停止して状態と配備ファイルを整合の取れたtarにする。
 - **HTTPの逆プロキシ設定はHA 2026.9以降 `.storage/http` が正本**。YAMLの取り込みはUI承認が必要なpending（5分で自動撤回）にしかならないため、配備は `manage.py ensure-http-proxy --proxy 172.31.254.1` で `stable` に直接入れ、再起動して反映する。値はcompose.yamlで固定したゲートウェイ（`172.31.254.1`）と対。
 - **認証はAuthentikのOIDC（SSO）とローカルオーナーの併用。** コアがOIDC非対応のため、`manage.py install-integration` がコミュニティ統合 [`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1）をdigest固定で `config/custom_components/auth_oidc` へ入れ、Ansibleが `configuration.yaml` の `auth_oidc` 管理ブロックを書く。client_id `home-assistant` は[identity](../identity/configure.py)が公開クライアントとして作る（秘密値なし）。**フォルダ名は `auth_oidc` 固定**: 統合が静的資産を `custom_components/auth_oidc/...` と直書きするため、別名で入れるとCSS/JSが404になる（2026-09-12に発生）。
+- **カメラの死活監視**: ライブ配信が長く失敗すると HA がカメラを `unavailable` にし、UI がライブを開始できなくなる（キャッシュされた静止画だけが出る）。`camera_watch.py` を systemd timer（2 分ごと）で回し、`unavailable` のときだけ generic の config entry を reload して復帰させる（Ansible が配備）。
+- **Generic Camera も UI 専用**（2026.9 時点で YAML 不可）。`manage.py ensure-camera --name <名前> --stream rtsp://<host>:8554/<path>` が `.storage/core.config_entries` へ直接エントリを書き、再起動して反映する（`ensure-http-proxy` と同じ方針）。Ansible は `home_assistant_camera_name`／`home_assistant_camera_stream` で呼ぶ。ストリームは Eufy leo_rtc クライアント（`stacks/eufy-leo-rtc/`、android-01 VM の Mediamtx）が供給する。
 - `manage.py install-integration` はEufy統合 `eufy_security`（v8.2.4）も入れる。実機接続は中継の[`stacks/eufy-security-ws/`](../eufy-security-ws/README.md)（H04）とHAの「統合を追加」で行う。
 - `configuration.yaml` などのHAの設定はGitに置かず、`/srv/services/home-assistant/config` を正本として上書きしない（`auth_oidc` の管理ブロックだけが例外）。秘密値・トークンはHAのconfig entry側に入り、Git/ログへ出さない。
 

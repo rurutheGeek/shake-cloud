@@ -33,6 +33,7 @@ type volumeResource struct {
 type volumeResourceModel struct {
 	ID            types.String `tfsdk:"id"`
 	SizeGiB       types.Int64  `tfsdk:"size_gib"`
+	DiskTier      types.String `tfsdk:"disk_tier"`
 	Tags          types.Map    `tfsdk:"tags"`
 	ClientToken   types.String `tfsdk:"client_token"`
 	State         types.String `tfsdk:"state"`
@@ -55,6 +56,14 @@ func (r *volumeResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"size_gib": schema.Int64Attribute{Required: true, Description: "Size in GiB. It can grow but never shrink."},
+			"disk_tier": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Disk tier: `ssd` (default) or `hdd` (the bulk disk). " +
+					"Changing it replaces the volume; a disk cannot move between pools in place.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+			},
 			"tags": schema.MapAttribute{
 				ElementType:   types.StringType,
 				Optional:      true,
@@ -94,7 +103,8 @@ func (r *volumeResource) Create(ctx context.Context, req resource.CreateRequest,
 	tags, diags := stringMapValues(ctx, plan.Tags)
 	resp.Diagnostics.Append(diags...)
 	volume, err := r.client.CreateVolume(ctx, client.CreateVolumeRequest{
-		SizeGiB: int(plan.SizeGiB.ValueInt64()), ClientToken: plan.ClientToken.ValueString(), Tags: tags,
+		SizeGiB: int(plan.SizeGiB.ValueInt64()), DiskTier: plan.DiskTier.ValueString(),
+		ClientToken: plan.ClientToken.ValueString(), Tags: tags,
 	})
 	if err != nil {
 		addError(&resp.Diagnostics, "create the volume", err)
@@ -181,6 +191,7 @@ func (r *volumeResource) refresh(ctx context.Context, model *volumeResourceModel
 func (r *volumeResource) fill(ctx context.Context, model *volumeResourceModel, volume client.Volume, diags *diag.Diagnostics) {
 	model.ID = types.StringValue(volume.VolumeID)
 	model.SizeGiB = types.Int64Value(int64(volume.SizeGiB))
+	model.DiskTier = stringOrNull(volume.DiskTier)
 	model.State = types.StringValue(volume.State)
 	model.Serial = types.StringValue(volume.Serial)
 	model.OwnerUsername = types.StringValue(volume.OwnerUsername)

@@ -1,0 +1,71 @@
+---
+# UrBackup（Windows のファイル・システムイメージの世代バックアップ）を
+# media-01 の独立 Compose プロジェクトとして配備する。
+#   ansible-playbook -i <inventory> platform/ansible/media-urbackup.yml
+# Web UI は 127.0.0.1 のみ（HTTPS と SSO は前段の Caddy）。クライアントは
+# Forward Auth を通せないため、ansible_host の LAN アドレスへ直接つなぐ。
+- name: Deploy UrBackup
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+  tasks:
+    - name: Create the UrBackup deployment directory
+      ansible.builtin.file:
+        path: '{{ project_dir }}/media/urbackup'
+        state: directory
+        mode: '0750'
+
+    - name: Copy the UrBackup definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/media/urbackup/{{ item }}'
+        dest: '{{ project_dir }}/media/urbackup/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, compose.lock.yaml, manage.py, portal.py, portal-backup.js,
+             .env.example, settings.json]
+      register: urbackup_definitions
+
+    - name: Configure the UrBackup environment
+      ansible.builtin.copy:
+        content: |
+          STORAGE_ROOT={{ storage_root }}
+          CLIENT_BACKUP_ROOT={{ client_backup_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          BIND_ADDRESS={{ ansible_host }}
+          URBACKUP_WEB_PORT={{ urbackup_web_port | default(55414) }}
+          URBACKUP_CLIENT_PORT={{ urbackup_client_port | default(55413) }}
+          URBACKUP_BROADCAST_PORT={{ urbackup_broadcast_port | default(35623) }}
+          PORTAL_PORT={{ urbackup_portal_port | default(55416) }}
+          URBACKUP_UID={{ urbackup_uid | default(101) }}
+          URBACKUP_GID={{ urbackup_gid | default(101) }}
+          URBACKUP_IMAGE=uroni/urbackup-server:2.5.x
+        dest: '{{ project_dir }}/media/urbackup/.env'
+        mode: '0600'
+
+    - name: Prepare the UrBackup data directories and admin password
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', init]
+      changed_when: true
+
+    - name: Deploy UrBackup
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', up]
+      changed_when: true
+
+    # portal.py / portal-backup.js は単一ファイルのバインドマウントなので、
+    # 置き換えてもコンテナは古い inode を見続ける（tls_proxy と同じ）。
+    # 内容が変わったときだけ portal を作り直して読み直させる。
+    - name: Recreate the portal when its files changed
+      ansible.builtin.command:
+        argv: [docker, compose, --env-file, '{{ project_dir }}/media/urbackup/.env',
+               -f, '{{ project_dir }}/media/urbackup/compose.yaml',
+               -f, '{{ project_dir }}/media/urbackup/compose.lock.yaml',
+               up, -d, --force-recreate, portal]
+        chdir: '{{ project_dir }}/media/urbackup'
+      when: urbackup_definitions is changed
+      changed_when: true
+
+    - name: Apply the UrBackup server settings
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/urbackup/manage.py', configure]
+      changed_when: true
