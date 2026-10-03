@@ -109,6 +109,11 @@ tags:
 - フィルタは AdGuard DNS filter（約18万件）と HaGeZi's Pro Blocklist
   （2026-09-22 追加）。設定の正本は
   `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`
+- **Xbox 実績用に Microsoft の一部を除外**（`user_rules`）。HaGeZi's Pro が
+  実績トラッキングのドメイン（`vortex(-win).data.microsoft.com`・
+  `pipe.aria.microsoft.com` など）を遮断し、Minecraft / Minecraft Dungeons の
+  実績が解除されない症状が出たため（2026-10-02。詳細は
+  [DNS と広告遮断（AdGuard Home）](adguard.md)）
 - 運用（管理画面の開き方・フィルタ更新・つまずきやすい点）は
   [DNS と広告遮断（AdGuard Home）](adguard.md)
 - **作業ディレクトリは `/etc/adguardhome/data`**（UCI の `workdir`）。既定の

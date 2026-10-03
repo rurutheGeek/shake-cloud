@@ -1,6 +1,6 @@
 ---
 title: 決定ログ
-updated: 2026-09-23
+updated: 2026-10-02
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 決定ログ
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-02 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 このホームラボで**すでに決まっていること**と、その理由です。`operations/handover.md` の「確定した決定」を、進捗と分けてここへ移しました。
 
@@ -25,6 +25,7 @@ tags:
 | テナント | Authentik ユーザー1人 = 1アカウント |
 | VM の見え方と権限 | **クラウドのVMは全員が見られる**（所有者名・イメージ・リソース・状態）。1台のホストを分け合うので、誰が何を動かしているか分からないと容量の判断ができないため。ただし**操作できるのは所有者と `admins` だけ**（他人のVMへの電源操作・削除は 403）。他人の `client_token` は返さない。`user_data` は一覧に出さない |
 | VM の大きさ | **自由入力**。`vcpus`・`memory_mib`・`memory_min_mib`・`ballooning`・`root_disk_gib` を直接指定する。`instance_type`（`flavors.yaml` の名前）は**任意の近道**で、指定すると値が埋まるだけ。1つでも数値を上書きしたらその型名は外れる（カスタム扱い） |
+| ディスクの置き場 | **`disk_tier`（`ssd`＝既定 / `hdd`）で選ぶ。** プール名（`local-lvm` / `bulk-disks`）はAPIに出さず、`site.yaml` の `vm_disks` / `vm_disks_hdd` が対応を決める。インスタンスのroot（WindowsのEFI/TPM含む）とボリュームの両方で指定でき、**作成後は変えられない**。HDD未設定のデプロイは400。HDDの使用率チェックはファイルシステム全体（バックアップ・メディア含む）で行う |
 | バルーニング | **VMごとに選べる。** `ballooning: false` なら固定メモリ（Proxmox の `balloon=0`）。`true` のとき `memory_min_mib` が回収の下限で、省略すると上限の 1/4（最低 512MiB） |
 | 大きさの変更 | `PATCH /v1/instances/{id}`、**`admins` だけ**。vCPU・メモリ・バルーニングは**停止中のみ**（Proxmox は次回起動時にしか反映しないので、動作中に変えると台帳と実物が食い違う）。ディスクは稼働中でも**拡大のみ**。変更後の大きさでクォータと空き容量を再検査する |
 | イメージのアップロード経路 | **API を通した直接アップロードだけ。**`download-url`（URL から Proxmox に取りに行かせる）は `cloudapi@pve` に **403**、`upload` は `content=import` を受ける（どちらも実測）。**Proxmox はチャンク転送を 501 で拒否する**ので本文の長さを先に宣言する必要があり、**「一切溜めずに流す」は成立しない**。cloud-01 の実ディスク（`storage/uploads`）へ一旦書いて大きさを確定させ、そこから流す。**`/tmp` は tmpfs なので使えない**。**中身の検査は Proxmox が qemu-img で行う**ので、壊れたファイルは弾かれ、何も残らない |
@@ -73,3 +74,7 @@ tags:
 | ルータ管理画面の認証 | **LuCI にはSSOを付けない。** ルータは復旧経路なので、identity が止まっていても開ける必要がある。認証は LuCI 自身の root パスワード。AdGuard の管理画面は復旧に必須でないので Forward Auth を通す |
 | VLAN分離の前提 | **アンマネージドスイッチ（TL-SG605）ではVLANを設定できない。** N03 はマネージドスイッチの調達が前提条件で、機器購入なしには完了できない |
 | メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。**2026-09-12 に Gmail（`shake.notify@gmail.com`、アプリパスワード）を設定済み・実送信確認済み。** SMTP の資格情報は `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](../operations/smtp.md)） |
+| Kubernetesの稼働 | **メモリが足りるときだけ動かす。常時起動は仕様にしない（2026-10-02）。** cp と worker-01 で11GiB以上を固定で使うため、普段は停止しておき、database（CNPG）・function（Knative）・AWX を使うときに `tools/k8s up` で起こす。停止中はこれらの機能が使えないのが正常で、障害ではない。常時動かす必要があるものは k8s に載せない（[Kubernetes](../operations/kubernetes.md#起動と停止)） |
+| 生存確認の持ち方 | **dead man's switch は監視ノード（monitor-01）にだけ置く。それ以外のサービスの生死は監視（Prometheus・blackbox）で見る（2026-10-02）。** 各コンテナに `healthcheck` を揃えることは目標にしない。新しいサービスを足すときは、コンテナの `healthcheck` ではなく `stacks/monitoring/prometheus/blackbox-targets.yml` へ probe を足す（`tests/test_monitoring_stack.py` が `dns.yaml` との一致を検査する）。起動順の待ち合わせに要る `healthcheck`（DB→アプリ）は残してよい（[監視](../operations/monitoring.md)） |
+| HTTPSの入口 | **公開の証明書と Cloudflare のDNS編集トークンは、入口の1台（services-01）だけが持つ（2026-10-02。実機への切替は1台ずつ）。** 各ホストの Caddy は残し、入口との間は各ホストの内部CAの証明書で暗号化する。入口から各アプリへ平文で直接つなぐ形にしなかったのは、利用者VMと同じL2にSSOの通信を平文で流すことになり、`Remote-User` を信じるアプリの認証が各VMのファイアウォール設定だけに依存するため。入口が止まると全サービスに入れなくなるが、物理ホストが1台なので可用性は変わらない（[HTTPSの入口を1台にまとめる](../operations/edge.md)） |
+| 配置と命名 | **基盤（Terraformで直接作る）は router-01・core-01（Authentik・NetBox・入口）・cloud-01（クラウドAPI・Garage）・monitor-01・k8s。それ以外のアプリはクラウドVM（media-01・apps-01・game-01 と開発VM）に置く（2026-10-03。移行は未着手）。** 基準は「クラウドAPIが動くため、または壊れたときに直すために要るか」。Tailscale はルータへ移す。ホスト名は `<役割>-<2桁>`、Compose名・配備先・スタックはアプリ名で統一する。開発VM（dev-01・dev-02・android-01・win-01）もクラウドVMにし、用途「開発」としてまとめる。クラウドVMの所有者は game-01 と dev-01 が `shunyazhiyuan97`、ほかは `rurutheGeek`（[配置と命名の再編](placement-naming.md)） |

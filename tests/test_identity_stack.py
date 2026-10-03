@@ -346,6 +346,91 @@ class ScopeMappingTests(unittest.TestCase):
         self.assertIn("mappings.append(verified_email['pk'])", text)
 
 
+class RememberMeTests(unittest.TestCase):
+    """The base session still ends with the browser; Yes keeps it 30 days."""
+
+    class RecordingAPI:
+        def __init__(self, stage):
+            self.stage = stage
+            self.calls = []
+
+        def rows(self, path):
+            self.calls.append(('rows', path, None))
+            if path == 'stages/user_login/':
+                return [self.stage]
+            return []
+
+        def call(self, method, path, body=None):
+            self.calls.append((method, path, body))
+            return {}
+
+    def stage(self, offset):
+        return {'pk': 'login-stage', 'name': 'default-authentication-login',
+                'session_duration': 'seconds=0', 'remember_me_offset': offset}
+
+    def test_a_zero_offset_is_raised_to_thirty_days(self):
+        api = self.RecordingAPI(self.stage('seconds=0'))
+        configure.configure_remember_me(api)
+        self.assertEqual(api.calls, [('rows', 'stages/user_login/', None),
+                                     ('PATCH', 'stages/user_login/login-stage/',
+                                      {'remember_me_offset': 'days=30'})])
+
+    def test_an_already_extended_login_stage_is_left_alone(self):
+        api = self.RecordingAPI(self.stage('days=30'))
+        configure.configure_remember_me(api)
+        self.assertEqual(api.calls, [('rows', 'stages/user_login/', None)])
+
+    def test_a_missing_login_stage_is_refused(self):
+        api = self.RecordingAPI({'pk': 'other', 'name': 'other'})
+        with self.assertRaises(SystemExit):
+            configure.configure_remember_me(api)
+
+
+class PasskeyRegistrationTests(unittest.TestCase):
+    """Passwordless autofill only offers discoverable passkeys.
+
+    Authentik's default `preferred` let Bitwarden register a non-discoverable
+    credential (2026-09-27): it worked as a second factor but never appeared in
+    the login form's autofill.
+    """
+
+    class RecordingAPI:
+        def __init__(self, stage):
+            self.stage = stage
+            self.calls = []
+
+        def rows(self, path):
+            self.calls.append(('rows', path, None))
+            if path == 'stages/authenticator/webauthn/':
+                return [self.stage]
+            return []
+
+        def call(self, method, path, body=None):
+            self.calls.append((method, path, body))
+            return {}
+
+    def stage(self, requirement):
+        return {'pk': 'webauthn-setup', 'name': 'default-authenticator-webauthn-setup',
+                'resident_key_requirement': requirement}
+
+    def test_a_preferred_setup_stage_is_raised_to_required(self):
+        api = self.RecordingAPI(self.stage('preferred'))
+        configure.configure_passkey_registration(api)
+        self.assertEqual(api.calls, [('rows', 'stages/authenticator/webauthn/', None),
+                                     ('PATCH', 'stages/authenticator/webauthn/webauthn-setup/',
+                                      {'resident_key_requirement': 'required'})])
+
+    def test_an_already_required_setup_stage_is_left_alone(self):
+        api = self.RecordingAPI(self.stage('required'))
+        configure.configure_passkey_registration(api)
+        self.assertEqual(api.calls, [('rows', 'stages/authenticator/webauthn/', None)])
+
+    def test_a_missing_setup_stage_is_refused(self):
+        api = self.RecordingAPI({'pk': 'other', 'name': 'other'})
+        with self.assertRaises(SystemExit):
+            configure.configure_passkey_registration(api)
+
+
 class InventoryNameTests(unittest.TestCase):
     ROOT = Path(__file__).resolve().parents[1]
 

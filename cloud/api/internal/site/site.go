@@ -31,6 +31,22 @@ type Site struct {
 	SharedISOs    map[string]ISO          `json:"shared_isos"`
 	InstanceTypes map[string]InstanceType `json:"instance_types"`
 	Limits        Limits                  `json:"limits"`
+	Ledger        Ledger                  `json:"ledger"`
+}
+
+// Ledger says how instances are registered in NetBox as virtual machines,
+// which is where the Ansible inventory finds them. An empty Cluster turns
+// registration off.
+type Ledger struct {
+	// Cluster is the NetBox cluster the VMs are filed under.
+	Cluster string `json:"cluster"`
+	// GroupAccounts are the account IDs whose instances may be given the tags
+	// in TagsByName. Everyone else's instances are registered without them.
+	GroupAccounts []string `json:"group_accounts"`
+	// TagsByName maps an instance's Name tag to NetBox tag slugs. The tags
+	// become Ansible groups, so this is a checked-in declaration rather than
+	// something an instance can claim for itself.
+	TagsByName map[string][]string `json:"tags_by_name"`
 }
 
 // ISO is a shared installation image. Volume is the Proxmox volume ID in the
@@ -41,14 +57,50 @@ type ISO struct {
 	OS     string `json:"os,omitempty"`
 }
 
+// Disk tiers are the names callers choose between; the pools behind them stay
+// a deployment detail. TierSSD is the default and the pool of every disk made
+// before tiers existed.
+const (
+	TierSSD = "ssd"
+	TierHDD = "hdd"
+)
+
+// DiskTiers are the names the API accepts, in the order they are offered.
+var DiskTiers = []string{TierSSD, TierHDD}
+
 type Storage struct {
 	// VMDisks holds instance root disks (thin provisioned).
 	VMDisks string `json:"vm_disks"`
+	// VMDisksHDD is the pool of the "hdd" tier, on the bulk disk. Empty when
+	// this deployment has only one disk pool, and the tier is refused.
+	VMDisksHDD string `json:"vm_disks_hdd,omitempty"`
 	// Images holds shared images and per-instance seed ISOs.
 	Images string `json:"images"`
 	// AdminImages is the administrator's store. The API only lists its ISOs,
 	// so an ISO dropped there from Proxmox is usable without a declaration.
 	AdminImages string `json:"admin_images"`
+}
+
+// DiskTierStorage returns the pool a tier's disks live on, and whether this
+// deployment has that tier. tier is "" or "ssd" for the default pool.
+func (s Storage) DiskTierStorage(tier string) (string, bool) {
+	switch tier {
+	case "", TierSSD:
+		return s.VMDisks, s.VMDisks != ""
+	case TierHDD:
+		return s.VMDisksHDD, s.VMDisksHDD != ""
+	}
+	return "", false
+}
+
+// TierOfStorage names the tier a pool belongs to. It is how an adopted VM's
+// or an existing volume's tier is derived: the HDD pool is hdd, and anything
+// else (including pools this deployment does not know) is the default tier.
+func (s Storage) TierOfStorage(pool string) string {
+	if pool != "" && pool == s.VMDisksHDD {
+		return TierHDD
+	}
+	return TierSSD
 }
 
 type Network struct {
@@ -115,6 +167,8 @@ type Quota struct {
 }
 
 var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
+var ledgerAccountID = regexp.MustCompile(`^[0-9]{12}$`)
+var ledgerTag = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 var sharedISOID = regexp.MustCompile(`^iso-[a-z0-9-]+$`)
 
 // Load reads and checks the rendered file. A half-rendered site is refused at
@@ -142,6 +196,9 @@ func (s Site) Validate() error {
 	check(s.Pool != "", "site: pool is empty")
 	check(s.VMIDFrom >= 100 && s.VMIDTo > s.VMIDFrom, "site: bad VMID range %d-%d", s.VMIDFrom, s.VMIDTo)
 	check(s.Storage.VMDisks != "" && s.Storage.Images != "" && s.Storage.AdminImages != "", "site: storage names are empty")
+	check(s.Storage.VMDisksHDD == "" || (s.Storage.VMDisksHDD != s.Storage.VMDisks &&
+		s.Storage.VMDisksHDD != s.Storage.Images && s.Storage.VMDisksHDD != s.Storage.AdminImages),
+		"site: storage.vm_disks_hdd %q collides with another store", s.Storage.VMDisksHDD)
 	check(s.Network.Bridge != "", "site: bridge is empty")
 	_, err := netip.ParseAddr(s.Network.Gateway)
 	check(err == nil, "site: gateway %q is not an address", s.Network.Gateway)
@@ -171,6 +228,17 @@ func (s Site) Validate() error {
 	check(len(s.InstanceTypes) > 0, "site: no instance types")
 	for name, t := range s.InstanceTypes {
 		check(t.CPUCores > 0 && t.MemoryMiB >= t.MemoryMinMiB && t.MemoryMinMiB > 0, "site: instance type %s is inconsistent", name)
+	}
+	check(s.Ledger.Cluster != "" || (len(s.Ledger.GroupAccounts) == 0 && len(s.Ledger.TagsByName) == 0),
+		"site: ledger groups are declared but ledger.cluster is empty")
+	for _, account := range s.Ledger.GroupAccounts {
+		check(ledgerAccountID.MatchString(account), "site: ledger account %q is not a 12-digit account ID", account)
+	}
+	for name, tags := range s.Ledger.TagsByName {
+		check(name != "" && len(tags) > 0, "site: ledger entry %q has no tags", name)
+		for _, tag := range tags {
+			check(ledgerTag.MatchString(tag), "site: ledger tag %q for %s is not a NetBox tag slug", tag, name)
+		}
 	}
 	q, r, c := s.Limits.AccountQuota, s.Limits.RootDiskGiB, s.Limits.Capacity
 	check(q.Instances > 0 && q.VCPUs > 0 && q.MemoryMiB > 0 && q.RootDiskGiB > 0, "site: account quota must be positive")

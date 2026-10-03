@@ -37,6 +37,7 @@ type Instance struct {
 	MemoryMinMiB     int                     `json:"memory_min_mib"`
 	Ballooning       bool                    `json:"ballooning"`
 	RootDiskGiB      int                     `json:"root_disk_gib"`
+	DiskTier         string                  `json:"disk_tier,omitempty"`
 	KeyName          string                  `json:"key_name,omitempty"`
 	Tags             map[string]string       `json:"tags,omitempty"`
 	ClientToken      string                  `json:"client_token,omitempty"`
@@ -64,6 +65,7 @@ type RunRequest struct {
 	MemoryMinMiB     *int              `json:"memory_min_mib,omitempty"`
 	Ballooning       *bool             `json:"ballooning,omitempty"`
 	RootDiskGiB      int               `json:"root_disk_gib,omitempty"`
+	DiskTier         string            `json:"disk_tier,omitempty"`
 	UserData         string            `json:"user_data,omitempty"`
 	ClientToken      string            `json:"client_token,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
@@ -98,6 +100,7 @@ type Volume struct {
 	AccountID         string            `json:"account_id"`
 	OwnerUsername     string            `json:"owner_username,omitempty"`
 	SizeGiB           int               `json:"size_gib"`
+	DiskTier          string            `json:"disk_tier,omitempty"`
 	State             string            `json:"state"`
 	StateReason       string            `json:"state_reason,omitempty"`
 	ModificationState string            `json:"modification_state,omitempty"`
@@ -117,6 +120,7 @@ type VolumeAttachment struct {
 
 type CreateVolumeRequest struct {
 	SizeGiB     int               `json:"size_gib"`
+	DiskTier    string            `json:"disk_tier,omitempty"`
 	ClientToken string            `json:"client_token,omitempty"`
 	Tags        map[string]string `json:"tags,omitempty"`
 }

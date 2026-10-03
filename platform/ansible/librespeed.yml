@@ -1,9 +1,9 @@
 ---
-# LibreSpeed（端末 ↔ services-01 の実効速度）を services-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/librespeed.yml
+# LibreSpeed（端末 ↔ apps-01 の実効速度）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/librespeed.yml'
 - name: Deploy LibreSpeed
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   roles:
     - docker

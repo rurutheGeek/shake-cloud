@@ -54,7 +54,9 @@ type Instance struct {
 	MemoryMinMiB int
 	Ballooning   bool
 	RootDiskGiB  int
-	UserData     string
+	// DiskTier is "ssd" or "hdd"; the pool behind it comes from site.json.
+	DiskTier string
+	UserData string
 	// KeyName and KeyPublicKey record the SSH key written into the seed image.
 	// The text is kept so that deleting the key pair afterwards changes nothing
 	// about an instance that already has it.
@@ -92,7 +94,7 @@ const instanceColumns = `i.instance_id, i.account_id,
 	coalesce((SELECT a.username FROM accounts a WHERE a.id = i.account_id), ''),
 	coalesce(i.client_token, ''), i.request_sha256, i.name,
 	i.image_id, i.guest_os, coalesce(i.install_iso_id, ''), coalesce(i.driver_iso_id, ''),
-	i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.ballooning, i.root_disk_gib,
+	i.instance_type, i.cpu_cores, i.memory_mib, i.memory_min_mib, i.ballooning, i.root_disk_gib, i.disk_tier,
 	i.user_data, coalesce(i.key_name, ''), coalesce(i.key_public_key, ''), i.tags,
 	i.state, coalesce(i.pending_action, ''), i.state_reason, i.last_error, i.attempts, i.next_attempt_at,
 	i.vmid, i.vm_created, i.mac_address, coalesce(i.ip_address, ''), i.netbox_ip_id, coalesce(i.seed_volume, ''),
@@ -103,7 +105,7 @@ func scanInstance(row pgx.Row) (Instance, error) {
 	var i Instance
 	err := row.Scan(&i.ID, &i.AccountID, &i.OwnerUsername, &i.ClientToken, &i.RequestSHA256, &i.Name,
 		&i.ImageID, &i.GuestOS, &i.InstallISOID, &i.DriverISOID,
-		&i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.Ballooning, &i.RootDiskGiB,
+		&i.InstanceType, &i.CPUCores, &i.MemoryMiB, &i.MemoryMinMiB, &i.Ballooning, &i.RootDiskGiB, &i.DiskTier,
 		&i.UserData, &i.KeyName, &i.KeyPublicKey, &i.Tags,
 		&i.State, &i.PendingAction, &i.StateReason, &i.LastError, &i.Attempts, &i.NextAttemptAt,
 		&i.VMID, &i.VMCreated, &i.MACAddress, &i.IPAddress, &i.NetBoxIPID, &i.SeedVolume,
@@ -128,16 +130,17 @@ func InsertInstance(ctx context.Context, q Querier, i Instance) (Instance, error
 		(instance_id, account_id, client_token, request_sha256, name, image_id, guest_os,
 		 install_iso_id, driver_iso_id, instance_type,
 		 cpu_cores, memory_mib, memory_min_mib, ballooning, root_disk_gib, user_data,
-		 key_name, key_public_key, tags, state, pending_action, vmid, mac_address)
+		 key_name, key_public_key, tags, state, pending_action, vmid, mac_address, disk_tier)
 		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, $7,
 		        nullif($8::text, ''), nullif($9::text, ''), $10,
 		        $11, $12, $13, $14, $15, $16,
-		        nullif($17::text, ''), nullif($18::text, ''), $19, 'pending', 'launch', $20, $21)
+		        nullif($17::text, ''), nullif($18::text, ''), $19, 'pending', 'launch', $20, $21,
+		        coalesce(nullif($22::text, ''), 'ssd'))
 		RETURNING `+instanceColumns,
 		i.ID, i.AccountID, i.ClientToken, i.RequestSHA256, i.Name, i.ImageID, i.GuestOS,
 		i.InstallISOID, i.DriverISOID, i.InstanceType,
 		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.Ballooning, i.RootDiskGiB, i.UserData,
-		i.KeyName, i.KeyPublicKey, i.Tags, i.VMID, i.MACAddress))
+		i.KeyName, i.KeyPublicKey, i.Tags, i.VMID, i.MACAddress, i.DiskTier))
 }
 
 // InsertAdoptedInstance records a VM that already existed and was registered
@@ -150,13 +153,13 @@ func InsertAdoptedInstance(ctx context.Context, q Querier, i Instance) (Instance
 	return scanInstance(q.QueryRow(ctx, `INSERT INTO instances AS i
 		(instance_id, account_id, name, image_id, instance_type,
 		 cpu_cores, memory_mib, memory_min_mib, ballooning, root_disk_gib, user_data,
-		 tags, state, pending_action, vmid, vm_created, mac_address, ip_address, adopted)
+		 tags, state, pending_action, vmid, vm_created, mac_address, ip_address, adopted, disk_tier)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '', $11, $12, NULL, $13, true, $14,
-		        nullif($15::text, ''), true)
+		        nullif($15::text, ''), true, coalesce(nullif($16::text, ''), 'ssd'))
 		RETURNING `+instanceColumns,
 		i.ID, i.AccountID, i.Name, i.ImageID, i.InstanceType,
 		i.CPUCores, i.MemoryMiB, i.MemoryMinMiB, i.Ballooning, i.RootDiskGiB,
-		i.Tags, i.State, i.VMID, i.MACAddress, i.IPAddress))
+		i.Tags, i.State, i.VMID, i.MACAddress, i.IPAddress, i.DiskTier))
 }
 
 func GetInstance(ctx context.Context, q Querier, id string) (Instance, error) {
@@ -407,6 +410,14 @@ func SettledInstances(ctx context.Context, q Querier) ([]Instance, error) {
 	return collectInstances(q.Query(ctx, `SELECT `+instanceColumns+` FROM instances i
 		WHERE i.state IN ('running', 'stopped') AND i.pending_action IS NULL
 		  AND (i.lease_until IS NULL OR i.lease_until < now())`))
+}
+
+// UnterminatedInstances returns every instance that still exists, in any
+// state. The ledger sync uses it to tell an instance that is merely busy from
+// one that is gone.
+func UnterminatedInstances(ctx context.Context, q Querier) ([]Instance, error) {
+	return collectInstances(q.Query(ctx, `SELECT `+instanceColumns+` FROM instances i
+		WHERE i.state <> 'terminated' ORDER BY i.instance_id`))
 }
 
 // ObserveState corrects a settled instance's state, unless something changed it first.

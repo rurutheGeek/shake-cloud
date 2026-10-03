@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import yaml
 
-from support import read
+from support import compose_stack_vars, read
 
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
@@ -46,6 +46,13 @@ class ComposeTests(unittest.TestCase):
         # （2026-09-13 実機）。playbook が 0711 にする。
         volumes = self.compose['services']['tagger']['volumes']
         self.assertIn('./:/tools:ro', volumes)
+
+    def test_the_review_board_only_reads_the_library(self):
+        # 全曲レビューは読み取りと試聴だけ。修正は指摘を読んだ側が行う。
+        service = self.compose['services']['review']
+        self.assertIn('${LIBRARY_ROOT:-../library}/music:/music:ro', service['volumes'])
+        self.assertIn('127.0.0.1:${REVIEW_PORT:-5830}:5830', service['ports'])
+        self.assertIn('review', self.lock['services'])
 
 
 class ManageTests(unittest.TestCase):
@@ -187,18 +194,28 @@ class PlaybookTests(unittest.TestCase):
         play = yaml.safe_load(read(PLAYBOOK))[0]
         self.vars = play['vars']
         self.tasks = {task['name']: task for task in play['tasks']}
+        self.stack = compose_stack_vars(play)
 
     def test_the_default_is_still_every_service(self):
         self.assertEqual(self.vars['music_tools_services'],
-                         ['metube', 'convert', 'tag-api', 'khinsider'])
+                         ['metube', 'convert', 'tag-api', 'khinsider', 'review'])
+
+    def test_the_review_board_is_deployed_with_the_stack(self):
+        loop = self.stack['compose_stack_files']
+        self.assertIn('review.py', loop)
+        content = self.stack['compose_stack_env']
+        self.assertIn("REVIEW_PORT=' ~ music_tools_review_port", content)
+        self.assertIn('review', self.vars['music_tools_services'])
 
     def test_a_subset_can_be_selected(self):
-        argv = self.tasks['Deploy selected music tools']['ansible.builtin.command']['argv']
-        self.assertIn('--services', argv)
-        self.assertTrue(any('music_tools_services' in str(part) for part in argv))
+        [argv] = self.stack['compose_stack_actions']
+        self.assertEqual(argv[:2], ['up', '--services'])
+        self.assertIn('music_tools_services', argv[2])
+        # The token is in the .env, so its diff stays out of the log.
+        self.assertIs(self.stack['compose_stack_env_no_log'], True)
 
     def test_the_generated_env_carries_tz_and_the_tag_api_settings(self):
-        content = self.tasks['Configure environment']['ansible.builtin.copy']['content']
+        content = self.stack['compose_stack_env']
         self.assertIn('LIBRARY_ROOT={{ library_root }}', content)
         self.assertIn('TZ={{ music_tools_tz }}', content)
         # tag-api は選択時にだけ環境変数を出す。
@@ -231,13 +248,15 @@ class PlaybookTests(unittest.TestCase):
         self.assertNotIn('access.json', text)
 
     def test_the_organizer_and_its_aliases_are_deployed(self):
-        loop = self.tasks['Copy tool definitions']['loop']
+        loop = self.stack['compose_stack_files']
         self.assertIn('organize.py', loop)
         self.assertIn('organize-aliases.json', loop)
 
     def test_the_tool_directory_is_traversable_for_the_tagger_container(self):
-        created = self.tasks['Create tool directory']['ansible.builtin.file']
-        self.assertEqual(created['mode'], '0711')
+        self.assertEqual(self.stack['compose_stack_directory_mode'], '0711')
+
+    def test_the_reviewed_image_lock_is_always_deployed(self):
+        self.assertIn('compose.lock.yaml', self.stack['compose_stack_files'])
 
 
 if __name__ == '__main__':

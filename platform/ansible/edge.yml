@@ -1,0 +1,15 @@
+---
+# HTTPS の入口（dns.yaml の edge.host）の Caddy を配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/edge.yml'
+#
+# 入口は edge.backends のホストの名前も受けて中継する。中継先のアドレスを
+# インベントリから引くので、NetBox のインベントリで流す（seed.ini だけでは足りない）。
+# 中継先を足すときは、先にそのホストを配備する（内部CAを取ってくる）。
+# 手順は docs/operations/edge.md。
+- name: Deploy the HTTPS edge
+  hosts: services
+  become: true
+  roles:
+    - docker
+    - tls_proxy

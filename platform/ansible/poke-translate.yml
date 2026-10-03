@@ -1,9 +1,9 @@
 ---
-# ポケモン用語対応翻訳の翻訳サイト（静的ファイルと拡張機能のzip）を services-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/poke-translate.yml
+# ポケモン用語対応翻訳の翻訳サイト（静的ファイルと拡張機能のzip）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/poke-translate.yml'
 - name: Deploy the Pokémon-aware translator site
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   roles:
     - docker

@@ -97,9 +97,11 @@ tags:
 
 ### イメージ置き場の容量に注意
 
-`cloud-images` は `/srv/cloud-images`、つまり**ルートファイルシステム（残り 76.2GiB）**に載ります。`local` のバックアップ・ISO・テンプレートと同じ領域を分け合います。VMディスクが載る `local-lvm`（728.9GiB）とは別枠です。
+`cloud-images` は `/srv/cloud-images`、つまり**ルートファイルシステム（残り 76.2GiB）**に載ります。`local` のバックアップ・ISO・テンプレートと同じ領域を分け合います。VMディスクが載る `local-lvm`（728.9GiB。`disk_tier: ssd`）とは別枠です。
 
 利用者がアップロードするイメージはここへ入るので、**API側のクォータで抑えないとバックアップ領域を食い潰します**。seed ISO 自体は1台あたり数MBなので問題になりません。
+
+**HDDティア**（`disk_tier: hdd`）のディスクは6TB USB HDD上の `bulk-disks`（`/srv/bulk/disks`）に載ります。登録は `pve_bulk_storage` ロール、ACLは `00-bootstrap` です。注意は[共有バルクストレージ](bulk-storage.md)のまま（単一ディスク・低速・バックアップと同居）。
 
 ## 2. コードにできない作業
 

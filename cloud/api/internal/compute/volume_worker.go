@@ -372,12 +372,16 @@ func (s *Service) createVolumeDisk(ctx context.Context, v *db.Volume) error {
 		if key == "" {
 			return errors.New("the volume holder has no free scsi slot")
 		}
+		storage, ok := s.Site.Storage.DiskTierStorage(v.DiskTier)
+		if !ok {
+			return giveUp{fmt.Sprintf("Server.InternalError: volume %s asks for disk tier %q, which this deployment does not have", v.ID, v.DiskTier)}
+		}
 		// Recorded first, so that locate finds a disk Proxmox made just before a crash.
 		*l = db.Location{MoveVMID: &holder, MoveKey: key}
 		if err := db.RecordLocation(ctx, s.Pool, v.ID, *l); err != nil {
 			return err
 		}
-		disk := fmt.Sprintf("%s:%d,discard=on", s.Site.Storage.VMDisks, v.SizeGiB)
+		disk := fmt.Sprintf("%s:%d,discard=on", storage, v.SizeGiB)
 		if err := s.configure(ctx, holder, url.Values{key: {disk}}); err != nil {
 			return fmt.Errorf("allocate: %w", err)
 		}
@@ -495,7 +499,7 @@ func (s *Service) resizeVolumeDisk(ctx context.Context, v *db.Volume) error {
 		return err
 	}
 	if !found {
-		return fmt.Errorf("disk %s is not on storage %s", l.VolID, s.Site.Storage.VMDisks)
+		return fmt.Errorf("disk %s was not found on its storage", l.VolID)
 	}
 	if current < v.SizeGiB {
 		if !plugged(l.ConfigKey) {

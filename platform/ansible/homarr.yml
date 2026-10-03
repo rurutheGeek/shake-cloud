@@ -1,10 +1,10 @@
 ---
-# Homarr（サービスの入口）を services-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/homarr.yml
+# Homarr（サービスの入口）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/homarr.yml'
 # OIDC クライアントの秘密値を identity VM から読むので、identity.yml の後に流す。
 - name: Deploy Homarr
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   roles:
     - docker

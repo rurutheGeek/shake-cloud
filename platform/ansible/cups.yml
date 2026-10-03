@@ -1,12 +1,12 @@
 ---
-# Canon TS8430シリーズへのプリント中継（CUPS）を services-01 へ入れる。
+# Canon TS8430シリーズへのプリント中継（CUPS）を apps-01 へ入れる。
 # 端末は LAN/VPN からキュー `ts8430` を使う。印刷状況のWeb UIは
 # https://cups.apextox.dpdns.org（Caddy＋Authentik）で、/admin は入口で閉じる。
 #
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/cups.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/cups.yml'
 - name: Deploy the CUPS print relay
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   roles:
     - cups

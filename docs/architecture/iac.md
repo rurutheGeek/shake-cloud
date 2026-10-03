@@ -1,6 +1,6 @@
 ---
 title: IaCの所有境界
-updated: 2026-09-13
+updated: 2026-09-27
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # IaCの所有境界
 
-> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-09-27 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **状態**: 00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み
 
@@ -45,6 +45,7 @@ tags:
 | `platform/terraform/tags.yaml` | 決めごと | NetBoxタグとAnsibleグループの対応 | `10-platform`、テスト |
 | `platform/terraform/hosts.yaml` | 決めごと | ホストの宣言。**正本** | `10-platform`、テスト |
 | `platform/terraform/cloud.yaml` | 決めごと | クラウドAPIの上限の**既定値**と、プローブ用VMID | クラウドAPI（`render_site.py` 経由）、テスト |
+| `platform/netbox/devices.yaml` | 決めごと | 物理機器の台帳（役割・製造元・型番・実機。ネット接続の有無を問わない）と、DHCP の予約・名前 | `tools/netbox-dhcp-sync.py`（dev-b のタイマー）、テスト |
 
 ### 例外: 実行中に変わる値は1か所だけ
 

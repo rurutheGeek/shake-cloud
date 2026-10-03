@@ -110,13 +110,23 @@ resource "proxmox_acl" "cloudapi_pool" {
   propagate = true
 }
 
-# 利用者VMのディスク置き場。/storage 全体には与えない。
-# 置き場は site.yaml が正本なので、tfvars へ手で入れ直す必要はない。
+# 利用者VMのディスク置き場。SSD・HDDのティアごとにACLを分ける。
+# /storage 全体には与えない。置き場は site.yaml が正本なので、tfvars へ
+# 手で入れ直す必要はない。HDDティアの無いデプロイでは hdd が落ちる。
 resource "proxmox_acl" "cloudapi_vm_storage" {
-  path      = local.vm_storage_acl_path
+  for_each = local.vm_storage_acl_paths
+
+  path      = each.value
   role_id   = proxmox_virtual_environment_role.cloud_api_storage.role_id
   user_id   = proxmox_virtual_environment_user.cloudapi.user_id
   propagate = true
+}
+
+# ティア導入前はこのACLが1つだけだった。住所をティア別へ移し、apply で
+# 既存のSSD側ACLを作り直さずに済ませる。
+moved {
+  from = proxmox_acl.cloudapi_vm_storage
+  to   = proxmox_acl.cloudapi_vm_storage["ssd"]
 }
 
 # イメージと seed ISO の専用ストレージ。Datastore.Allocate を含むので、

@@ -7,30 +7,33 @@ Proxmox VE（ホスト `apextox`）上のホームラボをTerraform・Ansible�
 ## 検証コマンド（CIの `.github/workflows/validate.yml` と同じ）
 
 ```bash
-python3 -m unittest discover -s tests            # 全体の回帰テスト
-python3 -m unittest tests.test_media_kavita      # 1ファイルだけ
-python3 -m unittest tests.<module>.<Class>.<test>  # 1テストだけ
+.venv/bin/python -m unittest discover -s tests            # 全体の回帰テスト
+.venv/bin/python -m unittest tests.test_media_kavita      # 1ファイルだけ
+.venv/bin/python -m unittest tests.<module>.<Class>.<test>  # 1テストだけ
 terraform fmt -check -recursive platform/terraform
 .venv/bin/yamllint -c .yamllint .
+.venv/bin/ruff check .                           # 壊れたPython（ruff.toml）
+git ls-files '*.sh' | xargs shellcheck --severity=warning  # シェルスクリプト（警告以上）
 .venv/bin/mkdocs build --strict
 python3 tools/check-publication.py               # 秘密値・禁止パスの公開前チェック
 gofmt -l cloud
 (cd cloud/api && go vet ./... && go test ./...)  # DBテストは SHAKECLOUD_TEST_DATABASE_URL 指定時のみ実行
 (cd cloud/client && go vet ./... && go test ./...)
 (cd cloud/cli && go vet ./... && go test ./...)
+(cd cloud/mcp && go vet ./... && go test ./...)
 (cd cloud/provider && go vet ./... && go test ./...)
 go test ./internal/server -run TestName          # cloud/api 内で単一テスト
 ```
 
-- `tests/` のAnsible `--syntax-check` テストは `ansible-playbook` が無いとスキップされる。Ansibleを触ったら `platform/ansible/requirements.txt`／`requirements.yml` を入れて確認する。
-- CIは追跡中の全 `.py` をコンパイルし、全YAMLを `yaml.safe_load` する。
+- テストは必ず `.venv/bin/python` で回す。`ansible-playbook` は `.venv` にしか無く、`python3` だとAnsibleの `--syntax-check` テスト（9件）が黙ってスキップされる。Ansibleを触ったら `platform/ansible/requirements.txt`／`requirements.yml` を入れて確認する。
+- CIは追跡中の全 `.py` をコンパイルし、全YAMLを `yaml.safe_load` する。CIはさらに各Goモジュールで `govulncheck` も走らせる。
 
 ## 全体構成
 
 - `platform/` 基盤：`terraform/10-platform`・`05-seed`（基盤VMとNetBox台帳）、`terraform/services/<name>/`（サービスVMを自作クラウドAPIのTerraform Providerで宣言、サービスごとに1 state）、`ansible/`（配備Playbook）、`flux/`（`main`を監視しAWX・CNPG・Knativeを配るk8s構成）。
 - `stacks/<name>/` サービス：ホストごとの独立Docker Compose。イメージは各 `compose.lock.yaml` のdigestで固定。各ユニットは `manage.py`（初期化・backup等）を持つ。Ansibleの `source_dir` がstackと配備先の対応点。
-- `cloud/` 自作クラウド（VM・S3・database・function）：`api/`（Go、PostgreSQL管理DB、`internal/` にproxmox・garage・cnpg・knative・netbox連携とHTTPサーバ／ポータル `server/web/`）、`client/`（共通Goクライアント）、`cli/`、`provider/`（Terraform Provider）。**APIの正本は `cloud/openapi/shakecloud.yaml`**。API変更時はopenapi・client・cli・provider・ポータルを揃える。
-- インベントリは3系統：基盤はNetBox動的インベントリ、クラウドVMは `platform/ansible/inventory.cloud.py`、services-01は `seed.ini`、monitor-01は `monitor.ini`。**クラウドとNetBoxのインベントリを併用しない**（群が和集合になる）。
+- `cloud/` 自作クラウド（VM・S3・database・function）：`api/`（Go、PostgreSQL管理DB、`internal/` にproxmox・garage・cnpg・knative・netbox連携とHTTPサーバ／ポータル `server/web/`）、`client/`（共通Goクライアント）、`cli/`、`mcp/`（読み取り専用MCPサーバ）、`provider/`（Terraform Provider）。**APIの正本は `cloud/openapi/shakecloud.yaml`**。API変更時はopenapi・client・cli・provider・ポータルを揃える。
+- インベントリは NetBox 動的インベントリ（`platform/ansible/inventory.netbox.yml`）へ統一する。グループはNetBoxのタグ（正本 `platform/terraform/tags.yaml`）で、クラウドVMはクラウドAPIが台帳へ登録し `cloud.yaml` の `ledger.tags_by_name` がタグを決める。**実機の切替が済むまで**は旧来の `inventory.cloud.py`（クラウドVM）・`monitor.ini`（monitor-01）も残っており、**NetBoxのインベントリと併用しない**。`seed.ini` はNetBox自身の初回構築と予備、`pve.ini` はProxmoxホスト用に残る（`docs/operations/services.md` の「Ansibleのインベントリ」）。
 - Terraform実行は `tools/tf services/<name> plan|apply`（`SHAKECLOUD_ACCESS_KEY` が必要）。
 - URL・DNSの正本は `platform/terraform/dns.yaml`、Homarrタイルは `stacks/homarr/apps.json`、ドキュメントは `docs/`（`mkdocs.yml`、生成サイトは直接編集しない）。
 

@@ -437,7 +437,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_the_viewer_behind_tls_and_sso(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/mail-view.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'apps')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('mail_view'))
         self.assertLess(roles.index('tls_proxy'), roles.index('mail_view'))
@@ -445,7 +445,7 @@ class IacTests(unittest.TestCase):
     def test_the_role_wires_the_credentials_and_the_stack(self):
         defaults = yaml.safe_load(
             (ROOT / 'platform/ansible/roles/mail_view/defaults/main.yml').read_text(encoding='utf-8'))
-        self.assertEqual(defaults['mail_view_project_dir'], '/opt/services/mail-view')
+        self.assertEqual(defaults['mail_view_project_dir'], '/opt/mail-view')
         self.assertEqual(defaults['mail_view_port'], 8310)
         self.assertEqual(defaults['mail_view_public_url'],
                          'https://mail-view.{{ mail_view_dns.zone }}')
@@ -476,10 +476,10 @@ class IacTests(unittest.TestCase):
         self.assertEqual(installs[0]['content'],
                          '{{ (mail_view_credentials.stdout | from_json)[mail_view_password_key] }}')
 
-    def test_dns_declares_mail_view_on_services_01_behind_auth(self):
+    def test_dns_declares_mail_view_on_apps_01_behind_auth(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
         record = dns['records']['mail-view']
-        self.assertEqual(record['host'], 'services-01')
+        self.assertEqual(record['host'], 'apps-01')
         self.assertEqual(record['upstream'], '127.0.0.1:8310')
         self.assertTrue(record['auth'])
         self.assertIn('Gmail', record['description'])

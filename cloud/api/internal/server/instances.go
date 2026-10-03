@@ -39,6 +39,7 @@ type instanceBody struct {
 	MemoryMinMiB     int               `json:"memory_min_mib"`
 	Ballooning       bool              `json:"ballooning"`
 	RootDiskGiB      int               `json:"root_disk_gib"`
+	DiskTier         string            `json:"disk_tier"`
 	KeyName          string            `json:"key_name,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
 	ClientToken      string            `json:"client_token,omitempty"`
@@ -72,7 +73,7 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []
 		PrivateIPAddress: strings.SplitN(i.IPAddress, "/", 2)[0],
 		MACAddress:       i.MACAddress, VCPUs: i.CPUCores, MemoryMiB: i.MemoryMiB, MemoryMinMiB: i.MemoryMinMiB,
 		Ballooning:  i.Ballooning,
-		RootDiskGiB: i.RootDiskGiB, KeyName: i.KeyName,
+		RootDiskGiB: i.RootDiskGiB, DiskTier: i.DiskTier, KeyName: i.KeyName,
 		Tags: i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
 		Adopted: i.Adopted,
 	}
@@ -158,13 +159,13 @@ func (s *Server) runInstances(w http.ResponseWriter, r *http.Request, c *call) {
 		return
 	}
 	instance, created, err := service.Run(r.Context(), c.principal.account.ID, request, func(tx pgx.Tx, i db.Instance) error {
-		event := c.event("", map[string]any{"image_id": i.ImageID, "instance_type": i.InstanceType, "vmid": i.VMID})
+		event := c.event("", map[string]any{"image_id": i.ImageID, "instance_type": i.InstanceType, "disk_tier": i.DiskTier, "vmid": i.VMID})
 		event.ResourceID = i.ID
 		return db.RecordAudit(r.Context(), tx, event)
 	})
 	if err != nil {
 		if refusal := (*compute.Error)(nil); errors.As(err, &refusal) {
-			event := c.event(refusal.Code, map[string]any{"image_id": request.ImageID, "instance_type": request.InstanceType})
+			event := c.event(refusal.Code, map[string]any{"image_id": request.ImageID, "instance_type": request.InstanceType, "disk_tier": request.DiskTier})
 			s.recordDenied(r.Context(), event)
 		}
 		s.computeError(w, r, err)

@@ -50,9 +50,11 @@ if [ "$status" -gt 1 ]; then
   exit "$status"
 fi
 
+# shellcheck disable=SC2012  # ファイル名は自分で付けた game1-saves-<時刻>.tar.zst だけ
 mapfile -t old < <(ls -1t "$DEST"/game1-saves-*.tar.zst 2>/dev/null | tail -n +$((KEEP + 1)))
 for file in "${old[@]}"; do
   echo "pruning $file"
   rm -f -- "$file"
 done
+# shellcheck disable=SC2012  # 表示専用
 ls -lh "$DEST"/game1-saves-*.tar.zst | tail -n "$KEEP"

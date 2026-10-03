@@ -335,7 +335,8 @@
         share(capacity.cloud.memory_mib, budget)));
       for (const store of capacity.storage) {
         const limit = store.max_used_percent ? ` ・ 上限 ${store.max_used_percent}%` : '';
-        parts.push(meter(`ストレージ ${store.name}`,
+        const tier = store.disk_tier ? `（${tierLabel(store.disk_tier)}）` : '';
+        parts.push(meter(`ストレージ ${store.name}${tier}`,
           `使用 ${store.used_percent}% ・ 空き ${mib(store.avail_mib)}${limit}`, store.used_percent));
       }
       parts.push(note(`クラウド全体: ${capacity.cloud.instances}台 ・ ${capacity.cloud.vcpus} vCPU`
@@ -346,6 +347,9 @@
         + ` ・ ボリューム ${capacity.account.volumes}個 / ${capacity.account.volume_gib} GiB`));
       $('capacity').replaceChildren(...parts);
       $('quota-summary').replaceChildren(quotaTable(capacity));
+      const hddAvailable = hasHDDTier(capacity);
+      $('disk-tier-field').hidden = !hddAvailable;
+      $('volume-disk-tier-field').hidden = !hddAvailable;
       capacityLoaded = true;
       listStatus('capacity', `最終更新 ${when(new Date())}`);
 
@@ -383,6 +387,12 @@
   // explains a second click with it, rather than disabling the buttons.
   const PENDING_LABELS = { launch: '作成', start: '起動', stop: '停止', reboot: '再起動', terminate: '削除' };
   const pendingLabel = (action) => PENDING_LABELS[action] || action;
+
+  const TIER_LABELS = { ssd: 'SSD', hdd: 'HDD' };
+  const tierLabel = (tier) => TIER_LABELS[tier] || 'SSD';
+  // A deployment without an HDD pool has no hdd entry in capacity.storage;
+  // hide the choice rather than let the API refuse a form that looked usable.
+  const hasHDDTier = (capacity) => (capacity.storage || []).some((store) => store.disk_tier === 'hdd');
 
   function currentInstance(instance) {
     return lastInstances.find((i) => i.instance_id === instance.instance_id) || instance;
@@ -858,6 +868,26 @@
     });
   }
 
+  function tagText(key, value) {
+    return value === '' ? key : `${key}=${value}`;
+  }
+
+  // "Purpose=dev, Team=home" from the create form. A key without "=" is a
+  // tag with an empty value, as in the API.
+  function parseTags(text) {
+    const tags = {};
+    for (const part of text.split(',')) {
+      const item = part.trim();
+      if (!item) continue;
+      const at = item.indexOf('=');
+      const key = (at < 0 ? item : item.slice(0, at)).trim();
+      if (!key) throw new Error(`タグ「${item}」にキーがありません。キー=値 の形で入力してください。`);
+      if (key === 'Name') throw new Error('Name は「名前」の欄で指定してください。');
+      tags[key] = at < 0 ? '' : item.slice(at + 1).trim();
+    }
+    return tags;
+  }
+
   function instanceRow(instance, viewerAccountId, isAdmin) {
     const row = document.createElement('tr');
     row.dataset.resource = instance.instance_id;
@@ -874,6 +904,26 @@
       badge.className = 'badge';
       badge.textContent = '引き取り';
       nameCell.append(badge);
+    }
+    // Name is the first line of the cell; every other tag is listed, and
+    // choosing one narrows the list to the instances that carry it.
+    const tagEntries = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').sort();
+    if (tagEntries.length > 0) {
+      const tagList = document.createElement('div');
+      tagList.className = 'tags';
+      for (const [key, value] of tagEntries) {
+        const tag = document.createElement('button');
+        tag.type = 'button';
+        tag.className = 'tag';
+        tag.textContent = tagText(key, value);
+        tag.title = 'このタグで絞り込む';
+        tag.addEventListener('click', () => {
+          $('instance-search').value = tagText(key, value);
+          renderInstances();
+        });
+        tagList.append(tag);
+      }
+      nameCell.append(tagList);
     }
     if (instance.state_reason) {
       const reason = document.createElement('div');
@@ -927,7 +977,7 @@
       cell(instance.private_ip_address || '—'),
       cell(instance.adopted ? '—（引き取り）' : (instance.image_name || instance.image_id)),
       configCell,
-      cell(instance.root_disk_gib + ' GiB'),
+      cell(`${instance.root_disk_gib} GiB（${tierLabel(instance.disk_tier)}）`),
       groupsCell,
     );
 
@@ -1018,7 +1068,8 @@
     let visible = 0;
     const rows = lastInstances.map((instance) => {
       const row = instanceRow(instance, wrap.dataset.accountId, wrap.dataset.isAdmin === 'true');
-      const text = [instance.tags?.Name, instance.instance_id, instance.private_ip_address, instance.owner_username, instance.account_id].join(' ').toLocaleLowerCase();
+      const tagTexts = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').map(([key, value]) => tagText(key, value));
+      const text = [instance.tags?.Name, instance.instance_id, instance.private_ip_address, instance.owner_username, instance.account_id, ...tagTexts].join(' ').toLocaleLowerCase();
       row.hidden = !!((search && !text.includes(search)) || (owner === 'mine' && instance.account_id !== wrap.dataset.accountId) || (state && state !== instance.state));
       if (!row.hidden) visible++;
       return row;
@@ -1113,6 +1164,7 @@
     if (memoryMinMib) body.memory_min_mib = Number(memoryMinMib);
     const rootDiskGib = data.get('root_disk_gib');
     if (rootDiskGib) body.root_disk_gib = Number(rootDiskGib);
+    if (!$('disk-tier-field').hidden && data.get('disk_tier')) body.disk_tier = data.get('disk_tier');
     const userData = data.get('user_data');
     if (userData) body.user_data = userData;
     // A Windows image and any ISO install are configured at the console, not
@@ -1120,7 +1172,9 @@
     const keyName = (windows || fromISO) ? '' : data.get('key_name');
     if (keyName) body.key_name = keyName;
     const name = data.get('name');
-    if (name) body.tags = { Name: name };
+    const tags = parseTags(data.get('tags') || '');
+    if (name) tags.Name = name;
+    if (Object.keys(tags).length > 0) body.tags = tags;
     // Omitted entirely (rather than sent empty) when nothing is checked, so
     // the API falls back to the account's default group.
     const groupIds = data.getAll('security_group_ids');
@@ -1154,7 +1208,7 @@
       : `イメージ: ${createInstanceForm.elements.image_id.selectedOptions[0]?.textContent}`;
     const selectedGroups = groupIds.length ? groupIds.map((id) => lastSecurityGroups.find((g) => g.group_id === id)?.group_name || id).join('、') : '既定グループ（全通信を許可）';
     if (!await confirmAction({ title: 'インスタンスの作成内容', confirmLabel: 'この構成で作成',
-      message: `名前: ${name || '未指定'}\nゲストOS: ${windows || (fromISO && data.get('guest_os') === 'windows') ? 'Windows 11' : 'Linux'}\n${sourceName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB\n${windows ? '初回起動後のセットアップ: コンソールから' : (fromISO ? 'SSH鍵: 使いません' : `SSH鍵: ${keyName || '使わない'}`)}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
+      message: `名前: ${name || '未指定'}\nゲストOS: ${windows || (fromISO && data.get('guest_os') === 'windows') ? 'Windows 11' : 'Linux'}\n${sourceName}\nvCPU: ${body.vcpus}\nメモリ: ${body.memory_mib} MiB\nルートディスク: ${body.root_disk_gib || effectiveLimits.root_disk_gib.default} GiB（${tierLabel(body.disk_tier)}）\n${windows ? '初回起動後のセットアップ: コンソールから' : (fromISO ? 'SSH鍵: 使いません' : `SSH鍵: ${keyName || '使わない'}`)}\n通信: ${selectedGroups}\n初回起動時の設定: ${userData ? 'あり' : 'なし'}` })) return;
     if (!launchTokens.has(digest)) launchTokens.set(digest, crypto.randomUUID());
     body.client_token = launchTokens.get(digest);
     try {
@@ -1370,7 +1424,7 @@
       cell(volume.volume_id),
       cell((volume.tags && volume.tags.Name) || '—'),
       cell(volume.owner_username || volume.account_id),
-      cell(volume.size_gib + ' GiB'),
+      cell(`${volume.size_gib} GiB（${tierLabel(volume.disk_tier)}）`),
       volumeStateCell(volume),
       volumeAttachmentCell(volume, instances),
       volumePathCell(volume),
@@ -1416,6 +1470,7 @@
     submit.preventDefault();
     const form = new FormData(submit.target);
     const body = { size_gib: Number(form.get('size_gib')) };
+    if (!$('volume-disk-tier-field').hidden && form.get('disk_tier')) body.disk_tier = form.get('disk_tier');
     const name = form.get('name');
     if (name) body.tags = { Name: name };
     try {

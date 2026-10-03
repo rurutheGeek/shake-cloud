@@ -53,7 +53,7 @@ def compose(*args, locked=True, **kwargs):
 
 
 def storage():
-    configured = Path(settings().get('STORAGE_ROOT', '/srv/services/homarr'))
+    configured = Path(settings().get('STORAGE_ROOT', '/srv/homarr'))
     path = configured.resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')

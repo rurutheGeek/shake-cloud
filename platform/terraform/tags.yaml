@@ -4,15 +4,30 @@
 # platform/ansible/inventory.netbox.yml がグループへ写す。
 # 整合は tests/test_platform_inventory.py が検証する。
 #
-# media-stack は stacks/netbox/seed_inventory.py が作る既存タグなので
-# ここでは扱わない。意味を変えないため。
+# media-stack は名前とグループ（media）を変えない。既存のPlaybookが
+# `hosts: media` を対象にしているため。
+#
+# クラウドAPIが作るVMへは、cloud.yaml の ledger.tags_by_name がここのタグを
+# 名前で割り当てる（VM自身のタグでは決めない）。
 tags:
+  media-stack:
+    ansible_group: media
+    description: メディア系サービス（Nextcloud・Kavita・Navidrome など）
+  monitoring:
+    ansible_group: monitoring
+    description: 監視（Prometheus・Alertmanager・Grafana）
+  apps:
+    ansible_group: apps
+    description: 利用者向けアプリの置き場（apps-01。Homarr・Vaultwarden・Home Assistant など）
+  services:
+    ansible_group: services
+    description: 台帳・共有サービスの置き場（NetBox・Homarr・Vaultwarden など）
   managed-by-terraform-admin:
     ansible_group: terraform_managed
     description: 管理者Terraformが作ったもの
   managed-by-cloud-api:
     ansible_group: null
-    description: 将来の自作クラウドAPIが作るもの。現時点では未使用
+    description: 自作クラウドAPIが作ったもの（採番したアドレスと、台帳へ登録したVM）
   lab:
     ansible_group: lab
     description: 検証・復元ドリル用の使い捨て

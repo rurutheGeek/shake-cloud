@@ -36,7 +36,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 | Group folders | グループ専用フォルダ | `family`だけに見える共有領域 | アプリ側の共有設定が別に必要 |
 | Files external storage (`files_external`) | 外部ストレージをFilesに表示 | `/library/books`やNFSを表示 | ホスト側のマウントと権限が必要 |
 | User OIDC (`user_oidc`) | OIDCでNextcloudへログイン | Authentikを共通ログイン基盤にする | OIDCプロバイダーが別途必要 |
-| 印刷 (`shake_print`) | ファイル一覧の「…」→「印刷」でPDF・画像・テキストを印刷 | スマホ・PCからNextcloudのファイルをそのまま印刷 | 自作アプリ（ストア外）。services-01の印刷APIが必要（[プリンター](../services/printer.md)） |
+| 印刷 (`cups_print`) | ファイル一覧の「…」→「印刷」でPDF・画像・テキスト・Markdownを印刷（部数・カラー・ページ範囲を指定） | スマホ・PCからNextcloudのファイルをそのまま印刷 | 自作アプリ（公開リポジトリ `rurutheGeek/nextcloud-cups-print`）。services-01の印刷APIが必要（[プリンター](../services/printer.md)） |
 | Memories | 写真をタイムライン表示 | 写真ライブラリを閲覧 | プレビュー生成などで容量・CPUを使う |
 | Preview Generator | サムネイルを事前生成 | PDFや画像の表示を速くする | 定期ジョブと保存領域を使う |
 
@@ -44,7 +44,7 @@ Nextcloudの追加アプリは、Dockerコンテナを増やすものではあ�
 
 ## 現在の構成でのインストール例
 
-この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`notes`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`shake_print`・`shake_localsend`・`shake_tags`を足します。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
+この構成では、利用者が手動でコンテナへ入るのではなく、media-01の配備ユニット（`stacks/media/nextcloud/manage.py apps`）を`platform/ansible/media-nextcloud.yml`から呼び出します。既定では`platform/ansible/group_vars/media.yml`の`nextcloud_apps`に`calendar`、`notes`、`tasks`、`text`、`user_oidc`を指定し、配備時に自作の`cups_print`・`localsend_share`・`shake_tags`を足します。`cups_print`と`localsend_share`はそれぞれの公開リポジトリのGitHub Release（バージョンは同じgroup_varsの`nextcloud_custom_apps`が正本）から`manage.py custom-apps`が入れ、`shake_tags`だけをこのリポジトリで配ります。印刷APIのトークンはSOPSから読み、`occ config:app:set`で設定します。
 
 Ansible配備時は、サービスが正常起動した後に自動で次を実行します。
 

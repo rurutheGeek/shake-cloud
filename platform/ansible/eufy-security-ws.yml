@@ -3,7 +3,7 @@
 # ホストネットワークで HA の compose ネットワーク（services-home-assistant_homeassistant）
 # のゲートウェイ 172.31.254.1 だけに bind するので、home-assistant.yml の後に実行する。
 - name: Deploy eufy-security-ws
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks/eufy-security-ws'
@@ -37,12 +37,12 @@
         mode: '0644'
       loop: [compose.yaml, manage.py, .env.example]
 
-    - name: Copy the reviewed image lock if present
+    # digest の正本はリポジトリの lock。配備先で pull して決めさせない。
+    - name: Copy the reviewed image lock
       ansible.builtin.copy:
         src: '{{ source_dir }}/compose.lock.yaml'
         dest: '{{ eufy_project_dir }}/compose.lock.yaml'
         mode: '0644'
-      when: lookup('ansible.builtin.fileglob', source_dir + '/compose.lock.yaml', wantlist=True) | length > 0
 
     - name: Render the initial environment without replacing an existing one
       ansible.builtin.copy:
@@ -79,6 +79,8 @@
       become: false
       register: eufy_values
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
       when: eufy_sops.stat.exists
 
@@ -109,7 +111,12 @@
     - name: Start eufy-security-ws and wait for its healthcheck
       ansible.builtin.command:
         argv: [python3, '{{ eufy_project_dir }}/manage.py', up]
-      changed_when: true
+      register: eufy_up
+      changed_when: >-
+        'CHANGED' in eufy_up.stdout
+        or 'Created' in eufy_up.stderr
+        or 'Recreated' in eufy_up.stderr
+        or 'Started' in eufy_up.stderr
       when: eufy_configured
 
     - name: Report the remaining credential step

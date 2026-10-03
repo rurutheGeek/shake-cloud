@@ -17,7 +17,7 @@ from unittest import mock
 
 import yaml
 
-from support import load_module, read
+from support import compose_stack_vars, load_module, read
 
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
@@ -683,10 +683,11 @@ class DeploymentTests(unittest.TestCase):
     def test_the_playbook_ships_the_code_and_the_port(self):
         self.assertIn('khinsider', self.play['vars']['music_tools_services'])
         self.assertEqual(self.play['vars']['music_tools_khinsider_port'], 5820)
-        loop = self.tasks['Copy tool definitions']['loop']
+        stack = compose_stack_vars(self.play)
+        loop = stack['compose_stack_files']
         self.assertIn('khinsider.py', loop)
         self.assertIn('khinsider-ja.json', loop)
-        content = self.tasks['Configure environment']['ansible.builtin.copy']['content']
+        content = stack['compose_stack_env']
         self.assertIn("'khinsider' in music_tools_services", content)
         self.assertIn('KHINSIDER_PORT=', content)
 

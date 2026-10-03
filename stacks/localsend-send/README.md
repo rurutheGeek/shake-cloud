@@ -1,6 +1,6 @@
 # LocalSend送信API（media-01）
 
-Nextcloudの「LocalSendで送る」アクション（`stacks/media/nextcloud/apps/shake_localsend/`）
+Nextcloudの「LocalSendで送る」アクション（公開リポジトリ [`rurutheGeek/nextcloud-localsend`](https://github.com/rurutheGeek/nextcloud-localsend) の `localsend_share`）
 からのHTTP POSTを受け、同じLANにいる端末のLocalSendアプリへファイルを送るAPIです。
 標準ライブラリだけで動きます。
 

@@ -1,6 +1,6 @@
 ---
-# メールビューア（Gmail 読み取り専用）を services-01 に単独で置く。
-mail_view_project_dir: /opt/services/mail-view
+# メールビューア（Gmail 読み取り専用）を apps-01 に置く。
+mail_view_project_dir: /opt/mail-view
 mail_view_source_dir: '{{ playbook_dir }}/../../stacks/mail-view'
 # 入口は同じホストの Caddy（tls_proxy ロール）が https://mail-view.<ゾーン> で受ける。
 mail_view_port: 8310

@@ -1,0 +1,19 @@
+{
+  "name": "shake-backup-portal-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WebUSB backup client for the Shake Lab backup portal",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@yume-chan/adb": "2.6.4",
+    "@yume-chan/adb-credential-web": "2.0.1",
+    "@yume-chan/adb-daemon-webusb": "2.3.2",
+    "@yume-chan/stream-extra": "2.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5"
+  }
+}

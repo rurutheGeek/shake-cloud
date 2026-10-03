@@ -1,10 +1,10 @@
 ---
-# Vaultwarden（パスワード管理・SSO）を services-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/vaultwarden.yml
+# Vaultwarden（パスワード管理・SSO）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/vaultwarden.yml'
 # OIDC クライアントの秘密値を identity VM から読むので、identity.yml の後に流す。
 - name: Deploy Vaultwarden
-  hosts: netbox_bootstrap
+  hosts: apps
   become: true
   roles:
     - docker

@@ -7,34 +7,18 @@
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
-    - name: Create Kavita deployment directory
-      ansible.builtin.file:
-        path: '{{ project_dir }}/media/kavita'
-        state: directory
-        mode: '0750'
-    - name: Copy Kavita definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/kavita/{{ item }}'
-        dest: '{{ project_dir }}/media/kavita/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example, bootstrap.py]
-    - name: Configure Kavita environment
-      ansible.builtin.copy:
-        content: |
+    - name: Deploy the Kavita stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/kavita'
+        compose_stack_project_dir: '{{ project_dir }}/media/kavita'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example, bootstrap.py]
+        compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
           LIBRARY_ROOT={{ library_root }}
           TZ={{ tz | default('Asia/Tokyo') }}
           KAVITA_PORT={{ kavita_port | default(5000) }}
-        dest: '{{ project_dir }}/media/kavita/.env'
-        mode: '0600'
-    - name: Prepare Kavita data directories
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/kavita/manage.py', init]
-      changed_when: true
-    - name: Deploy Kavita
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/kavita/manage.py', up]
-      changed_when: true
     # bootstrap.py は requests を使う。古い deploy.yml と同じく、配備先へ
     # python3-requests を入れてから API を叩く。
     - name: Install the HTTP client for the Kavita bootstrap

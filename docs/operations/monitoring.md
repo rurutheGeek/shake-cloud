@@ -1,6 +1,6 @@
 ---
 title: 監視（monitor-01）
-updated: 2026-09-23
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 監視（monitor-01）
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 稼働中。`https://grafana.apextox.dpdns.org`（identity の OIDC）。
 
@@ -129,7 +129,7 @@ monitor-01 の `/opt/monitoring-stack` で `manage.py` を使います（`sudo` 
 | `reload` | 設定だけを再読込（Prometheus・Alertmanager） |
 | `restart` | コンテナを作り直す |
 | `up` | 配備・起動 |
-| `lock` | イメージのdigestを `compose.lock.yaml` へ固定 |
+| `lock` | イメージのdigestを `compose.lock.yaml` へ固定。**正本はリポジトリの `stacks/monitoring/compose.lock.yaml`** で、Ansibleが配る。更新するときはリポジトリのlockを書き換えて配り直す（配備先だけで `--refresh-images` しない） |
 | `backup` | 状態の取得 |
 
 アラート規則やスクレイプ先を変えたときは、Gitを直してから Ansible で配り直します。

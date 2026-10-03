@@ -7,20 +7,16 @@
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
-    - name: Create Nextcloud deployment directory
-      ansible.builtin.file:
-        path: '{{ project_dir }}/media/nextcloud'
-        state: directory
-        mode: '0750'
-    - name: Copy Nextcloud definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/nextcloud/{{ item }}'
-        dest: '{{ project_dir }}/media/nextcloud/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
-    - name: Configure Nextcloud environment
-      ansible.builtin.copy:
-        content: |
+    # 自作アプリを入れてから起動するので、ここでは init までにする（up は下）。
+    - name: Prepare the Nextcloud stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/nextcloud'
+        compose_stack_project_dir: '{{ project_dir }}/media/nextcloud'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_actions: [init]
+        compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
           LIBRARY_ROOT={{ library_root }}
           TZ={{ tz | default('Asia/Tokyo') }}
@@ -28,54 +24,29 @@
           NEXTCLOUD_PORT={{ nextcloud_port | default(8080) }}
           NEXTCLOUD_ADMIN_USER={{ nextcloud_admin_user | default('admin') }}
           NEXTCLOUD_TRUSTED_DOMAINS={{ nextcloud_trusted_domains | default('localhost 127.0.0.1') }}
-        dest: '{{ project_dir }}/media/nextcloud/.env'
-        mode: '0600'
-    - name: Prepare Nextcloud directories and secrets
+    # 自作アプリはそれぞれの公開リポジトリのGitHub Releaseから入れる。
+    # バージョンは group_vars の nextcloud_custom_apps が正本で、上げると更新される。
+    - name: Install or update the custom Nextcloud apps
       ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
-      changed_when: true
-    # 自作の印刷アプリは、Nextcloud の html ボリューム内 custom_apps へ置く。
-    # イメージは固定のままで、コンテナには既存のボリューム越しに見える。
-    - name: Create the print app directory
-      ansible.builtin.file:
-        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print'
-        state: directory
-        owner: '33'
-        group: '33'
-        mode: '0755'
-    - name: Copy the print app
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/nextcloud/apps/shake_print/{{ item }}/'
-        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}/'
-        owner: '33'
-        group: '33'
-        mode: preserve
-      loop: [appinfo, lib, js]
-    - name: Drop build-only files from the deployed print app
-      ansible.builtin.file:
-        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_print/{{ item }}'
-        state: absent
-      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
-    - name: Create the LocalSend send app directory
-      ansible.builtin.file:
-        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend'
-        state: directory
-        owner: '33'
-        group: '33'
-        mode: '0755'
-    - name: Copy the LocalSend send app
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/nextcloud/apps/shake_localsend/{{ item }}/'
-        dest: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend/{{ item }}/'
-        owner: '33'
-        group: '33'
-        mode: preserve
-      loop: [appinfo, lib, js]
-    - name: Drop build-only files from the deployed LocalSend send app
-      ansible.builtin.file:
-        path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_localsend/{{ item }}'
-        state: absent
-      loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
+        argv:
+          - python3
+          - '{{ project_dir }}/media/nextcloud/manage.py'
+          - custom-apps
+          - --apps
+          - "{{ nextcloud_custom_apps | map(attribute='name') | join(',') }}"
+          - --repos
+          - "{{ nextcloud_custom_apps | map(attribute='repo') | join(',') }}"
+          - --versions
+          - "{{ nextcloud_custom_apps | map(attribute='version') | join(',') }}"
+      register: nextcloud_custom_apps_result
+      changed_when: "'CHANGED:' in nextcloud_custom_apps_result.stdout"
+    - name: Remove the retired custom Nextcloud apps
+      when: nextcloud_retired_apps | default([]) | length > 0
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', remove-apps,
+               --apps, "{{ nextcloud_retired_apps | join(',') }}"]
+      register: nextcloud_retired_apps_result
+      changed_when: "'CHANGED:' in nextcloud_retired_apps_result.stdout"
     - name: Create the tag editor app directory
       ansible.builtin.file:
         path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags'
@@ -99,7 +70,12 @@
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
-      changed_when: true
+      register: nextcloud_up
+      changed_when: >-
+        'CHANGED' in nextcloud_up.stdout
+        or 'Created' in nextcloud_up.stderr
+        or 'Recreated' in nextcloud_up.stderr
+        or 'Started' in nextcloud_up.stderr
     # アプリのバージョンを上げた配備では occ が「upgrade required」で止まる。
     - name: Apply pending Nextcloud upgrades
       ansible.builtin.command:
@@ -118,7 +94,7 @@
           - '{{ project_dir }}/media/nextcloud/manage.py'
           - apps
           - --apps
-          - "{{ (nextcloud_apps | default([]) + ['shake_print', 'shake_localsend', 'shake_tags']) | join(',') }}"
+          - "{{ (nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
     - name: Default Notes to the plain Markdown editor
@@ -134,8 +110,10 @@
                '{{ playbook_dir }}/../sops/print-api.sops.yaml']
       register: nextcloud_print_token
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
-    - name: Point the print app at the services-01 relay
+    - name: Point the cups_print app at the print relay
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-print]
       environment:
@@ -152,8 +130,10 @@
                '{{ playbook_dir }}/../sops/localsend-send.sops.yaml']
       register: nextcloud_localsend_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
-    - name: Point the LocalSend send app at the media-01 sender
+    - name: Point the localsend_share app at the media-01 relay
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-localsend]
       environment:
@@ -170,6 +150,8 @@
                '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
       register: nextcloud_tags_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Point the tag editor app at the music-tools tag API
       ansible.builtin.command:

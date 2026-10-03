@@ -7,8 +7,9 @@
 # 直るまでの間、ゲスト側で IPv6 を無効にして getaddrinfo と Docker を IPv4 に
 # 揃える。DNS・SG・サービスはもともと IPv4 前提。
 #
-# 6TB USB HDD の共有ライブラリと Nextcloud のデータディレクトリもここで載せる。
-# マウントが済むまで Docker を起動しない（未マウントのまま原本領域へ書かせない）。
+# 6TB USB HDD の共有ライブラリ・Nextcloud のデータディレクトリ・クライアント
+# バックアップもここで載せる。マウントが済むまで Docker を起動しない
+# （未マウントのまま原本領域へ書かせない）。
 # 正本は platform/ansible/roles/pve_bulk_storage、手順は
 # docs/operations/bulk-storage.md。
 #
@@ -40,6 +41,19 @@
         state: present
         update_cache: true
         cache_valid_time: 3600
+
+    # アプリの playbook が作るディレクトリ（library 配下など）もあるが、
+    # マウントポイント自体はここで必ず用意する。無いと mount が rc=32 で
+    # 止まり、Docker も起動しない。所有権・mode は既存の共有（NFS は
+    # all_squash）に触らないよう指定しない。
+    - name: Create the shared storage mount points
+      ansible.builtin.file:
+        path: '{{ item }}'
+        state: directory
+      loop:
+        - '{{ library_root }}'
+        - '{{ nextcloud_data_dir }}'
+        - '{{ client_backup_root }}'
 
     - name: Mount the shared library at boot
       ansible.builtin.lineinfile:
@@ -88,14 +102,38 @@
       changed_when: true
       notify: Restart Docker to pick up the shared library
 
+    - name: Mount the client backups at boot
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_client_backups_path | regex_escape }}\s'
+        line: >-
+          {{ bulk_storage_server }}:{{ bulk_storage_client_backups_path }} {{ client_backup_root }}
+          nfs4 {{ bulk_storage_mount_opts }} 0 0
+        state: present
+
+    - name: Check whether the client backups are mounted
+      ansible.builtin.command:
+        argv: [mountpoint, -q, '{{ client_backup_root }}']
+      register: media_client_backups_mountpoint
+      failed_when: false
+      changed_when: false
+
+    - name: Mount the client backups now
+      ansible.builtin.command:
+        argv: [timeout, '60', mount, '{{ client_backup_root }}']
+      when: media_client_backups_mountpoint.rc != 0
+      changed_when: true
+      notify: Restart Docker to pick up the shared library
+
     - name: Require the shared storage before Docker starts
       ansible.builtin.copy:
         dest: /etc/systemd/system/docker.service.d/20-media-library.conf
         content: |
           [Unit]
-          # 共有ライブラリと Nextcloud データのマウントが済むまで Docker を
-          # 起動しない。未マウントのまま書き込ませない。
-          RequiresMountsFor={{ library_root }} {{ nextcloud_data_dir }}
+          # 共有ライブラリ・Nextcloud データ・クライアントバックアップの
+          # マウントが済むまで Docker を起動しない。未マウントのまま
+          # 書き込ませない。
+          RequiresMountsFor={{ library_root }} {{ nextcloud_data_dir }} {{ client_backup_root }}
         mode: '0644'
       register: media_library_docker
 

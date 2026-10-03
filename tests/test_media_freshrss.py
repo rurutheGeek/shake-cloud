@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
-from support import load_module
+from support import compose_stack_vars, load_module
 
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = ROOT / 'stacks/media/freshrss'
@@ -220,19 +220,15 @@ class AnsibleTests(unittest.TestCase):
         self.assertTrue(self.play['become'])
 
     def test_it_deploys_the_unit_and_the_extension(self):
-        copies = [task['ansible.builtin.copy'] for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task]
-        self.assertTrue(any(copy['dest'].startswith('{{ project_dir }}/media/freshrss/')
-                            for copy in copies))
-        self.assertTrue(any(copy['src'].endswith('/extensions/') for copy in copies))
-        self.assertTrue(any(copy['dest'].endswith('/.env') and copy['mode'] == '0600'
-                            for copy in copies))
+        stack = compose_stack_vars(self.play)
+        self.assertEqual(stack['compose_stack_project_dir'], '{{ project_dir }}/media/freshrss')
+        self.assertEqual(stack['compose_stack_directories'], ['extensions'])
+        self.assertIn('feeds.opml', stack['compose_stack_files'])
+        self.assertIn('FRESHRSS_BASE_URL=https://freshrss.{{ media_freshrss_zone }}', stack['compose_stack_env'])
 
-    def test_it_starts_the_unit_with_manage_py(self):
-        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
-                    if 'ansible.builtin.command' in task]
-        self.assertTrue(any(argv[-1] == 'up' and argv[-2].endswith('manage.py')
-                            for argv in commands))
+    def test_it_starts_the_unit_with_the_roles_default_actions(self):
+        # init, then up: the role's default.
+        self.assertNotIn('compose_stack_actions', compose_stack_vars(self.play))
 
 
 class SsoPlaybookTests(unittest.TestCase):

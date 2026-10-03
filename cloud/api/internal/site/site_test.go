@@ -59,6 +59,45 @@ func TestAVolumeHolderOutsideThePoolOrOnAProbeIsRefused(t *testing.T) {
 	}
 }
 
+func TestDiskTiersMapToTheirPools(t *testing.T) {
+	s := sample()
+	s.Storage.VMDisksHDD = "bulk-disks"
+	for _, tier := range []string{"", TierSSD} {
+		if pool, ok := s.Storage.DiskTierStorage(tier); !ok || pool != "local-lvm" {
+			t.Fatalf("tier %q -> %q, %v", tier, pool, ok)
+		}
+	}
+	if pool, ok := s.Storage.DiskTierStorage(TierHDD); !ok || pool != "bulk-disks" {
+		t.Fatalf("hdd tier -> %q, %v", pool, ok)
+	}
+	if _, ok := s.Storage.DiskTierStorage("nvme"); ok {
+		t.Fatal("an unknown tier was accepted")
+	}
+	// A disk on a pool this deployment does not know is the default tier: the
+	// label matters, not where an adopted VM's disk sat.
+	if s.Storage.TierOfStorage("some-old-pool") != TierSSD {
+		t.Fatal("an unknown pool was not the default tier")
+	}
+	if s.Storage.TierOfStorage("bulk-disks") != TierHDD {
+		t.Fatal("the HDD pool was not the hdd tier")
+	}
+
+	s.Storage.VMDisksHDD = ""
+	if _, ok := s.Storage.DiskTierStorage(TierHDD); ok {
+		t.Fatal("a deployment without an HDD pool offered the tier")
+	}
+}
+
+func TestTheHDDPoolCannotCollideWithAnotherStore(t *testing.T) {
+	for _, pool := range []string{"local-lvm", "cloud-images", "local"} {
+		s := sample()
+		s.Storage.VMDisksHDD = pool
+		if err := s.Validate(); err == nil || !strings.Contains(err.Error(), "vm_disks_hdd") {
+			t.Fatalf("pool %q: %v", pool, err)
+		}
+	}
+}
+
 func TestEveryProblemIsReported(t *testing.T) {
 	s := sample()
 	s.Network.Gateway = "gateway"
@@ -71,6 +110,24 @@ func TestEveryProblemIsReported(t *testing.T) {
 	for _, want := range []string{"gateway", "img-<name>", "no volume", "root disk"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error does not mention %q: %v", want, err)
+		}
+	}
+}
+
+func TestALedgerWithGroupsNeedsAClusterAndRealNames(t *testing.T) {
+	s := sample()
+	s.Ledger = Ledger{Cluster: "k11", GroupAccounts: []string{"934162309796"}, TagsByName: map[string][]string{"media-01": {"media-stack"}}}
+	if err := s.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	s.Ledger = Ledger{GroupAccounts: []string{"ruru"}, TagsByName: map[string][]string{"media-01": {"Media Stack"}, "net-01": {}}}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("a broken ledger was accepted")
+	}
+	for _, want := range []string{"ledger.cluster is empty", `"ruru" is not a 12-digit account ID`, `"Media Stack"`, `"net-01" has no tags`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
 		}
 	}
 }

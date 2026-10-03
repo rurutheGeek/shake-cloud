@@ -1,4 +1,4 @@
-# ポケモン翻訳（services-01）
+# ポケモン翻訳（apps-01）
 
 状態: **配備済み（2026-09-27）**。`https://poke.apextox.dpdns.org`（LAN内、認証なし）。
 

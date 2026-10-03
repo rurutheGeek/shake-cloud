@@ -1,4 +1,4 @@
-"""Deployment checks for the poke-translate site on services-01.
+"""Deployment checks for the poke-translate site on apps-01.
 
 The implementation and its tests live in rurutheGeek/poke-translate; this
 repository pins a release and serves it.
@@ -120,7 +120,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(service['ports'], ['127.0.0.1:${POKE_TRANSLATE_PORT:-8320}:8080'])
         self.assertTrue(service['read_only'])
         self.assertEqual(service['cap_drop'], ['ALL'])
-        self.assertEqual(service['volumes'], ['${STORAGE_ROOT:-/srv/services/poke-translate}/site:/srv:ro'])
+        self.assertEqual(service['volumes'], ['${STORAGE_ROOT:-/srv/poke-translate}/site:/srv:ro'])
 
     def test_the_image_is_pinned_by_digest(self):
         lock = json.loads((STACK / 'compose.lock.yaml').read_text())

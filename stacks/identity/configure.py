@@ -22,11 +22,13 @@ CLIENT = 'cloud'
 # their own authentication on the API paths.
 MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc',
                       'freshrss': '/i/oidc/'}
-MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider')
+# UrBackup も Forward Auth の内側（ポータルと管理画面。クライアント通信は LAN 直結）。
+MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup')
 MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
                       'freshrss': 'FreshRSS',
                       'navidrome': 'Navidrome', 'metube': 'MeTube',
-                      'khinsider': 'KHInsider'}
+                      'khinsider': 'KHInsider', 'backup': 'バックアップポータル',
+                      'urbackup': 'UrBackup管理画面'}
 MEDIA_OUTPOST = 'Embedded'
 # The service entry point lives on services-01, not media-01, but it is an
 # OIDC client of the same identity and is reachable by every invited person.
@@ -421,6 +423,49 @@ def configure_recovery(api):
     print(('CHANGED: ' if created else 'OK: ') + f'password recovery flow ({RECOVERY_FLOW})')
 
 
+def configure_remember_me(api):
+    """Offer a "stay signed in" choice so people are asked less often.
+
+    The login stage's base session ends with the browser (seconds=0) and the
+    server expires it after the tenant's day-long token duration; picking Yes
+    adds this offset, keeping the session for 30 days on that browser. The
+    choice screen appears at the end of every login. Users on shared devices
+    pick No and keep the old behaviour.
+    """
+    stage = next((row for row in api.rows('stages/user_login/')
+                  if row['name'] == 'default-authentication-login'), None)
+    if stage is None:
+        raise SystemExit('default-authentication-login is missing')
+    if stage.get('remember_me_offset') == 'days=30':
+        print('OK: "stay signed in" (30 days) offered')
+        return
+    api.call('PATCH', f"stages/user_login/{stage['pk']}/",
+             {'remember_me_offset': 'days=30'})
+    print('CHANGED: "stay signed in" (30 days) offered')
+
+
+def configure_passkey_registration(api):
+    """Ask for discoverable (resident) passkeys at registration.
+
+    Authentik's default `preferred` lets the authenticator decide, and Bitwarden
+    then registers a non-discoverable credential: it still works as a second
+    factor (the validation stage names its credential ID) but never appears in
+    the login form's passkey autofill, which may only offer discoverable
+    credentials. `required` makes passwordless sign-in work for new passkeys;
+    passkeys registered before this change keep their type until re-registered.
+    """
+    stage = next((row for row in api.rows('stages/authenticator/webauthn/')
+                  if row['name'] == 'default-authenticator-webauthn-setup'), None)
+    if stage is None:
+        raise SystemExit('default-authenticator-webauthn-setup is missing')
+    if stage.get('resident_key_requirement') == 'required':
+        print('OK: discoverable (resident) passkeys required')
+        return
+    api.call('PATCH', f"stages/authenticator/webauthn/{stage['pk']}/",
+             {'resident_key_requirement': 'required'})
+    print('CHANGED: discoverable (resident) passkeys required')
+
+
 def configure_passkey_login(api):
     """Let people sign in with a passkey alone (passwordless).
 
@@ -429,7 +474,8 @@ def configure_passkey_login(api):
     passkey autofill. Authentik's built-in policies then skip the password and
     validation stages for a passkey login, so this one pointer is the whole
     switch. Passkeys must be discoverable (resident keys) for the prompt to
-    appear, and the registration HTTPS name must not change.
+    appear, which `configure_passkey_registration` asks for; the registration
+    HTTPS name must not change.
     """
     flow = next((row for row in api.rows('flows/instances/')
                  if row['slug'] == 'default-authentication-flow'), None)
@@ -799,6 +845,8 @@ def main():
 
     configure_email_authenticator(api)
     configure_recovery(api)
+    configure_remember_me(api)
+    configure_passkey_registration(api)
     configure_passkey_login(api)
     configure_media(api, groups, flows, mappings, keys[0], portal_url)
     configure_homarr(api, groups, flows, mappings, keys[0], portal_url)

@@ -5,7 +5,7 @@
 #
 #   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-verify.yml
 #
-# media_units は確認するユニット。既定は4ユニットすべて。段階配備の途中で
+# media_units は確認するユニット。既定は6ユニットすべて。段階配備の途中で
 # 配備済みだけを確認したいときは -e で絞る。`key=["a"]` 形式は Ansible が
 # 文字列として扱うため、リストは JSON で渡す:
 #   ansible-playbook -i <inventory> platform/ansible/media-verify.yml \
@@ -21,14 +21,18 @@
   become: true
   gather_facts: false
   vars:
-    media_units: [nextcloud, kavita, navidrome, freshrss, music-tools]
-    music_tools_services: [metube, convert, tag-api, khinsider]
+    media_units: [nextcloud, kavita, navidrome, freshrss, music-tools, urbackup]
+    # 配備側（music-tools.yml）の既定と揃える。review は /review/ の全曲レビュー。
+    music_tools_services: [metube, convert, tag-api, khinsider, review]
+    # 選択のうち healthcheck を持つサービス。件数の期待値を固定値にしない。
+    music_tools_healthchecked: "{{ music_tools_services | intersect(['convert', 'tag-api', 'khinsider', 'review']) | length }}"
     media_unit_dirs:
       nextcloud: '{{ project_dir }}/media/nextcloud'
       kavita: '{{ project_dir }}/media/kavita'
       navidrome: '{{ project_dir }}/media/navidrome'
       freshrss: '{{ project_dir }}/media/freshrss'
       music-tools: '{{ project_dir }}/music-tools'
+      urbackup: '{{ project_dir }}/media/urbackup'
     # docker compose ps が既定で出す「起動中のコンテナ」の数。manage.py up は
     # --wait で healthcheck 成功まで待つため、数が合わなければ配備が失敗している。
     # music-tools は配備側の music_tools_services をそのまま期待値にするので、
@@ -38,13 +42,15 @@
       kavita: [kavita]
       navidrome: [navidrome]
       freshrss: [freshrss]
+      urbackup: [urbackup, portal]
     # そのうち healthcheck を持ち、STATUS に (healthy) と出るコンテナの数。
-    # music-tools は convert・tag-api・khinsider が該当する（assert で計算する）。
+    # music-tools は選択に応じて music_tools_healthchecked を使う（assert で参照）。
     media_unit_healthy:
       nextcloud: 3
       kavita: 0
       navidrome: 1
       freshrss: 1
+      urbackup: 2
   tasks:
     - name: Require a known, non-empty unit selection
       ansible.builtin.assert:
@@ -78,7 +84,7 @@
         that:
           - item.rc == 0
           - "((item.stdout.count(' Up ') + item.stdout.count(' running ')) == ((media_unit_services[item.item] | default(music_tools_services)) | length))"
-          - "item.stdout.count('(healthy)') >= (media_unit_healthy[item.item] | default(1 if 'convert' in music_tools_services else 0))"
+          - "item.stdout.count('(healthy)') >= (media_unit_healthy[item.item] | default(music_tools_healthchecked) | int)"
           - "'unhealthy' not in item.stdout"
           - "'health: starting' not in item.stdout"
           - "'Restarting' not in item.stdout"
@@ -182,3 +188,50 @@
           status と up を確認する。
         success_msg: 'FreshRSS: /api/ が HTTP 200'
       when: "'freshrss' in media_units"
+
+    - name: Wait for the UrBackup web UI to answer
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ urbackup_web_port | default(55414) }}/'
+        follow_redirects: none
+        status_code: [200, 301, 302, 303, 307, 308]
+      register: media_urbackup_http
+      retries: 24
+      delay: 5
+      until: media_urbackup_http is succeeded
+      changed_when: false
+      when: "'urbackup' in media_units"
+
+    - name: Require an HTTP answer from the UrBackup web UI
+      ansible.builtin.assert:
+        that:
+          - media_urbackup_http.status in [200, 301, 302, 303, 307, 308]
+        fail_msg: >-
+          UrBackup が 127.0.0.1:{{ urbackup_web_port | default(55414) }} で
+          HTTP 応答を返していない。{{ project_dir }}/media/urbackup/manage.py
+          status と up を確認する。
+        success_msg: 'UrBackup: HTTP 応答あり'
+      when: "'urbackup' in media_units"
+
+    - name: Wait for the backup portal to answer
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ urbackup_portal_port | default(55416) }}/'
+        return_content: true
+        status_code: [200]
+      register: media_urbackup_portal
+      retries: 24
+      delay: 5
+      until: media_urbackup_portal is succeeded
+      changed_when: false
+      when: "'urbackup' in media_units"
+
+    - name: Require the portal to render the status page
+      ansible.builtin.assert:
+        that:
+          - media_urbackup_portal.status == 200
+          - "'バックアップポータル' in media_urbackup_portal.content"
+        fail_msg: >-
+          ポータルが 127.0.0.1:{{ urbackup_portal_port | default(55416) }} で
+          200 を返していない。{{ project_dir }}/media/urbackup/manage.py status を
+          確認する。
+        success_msg: 'バックアップポータル: 200'
+      when: "'urbackup' in media_units"

@@ -1,0 +1,74 @@
+name: media-urbackup
+
+services:
+  urbackup:
+    image: ${URBACKUP_IMAGE:-uroni/urbackup-server:2.5.x}
+    restart: unless-stopped
+    environment:
+      # entrypoint が urbackup ユーザーを作り直す。HDD 側 NFS の anonuid と
+      # 揃えないと、バックアップ先へ書けない。
+      PUID: ${URBACKUP_UID:-101}
+      PGID: ${URBACKUP_GID:-101}
+      TZ: ${TZ:-Asia/Tokyo}
+    volumes:
+      # データベース・設定・サーバー識別鍵。ローカルデータディスク。
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/urbackup:/var/urbackup
+      # バックアップ本体。6TB HDD の NFS 共有。/backups はイメージの
+      # entrypoint が backupfolder に書く固定パス。
+      - ${CLIENT_BACKUP_ROOT:-/srv/media-stack/client-backups}/urbackup:/backups
+    ports:
+      # Web UI はループバックだけ。前段の Caddy が HTTPS と SSO を担う。
+      - 127.0.0.1:${URBACKUP_WEB_PORT:-55414}:55414
+      # クライアントのバックアップ通信。SSO を通せないので LAN へ直接出す。
+      - ${BIND_ADDRESS}:${URBACKUP_CLIENT_PORT:-55413}:55413
+      # LAN 内の自動発見。ブロードキャストを受けるため 0.0.0.0 に置く。
+      - ${URBACKUP_BROADCAST_PORT:-35623}:35623/udp
+    networks: [urbackup]
+    healthcheck:
+      # イメージに curl も wget も無い。bash の /dev/tcp で Web UI の
+      # 待ち受けだけを見る。
+      test: [CMD, bash, -c, 'exec 3<>/dev/tcp/127.0.0.1/55414']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # バックアップポータル（読み取り専用）。UrBackup の状態と端末ごとの手順を
+  # 1ページに出す。同じ Compose プロジェクトなので urbackup へ名前で届く。
+  # 入口は Caddy（Forward Auth）だけで、ポートは 127.0.0.1 に閉じる。
+  portal:
+    image: ${PORTAL_IMAGE:-python:3.13-alpine}
+    restart: unless-stopped
+    command: [python, /app/portal.py]
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      URBACKUP_API: http://urbackup:55414/x
+      URBACKUP_ADMIN_PASSWORD_FILE: /run/secrets/urbackup_admin_password
+      URBACKUP_WEB_URL: https://urbackup.apextox.dpdns.org/
+      ANDROID_BACKUP_ROOT: /data/android-backups
+      BIND_ADDRESS: 0.0.0.0
+      PORT: '8080'
+      PYTHONDONTWRITEBYTECODE: '1'
+    volumes:
+      - ./portal.py:/app/portal.py:ro
+      - ./portal-backup.js:/app/portal-backup.js:ro
+      # 管理パスワードは urbackup スタックの secrets を読み取り専用で借りる。
+      - ./secrets/urbackup_admin_password:/run/secrets/urbackup_admin_password:ro
+      # WebUSB のバックアップ本体。HDD の client-backups/android へ書く。
+      - ${CLIENT_BACKUP_ROOT:-/srv/media-stack/client-backups}/android:/data/android-backups
+    ports:
+      - 127.0.0.1:${PORTAL_PORT:-55416}:8080
+    networks: [urbackup]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  urbackup: {}

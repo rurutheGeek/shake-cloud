@@ -4,6 +4,7 @@ if [ "$(id -u)" -ne 0 ]; then
   echo 'Run this script with sudo.' >&2
   exit 1
 fi
+# shellcheck disable=SC1091  # 実行ホストにしか無いファイル
 . /etc/os-release
 case "$ID" in ubuntu|debian) ;; *) echo 'Ubuntu/Debian required' >&2; exit 1 ;; esac
 apt-get update

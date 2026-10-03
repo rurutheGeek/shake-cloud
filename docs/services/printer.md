@@ -14,16 +14,16 @@ tags:
 
 ## 構成
 
-プリンターは家庭内LAN（IPP 631・raw 9100・AirPrint対応）にあります。現在のアドレスは `192.168.10.9` です（2026-09-13時点。以前は `192.168.10.2`）。アドレスはDHCPで変わるため、**services-01（`192.168.10.200`）のCUPSがmDNS（`_ipp._tcp`）で現在地を自動検出**して中継します。キュー名は `ts8430` です。端末がプリンターを直接見つけられない場合（VPN越しなど）も、CUPSのIPを指定すれば印刷できます。
+プリンターは家庭内LAN（IPP 631・raw 9100・AirPrint対応）にあります。アドレスはDHCPで変わり、`192.168.10.2` → `192.168.10.9` → `192.168.10.3` と移動しています（2026-09-26時点）。このためCUPSのキューはプリンターのmDNSホスト名 `cA5E9FB00000.local`（MAC由来で固定）を指し、IPが変わっても追従します。ホスト名にも応答がなければ、CUPSを配備するときにmDNS（`_ipp._tcp`）で現在地を自動検出してキューを作り直します。キュー名は `ts8430` です。端末がプリンターを直接見つけられない場合（VPN越しなど）も、CUPSのIPを指定すれば印刷できます。
 
 > プリンターは自動電源OFFの間はWiFiごと落ちてLANに出てきません（mDNSも応答しません）。その間にCUPSを配備すると「Canon TS8430 がLANで見つからない」で止まります。プリンターの電源を入れ直して再実行すれば完了します。
 
 | もの | 値 |
 | --- | --- |
 | キューの名前 | `ts8430` |
-| CUPSの場所 | `192.168.10.200`（LAN/VPNから。631/tcp） |
+| CUPSの場所 | `192.168.10.105`（LAN/VPNから。631/tcp） |
 | Web確認（HTTPS） | <https://cups.apextox.dpdns.org>（Authentik SSO。`/admin` は入口のCaddyが403で閉じる） |
-| Web確認（直） | <http://192.168.10.200:631>（印刷クライアント用の素のHTTP） |
+| Web確認（直） | <http://192.168.10.105:631>（印刷クライアント用の素のHTTP） |
 | 印刷の許可 | LAN `192.168.10.0/24` と VPN `100.64.0.0/10`（Tailscale） |
 | 管理画面 | `127.0.0.1` のCUPSだけ（LANからは開けない） |
 
@@ -34,9 +34,9 @@ tags:
 ### コマンドから（Linux・macOS）
 
 ```bash
-lp -h 192.168.10.200 -d ts8430 印刷したいファイル.pdf
-lpstat -h 192.168.10.200 -p ts8430   # 状態
-lpq -h 192.168.10.200                 # キュー
+lp -h 192.168.10.105 -d ts8430 印刷したいファイル.pdf
+lpstat -h 192.168.10.105 -p ts8430   # 状態
+lpq -h 192.168.10.105                 # キュー
 ```
 
 ### Windows
@@ -45,29 +45,29 @@ lpq -h 192.168.10.200                 # キュー
 「手動で追加」→「URLでプリンターを検索」で:
 
 ```text
-ipp://192.168.10.200:631/printers/ts8430
+ipp://192.168.10.105:631/printers/ts8430
 ```
 
 ### macOS
 
 「プリンターとスキャナー」→「プリンターを追加」→「IP」タブ:
 
-- アドレス: `192.168.10.200`
+- アドレス: `192.168.10.105`
 - プロトコル: IPP
 - キュー: `printers/ts8430`
 
 ### iPhone / Android
 
-VPN接続中はCUPSを直接見つけられないことがあります。端末の印刷アプリ（Canon PRINTなど）でIPアドレス `192.168.10.200`・IPPを指定するか、LAN内でAirPrint/Mopriaを使ってください。
+VPN接続中はCUPSを直接見つけられないことがあります。端末の印刷アプリ（Canon PRINTなど）でIPアドレス `192.168.10.105`・IPPを指定するか、LAN内でAirPrint/Mopriaを使ってください。
 
 ## Nextcloudから印刷
 
-Nextcloudのファイル一覧で対象ファイルの「…」→「印刷」を選ぶと、services-01 の印刷API経由でそのまま印刷できます。PDF・PNG・JPEG・テキストに対応し、今は1部・カラーで出します。利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。
+Nextcloudのファイル一覧で対象ファイルの「…」→「印刷」を選ぶと、apps-01 の印刷API経由でそのまま印刷できます。PDF・PNG・JPEG・テキストに対応し、今は1部・カラーで出します。利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。
 
 | もの | 値 |
 | --- | --- |
-| アプリ | `shake_print`（自作。`stacks/media/nextcloud/apps/shake_print/`） |
-| 印刷API | services-01 の `:6320`。トークン認証で、Nextcloud（media-01）からのみ受け付け |
+| アプリ | `cups_print`（自作。公開リポジトリ [`rurutheGeek/nextcloud-cups-print`](https://github.com/rurutheGeek/nextcloud-cups-print)） |
+| 印刷API | apps-01 の `:6320`。トークン認証で、Nextcloud（media-01）からのみ受け付け |
 | トークン | `platform/sops/print-api.sops.yaml`（CUPSロールとNextcloudの配備が読む） |
 | 配備 | `platform/ansible/media-nextcloud.yml`（アプリのコピーと `occ` 設定まで行う） |
 
@@ -89,4 +89,4 @@ CUPSは `platform/ansible/cups.yml` で配備します。キューや許可ネ�
 
 同じロールがNextcloud用の印刷API（`stacks/print-api/` の `print-api.service`・`:6320`）も配備します。トークンはSOPS、送信元は `cups_print_api_allowed`（既定: media-01）だけです。
 
-印刷アプリを直したときは、`stacks/media/nextcloud/apps/shake_print/` で `npm install && npm run build`（Nodeが必要）して `js/shake_print.js` を更新し、`media-nextcloud.yml` を再実行します。ビルドは `src/print.js` のesbuildバンドルで、`node_modules` は配備しません。
+印刷アプリを直したときは、公開リポジトリ `rurutheGeek/nextcloud-cups-print` で `npm install && npm run build`（Nodeが必要）して `js/cups_print.js` を更新し、`v<version>` のリリースを作ります。media-01へは `group_vars/media.yml` の `nextcloud_custom_apps` のバージョンを上げて `media-nextcloud.yml` を再実行します。ビルドは `src/print.js` のesbuildバンドルで、`node_modules` は配備しません。

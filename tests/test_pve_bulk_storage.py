@@ -76,6 +76,44 @@ class HostRoleTests(unittest.TestCase):
         self.assertIn('all_squash', export['options'])
         self.assertIn('anonuid=33', export['options'])
 
+    def test_the_client_backups_export_squashes_to_the_urbackup_uid(self):
+        export = [item for item in DEFAULTS['pve_bulk_storage_exports']
+                  if 'client_backups_dir' in item['path']][0]
+        self.assertEqual(export['clients'], '192.168.10.101')
+        self.assertIn('all_squash', export['options'])
+        self.assertIn('anonuid=101', export['options'])
+        self.assertIn('anongid=101', export['options'])
+        # コンテナ内 urbackup ユーザー（entrypoint の既定）と同じ値にする。
+        self.assertEqual(DEFAULTS['pve_bulk_storage_client_backups_uid'], 101)
+        self.assertEqual(DEFAULTS['pve_bulk_storage_client_backups_gid'], 101)
+
+    def test_it_registers_the_hdd_disk_tier(self):
+        # The cloud API's disk_tier=hdd points at this storage. Registering it
+        # before the mount or over the backup tree would put VM disks in the
+        # wrong place, so the declaration is pinned here.
+        self.assertEqual(DEFAULTS['pve_bulk_storage_disks_id'], 'bulk-disks')
+        self.assertEqual(DEFAULTS['pve_bulk_storage_disks_dir'],
+                         '{{ pve_bulk_storage_mount }}/disks')
+        task = [task for task in TASKS
+                if task.get('name') == 'Register the HDD disk tier as Proxmox storage'][0]
+        argv = task['ansible.builtin.command']['argv']
+        self.assertEqual(argv[:4], ['pvesm', 'add', 'dir', '{{ pve_bulk_storage_disks_id }}'])
+        self.assertIn('images', argv)
+        self.assertEqual(task['when'], 'pve_bulk_storage_storage.storage is not defined')
+
+    def test_the_hdd_disk_directory_is_created_before_registration(self):
+        names = self.task_names()
+        self.assertLess(names.index('Create the HDD disk tier directory'),
+                        names.index('Register the HDD disk tier as Proxmox storage'))
+
+    def test_the_hdd_storage_is_only_registered_while_the_disk_is_mounted(self):
+        names = self.task_names()
+        self.assertLess(names.index('Confirm the bulk disk is mounted before registering its storage'),
+                        names.index('Register the HDD disk tier as Proxmox storage'))
+        task = [task for task in TASKS
+                if task.get('name') == 'Require the mounted bulk disk before registering its storage'][0]
+        self.assertEqual(task['ansible.builtin.assert']['that'], ['pve_bulk_storage_disks_mount.rc == 0'])
+
     def test_the_backup_root_is_not_exported(self):
         # vzdumpの保存先をゲストに見せない。共有するのは game1-saves だけ。
         paths = [item['path'] for item in DEFAULTS['pve_bulk_storage_exports']]
@@ -88,6 +126,7 @@ class HostRoleTests(unittest.TestCase):
         self.assertIn('{{ pve_bulk_storage_backup_dir }}', targets)
         self.assertIn('{{ pve_bulk_storage_game1_saves_dir }}', targets)
         self.assertIn('{{ pve_bulk_storage_nextcloud_dir }}', targets)
+        self.assertIn('{{ pve_bulk_storage_client_backups_dir }}', targets)
 
     def task_names(self):
         return [task.get('name', '') for task in TASKS]
@@ -153,6 +192,18 @@ class MediaBaseTests(unittest.TestCase):
                     if 'ansible.builtin.apt' in task]
         self.assertIn('nfs-common', packages)
 
+    def test_it_creates_the_mount_points_before_mounting(self):
+        # 無いと mount.nfs4 が rc=32 で止まり、Docker も起動しない。
+        task = [task for task in self.tasks
+                if task.get('name') == 'Create the shared storage mount points'][0]
+        self.assertEqual(task['ansible.builtin.file']['state'], 'directory')
+        self.assertEqual(task['loop'],
+                         ['{{ library_root }}', '{{ nextcloud_data_dir }}',
+                          '{{ client_backup_root }}'])
+        names = [t.get('name', '') for t in self.tasks]
+        self.assertLess(names.index('Create the shared storage mount points'),
+                        names.index('Mount the shared library at boot'))
+
     def test_it_mounts_the_host_share_at_the_library_root(self):
         task = [task for task in self.tasks
                 if task.get('name') == 'Mount the shared library at boot'][0]
@@ -170,12 +221,21 @@ class MediaBaseTests(unittest.TestCase):
                          'nextcloud_data_dir', 'nfs4', 'bulk_storage_mount_opts'):
             self.assertIn(fragment, line)
 
+    def test_it_mounts_the_client_backups_on_the_host_share(self):
+        task = [task for task in self.tasks
+                if task.get('name') == 'Mount the client backups at boot'][0]
+        line = task['ansible.builtin.lineinfile']['line']
+        for fragment in ('bulk_storage_server', 'bulk_storage_client_backups_path',
+                         'client_backup_root', 'nfs4', 'bulk_storage_mount_opts'):
+            self.assertIn(fragment, line)
+
     def test_docker_will_not_start_without_the_library(self):
         task = [task for task in self.tasks
                 if task.get('name') == 'Require the shared storage before Docker starts'][0]
         content = task['ansible.builtin.copy']['content']
         self.assertIn('RequiresMountsFor={{ library_root }}', content)
         self.assertIn('{{ nextcloud_data_dir }}', content)
+        self.assertIn('{{ client_backup_root }}', content)
         self.assertIn('20-media-library.conf', task['ansible.builtin.copy']['dest'])
 
     def test_an_added_mount_restarts_docker(self):
@@ -192,6 +252,8 @@ class MediaBaseTests(unittest.TestCase):
         self.assertEqual(values['bulk_storage_media_path'], '/srv/bulk/media')
         self.assertEqual(values['bulk_storage_nextcloud_path'], '/srv/bulk/nextcloud-data')
         self.assertEqual(values['nextcloud_data_dir'], '/srv/media-stack/storage/nextcloud/data')
+        self.assertEqual(values['bulk_storage_client_backups_path'], '/srv/bulk/client-backups')
+        self.assertEqual(values['client_backup_root'], '/srv/media-stack/client-backups')
         self.assertIn('_netdev', values['bulk_storage_mount_opts'])
         self.assertIn('nofail', values['bulk_storage_mount_opts'])
 

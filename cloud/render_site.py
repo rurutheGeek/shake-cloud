@@ -31,6 +31,7 @@ def render(directory):
     isos = load(directory, 'isos.yaml')
     flavors = load(directory, 'flavors.yaml')
     cloud = load(directory, 'cloud.yaml')
+    tags = load(directory, 'tags.yaml')['tags']
 
     unmeasured = [name for name, value in {
         'node_name': site['node_name'],
@@ -44,6 +45,12 @@ def render(directory):
                          'Run the survey and tools/site-yaml.py first.')
 
     store = site['storage']['cloud_images']
+    # The HDD tier is optional: a deployment without a second disk pool leaves
+    # it empty and the API refuses disk_tier=hdd with a clear message.
+    hdd_store = site['storage'].get('vm_disks_hdd', '')
+    if hdd_store == 'UNMEASURED':
+        raise SystemExit('site.yaml still has an unmeasured storage.vm_disks_hdd. '
+                         'Run the survey and tools/site-yaml.py first.')
     shared = {}
     for name, image in images['images'].items():
         if not image.get('shared_with_cloud'):
@@ -87,6 +94,16 @@ def render(directory):
         raise SystemExit(f'volume_holder_vmid {holder} collides with a probe VMID '
                          f'{cloud["probe_vmids"]}; fix cloud.yaml')
 
+    # The ledger turns instances into NetBox VMs, and its tags into Ansible
+    # groups. A tag NetBox does not have would be refused on every sync, so a
+    # typo is caught here instead.
+    ledger = cloud.get('ledger') or {}
+    for name, slugs in (ledger.get('tags_by_name') or {}).items():
+        unknown = [slug for slug in slugs if slug not in tags]
+        if unknown:
+            raise SystemExit(f'ledger.tags_by_name.{name} uses {unknown}, which tags.yaml does not '
+                             'declare; fix cloud.yaml or add the tag')
+
     return {
         'node': site['node_name'],
         'pool': 'cloud',
@@ -94,7 +111,10 @@ def render(directory):
         'vmid_to': pools['pools']['cloud']['vmid_to'],
         'probe_vmids': cloud['probe_vmids'],
         'volume_holder_vmid': holder,
-        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store,
+        'storage': {'vm_disks': site['storage']['vm_disks'],
+                    # The bulk HDD pool for disk_tier=hdd; "" when none exists.
+                    'vm_disks_hdd': hdd_store,
+                    'images': store,
                     # The administrator's ISO store. The API lists it read-only so
                     # ISOs placed there from Proxmox are usable without a declaration.
                     'admin_images': site['storage']['admin_images']},
@@ -122,6 +142,11 @@ def render(directory):
             'root_disk_gib': cloud['root_disk_gib'],
             'volume_size_gib': cloud['volume_size_gib'],
             'capacity': cloud['capacity'],
+        },
+        'ledger': {
+            'cluster': ledger.get('cluster', ''),
+            'group_accounts': ledger.get('group_accounts') or [],
+            'tags_by_name': ledger.get('tags_by_name') or {},
         },
     }
 

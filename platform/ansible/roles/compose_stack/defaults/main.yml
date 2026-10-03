@@ -1,0 +1,24 @@
+---
+# 1つの Compose スタックを配備する共通の流れ。各スタックの manage.py の作法
+# （init は秘密値と保存先を作り、up は起動して healthcheck を待つ）に乗る。
+#
+#   - name: Deploy the Navidrome stack
+#     ansible.builtin.include_role:
+#       name: compose_stack
+#     vars:
+#       compose_stack_source_dir: '{{ source_dir }}/media/navidrome'
+#       compose_stack_project_dir: '{{ project_dir }}/media/navidrome'
+#       compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+#       compose_stack_env: |
+#         STORAGE_ROOT={{ storage_root }}
+#
+# 必須: compose_stack_source_dir・compose_stack_project_dir・compose_stack_files・
+#       compose_stack_env
+# 配備先へそのまま置くディレクトリ（中のファイルごと）。source_dir からの相対パス。
+compose_stack_directories: []
+compose_stack_directory_mode: '0750'
+# manage.py へ順に渡す。init は秘密値や保存先を作り、up は起動して待つ。
+# 引数が要るものはリストで書く（例: [up, --services, metube]）。
+compose_stack_actions: [init, up]
+# .env に秘密値を書くスタックは true にして、差分をログへ出さない。
+compose_stack_env_no_log: false

@@ -1,6 +1,6 @@
 ---
 title: ネットワーク・公開範囲・SSO
-updated: 2026-09-20
+updated: 2026-10-01
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ネットワーク・公開範囲・SSO
 
-> **更新日** 2026-09-20 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-01 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
 
@@ -107,13 +107,13 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
 - **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
-- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNSとサブネット経路は[N02](../development/N02-tailscale.md)の未完了項目です。
+- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
 - **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。AdGuard の入口も同じ Caddy が受けて、ルータの `192.168.10.1:3000` へ中継します（ルータのファイアウォールで services-01 だけに許可）。identity・cloud-01のサービス自身のポートは127.0.0.1へ閉じています。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。各ホストに置くので、1台が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
 `home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。
 
-内部DNSとTailscaleのsplit DNSで、VPN接続時に内部IPへ解決します。公開Webだけは公開DNSで公開入口へ解決します。証明書をDNS-01で取得すれば、内部サービスをインターネットへ公開せず公開CAの証明書を利用できます。DNSプロバイダの対応モジュールと限定したDNS API資格情報を用意します。[Caddy HTTPS](https://caddyserver.com/docs/automatic-https)
+内部DNS（AdGuard Home）をTailscaleのglobal nameserver（`overrideLocalDNS`）にして、VPN接続時に内部IPへ解決します。**split DNSは使わず**、公開Webも同じresolverが上流DoHで解決します。証明書をDNS-01で取得すれば、内部サービスをインターネットへ公開せず公開CAの証明書を利用できます。DNSプロバイダの対応モジュールと限定したDNS API資格情報を用意します。[Caddy HTTPS](https://caddyserver.com/docs/automatic-https)
 
 ## SSOを使う範囲
 

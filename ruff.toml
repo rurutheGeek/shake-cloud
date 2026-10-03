@@ -1,0 +1,8 @@
+# 目的は整形の統一ではなく、壊れたコードと明確なバグを落とすこと。
+# 構文エラー・未定義名・未使用importなど pyflakes の範囲だけを見る。
+# 行長やインデントなどの整形系ルール（E1/E2/E5/W）は入れない。
+# stacks/eufy-leo-rtc は解析途中の実験コードで、整理前の未使用名が残る。
+extend-exclude = [".venv", "node_modules", "site", "stacks/eufy-leo-rtc"]
+
+[lint]
+select = ["E9", "F"]

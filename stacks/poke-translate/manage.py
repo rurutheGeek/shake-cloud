@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve the poke-translate site on services-01. Run with sudo.
+"""Serve the poke-translate site on apps-01. Run with sudo.
 
 The implementation lives in the public repository rurutheGeek/poke-translate.
 Ansible downloads a release archive (version and sha256 pinned in the role
@@ -26,7 +26,7 @@ def settings():
 
 
 def storage():
-    path = Path(settings().get('STORAGE_ROOT', '/srv/services/poke-translate')).resolve()
+    path = Path(settings().get('STORAGE_ROOT', '/srv/poke-translate')).resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')
     return path

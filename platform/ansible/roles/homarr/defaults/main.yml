@@ -1,7 +1,7 @@
 ---
-# Homarr（サービスの入口）を services-01 に単独で置く。
-homarr_project_dir: /opt/homarr-stack
-homarr_storage_root: /srv/homarr-stack/storage
+# Homarr（サービスの入口）を apps-01 に置く。
+homarr_project_dir: /opt/homarr
+homarr_storage_root: /srv/homarr
 homarr_source_dir: '{{ playbook_dir }}/../../stacks/homarr'
 # 入口は同じホストの Caddy（tls_proxy ロール）が https://homarr.<ゾーン> で受ける。
 homarr_bind_address: 127.0.0.1

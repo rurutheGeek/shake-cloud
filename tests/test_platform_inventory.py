@@ -137,6 +137,23 @@ class InventoryTests(unittest.TestCase):
             "'media-stack' in tags or 'media-stack' in "
             "(tags | map(attribute='slug', default='') | list)")
 
+    def test_cloud_instances_get_their_login_user_and_display_name(self):
+        # The cloud API registers a VM under its instance ID. Its readable name
+        # travels as cloud_name, and the group supplies the login user.
+        self.assertIn("'managed-by-cloud-api'", self.inventory['groups']['cloud_instances'])
+        # compose sees NetBox's raw object, where the name sits on the primary IP.
+        self.assertEqual(self.inventory['compose']['cloud_name'],
+                         "(primary_ip4 | default({}, true)).dns_name | default('')")
+        for group in ('cloud_instances', 'services'):
+            group_vars = yaml.safe_load(
+                (ROOT / f'platform/ansible/group_vars/{group}.yml').read_text(encoding='utf-8'))
+            self.assertEqual(group_vars['ansible_user'], 'debian', group)
+
+    def test_only_active_hosts_with_a_primary_address_are_targets(self):
+        # A stopped cloud VM is marked offline in NetBox, which keeps it out.
+        self.assertIn({'status': 'active'}, self.inventory['query_filters'])
+        self.assertIn({'has_primary_ip': 'true'}, self.inventory['vm_query_filters'])
+
     def test_the_inventory_no_longer_filters_on_the_media_tag(self):
         keys = [key for entry in self.inventory['query_filters'] for key in entry]
         self.assertNotIn('tag', keys)
@@ -155,7 +172,7 @@ class SiteTests(unittest.TestCase):
 
     def test_every_key_the_modules_read_is_present(self):
         self.assertIn('node_name', self.site)
-        for key in ('vm_disks', 'admin_images', 'cloud_images', 'cloud_images_path'):
+        for key in ('vm_disks', 'vm_disks_hdd', 'admin_images', 'cloud_images', 'cloud_images_path'):
             self.assertIn(key, self.site['storage'], key)
         for key in ('bridge', 'sdn_zone', 'prefix', 'gateway', 'dns_servers'):
             self.assertIn(key, self.site['network'], key)
@@ -168,6 +185,10 @@ class SiteTests(unittest.TestCase):
         cloud = self.site['storage']['cloud_images']
         self.assertNotEqual(cloud, self.site['storage']['vm_disks'])
         self.assertNotEqual(cloud, self.site['storage']['admin_images'])
+        # The HDD tier shares disks with the default tier's ACLs; pointing them
+        # at the same store would silently make both tiers one pool.
+        self.assertNotEqual(self.site['storage']['vm_disks_hdd'], self.site['storage']['vm_disks'])
+        self.assertNotEqual(self.site['storage']['vm_disks_hdd'], cloud)
 
     def test_every_unmeasured_value_is_one_a_module_checks_for(self):
         # UNMEASURED means "nobody has asked the host yet". A value carrying

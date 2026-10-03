@@ -1,6 +1,6 @@
 ---
 title: 認証基盤（identity サービス・Authentik）
-updated: 2026-09-13
+updated: 2026-09-27
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 認証基盤（identity サービス・Authentik）
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-27 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 identity VM の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud-resources.md#3-17)を参照してください。
 
@@ -36,6 +36,8 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - OIDC クライアント `netbox`（NetBox の SSO。秘密だけは SOPS の `NETBOX_OIDC_CLIENT_SECRET` を正本にする。[NetBox の使い方](netbox.md#sso)）
   - 招待専用エンロールフロー `cloud-invitation-enrollment`（[利用者の招待](#利用者の招待管理者)）
   - パスワード再設定フロー `default-recovery-flow` と Email 認証器（[パスワード・パスキーの復旧](#パスワードパスキーの復旧)）
+  - パスワードレス用の設定（識別ステージの WebAuthn 指定と、WebAuthn setup ステージの `resident_key_requirement: required`。2026-09-27 追加）
+  - セッション保持の設定（`default-authentication-login` の `remember_me_offset: days=30`。2026-09-27 追加。次節）
 - 2 回目の実行はすべて `OK:` になります。
 
 ## 管理者の資格情報とバックアップ
@@ -160,7 +162,19 @@ sudo python3 /opt/identity-stack/invitations.py list
 条件と注意:
 
 - `auth.apextox.dpdns.org` の **HTTPS**、ブラウザーの conditional UI 対応、登録時と同じホスト名。
-- 登録済みパスキーが **discoverable credential（resident key）** であること。そうでなければ自動入力は出ません。
+- 登録済みパスキーが **discoverable credential（resident key）** であること。そうでなければ自動入力は出ません。`configure.py` は 2026-09-27 から WebAuthn setup ステージを `resident_key_requirement: required` にして、新規登録で必ず discoverable になるようにしています（既定の `preferred` では Bitwarden が 2FA 用の非 discoverable を作ることがあり、実際に登録済みのパスキーがこれに該当しました。MFA では使えるのに自動入力だけ出ない症状になります）。
+- **2026-09-27 より前に登録したパスキーは discoverable でない可能性があります。** 利用者設定 → MFA Devices で一度削除し、登録し直してください。以後の登録は `required` が効きます。
+- **Firefox はユーザー名欄のパスキー自動入力に非対応**（候補が出ません）。パスワードレスには Chrome・Edge・Safari を使います。
 - **パスワード経路は残します。** パスキーを失ったときは前節のメール復旧が使えます。
 
-GUI で切り替えるなら **Flows and Stages → Stages → 識別ステージ → WebAuthn Authenticator Validation Stage** です。
+GUI で切り替えるなら **Flows and Stages → Stages → 識別ステージ → WebAuthn Authenticator Validation Stage**（パスワードレス）と、**Stages → default-authenticator-webauthn-setup → Resident key requirement**（discoverable 必須）です。
+
+<a id="再ログインを減らすセッション保持"></a>
+## 再ログインを減らす（セッション保持）
+
+既定では、認証セッションは**ブラウザーを閉じると終了**し（`session_duration: seconds=0`）、サーバー側も tenant 既定の `default_token_duration: days=1` で**ログインから24時間**で失効します。そのため、翌日やブラウザーを開き直したときは、最初に開いたサービスでログインが必要でした（2026-09-27 に実機DBで確認）。
+
+`configure.py` は **`default-authentication-login` の `remember_me_offset` を `days=30`** にします。ログイン（パスキー・パスワードとも）の最後に **「Stay signed in?」** が出るので、**Yes** を選んだブラウザーは30日間ログイン不要、**No** は従来どおり（ブラウザーを閉じると終了、サーバー側24時間）です。共用端末では No を選びます。
+
+- 常に30日保持にしたい場合は、同ステージの `session_duration` を `days=30` にします（`remember_me_offset` は加算されるため、Yes で60日になります。片方だけ使います）。
+- GUI で変えるなら **Stages → default-authentication-login → Stay signed in offset / Session duration** です。

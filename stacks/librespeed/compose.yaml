@@ -27,7 +27,7 @@ services:
       # 環境変数で渡す。既定の "password" のままにしない。
       PASSWORD: ${LIBRESPEED_STATS_PASSWORD:?run manage.py up}
     volumes:
-      - ${STORAGE_ROOT:-/srv/services/librespeed}/database:/database
+      - ${STORAGE_ROOT:-/srv/librespeed}/database:/database
     ports:
       # 既定は 127.0.0.1。LAN へ出すのは HTTPS 入口（Caddy）だけにする。
       - '127.0.0.1:${LIBRESPEED_PORT:-8300}:8080'

@@ -16,6 +16,21 @@
 #
 # 整合は tests/test_tls_proxy.py が検査する。
 zone: apextox.dpdns.org
+
+# HTTPS の入口。公開の証明書（Let's Encrypt）と Cloudflare のトークンを持つのは
+# このホストの Caddy だけにする。
+#
+#   host     : 入口のホスト
+#   backends : 入口の後ろへ移し終えたホスト。ここに書いたホストの名前は 20-dns が
+#              入口のアドレスへ向け、入口が中継する。中継先との間は、中継先の
+#              Caddy が自分の内部CAで出す証明書で暗号化し、入口がそのCAを確かめる。
+#              認証（Forward Auth）や経路の振り分けは、今までどおり中継先の Caddy が行う。
+#
+# **1台ずつ足す。** 手順は docs/operations/edge.md。空のあいだは、各ホストが
+# 従来どおり自分で証明書を取る。
+edge:
+  host: services-01
+  backends: []
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
@@ -45,8 +60,14 @@ records:
     upstream: 127.0.0.1:4533
     description: Navidrome（音楽ストリーミング。Forward Auth）
     auth: true
-    # アルバム確認HTMLをダウンロードせず表示する（/review/、同じSSO）。
-    static_prefix: /review
+    # 全曲レビュー（いいね・指摘・試聴）を同じSSOで /review/ へ中継する。
+    # 実体は music-tools の review サービス（127.0.0.1:5830）。
+    path_routes:
+      - path: /review
+        upstream: 127.0.0.1:5830
+        description: 全曲レビュー（いいね・指摘・試聴）
+    # 生成した確認HTML（カバー・歌詞など）は /review-static/ で見る。
+    static_prefix: /review-static
     static_data: /data/review
   # Subsonicクライアント（Ultrasonic等）用の入口。SSOを通さず、Navidromeの
   # 自前認証（ユーザー名とパスワード）を使う。Web UIは上の名前（SSO）のまま。
@@ -62,6 +83,22 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:5811
     description: NextcloudのAIエージェント用MCP（読み書き・タグ・圧縮解凍。SSOなし・自前認証）
+  # クライアント端末のバックアップの入口（ポータル）。Web UI だけを SSO の
+  # 内側に置く。Windows クライアントは Forward Auth を通せないので、Caddy
+  # ではなく media-01 の LAN アドレス:55413 へ直接つなぐ。
+  backup:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:55416
+    description: バックアップポータル（UrBackupの状態と端末手順。Forward Auth）
+    auth: true
+  # UrBackup の管理画面（クライアント配布・世代・復元）。ポータルからリンクする。
+  urbackup:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:55414
+    description: UrBackup管理画面（配布・世代・復元。Forward Auth）
+    auth: true
   metube:
     host: media-01
     address: 192.168.10.101
@@ -84,7 +121,8 @@ records:
     upstream: 127.0.0.1:8000
     description: NetBox
   homarr:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
   # AdGuard Home の管理画面はルータ上。ルータの :3000 はファイアウォールで
@@ -113,15 +151,18 @@ records:
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8222
     description: Vaultwarden（パスワード管理・SSO）
   speed:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8300
-    description: LibreSpeed（端末↔services-01の速度計測）
+    description: LibreSpeed（端末↔apps-01の速度計測）
   poke:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8320
     description: ポケモン用語対応翻訳（翻訳サイトと拡張機能の配布）
   ha:
@@ -129,7 +170,8 @@ records:
     upstream: 127.0.0.1:8123
     description: Home Assistant（家電・自動化）
   docs:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8090
     description: ドキュメントサイト
   # LocalSend の受信機はアプリ自身のTLSをそのまま使う（Caddyを通さない）ため
@@ -139,18 +181,20 @@ records:
     address: 192.168.10.101
     description: LocalSend受信機（media-01・53317）
   cups:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     # loopback でつなぐと CUPS は Host を localhost に限定して 400 を返す
     # （valid_host）。631 は印刷クライアントへ意図的に開けた中継なので、
     # Caddy は LAN 側アドレスへつなぎ、実Hostをそのまま渡す。
-    upstream: 192.168.10.200:631
+    upstream: 192.168.10.105:631
     description: CUPS（印刷状況。Forward Auth）
     auth: true
     # CUPS の /admin は localhost 限定。Caddy 経由だと接続元が 127.0.0.1 に
     # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
     block: ['/admin', '/admin/*']
   mail-view:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8310
     description: Gmailビューア（通知メールを読み取り専用で表示。Forward Auth）
     auth: true

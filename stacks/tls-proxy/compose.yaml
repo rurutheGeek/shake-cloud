@@ -1,5 +1,6 @@
-# 各ホストの HTTPS の入口（Caddy）。証明書は Let's Encrypt から DNS-01 で取り、
-# 同じホストの 127.0.0.1 で待つサービスへ中継する。インターネットには公開しない。
+# 各ホストの HTTPS の入口（Caddy）。同じホストの 127.0.0.1 で待つサービスへ中継する。
+# インターネットには公開しない。Let's Encrypt から DNS-01 で証明書を取るホストだけ、
+# compose.token.yaml を重ねて Cloudflare のトークンを渡す（.env の COMPOSE_FILE）。
 # 受ける名前は platform/terraform/dns.yaml から tls_proxy ロールが conf/Caddyfile に書く。
 name: tls-proxy
 services:
@@ -14,11 +15,8 @@ services:
     cap_add: [NET_BIND_SERVICE]
     security_opt: ['no-new-privileges:true']
     tmpfs: [/tmp]
-    secrets: [cloudflare_dns_api_token]
     volumes:
       - ./conf:/etc/caddy:ro
       # 証明書と ACME のアカウント。消すと取り直しになる（Let's Encrypt には回数制限がある）。
       - ${STORAGE_ROOT:-./storage}/data:/data
       - ${STORAGE_ROOT:-./storage}/config:/config
-secrets:
-  cloudflare_dns_api_token: {file: ./secrets/cloudflare_dns_api_token}

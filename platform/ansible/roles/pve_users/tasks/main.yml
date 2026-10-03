@@ -24,6 +24,8 @@
   run_once: true
   register: decrypted
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 # stdin で渡すので、パスワードがプロセス一覧やログへ出ない。

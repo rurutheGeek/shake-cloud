@@ -1,0 +1,141 @@
+---
+# Eufy leo_rtc ライブ配信を services-01（Home Assistant と同じホスト）へ配備する。
+# カメラと同じ LAN に居る必要があるので HA と同居させ、RTSP は docker ゲートウェイ
+# （HA の compose ネットワーク）だけに開く。home-assistant.yml の後に実行する。
+- name: Deploy the Eufy leo_rtc live stream
+  hosts: netbox_bootstrap
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks/eufy-leo-rtc'
+    leo_project_dir: /opt/services/eufy-leo-rtc
+    leo_storage_root: /srv/services/eufy-leo-rtc
+    leo_tz: Asia/Tokyo
+    leo_idle_wait: '120'
+    leo_demand_wait: '5'
+    leo_video_idle: '4'
+    leo_1003_retry: '1'
+    leo_turn: '0'
+    leo_call_replay: '0'
+    eufy_boot_action: '1'
+    leo_rearm_limit: '0'
+    leo_wake_wait: '12'
+    leo_1003_keep: '0'
+    leo_call_keep: '0'
+    leo_drwack: '0'
+    leo_close_1004: '0'
+    leo_app_report: '1'
+    leo_report_encrypt: '1'
+    leo_sops_file: '{{ playbook_dir }}/../sops/eufy-security.sops.yaml'
+    leo_keys: [EUFY_SN, EUFY_DID, EUFY_LICENSE, EUFY_ACCOUNT, EUFY_CONTACT]
+  tasks:
+    - name: Install Docker Engine and Compose
+      ansible.builtin.include_role:
+        name: docker
+
+    - name: Create the leo_rtc project and state directories
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        mode: '{{ item.mode }}'
+      loop:
+        - {path: '{{ leo_project_dir }}', mode: '0750'}
+        - {path: '{{ leo_storage_root }}/state', mode: '0750'}
+
+    - name: Copy the leo_rtc definitions
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/{{ item }}'
+        dest: '{{ leo_project_dir }}/{{ item }}'
+        mode: '0644'
+      loop: [compose.yaml, mediamtx.yml, manage.py, Dockerfile, .env.example]
+
+    - name: Copy the leo_rtc client code
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/{{ item }}/'
+        dest: '{{ leo_project_dir }}/{{ item }}/'
+        mode: '0644'
+        directory_mode: '0755'
+      loop: [leo_rtc, tools]
+
+    - name: Render the initial environment without replacing an existing one
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/.env.example'
+        dest: '{{ leo_project_dir }}/.env'
+        mode: '0600'
+        force: false
+
+    - name: Converge deployment-specific settings
+      ansible.builtin.lineinfile:
+        path: '{{ leo_project_dir }}/.env'
+        regexp: '^{{ item.key }}='
+        line: '{{ item.key }}={{ item.value }}'
+        mode: '0600'
+      loop:
+        - {key: STORAGE_ROOT, value: '{{ leo_storage_root }}'}
+        - {key: TZ, value: '{{ leo_tz }}'}
+        - {key: LEO_IDLE_WAIT, value: '{{ leo_idle_wait }}'}
+        - {key: LEO_DEMAND_WAIT, value: '{{ leo_demand_wait }}'}
+        - {key: LEO_VIDEO_IDLE, value: '{{ leo_video_idle }}'}
+        - {key: LEO_1003_RETRY, value: '{{ leo_1003_retry }}'}
+        - {key: LEO_TURN, value: '{{ leo_turn }}'}
+        - {key: LEO_REARM_LIMIT, value: '{{ leo_rearm_limit }}'}
+        - {key: LEO_WAKE_WAIT, value: '{{ leo_wake_wait }}'}
+        - {key: LEO_1003_KEEP, value: '{{ leo_1003_keep }}'}
+        - {key: LEO_CALL_KEEP, value: '{{ leo_call_keep }}'}
+        - {key: LEO_DRWACK, value: '{{ leo_drwack }}'}
+        - {key: LEO_CLOSE_1004, value: '{{ leo_close_1004 }}'}
+        - {key: LEO_CALL_REPLAY, value: '{{ leo_call_replay }}'}
+        - {key: EUFY_BOOT_ACTION, value: '{{ eufy_boot_action }}'}
+        - {key: LEO_APP_REPORT, value: '{{ leo_app_report }}'}
+        - {key: LEO_REPORT_ENCRYPT, value: '{{ leo_report_encrypt }}'}
+
+    # 機器の識別子は platform/sops/eufy-security.sops.yaml が正本。
+    - name: Look for the device credentials
+      ansible.builtin.stat:
+        path: '{{ leo_sops_file }}'
+      delegate_to: localhost
+      become: false
+      register: leo_sops
+
+    - name: Read the device credentials
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json, '{{ leo_sops_file }}']
+      delegate_to: localhost
+      become: false
+      register: leo_values
+      changed_when: false
+      no_log: true
+      when: leo_sops.stat.exists
+
+    - name: Converge the device credentials
+      ansible.builtin.lineinfile:
+        path: '{{ leo_project_dir }}/.env'
+        regexp: '^{{ item }}='
+        line: '{{ item }}={{ (leo_values.stdout | from_json)[item] | default("") }}'
+        mode: '0600'
+      loop: '{{ leo_keys }}'
+      no_log: true
+      when: leo_sops.stat.exists
+
+    # 既定の net.core.rmem_max（約 416KB）だと受信バッファが足りず、カメラの
+    # パケットを取りこぼす（実測: incomplete=30・IDR 失敗 5）。上限を上げる。
+    - name: Allow a large UDP receive buffer for the camera stream
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-eufy-leo-rtc.conf
+        mode: '0644'
+        content: |
+          # eufyCam S4 のライブ受信（leo_rtc）用。既定では SO_RCVBUF が
+          # 416KB に切り詰められ、欠落して映像が崩れる。
+          net.core.rmem_max = 33554432
+      register: leo_sysctl
+
+    - name: Apply the receive buffer setting
+      ansible.builtin.command:
+        argv: [sysctl, --system]
+      changed_when: "'99-eufy-leo-rtc.conf' in leo_sysctl.diff | default('') or leo_sysctl.changed"
+      when: leo_sysctl.changed
+
+    - name: Start the leo_rtc live stream
+      ansible.builtin.command:
+        argv: [python3, '{{ leo_project_dir }}/manage.py', up]
+      register: leo_up
+      changed_when: "'OK: eufy-leo-rtc started' in leo_up.stdout"

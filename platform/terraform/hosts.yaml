@@ -52,6 +52,10 @@ hosts:
     vm_id: 110
     pool: platform
     flavor: medium
+    # SSOの土台。スワップが無く、2026-09-26にホストのメモリ逼迫で
+    # バルーンが縮んでOOMし、全SSOサイトが止まった。下限を3GiBにして
+    # AuthentikとPostgreSQLが潰れないようにする。
+    memory_min_mib: 3072
     disk_gib: 32
     on_boot: true
     started: true
@@ -62,6 +66,8 @@ hosts:
     vm_id: 140
     pool: platform
     flavor: small
+    # 常時起動のAPIと管理DB。下限0.5GiBでは足りないので1GiBにする。
+    memory_min_mib: 1024
     disk_gib: 40
     on_boot: true
     started: true

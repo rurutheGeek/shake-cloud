@@ -64,7 +64,7 @@ class StackTests(unittest.TestCase):
 
     def test_the_state_lives_outside_the_deployment_directory(self):
         volumes = self.service()['volumes']
-        self.assertEqual(volumes, ['${STORAGE_ROOT:-/srv/services/vaultwarden}/data:/data'])
+        self.assertEqual(volumes, ['${STORAGE_ROOT:-/srv/vaultwarden}/data:/data'])
 
     def test_the_public_name_is_the_new_https_entry(self):
         self.assertEqual(self.service()['environment']['DOMAIN'], PUBLIC_URL)
@@ -243,7 +243,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_vaultwarden_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/vaultwarden.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'apps')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('vaultwarden'))
         # tls_proxy first: Caddy serves https://vault.<zone> and owns the cert.
@@ -252,8 +252,8 @@ class IacTests(unittest.TestCase):
     def test_the_role_reads_the_identity_client_and_manages_the_stack(self):
         defaults = yaml.safe_load(
             (ROOT / 'platform/ansible/roles/vaultwarden/defaults/main.yml').read_text(encoding='utf-8'))
-        self.assertEqual(defaults['vaultwarden_project_dir'], '/opt/services/vaultwarden')
-        self.assertEqual(defaults['vaultwarden_storage_root'], '/srv/services/vaultwarden')
+        self.assertEqual(defaults['vaultwarden_project_dir'], '/opt/vaultwarden')
+        self.assertEqual(defaults['vaultwarden_storage_root'], '/srv/vaultwarden')
         self.assertEqual(defaults['vaultwarden_port'], 8222)
         self.assertEqual(defaults['vaultwarden_tz'], 'Asia/Tokyo')
         self.assertEqual(defaults['vaultwarden_oidc_credentials_path'],
@@ -295,7 +295,7 @@ class IacTests(unittest.TestCase):
     def test_dns_declares_vault_on_services_01(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
         record = dns['records']['vault']
-        self.assertEqual(record['host'], 'services-01')
+        self.assertEqual(record['host'], 'apps-01')
         self.assertEqual(record['upstream'], '127.0.0.1:8222')
         self.assertIn('Vaultwarden', record['description'])
 

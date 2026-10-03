@@ -29,19 +29,19 @@ class UnitTests(unittest.TestCase):
         },
         'homarr': {
             'service': 'homarr', 'port': '${HOMARR_PORT:-7575}',
-            'prefixes': ['/srv/services/homarr', '/srv/homarr-stack'], 'playbook': 'homarr.yml',
+            'prefixes': ['/srv/homarr'], 'playbook': 'homarr.yml', 'hosts': 'apps',
         },
         'librespeed': {
             'service': 'librespeed', 'port': '${LIBRESPEED_PORT:-8300}',
-            'prefixes': ['/srv/services/librespeed'], 'playbook': 'librespeed.yml',
+            'prefixes': ['/srv/librespeed'], 'playbook': 'librespeed.yml', 'hosts': 'apps',
         },
         'poke-translate': {
             'service': 'site', 'port': '${POKE_TRANSLATE_PORT:-8320}',
-            'prefixes': ['/srv/services/poke-translate'], 'playbook': 'poke-translate.yml',
+            'prefixes': ['/srv/poke-translate'], 'playbook': 'poke-translate.yml', 'hosts': 'apps',
         },
         'vaultwarden': {
             'service': 'vaultwarden', 'port': '${VAULTWARDEN_PORT:-8222}',
-            'prefixes': ['/srv/services/vaultwarden'], 'playbook': 'vaultwarden.yml',
+            'prefixes': ['/srv/vaultwarden'], 'playbook': 'vaultwarden.yml', 'hosts': 'apps',
         },
     }
 
@@ -74,12 +74,14 @@ class UnitTests(unittest.TestCase):
                       compose['services']['homarr']['environment']['SECRET_ENCRYPTION_KEY'])
         self.assertIn(':?', compose['services']['homarr']['environment']['SECRET_ENCRYPTION_KEY'])
 
-    def test_playbooks_use_the_static_bootstrap_group_and_isolated_paths(self):
+    def test_playbooks_target_their_group_and_isolated_paths(self):
         for name, expected in self.units.items():
             path = ROOT / 'platform/ansible' / expected['playbook']
             text = path.read_text(encoding='utf-8')
             play = yaml.safe_load(text)[0]
-            self.assertEqual(play['hosts'], 'netbox_bootstrap', name)
+            # Units move from services-01 to apps-01 one at a time
+            # (docs/architecture/placement-naming.md).
+            self.assertEqual(play['hosts'], expected.get('hosts', 'services'), name)
             # Services may be entered directly through manage.py (the new
             # units) or through the existing role wrapper (Homarr).
             role = name.replace('-', '_')

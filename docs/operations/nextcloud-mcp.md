@@ -1,6 +1,6 @@
 ---
 title: Nextcloud MCPサーバ（管理者向け）
-updated: 2026-09-26
+updated: 2026-09-28
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,20 +10,21 @@ tags:
 
 # Nextcloud MCPサーバ（管理者向け）
 
-> **更新日** 2026-09-26 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-09-28 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-状態: **media-01へ配備済み・稼働中**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](../development/A06-nextcloud-mcp.md)が正本）。
+状態: **media-01へ配備済み・稼働中（v1.1.0）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](../development/A06-nextcloud-mcp.md)が正本）。
 
-AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍を
-渡すMCPサーバーです。media-01に常設し、専用ユーザーやサービスアカウントは
-作りません。詳細は[stacks/nextcloud-mcp/README.md](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/nextcloud-mcp/README.md)、
+AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍・
+カレンダー予定の一覧/追加を渡すMCPサーバーです。media-01に常設し、専用ユーザーや
+サービスアカウントは作りません。詳細は[stacks/nextcloud-mcp/README.md](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/nextcloud-mcp/README.md)、
 利用者向けは[Nextcloudファイルエージェントの使い方](../services/nextcloud-agent.md)。
 
 ## 正本
 
 | 対象 | 場所 |
 | --- | --- |
-| 本体・systemdユニット | `stacks/nextcloud-mcp/` |
+| 本体 | 公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp)（`group_vars/media.yml` の `nextcloud_mcp_version`/`_sha256` で固定し、プレイがGitHub Releaseから取得） |
+| systemdユニット | `stacks/nextcloud-mcp/nextcloud-mcp.service.j2` |
 | 配備 | `platform/ansible/media-nextcloud-mcp.yml` |
 | DNS/Caddy | `platform/terraform/dns.yaml`（`nextcloud-mcp`レコード）・`tls_proxy`ロール |
 | 監視 | `stacks/monitoring/prometheus/blackbox-targets.yml`（`/healthz`をhttps probe） |
@@ -82,6 +83,24 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 - `NEXTCLOUD_MCP_READ_ONLY=1`にすると書き込み系ツール全体を`tools/list`から
   隠し、呼んでも拒否します。読み取りだけ配りたい場合に使えます。
 
+## カレンダー（CalDAV）
+
+- ツールは `nextcloud_list_calendars`・`nextcloud_list_events`・
+  `nextcloud_create_event`。Nextcloudのカレンダーは `nextcloud_apps`
+  （`group_vars/media.yml`）の `calendar` で有効にする。未有効だとcapabilitiesに
+  `calendar`が無く、3ツールは「Calendarアプリが有効ではない」と明示エラーを返す
+  （汎用の通信失敗とは区別できる）。
+- 呼び出し元自身のCalDAVコレクションと共有権限で動く。読み取り専用の共有
+  カレンダー・VTODO専用カレンダーへの予定追加は拒否する。
+- `nextcloud_create_event` は既存のbusy予定と重なる場合、競合を列挙して拒否する
+  （`allow_overlap=true`で強制追加）。繰り返し予定は `DAILY`/`WEEKLY`/`MONTHLY`/
+  `YEARLY`（`COUNT`/`UNTIL`/`BYDAY`/`BYMONTHDAY`/`BYMONTH`/`EXDATE`・上書き）を
+  展開し、`TRANSP:TRANSPARENT`と`STATUS:CANCELLED`はbusy扱いしない。
+- タイムゾーン: オフセット付きの入力はUTCで保存し、表示は
+  `NEXTCLOUD_MCP_TIMEZONE`（既定はホストのローカル＝media-01のタイムゾーン）へ
+  変換する。オフセット無しの入力と終日予定も同じ既定を使う。
+- 予定の変更・削除ツールはまだ無い。必要ならNextcloudのカレンダー画面で行う。
+
 ## トラブルシュート
 
 | 症状 | 確認 |
@@ -90,6 +109,8 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 | `initialize`だけ401 | Nextcloud側で資格情報が拒否されている（サーバーログに`initialize: Nextcloudが応答しません`と出ない場合はここ） |
 | MP3タグ編集が失敗する | tag-api（`127.0.0.1:5810`）が起動しているか、`NEXTCLOUD_MCP_TAG_API_TOKEN`が空でないか（[W06](../development/W06-music-tools.md)） |
 | zip展開が途中で失敗する | `NEXTCLOUD_MCP_MAX_EXTRACT_FILES`/`_BYTES`の上限に触れていないか。大物はNextcloud UI（files_zip等）へ誘導する |
+| カレンダーで「Calendar app is not available」 | NextcloudでCalendarアプリが有効か（capabilitiesの`calendar`）。`group_vars/media.yml`の`nextcloud_apps`に`calendar`がある（`media-nextcloud.yml`が導入する） |
+| 予定が意図した時刻とずれて見える | `NEXTCLOUD_MCP_TIMEZONE`（既定はmedia-01のタイムゾーン）を確認。オフセット無しの入力・終日予定・一覧表示がこの値を基準にする |
 
 ## テスト
 
@@ -99,5 +120,5 @@ python3 -m unittest discover -s tests -p 'test_tls_proxy.py'
 python3 -m unittest discover -s tests -p 'test_monitoring_stack.py'
 ```
 
-`test_nextcloud_mcp.py`は疑似Nextcloud/tag-apiサーバーを相手に実ソケットで
-HTTP往復まで検査します（実機のNextcloudには触れません）。
+本体の単体テスト（疑似Nextcloud/tag-apiとの実ソケットHTTP往復を含む）は公開リポジトリ側にあります。
+ここの`test_nextcloud_mcp.py`は、固定バージョン・取得・systemdユニット・playbook構文を守ります。

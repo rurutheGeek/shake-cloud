@@ -20,12 +20,12 @@
     - blackbox
   register: monitoring_stack_files
 
-- name: Copy the reviewed image lock when the repository has one
+# digest の正本はリポジトリの lock。配備先で pull して決めさせない。
+- name: Copy the reviewed image lock
   ansible.builtin.copy:
-    src: '{{ item }}'
+    src: '{{ monitoring_source_dir }}/compose.lock.yaml'
     dest: '{{ monitoring_project_dir }}/compose.lock.yaml'
     mode: '0644'
-  with_fileglob: ['{{ monitoring_source_dir }}/compose.lock.yaml']
 
 - name: Render the initial environment without replacing an existing one
   ansible.builtin.copy:
@@ -58,6 +58,8 @@
   become: false
   register: monitoring_smtp
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Converge the SMTP settings
@@ -92,6 +94,8 @@
   become: false
   register: monitoring_secrets
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Install the Proxmox read-only token

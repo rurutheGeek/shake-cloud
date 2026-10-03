@@ -1,4 +1,4 @@
-# Vaultwarden（パスワード管理・SSO）を services-01 に単独で置く。
+# Vaultwarden（パスワード管理・SSO）を apps-01 に単独で置く。
 #
 # 旧ハブの media-hub（Authentik・他サービス同居）とは別の Compose プロジェクト。
 # 旧ホストのデータは移行せず、このスタックの storage へ新規に構築する。
@@ -37,7 +37,7 @@ services:
       SSO_SCOPES: email profile offline_access
       SSO_PKCE: 'true'
     volumes:
-      - ${STORAGE_ROOT:-/srv/services/vaultwarden}/data:/data
+      - ${STORAGE_ROOT:-/srv/vaultwarden}/data:/data
     ports:
       # 既定は 127.0.0.1。LAN へ出すのは HTTPS 入口（Caddy）だけにする。
       - '127.0.0.1:${VAULTWARDEN_PORT:-8222}:80'

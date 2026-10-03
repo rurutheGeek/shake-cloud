@@ -26,8 +26,8 @@ tags:
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
 | router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
 | services-01（150） | 2 / 4GiB（増枠は実測後） | 現行容量とデータ量を実測 | NetBox・MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed。VPNは追加予定。常時。`05-seed`の所有を維持 |
-| identity（110） | 2 / 4GiB（宣言値） | 32GiB | Authentikと専用DB。常時 |
-| cloud-01（140） | 2 / 2GiB（宣言値） | 40GiB | クラウドAPIと管理DB。常時 |
+| identity（110） | 2 / 4GiB（下限3GiB） | 32GiB | Authentikと専用DB。常時。スワップが無く、2026-09-26のメモリ逼迫でOOMしたため下限を3GiBへ |
+| cloud-01（140） | 2 / 2GiB（下限1GiB） | 40GiB | クラウドAPIと管理DB。常時 |
 | storage-s3（130） | 2 / 1GiB（宣言値） | OS16＋データ32GiB | Garage。常時 |
 | k8s-cp-01（200） | 2 / 3GiB（固定） | 32GiB | control plane。既存構成維持 |
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
@@ -164,8 +164,8 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
 | AdGuard Home・dnsmasq（DNS・DHCP） | router-01（OpenWrt VM） | 配備済み（2026-09-20、N06）。設定の正本は `platform/openwrt/`。[AdGuard Home](../operations/adguard.md)・[router-01](../operations/router.md) |
 | 復旧用Tailscale | net-01（cloud VM） | 配備済み（2026-09-14、N02）。ルート承認・宅外検証が未了。[net-01](../operations/net.md) |
-| LibreSpeed（速度テスト） | services-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
-| ポケモン翻訳 | services-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
+| LibreSpeed（速度テスト） | apps-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
+| ポケモン翻訳 | apps-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
 | 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
 | 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |

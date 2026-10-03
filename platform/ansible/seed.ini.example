@@ -19,6 +19,12 @@ ansible_user=debian
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_private_key_file=~/.ssh/id_ed25519_pve
 
+# 共有サービスの Playbook（homarr.yml・vaultwarden.yml など）は services グループを
+# 対象にする。普段は NetBox の動的インベントリ（タグ services）が同じホストを出す。
+# NetBox がまだ無い・止まっているときだけ、このファイルで同じホストを指す。
+[services:children]
+netbox_bootstrap
+
 # Homarr ロールが OIDC クライアントの秘密値を読むために、identity VM も置く。
 [identity_provider]
 identity ansible_host=192.0.2.204

@@ -45,7 +45,7 @@ def compose(*args, locked=True, **kwargs):
 
 
 def storage():
-    configured = Path(settings().get('STORAGE_ROOT', '/srv/services/librespeed'))
+    configured = Path(settings().get('STORAGE_ROOT', '/srv/librespeed'))
     path = configured.resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')

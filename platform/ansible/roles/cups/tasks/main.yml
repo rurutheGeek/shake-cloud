@@ -103,8 +103,8 @@
     - item.startswith('=;')
     - item.split(';')[2] == 'IPv4'
     - cups_printer_mdns_model in item.split(';')[3]
-    # CUPS 自身の広告（名前が "@ services-01" で終わる）は拾わない。
-    - "'services-01' not in item.split(';')[3]"
+    # CUPS 自身の広告（名前が "@ <このホスト名>" で終わる）は拾わない。
+    - "(cloud_name | default(inventory_hostname, true)) not in item.split(';')[3]"
   loop: '{{ cups_mdns.stdout_lines | default([]) }}'
 
 - name: Make sure the printer is reachable before building the queue
@@ -175,7 +175,7 @@
   changed_when: false
   failed_when: cups_queue_state.rc != 0
 
-# Nextcloud（shake_print）から印刷するための小さなAPI。トークンと送信元IPで
+# Nextcloud（cups_print）から印刷するための小さなAPI。トークンと送信元IPで
 # 縛り、受けた本文を lp でキューへ流すだけの役割。
 - name: Read the print API token
   delegate_to: localhost
@@ -185,6 +185,8 @@
     argv: [sops, --decrypt, --extract, '["PRINT_API_TOKEN"]', '{{ cups_print_api_sops_file }}']
   register: cups_print_api_token
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Create the print API directory
