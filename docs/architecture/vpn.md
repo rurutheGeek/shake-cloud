@@ -1,6 +1,6 @@
 ---
 title: セルフホストVPNとTailscaleの併用
-updated: 2026-10-01
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,11 +10,11 @@ tags:
 
 # セルフホストVPNとTailscaleの併用
 
-> **更新日** 2026-10-01 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
-更新: 2026-09-13。状態: **比較・配置計画。services-01へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
+更新: 2026-09-13。状態: **比較・配置計画。core-01（旧services-01）へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
 
 方針は **K11にセルフホストVPNを置き、Tailscaleも併用する**。Windows・macOS・Linux・iOS・Androidからの使いやすさと、一般利用者がAuthentikの招待から参加できることを重視する。第一検証候補はNetBird、Tailscaleアプリへの統一を優先する場合の候補はHeadscaleとする。WireGuard単独には決め打ちしない。
 
@@ -44,15 +44,15 @@ Tailcatの接続アドレスは接続権を与える情報を含むため、公�
 
 | 配置 | 内容 | データ・運用 |
 | --- | --- | --- |
-| K11 / services-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | services-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
+| K11 / core-01 | 選定したVPNをNetBox・家電等と別Composeで同居 | core-01の現行枠（2vCPU・4GiB。増枠は必要時）内で測定。DB・設定・鍵・端末登録を独立してバックアップ |
 | K11 / 対象VM | 通常VPNのagent。ゲームは直接peer接続を検証 | 宅内はLAN優先。中継になった場合は遅延・帯域を実測 |
-| K11 / net-01（cloud VM） | Tailscale SaaS の subnet router（**実装済み**。tailnet DNS=AdGuard Home。[net-01](../operations/net.md)） | **K11上のVMなので、K11そのものの停止はカバーしない。** 当初はK11外のラズパイを想定していたが導入しなかった |
+| K11 / router-01（OpenWrt VM上） | Tailscale SaaS の subnet router（**実装済み**。tailnet DNS=AdGuard Home。[Tailscale subnet router](../operations/net.md)） | **K11上のVMなので、K11そのものの停止はカバーしない。** 当初はK11外のラズパイを想定していたが導入しなかった |
 | K11 / router-01（OpenWrt VM） | DNS（AdGuard Home）とDHCP。**家庭内ルータそのもの** | 2026-09-20に切替。K11が落ちると家中のネットも落ちる（[障害モード](failure-modes.md)） |
 | 管理PC・スマホ | 普段用VPNと予備Tailscaleの設定 | 同時接続を必須とせず、切り替えて確認 |
 
-NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とservices-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
+NetBird公式quickstartの最小構成は1CPU・2GBだが、中継やrouting peerの負荷まで保証する値ではない。VPN単体の要求とcore-01全体の使用量を分けて測定し、ゲーム映像の中継負荷も確認する。[NetBird quickstart](https://docs.netbird.io/selfhosted/selfhosted-quickstart)
 
-ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。**2026-09-14: ラズパイは導入せず、cloud VM `net-01` を復旧経路の subnet router として作成した**（[net-01（Tailscale subnet router）](../operations/net.md)）。K11のホスト障害には巻き込まれるため、真のアウトオブバンドが必要になった時点でラズパイかルーター内蔵VPNを検討する。
+ラズパイの目的は、K11の再起動や設定失敗時に宅内管理LANへ入る経路を残すこと。必須ではないが、両VPNをK11に集めるとK11故障で両方失う。ラズパイが使えない場合は既存ルータの独立VPN等を確認する。回線・ルータ・宅内電源の障害は共通の弱点として残る。**2026-09-14: ラズパイは導入せず、cloud VM `net-01` を復旧経路の subnet router として作成した（2026-10-03 に net-01 は廃止し、subnet router は router-01 の上へ移した）**（[Tailscale subnet router](../operations/net.md)）。K11のホスト障害には巻き込まれるため、真のアウトオブバンドが必要になった時点でラズパイかルーター内蔵VPNを検討する。
 
 Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscaleの両方へ常時同時接続する前提にしない。接続先・アカウント切替を実機で確認し、復旧用のラズパイはSaaS側へ残す。Headscaleサーバーを自分自身のtailnetへ参加させる構成にも注意が必要なので、管理サーバーと接続agentの役割を分ける。[Headscale FAQ](https://headscale.net/stable/about/faq/)
 
@@ -61,7 +61,7 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 1. **スマホは切替を基本にする。** iOS／AndroidではVPNアプリを同時に複数稼働させる前提にしない。PCもルート・DNS・ファイアウォールの競合を検証する。[Tailscaleと他VPN](https://tailscale.com/docs/reference/faq/other-vpns)
 2. 普段のアクセスにはセルフホスト側、障害調査にはTailscale側、という役割を決める。同じLAN CIDRへの経路を両方で同時に有効にせず、必要なホスト／サブネットのみを許可する。両方でdefault routeやexit nodeを有効にしない。
 3. LAN・Kubernetes・VPN同士のアドレス重複を確認する。特に各製品の初期アドレスが同じCGNAT範囲にある可能性を確認し、固定値を未確認でコピーしない。
-4. 内部DNSは同じサービス名がどのVPNからも適切な到達先へ解決されるよう設計する。VPN切替後にDNSが残って接続不能になるケースも試す。**2026-10-01: 復旧用Tailscaleは AdGuard Home を tailnet の global nameserver（`overrideLocalDNS`）にし、split DNS は使わないと決めた**（[net-01](../operations/net.md)）。
+4. 内部DNSは同じサービス名がどのVPNからも適切な到達先へ解決されるよう設計する。VPN切替後にDNSが残って接続不能になるケースも試す。**2026-10-01: 復旧用Tailscaleは AdGuard Home を tailnet の global nameserver（`overrideLocalDNS`）にし、split DNS は使わないと決めた**（[Tailscale subnet router](../operations/net.md)）。
 5. 復旧用TailscaleのログインをK11内Authentikだけに依存させない。K11停止中にも使える外部の本人確認手段・復旧情報を確保し、端末のキー期限も管理する。
 
 ## Authentik連携と外部到達
@@ -74,13 +74,13 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 
 ## 選定の合格条件
 
-まずNetBirdをservices-01の独立したCompose構成で試し、利用者のPCとスマホを各1台登録する。次の条件を確認し、満たせなければHeadscaleと比較する。
+まずNetBirdをcore-01の独立したCompose構成で試し、利用者のPCとスマホを各1台登録する。次の条件を確認し、満たせなければHeadscaleと比較する。
 
 - 一般利用者が招待から登録でき、管理者の操作なしで日常の再接続ができる。
 - 宅外からHome Assistant・Nextcloud・Vaultwardenへ入り、ゲーム映像も確認できる。
 - スマホのスリープ復帰、Wi-Fi↔モバイル切替、VPN切替後のDNSが正常。
-- VPNのComposeまたはservices-01を止めても、予備Tailscaleで宅内のProxmox管理へ入れる。
+- VPNのComposeまたはcore-01を止めても、予備Tailscaleで宅内のProxmox管理へ入れる。
 - Authentik停止中の再認証・K11全停止時の復旧経路を確認できる。
 - 端末紛失時の失効・アクセス権変更・バックアップ復元を確認できる。
 
-最終製品はこの結果で決定し、services-01へ常用追加するのは選定した1製品だけとする。NetBird・Headscale・WireGuardを同時に常用追加する予算ではない。
+最終製品はこの結果で決定し、core-01へ常用追加するのは選定した1製品だけとする。NetBird・Headscale・WireGuardを同時に常用追加する予算ではない。

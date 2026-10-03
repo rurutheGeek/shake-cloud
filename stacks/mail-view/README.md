@@ -50,7 +50,7 @@ LAN から直接は開けません。コンテナは `read_only`・`cap_drop: [A
 
 ## 配備（IaC）
 
-apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。先に
+apps-01 は NetBox のインベントリ（グループ `apps`）で扱います。先に
 `identity.yml` を流して Forward Auth のプロバイダを作ってから配備します。
 
 ```bash
@@ -58,10 +58,10 @@ apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います
 tools/tf 20-dns apply
 # 2. Forward Auth のプロバイダとアプリを作る（configure.py）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/identity.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 # 3. apps-01 へ配備（role: platform/ansible/roles/mail_view、play: mail-view.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/mail-view.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/mail-view.yml'
 ```
 
 `dns.yaml` の `mail-view` レコード（upstream `127.0.0.1:8310`）を `tls_proxy`

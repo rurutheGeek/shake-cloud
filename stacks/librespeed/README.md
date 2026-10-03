@@ -22,14 +22,14 @@
 
 ## 配備（IaC）
 
-apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
+apps-01 は NetBox のインベントリ（グループ `apps`）で扱います。
 
 ```bash
 # 1. speed.apextox.dpdns.org の A レコードを作る
 tools/tf 20-dns apply
 # 2. apps-01 へ配備（role: platform/ansible/roles/librespeed、play: librespeed.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/librespeed.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/librespeed.yml'
 ```
 
 `dns.yaml` の `speed` レコード（upstream `127.0.0.1:8300`）を `tls_proxy`

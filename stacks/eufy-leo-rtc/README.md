@@ -100,7 +100,7 @@ HA と同じ LAN に居ればよいので、常駐は apps-01 の独立 Compose 
 （android-01 VM は開発・アプリ捕捉の作業台で、常駐先ではない）。
 
 ```bash
-.venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/eufy-leo-rtc.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/eufy-leo-rtc.yml'
 ```
 
 - `mediamtx`（RTSP。`172.31.254.1:8554` だけに開く＝HA の docker ゲートウェイ）と

@@ -1,6 +1,6 @@
 ---
-title: net-01（Tailscale subnet router）
-updated: 2026-10-01
+title: Tailscale（router-01 上の subnet router）
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -8,79 +8,44 @@ tags:
   - network
 ---
 
-# net-01（Tailscale subnet router）
+# Tailscale（router-01 上の subnet router）
 
-> **更新日** 2026-10-01 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: Tailscaleへ参加済み（apply・再plan・再実行とも確認済み）。ルート承認とtailnet DNS（AdGuard Home）は2026-10-01に適用済み。宅外端末での実機検証が未了。
+**状態**: **router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。宅外端末での実機検証が未了。
 
-`net-01` は、宅外から管理LAN（`192.168.10.0/24`）へ戻るための Tailscale の
-subnet router です。[N02](../development/N02-tailscale.md) の復旧経路を、
-ラズパイではなく cloud VM で実現したもの。**Proxmox ホスト（K11）が落ちれば
-この VM も落ちる**ため、カバーするのは VM 単位の故障までです。真の
-アウトオブバンドが必要になったら、既存ルーターの VPN 機能か別ハードを
-検討します（[VPN比較](../architecture/vpn.md)）。
+宅外から管理LAN（`192.168.10.0/24`）へ戻るための Tailscale の subnet router です。[N02](../development/N02-tailscale.md) の復旧経路で、最初は cloud VM `net-01` に置いていましたが、2026-10-03 に **依存の最も少ない router-01（OpenWrt）の上へ移しました**。ルータは Proxmox ホスト（K11）上の VM なので、**K11 そのものが落ちれば使えない**点は変わりません。カバーするのは VM 単位の故障までです。真のアウトオブバンドが必要になったら、専用ルータ機や別ハードを検討します（[VPN比較](../architecture/vpn.md)）。
 
 ## 実体
 
 | 項目 | 値 |
 | --- | --- |
-| インスタンス | `i-88933be43f442c6f4`（`cloud` プール、`ruruthegeek`） |
-| IP / ホスト名 | `192.168.10.103` / `net-01` |
-| サイズ | 1vCPU / 512MiB / OS10GiB。データディスクなし |
-| tailnet アドレス | `100.91.7.69`（`net-01.taild66374.ts.net`） |
-| 宣言 | `platform/terraform/services/net`（apply済み、再 plan は No changes） |
-| 構成 | `platform/ansible/net.yml` + `platform/ansible/roles/tailscale`（再実行は変更ゼロ）。管理画面側は `tools/tailscale-net.py` |
-| グループ | `vpn`（`cloud-inventory.yml` の `i-88933be43f442c6f4`） |
+| ホスト | `router-01`（OpenWrt、VMID 101、`192.168.10.1`） |
+| tailnet アドレス | `100.91.7.69`（net-01 の端末の身元を引き継いだ。管理画面での再承認は不要だった） |
+| 宣言（リポジトリ） | `platform/openwrt/openwrt.yaml` の `packages` に `tailscale`、`platform/openwrt/rootfs/etc/shakecloud/config/tailscale` |
+| tailscaled の設定 | `/etc/config/tailscale`: `state_file /etc/tailscale/tailscaled.state`、`fw_mode nftables` |
+| 状態ファイル | `/etc/tailscale/tailscaled.state`（**秘密値。イメージには含めない**） |
+| ファイアウォール | `config/tailscale` の `tailscale` ゾーン（`device tailscale0`、forward REJECT）と、`tailscale` → `lan` の `forwarding`（`config/firewall`） |
 | 広告ルート | `192.168.10.0/24`（`site.yaml` の `network.prefix` から取得）。承認済み（2026-10-01） |
 | tailnet DNS | `192.168.10.1`（AdGuard Home）を唯一の global nameserver にし、`overrideLocalDNS` を有効化（MagicDNS は維持） |
 
-SG は LAN から 22/tcp だけ。Tailscale の通信は端末側からの発信と中継で
-成立するため、受信ポートの開放は不要です。
+tailnet からの着信は `tailscale0` に入り、`tailscale` ゾーンから `lan` へ転送されます。**送信元の書き換え（SNAT）は tailscaled 自身が nftables で行う**ため、ファイアウォール側で `masq` はしません。Tailscale の通信は端末側からの発信と中継で成立するので、WAN 側のポート開放も不要です。
 
-## 配備手順
+## 設定と配備
 
-1. Tailscale の管理画面 → Settings → Keys → Generate auth key
-   - Pre-approved: on、Ephemeral: off、Reusable: 端末を作り直す前提なら on
-   - Tags: `tag:vpn` を推奨（**タグ付き端末はキー期限が無効**。ACL に
-     `tagOwners` の定義が必要）
-   - **auth key の期限（最大90日）は端末のキー期限ではない。** 登録済みの
-     端末は auth key が期限切れになっても接続を続ける。期限が要るのは
-     再登録（VMの作り直し・`tailscale logout`）のときだけ。
-   - タグなしで登録した場合は、参加後に管理画面で `net-01` の
-     **key expiry を Disable** にする（既定は180日）。
-2. `platform/sops/tailscale.sops.yaml` を作る（`.example` の手順どおり）
-3. 実行する。Tailscale の認証キーと、クラウドinventory用のアクセスキーの
-   **2つ**を、そのプロセスの環境変数としてだけ渡す（ファイルへ書かない）:
+OpenWrt の設定はリポジトリの `platform/openwrt/rootfs/` が正本で、[router-01](router.md) の手順でイメージに焼き込みます。**tailscaled の状態ファイル（端末の秘密鍵を含む）だけはリポジトリにもイメージにも入れません。** そのため、**ルータのイメージを作り直すと tailnet からは別端末になります**。次のどちらかで戻します。
 
-   ```bash
-   TAILSCALE_AUTH_KEY=$(sops --decrypt --extract '["TAILSCALE_AUTH_KEY"]' platform/sops/tailscale.sops.yaml) \
-   SHAKECLOUD_ACCESS_KEY=$(sops --decrypt --extract '["SHAKECLOUD_ACCESS_KEY"]' platform/sops/services.sops.yaml) \
-   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-   .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/net.yml
-   ```
+1. **端末の身元を引き継ぐ（推奨）**: 作り直す前に `ssh root@192.168.10.1 'cat /etc/tailscale/tailscaled.state'` で状態ファイルを安全な場所へ退避し、新しいイメージで同じパスへ戻して `tailscale up` する。管理画面での再承認は不要。
+2. **認証キーで参加し直す**: 管理画面で認証キーを発行し（Pre-approved: on、Tags: `tag:vpn` を推奨）、ルータで `tailscale up --advertise-routes=192.168.10.0/24 --auth-key=<キー>` を実行する。**ルートの再承認**が必要で、管理画面に古い端末が残っていれば Remove します。認証キーの値は `platform/sops/tailscale.sops.yaml`（`.example` 参照）にあり、シェル履歴へ残さない渡し方をします。
 
-4. `tools/tailscale-net.py apply` で、ルート承認と tailnet DNS を宣言どおりにする
-   （2026-10-01 適用済み）。管理画面のクリックではなく、差分を確認してから書く:
+管理画面側の設定（ルート承認・tailnet DNS）は `tools/tailscale-net.py` で宣言どおりに揃えます。**管理画面の端末名は net-01 から移した時点のものを引き継いでいます。** 名前を変えた場合は、ツール冒頭の `HOSTNAME` も合わせてください。
 
-   ```bash
-   TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
-   .venv/bin/python tools/tailscale-net.py apply
-   ```
+```bash
+TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
+  .venv/bin/python tools/tailscale-net.py status
+```
 
-   API トークンは管理画面 → Settings → Keys → API access tokens で発行し、
-   `platform/sops/tailscale.sops.yaml` へ入れる（期限は最大90日。切れたら再発行）。
-   `status` は読むだけで、差分とポリシーの要約を出す。
-5. ACL で管理端末から管理LANへ許可する。**既定の allow-all の間は作業不要**
-   （2026-10-01 時点で既定）。制限を入れるときは、tailnet DNS を使う端末が
-   `192.168.10.1:53` へ届くようにする（例。未了）:
-
-   ```json
-   {"action": "accept", "src": ["group:admins"], "dst": ["192.168.10.0/24:*"]}
-   ```
-
-   `tag:vpn` を使う場合は `tagOwners` に `"tag:vpn": ["<管理者アカウント>"]` を足す。
-6. 参加に使った auth key を失効させる（端末は切断されない。**未了**）
+API トークンは管理画面 → Settings → Keys → API access tokens で発行し、`platform/sops/tailscale.sops.yaml` へ入れます（期限は最大90日。切れたら再発行）。`status` は読むだけで、ルート承認と DNS の差分を出します。`apply` で適用します（2026-10-01 に適用済み）。
 
 ## tailnet DNS
 
@@ -93,45 +58,44 @@ SG は LAN から 22/tcp だけ。Tailscale の通信は端末側からの発信
 - 2026-10-01 より前は global nameserver が未設定のまま MagicDNS だけが有効で、
   `100.100.100.100` が全名前に SERVFAIL を返していた。スマホで Tailscale を
   繋ぐと「インターネットが繋がらない」ように見えた原因はこれ。
-- AdGuard（router-01）か net-01 が停止すると、Tailscale 接続中の端末は
-  名前解決できなくなる。予備 resolver を併記すると広告ブロックが漏れるため、
-  あえて1つにしている。復旧時は IP 直打ちや `/etc/hosts` を使う。
+- **AdGuard（router-01）が停止すると、Tailscale 接続中の端末は名前解決できなくなる。**
+  subnet router も同じ router-01 なので、ルータが落ちれば経路もDNSも同時に失う。
+  予備 resolver を併記すると広告ブロックが漏れるため、あえて1つにしている。
+  復旧時は IP 直打ちや `/etc/hosts` を使う。
 
-## 再実行とローテーション
+## ローテーション
 
-- 再実行は冪等（2026-09-14 実測: `changed=0`）。`tailscale debug prefs` と
-  望む設定を比べ、変わるときだけ `tailscale up` を実行します。
-- 認証キーのローテーション: 管理画面で旧キーを失効 → 新しいキーを SOPS へ
-  入れて再実行（`tailscale up` が再認証）。
-- 端末の失効: 管理画面で `net-01` を Remove。VM を作り直すと tailnet 上は
-  別端末になるため、古い端末を残さない。
-- VM の作り直し: `tools/tf services/net destroy` → `apply`。IP と
-  インスタンスIDが変わるので `cloud-inventory.yml` を直す。
+- 認証キーのローテーション: 管理画面で旧キーを失効 → 新しいキーで再登録する
+  （端末の身元を状態ファイルで引き継いでいれば、失効だけでは切断されない）。
+- 端末の失効: 管理画面で該当端末を Remove。ルータを作り直して身元を引き継が
+  なかった場合は、古い端末が残っていないか確認する。
 
 ## 検証（N02の合格条件）
 
-**一部完了（2026-10-01）。** dev-b（`accept-dns` 有効）で次を実測した。
+**一部完了（2026-10-01、dev-b の `accept-dns` 有効で実測）。** 旧 net-01 時代の結果です。
 
 - tailnet resolver が `192.168.10.1` になる（`tailscale dns status`）
 - `100.100.100.100` が公開名（`example.com`）と内部名
   （`pve.apextox.dpdns.org` → `192.168.10.10`）を解決する
 - `googleads.g.doubleclick.net` が AdGuard により `0.0.0.0` へ遮断される
-- MagicDNS 名（`net-01.taild66374.ts.net` → `100.91.7.69`）が引ける
-- ルート `192.168.10.0/24` が net-01 で承認されている
+- MagicDNS 名が引ける
+- ルート `192.168.10.0/24` が承認されている
 
-**未了:** 宅外（モバイル回線）のスマホ実機で、通常・services-01 停止・K11 停止の
-各条件を確認する。許可外利用者が管理レンジへ到達できないこと（ACL）は、
-ポリシーに制限を入れるときに確認する。
+**未了:** ルータへ移したあとの宅外（モバイル回線）のスマホ実機で、通常・core-01 停止・K11 停止の各条件を確認する。許可外利用者が管理レンジへ到達できないこと（ACL）は、ポリシーに制限を入れるときに確認する。
+
+## 経緯（net-01）
+
+2026-09-14 に cloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）を作り、`platform/ansible/net.yml` と `roles/tailscale` で配備しました。2026-10-01 にルート承認と tailnet DNS を適用。2026-10-03 に端末の身元ごとルータへ移して net-01 は削除し、リポジトリからも `platform/terraform/services/net`・`net.yml`・`roles/tailscale` を削除しました。
 
 ## 確認コマンド
 
 ```bash
-terraform -chdir=platform/terraform/services/net fmt -check
-terraform -chdir=platform/terraform/services/net validate   # dev override が必要
+ssh root@192.168.10.1 'tailscale status'
+ssh root@192.168.10.1 'tailscale ip -4'
+ssh root@192.168.10.1 'tailscale debug prefs'
+ssh root@192.168.10.1 'uci show tailscale'
 TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
   .venv/bin/python tools/tailscale-net.py status
 host example.com 100.100.100.100
 host pve.apextox.dpdns.org 100.100.100.100
-ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.103 \
-  'sudo tailscale status --json | python3 -m json.tool | head -20'
 ```

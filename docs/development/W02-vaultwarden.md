@@ -1,6 +1,6 @@
 ---
-title: W02 Vaultwardenのservices-01移行
-updated: 2026-09-16
+title: W02 Vaultwardenのapps-01移行（旧services-01）
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -8,19 +8,19 @@ tags:
   - vaultwarden
 ---
 
-# W02 Vaultwardenのservices-01移行
+# W02 Vaultwardenのapps-01移行（旧services-01）
 
-> **更新日** 2026-09-16 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: services-01へ新規構築済み（2026-09-12）。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。ブラウザーでのSSOログインと保管庫作成は実測済み（2026-09-14）。独立バックアップの復元は未確認
+**状態**: apps-01で稼働（2026-09-12にservices-01へ新規構築、2026-10-03にapps-01へ移設）。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。ブラウザーでのSSOログインと保管庫作成は実測済み（2026-09-14）。独立バックアップの復元は未確認
 
 `stacks/vaultwarden/compose.yaml` に本体とOIDC（identityの`vaultwarden`クライアント）の定義がある。[利用・SSO手順](../operations/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
 
-配備先: **services-01**。開発先は `stacks/vaultwarden/`。保管庫を独立した単位で移行・復元できるようにする。
+配備先: **apps-01**（配備当時はservices-01、2026-10-03に移設）。開発先は `stacks/vaultwarden/`。保管庫を独立した単位で移行・復元できるようにする。
 
 ## 実装手順
 

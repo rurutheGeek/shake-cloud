@@ -1,18 +1,15 @@
 ---
-# FreshRSS のネイティブ OIDC を identity（Authentik）に接続する。
+# FreshRSS のネイティブ OIDC を core-01（Authentik）に接続する。
 #
-#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
-#   .venv/bin/ansible-playbook \
-#     -i platform/ansible/inventory.netbox.yml \
-#     -i platform/ansible/inventory.cloud.py \
-#     platform/ansible/media-freshrss-sso.yml --limit i-a06df9a2dfd1ce6db
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-freshrss-sso.yml'
 #
-# 実行には media-01 と identity の両方が解決できる inventory が要る。`media`
-# グループは基盤の NetBox インベントリにも存在し得るため --limit で media-01 を
-# 明示する。前提: identity が configure.py でクライアントを作り、media-freshrss.yml
-# がユニットを配備していること。
+# 実行には media-01 と core-01 の両方が解決できる inventory が要る（NetBox の
+# インベントリの `media` と `identity_provider`）。ホスト名はインスタンスIDなので、
+# 対象を絞るときは `--limit media` のようにグループ名を使う。前提: Authentik が
+# configure.py でクライアントを作り、media-freshrss.yml がユニットを配備していること。
 #
-# client_id/secret は identity VM の secrets/oidc-media.json から読み、標準出力・
+# client_id/secret は core-01 の secrets/oidc-media.json から読み、標準出力・
 # ログには出さない（no_log）。配った後 manage.py up で OIDC を有効にして再起動する。
 - name: Configure FreshRSS native OIDC
   hosts: media

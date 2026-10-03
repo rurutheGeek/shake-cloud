@@ -23,11 +23,11 @@ sops platform/sops/eufy-security.sops.yaml
 HAのネットワークが先に必要なので、`home-assistant.yml` の後に流す。
 
 ```bash
-.venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/eufy-security-ws.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/eufy-security-ws.yml'
 ```
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
+ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.105 \
   'sudo docker logs --tail 50 services-eufy-security-ws-eufy-security-ws-1'
 ```
 
@@ -40,7 +40,7 @@ HAのカスタム統合 `eufy_security`（v8.2.4、digest固定）は `home-assi
 S4はPushを新しいv6（eufy_mega）側で送る。WSが保存したv6トークンがサーバ側で無効になると（同じアカウントで検証用クライアントがログインした直後から始まったため、それが原因と推定）、起動のたびに `v6 push: register_push_token returned a non-zero code`（`code: 401`・`token not exist`）が出て通知が一切届かなくなる（2026-09-14〜09-23に発生）。クライアントはこの401で再ログインしないため、v6のセッションだけを消して再起動する。旧来のセッションは残るのでCAPTCHAは出にくい。
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
+ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.105 \
   'sudo python3 /opt/eufy-security-ws/manage.py reset-mega-session'
 ```
 

@@ -1,6 +1,6 @@
 ---
 title: N02 Tailscaleの復旧経路・DNS
-updated: 2026-10-01
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,15 +10,15 @@ tags:
 
 # N02 Tailscaleの復旧経路・DNS
 
-> **更新日** 2026-10-01 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**区分**: 運用改善・実機確認 ・ **状態**: VM版の復旧経路 `net-01` を作成し、Tailscaleへ参加済み（`100.91.7.69`）。ルート承認と tailnet DNS（AdGuard Home）を適用済み（2026-10-01）。宅外端末での実機検証が未了。
+**区分**: 運用改善・実機確認 ・ **状態**: ルータ（router-01、OpenWrt）上で稼働（2026-10-03に net-01 から移設、net-01 は削除）。経緯: VM版の復旧経路 `net-01` を作成し、Tailscaleへ参加済み（`100.91.7.69`）。ルート承認と tailnet DNS（AdGuard Home）を適用済み（2026-10-01）。宅外端末での実機検証が未了。
 
 ## 目的・現状・配備先
 
 K11とservices-01の停止中も、管理LANへ戻れる経路を残す。[VPN設計](../architecture/vpn.md)が独立経路を要求し、[クラウド運用](../operations/cloud.md)にはTailscale DNSのSERVFAILとサブネットルート未設定の過去記録がある。**2026-10-01、原因は global nameserver 未設定のまま MagicDNS だけが有効だったことと判明し、tailnet DNS を AdGuard Home（`192.168.10.1`）+ `overrideLocalDNS` にして解消した**（[net-01](../operations/net.md)）。宅外のスマホ実機での確認が残る。
 
-ラズパイは導入せず、**cloud VM `net-01`（Tailscale subnet router）**で復旧経路を作る。ラズパイとの違いはK11のホスト障害に巻き込まれることなので、カバー範囲はVM単位の故障まで。配備手順・再実行・ローテーションは[net-01（Tailscale subnet router）](../operations/net.md)を正本とする。
+ラズパイは導入せず、**cloud VM `net-01`（Tailscale subnet router）**で復旧経路を作る（経緯。2026-10-03にルータ router-01 上へ移設し net-01 は削除）。ラズパイとの違いはK11のホスト障害に巻き込まれることなので、カバー範囲はVM単位の故障まで。配備手順・再実行・ローテーションは（移設前の記録として）[net-01（Tailscale subnet router）](../operations/net.md)を正本とする。
 
 ## 変更範囲と実装
 

@@ -1,19 +1,16 @@
 ---
-# Kavita のネイティブ OIDC を identity VM の Authentik に合わせる。
+# Kavita のネイティブ OIDC を core-01（Authentik）に合わせる。
 #
-#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-kavita-sso.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-kavita-sso.yml'
 #
-# 実行には media-01 と identity の両方が解決できる inventory が要る。
-# NetBox のインベントリ（inventory.netbox.yml）と併用するときは、media グループに
-# 基盤ホストが混ざり得るため --limit で media-01 を明示する。
-#
-#   ansible-playbook -i platform/ansible/inventory.netbox.yml \
-#     -i platform/ansible/inventory.cloud.py --limit media-01 \
-#     platform/ansible/media-kavita-sso.yml
+# 実行には media-01 と core-01 の両方が解決できる inventory が要る（NetBox の
+# インベントリの `media` と `identity_provider`）。ホスト名はインスタンスIDなので、
+# 対象を絞るときは `--limit media` のようにグループ名を使う。
 #
 # 前提: 先に media-kavita.yml を実行し、Kavita が起動して bootstrap.py が
 # 管理者（secrets/accounts.json）と Books ライブラリを作っていること。
-# client id/secret は identity VM の secrets/oidc-media.json から読み、
+# client id/secret は core-01 の secrets/oidc-media.json から読み、
 # 標準出力・ログには出さない。
 - name: Configure Kavita native OIDC
   hosts: media

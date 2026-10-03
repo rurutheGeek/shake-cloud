@@ -13,7 +13,7 @@
 初回は静的inventory、以後はapps-01を含む基盤inventoryを使う。
 
 ```bash
-.venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/home-assistant.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/home-assistant.yml'
 ```
 
 - `manage.py init|lock|up|status|down|backup|restart|ensure-http-proxy|ensure-camera|install-integration` は `stacks/identity/` と同じ形。`backup` はsudoで実行し、HAを一時停止して状態と配備ファイルを整合の取れたtarにする。

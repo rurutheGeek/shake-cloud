@@ -1,6 +1,6 @@
 ---
 title: H01 Home Assistant Containerの導入
-updated: 2026-09-13
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,17 +10,17 @@ tags:
 
 # H01 Home Assistant Containerの導入
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: services-01へ配備済み（2026-09-12、HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完
+**状態**: apps-01で稼働（2026-09-12にservices-01へ配備、2026-10-03にapps-01へ移設。HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完
 
-[家電の構成案](../architecture/operations.md#home-devices)は専用HAOSを想定していたが、採用先はservices-01上のContainer。HAOS追加アプリの管理は使わず、必要な周辺サービスは個別Composeで管理する。
+[家電の構成案](../architecture/operations.md#home-devices)は専用HAOSを想定していたが、採用先はapps-01（旧services-01）上のContainer。HAOS追加アプリの管理は使わず、必要な周辺サービスは個別Composeで管理する。
 
-配備先・開発範囲: **services-01。開発先 `stacks/home-assistant/`。本体・設定・自動化・履歴と復元手順**。
+配備先・開発範囲: **apps-01（2026-10-03にservices-01から移設）。開発先 `stacks/home-assistant/`。本体・設定・自動化・履歴と復元手順**。
 
 認証: HAコアはOIDC非対応のため、コミュニティ製OIDC統合 [`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1、digest固定で `custom_components/auth_oidc` へ配備）を追加し、Authentikの公開クライアント `home-assistant` でSSOできるようにした。**ローカルのオーナーアカウントは緊急用に残す**（`roles.user` は設けず、Authentikアプリの `users`／`admins` バインドで利用者を制限する）。
 
@@ -45,7 +45,7 @@ tags:
 
 ## 実機の結果（2026-09-12）
 
-`stacks/home-assistant/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/home-assistant.yml` を配備。プロジェクトは `/opt/services/home-assistant`、状態は `/srv/services/home-assistant/config`、イメージは `compose.lock.yaml` でdigest固定（HA 2026.9.2）。
+`stacks/home-assistant/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/home-assistant.yml` を配備。プロジェクトは `/opt/home-assistant`、状態は `/srv/home-assistant/config`（2026-10-03の移設後。配備当時は `/opt/services/home-assistant`・`/srv/services/home-assistant/config`）、イメージは `compose.lock.yaml` でdigest固定（HA 2026.9.2）。
 
 - `services-01` でコンテナを起動し、`127.0.0.1:8123` のHTTP応答・healthy・コンテナ再起動後の復帰を確認した。既定の履歴DBは専用保存先にある。
 - LANからの入口は既存Caddyへ `ha.apextox.dpdns.org`（`upstream 127.0.0.1:8123`）を追加し、Let's Encrypt証明書でHTTPS化した（`platform/terraform/dns.yaml`・`20-dns`・`tls_proxy`）。オーナー作成前は未認証の `HTTP 302`（オンボーディング）を確認済み。作成後の未認証拒否は確認する。

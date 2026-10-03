@@ -1,6 +1,6 @@
 ---
 title: ホームラボの全体像（詳細）
-updated: 2026-09-23
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ホームラボの全体像（詳細）
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -24,7 +24,7 @@ tags:
 
 ## 1. 全体像（役割とVM）
 
-読み方は「**役割ごとにVMを分ける → VMの中でサービスを分ける**」の1つだけです。HTTPSの入口は別VMではなく、**各VMのCaddy** が自分の名前だけを受けます（§13）。
+読み方は「**役割ごとにVMを分ける → VMの中でサービスを分ける**」の1つだけです。HTTPSの入口は **core-01 のCaddy 1台** で、ここから各VMへ中継します（§13）。
 
 ```mermaid
 flowchart TB
@@ -35,17 +35,15 @@ flowchart TB
   subgraph host["物理ホスト apextox（Proxmox VE）"]
     router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS（AdGuard Home）"]
     subgraph infra["基盤VM platform プール"]
-      identity["identity<br/>共通ログイン"]
-      cloud01["cloud-01<br/>自作クラウド"]
-      services01["services-01<br/>台帳・docs・パスワード・家電"]
-      storage["storage-s3<br/>S3とバックアップ"]
+      core01["core-01<br/>共通ログイン・台帳・HTTPSの入口"]
+      cloud01["cloud-01<br/>自作クラウド・S3"]
+      monitor["monitor-01<br/>監視"]
       k8s["k8s-cp/worker<br/>AWX・DB・関数"]
     end
     subgraph svcpool["サービスVM cloud プール"]
       media["media-01<br/>メディア"]
-      monitor["monitor-01<br/>監視"]
+      apps["apps-01<br/>docs・パスワード・家電"]
       game["game1<br/>ゲーム・AI（GPU）"]
-      net01["net-01<br/>Tailscale 復旧経路"]
     end
   end
   switch["TL-SG605"]
@@ -54,41 +52,41 @@ flowchart TB
   internet --> router
   router --> switch
   switch --> aterm --> devices
-  switch --> services01
+  switch --> core01
+  switch --> apps
   switch --> media
   switch --> monitor
   switch --> game
-  remote -. Tailscale .-> net01
-  net01 -. 復旧経路 .-> switch
-  devices -- "HTTPS名（各VMのCaddyがTLS終端）" --> services01
-  devices --> media
-  devices --> monitor
+  remote -. Tailscale .-> router
+  devices -- "HTTPS名（core-01のCaddyがTLS終端）" --> core01
+  core01 --> apps
+  core01 --> media
+  core01 --> monitor
+  core01 --> cloud01
   devices --> game
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
-  services01 --> storage
-  media --> storage
+  media --> cloud01
   monitor --> k8s
-  router -. "IP台帳（予約・リース）" .-> services01
+  router -. "IP台帳（予約・リース）" .-> core01
 ```
 
 | 役割 | VM（プール） | 配分（計画。実機は台帳） | 中身 |
 | --- | --- | --- | --- |
 | 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
 | ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
-| 共通ログイン | identity（platform） | 2 / 4GiB / 32GiB | Authentik。SSO・招待・復旧 |
-| 自作クラウド | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル |
-| 台帳・docs・パスワード・家電 | services-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | NetBox・Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・Home Assistant・Eufy中継・CUPS・ポケモン翻訳 |
-| S3・バックアップ | storage-s3（platform） | 2 / 1GiB / OS16＋データ32GiB | Garage（S3互換） |
+| 共通ログイン・台帳・HTTPSの入口 | core-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | Authentik（SSO・招待・復旧）・NetBox・Caddy（AdGuardとルータ管理画面の中継も） |
+| 自作クラウド・S3 | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル・Garage（S3互換） |
+| docs・パスワード・家電 | apps-01（cloud） | 2 / 4GiB / OS32GiB＋データ16GiB | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳 |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（cloud） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
+| 監視 | monitor-01（platform） | 2 / 2GiB / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
-| 復旧経路 | net-01（cloud） | 1 / 512MiB / OS10GiB | Tailscale subnet router。宅外から管理LANへ（N02） |
+| 復旧経路 | router-01（platform） | （router-01と共用） | Tailscale subnet router（OpenWrt上）。宅外から管理LANへ（N02） |
 | 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
-| 利用者VM（例） | win11pro（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
+| 利用者VM（例） | win-01（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
-VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVMは自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
+VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVM（media-01・apps-01・game1・win-01・android-01）は自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
 
 **ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](network-auth.md)、設定は[router-01の設定まとめ](../operations/router-config.md)。**
 
@@ -155,12 +153,12 @@ flowchart TB
 
 **GPUは game1 へパススルー**しており、ゲーム配信と将来のローカルAI・RAGで共有します（§10）。停止中も含めた全VMの割当合計は物理RAMを超えるため、全台同時起動はできません。メモリはバルーニングを前提に「ノードに4GiB残す」「ディスク実使用率85%で断る」の2つでホストを守ります。
 
-## 4. 共通ログイン（identity・VMID 110）
+## 4. 共通ログイン（Authentik・core-01）
 
 ```mermaid
 flowchart LR
   user["利用者"]
-  ak["Authentik<br/>identity・VMID 110"]
+  ak["Authentik<br/>core-01"]
   oidc["OIDCアプリ<br/>クラウド・Homarr・Grafana・<br/>Nextcloud・Kavita・FreshRSSなど"]
   forward["Forward Auth<br/>Navidrome・MeTube・KHInsider・CUPS・AdGuard Home"]
   passkey["パスキー・Email OTP<br/>パスワード再設定"]
@@ -171,7 +169,7 @@ flowchart LR
   ak --> passkey
 ```
 
-Authentik（既製）を identity VM に置き、**その設定を自作コードで冪等に整えます**。グループは `users`（一般）と `admins`（管理者）の2つだけです。
+Authentik（既製）を core-01 に置き、**その設定を自作コードで冪等に整えます**。グループは `users`（一般）と `admins`（管理者）の2つだけです。
 
 - `configure.py`: OIDCクライアントとForward Auth、`sub` は `user_uuid`、Kavita・Vaultwarden向けの検証済みメール用スコープマッピング。
 - `invitations.py`: 招待専用フロー。1回限り・24時間で、ユーザー名・メール・グループは招待側が固定。SMTP（Gmail）で送り、送れなければリンクを0600で保存。
@@ -234,12 +232,11 @@ flowchart LR
 
 設計上の決めごとの要点: 認証はOIDCとアクセスキー `sca_<keyid>.<secret>` の2経路。**VMは全員に見え、操作は所有者と `admins` だけ**。サイズは自由入力で、vCPU・メモリ変更は停止中のみ。イメージは12GiBまでAPIへ直接アップロード。WebコンソールはnoVNCを同梱（CDN不使用）。上限と容量は `platform/terraform/cloud.yaml` を既定に `admins` が上書きでき、「ノードに4GiB残す」「ディスク85%」の保護は常に効きます。詳細は[最小クラウドとProvider](cloud.md)にあります。
 
-## 6. services-01（台帳・docs・パスワード・家電）
+## 6. apps-01（docs・パスワード・家電）
 
 ```mermaid
 flowchart LR
-  caddy["Caddy<br/>services-01"]
-  netbox["NetBox<br/>台帳"]
+  caddy["Caddy<br/>core-01（入口）"]
   docs["Shake Lab Docs<br/>nginx"]
   homarr["Homarr<br/>入口ダッシュボード"]
   vault["Vaultwarden"]
@@ -248,7 +245,6 @@ flowchart LR
   eufy["eufy-security-ws"]
   cups["CUPS・print-api"]
 
-  caddy --> netbox
   caddy --> docs
   caddy --> homarr
   caddy --> vault
@@ -258,15 +254,14 @@ flowchart LR
   ha --> eufy
 ```
 
-services-01 は「家の台帳と道具」を置くVMです。サービスは別々のComposeプロジェクトで、ポートは127.0.0.1に閉じ、入口は同じVMのCaddyです。
+apps-01 は「家の道具」を置くクラウドVM（192.168.10.105）です。サービスは別々のComposeプロジェクトで、配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>` です。入口は core-01 のCaddyで、そこから中継されます。台帳のNetBoxは認証（Authentik）と同じ core-01 にあります。
 
 | サービス | 中身 | 認証 |
 | --- | --- | --- |
-| NetBox | VM・IP・タグの台帳。Ansibleの動的インベントリとクラウドAPIが読む | OIDC |
 | Shake Lab Docs | この文書サイト。原稿はGitの `docs/` が正本で、Ansibleが `mkdocs --strict` で配備 | なし（LAN内） |
 | Homarr | サービスの入口ダッシュボード。タイルと権限をコードから冪等反映 | OIDC（閲覧 `users`・編集 `admins`） |
 | Vaultwarden | パスワード管理。一般登録と組織招待は無効 | OIDC（マスターパスワードは別） |
-| LibreSpeed | 端末↔services-01の実効速度テスト。履歴はSQLiteに保存 | なし（LAN内。統計ページはパスワード） |
+| LibreSpeed | 端末↔apps-01の実効速度テスト。履歴はSQLiteに保存 | なし（LAN内。統計ページはパスワード） |
 | ポケモン翻訳 | 用語を公式名に固定する翻訳サイトと拡張機能の配布。翻訳は閲覧者のブラウザから Google翻訳へ | なし（LAN内。静的ファイルのみ） |
 | Home Assistant | 家電の操作・自動化 | OIDC＋緊急用ローカル（§8） |
 | eufy-security-ws | EufyクラウドとHAをつなぐWebSocket中継。LAN非公開 | HAのComposeネットワーク内だけ |
@@ -314,11 +309,11 @@ media-01 はクラウドAPIで作った `cloud` プールのVMです。データ
 
 導線は「MeTubeで取り込む → Nextcloudの `music` に置く → タグを編集する → Navidromeで再生する」です（[音楽・取り込み・タグ](../services/music.md)）。
 
-## 8. 家電（Home Assistant on services-01）
+## 8. 家電（Home Assistant on apps-01）
 
 ```mermaid
 flowchart LR
-  ha["Home Assistant<br/>services-01"]
+  ha["Home Assistant<br/>apps-01"]
   eufyws["eufy-security-ws<br/>中継"]
   eufy["Eufy<br/>eufyCam S4・SmartTrack"]
   hub["SwitchBot Hub Mini"]
@@ -337,11 +332,11 @@ flowchart LR
   sb -.-> alexa
 ```
 
-家電は services-01 の Home Assistant Container に集めています。SSOはAuthentik、遠隔操作は現状LAN内だけです。
+家電は apps-01 の Home Assistant Container に集めています。SSOはAuthentik、遠隔操作は現状LAN内だけです。
 
 | 対象 | 接続 | 現状 |
 | --- | --- | --- |
-| Home Assistant | HA 2026.9.2。設定は `/srv/services/home-assistant/config` が正本 | SSO＋緊急用ローカル。バックアップと復元試験は未完 |
+| Home Assistant | HA 2026.9.2。設定は `/srv/home-assistant/config` が正本 | SSO＋緊急用ローカル。バックアップと復元試験は未完 |
 | Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](../development/H04-eufy.md)） |
 | SwitchBot | Hub Mini経由のSwitchBot Cloud統合 | 鍵・ドアセンサー・赤外線家電（エアコン・テレビ・照明等）のエンティティを確認。実機操作は確認待ち |
 | プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](../services/printer.md)） |
@@ -373,7 +368,7 @@ flowchart LR
   ups --> hoststop
 ```
 
-監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは identity のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
+監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは Authentik のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
 
 | 見るもの | 方法 |
 | --- | --- |
@@ -462,11 +457,11 @@ kubeadm＋Ciliumのクラスタです。**自作クラウドの「database」と
 | DB提供 | CloudNativePG（`databases` namespace、APIのServiceAccountは最小RBAC） |
 | 関数 | Knative + Kourier（関数URLはHTTPS） |
 
-## 12. ストレージとバックアップ（storage-s3ほか）
+## 12. ストレージとバックアップ（Garageほか）
 
 ```mermaid
 flowchart LR
-  garage["Garage<br/>storage-s3・単一ノード"]
+  garage["Garage<br/>cloud-01・単一ノード"]
   r2["Cloudflare R2<br/>Terraform state"]
   media["media-01の原本<br/>データディスク"]
   adb["管理DB<br/>日次バックアップ"]
@@ -482,7 +477,7 @@ flowchart LR
 
 | 対象 | 実体 | 注意点 |
 | --- | --- | --- |
-| S3互換ストレージ | Garageをstorage-s3に単一ノードで | **冗長性なし。唯一の保存先・唯一のバックアップにしない** |
+| S3互換ストレージ | Garageをcloud-01に単一ノードで（`http://192.168.10.205:3900`） | **冗長性なし。唯一の保存先・唯一のバックアップにしない** |
 | Terraform state | Cloudflare R2 | stateには秘密値が入り得るためGitへ入れない |
 | メディア原本 | media-01のデータディスク。`storage/`（設定・DB）と `library/`（books・music・docs・inbox） | volumeは `prevent_destroy`。アプリのバックアップに原本は含まない |
 | 管理DB | cloud-01で毎日バックアップ（14世代）。最終成功時刻をメトリクス化し36時間停滞でアラート | 同じホストのディスクなのでディスク故障対策にならない。外部コピーは未着手 |
@@ -499,11 +494,11 @@ flowchart TB
   router["router-01（OpenWrt）<br/>FW・DHCP・AdGuard Home"]
   lan["家庭内LAN"]
   dns["Cloudflare DNS<br/>内部IPを名前で引く"]
-  caddy["各VMのCaddy<br/>Let's Encrypt DNS-01"]
+  caddy["core-01のCaddy<br/>Let's Encrypt DNS-01"]
   fixed["基盤VM<br/>静的割り当て"]
   cloudips["サービスVM・利用者VM<br/>APIが採番"]
   metallb["MetalLB<br/>KubernetesのLB"]
-  tailscale["net-01<br/>Tailscale subnet router（N02）"]
+  tailscale["router-01<br/>Tailscale subnet router（N02）"]
   vpn["セルフホストVPN<br/>未構築"]
 
   net -->|"80/443は使えない"| router
@@ -520,11 +515,11 @@ flowchart TB
 
 - **入口も自作**: 家庭内ルータは K11 上の OpenWrt VM `router-01`（`192.168.10.1`）です。ファイアウォール・DHCP・DNS（AdGuard Home）を担い、設定の正本は `platform/openwrt/`。2026-09-20 に市販ルータから切り替えました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。**K11が落ちると家中のネットも落ちます**（[障害モード](failure-modes.md)）。ネットワーク単体の図は[ネットワーク・公開範囲・SSO](network-auth.md)にあります。
 - **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
-- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**各VMのCaddy**（`stacks/tls-proxy/`）が自分の名前だけを受けて `127.0.0.1` のサービスへ中継します。証明書はDNS-01で取得。**入口を1台に集めない**のは、認証基盤を他ホストの障害に巻き込まないためです。
+- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として cloud VM `net-01` の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[net-01（Tailscale subnet router）](../operations/net.md)・[N02](../development/N02-tailscale.md)。
+- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・**ルート承認と tailnet DNS は 2026-10-01 に適用済み**。宅外端末での実機検証が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
 - **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
-- **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。net-01 作成前に確認）。
+- **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 
 ## 14. 開発・運用の進め方（dev-a・dev-b）
 
@@ -549,7 +544,7 @@ flowchart LR
 | 対象 | 道具 | 原則 |
 | --- | --- | --- |
 | 基盤VM・台帳・DNS | Terraform（`platform/terraform/*.yaml`） | 秘密でない宣言はGitのYAML。`site.yaml` は実機から生成 |
-| ゲストの中 | Ansible（`platform/ansible/`） | NetBoxの動的インベントリと、cloud VM用の `inventory.cloud.py`。再実行で変更ゼロを目指す |
+| ゲストの中 | Ansible（`platform/ansible/`） | NetBoxの動的インベントリ（`platform/ansible/inventory.netbox.yml`）に統一。再実行で変更ゼロを目指す |
 | Kubernetes | Flux + SOPS | `main` の `platform/flux` を適用。秘密値はageで暗号化 |
 | クラウド | shakecloud API・CLI・Provider | 1サービス1 state。Providerの資格情報はstateへ書かない |
 | 秘密値 | SOPS + age（`platform/sops/`） | 自動生成し、復号鍵は作業機とクラスタにだけ置く |
@@ -562,7 +557,7 @@ flowchart LR
 | --- | --- | --- |
 | Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](../development/H04-eufy.md)） |
 | VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
-| 復旧用Tailscale | **subnet router `net-01` を作成しTailscaleへ参加済み（2026-09-14、`100.91.7.69`）**。ルート承認・ACL・宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
+| 復旧用Tailscale | **subnet router を router-01（OpenWrt）で稼働中（2026-09-14に cloud VM `net-01`、2026-10-03 に net-01 を廃止して移設）**。ルート承認と tailnet DNS は 2026-10-01 に適用済みで、宅外端末での実機検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
 | VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
 | 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
 | メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |

@@ -1,6 +1,6 @@
 ---
 title: 用語集
-updated: 2026-09-23
+updated: 2026-10-03
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 用語集
 
-> **更新日** 2026-09-23 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-03 ・ **区分** リファレンス ・ **読む人** 全員
 
 このドキュメントに出てくる固有名と略語です。**詳しい説明はリンク先が正本**で、ここは「読み進めるために最低限いる説明」だけを置きます。
 
@@ -20,14 +20,13 @@ tags:
 | --- | --- |
 | `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる。管理は `192.168.10.10` |
 | `router-01` | **家庭内ルータ（OpenWrt）。** K11上のVM（`192.168.10.1`）で、ファイアウォール・DHCP・DNSを担う（[router-01](../operations/router.md)） |
-| `identity` | 共通ログイン（Authentik）のVM（[認証基盤](../operations/identity.md)） |
-| `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB（[クラウドAPIの構築](../operations/cloud.md)） |
-| `services-01` | 台帳・手順書サイト・Homarr・パスワード・家電・印刷・速度テスト |
-| `storage-s3` | S3互換オブジェクトストア Garage（[Garage](../operations/garage.md)） |
+| `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの構築](../operations/cloud.md)・[Garage](../operations/garage.md)） |
+| `core-01` | 共通ログイン（Authentik・[認証基盤](../operations/identity.md)）・台帳（NetBox）・HTTPSの入口（Caddy）。旧 `services-01` |
+| `apps-01` | アプリ置き場（クラウドVM）。Homarr・パスワード・家電・印刷・速度テスト・手順書サイトなど |
 | `media-01` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend受信機 |
-| `monitor-01` | Prometheus・Alertmanager・Grafana |
+| `monitor-01` | Prometheus・Alertmanager・Grafana（基盤VM） |
 | `game1` | ゲームとローカルAI。GPUをパススルーしている |
-| `net-01` | 宅外から管理LANへ戻るための subnet router（[net-01](../operations/net.md)） |
+| subnet router | 宅外から管理LANへ戻るための Tailscale の中継。`router-01` の上で動く（[詳細](../operations/net.md)） |
 | `k8s-cp-01` / `k8s-worker-*` | Kubernetes。AWX・DB提供・関数提供が載る（[Kubernetes](../operations/kubernetes.md)） |
 | `dev-a` / `dev-b` | 開発VM（[開発VMの使い方](../services/devvm.md)） |
 

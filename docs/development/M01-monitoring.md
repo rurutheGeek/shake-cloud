@@ -1,6 +1,6 @@
 ---
 title: M01 監視（Prometheus・Grafana）
-updated: 2026-09-23
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,15 +10,15 @@ tags:
 
 # M01 監視（Prometheus・Grafana）
 
-> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**区分**: 新規実装 ・ **状態**: **配備済み（monitor-01 `192.168.10.102`、`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み。VMごとの実使用メモリを見るダッシュボード（Shake Lab VM memory）と、ホストのメモリ逼迫アラートを追加済み。game1のホスト・セッション使用量をGrafanaで見るゲームサーバー使用量ダッシュボードを追加済み。**Proxmoxホストへnode_exporterとSMART/NVMeのtextfile collectorを導入し、ホスト詳細（Shake Lab host）・ストレージ詳細（Shake Lab storage）の2ダッシュボードと、6TB HDDの容量・SMART・マウント消失アラートを追加済み。**
+**区分**: 新規実装 ・ **状態**: **配備済み（monitor-01 `192.168.10.210`。2026-10-03にクラウドVMから基盤VM［VMID 120］へ移行。`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み。VMごとの実使用メモリを見るダッシュボード（Shake Lab VM memory）と、ホストのメモリ逼迫アラートを追加済み。game1のホスト・セッション使用量をGrafanaで見るゲームサーバー使用量ダッシュボードを追加済み。**Proxmoxホストへnode_exporterとSMART/NVMeのtextfile collectorを導入し、ホスト詳細（Shake Lab host）・ストレージ詳細（Shake Lab storage）の2ダッシュボードと、6TB HDDの容量・SMART・マウント消失アラートを追加済み。**
 
 ## 目的・現状・配備先
 
 サービスの稼働とホスト資源を1か所で見える化し、停止・容量・UPS異常に気づけるようにする。Homarrのタイル状態は「その場で赤/緑」を見るだけで、履歴・通知・証明書期限・資源推移を持たない。監視は別のポータル（Grafana）にする。
 
-配備先: **monitor-01（新規cloud VM）**。開始予算は2vCPU／2GiB、OS32GiB＋データ32GiB。Prometheusの保持期間と実測で確定する。`platform/terraform/services/monitor/` の宣言と `stacks/monitoring/` のComposeで作る。基盤VM（`10-platform`）やservices-01へ同居させない。
+配備先: **monitor-01（基盤VM、`hosts.yaml`・VMID 120、`192.168.10.210`。当初計画は新規cloud VM）**。開始予算は2vCPU／2GiB、OS32GiB＋データ32GiB。Prometheusの保持期間と実測で確定する。`platform/terraform/services/monitor/` の宣言と `stacks/monitoring/` のComposeで作る。基盤VM（`10-platform`）やservices-01へ同居させない。
 
 ## 構成
 

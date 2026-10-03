@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Declare net-01's control-plane state in the Tailscale admin console.
+"""Declare the subnet router's control-plane state in the Tailscale console.
 
-net-01's own configuration -- the auth key, the advertised route, IP
-forwarding -- is Ansible's job (platform/ansible/net.yml). Two settings that
-make the subnet router useful live only in the Tailscale admin console, where
-a click leaves no review and no history:
+The router's own configuration -- the auth key, the advertised route, IP
+forwarding -- is the OpenWrt image's job (platform/openwrt/rootfs/; the
+subnet router runs on router-01 since 2026-10-03). Two settings that make the
+subnet router useful live only in the Tailscale admin console, where a click
+leaves no review and no history:
 
 * approving the advertised LAN route, and
 * pointing the tailnet's DNS at AdGuard Home, so every device that uses
@@ -13,7 +14,7 @@ a click leaves no review and no history:
 
 This tool reads the current state first, prints what it sees, and on `apply`
 writes only the difference. It touches exactly two things: the enabled routes
-on net-01 (add the prefix site.yaml declares) and the tailnet DNS
+on the device (add the prefix site.yaml declares) and the tailnet DNS
 configuration: AdGuard Home at the LAN gateway is the only global resolver and
 `overrideLocalDNS` is true. MagicDNS, split DNS and search paths are sent back
 unchanged; it never writes the policy file (`status` summarises it so the admin
@@ -47,7 +48,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / 'platform/terraform/site.yaml'
 API = 'https://api.tailscale.com/api/v2'
 TAILNET = '-'  # the tailnet that owns the API token
-HOSTNAME = 'net-01'
+# 端末の名前。router-01 へ移すときに管理画面の名前を変えた場合はここを直す
+HOSTNAME = os.environ.get('TAILSCALE_DEVICE', 'net-01')
 
 
 class TailscaleError(SystemExit):
@@ -72,12 +74,12 @@ def routes_to_enable(advertised, enabled, prefix):
     """The enabled-route list with the LAN prefix added, or None if it is there.
 
     The API replaces the whole list, so existing entries are kept. A prefix
-    net-01 does not advertise cannot be enabled: Ansible must run first.
+    the device does not advertise cannot be enabled: configure it first.
     """
     if prefix not in advertised:
         raise TailscaleError(
-            f'net-01 は {prefix} を広告していません（advertised={advertised}）。'
-            ' platform/ansible/net.yml を先に実行してください')
+            f'端末は {prefix} を広告していません（advertised={advertised}）。'
+            ' docs/operations/net.md の手順で先に設定してください')
     if prefix in enabled:
         return None
     return sorted(set(enabled) | {prefix})
@@ -176,7 +178,8 @@ def main():
     preferences = configuration.get('preferences') or {}
     policy = client.policy()
 
-    print(f"net-01:            {device_id(device)}  {', '.join(device.get('addresses') or [])}")
+    label = device.get('hostname') or HOSTNAME
+    print(f"{label}: {device_id(device)}  {', '.join(device.get('addresses') or [])}")
     print(f"advertised routes: {', '.join(advertised) or '(none)'}")
     print(f"enabled routes:    {', '.join(enabled) or '(none)'}")
     print(f"nameservers:       {', '.join(filter(None, nameservers)) or '(none)'}")

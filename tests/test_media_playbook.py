@@ -63,11 +63,10 @@ class EntryPointTests(unittest.TestCase):
         self.assertFalse(any('romm' in name.lower() for name in self.imports))
         self.assertIn('RomM', self.text)
 
-    def test_it_warns_about_the_netbox_media_group(self):
-        # `media` also exists in inventory.netbox.yml (media-stack tag), so the
-        # entry point has to say which inventory to use and how to limit it.
+    def test_it_documents_the_netbox_media_group(self):
+        # `media` comes from the media-stack tag in inventory.netbox.yml, and the
+        # host name is the instance ID, so the entry point has to say how to limit.
         self.assertIn('inventory.netbox.yml', self.text)
-        self.assertIn('inventory.cloud.py', self.text)
         self.assertIn('--limit', self.text)
 
     def test_it_documents_staged_execution_with_unit_playbooks(self):

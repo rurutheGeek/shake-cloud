@@ -1,6 +1,6 @@
 ---
 title: 設計と決定の入口
-updated: 2026-09-23
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -9,13 +9,13 @@ tags:
 
 # 設計と決定の入口
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **この節は「なぜそう作ったか」を残す場所です。** 手順は[運用手順](../operations/index.md)、実機の状態は[配備台帳](../operations/handover.md)、これからの作業は[開発計画](../development/index.md)が正本で、食い違ったらそちらが正しいと考えてください。
 
 いま何がどのVMで動いているかを1枚で知りたいときは[ホームラボの全体像](overview.md)を先に読んでください。このページは、その形になるまでに決めた前提と選択の記録です。
 
-**状態**: Proxmox・Kubernetes・クラウドAPI・identity・メディア・家電・監視は構築済み。ゲーム（Wolf・Azahar）とVLANの実機切替、VPN、既存環境からのメディアデータ移行は未完了。
+**状態**: Proxmox・Kubernetes・クラウドAPI・認証（Authentik）・メディア・家電・監視は構築済み。ゲーム（Wolf・Azahar）とVLANの実機切替、VPN、既存環境からのメディアデータ移行は未完了。
 
 ## この節のページ
 
@@ -38,9 +38,9 @@ tags:
 ## 前提と合意した範囲
 
 - 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
-- 新しいルータ・スイッチは購入しない。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**（[N06](../development/N06-router.md)・[router-config](../operations/router-config.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路はラズパイではなく cloud VM `net-01`（Tailscale subnet router）に置く。
+- 新しいルータ・スイッチは購入しない。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**（[N06](../development/N06-router.md)・[router-config](../operations/router-config.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路はラズパイではなく router-01（OpenWrt）上のTailscale subnet routerに置く。
 - サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
-- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantはservices-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
+- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantなどのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
 - 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。**4機能とも実装済み・実機確認済み**（後者2つは Kubernetes 構築後に追加した）。
@@ -58,18 +58,18 @@ tags:
 | --- | --- | --- |
 | 仮想化・VM提供 | Proxmox VE | K11 |
 | 常用Kubernetes基盤 | kubeadm + containerd + Cilium（構築済み） | control plane×1、worker-01。worker-02は必要量から起動判断（2026-09-12時点でcp・worker-01は停止中） |
-| アプリの配備 | VMはCompose・Ansible、クラスタはFlux | services-01・media-01・monitor-01・game1・常用Kubernetes |
+| アプリの配備 | VMはCompose・Ansible、クラスタはFlux | core-01・apps-01・media-01・monitor-01・game1・常用Kubernetes |
 | サーバレスHTTP実行 | Knative Serving + Kourier | Kubernetes |
-| S3互換ストレージ | Garage（当初は単一ノード） | 小型ストレージVM |
+| S3互換ストレージ | Garage（当初は単一ノード） | cloud-01 |
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
 | 自作クラウド | Go API・ジョブ・管理DB、Terraform Provider | APIはcloud-01のCompose、Providerは開発VM |
-| ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外の認証VM |
-| VPN・宅外からの監視 | Tailscale（復旧経路は cloud VM `net-01`）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、net-01 は cloud プールのVM。対象VMへagent |
+| ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外のcore-01 |
+| VPN・宅外からの監視 | Tailscale（復旧経路は router-01 上の subnet router）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、対象VMへagent |
 | DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **router-01（K11 上の OpenWrt VM）**。2026-09-20 に dnsmasq から移行 |
-| 公開入口 | Caddy（各ホストでTLS終端） | 各VM（identity・services-01・media-01・monitor-01・cloud-01）。公開用VMはN04 |
-| 家電・自動化 | Home Assistant Container（配備済み） | services-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
-| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（新規cloud VM）。UPS・証明書・資源を監視。DNSは router-01 の AdGuard Home、復旧経路は net-01 |
-| 印刷 | CUPS（services-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
+| 公開入口 | Caddy（core-01の1台でTLS終端し、monitor-01・media-01・apps-01・cloud-01へ中継） | core-01。公開用VMはN04 |
+| 家電・自動化 | Home Assistant Container（配備済み） | apps-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
+| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（基盤VM）。UPS・証明書・資源を監視。DNSは router-01 の AdGuard Home、復旧経路は router-01 のTailscale |
+| 印刷 | CUPS（apps-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
 | ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
 | 音楽タグの編集 | Nextcloudの自作アプリ `shake_tags` とタグAPI | media-01。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える（専用GUIコンテナは2026-09-13に撤去） |
 | LocalSend | 各端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認） |
@@ -103,16 +103,16 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 | 項目 | 現状（2026-09-20） |
 | --- | --- |
 | ネットワーク（ルータ・DNS・DHCP） | **router-01（K11 上の OpenWrt VM）へ切替済み（2026-09-20）。** Aterm は AP モードの Wi-Fi 専用。DNS は AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）、IPv6 は odhcpd の relay ＋ ndppd。予約・リースは NetBox と同期する。手順は[router-01](../operations/router.md)・[設定まとめ](../operations/router-config.md) |
-| メディア・認証 | Homarr・Vaultwarden・Home Assistantはservices-01、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
+| メディア・認証 | Homarr・Vaultwarden・Home Assistantはapps-01（旧services-01）、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
 | ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
 | ホストの読み取り | Ansible `survey-pve.yml` として実装済み。読み取りのみ |
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
 | クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。2026-09-12時点でcp・worker-01・worker-02は停止中（起動は[配備台帳](../operations/handover.md)）。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
-| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは identity サービスで実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
-| Home Assistantと家電連携 | **配備済み（2026-09-12）**: services-01のContainerを `https://ha.apextox.dpdns.org` でHTTPS化（LAN内。本体は `127.0.0.1:8123`）。Authentik OIDCと緊急用ローカルオーナー。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り。手順は[利用者向けHA](../services/home-assistant.md)・[H01](../development/H01-home-assistant.md) |
-| 監視・印刷・転送 | **監視はmonitor-01へ配備（2026-09-13、M01）**: Prometheus・Alertmanager・Grafana・exporter。**印刷**はCUPS（services-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは Authentik（core-01）で実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
+| Home Assistantと家電連携 | **配備済み（2026-09-12）**: apps-01（当時はservices-01）のContainerを `https://ha.apextox.dpdns.org` でHTTPS化（LAN内。本体は `127.0.0.1:8123`）。Authentik OIDCと緊急用ローカルオーナー。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り。手順は[利用者向けHA](../services/home-assistant.md)・[H01](../development/H01-home-assistant.md) |
+| 監視・印刷・転送 | **監視はmonitor-01へ配備（2026-09-13、M01）**: Prometheus・Alertmanager・Grafana・exporter。**印刷**はCUPS（apps-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
 | 公開Web統合 | N04の独立計画。公開条件成立後にVM追加 |
 

@@ -282,9 +282,8 @@ class MediaSsoPlaybookTests(unittest.TestCase):
                          "{{ media_sso_identity_host | default((groups.get('identity_provider') or ['identity'])[0]) }}")
         self.assertTrue(tasks[0]['no_log'])
 
-    def test_the_run_is_limited_to_the_media_instance(self):
-        for fragment in ('--limit', 'inventory.netbox.yml', 'inventory.cloud.py',
-                         'i-a06df9a2dfd1ce6db'):
+    def test_the_run_is_limited_to_the_media_group(self):
+        for fragment in ('--limit media', 'inventory.netbox.yml'):
             self.assertIn(fragment, self.text)
 
     def test_the_secret_is_only_passed_through_the_environment(self):

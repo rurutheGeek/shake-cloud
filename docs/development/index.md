@@ -1,6 +1,6 @@
 ---
 title: 機能別VMと並列開発計画
-updated: 2026-10-02
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -9,9 +9,9 @@ tags:
 
 # 機能別VMと並列開発計画
 
-> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベントは2026-09-23にHAで確認済み。ライブ映像は新WebRTC方式のため公開ソフトでは不可）。H05はネイティブleo_rtcの自前実装で、wake・ICE・KCP・候補交換まで実機で成立（開始コマンドが未解決）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
+**状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備（2026-10-03にapps-01へ移設）し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベントは2026-09-23にHAで確認済み。ライブ映像は新WebRTC方式のため公開ソフトでは不可）。H05はネイティブleo_rtcの自前実装で、wake・ICE・KCP・候補交換まで実機で成立（開始コマンドが未解決）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
 作業環境は既存dev-a／dev-bです。[開発参加ガイド](../onboarding.md)から接続し、下のIDから担当する機能を選びます。**W01・A01などの番号は識別用で、優先度や実施順ではありません。** 同じVMへ載せる機能でも独立して着手・完了できるものを別文書にしています。
 
@@ -28,15 +28,16 @@ tags:
 
 | 配置先 | 機能群 | vCPU / RAM | ディスク・停止単位 |
 | --- | --- | --- | --- |
-| services-01（既存） | NetBox・MkDocs・Home Assistant Container・VPN・Homarr・Vaultwarden | 4 / 8GiB | 現行容量と実データを確認。常時VM内で別Compose・別保存先 |
+| core-01（旧services-01、2026-10-03改名） | Authentik・NetBox・HTTPS入口のCaddy | 4 / 8GiB | 現行容量と実データを確認。常時VM内で別Compose・別保存先 |
+| apps-01（クラウドVM、`192.168.10.105`、2026-10-03に移設） | Homarr・Vaultwarden・LibreSpeed・ドキュメントサイト・mail-view・CUPS／印刷API・ポケモン翻訳・Home Assistant・eufy-security-ws・eufy-leo-rtc（VPNは計画のみ） | 2 / 4GiB（下限3GiB） | `/opt/<アプリ名>`・`/srv/<アプリ名>` |
 | game1（既存） | ゲーム・RomM・Ollama・ポケモンAI一式・汎用RAG・Discord Bot | 8 / 現行12GiB、実測後16GiB候補 | 現行ディスクを維持しAI・ROM容量を測定。VM停止中はAI・Bot・ライブラリも停止 |
 | media-01（VM作成済み） | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPIと依存DB | 4 / 6GiB | OS32＋データ64GiBを仮予算。原本・索引・WAL・復元領域から確定 |
 | 既存Kubernetes | AWX・DB提供（CNPG）・関数提供（Knative） | cp 2 / 3GiB、worker-01 4 / 8GiB | 固定RAM。worker-02は必要量から起動・join判断 |
 | public-edge（条件成立後） | 外部公開Webの入口 | 1 / 1GiB | OS16GiB。公開要件が揃った時点でVM追加 |
 
-AI専用VMは作りません。Homarr・VaultwardenをKubernetesへ移す計画もありません。Kubernetesは既存のOperator・関数実行の仕組みに価値がある用途に残します。identity・cloud-01・storage-s3と既存開発VMの所有・配置は維持します。
+AI専用VMは作りません。Homarr・VaultwardenをKubernetesへ移す計画もありません。Kubernetesは既存のOperator・関数実行の仕組みに価値がある用途に残します。cloud-01と既存開発VM（identity VM・storage-s3は2026-10-03に削除。Authentikはcore-01、Garageはcloud-01）の所有・配置は維持します。
 
-services-01のVM再起動では家電も停止します。宅外からの復旧経路は cloud VM `net-01` の Tailscale subnet router です（K11そのものの停止はカバーしません）。Home AssistantはContainer方式で、HAOSの追加アプリ管理は使いません。game1のゲーム・RomMとAI、ポケモンと汎用RAGのデータ・権限はそれぞれ分けます。media-01を止めるとNextcloudの同期・Calendar・Tasksも止まります。
+apps-01のVM再起動では家電も停止します。宅外からの復旧経路は router-01（OpenWrt）上の Tailscale subnet router です（旧net-01は2026-10-03に削除）（K11そのものの停止はカバーしません）。Home AssistantはContainer方式で、HAOSの追加アプリ管理は使いません。game1のゲーム・RomMとAI、ポケモンと汎用RAGのデータ・権限はそれぞれ分けます。media-01を止めるとNextcloudの同期・Calendar・Tasksも止まります。
 
 ## 作業ID一覧
 
@@ -44,8 +45,8 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 
 | 計画 | 作業の性質 | 配備先・対象 | 状態（要約） |
 | --- | --- | --- | --- |
-| [W01 Homarr](W01-homarr.md) | 移行 | services-01 | 一部完了（ブラウザSSO・再起動未確認） |
-| [W02 Vaultwarden](W02-vaultwarden.md) | 移行 | services-01 | 一部完了（SSO・復元未確認） |
+| [W01 Homarr](W01-homarr.md) | 移行 | apps-01 | 一部完了（ブラウザSSO・再起動未確認） |
+| [W02 Vaultwarden](W02-vaultwarden.md) | 移行 | apps-01 | 一部完了（SSO・復元未確認） |
 | [W03 Nextcloud・Calendar・Tasks](W03-nextcloud.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
 | [W04 Kavita](W04-kavita.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
 | [W05 Navidrome](W05-navidrome.md) | 移行 | media-01 | 一部完了（配備済み・移行未了） |
@@ -61,17 +62,17 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [G01 Wolf](G01-wolf.md) | 開発・実機検証 | game1 | 計画（実機未） |
 | [G02 Azahar・非公開ルーム](G02-azahar.md) | 開発・実機検証 | game1 | 計画（実機未） |
 | [G03 ゲームとAIの負荷調整](G03-game-ai-resources.md) | 実機検証・調整 | game1 | 計画（実機未） |
-| [H01 Home Assistant Container](H01-home-assistant.md) | 新規 | services-01 | 一部完了（SSO動作・復元未） |
-| [H02 SwitchBot](H02-switchbot.md) | 機器確認・新規 | services-01 | 実機待ち（Cloud統合追加済み） |
-| [H03 Echo](H03-echo.md) | 機器確認・新規 | services-01 | 見送り（決定済み） |
-| [H04 Eufy](H04-eufy.md) | 機器確認・調査 | services-01 | 実機確認中（イベント稼働。ライブは公開ソフト不可で H05 へ分離） |
+| [H01 Home Assistant Container](H01-home-assistant.md) | 新規 | apps-01 | 一部完了（SSO動作・復元未） |
+| [H02 SwitchBot](H02-switchbot.md) | 機器確認・新規 | apps-01 | 実機待ち（Cloud統合追加済み） |
+| [H03 Echo](H03-echo.md) | 機器確認・新規 | apps-01 | 見送り（決定済み） |
+| [H04 Eufy](H04-eufy.md) | 機器確認・調査 | apps-01 | 実機確認中（イベント稼働。ライブは公開ソフト不可で H05 へ分離） |
 | [H05 Eufy leo_rtc クライアント](H05-eufy-leo-rtc.md) | 開発・RE | dev-b | 実機確認中（wake・ICE・KCP・候補交換まで成立。開始コマンドが未解決） |
-| [H05 HAライブ反映の依頼書](H05-ha-live-request.md) | 開発・RE | services-01 | 配備済み（relay＋HLS/MJPEG）。連続性の根本対策が未完 |
-| [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | services-01 | 計画（未着手）。**N06の実測で前提が変わった**（80/443不可・WireGuardは公開可） |
-| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | cloud VM `net-01`・端末 | 一部完了（ルート承認・tailnet DNS=AdGuard Home 適用済み。宅外の実機検証が未了） |
+| [H05 HAライブ反映の依頼書](H05-ha-live-request.md) | 開発・RE | apps-01 | 配備済み（relay＋HLS/MJPEG）。連続性の根本対策が未完 |
+| [N01 セルフホストVPN](N01-vpn.md) | 選定・新規 | apps-01 | 計画（未着手）。**N06の実測で前提が変わった**（80/443不可・WireGuardは公開可） |
+| [N02 Tailscaleの復旧経路・DNS](N02-tailscale.md) | 既存経路の確認・改善 | router-01（旧cloud VM `net-01`）・端末 | 一部完了（ルート承認・tailnet DNS=AdGuard Home 適用済み。宅外の実機検証が未了） |
 | [N03 VLAN切替](N03-vlan.md) | 宣言済み・機材待ち | 既存ネットワーク | **機材待ち。TL-SG605がアンマネージドでVLANを設定できない**（N06で確定）。マネージドスイッチの調達が前提 |
 | [N04 公開Web入口](N04-public-edge.md) | 要件調査・新規 | public-edge候補 | 外部待ち。**MAP-Eで80/443が使えない**ため、`https://名前/` での公開はこの回線では不可（N06で確定） |
-| [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | services-01・接続元 | 一部完了 |
+| [N05 既存サービスのHTTPS移行完了](N05-https.md) | 残作業 | core-01・接続元 | 一部完了 |
 | [N06 ルータ自作（OpenWrt）](N06-router.md) | 実装・切替済み | K11（OpenWrt VM）・既存ルータ | 完了（家庭内ルータとして稼働中。検証と再起動復旧を確認済み） |
 | [I01 容量測定・軽量化](I01-resources.md) | 測定・改善 | 既存ホスト・VM | 一部完了（負荷試験未） |
 | [I02 media-01のVM宣言](I02-media-vm.md) | 新規 | media-01 | 完了 |
@@ -91,7 +92,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [D05 Picard](D05-picard.md) | 資料のみ | docs・media（音楽導線） | 見送り（Nextcloudのタグ編集へ統合） |
 | [D06 LocalSend](D06-localsend.md) | 実装＋資料 | docs・media-01 | 一部完了（実送受信未） |
 | [D07 Tailcat](D07-tailcat.md) | 資料のみ | docs | 未着手 |
-| [D08 Nextcloudからの印刷](D08-nextcloud-print.md) | 実装＋資料 | services-01・media-01 | 一部完了（ブラウザー操作のみ未確認） |
+| [D08 Nextcloudからの印刷](D08-nextcloud-print.md) | 実装＋資料 | apps-01・media-01 | 一部完了（ブラウザー操作のみ未確認） |
 
 ## 並列で進めるための依存関係
 
@@ -99,7 +100,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 
 | 並列に着手できる作業 | 実機で組み合わせる際の条件 |
 | --- | --- |
-| W01・W02・H01・N01 | services-01の容量と個別保存先・Compose・TLS設定を確認。VM再起動と入口変更を調整 |
+| W01・W02・H01・N01 | apps-01の容量と個別保存先・Compose・TLS設定を確認。VM再起動と入口変更を調整 |
 | W03–W06とI02 | アプリの設定・テストデータ検証は先行可能。media-01の配備と実データ容量の確認後に切替 |
 | A01・A02・A03・A04 | 外部のポケモンAIソース・バックアップはA01の実移行条件。A04は模擬RAG応答で開発し実接続だけA03準備後に確認 |
 | G01・G02・W07とA01–A04 | 設定作成は並行。GPUを同時に負荷試験せず、G03で競合・停止切替を確認。RomMの走査はゲーム・推論と重ねない |
@@ -117,7 +118,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | --- | --- |
 | 同じVM | Composeプロジェクト名・保存先・ポートを分ける。アプリだけの更新を基本とし、VM再起動は利用中の担当へ影響を確認 |
 | GPU、大量走査・取り込み・ビルド | I01で実測しG03等で負荷を調整。並列開発を全処理の同時最大負荷とは扱わない |
-| Terraform state | 同じstateへの適用は1担当ずつ。services-01は05-seed、game1は既存cloud API所有。新たなstateに同じVMを重複宣言しない |
+| Terraform state | 同じstateへの適用は1担当ずつ。core-01（旧services-01）は05-seed、game1は既存cloud API所有。新たなstateに同じVMを重複宣言しない |
 | DNS・共通TLS・SSO | 各担当が必要な名前・ポート・認証設定の差分を用意し、I04/N05と調整して共通ファイルへ統合 |
 | 既存メディアCompose・同期スクリプト | W03–W06・W02が共有する。編集範囲を事前に分け、統合時に全関連サービスを検証 |
 | 文書一覧・配備台帳・構成図 | 個別文書で詳細を更新し、一覧にはID・リンクと配備の確認結果だけを反映。並列編集で他担当の状態を上書きしない |

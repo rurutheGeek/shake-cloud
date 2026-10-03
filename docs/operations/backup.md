@@ -1,6 +1,6 @@
 ---
 title: バックアップ（重要VM・game1セーブ）
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,9 +11,9 @@ tags:
 
 # バックアップ（重要VM・game1セーブ）
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **週次vzdumpを設定・初回取得済み**。保存先は6TB USB HDD（`/srv/bulk/backups`、Proxmoxの `bulk-backup` ストレージ）です。宣言は Ansible ロール `platform/ansible/roles/pve_backup` と `platform/ansible/pve-backup.yml`、game1のセーブは `tools/game1-saves-backup.sh` です。
+**状態**: **週次vzdumpを設定・初回取得済み**（対象VMの一覧は 2026-10-03 の再編に合わせて更新済み）。保存先は6TB USB HDD（`/srv/bulk/backups`、Proxmoxの `bulk-backup` ストレージ）です。宣言は Ansible ロール `platform/ansible/roles/pve_backup` と `platform/ansible/pve-backup.yml`、game1のセーブは `tools/game1-saves-backup.sh` です。
 
 ## 1. 何を「大事」とみなすか
 
@@ -21,14 +21,13 @@ tags:
 
 | 優先 | 対象 | 目安 | 理由 |
 | --- | --- | --- | --- |
-| 1 | 140 cloud-01 | ~7G | 管理DB（VM・ボリューム・SG・鍵の台帳） |
-| 1 | 110 identity | ~6G | Authentikのユーザー・パスキー設定 |
-| 1 | 150 services-01 | ~15G | Home Assistant設定・履歴 |
+| 1 | 140 cloud-01 | ~7G（Garage統合前の実測値） | 管理DB（VM・ボリューム・SG・鍵の台帳）、GarageのS3データ |
+| 1 | 150 core-01 | ~15G（identity統合前の実測値） | Authentikのユーザー・パスキー設定、NetBox台帳 |
+| 1 | 5005 apps-01 | 未計測 | Home Assistant設定・履歴、Vaultwarden、各アプリのデータ |
 | 1 | 101 router-01 | ~0.2G | ルータ設定 |
 | 1 | 5001 media-01 | ~40G | Nextcloud DB・設定（ライブラリ原本はHDD側） |
-| 1 | 130 storage-s3 | ~2.5G | GarageのS3データ |
 | 1 | 401 dev-b | ~18G | SSH鍵・SOPS age鍵・未コミットの作業 |
-| 1 | 5002 monitor-01 | ~11G | 監視履歴（再生成不可。必須度は中） |
+| 1 | 120 monitor-01 | 未計測（旧クラウドVM時代は ~11G） | 監視履歴（再生成不可。必須度は中） |
 | 1 | game1 のセーブ | 数G | `/home` 全体（~237G）は取らず、セーブだけ別途 |
 | 2 | k8s 200/210/211 | ほぼ0 | Fluxで再構築可。PVCの中身は別途確認 |
 | 2 | 100 game1 全体 | ~237G | ゲーム・モデルが大半。丸ごとは取らない |

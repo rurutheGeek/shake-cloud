@@ -254,9 +254,8 @@ class SsoAnsibleTests(unittest.TestCase):
                          "'CHANGED:' in media_sso_kavita_oidc.stdout")
         self.assertTrue(tasks[0]['no_log'])
 
-    def test_it_documents_the_inventories_and_the_limit(self):
+    def test_it_documents_the_inventory_and_the_limit(self):
         text = SSO_PLAYBOOK.read_text(encoding='utf-8')
-        self.assertIn('inventory.cloud.py', text)
         self.assertIn('inventory.netbox.yml', text)
         self.assertIn('--limit', text)
 

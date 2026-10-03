@@ -1,24 +1,22 @@
 flowchart TB
   internet["インターネット<br/>IPv6（v6プラス・MAP-E）・IPv4"]
   onu["ONU"]
-  remote["宅外の端末<br/>（Tailscale・net-01 経由）"]
+  remote["宅外の端末<br/>（Tailscale・router-01 経由）"]
 
   subgraph host["物理ホスト apextox（K11 / Proxmox VE）"]
     subgraph netvm["ネットワークVM（platform）"]
       router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS・NDP代理"]
     end
     subgraph infra["基盤VM（platform）"]
-      identity["identity<br/>共通ログイン（Authentik）"]
-      cloud01["cloud-01<br/>自作クラウド API・管理DB"]
-      services01["services-01<br/>NetBox・docs・Homarr<br/>Vaultwarden・家電・CUPS"]
-      storage["storage-s3<br/>Garage（S3）"]
+      core01["core-01<br/>Authentik・NetBox・Caddy（HTTPSの入口）"]
+      cloud01["cloud-01<br/>自作クラウド API・管理DB<br/>Garage（S3）"]
+      monitor["monitor-01<br/>Prometheus・Grafana・監視"]
       k8s["k8s-cp / worker<br/>AWX・CloudNativePG・Knative"]
     end
     subgraph svcpool["サービスVM（cloud）"]
       media["media-01<br/>Nextcloud・Kavita・Navidrome・FreshRSS"]
-      monitor["monitor-01<br/>Prometheus・Grafana・監視"]
+      apps["apps-01<br/>docs・Homarr・Vaultwarden<br/>家電・CUPS・LibreSpeed"]
       game["game1<br/>Wolf・RomM・AI（GPU）"]
-      net01["net-01<br/>Tailscale 復旧経路"]
     end
     subgraph devpool["開発・検証VM（dev / lab）"]
       dev["dev-a / dev-b<br/>Terraform・Docker・Go"]
@@ -31,15 +29,16 @@ flowchart TB
   internet --> onu --> router
   router --> switch
   switch --> aterm
-  switch --> services01
+  switch --> core01
+  switch --> apps
   switch --> media
   switch --> monitor
   switch --> game
   switch --> dev
-  remote -. Tailscale .-> net01
-  net01 -. 復旧経路 .-> switch
+  remote -. Tailscale .-> router
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
-  services01 --> storage
-  media --> storage
+  core01 --> apps
+  core01 --> media
+  media --> cloud01
   monitor --> k8s
-  router -. "IP台帳（予約・リース）" .-> services01
+  router -. "IP台帳（予約・リース）" .-> core01

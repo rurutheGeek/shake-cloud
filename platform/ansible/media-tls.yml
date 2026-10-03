@@ -1,11 +1,13 @@
 ---
-# media-01（クラウドVM）へ HTTPS の入口を付ける。受ける名前は
-# platform/terraform/dns.yaml の host: media-01 で、inventory.cloud.py が
+# media-01（クラウドVM）の Caddy を配備する。受ける名前は
+# platform/terraform/dns.yaml の host: media-01 で、NetBox のインベントリが
 # tags.Name を cloud_name として渡すため一致するようになっている。
-# サービス自身のポートは 127.0.0.1 のまま、Caddy が証明書と Forward Auth を担う。
+# 公開証明書を取るのは入口の core-01 だけ（edge.yml）で、ここは内部CAの
+# 証明書で core-01 からの中継を受ける。サービス自身のポートは 127.0.0.1 のまま、
+# Caddy が Forward Auth を担う。
 #
-#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
-#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-tls.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-tls.yml'
 - name: Put the HTTPS entry in front of the media services
   hosts: media
   become: true

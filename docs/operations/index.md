@@ -1,6 +1,6 @@
 ---
 title: 運用手順の入口
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 運用手順の入口
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 環境を立ち上げる人と、日々動かす人向けの手順です。**実機の状態・進捗・TODOの正本は[配備台帳](handover.md)** で、この一覧はそこへ至る道順です。
 
@@ -22,7 +22,7 @@ tags:
 | 2 | [秘密値の管理](secrets.md) | SOPS と age。以降の全手順が前提にする |
 | 3 | [Terraformの実行](terraform.md) | プール・ロール・基盤VMを作る |
 | 4 | [NetBoxの使い方](netbox.md) | 配備先の台帳。IPの採番元 |
-| 5 | [認証基盤（identity・Authentik）](identity.md) | 共通ログイン。他の全サービスが繋がる先 |
+| 5 | [認証基盤（Authentik）](identity.md) | 共通ログイン。他の全サービスが繋がる先 |
 | 6 | [クラウドAPIの構築](cloud.md) | 土台（実機の読み取り・Terraform・SOPS・FW・NetBox・共通ログイン） |
 | 6a | [クラウドAPI本体とインスタンス](cloud-api.md) | API・HTTPS・インスタンス・容量と上限・イメージ・コンソール |
 | 6b | [ボリューム・S3・DB・関数](cloud-resources.md) | 追加ディスク・バケット・database・function |
@@ -62,7 +62,7 @@ tags:
 | [router-01 の設定まとめ](router-config.md) | 素のOpenWrtから何を変えたか |
 | [ルータがつながらないときの調べ方](router-troubleshooting.md) | 通信が落ちたときの切り分け |
 | [AdGuard Home](adguard.md) | DNSと広告遮断の運用 |
-| [net-01（subnet router）](net.md) | 宅外から管理LANへの復旧経路 |
+| [Tailscale（subnet router）](net.md) | 宅外から管理LANへの復旧経路（ルータ上で動作） |
 | [VLAN 分離への切替](vlan.md) | 管理面と利用者VMを分ける |
 
 ## 5. ストレージとバックアップ

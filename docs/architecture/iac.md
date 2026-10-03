@@ -1,6 +1,6 @@
 ---
 title: IaCの所有境界
-updated: 2026-09-27
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # IaCの所有境界
 
-> **更新日** 2026-09-27 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **状態**: 00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み
 
@@ -80,14 +80,14 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 
 | VMID | プール | 所有者 | 用途 |
 | --- | --- | --- | --- |
-| 100–399 | `platform` | 管理者Terraform | identity、services-01（05-seed）、cloud-01、storage-s3、k8s。100は既存game1として予約 |
+| 100–399 | `platform` | 管理者Terraform | router-01、core-01、cloud-01、monitor-01、k8s、dev-a/b、probe-01の基盤VM。100は既存game1として予約 |
 | 400–499 | `dev` | 管理者Terraform | 開発VM。利用者は電源とコンソールのみ |
 | 900–999 | `lab` | 管理者Terraform | 検証・復元ドリル。使い捨て |
 | 5000–5999 | `cloud` | 自作クラウドAPI | 利用者がAPI・Providerで作るVM |
 
-現在の配置方針は[並列開発計画](../development/index.md)にあります。services-01の家電・印刷API・Homarr・Vaultwarden（配備済み）とVPN（追加予定）は`05-seed`所有の既存VMに対するゲスト構成追加です。新しいstateでVMを再宣言しません。game1はVMID 100のままcloud APIへ引き取り済みです。新規media-01・monitor-01・必要時のpublic-edgeはサービス別stateでcloud API経由で作ります。
+現在の配置方針は[並列開発計画](../development/index.md)にあります。apps-01の家電・印刷API・Homarr・Vaultwarden（配備済み。当時はservices-01）とVPN（追加予定）は、既存VMに対するゲスト構成追加です。新しいstateでVMを再宣言しません。game1はVMID 100のままcloud APIへ引き取り済みです。新規media-01・apps-01・必要時のpublic-edgeはサービス別stateでcloud API経由で作ります。
 
-`cloud` プールは**枠だけ先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。現在はgame1（引き取り）・media-01・monitor-01・利用者VM・ボリュームホルダーが所属します。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
+`cloud` プールは**枠だけ先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。現在はgame1（引き取り）・media-01・apps-01・win-01・android-01・利用者VM・ボリュームホルダーが所属します。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
 
 ## ロールとトークン
 

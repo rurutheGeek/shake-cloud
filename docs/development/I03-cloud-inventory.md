@@ -1,6 +1,6 @@
 ---
 title: I03 クラウドVMのAnsible連携
-updated: 2026-09-12
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -11,9 +11,11 @@ tags:
 
 # I03 クラウドVMのAnsible連携
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **区分**: 新規統合 ・ **状態**: 実装済み・fixtureおよび実機で確認済み（2026-09-12）。media-01 をクラウドinventoryからAnsibleで操作できることを実測した。AWX組込み（I06）は未了。
+
+> **2026-10-03の注記**: Ansibleのインベントリは NetBox（`inventory.netbox.yml`）に統一され、`inventory.cloud.py` は使わない。以下は実装当時の記録で、コマンド例は現行の手順ではない。配備は `sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/<playbook>.yml'`。
 
 ## 目的・現状・配備先
 

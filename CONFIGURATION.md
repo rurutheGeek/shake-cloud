@@ -42,9 +42,9 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 
 - 原本ディスクの増設・移動: media-01 では `LIBRARY_ROOT`（`/srv/media-stack/library`）と `platform/terraform/services/media` の宣言を変更します（データディスクは `prevent_destroy`）。
 - ライブラリ分割: 技術書・漫画・家族用のディレクトリを作り、Kavitaで別ライブラリとして登録し閲覧権限を設定できます。Nextcloudの権限は他サービスへ同期されません。
-- HTTPS: `platform/terraform/dns.yaml` の名前ごとに、各ホストのCaddy（`stacks/tls-proxy`）がLet's Encrypt（DNS-01）で証明書を取って中継します。アプリ自身のポートは 127.0.0.1 に閉じます。
+- HTTPS: 公開の証明書（Let's Encrypt、DNS-01）と Cloudflare のトークンを持つのは入口の core-01 だけです。各ホストのCaddy（`stacks/tls-proxy`）は内部CAの証明書で core-01 からの中継を受けます。アプリ自身のポートは 127.0.0.1 に閉じます（[HTTPSの入口](docs/operations/edge.md)）。
 - バックアップ: 各ユニットの `manage.py backup`（Nextcloud・Kavita・Navidrome・music-tools・Vaultwarden・LibreSpeed・Home Assistant・NetBox）と、cloud-01の管理DBの定期バックアップ（`cloud-backup.timer`）があります。別ホストへの転送は追加設定が必要です。
-- 複数ホスト: 新規VMは `platform/terraform/services/<name>/` で宣言します。クラウドVMは `platform/ansible/inventory.cloud.py` でAnsibleの対象にします。サービスごとの分散にはロール分割・接続先・ネットワーク設計の追加が必要です。
+- 複数ホスト: 新規VMは `platform/terraform/services/<name>/` で宣言します。Ansible の対象は NetBox の動的インベントリ（`platform/ansible/inventory.netbox.yml`）が台帳のタグから見つけます（[Ansibleのインベントリ](docs/operations/services.md#inventory)）。サービスごとの分散にはロール分割・接続先・ネットワーク設計の追加が必要です。
 - 冗長化: 現状は各サービス1インスタンスです。コンテナ数を増やすだけではHAになりません。PostgreSQLやSQLiteを含むアプリ状態は原本と分けて保持し、同じ状態ディレクトリを複数インスタンスで共有しないでください。
 
 ## PDFを追加する方法

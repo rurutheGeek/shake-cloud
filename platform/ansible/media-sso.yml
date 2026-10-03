@@ -1,23 +1,19 @@
 ---
-# media-01 の Nextcloud を identity（Authentik）へ ネイティブ OIDC で接続する。
+# media-01 の Nextcloud を core-01（Authentik）へ ネイティブ OIDC で接続する。
 #
-# identity が configure.py で作った OIDC クライアント（正本は identity VM 上の
+# Authentik が configure.py で作った OIDC クライアント（正本は core-01 上の
 # /opt/identity-stack/secrets/oidc-media.json）を slurp し、media-01 の
 # configure-oidc.py へ環境変数として渡す。secret はログへ出さない。
 #
-# identity は slurp の delegate_to のために同じインベントリへ必要。`media`
-# グループは基盤の NetBox インベントリ（inventory.netbox.yml）にも存在し得る
-# ため、クラウド用インベントリ（inventory.cloud.py）と併用し、cloud-inventory.yml
-# の media-01 のインスタンスIDで `--limit` して media-01 だけに当てる:
+# core-01 は slurp の delegate_to のために同じインベントリへ必要。NetBox の
+# 動的インベントリ（inventory.netbox.yml）の `media` と `identity_provider` が
+# それ。ホスト名はインスタンスIDなので、対象を絞るときはグループ名を使う:
 #
-#   export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
-#   .venv/bin/ansible-playbook \
-#     -i platform/ansible/inventory.netbox.yml \
-#     -i platform/ansible/inventory.cloud.py \
-#     platform/ansible/media-sso.yml \
-#     --limit i-a06df9a2dfd1ce6db
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
+#       platform/ansible/media-sso.yml --limit media'
 #
-# identity のホスト名が `identity` でない場合は -e media_sso_identity_host=... で
+# core-01 のホスト名が `core-01` でない場合は -e media_sso_identity_host=... で
 # 上書きする。ゾーンは platform/terraform/dns.yaml から取る。
 - name: Connect media-01 Nextcloud to the identity provider
   hosts: media

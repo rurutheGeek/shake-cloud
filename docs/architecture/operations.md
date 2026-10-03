@@ -1,6 +1,6 @@
 ---
 title: 配備・Git管理・ストレージ・復旧
-updated: 2026-09-23
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,37 +10,36 @@ tags:
 
 # 配備・Git管理・ストレージ・復旧
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
-**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（services-01）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
+**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（apps-01。2026-10-03にservices-01から移設）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
 
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
 
-**増設は現有ホストへのVM追加です。ハードウェアの増設提案は今回の範囲に含めません。** 常時使う軽いサービスはservices-01、ゲーム・AIはgame1、メディアはmedia-01へまとめます。専用AI VM・HAOS VM・VPN VMは追加しません。
+**増設は現有ホストへのVM追加です。ハードウェアの増設提案は今回の範囲に含めません。** 認証・台帳・HTTPSの入口はcore-01、常時使う軽いアプリはapps-01、ゲーム・AIはgame1、メディアはmedia-01へまとめます。専用AI VM・HAOS VM・VPN VMは追加しません。
 
 | 配置 | vCPU / RAMの計画値 | ディスク | 機能・起動方針 |
 | --- | --- | --- | --- |
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
 | router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
-| services-01（150） | 2 / 4GiB（増枠は実測後） | 現行容量とデータ量を実測 | NetBox・MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed。VPNは追加予定。常時。`05-seed`の所有を維持 |
-| identity（110） | 2 / 4GiB（下限3GiB） | 32GiB | Authentikと専用DB。常時。スワップが無く、2026-09-26のメモリ逼迫でOOMしたため下限を3GiBへ |
-| cloud-01（140） | 2 / 2GiB（下限1GiB） | 40GiB | クラウドAPIと管理DB。常時 |
-| storage-s3（130） | 2 / 1GiB（宣言値） | OS16＋データ32GiB | Garage。常時 |
+| core-01（150。旧services-01） | 2 / 6GiB（2026-10-03 に Authentik の統合で 4→6GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
+| apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
+| cloud-01（140） | 2 / 2GiB（下限1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |
 | k8s-cp-01（200） | 2 / 3GiB（固定） | 32GiB | control plane。既存構成維持 |
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
 | media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
-| monitor-01（cloud VM、作成済み） | 2 / 2GiB（宣言値） | OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は専用データディスク。常時 |
+| monitor-01（基盤VM、120、192.168.10.210） | 2 / 2GiB（宣言値） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
 | dev-a / dev-b（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
-| net-01（cloud VM） | 1 / 512MiB | 10GiB | Tailscale subnet router（宅外からの復旧経路）。**K11上のVMなので、K11そのものの停止はカバーしない** |
+| （net-01は2026-10-03に削除） | — | — | Tailscale subnet router（宅外からの復旧経路）は router-01（OpenWrt）の上で動く。**K11上のVMなので、K11そのものの停止はカバーしない** |
 
-上表は同時稼働を保証する合計ではありません。常用基盤（services-01、identity、cloud-01、storage-s3、cp、worker-01）だけでも計画値で22GiBです。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
+上表は同時稼働を保証する合計ではありません。常用基盤（旧構成のservices-01、identity、cloud-01、storage-s3、cp、worker-01。現在はcore-01・cloud-01に統合）だけでも計画値で22GiBでした。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
 
 <a id="measured-budget"></a>
 ### 実機の実測
@@ -82,7 +81,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 
 停止中VMも含めた全VMの割当合計は60.1GiBで、認識RAMの59.7GiBを超えます。**全台同時起動はできません**（実機の電源状態は[配備台帳](../operations/handover.md)）。
 
-**この測定の後にmonitor-01（VMID 5002、2/2GiB、cloud VM）を作成したため、上の表と合計には含まれません。** 配備の結果は[M01](../development/M01-monitoring.md)、最新の電源・容量は[配備台帳](../operations/handover.md)とポータルの「容量」を正とします。
+**上の表は2026-09-12時点の名前です（当時のidentity・services-01は現在core-01、storage-s3は削除済み、win11proはwin-01に改名）。この測定の後にmonitor-01（当時はVMID 5002のcloud VM。現在は基盤VM・VMID 120）を作成したため、上の表と合計には含まれません。** 配備の結果は[M01](../development/M01-monitoring.md)、最新の電源・容量は[配備台帳](../operations/handover.md)とポータルの「容量」を正とします。
 
 **軽量化（同日実施）**: ビルドキャッシュの削除と `apt` キャッシュの掃除でthin poolを15.1GiB回収しました。cloud-01 17.0→6.2GiB、services-01 5.7→3.5GiB、identity 6.1→3.8GiB。同じ処理は `tools/trim-vms.py` で再実行できます（既定は確認のみで、`--apply` を付けたときだけ削除。dev VMは `--include-dev` で明示したときだけ対象）。dev-aには未使用イメージ7.98GiBとビルドキャッシュ6.0GiBが残るため、利用者と調整します（2026-09-12時点で未削除）。journalはどのVMも121MiB以下で対象外です。
 
@@ -90,7 +89,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 
 - media-01（6GiB）: Kubernetes停止中の空き25.4GiBでは作成できます。Kubernetes稼働時は空きが9.0GiBまで下がった記録（同日09:07）があり、その状態では作成を断られる可能性が高いため、**作成はKubernetes停止中に行います**（2026-09-12に作成済み）。
 - game1の16GiB（+4GiB）: media-01作成後でもKubernetes停止中なら作成できます（空き14.6GiB）。ゲームとAIの同時負荷は[G03](../development/G03-game-ai-resources.md)で測ります。
-- services-01の8GiB（+4GiB）: ゲストの実使用は1.6GiBで、緊急性はありません。
+- services-01（現core-01）の8GiB（+4GiB）: ゲストの実使用は1.6GiBで、緊急性はありません。
 - k8s-worker-02: **起動しません**。起動する場合は開発VM・ゲームの停止と引き換えにします。
 - 重い処理を止める順は開発VM → Ollama → バッチ、復帰は逆順です。dev VMsはバルーニングでホストRSSを割当（各6GiB）より小さく抑えています（測定時は2台で約5GiB。作業中のdev-bは増える）。
 
@@ -121,7 +120,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 
 **代償を承知しておく必要があります。**バルーニングで返ってくるのは、ゲストが実際に使っていないぶんだけです。ゲームVMのように実際に16GiB使う相手は返しません。全員が上限まで使えば、足りなくなるのは予約ぶんからで、**先に倒れるのはホストと基盤VM（認証・API・台帳）です**。上限を上げたぶんは、止める順番（開発VM → Ollama → バッチ）を実際に運用で守ることで払います。ゲーム・常用サービス・DBを載せるworkerは固定RAMから開始し、バルーニングによる回収を余剰として数えません。
 
-旧ディスク724GiBは論理的な見積もりで、実パーティションや物理空き容量ではありません。新しい配分では実プール使用量・原本・索引・WAL・復元作業領域を測り直します。thin provisioningで物理容量は増えません。容量不足時は不要なコピーや保持期間を見直し、移行する範囲を調整します。カメラ録画はservices-01の既存ディスクへ無条件に追加しません。
+旧ディスク724GiBは論理的な見積もりで、実パーティションや物理空き容量ではありません。新しい配分では実プール使用量・原本・索引・WAL・復元作業領域を測り直します。thin provisioningで物理容量は増えません。容量不足時は不要なコピーや保持期間を見直し、移行する範囲を調整します。カメラ録画はapps-01の既存ディスクへ無条件に追加しません。
 
 Docker・ゲーム・開発の停止単位にはVMを使います。GPUはgame1へ割り当てたまま、同じVMの中でゲームとAIの負荷を調整します。
 
@@ -133,11 +132,11 @@ Docker・ゲーム・開発の停止単位にはVMを使います。GPUはgame1�
 - FluxでHelm/Kustomizeを反映し、SOPSでSecretを暗号化する。
 - requests、必要なlimits、readiness/startup/liveness probe、NetworkPolicyを設定する。
 - AWXはAnsibleの実行基盤として使うが、クラスタ自身の復旧は管理PCから実行できるようにする。
-- 監視はmonitor-01（新規cloud VM）へPrometheus・Alertmanager・Grafana・exporterを配備済み（M01）。外部公開せず、保持期間と容量を抑える。DNSはrouter-01のAdGuard Home、宅外からの復旧経路はnet-01が担う。
+- 監視はmonitor-01（基盤VM）へPrometheus・Alertmanager・Grafana・exporterを配備済み（M01）。外部公開せず、保持期間と容量を抑える。DNSはrouter-01のAdGuard Home、宅外からの復旧経路はrouter-01上のTailscale subnet routerが担う。
 
 control plane 1台は、その停止中に新規配置・再配置・設定変更ができなくなる設計です。既存Podは動き続ける場合がありますが、正常性はアプリと障害内容に依存します。VMが3台でも物理ホスト・SSDは1つです。今回のVM追加で物理障害への冗長性が増えるとは扱いません。[kubeadm HA](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
 
-Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwardenはservices-01のComposeへ移し、単に小さいWebアプリだからクラスタへ移すことはしません。既存サービスの移行と新機能の実装は別々に検証します。
+Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwardenはアプリ用VM（apps-01）のComposeへ移し、単に小さいWebアプリだからクラスタへ移すことはしません。既存サービスの移行と新機能の実装は別々に検証します。
 
 ## アプリの配置と維持する機能
 
@@ -145,8 +144,8 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | --- | --- | --- |
 | Nextcloud、Calendar、Tasks | media-01 | 配備済み（2026-09-12、`https://nextcloud.apextox.dpdns.org`）。DB・Redis・cronを含む一組の復元と既存環境からの移行はW03 |
 | Kavita、Navidrome、MeTube | media-01 | Kavita・Navidromeは配備済み。MeTubeの切替はW06。原本は共有し、アプリ状態・固有DBは分離。W04–W06 |
-| Homarr、MkDocs | services-01 | Homarrは新規スタックで配備済み（W01、`https://homarr.apextox.dpdns.org`）。MkDocsは現行のまま |
-| Vaultwarden | services-01 | 配備済み（2026-09-12、`https://vault.apextox.dpdns.org`）。DB・添付・鍵を独立して復元。W02 |
+| Homarr、MkDocs | apps-01 | Homarrは新規スタックで配備済み（W01、`https://homarr.apextox.dpdns.org`）。MkDocsは現行のまま |
+| Vaultwarden | apps-01 | 配備済み（2026-09-12、`https://vault.apextox.dpdns.org`）。DB・添付・鍵を独立して復元。W02 |
 | Open WebUI、pokemon-agent、ポケモンRDB・図鑑VDB | game1 | DB・WebUI・agentを一式移行。A01 |
 | Ollama、汎用RAG、Discord Bot | game1 | 推論モデルと用途別データ・権限を分離。A02–A04 |
 | OpenHome（製品未特定） | game1の同居候補 | 要件調査のみ。追加容量・稼働を確約しない。A05 |
@@ -155,22 +154,22 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | AWXと専用DB | k8s-worker-01 | ローカルPVC、並列数・ジョブ整備。I06 |
 | 利用者向けDB・関数 | 常用Kubernetes | CNPG・Knative。API所有の動的リソースとFlux所有物を分離。O02 |
 | 自作クラウドAPI・管理DB | cloud-01 | 現行Composeを維持。利用者DBと分離。O01 |
-| Authentikと専用DB | identity | 現行構成を維持。アプリごとの認証統合は各計画で確認 |
-| Garage | storage-s3 | メタデータとオブジェクト。O03 |
-| Home Assistant、SwitchBot Cloud、Eufy中継 | services-01 | 配備済み（2026-09-12）。HAはAuthentik OIDCと緊急用ローカルオーナーを併用。構成・履歴・鍵を独立保存。H01・H02・H04（H03 Echoは見送り） |
+| Authentikと専用DB | core-01 | 現行構成を維持。アプリごとの認証統合は各計画で確認 |
+| Garage | cloud-01 | メタデータとオブジェクト。O03 |
+| Home Assistant、SwitchBot Cloud、Eufy中継 | apps-01 | 配備済み（2026-09-12）。HAはAuthentik OIDCと緊急用ローカルオーナーを併用。構成・履歴・鍵を独立保存。H01・H02・H04（H03 Echoは見送り） |
 | Prometheus・Alertmanager・Grafana・exporter | monitor-01 | 配備済み（2026-09-13、M01）。時系列は専用データディスク。Homarr連携・低電池シャットダウンはM01の残作業 |
-| CUPS・印刷API | services-01 | 配備済み（D08）。キュー `ts8430`。Nextcloud印刷アプリはmedia-01。ブラウザー操作は未確認 |
-| セルフホストVPN | services-01 | 別ComposeでDB・設定・鍵を保存。N01 |
+| CUPS・印刷API | apps-01 | 配備済み（D08）。キュー `ts8430`、印刷先は `192.168.10.105:631`。Nextcloud印刷アプリはmedia-01。ブラウザー操作は未確認 |
+| セルフホストVPN | core-01 | 別ComposeでDB・設定・鍵を保存。N01 |
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
 | AdGuard Home・dnsmasq（DNS・DHCP） | router-01（OpenWrt VM） | 配備済み（2026-09-20、N06）。設定の正本は `platform/openwrt/`。[AdGuard Home](../operations/adguard.md)・[router-01](../operations/router.md) |
-| 復旧用Tailscale | net-01（cloud VM） | 配備済み（2026-09-14、N02）。ルート承認・宅外検証が未了。[net-01](../operations/net.md) |
+| 復旧用Tailscale | router-01（OpenWrt VM上） | 配備済み（2026-09-14にnet-01へ、2026-10-03にrouter-01上へ移設。N02）。宅外検証が未了。[Tailscale subnet router](../operations/net.md) |
 | LibreSpeed（速度テスト） | apps-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
 | ポケモン翻訳 | apps-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
 | 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
 | 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
 
-停止・更新単位と依存関係は[開発計画の一覧](../development/index.md)を参照してください。services-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。
+停止・更新単位と依存関係は[開発計画の一覧](../development/index.md)を参照してください。apps-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。
 
 <a id="pokemon-db"></a>
 ### ポケモンRDBの配置と移行単位
@@ -189,7 +188,7 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 <a id="home-devices"></a>
 ### Home Assistant・SwitchBot・Eufy（Echoは見送り）
 
-**Home Assistant Containerはservices-01へ配備済みです（2026-09-12）。** 入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。HAコアはOIDC非対応のため、コミュニティ統合 **hass-oidc-auth v1.2.1**（`custom_components/auth_oidc` へdigest固定で配置）を使います。Authentik側の公開クライアント `home-assistant`（`redirect` `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode user_uuid`、`users`／`admins` にバインド）は `stacks/identity/configure.py` が冪等作成し、HAは `configuration.yaml` の `auth_oidc` 管理ブロックでSSOします。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetesやgame1の再起動から家電を分離しますが、services-01・K11の再起動時には停止します。HAOSの追加アプリ管理は使わず、必要な周辺ソフトもComposeで管理します。[公式の導入方式](https://www.home-assistant.io/installation/)・[H01](../development/H01-home-assistant.md)
+**Home Assistant Containerはapps-01へ配備済みです（2026-09-12にservices-01へ配備、2026-10-03にapps-01へ移設）。** 入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。HAコアはOIDC非対応のため、コミュニティ統合 **hass-oidc-auth v1.2.1**（`custom_components/auth_oidc` へdigest固定で配置）を使います。Authentik側の公開クライアント `home-assistant`（`redirect` `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode user_uuid`、`users`／`admins` にバインド）は `stacks/identity/configure.py` が冪等作成し、HAは `configuration.yaml` の `auth_oidc` 管理ブロックでSSOします。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetesやgame1の再起動から家電を分離しますが、apps-01・K11の再起動時には停止します。HAOSの追加アプリ管理は使わず、必要な周辺ソフトもComposeで管理します。[公式の導入方式](https://www.home-assistant.io/installation/)・[H01](../development/H01-home-assistant.md)
 
 | 対象 | 接続方針 | 現状 |
 | --- | --- | --- |
@@ -199,13 +198,13 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 
 SwitchBotはCloud統合（Hub Mini経由）を採用し、資格情報はHAのconfig entryにだけ保存します。ローカルBluetoothへ切り替える場合だけUSBドングルのパススルーが必要です。[Bluetooth公式](https://www.home-assistant.io/integrations/switchbot/)、[Cloud公式](https://www.home-assistant.io/integrations/switchbot_cloud/)。AlexaのCloud連携と独自Skill方式は別機能で、VPNだけでAmazon側から到達できるわけではありません。HAの8123はルータから公開しません。[Alexa公式](https://www.home-assistant.io/integrations/alexa.smart_home/)
 
-Eufyの録画・映像保存・映像AIは別の容量／CPU設計です。services-01の保存領域を録画庫として流用しません。HA側で扱う範囲はイベント・Push・静止画までとし、確認できたものだけを利用可能として案内します。ライブ映像は新しいWebRTC方式への対応（後継SDKによるRTSPブリッジ等）を確認できたら別作業として追加します。中継サービスを増やす場合は、互換性・認証・メモリを確認してから配分表へ追記します。
+Eufyの録画・映像保存・映像AIは別の容量／CPU設計です。apps-01の保存領域を録画庫として流用しません。HA側で扱う範囲はイベント・Push・静止画までとし、確認できたものだけを利用可能として案内します。ライブ映像は新しいWebRTC方式への対応（後継SDKによるRTSPブリッジ等）を確認できたら別作業として追加します。中継サービスを増やす場合は、互換性・認証・メモリを確認してから配分表へ追記します。
 
 ### LocalSendとIoTのネットワーク
 
 LocalSendは端末間転送で、専用VMは不要です。**media-01に非公式の常設受信機（`stacks/media/localsend/`）を置き、送信ファイルをNextcloudの `inbox` へ着地させます。** 標準のTCP 53317をLANのSGで許可し、アプリの自動検出は同一LANでのみ確認します（実送受信は未確認、[D06](../development/D06-localsend.md)）。VLANやVPNをまたぐ自動検出は当然には成立しないため、まず同一LANで確認します。[LocalSend公式](https://github.com/localsend/localsend)
 
-Home Assistantを載せるservices-01は、対象IoT機器へ到達できるLANのbridgeへ接続し、固定IP（`192.168.10.200`）で運用します。IoTをVLAN分離する場合は必要な通信とmDNS等の検出経路を設計してから移します。IoT機器からProxmox管理・DBへのアクセスは許可しません。HAの操作は家庭内LANとHA自身の認証（Authentik OIDCまたは緊急用ローカル）から行い、8123はルータへ公開しません。
+Home Assistantを載せるapps-01は、対象IoT機器へ到達できるLANのbridgeへ接続し、固定IP（`192.168.10.105`）で運用します。IoTをVLAN分離する場合は必要な通信とmDNS等の検出経路を設計してから移します。IoT機器からProxmox管理・DBへのアクセスは許可しません。HAの操作は家庭内LANとHA自身の認証（Authentik OIDCまたは緊急用ローカル）から行い、8123はルータへ公開しません。
 
 LLMはQwen3 4B／8Bの量子化版、EmbeddingはBGE-M3を初期比較候補にします。まずコンテキスト4K、同時実行1で確認します。Qwen3 8B Q4_K_Mのファイルは約5.2GBですが、実行には追加メモリが必要です。[Qwen3](https://ollama.com/library/qwen3/tags)、[BGE-M3](https://huggingface.co/BAAI/bge-m3)
 
@@ -219,7 +218,7 @@ RAGはOpen WebUI + pgvectorから開始します。Nextcloudの文書権限がRA
 | DB・SQLite・アプリ状態 | 各VMの専用保存先。Kubernetes内の状態はローカルPVC |
 | 音楽・本・動画 | media-01の共有原本領域。複数VMから同じボリュームを同時に書かない |
 | ROM | game1のライブラリ領域。ゲーム・AIの状態と分離する |
-| S3 | storage-s3の専用データディスク |
+| S3 | cloud-01のGarage用データ領域 |
 | ゲームセーブ・AI状態 | game1内で利用者・用途ごとに分離 |
 | バックアップ | 既存の外部保存先をO01–O03で確認。保存先未確認なら復元完了としない |
 
@@ -243,7 +242,7 @@ RAGはOpen WebUI + pgvectorから開始します。Nextcloudの文書権限がRA
 
 Home AssistantはContainerの構成・履歴・秘密値を整合性を保ってバックアップし、既存の外部保存先への復元と必要な復号情報を確認します。USB機器の割り当てはVM復元後に再確認します。
 
-復旧順序は、ネットワーク／K11外Tailscale → Proxmox → Home Assistantと必要なストレージ／認証（services-01にはVPNを追加予定） → Kubernetes → DBとPVC → API・アプリです。管理APIやFlux自身が正常でないと復旧できない循環依存を作りません。隔離VM／namespaceで実際の復元を確認します。[PBS](https://www.proxmox.com/en/products/proxmox-backup-server/features)、[restic](https://restic.readthedocs.io/en/stable/)
+復旧順序は、ネットワーク／K11外Tailscale → Proxmox → Home Assistantと必要なストレージ／認証（core-01にはVPNを追加予定） → Kubernetes → DBとPVC → API・アプリです。管理APIやFlux自身が正常でないと復旧できない循環依存を作りません。隔離VM／namespaceで実際の復元を確認します。[PBS](https://www.proxmox.com/en/products/proxmox-backup-server/features)、[restic](https://restic.readthedocs.io/en/stable/)
 
 ## Gitと構成の所有者
 

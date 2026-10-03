@@ -1,6 +1,6 @@
 ---
 title: 最小クラウドとTerraform Provider
-updated: 2026-09-13
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # 最小クラウドとTerraform Provider
 
-> **更新日** 2026-09-13 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は identity サービスの `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・monitor-01などサービスVMもこのAPIで作成済み**。
+[構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は Authentik（core-01）の `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・apps-01などサービスVMもこのAPIで作成済み**。
 
 実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
 
@@ -45,7 +45,7 @@ Knative Serving だけでは、商用のサーバレス基盤にあるコード�
 
 ## S3: Garageを第一候補にする
 
-**2026-09-11 に storage-s3 VM（VMID 130、.206）へ単一ノードで構築しました。** 実クライアント（awscli）で PUT/LIST/GET/削除を確認済みです。手順は[Garage（S3互換オブジェクトストア）](../operations/garage.md)。
+**2026-09-11 に storage-s3 VM（VMID 130、.206）へ単一ノードで構築しました（2026-10-03 に storage-s3 は削除し、Garage は cloud-01（192.168.10.205、S3は `http://192.168.10.205:3900`）へ移しました）。** 実クライアント（awscli）で PUT/LIST/GET/削除を確認済みです。手順は[Garage（S3互換オブジェクトストア）](../operations/garage.md)。
 
 Garageは、バケット・キーの管理APIがあり、自作クラウドへ接続しやすい候補です。管理APIのトークンにはスコープと期限を設定できます。[Garage管理API](https://garagehq.deuxfleurs.fr/documentation/reference-manual/admin-api/)
 
@@ -83,7 +83,7 @@ DBバックアップはS3へ保存できますが、同じK11内のGarageだけ�
 
 **この節は方針を変更しました。** 以前は「利用者アカウントを作らず、用途別のキーだけを発行する」と書いていました。それではクォータも所有権（どのVMが誰のものか）も成立せず、利用者が自分でキーを発行する経路もありません。homelab統合認証アカウントへ寄せます。
 
-- **ブラウザは Authentik の OIDC** でポータルへログインします。identity VM の `stacks/identity/configure.py` がクライアント `cloud` を作ります。
+- **ブラウザは Authentik の OIDC** でポータルへログインします。core-01 の `stacks/identity/configure.py` がクライアント `cloud` を作ります。
 - **Terraform と CLI はアクセスキー**を使います。ポータルで発行し、`Authorization: Bearer sca_<キーID>.<秘密値>` で送ります。ブラウザのログインとは別系統の、機械用の資格情報です。
 
 キーをSSOと分けるのは、依存を一方向にするためです。**Authentik が停止していても Terraform は動きます。**逆にすると、認証基盤の障害が復旧作業そのものを止めます。
@@ -241,7 +241,7 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 
 | もの | 値 | 状態 |
 | --- | --- | --- |
-| Proxmoxプール | `cloud` | 作成済み。game1（引き取り）・media-01・monitor-01・利用者VM・ボリュームホルダーが所属 |
+| Proxmoxプール | `cloud` | 作成済み。game1（引き取り）・media-01・apps-01・win-01・android-01・利用者VM・ボリュームホルダーが所属 |
 | VMID範囲 | 5000–5999 | クラウドVMが使用中（game1は引き取りのため範囲外の100） |
 | ロール | `CloudApiOperator` / `CloudApiStorage` / `CloudApiImages` / `CloudApiNodeAudit` | **適用済み** |
 | 実行アカウント | `cloudapi@pve` とAPIトークン | **適用済み**・実機プローブ4つとも PASS |
@@ -325,7 +325,7 @@ API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と
 7. ボリュームとセキュリティグループ（2026-09-11 に実機検証済み）。
 8. ポータル（最小ページは稼働中。ボリューム・SG 操作は実装済み）。既存VMの引き取り（Phase 5）は 2026-09-11 に実装済み。
 9. Terraform Provider（2026-09-11 に実装済み）。
-10. Garage（2026-09-11 に storage-s3 VM へ単一ノードで構築、APIが発行した鍵で実クライアントから PUT/GET/削除を確認済み）と、バケット・用途別S3キーの API。
+10. Garage（2026-09-11 に storage-s3 VM へ単一ノードで構築、現在は cloud-01、APIが発行した鍵で実クライアントから PUT/GET/削除を確認済み）と、バケット・用途別S3キーの API。
 
 **4が「実際にVMができる」地点**です。全体の3分の1あたりに来るようにし、最後に回しません。
 

@@ -1,6 +1,6 @@
 ---
 title: Homarrの使い方
-updated: 2026-09-12
+updated: 2026-10-03
 section: 利用ガイド
 audience: 利用者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # Homarrの使い方
 
-> **更新日** 2026-09-12 ・ **区分** 利用ガイド ・ **読む人** 利用者
+> **更新日** 2026-10-03 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 Homarrは、各サービスを開くための入口です。**apps-01 で動いており、家庭内LANから `https://homarr.apextox.dpdns.org` で開きます。** ファイルや本そのものを保存する場所ではありません。
 
@@ -53,11 +53,11 @@ SSOで入った人が管理グループに入るには、Homarr側でそのア�
 ```bash
 # 管理PCから（推奨。リポジトリのルートで）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/homarr.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/homarr.yml'
 
 # apps-01へ入って直接
-ssh debian@192.168.10.200
-sudo python3 /opt/homarr-stack/manage.py configure
+ssh debian@192.168.10.105
+sudo python3 /opt/homarr/manage.py configure
 ```
 
 反映処理は `apps.json` を正本としてタイルを合わせます。**`apps.json` から消した
@@ -78,6 +78,6 @@ UIでタイルを足した場合も、`apps.json` に無いものは次の反映
 ## 管理者がログインできないとき
 
 SSOが使えないときは、ローカル管理者で入れます。パスワードはapps-01の
-`/opt/homarr-stack/secrets/admin_password` にあります。**チャットやGitへ貼り付けないで
+`/opt/homarr/secrets/admin_password` にあります。**チャットやGitへ貼り付けないで
 ください。** SSOのアカウントやグループは[共通ログイン（identity）](../operations/identity.md)
 で管理します。

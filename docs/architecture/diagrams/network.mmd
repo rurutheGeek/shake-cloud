@@ -12,11 +12,11 @@ flowchart TB
     subgraph lan["LAN の端末（192.168.10.0/24）"]
       wifi["Wi-Fi 端末"]
       wired["有線端末"]
-      vms["各VM<br/>services-01・media-01・monitor-01<br/>game1・k8s・dev-a/b"]
+      vms["各VM<br/>core-01・apps-01・media-01・monitor-01<br/>game1・k8s・dev-a/b"]
     end
-    caddy["各VMのCaddy<br/>HTTPS入口（Let's Encrypt）"]
-    authentik["Authentik（identity）<br/>SSO・Forward Auth"]
-    netbox["NetBox（services-01）<br/>予約・リースの台帳"]
+    caddy["core-01のCaddy<br/>HTTPS入口（Let's Encrypt）"]
+    authentik["Authentik（core-01）<br/>SSO・Forward Auth"]
+    netbox["NetBox（core-01）<br/>予約・リースの台帳"]
   end
   switch["TL-SG605（スイッチ）"]
   aterm["Aterm（APモード）"]
@@ -32,6 +32,6 @@ flowchart TB
   adguard -- "外部ドメイン（DoH）" --> internet
   netbox -. "予約を配る（pull）" .-> dnsmasq
   dnsmasq -. "リースを書く（push）" .-> netbox
-  remote -. "Tailscale（net-01）" .-> switch
+  remote -. "Tailscale（router-01）" .-> switch
   vms --> caddy
   caddy -. "認証" .-> authentik

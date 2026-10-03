@@ -1,6 +1,6 @@
 ---
 title: router-01（OpenWrt・自作ルータ）
-updated: 2026-09-20
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # router-01（OpenWrt・自作ルータ）
 
-> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **切替済み・N06 の完了条件をすべて満たした。**
 `verify-router.py` は 5 PASS / 0 FAIL、ホスト再起動での自動復旧も確認済み
@@ -81,8 +81,8 @@ ONU ── nic0 [K11] nic1 ── TL-SG605 ──┬── Windows デスクト�
 ## 切替前に決めておくこと
 
 - **K11 が落ちると家のネットも落ちます。** Proxmox の再起動・カーネル更新が
-  全断になります。復旧経路の `net-01` も同じホスト上にあるため、宅外からも
-  届かなくなります（[net-01（Tailscale subnet router）](net.md)）。
+  全断になります。Tailscale の subnet router もルータ（router-01）の上で
+  動くため、宅外からも届かなくなります（[Tailscale（subnet router）](net.md)）。
   **方針（2026-09-19）: 受容＋コールドスペア。** 計画メンテは人がいるときに
   行い、K11 が直らない故障のときは Aterm をルータへ戻します（下記
   「K11 のメンテナンス」）。
@@ -169,7 +169,7 @@ DNS の窓口は **AdGuard Home**（`192.168.10.1:53`）です。広告・トラ
   RDNSS を書き換える方式）。実測で確認済み（2026-09-20）。ISP 側が変われば
   `dhcp.lan.dns` の1行で AdGuard へ書き換わります。
 - **管理画面は HTTPS 入口から**（`https://adguard.apextox.dpdns.org`、SSO）。
-  ルータの `:3000` はファイアウォールで services-01 だけに開けています。
+  ルータの `:3000` はファイアウォールで core-01 だけに開けています。
   SSH トンネルでも開けます:
   `ssh -L 3000:192.168.10.1:3000 root@192.168.10.1` → `http://localhost:3000/`
 - 設定の正本は `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml`。
@@ -189,7 +189,7 @@ ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'        # ローカル名
 [DNS と広告遮断（AdGuard Home）](adguard.md)。
 
 - **ルータの管理画面（LuCI）**は `https://router.apextox.dpdns.org` でも
-  開けます（**SSO なし**。identity が止まっていても開ける復旧経路にするため）。
+  開けます（**SSO なし**。Authentik が止まっていても開ける復旧経路にするため）。
   IP 直は `http://192.168.10.1`。**ログインには root パスワードが要ります**
   （未設定。SSH 鍵で入って `passwd` で設定する。パスワードは Git に置かない）。
 
@@ -420,8 +420,8 @@ Aterm の AP 化を最後にすることで、切替当日の作業は「配線�
   3. Aterm の RT/BR/CNV スイッチを RT へ戻して電源を入れ、必要なら保存した
      `.bin` を「設定値の保存＆復元」で復元する。
   4. 家のネットが戻ったら、K11 を落ち着いて修復する。
-- **外出中に K11 が落ちた場合、遠隔から戻す手段はありません。** `net-01` も
-  K11 上なので当てにしません（受容）。専用ルータ機（K11 の外）や 4G の細い出口
+- **外出中に K11 が落ちた場合、遠隔から戻す手段はありません。** ルータ上の
+  Tailscale も K11 上なので当てにしません（受容）。専用ルータ機（K11 の外）や 4G の細い出口
   は、必要になった時点で別作業として検討します。
 
 ## 5. 設定の更新
@@ -607,9 +607,9 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
   いたのを直した（起動がリース期間未満なら削除しない。[netbox.md](netbox.md)）。
 
 - 2026-09-20: **AdGuard の管理画面に HTTPS 入口を付けた。**
-  `adguard.apextox.dpdns.org`（services-01 の Caddy → ルータの
+  `adguard.apextox.dpdns.org`（services-01（現 core-01）の Caddy → ルータの
   `192.168.10.1:3000`、Forward Auth で SSO）。ルータのファイアウォールは
-  `:3000` を services-01 だけに許可し、LAN からの直接アクセス（SSO 迂回）を
+  `:3000` を core-01 だけに許可し、LAN からの直接アクセス（SSO 迂回）を
   塞いだ。設定は `dns.yaml`・`stacks/identity/configure.py`・
   `rootfs/etc/shakecloud/config/firewall`・`adguardhome.yaml`。
 

@@ -35,7 +35,7 @@ python3 -m unittest tests.test_print_app
 
 # 手元からの疎通（トークンはSOPSから）
 sops exec-env platform/sops/print-api.sops.yaml \
-  'curl -s -o /dev/null -w "%{http_code}\n" http://192.168.10.200:6320/healthz'
+  'curl -s -o /dev/null -w "%{http_code}\n" http://192.168.10.105:6320/healthz'
 ```
 
 印刷そのものの使い方は[プリンター](../../docs/services/printer.md)を参照してください。

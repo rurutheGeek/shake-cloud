@@ -1,6 +1,6 @@
 ---
 title: クラウドAPI本体とインスタンス
-updated: 2026-10-01
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # クラウドAPI本体とインスタンス
 
-> **更新日** 2026-10-01 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 [クラウドAPIの構築](cloud.md)の続きです。**3-1〜3-7 の土台が終わっていることが前提**で、ここでは API 本体を上げ、名前と HTTPS を付け、インスタンスを作れるところまで進めます。
 
@@ -19,7 +19,7 @@ tags:
 
 ### 3-8. クラウドAPI（Phase 1）
 
-cloud-01 に API と管理DB（PostgreSQL）を置きます。OIDC クライアントの秘密値を identity VM から読むので、`identity.yml` の後に流します。
+cloud-01 に API と管理DB（PostgreSQL）を置きます。OIDC クライアントの秘密値を core-01（Authentik）から読むので、`identity.yml` の後に流します。
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
@@ -40,10 +40,10 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 | --- | --- |
 | `/opt/cloud-stack/secrets/db_password` | 管理DBのパスワード |
 | `/opt/cloud-stack/secrets/bootstrap_admin_key` | ブートストラップ管理キー（下記） |
-| `/opt/cloud-stack/secrets/oidc_credentials` | identity VM の `/opt/identity-stack/secrets/oidc-cloud.json` の写し |
+| `/opt/cloud-stack/secrets/oidc_credentials` | core-01 の `/opt/identity-stack/secrets/oidc-cloud.json` の写し |
 | `/srv/cloud-stack/storage/postgres` | 管理DB |
 
-**OIDC クライアントの秘密値は SOPS に入れていません。** 以前は `cloudapi.sops.yaml` へ入れる予定でしたが、正本は identity VM にあり、2か所に持つと Authentik 側で作り直したときに食い違います。配備のたびに Ansible が identity VM から直接写し、ログには出しません（`tests/test_cloud_stack.py` が `no_log` を検査）。
+**OIDC クライアントの秘密値は SOPS に入れていません。** 以前は `cloudapi.sops.yaml` へ入れる予定でしたが、正本は core-01（Authentik）にあり、2か所に持つと Authentik 側で作り直したときに食い違います。配備のたびに Ansible が core-01 から直接写し、ログには出しません（`tests/test_cloud_stack.py` が `no_log` を検査）。
 
 #### 実機での確認（2026-09-10）
 
@@ -136,7 +136,7 @@ LAN の中の管理画面に `*.apextox.dpdns.org` の名前を付け、Let's En
 | 段 | 担当 | すること |
 | --- | --- | --- |
 | 1. 名前 | Terraform `20-dns` | Cloudflare に A レコードを書く。アドレスは 10-platform・05-seed の出力から引き、書き写さない |
-| 2. 証明書と入口 | Ansible ロール `tls_proxy`（`stacks/tls-proxy/`） | 各ホストに Caddy を置き、DNS-01 で証明書を取り、127.0.0.1 のサービスへ中継する |
+| 2. 証明書と入口 | Ansible ロール `tls_proxy`（`stacks/tls-proxy/`） | 入口の1台（core-01）の Caddy が DNS-01 で全名前の証明書を取り、各サービスへ中継する（[HTTPSの入口](edge.md)） |
 | 3. サービス側 | 各ロール | Authentik と API は 127.0.0.1 に閉じ、URL を HTTPS の名前にする。NetBox は名前を許可に足す |
 
 名前を足すときは、`dns.yaml` にレコードを足してから次を流します。
@@ -145,11 +145,11 @@ LAN の中の管理画面に `*.apextox.dpdns.org` の名前を付け、Let's En
 tools/tf 20-dns apply
 ```
 
-そのあと、そのホストの playbook を流すと Caddy が名前を受けるようになります。identity は `identity.yml`、cloud-01 は `cloud.yml`、services-01 は `netbox.yml`・`docs-site.yml`・`home-assistant.yml`・`vaultwarden.yml`・`cups.yml` など、media-01 は `media.yml` です。**services-01 のものは静的インベントリ `platform/ansible/seed.ini` で流します**（NetBox の動的インベントリに services-01 は居ません。動的インベントリで流すと何もせずに成功したように終わります）。
+そのあと、そのホストの playbook を流すと Caddy が名前を受けるようになります。Caddy の名前は core-01 の `edge.yml` で受けます。Authentik は `identity.yml`、cloud-01 は `cloud.yml`、apps-01 のアプリは `docs-site.yml`・`home-assistant.yml`・`vaultwarden.yml`・`cups.yml` など、media-01 は `media.yml` です。**どれも NetBox の動的インベントリ `platform/ansible/inventory.netbox.yml` で流します**（`sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/<playbook>.yml'`）。クラウドVMのホスト名はインスタンスID（`i-...`）なので、`--limit` はグループ名（`apps`・`media`・`core` など）で絞ります。`seed.ini` を使うのは NetBox を最初に作る `netbox.yml` だけです。
 
 Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops.yaml` にあり、**ゾーンの読み取りと DNS の編集**の2つの権限が要ります。テンプレート「ゾーン DNS を編集する」で作れば、両方が付きます。
 
-証明書は Caddy が期限の約30日前に自動で更新します。証明書は各ホストの `/srv/tls-proxy/storage/data` にあり、ここを消すと取り直しになります。Let's Encrypt には1ドメインあたり週50枚の上限があるので、何度も消さないでください。
+証明書は Caddy が期限の約30日前に自動で更新します。証明書は core-01 の `/srv/tls-proxy/storage/data` にあり、ここを消すと取り直しになります。Let's Encrypt には1ドメインあたり週50枚の上限があるので、何度も消さないでください。
 
 クラウドAPI は Caddy の後ろにいるので、監査ログの送信元は Caddy が付ける `X-Forwarded-For` から取ります。**信用するのは同じホストの Caddy から来たときだけ**です（`SHAKECLOUD_TRUSTED_PROXIES`）。直接つないで偽の値を送っても、ログには記録されません。
 
@@ -172,7 +172,7 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | --- | --- |
 | レコードを作った直後に、ルーターや 1.1.1.1 が「名前が無い」と返す（Google は SERVFAIL） | Cloudflare の中で反映が終わる前に問い合わせた。1分ほどで全部引けるようになった。権威サーバー（`daisy.ns.cloudflare.com`）に直接聞くと、作った時点で答えている |
 | ルーターは答えるのに、あるホストだけ名前を引けない（`docs.apextox.dpdns.org` で起きた） | そのホストの systemd-resolved が、反映前の「名前が無い」を最大30分覚えていた。`sudo resolvectl flush-caches` で直った。`tls_proxy` の HTTPS 確認がこれで失敗することがある |
-| Tailscale の DNS（100.100.100.100）がどの名前にも SERVFAIL を返す | tailnet の global nameserver が未設定のまま MagicDNS だけが有効だった。**2026-10-01 に tailnet DNS を AdGuard Home（`192.168.10.1`）+ `overrideLocalDNS` に設定して解消**（[net-01](net.md)） |
+| Tailscale の DNS（100.100.100.100）がどの名前にも SERVFAIL を返す | tailnet の global nameserver が未設定のまま MagicDNS だけが有効だった。**2026-10-01 に tailnet DNS を AdGuard Home（`192.168.10.1`）+ `overrideLocalDNS` に設定して解消**（[Tailscale](net.md)） |
 
 ### 3-10. インスタンス（Phase 2）
 

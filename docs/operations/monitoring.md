@@ -1,6 +1,6 @@
 ---
 title: 監視（monitor-01）
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,15 +10,15 @@ tags:
 
 # 監視（monitor-01）
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 稼働中。`https://grafana.apextox.dpdns.org`（identity の OIDC）。
+**状態**: 稼働中。`https://grafana.apextox.dpdns.org`（core-01 の Authentik の OIDC）。
 
 **アラートが鳴ったときと、監視そのものを直すときのページ**です。なぜその構成にしたか・いつ何を足したかの経緯は[M01 監視](../development/M01-monitoring.md)が正本で、ここには書きません。
 
 ## 1. 何が動いているか
 
-monitor-01（`192.168.10.102`）の独立Composeです。**サービス自身のポートはすべて `127.0.0.1` に閉じて**おり、入口は同じVMのCaddy（`stacks/tls-proxy/`）だけです。
+monitor-01（基盤VM、VMID 120、`192.168.10.210`）の独立Composeです。2026-10-03 に、クラウドVM（`192.168.10.102`）から基盤VMへ作り直しました。**サービス自身のポートはすべて `127.0.0.1` に閉じて**おり、入口は同じVMのCaddy（`stacks/tls-proxy/`）だけです。
 
 | 役割 | ソフト | ポート（127.0.0.1） |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ monitor-01（`192.168.10.102`）の独立Composeです。**サービス自身の
 | Proxmox | pve-exporter | 9221 |
 | UPS | nut_exporter | 9199 |
 
-収集ジョブは `prometheus`・`blackbox`・`pve`・`nut`・`node`・`game` の6つ（`stacks/monitoring/prometheus/prometheus.yml`）。保持は既定15日（`PROMETHEUS_RETENTION`）で、時系列は専用データディスクに置きます。
+収集ジョブは `prometheus`・`blackbox`・`pve`・`nut`・`node`・`game` の6つ（`stacks/monitoring/prometheus/prometheus.yml`）。保持は既定15日（`PROMETHEUS_RETENTION`）で、時系列は `/srv/monitoring`（OSと同じディスク）に置きます。
 
 Grafana のダッシュボードは overview・host・storage・vm-memory・game-server の5枚です（`stacks/monitoring/grafana/provisioning/dashboards/`）。
 
@@ -37,13 +37,13 @@ Grafana のダッシュボードは overview・host・storage・vm-memory・game
 
 | 入口 | 認証 |
 | --- | --- |
-| `https://grafana.apextox.dpdns.org` | identity の OIDC。**`admins` は Admin、`users` は Viewer** |
+| `https://grafana.apextox.dpdns.org` | core-01 の Authentik の OIDC。**`admins` は Admin、`users` は Viewer** |
 | Prometheus・Alertmanager の画面 | 入口を出していません。見るなら monitor-01 へSSHして `127.0.0.1` へポートフォワード |
 
-**identity が落ちていて Grafana に入れないとき**は、ローカル管理者で入ります。パスワードは monitor-01 の `/opt/monitoring-stack/secrets/grafana_admin_password` です。
+**Authentik（core-01）が落ちていて Grafana に入れないとき**は、ローカル管理者で入ります。パスワードは monitor-01 の `/opt/monitoring-stack/secrets/grafana_admin_password` です。
 
 ```bash
-ssh debian@192.168.10.102 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_password'
+ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_password'
 ```
 
 ## 3. アラートが鳴ったら
@@ -57,9 +57,9 @@ ssh debian@192.168.10.102 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 | `ServiceProbeFailed` | HTTPS名が5分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
 | `CertificateExpiringSoon` | 証明書の期限が14日以内 | 該当ホストのCaddyログ。Cloudflareトークンの権限（ゾーン読み取り＋DNS編集の両方が要る） |
 
-### ノード（node_exporter を入れた5台）
+### ノード（node_exporter を入れた4台）
 
-対象は services-01・identity・cloud-01・storage-s3・monitor-01 と Proxmox ホストです。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
+対象は core-01・cloud-01・monitor-01・apps-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
 
 | アラート | 意味 |
 | --- | --- |
@@ -135,8 +135,8 @@ monitor-01 の `/opt/monitoring-stack` で `manage.py` を使います（`sudo` 
 アラート規則やスクレイプ先を変えたときは、Gitを直してから Ansible で配り直します。
 
 ```bash
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/monitor.ini platform/ansible/monitoring.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
 ```
 
 **`.env` の SMTP・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。

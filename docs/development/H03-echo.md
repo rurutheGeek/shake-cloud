@@ -1,6 +1,6 @@
 ---
 title: H03 Echo・Alexa連携
-updated: 2026-09-12
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # H03 Echo・Alexa連携
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -20,7 +20,7 @@ tags:
 
 [家電の構成案](../architecture/operations.md#home-devices)はEcho Gen2を既存端末とし、Alexaからの家電操作とEchoへの音声通知を別機能としている。利用者と協議し、**Home Assistant Cloudの契約も独自Skillの公開入口もいまは作らず、H01とH02を先に完成させる**方針にした。HAの8123はルーターへ公開していない（127.0.0.1と既存Caddyのみ）。
 
-配備先・開発範囲: **既存Echoとservices-01のHome Assistant Container。開発先 `stacks/home-assistant/` のAlexa用手順**。
+配備先・開発範囲: **既存Echoとapps-01のHome Assistant Container。開発先 `stacks/home-assistant/` のAlexa用手順**。
 
 ## 実装手順
 

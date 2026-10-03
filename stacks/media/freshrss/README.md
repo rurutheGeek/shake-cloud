@@ -78,10 +78,10 @@ sudo python3 manage.py backup --destination /srv/backups/freshrss
 ## Ansible で配備
 
 ```bash
-.venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-freshrss.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-freshrss.yml'
 ```
 
-`{{ project_dir }}/media/freshrss` へユニットをコピーし、`storage_root` から `.env` を生成、identity VM の `oidc-media.json` から `secrets/oidc_client.json` を配り、`manage.py up` を実行します。`project_dir` などの変数は [group_vars/media.yml](../../../platform/ansible/group_vars/media.yml) が正本です。identity がまだ配備されていない場合は OIDC クライアントが無いため、先に identity を配備してください。
+`{{ project_dir }}/media/freshrss` へユニットをコピーし、`storage_root` から `.env` を生成、core-01（Authentik）の `oidc-media.json` から `secrets/oidc_client.json` を配り、`manage.py up` を実行します。`project_dir` などの変数は [group_vars/media.yml](../../../platform/ansible/group_vars/media.yml) が正本です。identity がまだ配備されていない場合は OIDC クライアントが無いため、先に identity を配備してください。
 
 ## 正本
 

@@ -1,6 +1,6 @@
 ---
 title: DNS と広告遮断（AdGuard Home）
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # DNS と広告遮断（AdGuard Home）
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **router-01 で稼働中（家の DNS の窓口）。**
 対象読者: 家のネットワークを運用する人。設定の一覧は
@@ -53,7 +53,7 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 | フィルタ | AdGuard DNS filter（約18万件）＋ HaGeZi's Pro Blocklist | 広告・トラッカー。1本では網羅できないため補完 |
 | 除外（`user_rules`） | Xbox 実績用の Microsoft ドメイン（`v10/v20.events.data.microsoft.com` の地域版・`v10c`・`vortex(-win)`・`pipe.aria`・`watson` と CNAME 先） | HaGeZi's Pro が実績トラッキングを遮断するため（2026-10-02） |
 | クエリログ・統計 | 90日 | ルータ内のディスクに保存 |
-| 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は services-01 だけに許可 |
+| 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は core-01 だけに許可 |
 | 作業ディレクトリ | `/etc/adguardhome/data`（UCI `workdir`） | 既定の `/var/lib` は tmpfs。再起動でフィルタが消えるのを防ぐ |
 | DHCP の DNS 配布 | `192.168.10.1`（dnsmasq の option 6） | 端末は DHCP で AdGuard を知る |
 
@@ -71,9 +71,9 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 ## 管理画面の開き方
 
 **通常は <https://adguard.apextox.dpdns.org>** を開きます（共通ログイン＝SSO）。
-しくみは、ルータの `192.168.10.1:3000` を services-01 の Caddy が中継し、
+しくみは、ルータの `192.168.10.1:3000` を core-01 の Caddy が中継し、
 Forward Auth（Authentik）で認証する形です。**ルータのファイアウォールは
-`:3000` を services-01 だけに開けている**ので、LAN の端末から
+`:3000` を core-01 だけに開けている**ので、LAN の端末から
 `http://192.168.10.1:3000` を直接開くことはできません（SSO の迂回防止）。
 
 SSO が使えないときは SSH トンネルで開きます。

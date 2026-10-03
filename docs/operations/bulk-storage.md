@@ -1,6 +1,6 @@
 ---
 title: 共有バルクストレージ（6TB USB HDD）
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # 共有バルクストレージ（6TB USB HDD）
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ・Nextcloudデータ・クライアント端末バックアップ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
 
@@ -46,9 +46,9 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 media-01（共有ライブラリのマウント。`media.yml` が最初に通す `media-base.yml` に含まれる）:
 
 ```bash
-sops exec-env platform/sops/services.sops.yaml \
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-   .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py \
+   .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
      platform/ansible/media-base.yml'
 ```
 

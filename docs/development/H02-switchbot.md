@@ -1,6 +1,6 @@
 ---
 title: H02 SwitchBot連携
-updated: 2026-09-13
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # H02 SwitchBot連携
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -20,7 +20,7 @@ tags:
 
 [家電の構成案](../architecture/operations.md#home-devices)はBluetoothローカルとCloudの違い、機種/Hub確認を要求している。利用者の機器は **Hub Miniがある** ことを2026-09-12に確認した。services-01のHA ContainerにはBluetoothが無く、USB Bluetoothドングルのパススルーも未実施のため、**SwitchBot Cloud統合**（Hub MiniがBLE機器を中継）を採用し、HAへ統合を追加した。鍵・ドアセンサー・赤外線家電（エアコン/テレビ/照明等）のエンティティは確認済み。機器本体の型番・ファームの把握と、実機の操作・状態更新は未確認。
 
-配備先・開発範囲: **services-01のHome Assistant Container。開発先 `stacks/home-assistant/` のSwitchBot用設定・手順**。
+配備先・開発範囲: **apps-01のHome Assistant Container（2026-10-03にservices-01から移設）。開発先 `stacks/home-assistant/` のSwitchBot用設定・手順**。
 
 ## 実装手順
 
@@ -45,4 +45,4 @@ tags:
 - HA側の受け口は `settings → デバイスとサービス → 統合を追加 → SwitchBot Cloud`。資格情報はSwitchBotアプリの開発者オプション（プロフィール → アプリバージョンを10回タップ → Developer Options）で発行する **トークンとシークレット**。**HAのconfig entryにだけ保存し、Git・チャット・この文書へ書かない。**
 - 統合を追加済みで、鍵・ドアセンサー・赤外線家電（エアコン/テレビ/照明等）のエンティティがHAに出ることを確認した。
 - 未実施: 実機の操作・状態更新、HA/VM再起動後の再接続、Hub Miniと配下機器の型番・ファームの記録。
-- ローカルBluetoothへ切り替える場合は、USBドングルのK11への装着とservices-01へのパススルー、HA Containerへのデバイス割当が前提。
+- ローカルBluetoothへ切り替える場合は、USBドングルのK11への装着とapps-01へのパススルー、HA Containerへのデバイス割当が前提。

@@ -13,7 +13,8 @@
 # 正本は platform/ansible/roles/pve_bulk_storage、手順は
 # docs/operations/bulk-storage.md。
 #
-#   ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-base.yml
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-base.yml'
 - name: Prepare the media-01 base (IPv4 egress and the shared storage)
   hosts: media
   become: true

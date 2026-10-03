@@ -119,7 +119,7 @@ nav:
           - Windows 11 ProのVMを作る: operations/windows.md
           - android-01（Waydroid）の環境: operations/android-01.md
       - ネットワークとストレージ:
-          - net-01（subnet router）: operations/net.md
+          - Tailscale（subnet router）: operations/net.md
           - VLAN 分離への切替: operations/vlan.md
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
