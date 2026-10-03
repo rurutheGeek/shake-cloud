@@ -25,7 +25,8 @@ const ipfilterSet = "ipfilter-net0"
 // filteredOptions are what every instance with groups gets. Both policies
 // drop: a group's rules are all that is allowed, in and out, as in EC2.
 // macfilter and ipfilter stop the guest sending as another MAC or IP address;
-// ipfilter drops all IPv4 unless the instance's address is in ipfilterSet.
+// ipfilter drops everything the guest sends unless its source is in
+// ipfilterSet (link-local IPv6 derived from the MAC is implicit).
 var filteredOptions = map[string]string{
 	"enable": "1", "policy_in": "DROP", "policy_out": "DROP",
 	"macfilter": "1", "ipfilter": "1", "dhcp": "0", "ndp": "1", "radv": "0",
@@ -163,7 +164,16 @@ func (s *Service) replaceRules(ctx context.Context, vmid int, current, desired [
 	return nil
 }
 
-// pinAddress makes ipfilterSet hold exactly the instance's address.
+// globalIPv6 is every global unicast IPv6 address. The LAN hands out IPv6 by
+// router advertisement, so the API neither assigns nor knows a guest's IPv6
+// address, and the prefix is the ISP's to change. Without this entry ipfilter
+// drops all global IPv6 the guest sends (measured on 2026-10-03: IPv6 timed
+// out on every instance with groups). macfilter still ties the traffic to the
+// instance's MAC; only the IPv4 address is pinned exactly.
+const globalIPv6 = "2000::/3"
+
+// pinAddress makes ipfilterSet hold exactly the instance's IPv4 address and
+// globalIPv6.
 func (s *Service) pinAddress(ctx context.Context, vmid int, prefix string) error {
 	address := strings.SplitN(prefix, "/", 2)[0]
 	if address == "" {
@@ -182,20 +192,22 @@ func (s *Service) pinAddress(ctx context.Context, vmid int, prefix string) error
 	if err != nil {
 		return err
 	}
-	have := false
+	missing := []string{address, globalIPv6}
 	for _, entry := range entries {
-		if strings.TrimSuffix(entry, "/32") == address {
-			have = true
+		if i := slices.Index(missing, strings.TrimSuffix(entry, "/32")); i >= 0 {
+			missing = slices.Delete(missing, i, i+1)
 			continue
 		}
 		if err := s.PVE.DeleteIPSetEntry(ctx, vmid, ipfilterSet, entry); err != nil {
 			return err
 		}
 	}
-	if have {
-		return nil
+	for _, entry := range missing {
+		if err := s.PVE.AddIPSetEntry(ctx, vmid, ipfilterSet, entry); err != nil {
+			return err
+		}
 	}
-	return s.PVE.AddIPSetEntry(ctx, vmid, ipfilterSet, address)
+	return nil
 }
 
 // setFilteredOptions writes the filtering options every instance with groups
