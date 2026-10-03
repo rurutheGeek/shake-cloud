@@ -192,6 +192,12 @@
       </label>
       </details>
       <label>ルートディスク GiB <input name="root_disk_gib" type="number" min="1" step="1"></label>
+      <label id="disk-tier-field" hidden>ディスクの種類
+        <select name="disk_tier">
+          <option value="ssd">SSD（速い・既定）</option>
+          <option value="hdd">HDD（大容量・低速）</option>
+        </select>
+      </label>
       <label id="key-name-field">SSH鍵 <select name="key_name"><option value="">使わない</option></select></label>
       <fieldset>
         <legend>セキュリティグループ（選ばなければ既定を使います）</legend>
@@ -214,6 +220,12 @@
     <p class="muted">全アカウントのボリュームが並びます。自分のものだけではありません。</p>
     <form id="create-volume">
       <label>大きさ GiB <input name="size_gib" type="number" min="1" step="1" required></label>
+      <label id="volume-disk-tier-field" hidden>ディスクの種類
+        <select name="disk_tier">
+          <option value="ssd">SSD（速い・既定）</option>
+          <option value="hdd">HDD（大容量・低速）</option>
+        </select>
+      </label>
       <label>名前 <input name="name" placeholder="例: data"></label>
       <button type="submit">作成</button>
     </form>

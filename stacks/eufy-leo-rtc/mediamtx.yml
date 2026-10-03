@@ -1,0 +1,17 @@
+# HA の Generic Camera へ渡す RTSP。ホストの docker ゲートウェイ（HA の
+# compose ネットワーク）だけに開く。LAN へは出さない。
+logLevel: info
+# スーパーバイザが「視聴要求」をログで見るためファイルへも出す。
+logDestinations: [stdout, file]
+logFile: /state/mediamtx.log
+readTimeout: 30s
+writeTimeout: 30s
+rtsp: true
+rtspAddress: 172.31.254.1:8554
+hls: false
+webrtc: false
+rtmp: false
+api: true
+apiAddress: 127.0.0.1:9997
+paths:
+  all_others:

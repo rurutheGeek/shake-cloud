@@ -36,6 +36,13 @@ pve_bulk_storage_roms_dir: '{{ pve_bulk_storage_mount }}/roms'
 pve_bulk_storage_roms_uid: 1000
 pve_bulk_storage_roms_gid: 1000
 
+# クラウドAPIのHDDティア（disk_tier: hdd）のVMディスク置き場。利用者が選ぶと
+# ここへ qcow2 で置かれる。vzdump（bulk-backup）と同じHDDだが、ディレクトリも
+# Proxmoxストレージも分け、バックアップの世代削除に巻き込まれないようにする。
+# **単一ディスクなので冗長性は無い。** 注意は docs/operations/bulk-storage.md。
+pve_bulk_storage_disks_id: bulk-disks
+pve_bulk_storage_disks_dir: '{{ pve_bulk_storage_mount }}/disks'
+
 # バックアップ。vzdump の保存先（Proxmox の dir ストレージ。pve_backup ロールが
 # 登録する）と、game1 のセーブを受け取る共有。メディア共有とは分ける。
 # このディスク自身が壊れるとバックアップも失う点は docs/operations/backup.md。
@@ -46,6 +53,14 @@ pve_bulk_storage_game1_saves_dir: '{{ pve_bulk_storage_backup_dir }}/game1-saves
 # www-data(33) で読み書きする。共有ライブラリとは分けて、バックアップの単位を
 # 分けられるようにする。
 pve_bulk_storage_nextcloud_dir: '{{ pve_bulk_storage_mount }}/nextcloud-data'
+
+# クライアント端末（Windows・スマホ）のバックアップ。media-01 の UrBackup が
+# 読み書きする。コンテナ内の urbackup ユーザー（entrypoint の既定 PUID/PGID=101）
+# に合わせる。イメージのバックアップは重複排除のハードリンクを使うため、
+# 同一ファイルシステム上に置く必要がある。
+pve_bulk_storage_client_backups_dir: '{{ pve_bulk_storage_mount }}/client-backups'
+pve_bulk_storage_client_backups_uid: 101
+pve_bulk_storage_client_backups_gid: 101
 
 # ゲストはIPv4の固定IPだけ。all_squash でゲスト側の uid に関係なく
 # anonuid で読み書きする。root_squash だけだと root で動くコンテナ
@@ -65,3 +80,8 @@ pve_bulk_storage_exports:
   - path: '{{ pve_bulk_storage_nextcloud_dir }}'
     clients: 192.168.10.101
     options: 'rw,sync,no_subtree_check,all_squash,anonuid=33,anongid=33'
+  # クライアント端末のバックアップ。media-01 の UrBackup コンテナ
+  # （urbackup=101）が読み書きする。
+  - path: '{{ pve_bulk_storage_client_backups_dir }}'
+    clients: 192.168.10.101
+    options: 'rw,sync,no_subtree_check,all_squash,anonuid=101,anongid=101'

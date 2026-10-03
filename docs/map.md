@@ -135,8 +135,9 @@ flowchart TB
 | [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-09-13 | `plan` `home-assistant` |
 | [H03 Echo・Alexa連携](development/H03-echo.md) | 2026-09-12 | `plan` `home-assistant` |
-| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-23 | `plan` `home-assistant` |
-| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-09-23 | `plan` `home-assistant` `reverse-engineering` |
+| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-10-02 | `plan` `home-assistant` |
+| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-10-02 | `plan` `home-assistant` `reverse-engineering` |
+| [H05 HAライブ反映の依頼書](development/H05-ha-live-request.md) | 2026-10-01 | `plan` `home-assistant` `reverse-engineering` |
 | [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-10-02 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
@@ -161,20 +162,22 @@ flowchart TB
 | [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-09-13 | `plan` `navidrome` |
 | [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-02 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-10-01 | `plan` |
+| [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-10-02 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-09-22 | `ops` `network` `dns` |
+| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-02 | `ops` `network` `dns` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
-| [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-09-22 | `ops` `backup` `storage` |
+| [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-02 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-09-12 | `ops` `bootstrap` |
-| [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-09-22 | `ops` `storage` `nfs` |
+| [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-02 | `ops` `storage` `nfs` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
+| [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-02 | `ops` `backup` `urbackup` `android` |
 | [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-10-01 | `ops` `cloud` |
 | [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-09-23 | `ops` `cloud` |
 | [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
@@ -232,7 +235,7 @@ flowchart TB
 | --- | --- | --- |
 | [用語集](reference/glossary.md) | 2026-09-23 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
-| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-09-21 | `reference` `network` |
+| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-02 | `reference` `network` |
 
 ### 記録
 
@@ -242,6 +245,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 126 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 129 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

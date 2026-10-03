@@ -1,6 +1,6 @@
 ---
 title: バックアップ（重要VM・game1セーブ）
-updated: 2026-09-22
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # バックアップ（重要VM・game1セーブ）
 
-> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **週次vzdumpを設定・初回取得済み**。保存先は6TB USB HDD（`/srv/bulk/backups`、Proxmoxの `bulk-backup` ストレージ）です。宣言は Ansible ロール `platform/ansible/roles/pve_backup` と `platform/ansible/pve-backup.yml`、game1のセーブは `tools/game1-saves-backup.sh` です。
 
@@ -136,3 +136,9 @@ systemctl --user enable --now game1-saves-backup.timer
 - **DBの整合はクラッシュ整合です。** PostgreSQL/MariaDBはWALで概ね戻せますが、厳密な論理ダンプ（`pg_dump`・`mariadb-dump`）は未実装です（[O01](../development/O01-cloud-backup.md)・[O02](../development/O02-cnpg-backup.md)）。
 - **age鍵のコピーを忘れない。** 秘密値は鍵とセットで初めて復元できます。
 - 保存先が未マウントのままバックアップするとrootを埋めます。`pve_backup` ロールはマウントを確認して止まりますが、手動の `vzdump` はその限りではありません。
+
+## 8. クライアント端末（Windows・Galaxy）
+
+Windows PC のシステムイメージとファイルは、media-01 の UrBackup が6TB HDD（`/srv/bulk/client-backups`）へ世代で取ります。家族の Galaxy は **ポータルの「スマホをバックアップ」ボタン（USB・WebUSB）**で写真・書類・APKを同じHDDへ保存します。入口は **<https://backup.apextox.dpdns.org>**（バックアップポータル）。手順・復元・保持・注意は[クライアント端末のバックアップ](client-backup.md)が正本です。
+
+**この HDD 自体が単一障害点です。** 端末バックアップも vzdump と同じく、別ディスク・別機器への2次コピーが未実施です（[O01](../development/O01-cloud-backup.md)）。

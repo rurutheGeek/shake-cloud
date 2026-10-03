@@ -131,6 +131,104 @@ class ManageTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.manage.ensure_http_proxy('172.31.254.1')
 
+    def camera_store(self):
+        state = self.root.parent / f'{self.root.name}-state'
+        (self.root / '.env').write_text(f'STORAGE_ROOT={state}\n', encoding='utf-8')
+        path = state / 'config' / '.storage' / 'core.config_entries'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            'version': 1,
+            'minor_version': 5,
+            'key': 'core.config_entries',
+            'data': {'entries': [{
+                'created_at': '2026-09-12T16:17:38.527706+00:00',
+                'data': {'host': '172.31.254.1', 'port': 3000},
+                'disabled_by': None,
+                'discovery_keys': {},
+                'domain': 'eufy_security',
+                'entry_id': '01M2B6HZPZ12H4ZVYDV4Y3V1AS',
+                'minor_version': 1,
+                'modified_at': '2026-09-12T16:17:38.527708+00:00',
+                'options': {},
+                'pref_disable_new_entities': False,
+                'pref_disable_polling': False,
+                'source': 'user',
+                'subentries': [],
+                'title': 'eufy-security-ws',
+                'unique_id': None,
+                'version': 1,
+            }]},
+        }), encoding='utf-8')
+        return path
+
+    def test_ensure_camera_adds_a_stream_only_generic_entry(self):
+        store = self.camera_store()
+        self.assertTrue(self.manage.ensure_generic_camera(
+            'eufyCam S4', 'rtsp://192.168.10.104:8554/eufy'))
+        entries = json.loads(store.read_text(encoding='utf-8'))['data']['entries']
+        camera = next(entry for entry in entries if entry['domain'] == 'generic')
+        self.assertRegex(camera['entry_id'], r'^[0-9A-HJKMNP-TV-Z]{26}$')
+        self.assertEqual(camera['version'], 2)
+        self.assertEqual(camera['source'], 'user')
+        self.assertEqual(camera['title'], 'eufyCam S4')
+        self.assertEqual(camera['data'], {})
+        self.assertEqual(camera['options']['stream_source'], 'rtsp://192.168.10.104:8554/eufy')
+        self.assertEqual(camera['options']['content_type'], 'image/jpeg')
+        self.assertIsNone(camera['options']['still_image_url'])
+        self.assertEqual(camera['options']['advanced']['rtsp_transport'], 'tcp')
+        self.assertEqual(len(entries), 2)
+        shutil.rmtree(store.parents[2])
+
+    def test_ensure_camera_records_the_still_image_url(self):
+        store = self.camera_store()
+        self.assertTrue(self.manage.ensure_generic_camera(
+            'eufyCam S4', 'rtsp://host:8554/eufy', 'http://host:8888/'))
+        entries = json.loads(store.read_text(encoding='utf-8'))['data']['entries']
+        camera = next(entry for entry in entries if entry['domain'] == 'generic')
+        self.assertEqual(camera['options']['still_image_url'], 'http://host:8888/')
+        with self.assertRaises(ValueError):
+            self.manage.ensure_generic_camera('x', 'rtsp://host:8554/eufy', 'ftp://host/')
+        shutil.rmtree(store.parents[2])
+
+    def test_ensure_camera_is_idempotent(self):
+        store = self.camera_store()
+        self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://host:8554/eufy')
+        before = store.read_text(encoding='utf-8')
+        self.assertFalse(self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://host:8554/eufy'))
+        self.assertEqual(store.read_text(encoding='utf-8'), before)
+        shutil.rmtree(store.parents[2])
+
+    def test_ensure_camera_updates_by_title_without_duplicating(self):
+        store = self.camera_store()
+        self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://host:8554/eufy')
+        # 同じ名前で URL だけ変わっても二重登録しない（実機で起きた）。
+        self.assertTrue(self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://other:8554/eufy'))
+        document = json.loads(store.read_text(encoding='utf-8'))
+        cameras = [e for e in document['data']['entries'] if e['domain'] == 'generic']
+        self.assertEqual(len(cameras), 1)
+        self.assertEqual(cameras[0]['options']['stream_source'], 'rtsp://other:8554/eufy')
+        self.assertFalse(self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://other:8554/eufy'))
+        document = json.loads(store.read_text(encoding='utf-8'))
+        camera = next(e for e in document['data']['entries'] if e['domain'] == 'generic')
+        del camera['options']['content_type']
+        store.write_text(json.dumps(document), encoding='utf-8')
+        self.assertTrue(self.manage.ensure_generic_camera('eufyCam S4', 'rtsp://other:8554/eufy'))
+        document = json.loads(store.read_text(encoding='utf-8'))
+        camera = next(e for e in document['data']['entries'] if e['domain'] == 'generic')
+        self.assertEqual(camera['options']['content_type'], 'image/jpeg')
+        shutil.rmtree(store.parents[2])
+
+    def test_ensure_camera_rejects_a_non_rtsp_source(self):
+        self.camera_store()
+        with self.assertRaises(ValueError):
+            self.manage.ensure_generic_camera('cam', 'http://host/stream')
+
+    def test_ensure_camera_requires_a_started_store(self):
+        missing = self.root.parent / f'{self.root.name}-missing'
+        (self.root / '.env').write_text(f'STORAGE_ROOT={missing}\n', encoding='utf-8')
+        with self.assertRaises(FileNotFoundError):
+            self.manage.ensure_generic_camera('cam', 'rtsp://host:8554/eufy')
+
     def test_lock_uses_repository_digest_and_writes_service_map(self):
         (self.root / '.env').write_text('STORAGE_ROOT=/tmp/ha-state\n', encoding='utf-8')
         (self.root / 'compose.yaml').write_text('services: {homeassistant: {image: ha:stable}}\n', encoding='utf-8')
@@ -291,6 +389,8 @@ class AnsibleTests(unittest.TestCase):
         self.assertIn('ensure-http-proxy', text)
         self.assertIn('home_assistant_trusted_proxy', text)
         self.assertIn('install-integration', text)
+        self.assertIn('ensure-camera', text)
+        self.assertIn('home_assistant_camera_stream', text)
         self.assertIn('auth_oidc', text)
         self.assertIn('eufy_security', text)
         self.assertIn('auth_oidc', text)

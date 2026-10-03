@@ -1,6 +1,6 @@
 ---
 title: DNS と広告遮断（AdGuard Home）
-updated: 2026-09-22
+updated: 2026-10-02
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # DNS と広告遮断（AdGuard Home）
 
-> **更新日** 2026-09-22 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **router-01 で稼働中（家の DNS の窓口）。**
 対象読者: 家のネットワークを運用する人。設定の一覧は
@@ -51,6 +51,7 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 | ブートストラップ | 1.1.1.1 / 9.9.9.10 | DoH サーバー名の解決用 |
 | 逆引き（PTR） | `127.0.0.1:5353` | LAN の名前は dnsmasq |
 | フィルタ | AdGuard DNS filter（約18万件）＋ HaGeZi's Pro Blocklist | 広告・トラッカー。1本では網羅できないため補完 |
+| 除外（`user_rules`） | Xbox 実績用の Microsoft ドメイン（`v10/v20.events.data.microsoft.com` の地域版・`v10c`・`vortex(-win)`・`pipe.aria`・`watson` と CNAME 先） | HaGeZi's Pro が実績トラッキングを遮断するため（2026-10-02） |
 | クエリログ・統計 | 90日 | ルータ内のディスクに保存 |
 | 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は services-01 だけに許可 |
 | 作業ディレクトリ | `/etc/adguardhome/data`（UCI `workdir`） | 既定の `/var/lib` は tmpfs。再起動でフィルタが消えるのを防ぐ |
@@ -158,6 +159,27 @@ user_rules:
 **2026-09-22 に HaGeZi's Pro Blocklist を追加**したため、遮断はさらに増えます。
 アプリやサイトの機能が壊れたと思ったら、まずクエリログを「遮断」で絞り、
 上の手順で除外してください。
+
+**2026-10-02、Xbox Live の実績（Minecraft・Minecraft Dungeons など）が
+解除されない症状を実測しました。** HaGeZi's Pro Blocklist が実績の記録・同期に
+使われる `vortex-win.data.microsoft.com`（`v10/v20.` 配下を含む）・
+`vortex.data.microsoft.com`・`pipe.aria.microsoft.com` を `0.0.0.0` へ遮断して
+いました。正本の `user_rules` に除外を追加し、`v10/v20.events.data.microsoft.com`
+と CNAME 先（`win-global-asimov-leafs-events-data.trafficmanager.net`）も
+フィルタ更新で再遮断されないよう明示的に許可しています。同日、HaGeZi の
+Microsoft 一覧に載る残り（地域版 `v10/v20`・`v10c`・`watson`）も許可して、
+**DNS 側の要因を消した**（それでも解除されないときは、PC 側の
+「Connected User Experiences and Telemetry」など Xbox 系サービスの停止を
+疑う）。**実績がまた解除されなくなったら、まずクエリログで Microsoft 系の
+遮断を確認**し、
+[HaGeZi の Microsoft 一覧](https://github.com/hagezi/dns-blocklists/blob/main/share/microsoft.txt)
+を参考に `user_rules` へ足してください。
+
+**ただし、Minecraft Dungeons II の Steam 版は「ゲーム内では解除されるのに
+Xbox プロフィールに実績が記録されない（プレイ時間だけが残る）」既知の
+ゲーム側不具合があります**（[Minecraft Feedback 2026-09-30](https://feedback.minecraft.net/hc/en-us/community/posts/49272314358413-BROKEN-Steam-version-doesn-t-earn-Xbox-achievements)、
+Switch 2 でも同報告）。この症状は DNS では直らないので、AdGuard を疑う前に
+ゲーム側の不具合情報を確認してください。
 
 ### 一時的に遮断を止める
 

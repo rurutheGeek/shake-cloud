@@ -1,0 +1,66 @@
+name: services-eufy-leo-rtc
+
+services:
+  mediamtx:
+    image: ${EUFY_MEDIAMTX_IMAGE:-bluenviron/mediamtx:1.9.3@sha256:e3e9cd157344567a1a67f6c6606dcc7772b4ff589c23131832ffba3f92b97ca6}
+    restart: unless-stopped
+    # カメラの UDP と HA のゲートウェイへ直接届かせるためホストネットワーク。
+    network_mode: host
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - ${STORAGE_ROOT:-/srv/services/eufy-leo-rtc}/state:/state
+
+  leo-live:
+    build: .
+    image: shakecloud-eufy-leo-rtc:local
+    restart: unless-stopped
+    network_mode: host
+    depends_on: [mediamtx]
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      EUFY_SN: ${EUFY_SN:?EUFY_SN is required}
+      EUFY_DID: ${EUFY_DID:?EUFY_DID is required}
+      EUFY_LICENSE: ${EUFY_LICENSE:?EUFY_LICENSE is required}
+      EUFY_ACCOUNT: ${EUFY_ACCOUNT:?EUFY_ACCOUNT is required}
+      EUFY_CONTACT: ${EUFY_CONTACT:-}
+      # call の boot_action（実験用。既定 1）
+      EUFY_BOOT_ACTION: ${EUFY_BOOT_ACTION:-1}
+      LEO_OUT: /state
+      LEO_RTSP: rtsp://172.31.254.1:8554/eufy
+      LEO_RTSP_AV: rtsp://172.31.254.1:8554/eufy_av
+      LEO_MJPEG_PORT: '8888'
+      LEO_MJPEG_BIND: 172.31.254.1
+      LEO_MTX_LOG: /state/mediamtx.log
+      # 実験: アプリの平文レポート（90ce）を自前の seq で送る
+      LEO_APP_REPORT: ${LEO_APP_REPORT:-}
+      LEO_REPORT_FILE: ${LEO_REPORT_FILE:-}
+      LEO_REPORT_HZ: ${LEO_REPORT_HZ:-20}
+      LEO_REPORT_ENCRYPT: ${LEO_REPORT_ENCRYPT:-}
+      LEO_DRWACK: ${LEO_DRWACK:-1}
+      # 映像停止時に closeLive(1004) を送る（既定 0。送ると次の付与が乱れる実測あり）
+      LEO_CLOSE_1004: ${LEO_CLOSE_1004:-0}
+      # 映像中に開始時とバイト同一の calls を再送する間隔（秒。0 で無効）
+      LEO_CALL_REPLAY: ${LEO_CALL_REPLAY:-0}
+      LEO_1003_RETRY: ${LEO_1003_RETRY:-}
+      # 映像中も 1003 を定期再送して延長を試す（秒。0 で無効）
+      LEO_1003_KEEP: ${LEO_1003_KEEP:-0}
+      # 映像中も fresh calls を定期送信（同じ間隔。1 で有効）
+      LEO_CALL_KEEP: ${LEO_CALL_KEEP:-0}
+      # アプリ実測どおり ICE-CONTROLLED（0x8029）。CONTROLLING だとカメラが 487 を返す。
+      LEO_ICE_CONTROLLED: ${LEO_ICE_CONTROLLED:-1}
+      LEO_REPORT_SEQ_902F: ${LEO_REPORT_SEQ_902F:-}
+      LEO_IDLE_WAIT: ${LEO_IDLE_WAIT:-120}
+      LEO_DEMAND_WAIT: ${LEO_DEMAND_WAIT:-15}
+      LEO_VIDEO_IDLE: ${LEO_VIDEO_IDLE:-4}
+      # 映像が来ないときの wake（新しい calls）再試行の間隔（秒）
+      LEO_WAKE_WAIT: ${LEO_WAKE_WAIT:-25}
+      # 映像停止後、同一セッションのまま新しい calls で映像復帰を粘る秒数（0 で無効）
+      LEO_REARM_LIMIT: ${LEO_REARM_LIMIT:-0}
+      LEO_REARM_WAIT: ${LEO_REARM_WAIT:-15}
+      # 公式アプリと同じく TURN 中継でメディアを受ける（0 で直経路）。
+      LEO_TURN: ${LEO_TURN:-0}
+      # dual: 直経路と中継の両方の候補を出す／only: 中継だけ
+      LEO_TURN_MODE: ${LEO_TURN_MODE:-only}
+      FFMPEG: ffmpeg
+    volumes:
+      - ${STORAGE_ROOT:-/srv/services/eufy-leo-rtc}/state:/state

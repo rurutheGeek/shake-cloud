@@ -166,8 +166,11 @@ type RunRequest struct {
 	MemoryMinMiB *int   `json:"memory_min_mib"`
 	Ballooning   *bool  `json:"ballooning"`
 	RootDiskGiB  int    `json:"root_disk_gib"`
-	UserData     string `json:"user_data"`
-	ClientToken  string `json:"client_token"`
+	// DiskTier is "ssd" or "hdd" and defaults to ssd. Which pool that is is a
+	// deployment fact; the API only accepts the tier names.
+	DiskTier    string `json:"disk_tier"`
+	UserData    string `json:"user_data"`
+	ClientToken string `json:"client_token"`
 	// InstallISOID turns the launch into an installation: instead of copying an
 	// image to the root disk, the VM boots this ISO and the guest installs
 	// itself. DriverISOID is an optional second CD (the virtio-win disc).
@@ -371,6 +374,12 @@ func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limit
 	if r.RootDiskGiB < disk.Min || r.RootDiskGiB > disk.Max {
 		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "root_disk_gib must be between %d and %d", disk.Min, disk.Max)
 	}
+	if r.DiskTier == "" {
+		r.DiskTier = site.TierSSD
+	}
+	if _, err := s.diskTierStorage(r.DiskTier); err != nil {
+		return Spec{}, err
+	}
 	if len(r.UserData) > maxUserData {
 		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "user_data must be at most %d bytes", maxUserData)
 	}
@@ -455,7 +464,11 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 
 	// What only the host knows. It is a snapshot either way; the memory budget
 	// checked under the lock below is what stops two launches racing past it.
-	if err := s.checkHost(ctx, spec, spec.MemoryMiB, limits); err != nil {
+	diskStorage, err := s.diskTierStorage(r.DiskTier)
+	if err != nil {
+		return db.Instance{}, false, err
+	}
+	if err := s.checkHost(ctx, spec, spec.MemoryMiB, limits, diskStorage); err != nil {
 		return db.Instance{}, false, err
 	}
 	visible, err := s.PVE.ListVMs(ctx)
@@ -498,7 +511,7 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 			Name: r.Tags["Name"], ImageID: r.ImageID, GuestOS: r.GuestOS,
 			InstallISOID: r.InstallISOID, DriverISOID: r.DriverISOID, InstanceType: spec.TypeName,
 			CPUCores: spec.CPUCores, MemoryMiB: spec.MemoryMiB, MemoryMinMiB: spec.MemoryMinMiB, Ballooning: spec.Ballooning,
-			RootDiskGiB: r.RootDiskGiB, UserData: r.UserData,
+			RootDiskGiB: r.RootDiskGiB, DiskTier: r.DiskTier, UserData: r.UserData,
 			KeyName: r.KeyName, KeyPublicKey: keyPublicKey, Tags: r.Tags,
 			VMID: &vmid, MACAddress: seed.NewMACAddress(),
 		})
@@ -591,8 +604,9 @@ func (s *Service) checkQuota(ctx context.Context, tx pgx.Tx, accountID string, s
 // there cannot be handed out. A disk threshold of 0 turns that check off.
 //
 // memoryNeededMiB is what this request would add, which for a resize is only
-// the increase.
-func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int, limits site.Limits) error {
+// the increase. diskStorage is the pool whose fullness this request must fit;
+// a resize passes the instance's own tier.
+func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int, limits site.Limits, diskStorage string) error {
 	capacity := limits.Capacity
 	status, err := s.PVE.NodeStatus(ctx)
 	if err != nil {
@@ -610,7 +624,7 @@ func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int,
 			"the host has %d MiB of memory available and %d MiB must stay free, so %d MiB cannot be allotted",
 			status.Memory.Available>>20, capacity.NodeMemoryReserveMiB, memoryNeededMiB)
 	}
-	if err := s.checkDiskPool(ctx, limits); err != nil {
+	if err := s.checkDiskPool(ctx, limits, diskStorage); err != nil {
 		return err
 	}
 	images, err := s.PVE.StorageStatus(ctx, s.Site.Storage.Images)
@@ -623,16 +637,33 @@ func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int,
 	return nil
 }
 
-// checkDiskPool refuses new disk space once the thin pool is used past the
+// diskTierStorage resolves a caller's disk tier to the pool that holds it. An
+// empty tier is the default. A tier this deployment does not have is refused
+// here, at admission, rather than discovered when the worker makes the disk.
+func (s *Service) diskTierStorage(tier string) (string, error) {
+	storage, ok := s.Site.Storage.DiskTierStorage(tier)
+	if ok {
+		return storage, nil
+	}
+	if tier == site.TierHDD {
+		return "", refuse(http.StatusBadRequest, "InvalidParameterValue",
+			"this deployment has no hdd disk tier; use disk_tier ssd")
+	}
+	return "", refuse(http.StatusBadRequest, "InvalidParameterValue",
+		"disk_tier must be one of %s", strings.Join(site.DiskTiers, ", "))
+}
+
+// checkDiskPool refuses new disk space once the storage is used past the
 // threshold: past it, guests see free space that writes can no longer get.
-func (s *Service) checkDiskPool(ctx context.Context, limits site.Limits) error {
+// The same threshold guards every instance disk pool, HDD included.
+func (s *Service) checkDiskPool(ctx context.Context, limits site.Limits, storage string) error {
 	threshold := limits.Capacity.VMDiskMaxUsedPercent
-	disks, err := s.PVE.StorageStatus(ctx, s.Site.Storage.VMDisks)
+	disks, err := s.PVE.StorageStatus(ctx, storage)
 	if err != nil {
 		return s.unavailable(err)
 	}
 	if threshold > 0 && disks.Total > 0 && disks.Used*100 >= int64(threshold)*disks.Total {
-		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the disk pool is over %d%% used", threshold)
+		return refuse(http.StatusServiceUnavailable, "InsufficientInstanceCapacity", "the %s disk pool is over %d%% used", storage, threshold)
 	}
 	return nil
 }

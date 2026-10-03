@@ -150,7 +150,8 @@ class TlsProxyTests(unittest.TestCase):
         records = DNS['records']
         behind_auth = {name for name, record in records.items() if record.get('auth')}
         self.assertEqual(behind_auth,
-                         {'navidrome', 'metube', 'khinsider', 'cups', 'adguard', 'mail-view'})
+                         {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
+                          'mail-view', 'backup', 'urbackup'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):
@@ -197,11 +198,11 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 8)
+        self.assertEqual(len(sites), 10)
         # navidrome は通常の認証に加え、/review/ の全曲レビューと
         # /review-static/ の生成HTMLにも forward_auth を付ける。
-        self.assertEqual(rendered.count('forward_auth https://'), 5)
-        for name in ('navidrome', 'metube', 'khinsider'):
+        self.assertEqual(rendered.count('forward_auth https://'), 7)
+        for name in ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
             self.assertIn('request_header -Remote-User', block, name)
@@ -303,7 +304,10 @@ class EdgeRenderingTests(unittest.TestCase):
         # Forward Auth and the header hygiene stay on the host that runs the app.
         navidrome = site_block(rendered, 'navidrome')
         self.assertIn('request_header -Remote-User', navidrome)
-        self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'), 5)
+        # As many Forward Auth calls as the host makes when it is not behind the edge.
+        self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'),
+                         caddyfile(sites_of(CLOUD_NAME)).count('forward_auth https://'))
+        self.assertGreater(rendered.count('forward_auth https://'), 0)
         # Every hop to an app passes the real client, not the edge.
         self.assertEqual(rendered.count('reverse_proxy 127.0.0.1:'),
                          rendered.count('header_up X-Forwarded-For {client_ip}'))

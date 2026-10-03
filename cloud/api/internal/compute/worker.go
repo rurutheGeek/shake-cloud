@@ -332,7 +332,7 @@ func vlanTag(id int) string {
 	return fmt.Sprintf(",tag=%d", id)
 }
 
-func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume, guestOS string) url.Values {
+func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resources, imageVolume, guestOS, diskStorage string) url.Values {
 	values := url.Values{
 		"vmid": {strconv.Itoa(vmid)},
 		// The Proxmox name is what a person sees in the Proxmox UI; the
@@ -345,7 +345,7 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"memory":      {strconv.Itoa(instance.MemoryMiB)},
 		"balloon":     {strconv.Itoa(instance.MemoryMinMiB)},
 		"scsihw":      {"virtio-scsi-single"},
-		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", s.Site.Storage.VMDisks, imageVolume)},
+		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", diskStorage, imageVolume)},
 		"ide2":        {resources.SeedVolume + ",media=cdrom"},
 		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
 		"boot":        {"order=virtio0"},
@@ -354,19 +354,21 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s). Managed by cloud/api; do not edit.", instance.ID, instance.AccountID)},
 	}
 	if guestOS == seed.OSWindows {
-		s.windowsParams(values)
+		s.windowsParams(values, diskStorage)
 	}
 	return values
 }
 
 // windowsParams adds what Windows 11 requires from the virtual hardware. It is
-// shared by an image launch and an ISO install.
-func (s *Service) windowsParams(values url.Values) {
+// shared by an image launch and an ISO install. The EFI and TPM state disks go
+// on the same pool as the root disk, so an HDD instance keeps its whole life
+// on the HDD.
+func (s *Service) windowsParams(values url.Values, diskStorage string) {
 	values.Set("ostype", "win11")
 	values.Set("bios", "ovmf")
 	values.Set("machine", "q35")
-	values.Set("efidisk0", s.Site.Storage.VMDisks+":0,efitype=4m,pre-enrolled-keys=1")
-	values.Set("tpmstate0", s.Site.Storage.VMDisks+":4,version=v2.0")
+	values.Set("efidisk0", diskStorage+":0,efitype=4m,pre-enrolled-keys=1")
+	values.Set("tpmstate0", diskStorage+":4,version=v2.0")
 	values.Set("agent", "enabled=1")
 }
 
@@ -375,7 +377,7 @@ func (s *Service) windowsParams(values url.Values) {
 // prefers it. The seed ISO stays attached as a second CD so a Linux installer
 // (or cloudbase-init after a Windows install) can read the hostname and address.
 func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.Resources,
-	installVolume, driverVolume string) url.Values {
+	installVolume, driverVolume, diskStorage string) url.Values {
 	values := url.Values{
 		"vmid": {strconv.Itoa(vmid)},
 		// The Proxmox name is what a person sees in the Proxmox UI; the
@@ -388,7 +390,7 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 		"memory":  {strconv.Itoa(instance.MemoryMiB)},
 		"balloon": {strconv.Itoa(instance.MemoryMinMiB)},
 		"scsihw":  {"virtio-scsi-single"},
-		"virtio0": {fmt.Sprintf("%s:%d,discard=on", s.Site.Storage.VMDisks, instance.RootDiskGiB)},
+		"virtio0": {fmt.Sprintf("%s:%d,discard=on", diskStorage, instance.RootDiskGiB)},
 		"ide0":    {resources.SeedVolume + ",media=cdrom"},
 		"ide2":    {installVolume + ",media=cdrom"},
 		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
@@ -402,13 +404,28 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 		values.Set("ide3", driverVolume+",media=cdrom")
 	}
 	if instance.GuestOS == seed.OSWindows {
-		s.windowsParams(values)
+		s.windowsParams(values, diskStorage)
 	}
 	return values
 }
 
+// instanceDiskStorage is the pool an instance's disks live on. The tier was
+// checked at admission; a deployment whose site.json lost the tier meanwhile
+// fails here with a message that names the instance rather than the pool.
+func (s *Service) instanceDiskStorage(instance db.Instance) (string, error) {
+	storage, ok := s.Site.Storage.DiskTierStorage(instance.DiskTier)
+	if !ok {
+		return "", fmt.Errorf("instance %s asks for disk tier %q, which this deployment does not have", instance.ID, instance.DiskTier)
+	}
+	return storage, nil
+}
+
 func (s *Service) createVM(ctx context.Context, instance db.Instance, resources *db.Resources) error {
 	vmid := *resources.VMID
+	diskStorage, err := s.instanceDiskStorage(instance)
+	if err != nil {
+		return err
+	}
 	// Resolved now rather than at admission: an uploaded image lives in the
 	// ledger, and this is the moment its file is actually needed.
 	var params url.Values
@@ -425,13 +442,13 @@ func (s *Service) createVM(ctx context.Context, instance db.Instance, resources 
 			}
 			driverVolume = driver.Volume
 		}
-		params = s.installVmParams(instance, vmid, *resources, install.Volume, driverVolume)
+		params = s.installVmParams(instance, vmid, *resources, install.Volume, driverVolume, diskStorage)
 	} else {
 		image, err := s.ResolveImage(ctx, s.Pool, instance.ImageID)
 		if err != nil {
 			return err
 		}
-		params = s.vmParams(instance, vmid, *resources, image.Volume, image.OS)
+		params = s.vmParams(instance, vmid, *resources, image.Volume, image.OS, diskStorage)
 	}
 	vms, err := s.PVE.ListVMs(ctx)
 	if err != nil {

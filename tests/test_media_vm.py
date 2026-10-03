@@ -114,12 +114,18 @@ class AccessTests(unittest.TestCase):
         self.assertIn('site.yaml', self.main)
         self.assertIn('local.site.network.prefix', self.main)
 
-    def test_only_ssh_the_web_ports_and_localsend_are_opened_to_the_lan(self):
+    def test_only_ssh_the_web_ports_localsend_and_urbackup_are_opened_to_the_lan(self):
         ports = sorted(int(value) for value in
                        re.findall(r'from_port\s*=\s*(\d+)', self.main))
-        self.assertEqual(ports, [22, 80, 443, 53317])
-        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 4)
+        self.assertEqual(ports, [22, 80, 443, 35623, 53317, 55413])
+        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 6)
         self.assertNotIn('0.0.0.0/0', self.main)
+        # 自動発見だけが UDP。他の入口は TCP。
+        discovery = re.search(
+            r'resource "shakecloud_security_group_rule" "urbackup_discovery".*?}',
+            self.main, re.S).group(0)
+        self.assertIn('protocol    = "udp"', discovery)
+        self.assertIn('35623', discovery)
 
 
 class OwnershipTests(unittest.TestCase):

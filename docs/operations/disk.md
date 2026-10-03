@@ -97,7 +97,7 @@ Dockerを止めたくないときは `-e storage_health_restart_docker=false`（
 
 **見える化**: Grafanaの「Shake Lab storage」にNVMeの総書込量・書込速度と、HDDのLoad Cycle／Start-Stop／Power-On時間を出しています（[M01](../development/M01-monitoring.md)）。2026-09-23時点はNVMeが2.08TB／355時間（寿命消費0%）、HDDが33℃・Load Cycle 110,682・Start/Stop 8,085です。
 
-**HDD側の注意**: 満杯にしない（空き10%でアラート）／通気と温度／USBケーブル・ポート（UASエラー再発時はquirk）／DBやVMディスクを置かない（順次アクセス専用）／スピンダウンはブリッジがAPM非対応なので自然なstandbyに任せる。
+**HDD側の注意**: 満杯にしない（空き10%でアラート）／通気と温度／USBケーブル・ポート（UASエラー再発時はquirk）／**DBや常用VMのディスクを置かない（順次アクセス専用）**／スピンダウンはブリッジがAPM非対応なので自然なstandbyに任せる。例外はクラウドAPIの `disk_tier: hdd` で、大きいが普段使わないVM・ボリュームを明示的に逃がすためのもの（[共有バルクストレージ](bulk-storage.md)）。
 
 ## 注意
 

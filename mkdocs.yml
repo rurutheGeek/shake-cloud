@@ -38,6 +38,7 @@ nav:
           - W05 Navidrome: development/W05-navidrome.md
           - W06 MeTube・音楽変換・タグ編集: development/W06-music-tools.md
           - W07 RomM: development/W07-romm.md
+          - W08 クライアント端末のバックアップ: development/W08-client-backup.md
           - Navidromeの改造案: development/navidrome-ideas.md
       - A：AI:
           - A01 ポケモンDB・WebUI・agent: development/A01-pokemon-ai.md
@@ -56,6 +57,7 @@ nav:
           - H03 Echo: development/H03-echo.md
           - H04 Eufy: development/H04-eufy.md
           - H05 Eufy leo_rtc クライアント: development/H05-eufy-leo-rtc.md
+          - H05 HAライブ反映の依頼書: development/H05-ha-live-request.md
       - N：ネットワーク:
           - N01 セルフホストVPN: development/N01-vpn.md
           - N02 Tailscaleの復旧経路・DNS: development/N02-tailscale.md
@@ -131,6 +133,7 @@ nav:
           - 電源とUPS: operations/power.md
           - 確認と、はまりどころ: operations/verify.md
           - バックアップ（重要VM・セーブ）: operations/backup.md
+          - クライアント端末のバックアップ（Windows・Android）: operations/client-backup.md
           - 配備台帳（実機の状態とTODO）: operations/handover.md
   - 設計:
       - ホームラボの全体像: architecture/overview.md

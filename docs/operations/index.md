@@ -71,6 +71,7 @@ tags:
 | --- | --- |
 | [共有バルクストレージ](bulk-storage.md) | 6TB HDDのNFS共有（メディア原本・バックアップ先） |
 | [バックアップ](backup.md) | 週次vzdumpとgame1セーブ。何を大事とみなすか |
+| [クライアント端末のバックアップ](client-backup.md) | Windows（UrBackup）とAndroid（Nextcloud）の端末バックアップ |
 | [Garage（S3互換ストレージ）](garage.md) | バケットとキー |
 | [ディスク増設](disk.md) | 容量を足す |
 

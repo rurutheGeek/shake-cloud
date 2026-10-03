@@ -13,8 +13,13 @@
 node_name: apextox
 
 storage:
+  # SSD ティア（disk_tier: ssd、既定）のディスク置き場。
   # 既存のストレージ。Proxmox のインストーラが作るのでコード管理しない。
   vm_disks: local-lvm
+  # HDD ティア（disk_tier: hdd）のディスク置き場。pve_bulk_storage ロールが
+  # 6TB USB HDD 上に作る dir ストレージ。vzdump の bulk-backup とは分ける。
+  # 発見ではなくこのリポジトリが決めた名前。
+  vm_disks_hdd: bulk-disks
   # 管理者が cloud image を置く先。00-bootstrap の images.tf が使う。
   admin_images: local
   # クラウドAPI専用。00-bootstrap が作る（proxmox_storage_directory）。

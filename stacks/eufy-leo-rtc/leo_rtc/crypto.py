@@ -62,6 +62,8 @@ def login_reply(session_key: bytes, packet_id: int, did: str, license: str, modu
     """Build the body_type=4 login reply."""
     public = rsa.RSAPublicNumbers(65537, modulus).public_key()
     rsa_ct = public.encrypt(session_key, padding.PKCS1v15())
-    token = f'{did}:{license}'.encode()
+    # The app pads the "did:license" token to 48 bytes; the camera expects that
+    # length (実測 2026-09-28: 48 バイトでないと login reply が通らない)。
+    token = f'{did}:{license}'.encode().ljust(48, b'\0')
     aes_ct = aes_ecb_encrypt(token, derive_aes_key(session_key, packet_id))
     return rsa_ct + len(aes_ct).to_bytes(2, 'little') + aes_ct

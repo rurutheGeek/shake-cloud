@@ -106,7 +106,7 @@ class CryptoTests(unittest.TestCase):
         modulus = private.private_numbers().public_numbers.n
         session_key = b'abcdefghijklmnop'
         token_plain = b'DID:LIC'
-        aes_len = (len(token_plain) + 15) // 16 * 16
+        aes_len = 48  # アプリは token を 48 バイトにパディングする
         body = self.crypto.login_reply(session_key, 1234, 'DID', 'LIC', modulus)
         rsa_ct = body[:-2 - aes_len]
         length = int.from_bytes(body[len(rsa_ct):len(rsa_ct) + 2], 'little')
@@ -232,3 +232,397 @@ class SafetyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Cs2Tests(unittest.TestCase):
+    """CS2 P2P 独自暗号（アプリ実測 pcap の既知ベクタで検証）。"""
+
+    def test_known_app_packet_roundtrip(self):
+        from leo_rtc import cs2
+
+        ct = bytes.fromhex(
+            'b0ce000672bb000100d86448002001c601060dc1a8153e2502010001b0ce0007'
+        )
+        pt = cs2.decrypt(ct)
+        self.assertTrue(pt.startswith(b'\xf1\xce'))
+        self.assertEqual((pt[2] << 8) | pt[3], 0x47)
+        self.assertEqual(cs2.encrypt(pt), ct)
+
+    def test_keepalive_frames_parse(self):
+        from leo_rtc import media_channel as mc
+
+        ka = mc.build_keepalive(0x11223344, 0)
+        self.assertEqual(ka[:8], b'\x9e\xcc\x00\x07\x11\x22\x33\x44')
+        self.assertEqual(ka[8:16], mc.MEDIA_MAGIC)
+        got = mc.parse_ank(ka)
+        self.assertIsNotNone(got)
+        ssrc, counter, frame = got
+        self.assertEqual((ssrc, counter, frame), (0x11223344, 0, b''))
+
+
+class VideoReassemblyTests(unittest.TestCase):
+    """ライブ映像の RTP/FU 再構成（実機のパケット構造で検証）。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import video
+
+        self.video = video
+
+    def rtp(self, seq, ts, payload, ssrc=b'\x0d\xc1\xa8\x15'):
+        return (b'\x90\x61' + struct.pack('>H', seq) + struct.pack('>I', ts)
+                + ssrc + b'\xbe\xde\x00\x02' + b'\x00' * 8 + payload)
+
+    def test_parse_rtp_reads_header_fields(self):
+        pkt = self.rtp(0x1234, 0x00e381f4, b'\x62\x01\x13rest')
+        seq, ts, ssrc, payload = self.video.parse_rtp(pkt)
+        self.assertEqual((seq, ts, ssrc), (0x1234, 0x00e381f4, b'\x0d\xc1\xa8\x15'))
+        self.assertEqual(payload, b'\x62\x01\x13rest')
+
+    def test_fu_fragments_reassemble_to_one_nal(self):
+        dep = self.video.Depacketizer()
+        first = self.rtp(1, 100, b'\x62\x01\x93' + b'AAAA')
+        mid = self.rtp(2, 100, b'\x62\x01\x13' + b'BB')
+        last = self.rtp(3, 100, b'\x62\x01\x53' + b'CC')
+        self.assertEqual(dep.feed(first), [])
+        self.assertEqual(dep.feed(mid), [])
+        nals = dep.feed(last)
+        self.assertEqual(len(nals), 1)
+        self.assertEqual(nals[0], b'\x26\x01' + b'AAAABBCC')
+
+    def test_duplicate_packets_are_ignored(self):
+        dep = self.video.Depacketizer()
+        pkt = self.rtp(7, 55, b'\x4e\x01\x05Hello')
+        self.assertEqual(dep.feed(pkt), [b'\x4e\x01\x05Hello'])
+        self.assertEqual(dep.feed(pkt), [])
+
+    def test_marker_bit_packet_is_accepted(self):
+        pkt = b'\x90\xe1' + self.rtp(3, 100, b'\x62\x01\x41CC')[2:]
+        seq, ts, _ssrc, payload = self.video.parse_rtp(pkt)
+        self.assertEqual((seq, ts), (3, 100))
+        self.assertEqual(payload, b'\x62\x01\x41CC')
+
+    def test_marker_bit_final_fragment_reassembles(self):
+        dep = self.video.Depacketizer()
+        self.assertEqual(dep.feed(self.rtp(1, 100, b'\x62\x01\x93' + b'AAAA')), [])
+        last = b'\x90\xe1' + self.rtp(2, 100, b'\x62\x01\x53' + b'CC')[2:]
+        self.assertEqual(dep.feed(last), [b'\x26\x01' + b'AAAACC'])
+
+    def test_interleaved_duplicates_are_ignored(self):
+        dep = self.video.Depacketizer()
+        a = self.rtp(1, 100, b'\x62\x01\x93' + b'AAAA')
+        b = self.rtp(2, 100, b'\x62\x01\x13' + b'BB')
+        self.assertEqual(dep.feed(a), [])
+        self.assertEqual(dep.feed(b), [])
+        self.assertEqual(dep.feed(a), [])  # 再送（間に別パケットが挟まる重複）
+        nals = dep.feed(self.rtp(3, 100, b'\x62\x01\x53' + b'CC'))
+        self.assertEqual(nals, [b'\x26\x01' + b'AAAABBCC'])
+        self.assertEqual(dep.incomplete, 0)
+
+    def test_late_retransmission_does_not_corrupt_next_frame(self):
+        dep = self.video.Depacketizer()
+        self.assertEqual(dep.feed(self.rtp(1, 100, b'\x62\x01\x93' + b'AAAA')), [])
+        self.assertEqual(dep.feed(self.rtp(2, 100, b'\x62\x01\x53' + b'CC')), [b'\x26\x01' + b'AAAACC'])
+        # 前フレームの再送が次フレームの後に届いても無視される
+        self.assertEqual(dep.feed(self.rtp(1, 100, b'\x62\x01\x93' + b'AAAA')), [])
+        self.assertEqual(dep.feed(self.rtp(3, 200, b'\x4e\x01\x05SEI')), [b'\x4e\x01\x05SEI'])
+
+    def test_annexb_starts_with_valid_parameter_sets(self):
+        stream = self.video.to_annexb([b'\x26\x01slicedata'])
+        self.assertTrue(stream.startswith(b'\x00\x00\x00\x01\x40\x01'))
+        self.assertIn(b'\x00\x00\x00\x01\x42\x01', stream)
+        self.assertIn(b'\x00\x00\x00\x01\x44\x01', stream)
+        self.assertIn(b'\xff\xff', stream[:16])
+        self.assertTrue(stream.endswith(b'\x00\x00\x00\x01\x26\x01slicedata'))
+
+    def test_decrypt_idr_round_trip(self):
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        key = b'Wtd312vgUx5AEEhE'
+        iv = b'K' * 12
+        pt = b'\xaf\x1f\x80' + bytes(range(64))
+        blob = AESGCM(key).encrypt(iv, pt, b'')
+        wire = b'\x26\x01' + blob + b'\x1e\x00\x00\x00\x00\x00\x00\x00\x00'
+        out = self.video.decrypt_idr(wire, key, iv)
+        self.assertEqual(out, b'\x26\x01' + pt)
+
+    def test_decrypt_idr_passes_through_p_slice(self):
+        nal = b'\x02\x01\xd0\x00\x0d\x8c' + b'x' * 8
+        self.assertEqual(self.video.decrypt_idr(nal, b'k' * 16, b'i' * 12), nal)
+
+    def test_decrypt_idr_rejects_bad_key(self):
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        blob = AESGCM(b'key-aaaaaaaaaaaa').encrypt(b'i' * 12, b'\xaf\x1f\x80abc', b'')
+        wire = b'\x26\x01' + blob + b'\x00' * 9
+        with self.assertRaises(ValueError):
+            self.video.decrypt_idr(wire, b'key-bbbbbbbbbbbb', b'i' * 12)
+
+    def test_decrypt_parameter_nal_round_trip(self):
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        key = b'Wtd312vgUx5AEEhE'
+        iv = b'K' * 12
+        pt = bytes.fromhex('0c01ffff014000000300800000030000030099ac09')
+        wire = b'\x40\x01' + AESGCM(key).encrypt(iv, pt, b'')
+        out = self.video.decrypt_parameter_nal(wire, key, iv)
+        self.assertEqual(out, b'\x40\x01' + pt)
+
+
+class AudioTests(unittest.TestCase):
+    """音声ストリーム（別 RTP・ADTS AAC・IDR と同じ暗号）。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import audio
+
+        self.audio = audio
+
+    def pkt(self, seq, ts, payload):
+        return (b'\x90\xef' + struct.pack('>H', seq) + struct.pack('>I', ts)
+                + bytes.fromhex('228448e9') + b'\xbe\xde\x00\x01' + b'\x92\x00\x64\x00'
+                + payload)
+
+    def test_parse_audio_rtp_reads_header_fields(self):
+        seq, ts, payload = self.audio.parse_audio_rtp(self.pkt(3, 0x0c00, b'body'))
+        self.assertEqual((seq, ts), (3, 0x0c00))
+        self.assertEqual(payload, b'body')
+
+    def test_decrypt_audio_round_trip(self):
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        key = b'Wtd312vgUx5AEEhE'
+        iv = b'K' * 12
+        adts = b'\xff\xf1\x60\x40' + bytes(range(32))
+        wire = AESGCM(key).encrypt(iv, adts, b'') + b'\x1e\x00\x00\x00\x00\x00\x00\x00\x00'
+        self.assertEqual(self.audio.decrypt_audio(wire, key, iv), adts)
+
+    def test_adts_info_parses_aac_lc_16k_mono(self):
+        info = self.audio.adts_info(b'\xff\xf1\x60\x40' + b'\x00' * 4)
+        self.assertEqual(info['profile'], 1)
+        self.assertEqual(info['sample_rate'], 16000)
+        self.assertEqual(info['channels'], 1)
+
+    def test_adts_info_rejects_non_adts(self):
+        with self.assertRaises(ValueError):
+            self.audio.adts_info(b'\x00' * 8)
+
+
+class HeartbeatTests(unittest.TestCase):
+    """1139 心拍（XZYH 0x473）の組立。
+
+    アプリは KCP で約 0.62 秒ごとに送る。落とすとセッションが早く終わる可能性が
+    あるため、バイト列を実測（pair2.pcap）どおりに固定する。
+    """
+
+    def setUp(self):
+        self.leo = load_package()
+
+    def test_heartbeat_matches_the_capture(self):
+        from leo_rtc import media_channel as mc
+        blob = mc.build_heartbeat(0x8555, 0x6ABB3C2E)
+        self.assertEqual(len(blob), 36)
+        self.assertEqual(blob[:20], bytes.fromhex('1000000001000000 2e3cbb6a 01000000 55850000'.replace(' ', '')))
+        self.assertEqual(blob[20:], bytes.fromhex('585a5948730400000000000000000000'))
+
+    def test_heartbeat_sequence_is_little_endian(self):
+        from leo_rtc import media_channel as mc
+        blob = mc.build_heartbeat(1, 2)
+        self.assertEqual(int.from_bytes(blob[16:20], 'little'), 1)
+        self.assertEqual(int.from_bytes(blob[8:12], 'little'), 2)
+
+
+class EnvelopeTests(unittest.TestCase):
+    """XZYH + AES-128-GCM のコマンド封筒。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import envelope
+
+        self.env = envelope
+        self.key = b'Wtd312vgUx5AEEhE'
+
+    def test_command_frame_round_trip(self):
+        plain = b'{"cmd":1003}'
+        frame = self.env.build_command_frame(0x546, plain, self.key, 7)
+        self.assertEqual(frame[:4], b'XZYH')
+        self.assertEqual(struct.unpack_from('<H', frame, 4)[0], 0x546)
+        self.assertEqual(self.env.decrypt_frame(frame, self.key, with_counter=True), plain)
+        parsed = self.env.parse_frame(frame, with_counter=True)
+        self.assertEqual(parsed['counter'], 7)
+
+    def test_media_frame_has_no_counter(self):
+        plain = b'{"cmd":1003}'
+        frame = self.env.build_media_frame(0x546, plain, self.key)
+        parsed = self.env.parse_frame(frame, with_counter=False)
+        self.assertIsNone(parsed['counter'])
+        self.assertEqual(self.env.decrypt_frame(frame, self.key, with_counter=False), plain)
+
+    def test_rejects_bad_magic(self):
+        with self.assertRaises(ValueError):
+            self.env.parse_frame(b'XXXX' + b'\0' * 20)
+
+
+class IceTests(unittest.TestCase):
+    """ICE（STUN）メッセージの組立。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import ice
+
+        self.ice = ice
+
+    def test_binding_request_has_controlling_and_use_candidate(self):
+        tid = bytes(range(12))
+        req = self.ice.stun_request(tid, 'pMUM2', b'p2p-password-23-byte!!!')
+        self.assertEqual(req[0:2], b'\x00\x01')
+        self.assertEqual(int.from_bytes(req[4:8], 'big'), self.ice.MAGIC)
+        self.assertEqual(req[8:20], tid)
+        for kind in (0x0006, 0xC057, 0x802A, 0x0024, 0x0025, 0x0008, 0x8028):
+            self.assertIn(struct.pack('>H', kind), req)
+
+    def test_response_xor_mapped_address_round_trip(self):
+        tid = bytes(range(12))
+        resp = self.ice.stun_response(tid, ('192.168.10.98', 37921), b'p2p-password-23-byte!!!')
+        self.assertEqual(resp[0:2], b'\x01\x01')
+        self.assertIn(struct.pack('>H', 0x0020), resp)
+
+
+class KcpTests(unittest.TestCase):
+    """KCP チャネルの送受信。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import kcp
+
+        self.kcp = kcp
+
+    class FakeSock:
+        def __init__(self):
+            self.sent = []
+
+        def sendto(self, data, peer):
+            self.sent.append((data, peer))
+
+    def test_push_builds_a_0x51_header(self):
+        # アプリ実測のワイヤ: 32B 接頭辞（末尾 4B は 01 00 00 00）＋20B ヘッダ
+        #（cmd/frg/wnd/ts/sn/una/len）＋ペイロード。以前は余分な u32 があった。
+        sock = self.FakeSock()
+        ch = self.kcp.KcpChannel(sock, ('127.0.0.1', 1))
+        sn = ch.push(b'XZYHpayload')
+        self.assertEqual(sn, 0)
+        data, _peer = sock.sent[0]
+        self.assertEqual(len(data), 32 + 20 + 11)
+        self.assertEqual(data[28:32], b'\x01\x00\x00\x00')
+        self.assertEqual(data[32], 0x51)
+        self.assertEqual(struct.unpack_from('<H', data, 34)[0], 0x0200)  # wnd
+        self.assertEqual(struct.unpack_from('<I', data, 40)[0], 0)       # sn
+        self.assertEqual(data[52:], b'XZYHpayload')
+
+    def test_push_auto_increments_sn(self):
+        sock = self.FakeSock()
+        ch = self.kcp.KcpChannel(sock, ('127.0.0.1', 1))
+        ch.push(b'a')
+        self.assertEqual(ch.push(b'b'), 1)
+
+    def test_on_recv_acks_a_push(self):
+        sock = self.FakeSock()
+        ch = self.kcp.KcpChannel(sock, ('127.0.0.1', 1))
+        packet = (self.kcp.kcp_prefix(1)
+                  + struct.pack('<BBHIIII', 0x51, 0, 0x0200, 1234, 7, 0, 3) + b'abc')
+        kind, sn, _una, payload = ch.on_recv(packet)
+        self.assertEqual((kind, sn, payload), ('push', 7, b'abc'))
+        self.assertEqual(sock.sent[0][0][32], 0x52)
+        self.assertEqual(ch.una, 8)
+
+    def test_notify_frame_shape(self):
+        frame = self.kcp.notify(b'data', 42, 3)
+        self.assertEqual(struct.unpack_from('<H', frame, 0)[0], 9)
+        self.assertEqual(struct.unpack_from('<H', frame, 4)[0], 4)
+        self.assertEqual(struct.unpack_from('<I', frame, 20)[0], 3)
+
+
+class ReportTests(unittest.TestCase):
+    """CS2 受信通知（DRWAck）の組立（RE の仕様で検証）。"""
+
+    def setUp(self):
+        load_package()
+        from leo_rtc import report
+
+        self.report = report
+
+    def test_drw_ack_layout_matches_reverse_engineered_spec(self):
+        frame = self.report.drw_ack([0x0102, 0x0304], flag=0)
+        self.assertEqual(frame[0:2], b'\xf1\xd1')
+        self.assertEqual(frame[2:4], (8).to_bytes(2, 'big'))
+        self.assertEqual(frame[4:8], b'\xd1\x00\x00\x02')
+        self.assertEqual(frame[8:], b'\x01\x02\x03\x04')
+
+    def test_encrypted_drw_ack_round_trips_through_cs2(self):
+        from leo_rtc import cs2
+
+        seqs = [10, 11, 12, 65535]
+        wire = self.report.enc_drw_ack(seqs, b'gfxEiUp1d43vwJQm')
+        flag, parsed = self.report.parse_drw_ack(cs2.decrypt(wire, b'gfxEiUp1d43vwJQm'))
+        self.assertEqual(flag, 0)
+        self.assertEqual(parsed, seqs)
+
+    def test_drw_ack_caps_the_sequence_list(self):
+        frame = self.report.drw_ack(list(range(500)))
+        flag, seqs = self.report.parse_drw_ack(frame)
+        self.assertEqual(len(seqs), self.report.MAX_SEQS)
+        self.assertEqual(seqs[-1], 499)
+
+
+def load_bridge():
+    path = STACK / 'tools' / 'mjpeg_bridge.py'
+    spec = importlib.util.spec_from_file_location('mjpeg_bridge_test', path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules['mjpeg_bridge_test'] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class KeyRingTests(unittest.TestCase):
+    """session_keys.json の読み込み。
+
+    これが壊れると、セッション再接続のたびに鍵が食い違い、IDR が復号できず
+    ブリッジが無映像になる。
+    """
+
+    def setUp(self):
+        self.bridge = load_bridge()
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / 'session_keys.json'
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write(self, key, iv):
+        self.path.write_text('{"key": "%s", "iv": "%s"}' % (key, iv))
+
+    def test_file_keys_are_loaded_and_mtime_change_reloads(self):
+        self._write('0123456789abcdef', 'ABCDEFGHIJKL')
+        ring = self.bridge.KeyRing(path=str(self.path))
+        self.assertTrue(ring.ok)
+        self.assertEqual(ring.key, b'0123456789abcdef')
+        self.assertEqual(ring.iv, b'ABCDEFGHIJKL')
+        # mtime が同じ間は再読込しない
+        self.assertFalse(ring.reload())
+        self._write('fedcba9876543210', 'MLKJIHGFEDCB')
+        self.assertTrue(ring.reload(force=True))
+        self.assertEqual(ring.key, b'fedcba9876543210')
+
+    def test_missing_file_keeps_explicit_keys(self):
+        ring = self.bridge.KeyRing(b'k' * 16, b'i' * 12, str(self.path))
+        self.assertTrue(ring.ok)
+        self.assertFalse(ring.reload())
+
+    def test_broken_json_keeps_previous_keys(self):
+        self._write('goodkeygoodkey1', 'goodivgoodiv')
+        ring = self.bridge.KeyRing(path=str(self.path))
+        self.assertTrue(ring.ok)
+        self.path.write_text('not json')
+        self.assertFalse(ring.reload(force=True))
+        self.assertEqual(ring.key, b'goodkeygoodkey1')

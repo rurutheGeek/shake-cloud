@@ -118,6 +118,12 @@
     "pingUrl": "https://awx.apextox.dpdns.org/api/v2/ping/"
   },
   {
+    "name": "バックアップ",
+    "href": "https://backup.apextox.dpdns.org",
+    "description": "端末バックアップの入口（UrBackupの状態と手順）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/urbackup.svg"
+  },
+  {
     "name": "Proxmox",
     "href": "https://pve.apextox.dpdns.org:8006",
     "description": "仮想化ホストの管理画面",

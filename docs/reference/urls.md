@@ -1,6 +1,6 @@
 ---
 title: 接続先一覧（URL・アドレス）
-updated: 2026-09-21
+updated: 2026-10-02
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 接続先一覧（URL・アドレス）
 
-> **更新日** 2026-09-21 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-02 ・ **区分** リファレンス ・ **読む人** 全員
 
 **サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
@@ -33,6 +33,8 @@ tags:
 | AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は services-01 だけに開けている | 全員 |
 | ルータ（LuCI） | <https://router.apextox.dpdns.org> | router-01 の管理画面。**SSO なし**（復旧経路のため）。認証は LuCI の root パスワード。IP 直は `http://192.168.10.1` | 管理者 |
 | Home Assistant | <https://ha.apextox.dpdns.org> | 家電・自動化（[利用者向けの使い方](../services/home-assistant.md)）。services-01 の `127.0.0.1:8123` を Caddy で HTTPS 化。Authentik SSO + 緊急用ローカルオーナー | Authentik（`users` / `admins`）またはローカルオーナー |
+| バックアップポータル | <https://backup.apextox.dpdns.org> | 端末ごとのバックアップ手順と UrBackup の状態（media-01 の `127.0.0.1:55416`。Forward Auth）。Windows クライアントは `192.168.10.101:55413` へ直結（[使い方](../operations/client-backup.md)） | 全員 |
+| UrBackup管理画面 | <https://urbackup.apextox.dpdns.org> | クライアント配布・世代・復元（media-01 の `127.0.0.1:55414`。Forward Auth） | 全員 |
 | 招待リンク | `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` | 招待登録（1回限り・24時間） | 招待された人 |
 | AWX | <https://awx.apextox.dpdns.org> | Ansible 実行基盤（Kubernetes・Let's Encrypt） | 管理者 |
 | NetBox | <https://netbox.apextox.dpdns.org> | 台帳（IP・VM）。直アクセス `http://192.168.10.200:8000` | 管理者 |

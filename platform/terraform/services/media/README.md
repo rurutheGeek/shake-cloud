@@ -3,6 +3,8 @@
 状態: **apply済み・実機確認済み（2026-09-12）**。`i-a06df9a2dfd1ce6db`、
 `192.168.10.101`、4vCPU／6GiB、OS32GiB＋データ64GiB。再 plan は No changes、
 再起動後もデータマウントと Docker が復帰することを確認した。
+**2026-10-02に UrBackup 用の受信ルール（55413/tcp・35623/udp）を追加**（W08）。
+`terraform.tfvars`（gitignore）の `ssh_public_key_path` は `~/.ssh/id_ed25519_pve.pub`。
 
 担当は[I02 media-01](../../../../docs/development/I02-media-vm.md)。初期予算は
 4vCPU／6GiB、OS32GiB＋データ64GiB。I01のホスト測定・軽量化は記録済み。
@@ -13,8 +15,10 @@
 | リソース | 内容 |
 | --- | --- |
 | `shakecloud_key_pair.media` | `ssh_public_key_path` の公開鍵を cloud API へ登録 |
-| `shakecloud_security_group.media` | LAN から 22・80・443・53317（LocalSend）だけを許可 |
+| `shakecloud_security_group.media` | LAN から 22・80・443・53317（LocalSend）・55413（UrBackup）だけを許可 |
 | `shakecloud_security_group_rule.localsend` | LocalSend の受信（HTTPS 53317/tcp）。発見用のUDP multicastはCIDRで表せないためSGには無い |
+| `shakecloud_security_group_rule.urbackup_client` | UrBackup のクライアント通信（55413/tcp）。Forward Auth を通せないため LAN へ直接出す |
+| `shakecloud_security_group_rule.urbackup_discovery` | UrBackup の LAN 内自動発見（35623/udp） |
 | `shakecloud_instance.media` | `img-debian13` から 4vCPU／6144MiB／OS32GiB。`tags.Name` が `media-01` |
 | `shakecloud_volume.data` | 64GiB のデータディスク（`prevent_destroy`） |
 | `shakecloud_volume_attachment.data` | 空きの virtio スロットへ接続 |
@@ -45,8 +49,10 @@ cloud-init はユーザー・qemu-guest-agent・Docker・データディスク�
 export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
 
 tools/tf services/media init   # リポジトリのルートで実行
-tools/tf services/media plan
-tools/tf services/media apply
+# ssh_public_key_path は手元の鍵に合わせる（既定は ~/.ssh/id_ed25519.pub）。
+# terraform.tfvars はコミットしない（tests/test_media_vm.py が検査する）。
+tools/tf services/media plan -var 'ssh_public_key_path=~/.ssh/id_ed25519_pve.pub'
+tools/tf services/media apply -var 'ssh_public_key_path=~/.ssh/id_ed25519_pve.pub'
 ```
 
 `tools/tf` の services 分岐（I05）は、state の bucket・endpoint・資格情報を

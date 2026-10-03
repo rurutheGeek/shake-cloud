@@ -30,7 +30,9 @@ const holderSlots = 256
 var volumeDevice = regexp.MustCompile(`^virtio([1-9]|1[0-5])$`)
 
 type CreateVolumeRequest struct {
-	SizeGiB     int               `json:"size_gib"`
+	SizeGiB int `json:"size_gib"`
+	// DiskTier is "ssd" or "hdd" and defaults to ssd.
+	DiskTier    string            `json:"disk_tier"`
 	ClientToken string            `json:"client_token"`
 	Tags        map[string]string `json:"tags"`
 }
@@ -72,6 +74,13 @@ func (s *Service) CreateVolume(ctx context.Context, accountID string, r CreateVo
 	if size := limits.VolumeSizeGiB; r.SizeGiB < size.Min || r.SizeGiB > size.Max {
 		return db.Volume{}, false, refuse(http.StatusBadRequest, "InvalidParameterValue", "size_gib must be between %d and %d", size.Min, size.Max)
 	}
+	if r.DiskTier == "" {
+		r.DiskTier = site.TierSSD
+	}
+	diskStorage, err := s.diskTierStorage(r.DiskTier)
+	if err != nil {
+		return db.Volume{}, false, err
+	}
 	if r.ClientToken != "" && !clientToken.MatchString(r.ClientToken) {
 		return db.Volume{}, false, refuse(http.StatusBadRequest, "InvalidParameterValue", "client_token must be 1-64 printable ASCII characters")
 	}
@@ -88,7 +97,7 @@ func (s *Service) CreateVolume(ctx context.Context, accountID string, r CreateVo
 			return db.Volume{}, false, err
 		}
 	}
-	if err := s.checkDiskPool(ctx, limits); err != nil {
+	if err := s.checkDiskPool(ctx, limits, diskStorage); err != nil {
 		return db.Volume{}, false, err
 	}
 
@@ -121,7 +130,7 @@ func (s *Service) CreateVolume(ctx context.Context, accountID string, r CreateVo
 		}
 		volume, err = db.InsertVolume(ctx, tx, db.Volume{
 			ID: newVolumeID(), AccountID: accountID, ClientToken: r.ClientToken, RequestSHA256: hash,
-			SizeGiB: r.SizeGiB, Tags: r.Tags,
+			SizeGiB: r.SizeGiB, DiskTier: r.DiskTier, Tags: r.Tags,
 		})
 		if err != nil {
 			return err
@@ -183,7 +192,18 @@ func (s *Service) ModifyVolume(ctx context.Context, id string, sizeGiB int, auth
 	if sizeGiB > limits.VolumeSizeGiB.Max {
 		return db.Volume{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "size_gib must be at most %d", limits.VolumeSizeGiB.Max)
 	}
-	if err := s.checkDiskPool(ctx, limits); err != nil {
+	// The volume's own pool. A tier the deployment no longer has falls back to
+	// the default, since the disk already exists and the resize only measures.
+	// A missing volume is left to the transaction below, which answers 404.
+	if existing, err := db.GetVolume(ctx, s.Pool, id); err == nil {
+		diskStorage, ok := s.Site.Storage.DiskTierStorage(existing.DiskTier)
+		if !ok {
+			diskStorage = s.Site.Storage.VMDisks
+		}
+		if err := s.checkDiskPool(ctx, limits, diskStorage); err != nil {
+			return db.Volume{}, err
+		}
+	} else if !errors.Is(err, db.ErrNotFound) {
 		return db.Volume{}, err
 	}
 	var result db.Volume

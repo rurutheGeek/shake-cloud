@@ -182,7 +182,7 @@ Caddy が使う Cloudflare のトークンは `platform/sops/cloudflare-dns.sops
 | --- | --- |
 | 共有イメージの一覧 | `GET /v1/images` |
 | 雛形の一覧 | `GET /v1/instance-types`（`flavors.yaml` と同じ名前）。**選ばなくてもよい** |
-| 作成 | `POST /v1/instances`（`image_id` と、`vcpus`＋`memory_mib`。任意で `memory_min_mib`・`ballooning`・`root_disk_gib`・`user_data`・`client_token`・`tags`。`instance_type` を使えば値が埋まる） |
+| 作成 | `POST /v1/instances`（`image_id` と、`vcpus`＋`memory_mib`。任意で `memory_min_mib`・`ballooning`・`root_disk_gib`・`disk_tier`・`user_data`・`client_token`・`tags`。`instance_type` を使えば値が埋まる） |
 | 一覧・1台 | `GET /v1/instances`、`GET /v1/instances/{id}`。**一覧はクラウドの全VM**（所有者名・イメージ名つき） |
 | 大きさの変更 | `PATCH /v1/instances/{id}`（`admins` だけ） |
 | 電源 | `POST /v1/instances/{id}/start`・`/stop`・`/reboot` |
@@ -199,6 +199,7 @@ curl -X POST -H "Authorization: Bearer $SHAKECLOUD_ACCESS_KEY" -H 'Content-Type:
 - `instance_type` は**任意の近道**です。指定すると `flavors.yaml` の値が入り、そこから好きな項目だけ上書きできます。1つでも上書きするとその型名は外れます（一覧では「カスタム」）。
 - `ballooning: false` は**固定メモリ**です（Proxmox の `balloon=0`）。ゲームVMのように実際に使い切る相手には、返ってこないメモリを空きに数えないぶん、こちらが正直です。
 - `ballooning: true`（既定）のとき `memory_min_mib` が回収の下限で、省略すると**上限の 1/4**（最低 512MiB）になります。
+- `disk_tier` は `ssd`（既定。`local-lvm`）か `hdd`（`bulk-disks`、6TB USB HDD上）です。**作成後に変えられません**（プールをまたぐ移動は無いため）。HDDは低速で単一障害点なので、常時使うVMやDBには`ssd`のままにしてください。`hdd`を選べるかは `GET /v1/capacity` の `storage[].disk_tier` を見れば分かります（無いデプロイでは 400 で断ります）。
 - vCPU はノードのスレッド数（16）を超えられません。メモリとディスクは上限（`/v1/limits`）と実際の空きが決めます。
 
 **管理者は後から変えられます。**vCPU・メモリ・バルーニングは停止中だけ、ディスクは稼働中でも拡大のみです。

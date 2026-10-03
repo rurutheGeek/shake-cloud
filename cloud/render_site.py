@@ -45,6 +45,12 @@ def render(directory):
                          'Run the survey and tools/site-yaml.py first.')
 
     store = site['storage']['cloud_images']
+    # The HDD tier is optional: a deployment without a second disk pool leaves
+    # it empty and the API refuses disk_tier=hdd with a clear message.
+    hdd_store = site['storage'].get('vm_disks_hdd', '')
+    if hdd_store == 'UNMEASURED':
+        raise SystemExit('site.yaml still has an unmeasured storage.vm_disks_hdd. '
+                         'Run the survey and tools/site-yaml.py first.')
     shared = {}
     for name, image in images['images'].items():
         if not image.get('shared_with_cloud'):
@@ -105,7 +111,10 @@ def render(directory):
         'vmid_to': pools['pools']['cloud']['vmid_to'],
         'probe_vmids': cloud['probe_vmids'],
         'volume_holder_vmid': holder,
-        'storage': {'vm_disks': site['storage']['vm_disks'], 'images': store,
+        'storage': {'vm_disks': site['storage']['vm_disks'],
+                    # The bulk HDD pool for disk_tier=hdd; "" when none exists.
+                    'vm_disks_hdd': hdd_store,
+                    'images': store,
                     # The administrator's ISO store. The API lists it read-only so
                     # ISOs placed there from Proxmox are usable without a declaration.
                     'admin_images': site['storage']['admin_images']},

@@ -13,7 +13,7 @@ func TestWindowsGetsUEFITPMAndTheWindowsOSType(t *testing.T) {
 	instance := db.Instance{ID: "i-0123456789abcdef0", MACAddress: "BC:24:11:00:00:01"}
 
 	values := s.vmParams(instance, 5000, db.Resources{SeedVolume: "cloud-images:iso/seed.iso"},
-		"cloud-images:import/win11pro.qcow2", seed.OSWindows)
+		"cloud-images:import/win11pro.qcow2", seed.OSWindows, "local-lvm")
 	if values.Get("ostype") != "win11" || values.Get("bios") != "ovmf" || values.Get("machine") != "q35" {
 		t.Fatalf("windows ostype/bios/machine = %q/%q/%q", values.Get("ostype"), values.Get("bios"), values.Get("machine"))
 	}
@@ -32,7 +32,7 @@ func TestWindowsGetsUEFITPMAndTheWindowsOSType(t *testing.T) {
 		t.Fatalf("common layout changed: %v", values)
 	}
 
-	linux := s.vmParams(instance, 5000, db.Resources{}, "img", "")
+	linux := s.vmParams(instance, 5000, db.Resources{}, "img", "", "local-lvm")
 	if linux.Get("ostype") != "l26" || linux.Get("bios") != "" || linux.Get("tpmstate0") != "" || linux.Get("efidisk0") != "" {
 		t.Fatalf("linux vm params = %v", linux)
 	}

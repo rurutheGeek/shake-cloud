@@ -33,6 +33,9 @@ TARGET = ROOT / 'platform/terraform/site.yaml'
 # Chosen by this repository rather than discovered: 00-bootstrap creates them.
 CLOUD_IMAGES_STORE = 'cloud-images'
 CLOUD_IMAGES_PATH = '/srv/cloud-images'
+# The HDD disk tier. pve_bulk_storage creates this on the 6TB USB HDD; the
+# path only exists while /srv/bulk is mounted, so the role registers it.
+BULK_DISKS_STORE = 'bulk-disks'
 
 TEMPLATE = '''---
 # 実機の事実。**このファイルが正本**で、Terraform の全モジュールが読む。
@@ -49,8 +52,13 @@ TEMPLATE = '''---
 node_name: {node_name}
 
 storage:
+  # SSD ティア（disk_tier: ssd、既定）のディスク置き場。
   # 既存のストレージ。Proxmox のインストーラが作るのでコード管理しない。
   vm_disks: {vm_disks}
+  # HDD ティア（disk_tier: hdd）のディスク置き場。pve_bulk_storage ロールが
+  # 6TB USB HDD 上に作る dir ストレージ。vzdump の bulk-backup とは分ける。
+  # 発見ではなくこのリポジトリが決めた名前。
+  vm_disks_hdd: {vm_disks_hdd}
   # 管理者が cloud image を置く先。00-bootstrap の images.tf が使う。
   admin_images: {admin_images}
   # クラウドAPI専用。00-bootstrap が作る（proxmox_storage_directory）。
@@ -210,7 +218,9 @@ def build(nodes, storage, bridges, zones, node=None, dns=None):
         'node_name': node_name(nodes, node),
         'vm_disks': storages(
             storage, {'images'}, 'storage.vm_disks',
-            'Pick the one that should hold user VM disks and set it by hand.'),
+            'Pick the one that should hold user VM disks and set it by hand.',
+            exclude=(BULK_DISKS_STORE,)),
+        'vm_disks_hdd': BULK_DISKS_STORE,
         'admin_images': storages(
             storage, {'import'}, 'storage.admin_images',
             'This is where 00-bootstrap downloads official cloud images.',

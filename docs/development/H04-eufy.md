@@ -1,6 +1,6 @@
 ---
 title: H04 EufyCam連携の検証
-updated: 2026-09-23
+updated: 2026-10-02
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # H04 EufyCam連携の検証
 
-> **更新日** 2026-09-23 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -96,7 +96,7 @@ WSは9/14から10日間、動体・人物の通知を1件も受け取ってい�
 ### 次に取り得る選択肢（優先順）
 
 1. **現状維持＋スナップショット運用**（推奨・即時）。HA で動体/人物イベントと静止画を使う。ライブは「未対応」と案内する。
-2. **フルRE でネイティブ leo_rtc クライアントを実装**（大工数）。`signaling_servers` への到達性（LAN 直・`75.2.46.73`）を先に確認し、`rtc_protocol`/`rtc_crypto`/DTLS-SCTP を移植。着手するなら別作業ID・別容量計画へ切り出す。
+2. **フルRE でネイティブ leo_rtc クライアントを実装**（大工数）。→ [H05](H05-eufy-leo-rtc.md) として切り出し・着手済み（2026-09-26 時点で wake・ICE・KCP・候補交換まで実機成立。現在地と試したことの一覧は H05 が正本）。
 3. **上流の対応待ち**。`mega-yfue/eufy-sdk` に leo_rtc live／RTSPブリッジが入るか、`fuatakgun/eufy_security` が新バックエンドに対応したら再評価。Renovate/issue で追跡する。
 4. **機器側の変更**（ユーザー判断）。HomeBase S380 を足すと 24/7 録画＋RTSP 系の別経路が開く可能性（要確認）。容量・保存先は[I01](I01-resources.md)で別計画。
 
@@ -107,3 +107,12 @@ WSは9/14から10日間、動体・人物の通知を1件も受け取ってい�
 3. **設定 → デバイスとサービス → 統合を追加 → Eufy Security** でホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識し、ログイン・デバイス一覧・Pushを確認）。**人物・動体イベントは取り込み済み（上記）。スナップショットは確認中。ライブ映像は上記の理由で当面「未対応」とし、有効化を案内しない。**既存録画・カメラ設定は変更しない。
 4. WS/HAの再起動と一時切断後の再接続を確認し、WS・統合のメモリを[I01](I01-resources.md)の実測に足す。ライブは選択肢2/3の進展があれば再判断する。
 5. HomeBase S380の追加は今回の範囲外。追加する場合は24/7録画と容量・保存先を別計画（[I01](I01-resources.md)）で確認する。
+
+<a id="handover-log"></a>
+
+## handover移動分の作業記録
+
+handover.md の「5. 進捗とTODO」表の該当行から移した記録（原文のまま。表セルを日付ごとの箇条書きに整形しただけ）。いまの状態と未完は handover.md の該当行を参照。
+
+- **Eufy S4のライブ映像は現行の公開ソフトでは不可能と実機で確定（2026-09-13。リバースエンジニアリング）。** イベント・push・スナップショットは配備済みの `eufy-security-ws` + `eufy_security` で維持。デバイスは eufyCam S4（T8172、HomeBaseなし単体）と SmartTrack（T87B0）で、ログイン・デバイス一覧・Push は動作。ライブは S4（T8172、fw 1.1.1.2、バッテリー）が新 leo_rtc WebRTC バックエンド専用で、`p2p_conn` が空・`signaling_servers=webrtc-signal-eu.eufylife.com/75.2.46.73`。dev-b で検証: (1) 推奨の `mega-yfue/eufy-sdk` の `live()` は旧P2Pしか無く `P2P did not connect`（クラウドが lookup を返さない）。(2) 公式Webの WebRTC 手順を復元・再実行すると `security-smart-eu.eufylife.com` の scall が `100`+TURN までは通るがカメラが offer を出さず `408`（Webゲートウェイはバッテリーカメラを起こさない）。(3) APK の `libmega_media_sdk.so` を解析し、スマホは機器の signaling_servers へネイティブ独自プロトコル（`rtc_signal`＋ECC/AES-GCM＋DTLS/SCTP＋H.264）で繋ぐと判明。**ライブ完成にはこのフルRE実装が必要（工数大）。既存の公開実装は単体バッテリーカメラのこの経路を実装していない**（genomezフォークは常時接続T9000のみ）。動かない stack は作らず、選択肢と根拠を計画書に記録。
+- **2026-09-23の追試（分かったこと・到達点）**: (a) 動体・人物の通知が9/14から10日間HAへ届いていなかった。原因はS4が使うv6（eufy_mega）側のpush登録が毎回 `401 token not exist` で失敗（9/13にdev-bから同一アカウントで検証ログインした後に始まり、WS保存のv6トークンが失効したと推定。`eufy-security-client` 4.1.0 は401で再ログインしない）。`persistent.json` の `megaApi` だけ消して再起動する `manage.py reset-mega-session` を追加して復旧し、**人物・動体イベントがHA（`binary_sensor.rihinku_person_detected`/`_motion_detected`）まで届くことを実機確認**（検知→HA約7秒、再配備後の再接続も約4秒で復帰）。配備中composeを repo へ取り込み（hostネットワーク・`STATION_IP_ADDRESSES`・`DEBUG`既定オフ＋ログ10MB×3）。(b) **イベント画像は単体S4では取得不可**（通知をサムネイル付きにしても `pic_url` の実体S3 pushthumbが `404 NoSuchKey`＝カメラが上げていない。もう一方のP2P取得経路はleo_rtcで到達不可）。(c) **単体ライブの自前実装の到達点**: dev-b の試作（`~/.cache/eufy-re/live`）でネイティブsignalingの discover→login→call までは成立するが、バッテリーで待機中のカメラは `480` を返し起こせない（wake手順は未実装）。ここまでで停止。**単体ライブの継続は H05 へ切り出し済み**（2026-09-26 時点で wake・ICE・KCP・候補交換まで実機成立）

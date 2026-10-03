@@ -20,6 +20,7 @@
 | FreshRSS（共通RSSタイムライン） | [freshrss/](freshrss/README.md) | media-01へ配備済み（2026-09-13）。HTTPS＋ネイティブOIDC＋SharedFeeds拡張（全ユーザーで購読をリアルタイム共有） |
 | music-tools（MeTube・Picard・変換・同期） | [../music-tools/](../music-tools/README.md) | Picardのみ配備済み（HTTPS＋Forward Auth）。MeTube・変換・同期はW06 |
 | LocalSend | [localsend/](localsend/README.md) | 受信機を配備済み。端末アプリの実送受信は未確認（D06） |
+| UrBackup（Windowsの世代バックアップ） | [urbackup/](urbackup/README.md) | media-01へ配備済み（2026-10-02、W08）。実端末の初回バックアップと復元が残る |
 
 ## 再利用するもの
 

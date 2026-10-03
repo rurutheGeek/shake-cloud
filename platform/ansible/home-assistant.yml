@@ -21,6 +21,12 @@
     home_assistant_eufy_component_url: https://github.com/fuatakgun/eufy_security/archive/refs/tags/v8.2.4.tar.gz
     home_assistant_eufy_component_sha256: b744aac0ce03a8a75de5100c672957504173c20cbe2ac0fc4d09d5bc75c59411
     home_assistant_eufy_component_member: eufy_security-8.2.4/custom_components/eufy_security
+    # eufyCam S4 のライブ映像は Eufy leo_rtc クライアント（android-01 VM）が受け、
+    # Mediamtx の RTSP へ流す。その URL を Generic Camera として登録する。
+    home_assistant_camera_name: eufyCam S4 (leo_rtc)
+    home_assistant_camera_stream: rtsp://172.31.254.1:8554/eufy_av
+    # カードのスナップショット（leo_rtc 側の MJPEG。空なら HA は映像から生成）。
+    home_assistant_camera_still: http://172.31.254.1:8888/snapshot.jpg
   tasks:
     - name: Install Docker Engine and Compose
       ansible.builtin.include_role:
@@ -78,7 +84,63 @@
       register: home_assistant_http_proxy
       changed_when: "'CHANGED' in home_assistant_http_proxy.stdout"
 
+    # eufy のライブ映像（Eufy leo_rtc クライアント → Mediamtx）を Generic
+    # Camera として登録する。generic 統合は UI 専用なので .storage へ直接書く。
+    - name: Expose the eufy live stream as a Generic Camera
+      ansible.builtin.command:
+        argv: [python3, '{{ home_assistant_project_dir }}/manage.py', ensure-camera,
+               '--name', '{{ home_assistant_camera_name }}',
+               '--stream', '{{ home_assistant_camera_stream }}',
+               '--still', '{{ home_assistant_camera_still }}']
+      register: home_assistant_camera
+      changed_when: "'CHANGED' in home_assistant_camera.stdout"
+
     # HAコアはOIDC非対応。コミュニティ統合とEufy統合をdigest固定で入れる。
+    # ライブ配信が長く失敗すると HA がカメラを unavailable にし、UI がライブを開始
+    # できなくなる（静止画だけが出る）。2 分ごとに見て reload で復帰させる。
+    - name: Copy the camera watchdog
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/camera_watch.py'
+        dest: '{{ home_assistant_project_dir }}/camera_watch.py'
+        mode: '0755'
+
+    - name: Install the camera watchdog timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/eufy-camera-watch.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Reload the eufy camera entry when Home Assistant marks it unavailable
+          After=services-home-assistant-homeassistant-1.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 {{ home_assistant_project_dir }}/camera_watch.py
+      register: home_assistant_watch_service
+
+    - name: Install the camera watchdog schedule
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/eufy-camera-watch.timer
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Run the eufy camera watchdog every two minutes
+
+          [Timer]
+          OnBootSec=120
+          OnUnitActiveSec=120
+
+          [Install]
+          WantedBy=timers.target
+      register: home_assistant_watch_timer
+
+    - name: Enable the camera watchdog
+      ansible.builtin.systemd:
+        name: eufy-camera-watch.timer
+        enabled: true
+        state: started
+        daemon_reload: "{{ home_assistant_watch_service.changed or home_assistant_watch_timer.changed }}"
+
     - name: Install the pinned OIDC integration
       ansible.builtin.command:
         argv: [python3, '{{ home_assistant_project_dir }}/manage.py', install-integration,
