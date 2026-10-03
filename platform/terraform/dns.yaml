@@ -121,7 +121,8 @@ records:
     upstream: 127.0.0.1:8000
     description: NetBox
   homarr:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:7575
     description: Homarr（サービスの入口。OIDC）
   # AdGuard Home の管理画面はルータ上。ルータの :3000 はファイアウォールで

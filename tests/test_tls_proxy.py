@@ -135,7 +135,7 @@ class TlsProxyTests(unittest.TestCase):
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
                      SEED_HOST: ['netbox.yml', 'vaultwarden.yml', 'cups.yml'],
-                     'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml'],
+                     'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
                      'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
@@ -332,7 +332,7 @@ class EdgeRenderingTests(unittest.TestCase):
             self.assertNotIn('forward_auth', block, name)
             self.assertNotIn('127.0.0.1', block, name)
         # The edge's own sites are untouched.
-        self.assertIn('reverse_proxy 127.0.0.1:', site_block(rendered, 'homarr'))
+        self.assertIn('reverse_proxy 127.0.0.1:', site_block(rendered, 'netbox'))
         self.assertNotIn('@outpost', rendered)
 
     def test_forward_auth_does_not_loop_once_identity_is_behind_the_edge(self):
