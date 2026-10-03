@@ -24,7 +24,7 @@ python3 manage.py config-notes   # Notesの表示既定を生Markdown（edit）�
 sudo python3 manage.py import-calendar \
   --user <uid> --file /srv/media-stack/library/inbox/.../export.ics \
   --name 'カレンダー名' --share <uid>   # 旧アプリのICSを取り込み、相手へ編集可で共有
-PRINT_API_URL=http://192.168.10.200:6320 PRINT_API_TOKEN=... \
+PRINT_API_URL=http://192.168.10.105:6320 PRINT_API_TOKEN=... \
   python3 manage.py config-print   # 印刷APIのURLとトークン（AnsibleはSOPSから渡す）
 python3 manage.py status
 sudo python3 manage.py down

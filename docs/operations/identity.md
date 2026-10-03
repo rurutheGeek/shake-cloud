@@ -1,6 +1,6 @@
 ---
 title: 認証基盤（identity サービス・Authentik）
-updated: 2026-09-27
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,12 +10,12 @@ tags:
 
 # 認証基盤（identity サービス・Authentik）
 
-> **更新日** 2026-09-27 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-identity VM の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud-resources.md#3-17)を参照してください。
+core-01 の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud-resources.md#3-17)を参照してください。
 
 - **入口:** `https://auth.apextox.dpdns.org`（`:9000` と `:9443` は 127.0.0.1 に閉じています）
-- **VM:** identity（VMID 110、192.168.10.204）。Kubernetes の外に置き、クラスタ更新中でもログインできます。
+- **VM:** core-01（VMID 150、192.168.10.200）。NetBox・入口の Caddy と同居します。Kubernetes の外に置き、クラスタ更新中でもログインできます。専用の identity VM（VMID 110、192.168.10.204）は 2026-10-03 に廃止しました。配備先のグループは Ansible の `identity_provider`（＝core-01）です。
 
 ## 配備
 
@@ -28,7 +28,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - 配備のたびに `manage.py configure` が走り、**冪等**に次を整えます。
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
-  - OIDC クライアント `homarr`（services-01の入口。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
+  - OIDC クライアント `homarr`（apps-01 の Homarr。入口は core-01。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
   - OIDC クライアント `grafana`（monitor-01の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
   - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`。`users`と`admins`の両方を許可）
   - OIDC クライアント `vaultwarden`（`https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` を許可）
@@ -54,11 +54,11 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 取得例（`akadmin` で管理画面に入れないときの初期パスワード確認）:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
+ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
   sudo cat /opt/identity-stack/secrets/bootstrap_password
 ```
 
-`oidc-cloud.json` は **SOPS へ複製しません。** 正本はこの VM にあり、配備のたびに `cloud.yml` が直接写します。2 か所に持つと、Authentik 側で作り直したときに食い違います。
+`oidc-cloud.json` は **SOPS へ複製しません。** 正本は core-01 にあり、配備のたびに `cloud.yml` が直接写します。2 か所に持つと、Authentik 側で作り直したときに食い違います。
 
 バックアップは VM 上で `manage.py backup`（`storage/` と配備ファイルを 1 つの tar にまとめる。既定 `backups/`）を取ります。手順と保管先は[バックアップと復旧](../architecture/operations.md#バックアップと復旧)に沿って決めます。
 
@@ -95,19 +95,19 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204 \
 
 ### CLI で発行する（任意）
 
-日本語の招待メールとリンクの 0600 保存まで自動化したいときは、identity VM の `stacks/identity/invitations.py` を使います。フロー `cloud-invitation-enrollment` を管理し、`configure` は配備でも毎回走ります。
+日本語の招待メールとリンクの 0600 保存まで自動化したいときは、core-01 の `stacks/identity/invitations.py` を使います。フロー `cloud-invitation-enrollment` を管理し、`configure` は配備でも毎回走ります。
 
-| 操作 | 呼び方（identity VM、または `stacks/identity/` で） |
+| 操作 | 呼び方（core-01、または `stacks/identity/` で） |
 | --- | --- |
 | フローを作る・直す（冪等） | `python3 invitations.py configure [--group users]` |
 | 招待を発行してリンクを保存・送信 | `python3 invitations.py invite --username <name> --email <mail> [--name <表示名>] [--email-owner-confirmed] [--no-email]` |
 | 一覧（未使用・期限・使用済み） | `python3 invitations.py list` |
 | 失効（リンクファイルも消す） | `python3 invitations.py revoke --name <名前>` |
 
-identity VM での実行例:
+core-01 での実行例:
 
 ```bash
-ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.204
+ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200
 sudo python3 /opt/identity-stack/invitations.py invite \
   --username alice --email alice@example.org --name '利用者A'
 sudo python3 /opt/identity-stack/invitations.py list
@@ -146,7 +146,7 @@ sudo python3 /opt/identity-stack/invitations.py list
    GET  /api/v3/authenticators/admin/webauthn/?user=<user_pk>
    DELETE /api/v3/authenticators/admin/webauthn/<device_pk>/
    ```
-3. オフライン時（API も管理画面も使えない）: identity VM で
+3. オフライン時（API も管理画面も使えない）: core-01 で
    ```bash
    docker compose -f /opt/identity-stack/compose.yaml exec worker ak shell
    # WebAuthnDevice.objects.filter(user__username='akadmin').delete()

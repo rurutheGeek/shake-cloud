@@ -1,6 +1,6 @@
 ---
 title: ネットワーク・公開範囲・SSO
-updated: 2026-10-01
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # ネットワーク・公開範囲・SSO
 
-> **更新日** 2026-10-01 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-[構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
+[構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
 
 ## 全体図
 
@@ -33,19 +33,19 @@ tags:
 
 ## 既存機器の使い方
 
-新規ネットワーク機器の購入は前提にしません。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**です（[N06](../development/N06-router.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605、宅外の復旧経路は cloud VM `net-01`（Tailscale subnet router）です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
+新規ネットワーク機器の購入は前提にしません。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**です（[N06](../development/N06-router.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605、宅外の復旧経路は router-01（OpenWrt）上の Tailscale subnet router です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
 
 ### VPNの置き場所と選択肢
 
-**宅外から戻る経路は cloud VM `net-01`（Tailscale subnet router）**に置いています（[net-01](../operations/net.md)）。K11 の外に出られないため、復旧経路は K11 上のVMではなく cloud プールに置くのが要点です（当初はラズパイを想定していましたが、導入せず net-01 にしました）。
+**宅外から戻る経路は router-01（OpenWrt）上の Tailscale subnet router** に置いています（[Tailscale subnet router](../operations/net.md)）。K11 の外に出られないため、K11 が止まると使えません（当初はラズパイを想定していましたが導入せず、まず cloud VM `net-01` に置き、2026-10-03 に net-01 を廃止して router-01 の上へ移しました）。
 
 | 配置 | 向いている用途 | 制約 |
 | --- | --- | --- |
-| net-01（Tailscale subnet router） | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | cloud プールの1VM。K11 停止時は Tailscale の別経路（スマホ等）が必要 |
+| router-01（Tailscale subnet router） | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | OpenWrt上で動く。K11 停止時は Tailscale の別経路（スマホ等）が必要 |
 | 各VMにTailscaleを直接導入 | game1の映像通信、開発VMへのSSH | 対象VM停止中は接続できない。台数ごとの管理が必要 |
 | セルフホストVPN（N01で継続検討） | 常用アクセス | 認証基盤と同じVMに置くと、その停止で両方止まる |
 
-宅内で遊ぶときはLAN直結を優先し、全インターネット通信を net-01 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
+宅内で遊ぶときはLAN直結を優先し、全インターネット通信を router-01 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
 
 **DNS（AdGuard Home）は router-01 に置いています。** ルータが落ちると名前解決も止まるため、Aterm をコールドスペアとして残し、復旧手順を[router-01](../operations/router.md)に用意しています。K11 停止中に DNS を残す案（別VM）は今後の検討です。
 
@@ -81,17 +81,17 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 | 名前 | 行き先 |
 | --- | --- |
-| `auth.apextox.dpdns.org` | Authentik（identity） |
+| `auth.apextox.dpdns.org` | Authentik（core-01） |
 | `cloud.apextox.dpdns.org` | クラウドのポータルと API（cloud-01） |
-| `netbox.apextox.dpdns.org` | NetBox（services-01） |
-| `homarr.apextox.dpdns.org` | Homarr（services-01。サービスの入口） |
-| `vault.apextox.dpdns.org` | Vaultwarden（services-01） |
-| `ha.apextox.dpdns.org` | Home Assistant（services-01。本体は `127.0.0.1:8123`） |
-| `docs.apextox.dpdns.org` | ドキュメントサイト（services-01） |
-| `cups.apextox.dpdns.org` | CUPSの印刷状況（services-01。`/admin` は入口で403） |
-| `mail-view.apextox.dpdns.org` | メールビューア（services-01。通知メールを読み取り専用表示。Forward Auth） |
-| `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は services-01 だけに許可） |
-| `router.apextox.dpdns.org` | router-01 の管理画面（LuCI）。**SSO なし**（復旧経路。identity が止まっていても開ける。認証は LuCI 自身の root パスワード） |
+| `netbox.apextox.dpdns.org` | NetBox（core-01） |
+| `homarr.apextox.dpdns.org` | Homarr（apps-01。サービスの入口） |
+| `vault.apextox.dpdns.org` | Vaultwarden（apps-01） |
+| `ha.apextox.dpdns.org` | Home Assistant（apps-01。本体は `127.0.0.1:8123`） |
+| `docs.apextox.dpdns.org` | ドキュメントサイト（apps-01） |
+| `cups.apextox.dpdns.org` | CUPSの印刷状況（apps-01。`/admin` は入口で403） |
+| `mail-view.apextox.dpdns.org` | メールビューア（apps-01。通知メールを読み取り専用表示。Forward Auth） |
+| `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は core-01 だけに許可） |
+| `router.apextox.dpdns.org` | router-01 の管理画面（LuCI）。**SSO なし**（復旧経路。Authentik が止まっていても開ける。認証は LuCI 自身の root パスワード） |
 | `nextcloud.apextox.dpdns.org` | Nextcloud（media-01） |
 | `kavita.apextox.dpdns.org` | Kavita（media-01） |
 | `navidrome.apextox.dpdns.org` | Navidrome（media-01。Forward Auth） |
@@ -108,8 +108,8 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 - **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
 - **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
-- **証明書:** 各ホストの Caddy が、Let's Encrypt から DNS-01 で取ります。AdGuard の入口も同じ Caddy が受けて、ルータの `192.168.10.1:3000` へ中継します（ルータのファイアウォールで services-01 だけに許可）。identity・cloud-01のサービス自身のポートは127.0.0.1へ閉じています。
-- **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。各ホストに置くので、1台が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
+- **入口と証明書:** HTTPSの入口は core-01 の Caddy 1台です。上の表の名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書は Caddy が Let's Encrypt から DNS-01 で取ります。AdGuard とルータの管理画面も同じ Caddy が受けて、ルータの `192.168.10.1` へ中継します（ルータのファイアウォールで core-01 だけに許可）。
+- **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。core-01 が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
 `home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。
 
@@ -117,7 +117,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 ## SSOを使う範囲
 
-アカウント作成はAuthentikの招待を標準とします。利用者向けの説明・招待手順・既存アカウントの扱いは[認証基盤（identity・Authentik）](../operations/identity.md)を参照してください。
+アカウント作成はAuthentikの招待を標準とします。利用者向けの説明・招待手順・既存アカウントの扱いは[認証基盤（Authentik）](../operations/identity.md)を参照してください。
 
 VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範囲です。VPN接続できることやSSOに成功することだけで、管理者権限を与えません。
 
@@ -144,7 +144,7 @@ OIDC対応アプリへさらに一律Forward Authを重ねない構成を優先�
 
 AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で登録し、予備の認証器と復旧方法を用意します。クラウドAPIにはAuthentikの利用者に対応するアカウント台帳があり、普段使うNextcloud等のアプリ内アカウント・権限とは別です。[Authentikパスキー](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_webauthn/)
 
-ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。`configure.py` が **メール確認コード**（第二の認証器）と**パスワード再設定フロー**を用意し、`akadmin` の復旧先を `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き）にします。運用と非常口（デバイス削除、`ak shell`）の手順は[認証基盤（identity・Authentik）](../operations/identity.md)にまとめています。**パスキーだけで入るパスワードレスも有効です**（2026-09-12）。
+ログインは `識別 → パスワード → 認証器の検証` の順です。検証段階は `webauthn`・`totp`・`static`（バックアップコード）・`email` を受け付けます。**パスキーを登録した人は失くしても検証段階が残る**ため、パスワードを再設定しただけでは戻れません。`configure.py` が **メール確認コード**（第二の認証器）と**パスワード再設定フロー**を用意し、`akadmin` の復旧先を `.env` の `SMTP_FROM`（`ADMIN_EMAIL` で上書き）にします。運用と非常口（デバイス削除、`ak shell`）の手順は[認証基盤（Authentik）](../operations/identity.md)にまとめています。**パスキーだけで入るパスワードレスも有効です**（2026-09-12）。
 
 認証VMはKubernetesの外へ置き、クラスタ更新中にもWeb認証を使える構成を推奨します。ただしK11故障には一緒に影響されます。Proxmoxのローカル管理者、SSH鍵、復旧用kubeconfig、秘密鍵の外部コピーを残し、AuthentikやVaultwardenだけを復旧情報の保存先にしません。
 

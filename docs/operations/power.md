@@ -1,6 +1,6 @@
 ---
 title: 電源と UPS
-updated: 2026-09-23
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 電源と UPS
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
 
@@ -18,7 +18,7 @@ tags:
 
 ## いまの電源構成
 
-- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetes の各ノード）と利用者VMが載っています。
+- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・monitor-01・Kubernetes の各ノード・dev-a／dev-b）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
 - **ルータ（`router-01`）は K11 上の OpenWrt VM です**（2026-09-20 に切替）。K11 が落ちると家中のインターネットも落ちます。K11 と別電源で残るのは ONU・スイッチ（TL-SG605）・Aterm（APモード）だけで、**そこに DNS も DHCP も居ません**（[router-01](router.md)・[障害モード](../architecture/failure-modes.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
 
@@ -95,7 +95,7 @@ ssh root@192.168.10.10 'journalctl -b 0 -u shakecloud-guests.service | tail'
 手で止めた」のと見分けがつきません。素朴に上の判定へ通すと、**ホストの
 reboot 1回で保存されていた組が全部「意図的に止めた」と誤判定され、1台も
 戻らなくなります**（2026-09-25、GPUの reset bug 対応でホストを reboot した
-際に実機で発生。game1・開発VM・media-01・monitor-01・net-01・
+際に実機で発生。game1・開発VM・media-01・monitor-01・net-01（当時。2026-10-03 に廃止）・
 shakecloud-volumes が丸ごと戻らず、手動で起こす羽目になりました）。
 
 そこで `shakecloud-guests.service` の `ExecStop` は `save` ではなく
@@ -155,7 +155,7 @@ game1 や利用者VMは**ポータル／CLI で所有者が停止**します（�
 
 1. 壁 → UPS の順で通電する。
 2. K11 を起動する（電源ボタン）。
-3. **常時動く基盤**（identity・cloud-01・services-01・storage-s3）は `onboot` で自動起動します。**それ以外（Kubernetes・開発VM・game1）は「切れる前に動いていた組」だけを `shakecloud-guests` が戻します**（[停電時に動いていたVMを戻す](#停電時に動いていたvmを戻す実装済み)）。Kubernetes が戻った場合は Flux が Git と同期し直します。worker-02（予備）は手動です。
+3. **常時動く基盤**（core-01・cloud-01・monitor-01）は `onboot` で自動起動します。**それ以外（Kubernetes・開発VM・game1）は「切れる前に動いていた組」だけを `shakecloud-guests` が戻します**（[停電時に動いていたVMを戻す](#停電時に動いていたvmを戻す実装済み)）。Kubernetes が戻った場合は Flux が Git と同期し直します。worker-02（予備）は手動です。
 4. 動作確認:
    - `https://cloud.apextox.dpdns.org/healthz` → 200
    - `https://auth.apextox.dpdns.org`（ログイン）
@@ -182,7 +182,7 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 - 確認: `cat /var/lib/shakecloud/guests-running` と `systemctl status shakecloud-guests`。
 - **ホスト自体が復電後に起動するには、BIOS の "Restore on AC Power Loss" を `Power On`（または `Last State`）に**してください。OSからは設定できません。
 - 手動で停止したVMは次の記録から外れるので、次回の起動では戻りません（意図どおり）。
-- **`onboot` を付けるのは常時動く基盤（identity・cloud-01・services-01・storage-s3）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
+- **`onboot` を付けるのは常時動く基盤（core-01・cloud-01・monitor-01）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
 - game1 は起動時に **CD が移動前の `local:iso` を指していて起動できませんでした**。`cloud-images:iso/bazzite-stable-live-amd64.iso` へ直してあります（ISO を `cloud-images` へ移したときの取り残し）。
 
 <a id="停電で自動停止させる実装済み"></a>

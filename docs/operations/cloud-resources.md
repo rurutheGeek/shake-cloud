@@ -1,6 +1,6 @@
 ---
 title: ボリューム・S3・DB・関数
-updated: 2026-09-23
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ボリューム・S3・DB・関数
 
-> **更新日** 2026-09-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 [クラウドAPI本体とインスタンス](cloud-api.md)の続きです。インスタンスに足すリソースと、クラウドの残り3機能（S3・database・function）を配備します。
 
@@ -44,7 +44,7 @@ tags:
 2. **新プローブ2つが PASS。**`volume_reassign`（`move_disk` の往復と強制破棄）、`vm_firewall`（ルール順序・IPセット・オプション書き込み）。既存4つと合わせて **6/6 PASS**。
 3. **ボリュームの縦串。** API で作成（`creating`→`available`）→ 稼働中インスタンスへアタッチ（`virtio1`、`in-use`）→ ゲスト内に `/dev/disk/by-id/virtio-vol65ff58d26f4697fed` が 1GiB で出現 → 1→2GiB に拡張（ゲストにも反映）→ デタッチ（`available`、デバイス消滅）→ 削除（`deleted`）。ホスト側にディスクもホルダー上の `unusedN` も残りませんでした。
 4. **セキュリティグループの遮断と許容。** SSH（tcp/22、LAN のみ）だけを許可した SG を適用し、**SSH は通り、許可していない tcp/8000 はタイムアウト、ICMP も drop**。8000 を許可するルールを足すと 200 になり、そのルールを消すと再び遮断。`firewall_state` は各変更後に `in-sync` になりました。
-5. **DC FW 有効化で既存VMに影響なし。** identity・cloud-01・services-01・game1 へ SSH/HTTPS で到達でき、`https://cloud.apextox.dpdns.org/healthz` は 200、NetBox と Authentik は 302。基底VMはすべて NIC `firewall=0`、game1 は `firewall=1` だが VM の `enable` が無いため、どちらも絞られません（この確認の後、game1 は 3-15 で引き取り、既定SGが `enable=1` になった）。
+5. **DC FW 有効化で既存VMに影響なし。** identity・cloud-01・services-01（当時の名前。現 core-01）・game1 へ SSH/HTTPS で到達でき、`https://cloud.apextox.dpdns.org/healthz` は 200、NetBox と Authentik は 302。基底VMはすべて NIC `firewall=0`、game1 は `firewall=1` だが VM の `enable` が無いため、どちらも絞られません（この確認の後、game1 は 3-15 で引き取り、既定SGが `enable=1` になった）。
 
 再実行するときは[実機プローブ](cloud-verify.md)と[インスタンス検証](verify.md)に加え、`tools/verify-volumes.py` を使ってください。このスクリプトは、使い捨てインスタンスを作り、**実際にポートが遮断・許可されるか**（ルールの見た目ではなく）まで見てから、ボリュームの attach/detach と後片付けを確認します。判定は `tests/test_verify_volumes.py` が実機なしで検査します。
 
@@ -161,7 +161,7 @@ sudo sh -c 'cd /opt/cloud-stack && cat /var/backups/cloud-api/<stamp>/shakecloud
   docker compose -f compose.yaml exec -T postgres pg_restore -U shakecloud -d shakecloud --clean --if-exists'
 ```
 
-各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（`storage-s3`）や別ディスクへの外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
+各世代には `shakecloud.dump` のほか `deployment.tar`（`compose.yaml`・`compose.lock.yaml`・`.env`・`secrets/`・`manage.py`）が入ります。**同じホストのディスクなので、これだけではディスク故障に耐えられません。** Garage（現在は cloud-01 上。旧 `storage-s3` は 2026-10-03 に廃止）は同じホストなので、別ディスク（HDD）や別機器への外部コピーは別途で、Garage は単一ノードなので唯一の控えにはしません。
 
 ### 3-19. Windows 11 Pro のゲスト
 

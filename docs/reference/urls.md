@@ -1,6 +1,6 @@
 ---
 title: 接続先一覧（URL・アドレス）
-updated: 2026-10-02
+updated: 2026-10-03
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 接続先一覧（URL・アドレス）
 
-> **更新日** 2026-10-02 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-03 ・ **区分** リファレンス ・ **読む人** 全員
 
 **サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
@@ -22,18 +22,18 @@ tags:
 | --- | --- | --- | --- |
 | クラウド | <https://cloud.apextox.dpdns.org> | ポータルと API（cloud-01。API の `:8080` は 127.0.0.1） | `users` / `admins` |
 | クラウドAPI | `/v1/...`（上と同じホスト） | JSON API。正本は `cloud/openapi/shakecloud.yaml` | CLI・Terraform・アプリ |
-| 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（identity VM。`:9000`・`:9443` は 127.0.0.1） | 全員 |
-| Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（services-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
-| LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ services-01 の実効速度（services-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
-| ポケモン翻訳 | <https://poke.apextox.dpdns.org> | ポケモン用語を公式名に固定する翻訳と拡張機能の配布（services-01。`127.0.0.1:8320`） | 全員 |
-| メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（services-01。`127.0.0.1:8310`。Forward Auth） | 全員 |
+| 共通ログイン | <https://auth.apextox.dpdns.org> | Authentik（core-01。`:9000`・`:9443` は 127.0.0.1） | 全員 |
+| Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（apps-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
+| LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ apps-01 の実効速度（apps-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
+| ポケモン翻訳 | <https://poke.apextox.dpdns.org> | ポケモン用語を公式名に固定する翻訳と拡張機能の配布（apps-01。`127.0.0.1:8320`） | 全員 |
+| メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（apps-01。`127.0.0.1:8310`。Forward Auth） | 全員 |
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
-| Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（services-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
+| Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（apps-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
-| プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（apps-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.200:631`（LAN/VPN） | 全員 |
-| AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は services-01 だけに開けている | 全員 |
+| プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（apps-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.105:631`（LAN/VPN） | 全員 |
+| AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は core-01 だけに開けている | 全員 |
 | ルータ（LuCI） | <https://router.apextox.dpdns.org> | router-01 の管理画面。**SSO なし**（復旧経路のため）。認証は LuCI の root パスワード。IP 直は `http://192.168.10.1` | 管理者 |
-| Home Assistant | <https://ha.apextox.dpdns.org> | 家電・自動化（[利用者向けの使い方](../services/home-assistant.md)）。services-01 の `127.0.0.1:8123` を Caddy で HTTPS 化。Authentik SSO + 緊急用ローカルオーナー | Authentik（`users` / `admins`）またはローカルオーナー |
+| Home Assistant | <https://ha.apextox.dpdns.org> | 家電・自動化（[利用者向けの使い方](../services/home-assistant.md)）。apps-01 の `127.0.0.1:8123` を Caddy で HTTPS 化。Authentik SSO + 緊急用ローカルオーナー | Authentik（`users` / `admins`）またはローカルオーナー |
 | バックアップポータル | <https://backup.apextox.dpdns.org> | 端末ごとのバックアップ手順と UrBackup の状態（media-01 の `127.0.0.1:55416`。Forward Auth）。Windows クライアントは `192.168.10.101:55413` へ直結（[使い方](../operations/client-backup.md)） | 全員 |
 | UrBackup管理画面 | <https://urbackup.apextox.dpdns.org> | クライアント配布・世代・復元（media-01 の `127.0.0.1:55414`。Forward Auth） | 全員 |
 | 招待リンク | `https://auth.apextox.dpdns.org/if/flow/cloud-invitation-enrollment/?itoken=…` | 招待登録（1回限り・24時間） | 招待された人 |
@@ -102,8 +102,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
 | core-01（旧 services-01） | `debian@192.168.10.200` | Authentik・NetBox・入口のCaddy（AdGuard・ルータの画面の中継） |
 | apps-01 | `debian@192.168.10.105` | Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳（クラウドVM） |
-| cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB |
-| storage-s3 | `192.168.10.206` | Garage |
+| cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB・Garage（S3） |
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |
 | k8s-worker-01 | `192.168.10.209` | AWX・CNPG・Knative |
 | k8s-worker-02 | `192.168.10.208` | 予備（停止中） |

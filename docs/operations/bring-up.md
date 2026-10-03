@@ -1,6 +1,6 @@
 ---
 title: K11到着後・Proxmox VE導入後の進め方
-updated: 2026-09-23
+updated: 2026-10-03
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # K11到着後・Proxmox VE導入後の進め方
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](../architecture/index.md) / [VM配分・サービス配置](../architecture/operations.md#resource-budget)
 
@@ -104,11 +104,11 @@ pveum passwd dev-a@pve
 
 ### セルフホストVPNを追加する
 
-専用vpn-01の旧案を変更し、services-01の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)で `net-01` の復旧経路を確認します（ラズパイは導入しませんでした）。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
+専用vpn-01の旧案を変更し、services-01（現 core-01 / apps-01）の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)で Tailscale の復旧経路を確認します（当時は net-01、2026-10-03 以降はルータ上で動作。[Tailscale](net.md)）（ラズパイは導入しませんでした）。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
 
-## 4. Home Assistantをservices-01へ追加する
+## 4. Home Assistantをapps-01へ追加する
 
-HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)のとおり、**services-01へ配備済みです（2026-09-12）**。入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。認証はAuthentik OIDC（公開クライアント `home-assistant` と `hass-oidc-auth` v1.2.1）と緊急用のローカルオーナーを併用します。WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetes・game1から分離できますが、services-01再起動時は家電・印刷・Eufy中継も停止します。
+HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)のとおり、**services-01へ配備済みです（2026-09-12。2026-10-03 に apps-01 へ移設）**。入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。認証はAuthentik OIDC（公開クライアント `home-assistant` と `hass-oidc-auth` v1.2.1）と緊急用のローカルオーナーを併用します。WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetes・game1から分離できますが、apps-01再起動時は家電・印刷・Eufy中継も停止します。
 
 SwitchBotはHub Mini経由のSwitchBot Cloud統合を配備済みです。Eufyは `eufy-security-ws`（3.1.0）とHA統合 `eufy_security`（v8.2.4）でログイン・デバイス一覧・Pushまで動作し、イベント取り込みを確認中です。ライブ映像はS4の新しいWebRTC方式のため当面使えません。Alexa連携は2026-09-12に見送りました。家電1台の操作・状態更新、再起動後の復帰、構成・履歴の復元を合格条件にします。
 
@@ -124,20 +124,20 @@ OpenHomeはgame1への同居希望として台帳に残す。製品／リポジ�
 
 ## 6. 常用Kubernetesを維持し、移行先を機能ごとに選ぶ
 
-identity・cp・worker-01は構築済み。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](kubernetes.md)）。
+cp・worker-01は構築済み（identity VM は 2026-10-03 に廃止し、Authentik は core-01 へ統合）。現在の起動状態は配備台帳を参照し、worker-02も含め不要時は停止する。再作成せず必要量から起動を判断する。管理PCからAnsibleを実行できる状態を正とする。**AWX は配備済み**（2026-09-12、[Kubernetes クラスタ](kubernetes.md)）。
 
 1. OS・containerd・kubeadm・Ciliumの互換版を固定し、Pod／Service CIDRとLAN／VPNのアドレス重複を避ける。
 2. nodeがReadyになることを確認し、名前解決・Pod間通信・NetworkPolicyを確認する。
 3. ローカルPVC、MetalLB用の未使用IP範囲、cert-manager、Flux/SOPSを設定する。**完了（2026-09-12）**。Gateway の代わりに Cilium Ingress を使っている。
 4. 軽量HTTPアプリとテストPVCで、内部HTTPS・VM再起動後の永続化・バックアップ復元を確認する。
-5. アプリの移行はW01–W07へ分割。Homarr・Vaultwardenはservices-01、メディアはmedia-01へ移す。MkDocsは現行配置を維持する。
-6. ポケモンDB・WebUI・agentはA01でgame1へ一式移行し、復元と接続を確認して切り替える。**AWX・Garage・Knative・自作APIは追加済み。NetBoxはservices-01に維持する。**
+5. アプリの移行はW01–W07へ分割。Homarr・Vaultwardenはapps-01（当時 services-01）、メディアはmedia-01へ移す。MkDocsは現行配置を維持する。
+6. ポケモンDB・WebUI・agentはA01でgame1へ一式移行し、復元と接続を確認して切り替える。**AWX・Garage・Knative・自作APIは追加済み。NetBoxはcore-01（当時 services-01）に維持する。**
 
 **完了条件:** worker再起動後もデータを読め、別環境へのDB復元ができる。worker VMが2台でも単一K11の故障には耐えないことを運用へ反映する。
 
 ## 7. 自動起動と日常運用を仕上げる
 
-Proxmoxの自動起動順は、identity／storage／services-01（家電・印刷・Eufy中継を同居。VPNは追加予定） → cloud-01／control plane → workers → monitor-01／必要な入口を初期案とする。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
+Proxmoxの自動起動順は、core-01（Authentik・NetBox・入口のCaddy） → cloud-01（API・Garage）／control plane → workers → monitor-01／apps-01・media-01 を初期案とする（初期案の identity／storage／services-01 は 2026-10-03 の再編で core-01・cloud-01 へ統合）。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
 
 初期バックアップ方針は重要DB・HA設定・セーブを日次、VMを週次＋大きな変更前とし、データ変更頻度・容量に応じて見直す。これは日次なら最大約1日分を失い得る目安であり、実際の取得成功を監視する。ゲームの利用時間とバックアップ／大量走査をずらす。復元所要時間を測り、必要な復旧時間に収まるか確認する。
 

@@ -1,6 +1,6 @@
 ---
 title: クラウドAPIの構築
-updated: 2026-09-13
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # クラウドAPIの構築
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: Proxmox・NetBox 側の土台は実機へ適用・検証済み。API の Phase 1（ログイン・アクセスキー・監査ログ）を cloud-01 へ配備・確認済み（3-8）。LAN の中の HTTPS も構築・確認済み（3-9）。Phase 2（API から VM が作れる）も実機で確認済み（3-10）。上限の変更と容量の表示（3-11）も入った。Phase 3（イメージのアップロード・SSH鍵・Webコンソール）は実機で確認済み（3-12・3-13）。Phase 4（ボリュームとセキュリティグループ、データセンターFW有効化）も実機で確認済み（3-14）。Phase 5（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）も完了（3-15）。Phase 6（CLI・Terraform Provider）も完了。Phase 7（Garage と、バケット・S3キーの API）も実機で確認済み（3-16）。database（3-20）・function（3-21）も実機で確認済み
 
@@ -35,7 +35,7 @@ tags:
 | ロール4種（Operator / Storage / Images / NodeAudit） | `platform/terraform/00-bootstrap/roles.tf` |
 | クラウド用のIP採番元（NetBox IP Range） | `platform/terraform/10-platform/ledger.tf` |
 | NetBoxの書き込みアイデンティティ `cloudapi` | `stacks/netbox/seed_cloudapi_identity.py`（**作成済み・権限を実測済み**、トークンは `platform/sops/cloudapi.sops.yaml`） |
-| `identity`(VMID 110, 192.168.10.204) と `cloud-01`(VMID 140, 192.168.10.205) | `platform/terraform/hosts.yaml`（**作成・起動済み**、guest agent 導入済み） |
+| `core-01`(VMID 150, 192.168.10.200) と `cloud-01`(VMID 140, 192.168.10.205) | `platform/terraform/hosts.yaml`（**作成・起動済み**、guest agent 導入済み。core-01 は当初 services-01、Authentik 用の identity VM(110) は 2026-10-03 に廃止して core-01 へ統合） |
 | 共通ログイン Authentik（新規構築）と `cloud` OIDC クライアント | `stacks/identity/`、`platform/ansible/identity.yml`（**構築済み**、3-7） |
 | クラウドAPI の Phase 1（Authentik ログイン、アクセスキー、監査ログ、ブートストラップ管理キー） | `cloud/`、`platform/ansible/cloud.yml`（3-8） |
 | クラウドAPI の Phase 2（VM の作成・電源操作・削除、IP 採番、seed ISO、クォータ、差分リコンサイラ） | `cloud/api/internal/compute/`（3-10） |
@@ -85,7 +85,7 @@ tags:
 
 あわせて**メモリはバルーニングを既定**にしました（`flavors.yaml` の各サイズに `memory_min_mib` を追加）。`probe-01` は balloon が 0 なので、次の apply で下限 512 が付く差分が出ます。無害ですが差分としては出ます。
 
-`services-01` は `05-seed` の管轄で、DBを載せるため固定割り当てのままにしています（[配備台帳](../architecture/operations.md)の方針どおり）。
+`core-01`（旧 services-01）は `05-seed` の管轄で、DBを載せるため固定割り当てのままにしています（[配備台帳](../architecture/operations.md)の方針どおり）。
 
 ### 食い違い3: VMID 100 の `game1`（2026-09-11 に引き取り済み）
 
@@ -202,7 +202,7 @@ VM単位のファイアウォール（＝セキュリティグループ）は、
 3. **ノードFW→DC FW の順で適用**（`depends_on`）。逆順だと一瞬だけ既定設定で動く隙ができます。
 4. **`nf_conntrack_allow_invalid=1`** を入れ、有効化でゲストの RST が INVALID 扱いで落ちて「拒否」が「無応答（タイムアウト）」に化けるのを防ぎます。プロバイダに項目が無いので `scripts/node-firewall-options.py` が API を直接叩き、値を読み戻して確認します。
 
-絞られるのは `firewall=1` のNICとVM側 `enable=1` が揃ったVMだけです。DC FW を有効にした時点（2026-09-11）では、基底VM（identity・cloud-01・services-01・dev-*）は NIC `firewall=0`、game1 は `firewall=1` でも VM `enable` が無いので影響しませんでした。**その後 game1 は引き取り（[3-15](cloud-resources.md#3-15)）で既定SG（全許可）が付き、VM FW が `enable=1` になっています**（all-allow なので透過）。適用後の既存VMへの影響と `nf_conntrack_allow_invalid` の値は、[実機プローブ](cloud-verify.md)の `vm_firewall` と [3-14](cloud-resources.md#3-14) の確認で見えます。
+絞られるのは `firewall=1` のNICとVM側 `enable=1` が揃ったVMだけです。DC FW を有効にした時点（2026-09-11）では、基底VM（当時の identity・cloud-01・services-01（現 core-01）・dev-*）は NIC `firewall=0`、game1 は `firewall=1` でも VM `enable` が無いので影響しませんでした。**その後 game1 は引き取り（[3-15](cloud-resources.md#3-15)）で既定SG（全許可）が付き、VM FW が `enable=1` になっています**（all-allow なので透過）。適用後の既存VMへの影響と `nf_conntrack_allow_invalid` の値は、[実機プローブ](cloud-verify.md)の `vm_firewall` と [3-14](cloud-resources.md#3-14) の確認で見えます。
 
 **もし将来 DC FW の設定そのものを手で触る必要が出たら**、物理コンソールか IPMI を用意し、管理端末からの到達を許可するルールを先に入れてから変えてください。通常は `firewall.tf` を編集して `tools/tf 00-bootstrap apply` すれば十分です。
 
@@ -234,14 +234,14 @@ NetBox は 2026-09-10 から **LAN に公開**しています（`http://192.168.
 
 ### 3-7. 共通ログイン（Authentik）
 
-identity VM の Authentik が共通ログインを担います。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・FreshRSS・Navidrome・MeTube）は、この Authentik の OIDC / Forward Auth を使います。**
+core-01 の Authentik が共通ログインを担います（2026-10-03 までは専用の identity VM に置いていました）。**2026-09-12 に配備した media-01 の各入口（Nextcloud・Kavita・FreshRSS・Navidrome・MeTube）は、この Authentik の OIDC / Forward Auth を使います。**
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 ```
 
-秘密値（DBパスワード、secret key、`akadmin` の初期パスワード、API用ブートストラップトークン、OIDC クライアントの秘密値）は**すべて identity VM 上で自動生成**され、`/opt/identity-stack/secrets/` に置かれます。再実行しても作り直しません。
+秘密値（DBパスワード、secret key、`akadmin` の初期パスワード、API用ブートストラップトークン、OIDC クライアントの秘密値）は**すべて core-01 上で自動生成**され、`/opt/identity-stack/secrets/` に置かれます。再実行しても作り直しません。
 
 2回目以降の実行はすべて `OK:` になります（2026-09-10 に確認）。`configure.py` が作るもの:
 
@@ -255,4 +255,4 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 入口は現在 **`https://auth.apextox.dpdns.org`**（Caddy が Let's Encrypt で TLS 終端。Authentik 自身の `:9000`・`:9443` は 127.0.0.1 に閉じた）です。**パスキーとパスワードレスも有効**です（[認証基盤](identity.md#パスキーだけでログインするパスワードレス)）。
 
-インベントリ上のグループ名は `identity_provider` です。ホスト名 `identity` と同じ名前にすると、Ansible が「グループを自分自身へ足す」例外でインベントリ全体を読めなくなります（`tests/test_identity_stack.py` が検査）。
+インベントリ上のグループ名は `identity_provider`（現在は core-01 だけが属します）です。ホスト名 `identity` と同じ名前にすると、Ansible が「グループを自分自身へ足す」例外でインベントリ全体を読めなくなります（`tests/test_identity_stack.py` が検査）。

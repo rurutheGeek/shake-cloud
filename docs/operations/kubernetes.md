@@ -1,6 +1,6 @@
 ---
 title: Kubernetes クラスタ
-updated: 2026-09-13
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,13 +11,13 @@ tags:
 
 # Kubernetes クラスタ
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
 
 ## 何に使うか
 
-**すでに構築済みのもの（現在の電源状態は[配備台帳](handover.md)参照）:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作cloud API本体はcloud-01のComposeに維持します。新しい配置方針では、Homarr・Vaultwardenはservices-01、メディアはmedia-01、AIはgame1です。[並列開発計画](../development/index.md)を参照してください。
+**すでに構築済みのもの（現在の電源状態は[配備台帳](handover.md)参照）:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作cloud API本体はcloud-01のComposeに維持します。新しい配置方針では、Homarr・Vaultwardenはapps-01、メディアはmedia-01、AIはgame1です。[並列開発計画](../development/index.md)を参照してください。
 
 **使わないときは落とせます。** control plane と worker は別VMなので、worker だけ止めて control plane（etcd/API）を残す、全部止める、どちらもできます（[起動と停止](#起動と停止)）。
 
@@ -190,7 +190,7 @@ Podを置く余力が必要な場合は、まずホストの空きRAM・割当�
 | function（Knative / Kourier） | `<name>.functions.k8s.apextox.dpdns.org` が応答しない |
 | MetalLB / Cilium Ingress | 上の入口が無くなる |
 
-**止まらないもの:** クラウドAPI本体（cloud-01 の Compose）・管理DB・Garage/S3・identity・NetBox・docs・Proxmox。ただし**クラウドAPI の database/function の画面と API はエラー（503 系）**になります（Kubernetes に届かないため）。VM・ボリューム・セキュリティグループ・イメージ・S3 は影響を受けません。
+**止まらないもの:** クラウドAPI本体（cloud-01 の Compose）・管理DB・Garage/S3（cloud-01）・Authentik・NetBox（core-01）・docs（apps-01）・Proxmox。ただし**クラウドAPI の database/function の画面と API はエラー（503 系）**になります（Kubernetes に届かないため）。VM・ボリューム・セキュリティグループ・イメージ・S3 は影響を受けません。
 
 **データ:** local-path の PVC は worker-01 のデータディスクに残るので、起動し直せば読めます。ただし**単一ノードでバックアップは未設定**なので、ディスク故障やノード喪失で失われます（CNPG の外部バックアップは保留中）。
 

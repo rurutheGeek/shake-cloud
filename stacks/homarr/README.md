@@ -21,7 +21,7 @@
 
 ## 配備（IaC）
 
-apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
+apps-01 は NetBox のインベントリ（グループ `apps`）で扱います。
 
 ```bash
 # 1. identity の homarr OIDCクライアントを作る
@@ -31,7 +31,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 tools/tf 20-dns apply
 # 3. apps-01 へ配備（role: platform/ansible/roles/homarr、play: homarr.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/homarr.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/homarr.yml'
 ```
 
 `dns.yaml` の `homarr` レコード（upstream `127.0.0.1:7575`）を `tls_proxy`

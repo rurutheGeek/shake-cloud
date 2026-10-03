@@ -4,7 +4,7 @@ Proxmox VE 上のホームラボを、コードで構築・運用するリポジ
 
 **ドキュメントの入口**
 
-手順書は `docs/` にあり、services-01 の <https://docs.apextox.dpdns.org> へ配備されます。目的から入ってください。
+手順書は `docs/` にあり、apps-01 の <https://docs.apextox.dpdns.org> へ配備されます。目的から入ってください。
 
 | 目的 | 入口 |
 | --- | --- |
@@ -24,15 +24,15 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | VM | 役割 |
 | --- | --- |
 | router-01 | 家庭内ルータ（OpenWrt）。WAN/LAN・DHCP・AdGuard Home（DNS・広告遮断） |
-| identity | Authentik（共通ログイン。招待・復旧・パスキー） |
-| cloud-01 | クラウドAPI・ポータル・管理DB（PostgreSQL） |
-| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、Home Assistant、CUPS、eufy-security-ws、print-api、LibreSpeed、Gmailビューア |
+| core-01 | Authentik（共通ログイン。招待・復旧・パスキー）、NetBox（台帳）、HTTPSの入口のCaddy（AdGuard Homeとルータの管理画面の中継も） |
+| cloud-01 | クラウドAPI・ポータル・管理DB（PostgreSQL）、Garage（S3互換オブジェクトストア） |
+| apps-01 | ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Gmailビューア、CUPS・print-api、ポケモン翻訳、Home Assistant、eufy-security-ws、eufy-leo-rtc（クラウド管理下） |
 | media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機（クラウド管理下） |
-| storage-s3 | Garage（S3互換オブジェクトストア） |
-| monitor-01 | Prometheus、Alertmanager、Grafana、exporter（クラウド管理下） |
-| k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
+| monitor-01 | Prometheus、Alertmanager、Grafana、exporter |
+| k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative。普段は停止） |
 | dev-a / dev-b | 開発VM |
-| game1 | ゲームサーバ（クラウド管理下） |
+| probe-01 | 疎通確認用の基盤VM |
+| game1・win-01・android-01 | ゲームサーバ・Windows・Android（クラウド管理下） |
 
 **家庭内ルータも自作です。** 2026-09-20 に市販ルータから `router-01`（K11上のOpenWrt VM）へ切り替え、DHCPとDNS（AdGuard Home）もそこへ移しました。設定の正本は `platform/openwrt/` です。**K11が落ちると家中のネットも落ちる**構成なので、影響範囲は[障害モード](docs/architecture/failure-modes.md)にまとめています。ホスト直結の6TB HDD（`/srv/bulk`）にメディア原本とTier1 VMの週次バックアップを置いています。
 
@@ -51,12 +51,12 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 - **再実行と再現性**：初期化では既存の秘密値・アカウント・データを保護します。コードで管理する設定は再配備で反映します。イメージは各 `compose.lock.yaml` のdigestで固定し、更新は明示的に行います。冪等性は全設定について保証済みではないため、変更箇所の再実行確認も必要です。
 - **認証と権限の分離**：Authentikを共通認証基盤にし、対応アプリはOIDC、Navidrome・MeTubeはForward Authで接続します。SSOは各サービスの閲覧権限や既存データの自動統合を意味しません。VaultwardenにはSSO後も保管庫の暗号化用マスターパスワードが必要です。
 - **秘密値と状態の分離**：Gitにはコード・設定例・Markdown・ロックファイルを置きます。実際の認証情報、Cookie、CA秘密鍵、ホスト台帳、原本、DB、ログは非公開領域へ分離します。Gitだけでは環境のデータ復元はできません。
-- **利用の入口と日本語化**：サービスの入口はHomarr（services-01）で、タイルの正本は `stacks/homarr/apps.json` です。ドキュメントの原稿はGitの `docs/` が正本で、`platform/ansible/docs-site.yml` がservices-01へ配備します。生成済みサイトを直接編集しません。日本語化は各アプリの対応範囲で設定し、ブラウザー・利用者設定に依存する部分は手順で補います。
+- **利用の入口と日本語化**：サービスの入口はHomarr（apps-01）で、タイルの正本は `stacks/homarr/apps.json` です。ドキュメントの原稿はGitの `docs/` が正本で、`platform/ansible/docs-site.yml` がapps-01へ配備します。生成済みサイトを直接編集しません。日本語化は各アプリの対応範囲で設定し、ブラウザー・利用者設定に依存する部分は手順で補います。
 - **派生ファイルの管理**：BCSTM原本を残して再生用MP3を生成するなど、原本と派生物を分けて管理します。変換・タグ編集のコードは `stacks/music-tools/` にあります。
 
 ### コードの担当範囲
 
-リポジトリは基盤（`platform/`）、サービス（`stacks/`）、クラウド（`cloud/`）、ツール（`tools/`）に分かれています。サービスは `stacks/<name>/` の独立Composeとしてホストごとに配備します（例: `stacks/home-assistant/` → services-01、`stacks/media/nextcloud/` → media-01）。Ansibleの `source_dir` が対応点なので、リポジトリ側を再編しても配備先の構成は変わりません。
+リポジトリは基盤（`platform/`）、サービス（`stacks/`）、クラウド（`cloud/`）、ツール（`tools/`）に分かれています。サービスは `stacks/<name>/` の独立Composeとしてホストごとに配備します（例: `stacks/home-assistant/` → apps-01、`stacks/media/nextcloud/` → media-01）。Ansibleの `source_dir` が対応点なので、リポジトリ側を再編しても配備先の構成は変わりません。
 
 | 場所 | 変更する内容 |
 | --- | --- |
@@ -66,13 +66,13 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | `platform/flux/` | Fluxが反映するクラスタ構成（`main` を監視）。AWX・CNPG・Knative などを配る |
 | `platform/awx/` | AWX移行用のEE・Playbook例（AWX本体は `platform/flux/apps/` で配備済み） |
 | `cloud/` | 自作クラウドAPI・CLI・Terraform Provider・読み取り専用MCPサーバ・共通クライアント（APIの正本は `cloud/openapi/`） |
-| `stacks/identity/` | Authentik（招待・復旧・パスキー、`platform/ansible/identity.yml`）とポータル用OIDC |
+| `stacks/identity/` | Authentik（招待・復旧・パスキー、`platform/ansible/identity.yml`。配備先はcore-01の `/opt/identity-stack`）とポータル用OIDC |
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
-| `stacks/docs/` | ドキュメントサイトを配るnginx（services-01、`platform/ansible/docs-site.yml`） |
+| `stacks/docs/` | ドキュメントサイトを配るnginx（apps-01、`platform/ansible/docs-site.yml`） |
 | `stacks/tls-proxy/` | 各ホストのHTTPS入口（CaddyとCloudflare DNSモジュール）。受ける名前は `platform/terraform/dns.yaml` |
 | `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・FreshRSS（共通RSSタイムライン）・LocalSend |
 | `stacks/music-tools/` | MeTube・タグAPI・BCSTM変換・同期（media-01） |
-| `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/librespeed/`・`stacks/mail-view/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | services-01・monitor-01の新しい基盤のサービス（ホストごとの独立Compose） |
+| `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/librespeed/`・`stacks/mail-view/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | apps-01・monitor-01のサービス（ホストごとの独立Compose） |
 | `stacks/game/`・`stacks/romm/`・`stacks/pokemon-ai/`・`stacks/rag-bot/` | game1へ載せるゲーム・AIの開発コード（実装・移行は進行中） |
 | `docs/`、`mkdocs.yml` | 日本語の利用・運用手順とサイト構成 |
 | `tools/` | 公開前チェック、Terraform／Kubernetesの実行補助 |
@@ -84,7 +84,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 
 1. [配備台帳](docs/operations/handover.md)・[接続先一覧](docs/reference/urls.md)・[設定と拡張](CONFIGURATION.md)を読み、Git差分と稼働中のコンテナを確認します。既存ホストで初期化・イメージ更新を無条件に実行しないでください。
 2. 非公開の `.env`・秘密値・各サービスの状態領域と、原本の実際の保存先を確認します。新規ホストではNetBoxを先に構築し、対象を登録してAnsibleインベントリの `--graph` と配備の `--list-hosts` を確認します。
-3. 基盤VMは `platform/terraform/10-platform` と `05-seed`、サービスVMは `platform/terraform/services/<name>/`（クラウドAPIのTerraform Provider）で作ります。中身の配備は、基盤がNetBoxの動的インベントリ、クラウドVMが `platform/ansible/inventory.cloud.py` を使います。対象ホストは `--limit` で絞ります。
+3. 基盤VMは `platform/terraform/10-platform` と `05-seed`、サービスVMは `platform/terraform/services/<name>/`（クラウドAPIのTerraform Provider）で作ります。中身の配備は、どのVMもNetBoxの動的インベントリ（`platform/ansible/inventory.netbox.yml`）を使います。対象ホストは `--limit` で絞ります。
 4. 変更は設定の正本と対応する日本語手順へ反映し、下記の検証を実行します。実機へ反映する場合は対象サービスの起動・認証・目的の操作を確認し、再配備による秘密値やデータの保持も確認します。
 5. バックアップは各ユニットの `manage.py backup` と、cloud-01の管理DBの定期バックアップ（`cloud-backup.timer`）です。別ホストへのコピーは未実装のため、重要な変更の前には対象範囲を別途バックアップします。
 
@@ -122,9 +122,9 @@ Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platfor
 ### 現状と未完了事項
 
 - クラウドは VM・S3・database・function の4機能を API・Provider・CLI・ポータルまで実装・実機確認済みです。Kubernetes は kubeadm + Cilium + Flux で構築し、AWX・CloudNativePG・Knative を配備しています（[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)）。アクセスキーの読み取り専用スコープと、それを前提にした読み取り専用MCPサーバ（`cloud/mcp`、22ツール）を実装しました。**MCPのクライアント登録と実機確認はこれから**です（[MCPサーバ](docs/operations/mcp.md)）。
-- メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と identity の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
-- Home Assistant Container は services-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
-- identity は外部SMTPリレーで招待・復旧メールを送信済みです（[メール設定](docs/operations/smtp.md)）。MeTube・音楽変換・タグ編集は media-01 へ配備済みです（W06）。**同期タイマーの切替と、共有Cookieを使う実ダウンロードは未確認です。**
+- メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と Authentik（core-01）の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
+- Home Assistant Container は apps-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
+- Authentik（core-01）は外部SMTPリレーで招待・復旧メールを送信済みです（[メール設定](docs/operations/smtp.md)）。MeTube・音楽変換・タグ編集は media-01 へ配備済みです（W06）。**同期タイマーの切替と、共有Cookieを使う実ダウンロードは未確認です。**
 - AWX 24.6.1 は構築済みです。ジョブテンプレート・プロジェクトの整備はこれからです（[AWXの使い方](docs/operations/awx.md)）。
 - VPN（宅外アクセス）は未構築です（[VPN比較・Tailscale併用](docs/architecture/vpn.md)）。管理DBの外部バックアップも未着手です。
 - 実際のゲーム由来BCSTMの網羅的互換性は未検証です。バックアップからの復元は drill を継続します。
@@ -142,7 +142,7 @@ media-01 では、データディスク `/srv/media-stack` の下にアプリの
 | Nextcloud専用PostgreSQL | `/srv/media-stack/storage/postgres` | `/var/lib/postgresql/data` |
 | Kavita状態 | `/srv/media-stack/storage/kavita` | `/kavita/config` |
 | Navidrome状態 | `/srv/media-stack/storage/navidrome` | `/data` |
-| Vaultwarden DB・添付・鍵 | services-01 の `/srv/services/vaultwarden/data` | `/data` |
+| Vaultwarden DB・添付・鍵 | apps-01 の `/srv/vaultwarden/data` | `/data` |
 | HTTPS証明書・状態 | 各ホストの `/srv/tls-proxy/storage/data` | `/data`、`/config` |
 
 `stacks/media/nextcloud/` の Redis は Nextcloud だけが接続する内部ネットワークで利用し、DB・Redisのポートはホストに公開しません。Vaultwardenの保管庫をNextcloudやlibraryへ渡しません。
@@ -151,7 +151,7 @@ Nextcloudの権限はKavita・Navidromeへ継承されません。原本ライ�
 
 ## VMと配備
 
-基盤VM（identity・cloud-01・services-01・storage-s3・Kubernetesノード・開発VM）は `10-platform` と `05-seed` が作り、NetBoxを動的インベントリにしてAnsibleで中身を配備します。services-01 は静的インベントリ `platform/ansible/seed.ini` を使うPlaybook（`homarr.yml`・`vaultwarden.yml`・`home-assistant.yml`・`cups.yml`・`docs-site.yml` など）で更新します。monitor-01 は `platform/ansible/monitor.ini`、Garage は NetBox インベントリから配備します。
+基盤VM（router-01・core-01・cloud-01・monitor-01・Kubernetesノード・開発VM・probe-01）は `10-platform` と `05-seed` が作ります。中身の配備は、どのVMもNetBoxを動的インベントリにしてAnsibleで行います。`seed.ini` はNetBoxを最初に作るとき（`netbox.yml`）だけ、`pve.ini` はProxmoxホスト用に残ります。
 
 サービスVMはクラウドAPIのTerraform Providerで作ります（`platform/terraform/services/<name>/`、サービスごとに1 state）。
 
@@ -159,11 +159,11 @@ Nextcloudの権限はKavita・Navidromeへ継承されません。原本ライ�
 export SHAKECLOUD_ACCESS_KEY='sca_<キーID>.<秘密値>'
 tools/tf services/media plan
 tools/tf services/media apply
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media.yml'
 ```
 
-`media.yml` は Nextcloud → Kavita → LocalSend → Navidrome → FreshRSS → music-tools → 確認 → HTTPS の順に流します。手順と境界の正本は[サービスの置き場所とクラウドVMでの作り方](docs/operations/services.md)、VMの説明は `platform/terraform/services/media/README.md` です。**クラウドインベントリとNetBoxインベントリは併用しません**（`media` 群が和集合になります）。
+`media.yml` は Nextcloud → Kavita → LocalSend → Navidrome → FreshRSS → music-tools → 確認 → HTTPS の順に流します。手順と境界の正本は[サービスの置き場所とクラウドVMでの作り方](docs/operations/services.md)、VMの説明は `platform/terraform/services/media/README.md` です。インベントリはNetBoxに統一しています（グループは core・apps・media・monitoring・cloud_control・storage・identity_provider）。
 
 ## バックアップ
 

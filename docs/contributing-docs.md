@@ -1,6 +1,6 @@
 ---
 title: ドキュメントの書き方
-updated: 2026-09-23
+updated: 2026-10-03
 section: 入口
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ドキュメントの書き方
 
-> **更新日** 2026-09-23 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-10-03 ・ **区分** 入口 ・ **読む人** 全員
 
 このハンドブックを書き足す・直すときの決まりです。**ルールの半分は `tests/test_docs_structure.py` が機械で検査します**ので、迷ったらテストを流してください。
 
@@ -154,10 +154,10 @@ python3 tools/check-publication.py
 
 ```bash
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/docs-site.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/docs-site.yml'
 ```
 
-`docs-site.yml` は静的インベントリ `seed.ini` で流します。動的インベントリだと対象なしで終わり、しかも終了コードは 0 です（[はまりどころ](operations/verify.md)）。
+`docs-site.yml` は NetBox のインベントリで流し、配備先は apps-01 です。
 
 ## 10. 書かないもの
 
@@ -167,10 +167,10 @@ Gitの `docs/` は公開リポジトリです。次は入れません。
 - 個人用のIP台帳、DB接続文字列、アプリのセーブデータ、Kubernetes の Secret
 - 生成物（`stacks/docs/site/`）と Terraform の state
 
-**置き場所と取り出し方は書いてよい**（例: 「services-01 の `/opt/netbox-stack/secrets/` にある」）が、値そのものは書きません。暗号化して置くものは SOPS を使います（[秘密値の管理](operations/secrets.md)）。
+**置き場所と取り出し方は書いてよい**（例: 「core-01 の `/opt/netbox-stack/secrets/` にある」）が、値そのものは書きません。暗号化して置くものは SOPS を使います（[秘密値の管理](operations/secrets.md)）。
 
 公開前に、ステージした差分と `tools/check-publication.py` の結果を目視で確かめてください。
 
 ## 11. サイトを直接編集しない
 
-**Gitの `docs/` が唯一の正本です。** 生成済みサイト（services-01 の配信ファイル）や、Nextcloud の `docs` フォルダーを編集しても、Gitへは戻りません。双方向同期も設けていません。変更は必ず Git 側から入れてください。
+**Gitの `docs/` が唯一の正本です。** 生成済みサイト（apps-01 の配信ファイル）や、Nextcloud の `docs` フォルダーを編集しても、Gitへは戻りません。双方向同期も設けていません。変更は必ず Git 側から入れてください。

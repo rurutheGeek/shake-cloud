@@ -1,6 +1,6 @@
 ---
 title: NetBox の使い方（台帳）
-updated: 2026-09-27
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,9 +11,9 @@ tags:
 
 # NetBox の使い方（台帳）
 
-> **更新日** 2026-09-27 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 稼働中（services-01）。
+**状態**: 稼働中（core-01。2026-10-03 までの名前は services-01）。
 
 NetBox は **IP・VM・物理機器の台帳**です。ネット接続の有無を問わず、家にある機器をここへ集めます。次の4者が読み書きし、**人が直接編集するのは例外**です。
 
@@ -29,8 +29,8 @@ NetBox は **IP・VM・物理機器の台帳**です。ネット接続の有無�
 | URL | <https://netbox.apextox.dpdns.org/> |
 | 直アクセス | `http://192.168.10.200:8000`（Terraform・Ansible・クラウドAPIが使う） |
 | 管理者 | `admin` |
-| パスワード | services-01 の `/opt/netbox-stack/secrets/superuser_password` |
-| 稼働場所 | `services-01`（Compose。配備は `platform/ansible/netbox.yml`） |
+| パスワード | core-01 の `/opt/netbox-stack/secrets/superuser_password` |
+| 稼働場所 | `core-01`（Compose。配備は `platform/ansible/netbox.yml`。NetBox を最初に作るときだけ `seed.ini` で流す） |
 
 ```bash
 ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
@@ -40,7 +40,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 \
 <a id="sso"></a>
 ## SSO（共通ログイン）
 
-NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**）。OIDC クライアント `netbox` は identity 側の `configure.py` が作り、クライアント秘密は `platform/sops/netbox.sops.yaml` の `NETBOX_OIDC_CLIENT_SECRET` を**正本**として identity と NetBox の両方が読みます。
+NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**）。OIDC クライアント `netbox` は Authentik（core-01）側の `configure.py` が作り、クライアント秘密は `platform/sops/netbox.sops.yaml` の `NETBOX_OIDC_CLIENT_SECRET` を**正本**として Authentik と NetBox の両方が読みます。
 
 | Authentik のグループ | NetBox での権限 |
 | --- | --- |
@@ -83,7 +83,7 @@ NetBox は Authentik で **SSO できます**（ログイン画面の **OpenID**
 
 ## 障害時
 
-- NetBox は services-01 の Compose です。再配備は `platform/ansible/netbox.yml`。
+- NetBox は core-01 の Compose です。再配備は `platform/ansible/netbox.yml`（NetBox が落ちていて動的インベントリが使えないので、`platform/ansible/seed.ini`（`seed.ini.example` から作る）で流します）。
 - **Postgres の接続が飽和することがあります**（2026-09-12 に発生。`sorry, too many clients already`）。`media-netbox-netbox-1` と worker を再起動すると解放されます。恒久対策（`max_connections` や接続プール）は未実施です。
 - NetBox が落ちると、Terraform `10-platform` と Ansible のインベントリが止まります。**クラウドAPI も IP 採番に NetBox を使うため、新規VMの作成が止まります**（既存VMの操作は続きます）。
 

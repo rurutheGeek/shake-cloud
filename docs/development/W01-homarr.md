@@ -1,6 +1,6 @@
 ---
-title: W01 Homarrのservices-01移行
-updated: 2026-09-13
+title: W01 Homarrのapps-01移行（旧services-01）
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -8,21 +8,21 @@ tags:
   - homarr
 ---
 
-# W01 Homarrのservices-01移行
+# W01 Homarrのapps-01移行（旧services-01）
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: services-01へ配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC、ボード反映済み）。残りはブラウザでのSSOログイン・権限・再起動後の保持確認
+**状態**: apps-01で稼働（2026-10-03にservices-01から移設。`https://homarr.apextox.dpdns.org`、identityのOIDC、ボード反映済み）。残りはブラウザでのSSOログイン・権限・再起動後の保持確認
 
 `stacks/homarr/compose.yaml` にHomarr、永続 `/appdata`、暗号鍵、OIDCの定義がある。`stacks/homarr/configure.py` と `apps.json` がリンクの管理元である。[利用手順](../services/homarr.md)のボード・管理者権限を維持する。
 
 **既存環境の実装・データは流用せず、`stacks/homarr/` に新規構築する**（2026-09-12の利用者判断）。他サービスとの同居や既存の資料は持ち込まない。実装済みの内容: Homarr単独Compose（ダイジェスト固定）、`manage.py`（init/lock/up/configure/status/backup、秘密値は`secrets/`生成）、`configure.py`（標準ライブラリのみ、ボード・タイル・権限を冪等反映、`apps.json`に無いタイルは削除、位置は動かさない）、`apps.json`、テスト（`tests/test_homarr_stack.py`）。残りは下の「依存と並列作業」に書く配備側。
 
-配備先: **services-01**。開発先は `stacks/homarr/`。専用Composeと保存先へ切り出す。
+配備先: **apps-01**（配備当時はservices-01、2026-10-03に移設）。開発先は `stacks/homarr/`。専用Composeと保存先へ切り出す。
 
 ## 実装手順
 

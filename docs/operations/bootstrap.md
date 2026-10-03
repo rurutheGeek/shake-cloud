@@ -1,6 +1,6 @@
 ---
 title: 初回セットアップの順番
-updated: 2026-09-12
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 初回セットアップの順番
 
-> **更新日** 2026-09-12 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 手順1〜7は実機（PVE 9.2.2、2026-09-10）で確認済み。以降も実際にこの順で構築した。
 
@@ -20,7 +20,7 @@ tags:
 
 | やりたいこと | 読む文書 |
 | --- | --- |
-| まっさらな状態から基盤（Proxmox・NetBox・identity・cloud-01・k8s）を立てる | **この文書**（初回のみ。以降は各 `*.yml` を再実行） |
+| まっさらな状態から基盤（Proxmox・core-01（NetBox・Authentik）・cloud-01・k8s）を立てる | **この文書**（初回のみ。以降は各 `*.yml` を再実行） |
 | クラウドVMに新しいサービスを作る | [サービスの置き場所とクラウドVMでの作り方](services.md) |
 | Kubernetes へアプリを足す | [Flux にアプリを足す](flux-apps.md) |
 | 開発に参加する（開発VMの使い方・作業機の準備） | [開発参加ガイド](../onboarding.md) |
@@ -94,13 +94,13 @@ tools/tf 00-bootstrap apply
 
 ## 6. 最初の1台とNetBox
 
-`10-platform` はNetBoxにIPを採番させる設計なので、NetBox自身の置き場はそれでは作れません（鶏と卵）。`05-seed` だけNetBoxを使わず静的IPで1台作ります。
+`10-platform` はNetBoxにIPを採番させる設計なので、NetBox自身の置き場はそれでは作れません（鶏と卵）。`05-seed` だけNetBoxを使わず静的IPで1台作ります（この1台が core-01。当初は services-01 という名前でした）。
 
 ```bash
 tools/tf 05-seed apply
 ```
 
-Debianのcloud imageには `qemu-guest-agent` が無く、Terraformはエージェントの応答を待つので**applyが待ち状態になります**。別のシェルから流すと待ちが解けます。
+Debianのcloud imageには `qemu-guest-agent` が無く、Terraformはエージェントの応答を待つので**applyが待ち状態になります**。別のシェルから流すと待ちが解けます。**`seed.ini` を使うのはこの NetBox を最初に作るとき（`netbox.yml`）だけで、NetBox ができた後の配備は `inventory.netbox.yml` を使います。**
 
 ```bash
 cp platform/ansible/seed.ini.example platform/ansible/seed.ini

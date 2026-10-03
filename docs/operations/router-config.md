@@ -1,6 +1,6 @@
 ---
 title: router-01 の設定まとめ（素の OpenWrt からの変更）
-updated: 2026-09-20
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # router-01 の設定まとめ（素の OpenWrt からの変更）
 
-> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **実機で稼働中の設定を「素の状態からの変更」だけ抜き出した一覧。**
 対象読者: ネットワーク機器に慣れていない人。細かい手順は
@@ -53,7 +53,7 @@ tags:
 | `/etc/shakecloud/config/dhcp` | dnsmasq が LAN に広い範囲を配る | プール `.20〜.99`、`.2〜.19` は機器帯 | 固定機器と動的を混ぜない |
 | 〃 | dnsmasq が DNS の窓口 | DNS の窓口は **AdGuard（:53）**、dnsmasq は DHCP とローカル名（`:5353`） | 広告遮断と DoH |
 | 〃 | IPv6 は LAN でサーバ | RA・DHCPv6 は **relay**、ndp は ndppd に任せる | 上流の /64 を LAN へ中継する |
-| `/etc/adguardhome/adguardhome.yaml` | なし | `:53` で受け、`*.lan` は dnsmasq へ、他は DoH。UI は `192.168.10.1:3000`（services-01 の HTTPS 入口だけに許可） | 広告・トラッカー遮断と DNS の暗号化 |
+| `/etc/adguardhome/adguardhome.yaml` | なし | `:53` で受け、`*.lan` は dnsmasq へ、他は DoH。UI は `192.168.10.1:3000`（core-01 の HTTPS 入口だけに許可） | 広告・トラッカー遮断と DNS の暗号化 |
 | `uci-defaults/97-shakecloud-adguard` | なし | AdGuard を有効化し、設定パスを UCI に合わせる | 24.10 の既定パス `/etc/adguardhome.yaml` と違うため |
 | `/etc/shakecloud/config/firewall` | 既定のゾーン | WAN は masq + mtu_fix | NAT と MSS clamp（MTU 1460 に合わせる） |
 | `/etc/shakecloud/config/system` | ホスト名 `OpenWrt` | `router-01`、JST、NICT NTP | 識別と時刻合わせ |
@@ -99,7 +99,7 @@ tags:
   `192.168.10.1` を使う。ISP が将来 RDNSS を載せれば、この設定で AdGuard へ
   書き換わる。恒久的に配る方法（radvd を RDNSS 専用で併用する等）は未実施
 - **管理画面は HTTPS 入口から**（`https://adguard.apextox.dpdns.org`、SSO）。
-  ルータの `192.168.10.1:3000` は**ファイアウォールで services-01（Caddy の
+  ルータの `192.168.10.1:3000` は**ファイアウォールで core-01（Caddy の
   ホスト）だけに許可**している（LAN 全体に開けると SSO を迂回できる）。
   SSH トンネルでも開ける:
   `ssh -L 3000:192.168.10.1:3000 root@192.168.10.1` → `http://localhost:3000/`

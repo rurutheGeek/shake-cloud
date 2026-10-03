@@ -1,6 +1,6 @@
 ---
 title: H04 EufyCam連携の検証
-updated: 2026-10-02
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # H04 EufyCam連携の検証
 
-> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -26,7 +26,7 @@ tags:
 
 注意: `eufy-security-client`／`eufy-security-ws` は**deprecated**で、開発は [mega-yfue/eufy-sdk](https://github.com/mega-yfue/eufy-sdk)（2FA対応、P2P・イベント・ライブ配信）へ移行中。ライブ映像は同SDKのブリッジ（P2P・RTSP publish）で実現できないか検討・追跡するが、現行版はS4のleo_rtcに未対応（後述）。新しいHA統合も開発中のため、いまは実績のあるWSを使い、新統合の安定後に乗り換えを再判断する。ログインは `TRUSTED_DEVICE_NAME` の端末をEufyアプリで信頼し、セッションを `/data` に保存する。資格情報・2FAコードは `platform/sops/eufy-security.sops.yaml` だけに置き、Git・ログ・この文書へ残さない。
 
-配備先・開発範囲: **services-01。`eufy-security-ws` はHAとは別Compose（プロジェクト `services-eufy-security-ws`、状態 `/srv/services/eufy-security-ws/data`、資格情報はSOPS）で動かし、hostネットワークで `172.31.254.1:3000` のみをbindしてLANへは公開しない。HA側は `eufy_security` 統合から host `172.31.254.1`・ポート `3000` へ接続する。HA側の統合は設定と手順だけを管理する。既存Eufyアプリ/録画先は維持**。
+配備先・開発範囲: **apps-01（2026-10-03にservices-01から移設。解析作業は中断中）。`eufy-security-ws` はHAとは別Compose（プロジェクト `services-eufy-security-ws`、状態 `/srv/services/eufy-security-ws/data`、資格情報はSOPS）で動かし、hostネットワークで `172.31.254.1:3000` のみをbindしてLANへは公開しない。HA側は `eufy_security` 統合から host `172.31.254.1`・ポート `3000` へ接続する。HA側の統合は設定と手順だけを管理する。既存Eufyアプリ/録画先は維持**。
 
 ## 実装手順
 
@@ -48,7 +48,7 @@ tags:
 
 ## 実機の結果（2026-09-12）
 
-- `stacks/eufy-security-ws/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/eufy-security-ws.yml` を追加。services-01へ配備し、`/opt/services/eufy-security-ws`・`/srv/services/eufy-security-ws/data` と `.env`（0600）を作成済み。WSは `bropat/eufy-security-ws:3.1.0`、hostネットワークで `172.31.254.1:3000` のみbind。
+- `stacks/eufy-security-ws/`（Compose・`manage.py`・`.env.example`・テスト）と `platform/ansible/eufy-security-ws.yml` を追加。services-01へ配備し、`/opt/services/eufy-security-ws`・`/srv/services/eufy-security-ws/data`（2026-10-03以降は `/opt/eufy-security-ws`・`/srv/eufy-security-ws/data`） と `.env`（0600）を作成済み。WSは `bropat/eufy-security-ws:3.1.0`、hostネットワークで `172.31.254.1:3000` のみbind。
 - HA側は `home-assistant.yml` が `eufy_security` v8.2.4（digest固定）を `custom_components/` へ配備済み。Eufyの資格情報は `platform/sops/eufy-security.sops.yaml` に投入し、WSはhealthy。S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作し、イベント取り込みは確認中。
 
 ## ライブ映像の結論（2026-09-13。リバースエンジニアリング）
@@ -103,7 +103,7 @@ WSは9/14から10日間、動体・人物の通知を1件も受け取ってい�
 ## 実機の確認状況と残作業（イベント経路の運用）
 
 1. `sops platform/sops/eufy-security.sops.yaml` に `EUFY_USERNAME`・`EUFY_PASSWORD`・`EUFY_COUNTRY`（必要なら `EUFY_TRUSTED_DEVICE_NAME`）を入れる。2FAがあれば初回ログの確認コードを `docker compose logs -f` で見て、信頼端末を承認する。**資格情報・2FAコードはGit/ログ/この文書へ残さない。**（投入済み。CAPTCHA対策として保存セッションを消さない。）
-2. `.venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/eufy-security-ws.yml` で起動し、healthyを確認する（配備済み）。イメージは `compose.lock.yaml` でdigest固定。
+2. `sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/eufy-security-ws.yml'` で起動し、healthyを確認する（配備済み）。イメージは `compose.lock.yaml` でdigest固定。
 3. **設定 → デバイスとサービス → 統合を追加 → Eufy Security** でホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識し、ログイン・デバイス一覧・Pushを確認）。**人物・動体イベントは取り込み済み（上記）。スナップショットは確認中。ライブ映像は上記の理由で当面「未対応」とし、有効化を案内しない。**既存録画・カメラ設定は変更しない。
 4. WS/HAの再起動と一時切断後の再接続を確認し、WS・統合のメモリを[I01](I01-resources.md)の実測に足す。ライブは選択肢2/3の進展があれば再判断する。
 5. HomeBase S380の追加は今回の範囲外。追加する場合は24/7録画と容量・保存先を別計画（[I01](I01-resources.md)）で確認する。

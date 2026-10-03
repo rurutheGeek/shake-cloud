@@ -36,7 +36,7 @@ sudo python3 bootstrap.py
 
 ## SSO（ネイティブ OIDC）
 
-`configure-oidc.py` が `/api/Settings` の `oidcConfig` を identity VM の Authentik に合わせます。`KAVITA_OIDC_CLIENT_ID` / `KAVITA_OIDC_CLIENT_SECRET` を環境変数で渡し、secret は標準出力に書きません。
+`configure-oidc.py` が `/api/Settings` の `oidcConfig` を core-01（Authentik）の Authentik に合わせます。`KAVITA_OIDC_CLIENT_ID` / `KAVITA_OIDC_CLIENT_SECRET` を環境変数で渡し、secret は標準出力に書きません。
 
 ```bash
 sudo KAVITA_OIDC_CLIENT_ID=... KAVITA_OIDC_CLIENT_SECRET=... python3 configure-oidc.py
@@ -47,7 +47,7 @@ sudo KAVITA_OIDC_CLIENT_ID=... KAVITA_OIDC_CLIENT_SECRET=... python3 configure-o
 - 設定が既に一致していれば `OK:` を出して再起動しない。差分があるときだけ POST して `docker compose restart kavita` する。
 - 実行順は `bootstrap.py` が先（Books の ID が要る）。
 
-Ansible では `media-kavita-sso.yml` が identity VM の `/opt/identity-stack/secrets/oidc-media.json` から client id/secret を読んで同じことをします。media-01 と identity の両方が解決できる inventory で、必要なら `--limit` を付けて実行します。
+Ansible では `media-kavita-sso.yml` が core-01（Authentik）の `/opt/identity-stack/secrets/oidc-media.json` から client id/secret を読んで同じことをします。NetBox のインベントリ（media-01 と core-01 の両方を含む）で、必要なら `--limit` を付けて実行します。
 
 ## バックアップと復元
 

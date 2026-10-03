@@ -1,6 +1,6 @@
 ---
 title: ディスク増設
-updated: 2026-09-13
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ディスク増設
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 media-01 のメディア系データは専用データディスク（`/srv/media-stack`）に置きます。**容量の増設・拡張はクラウドのボリュームAPI（`shakecloud volume resize`）か `platform/terraform/services/media`（I02）で行います。** 現在は 64GiB のデータディスク1本です。
 
@@ -85,12 +85,9 @@ SSDへの無駄な書き込みを減らす設定を、ホストとサービスVM
 # ホスト
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/storage-health.yml
-# monitor-01 と identity
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/monitor.ini platform/ansible/storage-health.yml
-# media-01（クラウドVM）
-sops exec-env platform/sops/services.sops.yaml \
-  '.venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/storage-health.yml'
+# 基盤VM・クラウドVM（NetBox インベントリ。monitor-01・core-01・cloud-01・media-01 が対象。--limit はグループ名で絞る）
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/storage-health.yml'
 ```
 
 Dockerを止めたくないときは `-e storage_health_restart_docker=false`（次回の配備・再起動で反映）。

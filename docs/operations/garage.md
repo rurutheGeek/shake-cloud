@@ -1,6 +1,6 @@
 ---
 title: Garage（S3互換オブジェクトストア）
-updated: 2026-09-11
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,17 +11,17 @@ tags:
 
 # Garage（S3互換オブジェクトストア）
 
-> **更新日** 2026-09-11 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 構築済み・実クライアントで確認済み。バケットとS3キーはクラウドAPI（Phase 7、[cloud-resources.md 3-16](cloud-resources.md#3-16)）が管理します。
 
-S3を自作クラウドの一部にするための土台です。Garageを **storage-s3 VM（VMID 130、192.168.10.206）** に単一ノードで置きます。
+S3を自作クラウドの一部にするための土台です。Garageを **cloud-01（VMID 140、192.168.10.205）** に単一ノードで置きます（2026-10-03 までは専用の storage-s3 VM（VMID 130）に置いていましたが、cloud-01 へ統合して storage-s3 は削除しました）。
 
 ## 1. 実体
 
 | | 値 |
 | --- | --- |
-| VM | `storage-s3`（VMID 130、platform プール、2 vCPU / 1 GiB / OS 16GiB） |
+| VM | `cloud-01`（VMID 140、platform プール、OS 40GiB。クラウドAPI・管理DBと同居） |
 | データ | 専用ディスク 32GiB（`/srv/garage`。OS と分けてある） |
 | 版 | Garage v2.4.1（x86_64-musl。バイナリの sha256 をロールに固定） |
 | S3 API | `http://192.168.10.205:3900`、region `garage` |
@@ -32,8 +32,8 @@ S3を自作クラウドの一部にするための土台です。Garageを **sto
 
 ## 2. 宣言と配備
 
-- VMは `platform/terraform/hosts.yaml` の `storage-s3`（`10-platform` が作成。データディスクは `managed-host` の `data_disk_gib`）。
-- 中身は Ansible ロール `platform/ansible/roles/garage` と `platform/ansible/garage.yml`。
+- VMは `platform/terraform/hosts.yaml` の `cloud-01`（`10-platform` が作成。データディスクは `managed-host` の `data_disk_gib`）。
+- 中身は Ansible ロール `platform/ansible/roles/garage` と `platform/ansible/garage.yml`（対象は Ansible の `storage` グループ＝cloud-01）。
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \

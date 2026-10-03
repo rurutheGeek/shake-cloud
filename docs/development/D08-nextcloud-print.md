@@ -1,6 +1,6 @@
 ---
 title: D08 Nextcloudからの印刷（cups_print）
-updated: 2026-09-26
+updated: 2026-10-03
 section: 開発計画
 audience: 開発者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # D08 Nextcloudからの印刷（cups_print）
 
-> **更新日** 2026-09-26 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 種別: **実装＋資料**。状態: **印刷アプリを公開リポジトリ `rurutheGeek/nextcloud-cups-print`（`cups_print`）へ切り出し、media-01はGitHub Releaseから導入。実印刷・ダイアログ（部数/カラー/ページ範囲）・Markdown印刷を実測済み（2026-09-26）**。
 
@@ -34,12 +34,12 @@ Nextcloudのファイル一覧から直接印刷できるようにします。�
 
 ## 依存関係・並列作業
 
-- 前提: CUPS中継（services-01）とNextcloud（media-01）。どちらも配備済み。
+- 前提: CUPS中継（apps-01。実測当時はservices-01）とNextcloud（media-01）。どちらも配備済み。
 - 並列: 特になし。呼べるのはNextcloudにログインしたユーザーだけ（Filesの画面から）。
 
 ## 検証・完了条件
 
-- services-01: `print-api` がactive、`/healthz` 200、キュー `ts8430` がidle（実測済み）。
+- apps-01（実測当時はservices-01）: `print-api` がactive、`/healthz` 200、キュー `ts8430` がidle（実測済み）。
 - media-01: `occ app:list` に `cups_print: 1.0.2`、`relay_url` とトークン設定済み（実測済み）。
 - 経路: media-01 → API → CUPS で `ts8430-2` が完了し、1枚印刷された（実測済み）。
 - ブラウザー（一般ユーザー）で `/books` のPDFの「…」に **「印刷」「LocalSendで送る」**、`/music` のMP3に **「タグを編集」「LocalSendで送る」** が出ることを実測（2026-09-13）。「タグを編集」は実クリックでエディタが開き、タグAPIが200を返した（元ファイルにタグが無いため空欄）。

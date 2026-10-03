@@ -11,8 +11,8 @@
 1. `platform/ansible/roles/poke_translate/defaults/main.yml` の
    `poke_translate_version`・`poke_translate_sha256` でリリースを固定する。
 2. `get_url` がリリースの `poke-translate-site-vX.Y.Z.tar.gz` を sha256 付きで取り、
-   `/opt/services/poke-translate/releases/` に置く。
-3. `manage.py install` が `/srv/services/poke-translate/site` へ展開する。中身の
+   `/opt/poke-translate/releases/` に置く。
+3. `manage.py install` が `/srv/poke-translate/site` へ展開する。中身の
    変わったファイルだけを置き換え、リリースに無いファイルは消す。
 4. `python:3.13-alpine`（digest固定）の `http.server` が `127.0.0.1:8320` で配り、
    Caddy が `poke.apextox.dpdns.org` で受ける。
@@ -22,7 +22,7 @@
 
 ```bash
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/poke-translate.yml
+  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/poke-translate.yml'
 ```
 
 ## 版を上げる
