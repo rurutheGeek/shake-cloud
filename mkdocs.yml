@@ -70,6 +70,7 @@ nav:
           - I04 DNS登録: development/I04-cloud-dns.md
           - I05 サービス用state管理: development/I05-service-state.md
           - I06 AWXのジョブ整備: development/I06-awx.md
+          - I07 クラウドポータルのUI改善: development/I07-portal-ui.md
       - M：監視:
           - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
       - O：復旧・運用:

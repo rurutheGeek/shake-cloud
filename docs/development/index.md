@@ -77,6 +77,7 @@ services-01のVM再起動では家電も停止します。宅外からの復旧�
 | [I04 DNS登録](I04-cloud-dns.md) | 新規 | サービス宣言・DNS | 一部完了（VM連携未） |
 | [I05 サービス用state管理](I05-service-state.md) | 未決事項の具体化 | 既存外部state保存先 | 一部完了（キー投入未） |
 | [I06 AWXのジョブ整備](I06-awx.md) | 既存基盤への設定追加 | 既存Kubernetes | 一部完了（ジョブ未適用） |
+| [I07 クラウドポータルのUI改善](I07-portal-ui.md) | 既存機構の改善 | cloud-01 | 計画のみ（ファビコンは決定、ほかは提案） |
 | [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了。ダッシュボード拡充が残り） |
 | [O01 管理DBの外部バックアップ](O01-cloud-backup.md) | 既存ローカルバックアップの拡張 | cloud-01・既存外部保存先 | 一部完了（外部保全未） |
 | [O02 CNPGバックアップ](O02-cnpg-backup.md) | 新規 | 既存Kubernetes・Garage・外部保存先 | 一部完了（バックアップ未） |
