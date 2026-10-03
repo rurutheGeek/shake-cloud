@@ -1,6 +1,7 @@
 ---
-# 6TB USB HDD（WD60EZAX）をホストで ext4 にして、media-01 と game1 へ
-# NFS 共有する。正本はこのロール。設計は docs/operations/bulk-storage.md。
+# 6TB USB HDD（WD60EZAX）をホストで ext4 にして、バックアップ領域とクラウド領域
+# （クラウドAPIの HDD ティア）の2つに分ける。game1 へは ROM とセーブを NFS で出す。
+# media-01 のデータは 2026-10-03 にクラウドの HDD ボリュームへ移した。正本はこのロール。設計は docs/operations/bulk-storage.md。
 #
 # 初期化（wipefs/sgdisk/mkfs）は明示されたときだけ行う。既存の
 # ファイルシステムは消さない。消してよいと確認できたときだけ
@@ -18,17 +19,6 @@ pve_bulk_storage_mount: /srv/bulk
 # nofail: ディスクが無くてもホストのブートを止めない。
 # noatime: 5400rpmのHDDへの読み取り時書き込みを減らす。
 pve_bulk_storage_fstab_opts: defaults,nofail,noatime,x-systemd.device-timeout=30
-
-# メディア共有。media-01 のコンテナ（Nextcloud・Navidrome・LocalSend）は
-# www-data(33) で読み書きする。ホスト側の所有権もそれに合わせる。
-pve_bulk_storage_media_dir: '{{ pve_bulk_storage_mount }}/media'
-pve_bulk_storage_media_subdirs:
-  - books
-  - docs
-  - inbox
-  - music
-pve_bulk_storage_media_uid: 33
-pve_bulk_storage_media_gid: 33
 
 # ROM共有。game1（Bazzite）の利用者がそのままコピーできるよう uid 1000 に
 # 寄せる。RomM コンテナは compose 側で `:ro` を付けて原本を守る。
@@ -49,26 +39,10 @@ pve_bulk_storage_disks_dir: '{{ pve_bulk_storage_mount }}/disks'
 pve_bulk_storage_backup_dir: '{{ pve_bulk_storage_mount }}/backups'
 pve_bulk_storage_game1_saves_dir: '{{ pve_bulk_storage_backup_dir }}/game1-saves'
 
-# Nextcloud のデータディレクトリ（各ユーザーのホーム・appdata・ログ）。media-01 が
-# www-data(33) で読み書きする。共有ライブラリとは分けて、バックアップの単位を
-# 分けられるようにする。
-pve_bulk_storage_nextcloud_dir: '{{ pve_bulk_storage_mount }}/nextcloud-data'
-
-# クライアント端末（Windows・スマホ）のバックアップ。media-01 の UrBackup が
-# 読み書きする。コンテナ内の urbackup ユーザー（entrypoint の既定 PUID/PGID=101）
-# に合わせる。イメージのバックアップは重複排除のハードリンクを使うため、
-# 同一ファイルシステム上に置く必要がある。
-pve_bulk_storage_client_backups_dir: '{{ pve_bulk_storage_mount }}/client-backups'
-pve_bulk_storage_client_backups_uid: 101
-pve_bulk_storage_client_backups_gid: 101
-
 # ゲストはIPv4の固定IPだけ。all_squash でゲスト側の uid に関係なく
 # anonuid で読み書きする。root_squash だけだと root で動くコンテナ
 # （Kavita など）が 2750 のディレクトリを読めない。
 pve_bulk_storage_exports:
-  - path: '{{ pve_bulk_storage_media_dir }}'
-    clients: 192.168.10.101
-    options: 'rw,sync,no_subtree_check,all_squash,anonuid=33,anongid=33'
   - path: '{{ pve_bulk_storage_roms_dir }}'
     clients: 192.168.10.127
     options: 'rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000'
@@ -76,12 +50,21 @@ pve_bulk_storage_exports:
   - path: '{{ pve_bulk_storage_game1_saves_dir }}'
     clients: 192.168.10.127
     options: 'rw,sync,no_subtree_check,all_squash,anonuid=1000,anongid=1000'
-  # Nextcloud のユーザーホーム・appdata。media-01 が www-data で読み書き。
-  - path: '{{ pve_bulk_storage_nextcloud_dir }}'
-    clients: 192.168.10.101
-    options: 'rw,sync,no_subtree_check,all_squash,anonuid=33,anongid=33'
-  # クライアント端末のバックアップ。media-01 の UrBackup コンテナ
-  # （urbackup=101）が読み書きする。
-  - path: '{{ pve_bulk_storage_client_backups_dir }}'
-    clients: 192.168.10.101
-    options: 'rw,sync,no_subtree_check,all_squash,anonuid=101,anongid=101'
+
+# 領域ごとの上限（ext4 のプロジェクトクォータ）。パーティションは切り直さず、
+# ディレクトリごとに上限を持たせる。片方が膨らんでも、もう片方の空きを食わない。
+# 上限に達した領域への書き込みは「ディスクが満杯」と同じ失敗になる。
+pve_bulk_storage_quotas:
+  - name: backup
+    id: 1
+    path: '{{ pve_bulk_storage_backup_dir }}'
+    hard_gib: 2000
+  - name: cloud
+    id: 2
+    path: '{{ pve_bulk_storage_disks_dir }}'
+    hard_gib: 3400
+
+# クォータの機能をファイルシステムへ入れるには、一度アンマウントが要る
+# （HDD を使うVMを止めてから）。入っていないときは、明示されたときだけ行う。
+#   -e pve_bulk_storage_enable_quota_offline=true
+pve_bulk_storage_enable_quota_offline: false

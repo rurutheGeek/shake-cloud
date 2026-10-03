@@ -3,21 +3,22 @@ ansible_python_interpreter: /usr/bin/python3
 project_dir: /opt/media-stack
 storage_root: /srv/media-stack/storage
 library_root: /srv/media-stack/library
-# 共有ライブラリ（6TB USB HDD）。ホスト apextox が NFS で出している。
-# 正本は platform/ansible/roles/pve_bulk_storage、手順は
-# docs/operations/bulk-storage.md。media-base.yml が library_root へ載せる。
-bulk_storage_server: 192.168.10.10
-bulk_storage_media_path: /srv/bulk/media
-bulk_storage_nextcloud_path: /srv/bulk/nextcloud-data
-bulk_storage_mount_opts: _netdev,nofail,x-systemd.mount-timeout=30
-# Nextcloud のデータディレクトリ（ユーザーホーム・appdata）。共有ライブラリとは
-# 別のHDDパスをNFSで載せる。正本は roles/pve_bulk_storage と media-base.yml。
+# 大容量データ用の HDD ボリューム（クラウドのボリューム。Terraform は
+# platform/terraform/services/media の shakecloud_volume.bulk）。media-base.yml が
+# ラベルで載せ、下の各ディレクトリをアプリの場所へ bind する。
+media_bulk_label: media-bulk
+media_bulk_mount: /srv/media-bulk
+media_bulk_mount_opts: nofail,noatime,x-systemd.device-timeout=30
+# Nextcloud のデータディレクトリ（ユーザーホーム・appdata）。
 nextcloud_data_dir: /srv/media-stack/storage/nextcloud/data
-# クライアント端末（Windows等）のバックアップ置き場。同じHDDの別パスをNFSで
-# 載せる。UrBackup のイメージは重複排除にハードリンクを使うため、同じ共有に
-# まとめる。正本は roles/pve_bulk_storage と media-base.yml。
-bulk_storage_client_backups_path: /srv/bulk/client-backups
+# クライアント端末（Windows等）のバックアップ置き場。UrBackup のイメージは
+# 重複排除にハードリンクを使うため、1つのディレクトリにまとめる。
 client_backup_root: /srv/media-stack/client-backups
+# uid は中身を読み書きするコンテナのもの（www-data 33、UrBackup 101）。
+media_bulk_binds:
+  - {source: library, target: '{{ library_root }}', uid: 33}
+  - {source: nextcloud-data, target: '{{ nextcloud_data_dir }}', uid: 33}
+  - {source: client-backups, target: '{{ client_backup_root }}', uid: 101}
 # Each tagged host runs an independent complete stack; this is not a DB cluster.
 # Override with AWX inventory host variables when needed.
 install_docker: true

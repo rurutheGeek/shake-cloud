@@ -7,11 +7,11 @@
 # 直るまでの間、ゲスト側で IPv6 を無効にして getaddrinfo と Docker を IPv4 に
 # 揃える。DNS・SG・サービスはもともと IPv4 前提。
 #
-# 6TB USB HDD の共有ライブラリ・Nextcloud のデータディレクトリ・クライアント
-# バックアップもここで載せる。マウントが済むまで Docker を起動しない
-# （未マウントのまま原本領域へ書かせない）。
-# 正本は platform/ansible/roles/pve_bulk_storage、手順は
-# docs/operations/bulk-storage.md。
+# 共有ライブラリ・Nextcloud のデータディレクトリ・クライアントバックアップは、
+# クラウドの HDD ボリューム（services/media の shakecloud_volume.bulk）に置く。
+# ここでそのボリュームを載せ、各アプリの場所へ bind する。マウントが済むまで
+# Docker を起動しない（未マウントのまま原本領域へ書かせない）。
+# 手順は docs/operations/bulk-storage.md。
 #
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-base.yml'
@@ -36,94 +36,120 @@
       when: media_base_ipv6 is changed
       changed_when: media_base_ipv6 is changed
 
-    - name: Install the NFS client
-      ansible.builtin.apt:
-        name: nfs-common
-        state: present
-        update_cache: true
-        cache_valid_time: 3600
+    # HDD ボリュームの初期化（mkfs）は、デバイスを明示したときだけ行う。中身の
+    # あるデバイスは消さない。デバイスは Terraform の出力 bulk_device_path。
+    #   -e media_bulk_initialize_device=/dev/disk/by-id/virtio-vol...
+    - name: Look at the device that is about to be formatted
+      ansible.builtin.command:
+        argv: [blkid, -o, value, -s, TYPE, '{{ media_bulk_initialize_device }}']
+      register: media_bulk_existing
+      failed_when: media_bulk_existing.rc not in [0, 2]
+      changed_when: false
+      when: media_bulk_initialize_device is defined
+
+    - name: Refuse to format a device that already has a filesystem
+      ansible.builtin.assert:
+        that: media_bulk_existing.stdout == ''
+        fail_msg: '{{ media_bulk_initialize_device }} already holds {{ media_bulk_existing.stdout }}'
+      when: media_bulk_initialize_device is defined
+
+    - name: Format the bulk volume
+      ansible.builtin.command:
+        argv: [mkfs.ext4, -L, '{{ media_bulk_label }}', -m, '0', '{{ media_bulk_initialize_device }}']
+      changed_when: true
+      when: media_bulk_initialize_device is defined
 
     # アプリの playbook が作るディレクトリ（library 配下など）もあるが、
     # マウントポイント自体はここで必ず用意する。無いと mount が rc=32 で
-    # 止まり、Docker も起動しない。所有権・mode は既存の共有（NFS は
-    # all_squash）に触らないよう指定しない。
-    - name: Create the shared storage mount points
+    # 止まり、Docker も起動しない。
+    - name: Create the bulk volume mount point
       ansible.builtin.file:
-        path: '{{ item }}'
+        path: '{{ media_bulk_mount }}'
         state: directory
-      loop:
-        - '{{ library_root }}'
-        - '{{ nextcloud_data_dir }}'
-        - '{{ client_backup_root }}'
+        mode: '0755'
 
-    - name: Mount the shared library at boot
+    # ラベルで指すので、ボリュームを付け直してデバイス名が変わっても同じ。
+    - name: Mount the bulk volume at boot
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_media_path | regex_escape }}\s'
-        line: >-
-          {{ bulk_storage_server }}:{{ bulk_storage_media_path }} {{ library_root }}
-          nfs4 {{ bulk_storage_mount_opts }} 0 0
+        regexp: '^LABEL={{ media_bulk_label }}\s'
+        line: 'LABEL={{ media_bulk_label }} {{ media_bulk_mount }} ext4 {{ media_bulk_mount_opts }} 0 2'
         state: present
 
-    - name: Check whether the shared library is mounted
+    - name: Check whether the bulk volume is mounted
       ansible.builtin.command:
-        argv: [mountpoint, -q, '{{ library_root }}']
-      register: media_library_mountpoint
+        argv: [mountpoint, -q, '{{ media_bulk_mount }}']
+      register: media_bulk_mountpoint
       failed_when: false
       changed_when: false
 
-    # ホストが落ちているときに無限に待たないよう、手動マウントは60秒で切る。
-    - name: Mount the shared library now
+    - name: Mount the bulk volume now
       ansible.builtin.command:
-        argv: [timeout, '60', mount, '{{ library_root }}']
-      when: media_library_mountpoint.rc != 0
+        argv: [mount, '{{ media_bulk_mount }}']
+      when: media_bulk_mountpoint.rc != 0
       changed_when: true
-      notify: Restart Docker to pick up the shared library
 
-    - name: Mount the Nextcloud data at boot
+    # 所有権は中身を使うコンテナのもの（www-data 33、UrBackup 101）。既にある
+    # ディレクトリの所有権・mode は変えない。
+    - name: Create the directories on the bulk volume
+      ansible.builtin.file:
+        path: '{{ media_bulk_mount }}/{{ item.source }}'
+        state: directory
+        owner: '{{ item.uid }}'
+        group: '{{ item.uid }}'
+        mode: '0755'
+      loop: '{{ media_bulk_binds }}'
+      loop_control:
+        label: '{{ item.source }}'
+
+    - name: Create the mount points the applications use
+      ansible.builtin.file:
+        path: '{{ item.target }}'
+        state: directory
+      loop: '{{ media_bulk_binds }}'
+      loop_control:
+        label: '{{ item.target }}'
+
+    # 以前はホストの HDD を NFS で直接載せていた（2026-10-03 にボリュームへ移行）。
+    - name: Drop the NFS mounts the bulk volume replaced
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_nextcloud_path | regex_escape }}\s'
-        line: >-
-          {{ bulk_storage_server }}:{{ bulk_storage_nextcloud_path }} {{ nextcloud_data_dir }}
-          nfs4 {{ bulk_storage_mount_opts }} 0 0
-        state: present
+        regexp: '^\S+:\S+\s+{{ item.target | regex_escape }}\s+nfs4?\s'
+        state: absent
+      loop: '{{ media_bulk_binds }}'
+      loop_control:
+        label: '{{ item.target }}'
 
-    - name: Check whether the Nextcloud data is mounted
-      ansible.builtin.command:
-        argv: [mountpoint, -q, '{{ nextcloud_data_dir }}']
-      register: media_nextcloud_mountpoint
-      failed_when: false
-      changed_when: false
-
-    - name: Mount the Nextcloud data now
-      ansible.builtin.command:
-        argv: [timeout, '60', mount, '{{ nextcloud_data_dir }}']
-      when: media_nextcloud_mountpoint.rc != 0
-      changed_when: true
-      notify: Restart Docker to pick up the shared library
-
-    - name: Mount the client backups at boot
+    - name: Bind the bulk volume directories at boot
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        regexp: '^{{ bulk_storage_server }}:{{ bulk_storage_client_backups_path | regex_escape }}\s'
+        regexp: '^{{ (media_bulk_mount ~ "/" ~ item.source) | regex_escape }}\s'
         line: >-
-          {{ bulk_storage_server }}:{{ bulk_storage_client_backups_path }} {{ client_backup_root }}
-          nfs4 {{ bulk_storage_mount_opts }} 0 0
+          {{ media_bulk_mount }}/{{ item.source }} {{ item.target }}
+          none bind,nofail,x-systemd.requires-mounts-for={{ media_bulk_mount }} 0 0
         state: present
+      loop: '{{ media_bulk_binds }}'
+      loop_control:
+        label: '{{ item.target }}'
 
-    - name: Check whether the client backups are mounted
+    - name: Check which application mount points are mounted
       ansible.builtin.command:
-        argv: [mountpoint, -q, '{{ client_backup_root }}']
-      register: media_client_backups_mountpoint
+        argv: [mountpoint, -q, '{{ item.target }}']
+      register: media_bulk_bind_mountpoints
       failed_when: false
       changed_when: false
+      loop: '{{ media_bulk_binds }}'
+      loop_control:
+        label: '{{ item.target }}'
 
-    - name: Mount the client backups now
+    - name: Bind the bulk volume directories now
       ansible.builtin.command:
-        argv: [timeout, '60', mount, '{{ client_backup_root }}']
-      when: media_client_backups_mountpoint.rc != 0
+        argv: [mount, '{{ item.item.target }}']
+      when: item.rc != 0
       changed_when: true
+      loop: '{{ media_bulk_bind_mountpoints.results }}'
+      loop_control:
+        label: '{{ item.item.target }}'
       notify: Restart Docker to pick up the shared library
 
     - name: Require the shared storage before Docker starts

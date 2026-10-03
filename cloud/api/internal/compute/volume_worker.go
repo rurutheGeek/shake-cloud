@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
 )
 
 // The volume worker moves disks between VMs. Proxmox keeps every disk under
@@ -441,6 +442,11 @@ func (s *Service) attachVolumeDisk(ctx context.Context, v *db.Volume) error {
 			return giveUp{fmt.Sprintf("Client.InvalidDevice: %s is already used on the VM by %s", v.Device, other)}
 		}
 		disk := fmt.Sprintf("%s,discard=on,serial=%s", l.VolID, VolumeSerial(v.ID))
+		if v.DiskTier == site.TierHDD {
+			// vzdump keeps its backups on the same HDD, so copying an HDD
+			// volume there protects nothing and doubles what the disk holds.
+			disk += ",backup=0"
+		}
 		if err := s.configure(ctx, vmid, url.Values{v.Device: {disk}}); err != nil {
 			return fmt.Errorf("plug in as %s: %w", v.Device, err)
 		}
