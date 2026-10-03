@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>shake-cloud</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/portal.css">
 <script src="/static/portal-ui.js" defer></script>
 <script src="/static/portal.js" defer></script>
@@ -124,7 +125,7 @@
     <h2 tabindex="-1">インスタンス</h2>
     <p class="muted">全アカウントのVMが並びます。自分のものだけではありません。</p>
     <div class="toolbar">
-      <label>検索 <input id="instance-search" type="search" placeholder="名前・ID・IP・所有者"></label>
+      <label>検索 <input id="instance-search" type="search" placeholder="名前・ID・IP・所有者・タグ"></label>
       <label>所有者 <select id="instance-owner"><option value="all">全アカウント</option><option value="mine">自分のみ</option></select></label>
       <label>状態 <select id="instance-state"><option value="">すべて</option><option value="running">稼働中</option><option value="stopped">停止中</option><option value="pending">起動準備中</option><option value="stopping">停止処理中</option><option value="shutting-down">削除処理中</option><option value="terminated">削除済み</option></select></label>
       <a class="button" href="#instance-create-view">インスタンスを作成</a>
@@ -176,6 +177,7 @@
       <p id="iso-note" class="muted small wide" hidden>ISOからインストールします。起動後、コンソールでインストーラーを操作してください。割り当てられたIPは一覧に表示されます。</p>
       <p class="muted small wide">Windowsの入れ方（ドライバーの読み込み・OOBE・RDP・OEMライセンス）は <a href="/help">ヘルプ</a> にまとめています。</p>
       <label>名前 <input name="name" maxlength="255" placeholder="例: game"></label>
+      <label>タグ（任意） <input name="tags" maxlength="1024" placeholder="例: Purpose=dev, Team=home"></label>
       <label>構成の雛形
         <select name="preset">
           <option value="">指定しない（自由に入力）</option>
