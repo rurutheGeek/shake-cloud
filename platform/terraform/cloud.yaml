@@ -54,7 +54,10 @@ capacity:
   # **これは方針の枠で、物理の保証ではない。** 上限の合計は物理メモリを超えられる
   # （バルーニングを使う前提なので、それが狙い）。実際に足りるかを見ているのは
   # 下の node_memory_reserve_mib。
-  memory_budget_mib: 32768
+  # 2026-10-03: 32768 → 49152。アプリと開発VMをクラウドVMへ寄せる再編
+  # （docs/architecture/placement-naming.md）で、移行の途中に最大で約43GiBを割り当てる。
+  # ホストは61GiB。
+  memory_budget_mib: 49152
   # 作成後もノードの available がこれ以上残ること。**実際の空きを見る唯一の検査。**
   node_memory_reserve_mib: 4096
   # 利用者VMのディスク置き場（シンプロビジョニング）の実使用率がこれを超えたら断る。
