@@ -62,14 +62,14 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | --- | --- |
 | `platform/terraform/` | Proxmoxのプール・ロール・基盤VMとNetBox台帳（`10-platform`・`05-seed`）、サービスVMの宣言（`services/<name>/`）、ルータVMの宣言（`router/`） |
 | `platform/openwrt/` | 家庭内ルータ `router-01` のUCI設定・AdGuard Home設定とイメージのビルド（`build.sh`） |
-| `platform/ansible/`、`ansible.cfg` | Docker導入、NetBox／クラウドのインベントリ、配備順序・ホスト変数、ゲストOSのロール |
+| `platform/ansible/`、`ansible.cfg` | Docker導入、NetBoxの動的インベントリ、配備順序・ホスト変数、ゲストOSのロール |
 | `platform/flux/` | Fluxが反映するクラスタ構成（`main` を監視）。AWX・CNPG・Knative などを配る |
 | `platform/awx/` | AWX移行用のEE・Playbook例（AWX本体は `platform/flux/apps/` で配備済み） |
 | `cloud/` | 自作クラウドAPI・CLI・Terraform Provider・読み取り専用MCPサーバ・共通クライアント（APIの正本は `cloud/openapi/`） |
 | `stacks/identity/` | Authentik（招待・復旧・パスキー、`platform/ansible/identity.yml`。配備先はcore-01の `/opt/identity-stack`）とポータル用OIDC |
 | `stacks/netbox/` | NetBox本体、配備先の初期登録、認証設定 |
 | `stacks/docs/` | ドキュメントサイトを配るnginx（apps-01、`platform/ansible/docs-site.yml`） |
-| `stacks/tls-proxy/` | 各ホストのHTTPS入口（CaddyとCloudflare DNSモジュール）。受ける名前は `platform/terraform/dns.yaml` |
+| `stacks/tls-proxy/` | 各ホストのHTTPS入口（Caddy）。公開証明書とCloudflare DNSモジュールを持つのは入口の core-01 だけ。受ける名前は `platform/terraform/dns.yaml` |
 | `stacks/media/` | media-01のNextcloud・Kavita・Navidrome・FreshRSS（共通RSSタイムライン）・LocalSend |
 | `stacks/music-tools/` | MeTube・タグAPI・BCSTM変換・同期（media-01） |
 | `stacks/homarr/`・`stacks/vaultwarden/`・`stacks/librespeed/`・`stacks/mail-view/`・`stacks/home-assistant/`・`stacks/eufy-security-ws/`・`stacks/print-api/`・`stacks/monitoring/` | apps-01・monitor-01のサービス（ホストごとの独立Compose） |

@@ -26,7 +26,7 @@ tags:
 
 注意: `eufy-security-client`／`eufy-security-ws` は**deprecated**で、開発は [mega-yfue/eufy-sdk](https://github.com/mega-yfue/eufy-sdk)（2FA対応、P2P・イベント・ライブ配信）へ移行中。ライブ映像は同SDKのブリッジ（P2P・RTSP publish）で実現できないか検討・追跡するが、現行版はS4のleo_rtcに未対応（後述）。新しいHA統合も開発中のため、いまは実績のあるWSを使い、新統合の安定後に乗り換えを再判断する。ログインは `TRUSTED_DEVICE_NAME` の端末をEufyアプリで信頼し、セッションを `/data` に保存する。資格情報・2FAコードは `platform/sops/eufy-security.sops.yaml` だけに置き、Git・ログ・この文書へ残さない。
 
-配備先・開発範囲: **apps-01（2026-10-03にservices-01から移設。解析作業は中断中）。`eufy-security-ws` はHAとは別Compose（プロジェクト `services-eufy-security-ws`、状態 `/srv/services/eufy-security-ws/data`、資格情報はSOPS）で動かし、hostネットワークで `172.31.254.1:3000` のみをbindしてLANへは公開しない。HA側は `eufy_security` 統合から host `172.31.254.1`・ポート `3000` へ接続する。HA側の統合は設定と手順だけを管理する。既存Eufyアプリ/録画先は維持**。
+配備先・開発範囲: **apps-01（2026-10-03にservices-01から移設。解析作業は中断中）。`eufy-security-ws` はHAとは別Compose（プロジェクト `services-eufy-security-ws`、状態 `/srv/eufy-security-ws/data`。移設前は `/srv/services/eufy-security-ws/data`。資格情報はSOPS）で動かし、hostネットワークで `172.31.254.1:3000` のみをbindしてLANへは公開しない。HA側は `eufy_security` 統合から host `172.31.254.1`・ポート `3000` へ接続する。HA側の統合は設定と手順だけを管理する。既存Eufyアプリ/録画先は維持**。
 
 ## 実装手順
 

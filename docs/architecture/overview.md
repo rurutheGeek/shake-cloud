@@ -76,10 +76,10 @@ flowchart TB
 | ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
 | 共通ログイン・台帳・HTTPSの入口 | core-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | Authentik（SSO・招待・復旧）・NetBox・Caddy（AdGuardとルータ管理画面の中継も） |
 | 自作クラウド・S3 | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル・Garage（S3互換） |
-| docs・パスワード・家電 | apps-01（cloud） | 未確認（台帳を参照） | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳 |
+| docs・パスワード・家電 | apps-01（cloud） | 2 / 4GiB / OS32GiB＋データ16GiB | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳 |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（platform） | 2 / 2GiB / OS32＋データ32GiB | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
+| 監視 | monitor-01（platform） | 2 / 2GiB / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
 | 復旧経路 | router-01（platform） | （router-01と共用） | Tailscale subnet router（OpenWrt上）。宅外から管理LANへ（N02） |
 | 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
@@ -517,7 +517,7 @@ flowchart TB
 - **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
 - **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・ルート承認が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
+- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・**ルート承認と tailnet DNS は 2026-10-01 に適用済み**。宅外端末での実機検証が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
 - **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 
@@ -557,7 +557,7 @@ flowchart LR
 | --- | --- | --- |
 | Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](../development/H04-eufy.md)） |
 | VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
-| 復旧用Tailscale | **subnet router を作成しTailscaleへ参加済み（2026-09-14に cloud VM `net-01`、2026-10-03 に net-01 を廃止して router-01 の上へ移設）**。宅外DNS検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
+| 復旧用Tailscale | **subnet router を router-01（OpenWrt）で稼働中（2026-09-14に cloud VM `net-01`、2026-10-03 に net-01 を廃止して移設）**。ルート承認と tailnet DNS は 2026-10-01 に適用済みで、宅外端末での実機検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
 | VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
 | 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
 | メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |

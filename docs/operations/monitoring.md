@@ -57,9 +57,9 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 | `ServiceProbeFailed` | HTTPS名が5分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
 | `CertificateExpiringSoon` | 証明書の期限が14日以内 | 該当ホストのCaddyログ。Cloudflareトークンの権限（ゾーン読み取り＋DNS編集の両方が要る） |
 
-### ノード（node_exporter を入れた台）
+### ノード（node_exporter を入れた4台）
 
-対象は core-01・cloud-01・monitor-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
+対象は core-01・cloud-01・monitor-01・apps-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
 
 | アラート | 意味 |
 | --- | --- |

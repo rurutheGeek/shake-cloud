@@ -1,6 +1,6 @@
 ---
 title: SMTPとメール送信
-updated: 2026-09-13
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # SMTPとメール送信
 
-> **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 ## メールサーバーは必要か
 
@@ -20,7 +20,7 @@ tags:
 
 ## Vaultwardenで使う設定
 
-**現在の Vaultwarden（services-01、`stacks/vaultwarden/`）は SMTP をまだ設定していません。** W02 で新規構築した際、メール依存の機能を使わない前提で `stacks/vaultwarden/compose.yaml` に SMTP 変数を入れていないためです。有効にするときは、下の変数名を同スタックの Compose と `.env` へ足します。
+**現在の Vaultwarden（apps-01、`stacks/vaultwarden/`）は SMTP をまだ設定していません。** W02 で新規構築した際、メール依存の機能を使わない前提で `stacks/vaultwarden/compose.yaml` に SMTP 変数を入れていないためです。有効にするときは、下の変数名を同スタックの Compose と `.env` へ足します。
 
 Vaultwardenは、少なくとも送信元とSMTPホストを設定します。ユーザー名を設定する場合はパスワードも必要です。通常は587番ポートのSTARTTLSを使います。465番ポートの暗黙TLSを使うサービスでは`force_tls`を指定します。[Vaultwarden公式SMTP設定](https://github.com/dani-garcia/vaultwarden/blob/main/.env.template)
 
@@ -87,7 +87,7 @@ SMTP_FROM: shake.notify@gmail.com
 SMTP_FROM_NAME: shake-cloud
 ```
 
-## identity（Authentik）での設定
+## Authentik（core-01）での設定
 
 SMTP は `platform/sops/smtp.sops.yaml`（上記 Gmail の例を参照）で設定します。キーは:
 
@@ -101,7 +101,7 @@ SMTP_FROM_NAME: shake-cloud
 SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
 ```
 
-`platform/ansible/identity.yml` を流すと、identity ロールがこれを復号して identity VM の
+`platform/ansible/identity.yml` を流すと、identity ロールがこれを復号して core-01 の
 `.env` へ写します。`.env` の値は:
 
 - **Authentik 自身**が `AUTHENTIK_EMAIL__*` として読み、パスワード再設定などを送ります。
@@ -109,7 +109,7 @@ SMTP_SECURITY: starttls   # 465 なら ssl、それ以外は starttls か plain
   送ります。`smtp.sops.yaml` が無ければ招待はメールを送らず、リンクを 0600 のファイルへ
   保存するだけです。
 
-認証情報は Secret として identity VM の `.env`（0600）にだけ置き、リポジトリには
+認証情報は Secret として core-01 の `.env`（0600）にだけ置き、リポジトリには
 暗号化した `smtp.sops.yaml` だけを置きます。
 
 `manage.py configure` は SMTP を使って次の2つを整えます（`configure.py`、2026-09-12）。
@@ -134,7 +134,7 @@ Google 側で通ります。
 ## 受信メールボックスを読む（メールビューア）
 
 送信だけでなく、届いた通知メール（招待・確認・アラート）を Gmail へログインせず
-ブラウザーで読むための**読み取り専用ビューア**を services-01 に置いています
+ブラウザーで読むための**読み取り専用ビューア**を apps-01 に置いています
 （`stacks/mail-view/`、`https://mail-view.apextox.dpdns.org`）。
 
 - **IMAP**（`imap.gmail.com:993`）にアプリパスワードでログインし、メールボックスを
@@ -145,9 +145,10 @@ Google 側で通ります。
   専用のアプリパスワードへ分ける場合は `platform/sops/mail-view.sops.yaml`
   （書式は同 `.example`）を作ります。無ければ `smtp.sops.yaml` の
   `SMTP_USERNAME` / `SMTP_PASSWORD` を IMAP にも使います。
-- 入口は services-01 の Caddy の Forward Auth で、**Authentik にログインした
-  全ユーザー**が閲覧できます。このメールボックスには identity の招待・復旧
-  メールが届くため、**SSO を外さないでください。** LAN の中だけに公開します。
+- 入口は core-01 の Caddy の Forward Auth で、**Authentik にログインした
+  全ユーザー**が閲覧できます（アプリ本体は apps-01）。このメールボックスには
+  Authentik の招待・復旧メールが届くため、**SSO を外さないでください。**
+  LAN の中だけに公開します。
 - 配備は `platform/ansible/mail-view.yml`。Forward Auth のプロバイダとアプリは
   `stacks/identity/configure.py` が作るので、先に `identity.yml` を流します。
 

@@ -1,6 +1,6 @@
 ---
 title: サービスの置き場所とクラウドVMでの作り方
-updated: 2026-10-02
+updated: 2026-10-03
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,22 +10,22 @@ tags:
 
 # サービスの置き場所とクラウドVMでの作り方
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 方針と手順。services-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み。
+**状態**: 方針と手順。apps-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み（apps-01 へは 2026-10-03 に移設）。
 
 ## 方針
 
 **これからのホームラボのサービスは、原則としてクラウドVM（`cloud` プール、VMID 5000–5999）に作ります。** サービスのコードは Git に置き、VM はクラウドAPI（Terraform Provider）で作り、中身は Compose か Kubernetes へ配ります。
 
-例外は**基盤そのもの**です。identity（認証）、cloud-01（クラウドAPI と管理DB）、services-01（NetBox とドキュメント）、storage-s3（Garage）、Kubernetes の各ノードは `platform` プールの基盤VMで、Terraform `10-platform` が作ります。**基盤をクラウドAPIで作ると、「APIを載せる前にAPIが要る」循環になります。** 所有境界は[IaCの所有境界](../architecture/iac.md)を正とします。
+例外は**基盤そのもの**です。core-01（Authentik・NetBox・入口の Caddy）、cloud-01（クラウドAPI・管理DB・Garage）、monitor-01（監視。クラウドが壊れたときに原因を見る道具なので基盤側）、router-01、Kubernetes の各ノードは `platform` プールの基盤VMで、Terraform `10-platform`（core-01 は `05-seed` + 台帳）が作ります。**基盤をクラウドAPIで作ると、「APIを載せる前にAPIが要る」循環になります。** 所有境界は[IaCの所有境界](../architecture/iac.md)を正とします。
 
 **配置は停止単位と運用上の利点で決めます。** 既存KubernetesのAWX・DB提供（CloudNativePG）・関数提供（Knative）は維持します。Homarr・Vaultwardenを単に小さいWebアプリだからKubernetesへ移すことはしません。
 
-- services-01にはNetBox・MkDocsを残し、Home Assistant Container・eufy-security-ws（HAとは別Compose）・VPN・Homarr・Vaultwarden・CUPS・メールビューアを別Composeで追加します。常用サービスの明示的な同居先で、VMの所有は既存の`05-seed`のままです。基盤を利用者APIへ移しません（VPNは未配備）。
+- core-01 には NetBox・入口の Caddy・Authentik を残し、その他の常用サービスは apps-01（クラウドVM）へ置きます。apps-01 には Home Assistant Container・eufy-security-ws（HAとは別Compose）・eufy-leo-rtc・Homarr・Vaultwarden・CUPS・メールビューア・ドキュメントサイト・LibreSpeed・ポケモン翻訳を別Composeで置きます。**2026-10-03 に services-01 から移設済みで、配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>` です**（VPNは未配備）。
 - game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
 - media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
-- monitor-01は新規cloud VMにPrometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-09-12に配備済みで、Grafanaは `https://grafana.apextox.dpdns.org`（identity OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
+- monitor-01は基盤VM（VMID 120、`192.168.10.210`）で、Prometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-10-03 にクラウドVMから基盤VMへ移し、Grafanaは `https://grafana.apextox.dpdns.org`（core-01 の Authentik OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
 スペック案・独立した作業ID・依存関係は[並列開発計画](../development/index.md)を参照してください。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
@@ -203,7 +203,7 @@ terraform -chdir=platform/terraform/services/<name> apply
 
 ### 5. 名前を付ける（任意）
 
-`*.apextox.dpdns.org` の名前は `platform/terraform/dns.yaml` に書き、`20-dns` を適用します。Caddy が中継するのは各ホストの `tls_proxy` です。クラウドVMへ名前を付ける場合は、`hosts.yaml` に居ないため IP を `address` に直接書き、その VM にも `tls_proxy` ロールを配備して TLS を終端します（media-01 が実例）。**現時点でクラウドVMへの DNS 自動登録はありません**（IP は宣言へ直接書く）。
+`*.apextox.dpdns.org` の名前は `platform/terraform/dns.yaml` に書き、`20-dns` を適用します。**公開の証明書（Let's Encrypt）と Cloudflare の DNS 編集トークンを持つのは入口の core-01 だけ**で、その他のホストの Caddy は内部CAの証明書で core-01 からの中継を受けます（[HTTPSの入口](edge.md)）。クラウドVMへ名前を付ける場合も同じで、`hosts.yaml` に居ないため IP を `address` に直接書き、その VM にも `tls_proxy` ロールを配備します（media-01・apps-01 が実例。トークンは置かない）。**現時点でクラウドVMへの DNS 自動登録はありません**（IP は宣言へ直接書く）。
 
 ### 6. ドキュメントを足す
 
@@ -229,16 +229,16 @@ terraform -chdir=platform/terraform/services/<name> apply
 
 | 対象 | NetBoxへ載せるもの | グループの決まり方 |
 | --- | --- | --- |
-| 基盤VM（identity・cloud-01 など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
-| services-01 | `10-platform`（VM本体は `05-seed`。台帳の器だけ足す） | タグ `services` |
-| クラウドAPIが作ったVM（media-01・net-01・monitor-01 など） | **クラウドAPI自身**（VMの状態が変わったらすぐ同期。取りこぼし対策に15分ごとにも見比べる） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
+| 基盤VM（cloud-01・monitor-01・k8s・dev など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
+| core-01 | `10-platform`（VM本体は `05-seed`。台帳の器だけ足す） | タグ `core` と `identity`（`identity_provider` グループ） |
+| クラウドAPIが作ったVM（media-01・apps-01 など） | **クラウドAPI自身**（VMの状態が変わったらすぐ同期。取りこぼし対策に15分ごとにも見比べる） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
 
 クラウドVMの扱いは次のとおりです。
 
 - **ホスト名はインスタンスID（`i-...`）**、表示名（`tags.Name`）は変数 `cloud_name` に入ります。`--limit` はグループ名（`media` など）で絞ります。
 - **稼働中のVMだけが対象になります。** 止めると NetBox 上で `offline` になり、インベントリから外れます。削除すると台帳からも消えます。
 - **グループはVM自身のタグでは決めません。** グループは「どの秘密値をそのホストへ配るか」を決めるので、誰でも付けられる名前には任せません。`cloud.yaml` の `ledger.group_accounts` に書いたアカウントの、`ledger.tags_by_name` に書いた名前のVMだけにタグが付きます。他の利用者のVMは台帳に載るだけで、どのグループにも入りません（共通の `cloud_instances` を除く）。
-- **VMを作り直しても、名前が同じなら宣言の修正は要りません**（以前の `cloud-inventory.yml` はインスタンスIDで書いていたので、作り直すたびに直す必要がありました）。
+- **VMを作り直しても、名前が同じなら宣言の修正は要りません**（2026-10-03 まで使っていた `cloud-inventory.yml` はインスタンスIDで書いていたので、作り直すたびに直す必要がありました）。
 - 新しいサービスVMを足すときは、`tags.yaml` にタグ、`inventory.netbox.yml` にグループ、`cloud.yaml` の `ledger.tags_by_name` に名前を足し、`10-platform` と `cloud.yml` を流します。
 
 ```bash
@@ -246,24 +246,21 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   '.venv/bin/ansible-inventory -i platform/ansible/inventory.netbox.yml --graph'
 ```
 
-### 切替の手順と、まだ残っている手書きインベントリ
+### 切替の記録と、手書きインベントリの扱い
 
-**2026-10-03 に実機を切り替えました**（1 は NetBox のタグと services-01 の台帳だけを `-target` で適用。全体の apply は、使用中の開発VMに差分が出るため未実施）。手順は次のとおりです。
+**2026-10-03 に実機を切り替えました**（NetBox のタグと core-01 の台帳を `-target` で適用。全体の apply は、使用中の開発VMに差分が出るため未実施）。手順は次のとおりです。
 
-1. `tools/tf 10-platform apply` — NetBox にタグ `media-stack`・`monitoring`・`services` と、services-01 の台帳（VM・インターフェース・primary IP）を作る
+1. `tools/tf 10-platform apply` — NetBox にタグと、core-01 の台帳（VM・インターフェース・primary IP）を作る
 2. `cloud.yml` を流してクラウドAPIを更新する（`site.json` に `ledger` が入り、API が台帳への登録を始める）
-3. 上の `ansible-inventory --graph` を流し、`media`・`vpn`・`monitoring`・`services`・`cloud_instances` に期待したホストが居ることを確かめる
+3. 上の `ansible-inventory --graph` を流し、`media`・`monitoring`・`apps`・`core`・`identity_provider`・`cloud_instances` に期待したホストが居ることを確かめる
 4. 以後の配備は `-i platform/ansible/inventory.netbox.yml` で流す
 
-切替が済むまでは従来の入口も使えます。済んだら 1〜3 行目を削除します。
+旧来の手書きインベントリは、この切替の完了を受けて **2026-10-03 に削除しました**（`inventory.cloud.py`・`cloud-inventory.yml`・`monitor.ini.example`）。現在残るのは次の2つです。
 
-| インベントリ | 役割 | 切替後 |
-| --- | --- | --- |
-| `inventory.cloud.py`・`cloud-inventory.yml` | クラウドVM（インスタンスIDで宣言） | 削除する。**NetBox のインベントリと併用しない**（同じVMが2つのホスト名で出る） |
-| `monitor.ini` | monitor-01 | 削除する |
-| `seed.ini` の `services` グループ | services-01 | NetBox が使えないときの予備として残す |
-| `seed.ini` の `netbox_bootstrap` | NetBox 自身を作る初回（`netbox.yml`） | 残す。NetBox が無いと動的インベントリは使えない |
-| `pve.ini` | Proxmox ホスト | 残す。NetBox へ載せるには機器の primary IP とタグの同期（`tools/netbox-dhcp-sync.py`）が要り、未着手 |
+| インベントリ | 役割 |
+| --- | --- |
+| `seed.ini`（`seed.ini.example` から作る） | NetBox 自身を作る初回（`netbox.yml`）と、NetBox が落ちて動的インベントリが使えないときの復旧だけ。**NetBox の動的インベントリと併用しない** |
+| `pve.ini` | Proxmox ホスト（`pve-*.yml`）。NetBox へ載せるには機器の primary IP とタグの同期（`tools/netbox-dhcp-sync.py`）が要り、未着手 |
 
 <a id="media-units"></a>
 ### media-01 を単体で配り直す
@@ -282,11 +279,11 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 | 8 | `media-verify.yml` | 各サービスの応答確認 |
 | 9 | `media-tls.yml` | Caddy（HTTPS入口） |
 
-**OIDCは別Playbookです。** Kavita・FreshRSS・Nextcloud は本体のPlaybookだけでは**認証が無効のまま起動します**。identity が作ったクライアント秘密値を配るのが `media-kavita-sso.yml`・`media-freshrss-sso.yml`・`media-sso.yml`（Nextcloud）で、本体を配り直したら**対応するSSO側も流し直してください**。忘れると「ログイン画面が出ないまま中身が見える」状態になります。
+**OIDCは別Playbookです。** Kavita・FreshRSS・Nextcloud は本体のPlaybookだけでは**認証が無効のまま起動します**。Authentik（core-01）が作ったクライアント秘密値を配るのが `media-kavita-sso.yml`・`media-freshrss-sso.yml`・`media-sso.yml`（Nextcloud）で、本体を配り直したら**対応するSSO側も流し直してください**。忘れると「ログイン画面が出ないまま中身が見える」状態になります。
 
 ```bash
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/inventory.cloud.py platform/ansible/media-navidrome.yml
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-navidrome.yml'
 ```
 
-`media-sso.yml` は identity VM から秘密値を slurp するため、**identity も同じインベントリに居る必要があります**。NetBox のインベントリなら両方が居ます（切替前は `cloud-inventory.yml` が出す media-01 のインスタンスIDで `--limit` して対象を絞ります。Playbook 冒頭のコメントに実例があります）。
+`media-sso.yml` は core-01（Authentik）から秘密値を slurp するため、**core-01 も同じインベントリに居る必要があります**。NetBox のインベントリなら `media` と `identity_provider` の両方が居ます。ホスト名はインスタンスID（`i-...`）なので、対象は `--limit media` のようにグループ名で絞ります。
