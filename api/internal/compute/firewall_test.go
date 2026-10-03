@@ -77,7 +77,7 @@ func TestALaunchWritesTheDefaultGroupBeforeTheFirstBoot(t *testing.T) {
 	if options["policy_in"] != "DROP" || options["ipfilter"] != "1" || options["macfilter"] != "1" {
 		t.Fatalf("options %v", options)
 	}
-	if entries := pve.firewall(vmid).ipsets[ipfilterSet]; !slices.Equal(entries, []string{"192.168.10.100"}) {
+	if entries := pve.firewall(vmid).ipsets[ipfilterSet]; !slices.Equal(entries, []string{"192.168.10.100", globalIPv6}) {
 		t.Fatalf("ipfilter-net0 = %v", entries)
 	}
 }
