@@ -85,7 +85,7 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 
 | アラート | 意味 |
 | --- | --- |
-| `BulkDiskUnmounted` | `/srv/bulk` が見えない。**NFS越しのmedia-01・game1も巻き込む** |
+| `BulkDiskUnmounted` | `/srv/bulk` が見えない。**HDD上のクラウドVMのディスク（media-01 のデータなど）と、NFS越しの game1 も巻き込む** |
 | `BulkDiskAlmostFull` | 空きが10%未満 |
 | `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。唯一の critical。** ディスク交換の検討 |
 | `SmartSectorErrors` | 不良・代替処理待ちセクター |

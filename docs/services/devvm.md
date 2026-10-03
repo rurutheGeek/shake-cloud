@@ -12,13 +12,13 @@ tags:
 
 > **更新日** 2026-09-13 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
-**状態**: 稼働中。VMの定義と権限はコード化済みで、dev-a（.202）・dev-b（.203）は実機で動いています。
+**状態**: 稼働中。VMの定義と権限はコード化済みで、dev-01（.202）・dev-02（.203）は実機で動いています。
 
 2人がそれぞれ1台ずつ、GUIなしのLinux VMを持ちます。SSHとVS Code Remote SSHで使い、**使うときだけ起動します**。
 
 | | 値 |
 | --- | --- |
-| 台数 | 2台（`dev-a`＝VMID 400、`dev-b`＝VMID 401） |
+| 台数 | 2台（`dev-01`＝VMID 400、`dev-02`＝VMID 401） |
 | サイズ | 2vCPU / RAM 6GiB（バルーニング下限 2GiB）/ ディスク 40GiB |
 | 自動起動 | しない。K11を再起動しても止まったまま |
 | 相手のVM | 見えない。操作もできない |
@@ -29,11 +29,11 @@ tags:
 
 起動・停止・再起動・コンソール接続ができます。
 
-VMの形（CPU・RAM・ディスク・NIC）の正本は `platform/terraform/hosts.yaml` です。ここを直して `tools/tf 10-platform apply` すると反映されます。Proxmoxの画面から直接変えると次の apply で戻ります。`DevVMOperator` ロールには `VM.Config.*` が含まれていないので、画面からは変更できません。
+2026-10-03 から、この2台はクラウドVMです（作り直さずに引き取り）。VMの形（CPU・RAM）はクラウドのポータルか `shakecloud instance modify` で変えます。`platform/terraform/hosts.yaml` には載っていません。Proxmox の利用者 `dev-a@pve`・`dev-b@pve` と `tools/devvm` の電源操作は今までどおり使えます。
 
 ## 2. どの利用者に影響するか
 
-自分だけです。`dev-a` の権限は `/vms/400` にしか付いていないので、Proxmoxの画面にも自分のVMしか出ません。
+自分だけです。`dev-a@pve` の権限は `/vms/400` にしか付いていないので、Proxmoxの画面にも自分のVMしか出ません。
 
 ## 3. 設定場所
 
@@ -99,17 +99,17 @@ devvm restart     # 正常な再起動
 `~/.ssh/config` に別名を書いておくと、VS Code Remote SSH からも同じ設定が使えます。
 
 ```
-Host dev-a
+Host dev-01
   HostName 192.0.2.40
   User debian
   IdentityFile ~/.ssh/id_ed25519
 ```
 
 ```bash
-ssh dev-a
+ssh dev-01
 ```
 
-VS Code は「Remote-SSH: Connect to Host」で `dev-a` を選びます。
+VS Code は「Remote-SSH: Connect to Host」で `dev-01` を選びます。
 
 ### コンソールで入る（復旧用）
 
@@ -117,7 +117,7 @@ VS Code は「Remote-SSH: Connect to Host」で `dev-a` を選びます。
 
 ## 5. 変更後の確認方法
 
-一周してみてください。`devvm start` → `ssh dev-a` → 作業 → `exit` → `devvm stop`。
+一周してみてください。`devvm start` → `ssh dev-01` → 作業 → `exit` → `devvm stop`。
 
 再起動してもホームディレクトリとSSH鍵が残ることを確認します。相手のVMが一覧に出ないことも確認してください。出るようならACLの設定ミスです。
 

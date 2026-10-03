@@ -20,7 +20,7 @@ NetBox は **IP・VM・物理機器の台帳**です。ネット接続の有無�
 - **Terraform `10-platform`** が VM と IP を登録する（書き込みトークン）。
 - **Ansible の動的インベントリ**がホスト一覧を引く（読み取り専用トークン）。
 - **クラウドAPI** が利用者VMの IP を採番する（`managed-by-cloud-api` タグ）。
-- **DHCP同期ツール**（dev-b のタイマー）が物理機器の台帳と DHCP 予約を書く（[家にある機器](#assets)）。
+- **DHCP同期ツール**（dev-02 のタイマー）が物理機器の台帳と DHCP 予約を書く（[家にある機器](#assets)）。
 
 ## 入口とログイン
 
@@ -170,7 +170,7 @@ sops exec-env platform/sops/netbox.sops.yaml \
 
 ### 定期実行
 
-dev-b の systemd timer が **15分ごとに `ensure → pull → push`** を流します
+dev-02 の systemd timer が **15分ごとに `ensure → pull → push`** を流します
 （`platform/ansible/netbox-dhcp-sync.yml` とロール `netbox_dhcp_sync`）。
 実行ユーザーは `ruru`（SOPS の age 鍵・ルータへの SSH 鍵・リポジトリを持つ人）。
 
@@ -185,7 +185,7 @@ ssh debian@192.168.10.203 \
   'sudo systemctl list-timers netbox-dhcp-sync.timer; sudo journalctl -u netbox-dhcp-sync -n 20'
 ```
 
-dev-b が止まっている間は同期も止まります（台帳が遅れるだけで壊れません）。
+dev-02 が止まっている間は同期も止まります（台帳が遅れるだけで壊れません）。
 
 <a id="assets"></a>
 ## 家にある機器（資産）を台帳に載せる
@@ -251,7 +251,7 @@ sops exec-env platform/sops/netbox.sops.yaml \
   'python3 tools/netbox-dhcp-sync.py ensure && python3 tools/netbox-dhcp-sync.py pull'
 ```
 
-dev-b のタイマーが15分ごとに `ensure → pull → push` を回すので、コミットが dev-b の
+dev-02 のタイマーが15分ごとに `ensure → pull → push` を回すので、コミットが dev-02 の
 チェックアウトへ届けば自動でも反映されます（上の定期実行）。
 
 ### 例

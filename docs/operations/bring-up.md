@@ -64,7 +64,7 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini
 2. 検証用ファイルを置き、別媒体へVMバックアップを取る。
 3. 別VMIDへ復元する。同じIP／MACの競合を避けるため、復元VMはNIC切断または隔離ネットワークから起動する。
 4. ファイルが戻ることを確認し、復元VMを片付ける。
-5. 元VMをテンプレート用に整えるか `dev-a` に割り当てる。テンプレートから複製する場合、ホスト名・IP・machine-id・SSH host keyの重複を確認する。
+5. 元VMをテンプレート用に整えるか `dev-01` に割り当てる。テンプレートから複製する場合、ホスト名・IP・machine-id・SSH host keyの重複を確認する。
 
 この手順はコード化してあります。VMの作成は宣言（`platform/terraform/hosts.yaml` の `probe-01`、VMID 900）から行い、復元は補助スクリプトで踏みます。
 
@@ -88,14 +88,14 @@ tools/pve-restore-drill.sh cleanup --target-vmid 901
 
 ### 開発VMを2台使えるようにする
 
-`dev-a`（VMID 400）と `dev-b`（VMID 401）は `hosts.yaml` に定義済みで、`10-platform` の apply で一緒に作られます。`00-bootstrap` が `dev-a@pve` / `dev-b@pve` と `DevVMOperator` ロールを作るので、あとは各自がパスワードを設定してAPIトークンを作ります。
+`dev-01`（VMID 400）と `dev-02`（VMID 401）は `hosts.yaml` に定義済みで、`10-platform` の apply で一緒に作られます。`00-bootstrap` が `dev-a@pve` / `dev-b@pve` と `DevVMOperator` ロールを作るので、あとは各自がパスワードを設定してAPIトークンを作ります。
 
 ```bash
 # 管理者: 初回パスワードを設定してもらう（Terraformでは管理しない）
 pveum passwd dev-a@pve
 
 # 利用者: ゲストOSの初期設定
-.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml --limit dev-a
+.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/guests.yml --limit dev-01
 ```
 
 `DevVMOperator` に含まれるのは `VM.Audit` / `VM.PowerMgmt` / `VM.Console` だけです。CPU・RAM・ディスク・NICの正本は `hosts.yaml` のままなので、利用者の操作でIaCと実機が乖離しません。使い方は[開発VMの使い方](../services/devvm.md)を利用者へ渡します。

@@ -28,7 +28,7 @@ tags:
 | `game1` | ゲームとローカルAI。GPUをパススルーしている |
 | subnet router | 宅外から管理LANへ戻るための Tailscale の中継。`router-01` の上で動く（[詳細](../operations/net.md)） |
 | `k8s-cp-01` / `k8s-worker-*` | Kubernetes。AWX・DB提供・関数提供が載る（[Kubernetes](../operations/kubernetes.md)） |
-| `dev-a` / `dev-b` | 開発VM（[開発VMの使い方](../services/devvm.md)） |
+| `dev-01` / `dev-02` | 開発VM（[開発VMの使い方](../services/devvm.md)） |
 
 ## 仕組みの名前
 

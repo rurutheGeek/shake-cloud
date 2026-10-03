@@ -53,7 +53,7 @@ tags:
 | OIDC redirect | `https://cloud.apextox.dpdns.org/auth/callback` | 完全一致 |
 | 健全性 | `https://cloud.apextox.dpdns.org/healthz` | 200 で正常 |
 | OIDC issuer | `https://auth.apextox.dpdns.org/application/o/cloud/` | クラウドAPIが読む |
-| Kubernetes API | `https://192.168.10.207:6443` | kubeconfig は dev-b とクラスタ内 |
+| Kubernetes API | `https://192.168.10.207:6443` | kubeconfig は dev-02 とクラスタ内 |
 | Cilium Ingress | `192.168.10.241` | AWX の入口 |
 | Kourier（関数） | `192.168.10.240` | Knative の入口 |
 | 関数 URL | `https://<name>.functions.k8s.apextox.dpdns.org` | ワイルドカード証明書 |
@@ -106,7 +106,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |
 | k8s-worker-01 | `192.168.10.209` | AWX・CNPG・Knative |
 | k8s-worker-02 | `192.168.10.208` | 予備（停止中） |
-| dev-a / dev-b | `debian@192.168.10.202` / `.203` | 開発VM |
+| dev-01 / dev-02 | `debian@192.168.10.202` / `.203` | 開発VM |
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
 | media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
