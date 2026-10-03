@@ -104,7 +104,7 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 3. **storage-s3 を cloud-01 へ合流する。** Garage のデータディスクを付け替える。
 4. **Tailscale をルータへ移し、net-01 を消す。** OpenWrt に Tailscale を入れて subnet router を登録し直す。
 5. **monitor-01 を基盤へ移す。** `hosts.yaml` に宣言して作り直し、Prometheus のデータを移す。
-6. **開発VMをクラウドVMへ移す。** dev-01 → dev-02 の順。win11pro は `win-01` へ改名する。
+6. **開発VMをクラウドVMへ移す。** dev-01 → dev-02 の順。win11pro は `win-01` へ改名する。**dev-a・dev-b・game1・win11pro は使用中なので、指示があるまで触らない（2026-10-03）。**
 7. 空になった identity・services-01・storage-s3 と、基盤側の dev-a・dev-b を消す。
 
 リポジトリの中だけで済む整理（Playbook の置き場所、インベントリと変数の分離、`stacks/media/*` の1段化、NetBox のタグ名とグループ名の統一）は、移行と並行して先に進められる。
