@@ -125,7 +125,9 @@ resource "netbox_virtual_machine" "seed" {
   cluster_id  = tonumber(netbox_cluster.this.id)
   site_id     = tonumber(netbox_site.this.id)
   status      = "active"
-  tags        = ["services"]
+  # identity: Authentik もこのホストに置く（2026-10-03。core-01 への統合）。
+  # Ansible の identity_provider グループがこのホストを指す。
+  tags = ["services", "identity"]
 
   depends_on = [netbox_tag.this]
 }

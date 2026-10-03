@@ -239,7 +239,7 @@ class SsoAnsibleTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         slurp = tasks[0]['ansible.builtin.slurp']
         self.assertEqual(slurp['src'], '/opt/identity-stack/secrets/oidc-media.json')
-        self.assertIn('default("identity")', tasks[0]['delegate_to'])
+        self.assertIn("groups.get('identity_provider')", tasks[0]['delegate_to'])
         self.assertTrue(tasks[0]['no_log'])
 
     def test_it_runs_configure_oidc_with_the_client_environment(self):

@@ -32,6 +32,8 @@ x-authentik: &authentik
     postgresql: {condition: service_healthy}
 services:
   postgresql:
+    # 同居先（NetBox・入口）を巻き込まないための上限（2026-09-26 のメモリ枯渇の再発防止）。
+    mem_limit: 768m
     image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     restart: unless-stopped
     environment:
@@ -48,6 +50,8 @@ services:
       timeout: 5s
       retries: 10
   server:
+    # 同居先（NetBox・入口）を巻き込まないための上限（2026-09-26 のメモリ枯渇の再発防止）。
+    mem_limit: 1536m
     <<: *authentik
     command: server
     # 9000 は HTTP、9443 は Authentik 自身の自己署名証明書による HTTPS。
@@ -62,6 +66,8 @@ services:
       timeout: 10s
       retries: 20
   worker:
+    # 同居先（NetBox・入口）を巻き込まないための上限（2026-09-26 のメモリ枯渇の再発防止）。
+    mem_limit: 768m
     <<: *authentik
     command: worker
     user: root

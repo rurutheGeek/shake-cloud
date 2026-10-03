@@ -279,7 +279,7 @@ class MediaSsoPlaybookTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertIn('oidc-media.json', tasks[0]['ansible.builtin.slurp']['src'])
         self.assertEqual(tasks[0]['delegate_to'],
-                         '{{ media_sso_identity_host | default("identity") }}')
+                         "{{ media_sso_identity_host | default((groups.get('identity_provider') or ['identity'])[0]) }}")
         self.assertTrue(tasks[0]['no_log'])
 
     def test_the_run_is_limited_to_the_media_instance(self):
