@@ -31,9 +31,8 @@ import subprocess
 # users (--include-dev).
 VMS = [
     {'name': 'core-01', 'address': '192.168.10.200', 'user_vm': False},
-    {'name': 'identity', 'address': '192.168.10.204', 'user_vm': False},
     {'name': 'cloud-01', 'address': '192.168.10.205', 'user_vm': False},
-    {'name': 'storage-s3', 'address': '192.168.10.206', 'user_vm': False},
+    {'name': 'monitor-01', 'address': '192.168.10.210', 'user_vm': False},
     {'name': 'dev-a', 'address': '192.168.10.202', 'user_vm': True},
     {'name': 'dev-b', 'address': '192.168.10.203', 'user_vm': True},
 ]

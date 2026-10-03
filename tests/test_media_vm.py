@@ -118,7 +118,9 @@ class AccessTests(unittest.TestCase):
         ports = sorted(int(value) for value in
                        re.findall(r'from_port\s*=\s*(\d+)', self.main))
         self.assertEqual(ports, [22, 80, 443, 35623, 53317, 55413])
-        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 6)
+        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.lan_cidr', self.main)), 4)
+        # The web ports are reached through the HTTPS edge only (dns.yaml edge).
+        self.assertEqual(len(re.findall(r'cidr\s*=\s*local\.edge_cidr', self.main)), 2)
         self.assertNotIn('0.0.0.0/0', self.main)
         # 自動発見だけが UDP。他の入口は TCP。
         discovery = re.search(

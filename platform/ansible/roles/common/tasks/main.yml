@@ -62,3 +62,18 @@
     mode: '0644'
     validate: /usr/sbin/sshd -t -f %s
   notify: Reload sshd
+
+# cloud-init は初回にしかホスト名を書かない。台帳で改名したVM（services-01 →
+# core-01、monitor-02 → monitor-01）のゲスト内の名前を、台帳の名前に揃える。
+# クラウドVMは inventory_hostname がインスタンスID（i-...）なので対象にしない。
+- name: Match the hostname to the ledger
+  ansible.builtin.hostname:
+    name: '{{ inventory_hostname }}'
+  when: inventory_hostname is not match('^i-[0-9a-f]+$')
+
+- name: Keep the hostname resolvable
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: '127.0.1.1 {{ inventory_hostname }}'
+  when: inventory_hostname is not match('^i-[0-9a-f]+$')

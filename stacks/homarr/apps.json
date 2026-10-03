@@ -32,8 +32,7 @@
     "name": "Shake Cloud",
     "href": "https://cloud.apextox.dpdns.org",
     "description": "VM・S3・DB・関数のセルフサービス",
-    "iconText": "CLOUD",
-    "iconColor": "#2563eb",
+    "iconUrl": "https://cloud.apextox.dpdns.org/static/favicon.svg",
     "pingUrl": "https://cloud.apextox.dpdns.org/healthz"
   },
   {

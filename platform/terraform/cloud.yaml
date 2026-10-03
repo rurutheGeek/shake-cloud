@@ -94,5 +94,4 @@ ledger:
   # VMを作り直しても名前が同じなら、ここは直さなくてよい。
   tags_by_name:
     media-01: [media-stack]
-    net-01: [vpn]
     apps-01: [apps]

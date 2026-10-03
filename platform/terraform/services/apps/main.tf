@@ -6,6 +6,10 @@ locals {
   site     = yamldecode(file("${path.module}/../../site.yaml"))
   lan_cidr = local.site.network.prefix
 
+  # HTTPS の入口（core-01）。名前はすべて入口を指し、入口がここへ中継する
+  # （platform/terraform/dns.yaml の edge）。80/443 は入口からだけ受ける。
+  edge_cidr = "192.168.10.200/32"
+
   # ゲストが見るデータディスクのパス。serial は volume ID から決まるので、
   # デバイス名（vda/vdb）の順序に依存しない。VM 起動後に API が接続するため、
   # cloud-init はこのパスを待ってから Docker を起動する。
@@ -38,8 +42,8 @@ resource "shakecloud_security_group_rule" "http" {
   protocol    = "tcp"
   from_port   = 80
   to_port     = 80
-  cidr        = local.lan_cidr
-  description = "HTTP from the LAN (redirect and ACME)"
+  cidr        = local.edge_cidr
+  description = "HTTP from the edge only"
 }
 
 resource "shakecloud_security_group_rule" "https" {
@@ -48,8 +52,8 @@ resource "shakecloud_security_group_rule" "https" {
   protocol    = "tcp"
   from_port   = 443
   to_port     = 443
-  cidr        = local.lan_cidr
-  description = "HTTPS from the LAN"
+  cidr        = local.edge_cidr
+  description = "HTTPS from the edge only"
 }
 
 # CUPS の印刷中継。LAN と VPN の端末が 631 へ直接つなぐ（Caddy を通さない）。
@@ -93,7 +97,7 @@ resource "shakecloud_security_group_rule" "node_exporter" {
   from_port   = 9100
   to_port     = 9100
   cidr        = "192.168.10.210/32"
-  description = "node_exporter from monitor-02"
+  description = "node_exporter from monitor-01"
 }
 
 # Eufy のカメラ（eufyCam S4）は P2P で、カメラ側から UDP を送ってくる。

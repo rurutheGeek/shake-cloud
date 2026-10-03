@@ -48,22 +48,6 @@ hosts:
     tags: [devbox, managed-by-terraform-admin]
     description: 開発VM（利用者B）。利用時のみ起動する。
 
-  identity:
-    vm_id: 110
-    pool: platform
-    flavor: medium
-    # SSOの土台。スワップが無く、2026-09-26にホストのメモリ逼迫で
-    # バルーンが縮んでOOMし、全SSOサイトが止まった。下限を3GiBにして
-    # AuthentikとPostgreSQLが潰れないようにする。
-    memory_min_mib: 3072
-    disk_gib: 32
-    on_boot: true
-    started: true
-    # 2026-10-03: Authentik は core-01（core-01 になる）へ移した。identity タグは
-    # 外し、Ansible の identity_provider グループから外す。VMは戻せるよう残す。
-    tags: [managed-by-terraform-admin]
-    description: 退役予定。Authentik は core-01 へ移した（2026-10-03）。
-
   cloud-01:
     vm_id: 140
     pool: platform
@@ -79,25 +63,7 @@ hosts:
     tags: [cloud-control, storage, managed-by-terraform-admin]
     description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。
 
-  storage-s3:
-    vm_id: 130
-    pool: platform
-    # 当初計画の 1GiB に合わせる。flavor は保険で付け、数値で上書きする。
-    flavor: small
-    cpu_cores: 2
-    memory_mib: 1024
-    memory_min_mib: 512
-    disk_gib: 16
-    # Garage のメタデータとオブジェクトは OS と別ディスクに置く。
-    data_disk_gib: 32
-    on_boot: true
-    started: true
-    # 2026-10-03: Garage は cloud-01 へ合流した。storage タグを外し、Ansible の
-    # storage グループから外す。VMは戻せるよう残す。
-    tags: [managed-by-terraform-admin]
-    description: 退役予定。Garage は cloud-01 へ合流した（2026-10-03）。
-
-  monitor-02:
+  monitor-01:
     vm_id: 120
     pool: platform
     flavor: small
@@ -107,7 +73,7 @@ hosts:
     on_boot: true
     started: true
     tags: [monitoring, managed-by-terraform-admin]
-    description: 監視（Prometheus・Alertmanager・Grafana・UPS）。クラウドが壊れても原因を見られるよう基盤側に置く。クラウドVMの monitor-01 から移した（2026-10-03）。
+    description: 監視（Prometheus・Alertmanager・Grafana・UPS）。クラウドが壊れても原因を見られるよう基盤側に置く。クラウドVMから移した（2026-10-03。移行中の名前は monitor-02）。
 
   k8s-cp-01:
     vm_id: 200

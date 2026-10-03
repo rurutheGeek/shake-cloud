@@ -6,13 +6,12 @@
 # 含むため丸ごとは取らず、セーブを tools/game1-saves-backup.sh で別に取る。
 pve_backup_vmids:
   - 101   # router-01（OpenWrt設定）
-  - 110   # identity（Authentik）
-  - 130   # storage-s3（Garage）
-  - 140   # cloud-01（管理DB）
-  - 150   # core-01（Home Assistant）
+  - 120   # monitor-01（監視履歴）
+  - 140   # cloud-01（管理DB・Garage）
+  - 150   # core-01（Authentik・NetBox）
   - 401   # dev-b（鍵・作業ツリー）
   - 5001  # media-01（Nextcloud DB・設定。ライブラリ原本はHDD側）
-  - 5002  # monitor-01（監視履歴）
+  - 5005  # apps-01（Vaultwarden・Home Assistant・Homarr）
 
 pve_backup_storage_id: bulk-backup
 pve_backup_storage_path: /srv/bulk/backups

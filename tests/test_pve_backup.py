@@ -27,7 +27,7 @@ SCRIPT = ROOT / 'tools/game1-saves-backup.sh'
 class DefaultsTests(unittest.TestCase):
     def test_the_tier1_vmids_are_the_ones_that_cannot_be_rebuilt(self):
         self.assertEqual(DEFAULTS['pve_backup_vmids'],
-                         [101, 110, 130, 140, 150, 401, 5001, 5002])
+                         [101, 120, 140, 150, 401, 5001, 5005])
 
     def test_game1_is_not_backed_up_as_a_whole_vm(self):
         self.assertNotIn(100, DEFAULTS['pve_backup_vmids'])

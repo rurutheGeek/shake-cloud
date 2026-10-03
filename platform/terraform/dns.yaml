@@ -30,7 +30,7 @@ zone: apextox.dpdns.org
 # 従来どおり自分で証明書を取る。
 edge:
   host: core-01
-  backends: [monitor-02, media-01, apps-01, cloud-01]
+  backends: [monitor-01, media-01, apps-01, cloud-01]
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
@@ -141,11 +141,11 @@ records:
     description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
-    host: monitor-02
+    host: monitor-01
     upstream: 127.0.0.1:3000
     description: Grafana（監視ポータル。OIDC）
   peanut:
-    host: monitor-02
+    host: monitor-01
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:
