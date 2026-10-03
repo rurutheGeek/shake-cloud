@@ -131,13 +131,13 @@ systemctl --user enable --now game1-saves-backup.timer
 ## 7. 限界と注意
 
 - **同じ筐体・単一ディスクです。** NVMe故障には効きますが、HDD自身の故障・火災・盗難・ランサムウェアには無力です。特に重要なものは別機器・別拠点へもコピーしてください。
-- **メディア原本とNextcloudのユーザーファイル（`/srv/bulk/media`・`/srv/bulk/nextcloud-data`）はこのHDD上にあり、同じHDDへバックアップできません。** media-01のvzdumpには含まれない（NFSはVMのディスクではない）ため、**これらは別の外付けやGarageなど、別の障害単位へコピーしてください**。
+- **メディア原本とNextcloudのユーザーファイル（media-01 の HDD ボリューム `media-01-bulk`）はこのHDD上にあり、同じHDDへバックアップできません。** media-01のvzdumpには含まれない（NFSはVMのディスクではない）ため、**これらは別の外付けやGarageなど、別の障害単位へコピーしてください**。
 - **DBの整合はクラッシュ整合です。** PostgreSQL/MariaDBはWALで概ね戻せますが、厳密な論理ダンプ（`pg_dump`・`mariadb-dump`）は未実装です（[O01](../development/O01-cloud-backup.md)・[O02](../development/O02-cnpg-backup.md)）。
 - **age鍵のコピーを忘れない。** 秘密値は鍵とセットで初めて復元できます。
 - 保存先が未マウントのままバックアップするとrootを埋めます。`pve_backup` ロールはマウントを確認して止まりますが、手動の `vzdump` はその限りではありません。
 
 ## 8. クライアント端末（Windows・Galaxy）
 
-Windows PC のシステムイメージとファイルは、media-01 の UrBackup が6TB HDD（`/srv/bulk/client-backups`）へ世代で取ります。家族の Galaxy は **ポータルの「スマホをバックアップ」ボタン（USB・WebUSB）**で写真・書類・APKを同じHDDへ保存します。入口は **<https://backup.apextox.dpdns.org>**（バックアップポータル）。手順・復元・保持・注意は[クライアント端末のバックアップ](client-backup.md)が正本です。
+Windows PC のシステムイメージとファイルは、media-01 の UrBackup が6TB HDD（media-01 の HDD ボリューム上の `client-backups`）へ世代で取ります。家族の Galaxy は **ポータルの「スマホをバックアップ」ボタン（USB・WebUSB）**で写真・書類・APKを同じHDDへ保存します。入口は **<https://backup.apextox.dpdns.org>**（バックアップポータル）。手順・復元・保持・注意は[クライアント端末のバックアップ](client-backup.md)が正本です。
 
 **この HDD 自体が単一障害点です。** 端末バックアップも vzdump と同じく、別ディスク・別機器への2次コピーが未実施です（[O01](../development/O01-cloud-backup.md)）。

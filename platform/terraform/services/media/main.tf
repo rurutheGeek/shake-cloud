@@ -133,3 +133,23 @@ resource "shakecloud_volume_attachment" "data" {
   instance_id = shakecloud_instance.media.id
   # device は省略。空いている最小の virtio スロットになる。
 }
+
+# 大容量のデータ（共有ライブラリ・Nextcloud のデータ・端末バックアップ）。HDD
+# ティアに置く。以前はホストの HDD を NFS で直接使っていたが、HDD を
+# 「バックアップ」と「クラウド」の2領域に分けるため、クラウドのボリュームへ
+# 移した（2026-10-03）。HDD 上は実際に書いた分だけを使う。
+resource "shakecloud_volume" "bulk" {
+  size_gib  = var.bulk_disk_gib
+  disk_tier = "hdd"
+  tags      = { Name = "${var.name}-bulk" }
+
+  lifecycle {
+    # 音楽・本・Nextcloud のファイルの原本。VM や state の操作で消さない。
+    prevent_destroy = true
+  }
+}
+
+resource "shakecloud_volume_attachment" "bulk" {
+  volume_id   = shakecloud_volume.bulk.id
+  instance_id = shakecloud_instance.media.id
+}

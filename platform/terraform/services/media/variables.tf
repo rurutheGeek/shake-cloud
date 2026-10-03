@@ -67,3 +67,9 @@ variable "data_mount_path" {
   type        = string
   default     = "/srv/media-stack"
 }
+
+variable "bulk_disk_gib" {
+  description = "大容量データ用の HDD ボリューム（GiB）。1本の上限は cloud.yaml の volume_size_gib.max。"
+  type        = number
+  default     = 500
+}

@@ -13,9 +13,9 @@ tags:
 
 > **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **構築済み・データ移行済み**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、**media-01**（メディアライブラリ・Nextcloudデータ・クライアント端末バックアップ）と**game1**（ROM原本）へNFSで共有します。宣言は Ansible ロール `platform/ansible/roles/pve_bulk_storage`（ホスト側）と `platform/ansible/media-base.yml`（media-01側）です。
+**状態**: **構築済み。2026-10-03 に「バックアップ領域」と「クラウド領域」の2つへ整理**。Proxmoxホスト（apextox）へUSB接続した6TB HDDをext4にし、vzdump などのバックアップと、クラウドAPIのHDDティア（VMのディスクとボリューム）に使います。**media-01 のデータ（共有ライブラリ・Nextcloudデータ・端末バックアップ）は、ホストの HDD を NFS で直接使うのをやめ、クラウドの HDD ボリュームへ移しました。** NFS で出すのは game1 向けの ROM とセーブだけです。
 
-VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置くのは、大きく・読み取り中心のライブラリだけにします。
+VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置くのは、大きく・読み取り中心のデータとバックアップだけにします。
 
 ## 1. 実体
 
@@ -24,8 +24,8 @@ VMのOSディスク・DB・アプリ状態はSSDのままです。ここへ置�
 | ディスク | WDC WD60EZAX-00C8VB0（6TB、5400rpm、CMR）。ディスク自身の識別子で固定: `/dev/disk/by-id/ata-WDC_WD60EZAX-00C8VB0_WD-WX32D94PX6R8` |
 | 接続 | Sharkoon SATA QuickPort Duo（JMicron JMS551）のUSB。**USB3ポートを使う**（USB2では実効40MB/s前後） |
 | ファイルシステム | ext4、ラベル `bulk6tb`、`/srv/bulk` へUUIDマウント（`nofail,noatime`、予約領域1%） |
-| 共有 | ホストの NFS。`/etc/exports.d/bulk.exports` をロールが書く |
-| 内容 | `/srv/bulk/media`（media-01用の `books`・`docs`・`inbox`・`music`）、`/srv/bulk/nextcloud-data`（Nextcloudのユーザーホーム・appdata）、`/srv/bulk/client-backups`（media-01用のUrBackupの端末バックアップ。[端末バックアップ](client-backup.md)）、`/srv/bulk/roms`（game1用）、`/srv/bulk/backups`（vzdumpの保存先とgame1セーブ。[バックアップ](backup.md)）、`/srv/bulk/disks`（クラウドAPIのHDDティアのVMディスク。Proxmoxの dir ストレージ `bulk-disks`） |
+| 共有 | ホストの NFS（game1 向けだけ）。`/etc/exports.d/bulk.exports` をロールが書く |
+| 内容 | **バックアップ領域** `/srv/bulk/backups`（vzdump の `dump`、game1 のセーブ `game1-saves`）と、**クラウド領域** `/srv/bulk/disks`（Proxmox の dir ストレージ `bulk-disks`。HDDティアのVMディスクとボリューム）。ほかに game1 用の `/srv/bulk/roms` |
 | 冗長性 | **無い**。単一ディスク・USB接続。唯一の保存先・唯一のバックアップにしない |
 
 ## 2. セットアップと再実行
@@ -54,12 +54,29 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ## 3. media-01 のマウント
 
-- `/srv/media-stack/library` へ `192.168.10.10:/srv/bulk/media`、`/srv/media-stack/storage/nextcloud/data` へ `192.168.10.10:/srv/bulk/nextcloud-data` を `nfs4` でマウントします。fstabは `_netdev,nofail,x-systemd.mount-timeout=30`。**Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdataもHDD上**にあります。`/srv/media-stack/client-backups` へ `192.168.10.10:/srv/bulk/client-backups` も載せ、UrBackup のバックアップ本体を置きます。
-- `docker.service` に `RequiresMountsFor` のdrop-in（`20-media-library.conf`）があります。**この3つの共有をマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない。データディスクと同じ考え方）。
-- マウントを後から足したときは、起動済みコンテナが古いローカルディスクを掴んだままです。ロールはマウントしたときに `docker` を再起動します。
+media-01 のデータは、クラウドの HDD ボリューム（`platform/terraform/services/media` の `shakecloud_volume.bulk`、500GiB、実際に書いた分だけ HDD を使う）に置きます。
+
+- `media-base.yml` がボリュームをラベル `media-bulk` で `/srv/media-bulk` へ載せ、その下の3つのディレクトリをアプリの場所へ bind します。`library` → `/srv/media-stack/library`、`nextcloud-data` → `/srv/media-stack/storage/nextcloud/data`、`client-backups` → `/srv/media-stack/client-backups`。
+- ボリュームの初期化（mkfs）は、デバイスを明示したときだけ行います。中身のあるデバイスは消しません。デバイスは `tools/tf services/media output bulk_device_path` の値です。
+
+    ```bash
+    ... platform/ansible/media-base.yml -e media_bulk_initialize_device=/dev/disk/by-id/virtio-vol...
+    ```
+
+- `docker.service` に `RequiresMountsFor` のdrop-in（`20-media-library.conf`）があります。**この3つをマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない）。
 - Nextcloudの外部ストレージ・Kavita・Navidrome・LocalSendの `LIBRARY_ROOT` は今までどおり `/srv/media-stack/library` です。見え方は[Nextcloudの共有ライブラリのアクセス権限](nextcloud-permissions.md)のままです。
-- **Nextcloudのユーザーホーム（各ユーザーの「ファイル」）とappdata（プレビュー等）もHDD上**になりました（2026-09-23移行。303MB・408ファイルをバイト一致で確認）。画像の多いフォルダの表示はSSD時代より遅くなる可能性があります。
-- 移行前のデータはSSDに `data.ssd-backup-20260923` として残っています。Nextcloudのログインとファイル表示を確認したあと、`sudo rm -rf /srv/media-stack/storage/nextcloud/data.ssd-backup-20260923` で消せます。
+- 所有権はコンテナの利用者そのまま（`library`・`nextcloud-data` は www-data 33、`client-backups` は UrBackup 101）。NFS の頃の `all_squash` による読み替えはもうありません。
+
+## 領域ごとの上限
+
+パーティションは切り直さず、ext4 のプロジェクトクォータでディレクトリごとに上限を持たせています。片方が膨らんでも、もう片方の空きを食いません。上限に達した領域への書き込みは「ディスクが満杯」と同じ失敗になります。
+
+| 領域 | 場所 | 上限 |
+| --- | --- | --- |
+| バックアップ | `/srv/bulk/backups` | 2000GiB |
+| クラウド | `/srv/bulk/disks` | 3400GiB |
+
+値は `platform/ansible/roles/pve_bulk_storage/defaults/main.yml` の `pve_bulk_storage_quotas` です。使用量は `repquota -P /srv/bulk` で見ます。クォータの機能を初めて入れるときだけアンマウントが要るので、HDD を使うVMを止めてから `-e pve_bulk_storage_enable_quota_offline=true` を付けて実行します。
 
 ## 4. game1 のマウント（Bazzite）
 
@@ -86,12 +103,9 @@ RomMは `/srv/game1/games` を `/romm/library:ro` で読みます（正本は `s
 
 | 項目 | 値 | 理由 |
 | --- | --- | --- |
-| media | `all_squash,anonuid=33,anongid=33` | コンテナはwww-data(33)で読み書きする。root_squashだけだとroot実行のKavitaがnobodyになり、2750のディレクトリを読めない |
-| nextcloud-data | `all_squash,anonuid=33,anongid=33` | Nextcloudのユーザーホーム・appdata。mediaと同じ扱い |
-| client-backups | `all_squash,anonuid=101,anongid=101` | UrBackupコンテナの `urbackup`（PUID/PGID=101）に合わせる。イメージの重複排除がハードリンクを使うため、同じ共有に置く |
 | roms | `all_squash,anonuid=1000,anongid=1000` | game1の利用者がそのままコピーできる。ゲスト側のuidに依存しない |
 | game1-saves | `all_squash,anonuid=1000,anongid=1000` | game1のセーブの受け取り先。romsと同じ扱い |
-| 公開先 | 192.168.10.101（media-01）と192.168.10.127（game1） | LAN全体には出さない。`backups` 自体は公開しない |
+| 公開先 | 192.168.10.127（game1）だけ | LAN全体には出さない。`backups` 自体は公開しない |
 
 ゲスト側のuidに依存しないので、VMを作り直しても共有側の所有権は変わりません。RomMコンテナはcompose側の `:ro` で原本を守ります。
 
@@ -101,8 +115,11 @@ RomMは `/srv/game1/games` を `/romm/library:ro` で読みます（正本は `s
 # ホスト
 ssh root@192.168.10.10 'findmnt /srv/bulk; exportfs -v; smartctl -a -d sat /dev/sda | head -20'
 
+# 領域ごとの使用量と上限
+ssh root@192.168.10.10 'repquota -P /srv/bulk'
+
 # media-01
-ssh debian@192.168.10.101 'findmnt /srv/media-stack/library; df -h /srv/media-stack/library'
+ssh debian@192.168.10.101 'findmnt /srv/media-bulk /srv/media-stack/library; df -h /srv/media-bulk'
 ssh debian@192.168.10.101 'sudo -u www-data touch /srv/media-stack/library/inbox/.probe && sudo rm /srv/media-stack/library/inbox/.probe && echo WRITE_OK'
 ```
 

@@ -123,23 +123,6 @@
   when: pve_bulk_storage_mountpoint.rc != 0
   changed_when: true
 
-- name: Create the media share root
-  ansible.builtin.file:
-    path: '{{ pve_bulk_storage_media_dir }}'
-    state: directory
-    owner: '{{ pve_bulk_storage_media_uid }}'
-    group: '{{ pve_bulk_storage_media_gid }}'
-    mode: '2775'
-
-- name: Create the media library directories
-  ansible.builtin.file:
-    path: '{{ pve_bulk_storage_media_dir }}/{{ item }}'
-    state: directory
-    owner: '{{ pve_bulk_storage_media_uid }}'
-    group: '{{ pve_bulk_storage_media_gid }}'
-    mode: '2750'
-  loop: '{{ pve_bulk_storage_media_subdirs }}'
-
 - name: Create the ROM library directory
   ansible.builtin.file:
     path: '{{ pve_bulk_storage_roms_dir }}'
@@ -216,22 +199,6 @@
     group: '{{ pve_bulk_storage_roms_gid }}'
     mode: '2775'
 
-- name: Create the Nextcloud data directory
-  ansible.builtin.file:
-    path: '{{ pve_bulk_storage_nextcloud_dir }}'
-    state: directory
-    owner: '{{ pve_bulk_storage_media_uid }}'
-    group: '{{ pve_bulk_storage_media_gid }}'
-    mode: '2775'
-
-- name: Create the client backups directory
-  ansible.builtin.file:
-    path: '{{ pve_bulk_storage_client_backups_dir }}'
-    state: directory
-    owner: '{{ pve_bulk_storage_client_backups_uid }}'
-    group: '{{ pve_bulk_storage_client_backups_gid }}'
-    mode: '2770'
-
 - name: Ensure the export directory exists
   ansible.builtin.file:
     path: /etc/exports.d
@@ -252,3 +219,93 @@
     name: nfs-kernel-server
     state: started
     enabled: true
+
+# --- 領域ごとの上限 ---------------------------------------------------------
+- name: Install the quota tools
+  ansible.builtin.apt:
+    name: quota
+    state: present
+
+- name: Read the filesystem features
+  ansible.builtin.command:
+    argv: [tune2fs, -l, '{{ pve_bulk_storage_partition }}']
+  register: pve_bulk_storage_features
+  changed_when: false
+
+- name: Note whether project quotas are enabled
+  ansible.builtin.set_fact:
+    pve_bulk_storage_has_quota: >-
+      {{ pve_bulk_storage_features.stdout is search('Filesystem features:.*\bproject\b')
+         and pve_bulk_storage_features.stdout is search('Filesystem features:.*\bquota\b') }}
+
+- name: Refuse to unmount the bulk disk without an explicit request
+  ansible.builtin.assert:
+    that: pve_bulk_storage_has_quota or pve_bulk_storage_enable_quota_offline | bool
+    fail_msg: >-
+      The filesystem has no project quota yet. Enabling it unmounts
+      {{ pve_bulk_storage_mount }}: stop the VMs that use the HDD, then run with
+      -e pve_bulk_storage_enable_quota_offline=true.
+
+- name: Enable project quotas on the unmounted filesystem
+  when: not pve_bulk_storage_has_quota
+  block:
+    - name: Stop the NFS server while the disk is unmounted
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: stopped
+
+    - name: Unmount the bulk disk
+      ansible.builtin.command:
+        argv: [umount, '{{ pve_bulk_storage_mount }}']
+      changed_when: true
+
+    - name: Turn on the project quota feature
+      ansible.builtin.command:
+        argv: [tune2fs, -O, project, -Q, prjquota, '{{ pve_bulk_storage_partition }}']
+      changed_when: true
+
+    - name: Mount the bulk disk again
+      ansible.builtin.command:
+        argv: [mount, '{{ pve_bulk_storage_mount }}']
+      changed_when: true
+
+    - name: Start the NFS server again
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: started
+
+- name: Read each area's project
+  ansible.builtin.command:
+    argv: [lsattr, -pd, '{{ item.path }}']
+  register: pve_bulk_storage_projects
+  changed_when: false
+  loop: '{{ pve_bulk_storage_quotas }}'
+  loop_control:
+    label: '{{ item.name }}'
+
+# +P は「この下に作るものへ同じプロジェクトを継がせる」。既存の中身にも付ける。
+- name: Put each area in its project
+  ansible.builtin.command:
+    argv: [chattr, -R, +P, -p, '{{ item.item.id }}', '{{ item.item.path }}']
+  when: item.stdout is not match('^\s*' ~ item.item.id ~ '\s+\S*P')
+  changed_when: true
+  loop: '{{ pve_bulk_storage_projects.results }}'
+  loop_control:
+    label: '{{ item.item.name }}'
+
+# 同じ値を書くだけなので毎回実行する（単位は 1KiB ブロック）。
+- name: Set each area's limit
+  ansible.builtin.command:
+    argv:
+      - setquota
+      - -P
+      - '{{ item.id }}'
+      - '0'
+      - '{{ item.hard_gib * 1024 * 1024 }}'
+      - '0'
+      - '0'
+      - '{{ pve_bulk_storage_mount }}'
+  changed_when: false
+  loop: '{{ pve_bulk_storage_quotas }}'
+  loop_control:
+    label: '{{ item.name }} {{ item.hard_gib }}GiB'

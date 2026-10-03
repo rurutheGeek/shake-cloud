@@ -70,7 +70,7 @@ tags:
 - 2回目以降は、サイズと更新時刻が同じファイルを飛ばすので短時間で終わる。
 - 画面ロックは解除しておく（ADBの許可と読み取りのため）。
 - Windowsで他のADBツール（スマホ管理ソフト等）が動いているとUSBを取り合って失敗する。閉じてから実行する。
-- 保存先: `/srv/bulk/client-backups/android/<端末>/files/...`（写真・書類）と `apk/`。インデックスは `index.json`。
+- 保存先: `/srv/media-stack/client-backups/android/<端末>/files/...`（写真・書類）と `apk/`。インデックスは `index.json`。
 
 ### 3.3 復元
 
@@ -81,7 +81,7 @@ tags:
 ## 4. 保存先と保持
 
 - サーバー状態: `/srv/media-stack/storage/urbackup`（ローカルデータディスク。`manage.py backup` の対象）
-- バックアップ本体: `/srv/bulk/client-backups/urbackup`（6TB HDD。NFS で media-01 の `/srv/media-stack/client-backups` にマウント）
+- バックアップ本体: `/srv/media-stack/client-backups/urbackup`（media-01 の HDD ボリューム `media-01-bulk` 上。2026-10-03 に NFS から移行）
 - 空き容量が厳しくなると、UrBackup が古い世代から削除する（ソフトクォータ95%）。Grafana の「Shake Lab storage」で HDD の空きを監視する。
 - **HDD は冗長化されていない。** 端末バックアップも唯一のコピーにしないよう、別ディスク・別機器への2次コピーを後日足す（[O01](../development/O01-cloud-backup.md) 系の課題）。
 

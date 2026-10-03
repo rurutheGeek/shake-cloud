@@ -158,3 +158,30 @@ func TestAdoptingAnHDDDiskRecordsTheHDDTier(t *testing.T) {
 		t.Fatalf("adopted disk tier %q, want hdd", instance.DiskTier)
 	}
 }
+
+func TestAnAttachedHDDVolumeIsLeftOutOfVMBackups(t *testing.T) {
+	s, pve, _ := testService(t)
+	s.Site.Storage.VMDisksHDD = "bulk-disks"
+	ctx := context.Background()
+	alice := newAccount(t, s, "alice")
+	instance := running(t, s, alice)
+
+	hdd, _, err := s.CreateVolume(ctx, alice, CreateVolumeRequest{SizeGiB: 10, DiskTier: "hdd"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ssd := newVolume(t, s, alice, 10)
+	work(t, s, 5)
+	for _, id := range []string{hdd.ID, ssd.ID} {
+		if _, err := s.AttachVolume(ctx, id, instance.ID, "", ownedBy(alice), nil); err != nil {
+			t.Fatal(err)
+		}
+		work(t, s, 5)
+	}
+	onHDD, _ := pve.vms[*instance.VMID].config[getVolume(t, s, hdd.ID).Device].(string)
+	onSSD, _ := pve.vms[*instance.VMID].config[getVolume(t, s, ssd.ID).Device].(string)
+	// The backups live on the same HDD; an SSD volume is still backed up.
+	if !strings.Contains(onHDD, "backup=0") || strings.Contains(onSSD, "backup=0") || onSSD == "" {
+		t.Fatalf("hdd %q, ssd %q", onHDD, onSSD)
+	}
+}

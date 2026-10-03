@@ -31,3 +31,8 @@ output "data_mount_path" {
   description = "ゲストがデータディスクをマウントするパス。"
   value       = var.data_mount_path
 }
+
+output "bulk_device_path" {
+  description = "ゲストが見る HDD ボリュームのパス。media-base.yml の初期化で使う。"
+  value       = shakecloud_volume_attachment.bulk.device_path
+}

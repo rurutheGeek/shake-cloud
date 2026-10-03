@@ -38,14 +38,6 @@ class HostRoleTests(unittest.TestCase):
         self.assertIn('nofail', opts)
         self.assertIn('noatime', opts)
 
-    def test_the_media_export_squashes_to_www_data(self):
-        export = [item for item in DEFAULTS['pve_bulk_storage_exports']
-                  if 'media_dir' in item['path']][0]
-        self.assertEqual(export['clients'], '192.168.10.101')
-        self.assertIn('all_squash', export['options'])
-        self.assertIn('anonuid=33', export['options'])
-        self.assertIn('anongid=33', export['options'])
-
     def test_the_roms_export_squashes_to_the_game1_uid(self):
         export = [item for item in DEFAULTS['pve_bulk_storage_exports']
                   if 'roms_dir' in item['path']][0]
@@ -54,10 +46,7 @@ class HostRoleTests(unittest.TestCase):
         self.assertIn('anonuid=1000', export['options'])
 
     def test_the_shared_directories_match_the_export_ids(self):
-        self.assertEqual(DEFAULTS['pve_bulk_storage_media_uid'], 33)
         self.assertEqual(DEFAULTS['pve_bulk_storage_roms_uid'], 1000)
-        self.assertEqual(sorted(DEFAULTS['pve_bulk_storage_media_subdirs']),
-                         ['books', 'docs', 'inbox', 'music'])
 
     def test_the_game1_saves_export_lives_under_the_backup_root(self):
         saves = DEFAULTS['pve_bulk_storage_game1_saves_dir']
@@ -68,24 +57,6 @@ class HostRoleTests(unittest.TestCase):
                   if 'game1_saves_dir' in item['path']][0]
         self.assertEqual(export['clients'], '192.168.10.127')
         self.assertIn('anonuid=1000', export['options'])
-
-    def test_the_nextcloud_data_is_exported_to_media_01(self):
-        export = [item for item in DEFAULTS['pve_bulk_storage_exports']
-                  if 'nextcloud_dir' in item['path']][0]
-        self.assertEqual(export['clients'], '192.168.10.101')
-        self.assertIn('all_squash', export['options'])
-        self.assertIn('anonuid=33', export['options'])
-
-    def test_the_client_backups_export_squashes_to_the_urbackup_uid(self):
-        export = [item for item in DEFAULTS['pve_bulk_storage_exports']
-                  if 'client_backups_dir' in item['path']][0]
-        self.assertEqual(export['clients'], '192.168.10.101')
-        self.assertIn('all_squash', export['options'])
-        self.assertIn('anonuid=101', export['options'])
-        self.assertIn('anongid=101', export['options'])
-        # コンテナ内 urbackup ユーザー（entrypoint の既定）と同じ値にする。
-        self.assertEqual(DEFAULTS['pve_bulk_storage_client_backups_uid'], 101)
-        self.assertEqual(DEFAULTS['pve_bulk_storage_client_backups_gid'], 101)
 
     def test_it_registers_the_hdd_disk_tier(self):
         # The cloud API's disk_tier=hdd points at this storage. Registering it
@@ -125,8 +96,27 @@ class HostRoleTests(unittest.TestCase):
                    and task['ansible.builtin.file']['state'] == 'directory']
         self.assertIn('{{ pve_bulk_storage_backup_dir }}', targets)
         self.assertIn('{{ pve_bulk_storage_game1_saves_dir }}', targets)
-        self.assertIn('{{ pve_bulk_storage_nextcloud_dir }}', targets)
-        self.assertIn('{{ pve_bulk_storage_client_backups_dir }}', targets)
+
+    def test_only_game1_is_served_over_nfs(self):
+        # media-01 のデータはクラウドの HDD ボリュームへ移した。ホストの HDD は
+        # バックアップ領域とクラウド領域だけにする。
+        clients = {item['clients'] for item in DEFAULTS['pve_bulk_storage_exports']}
+        self.assertEqual(clients, {'192.168.10.127'})
+
+    def test_the_two_areas_have_separate_limits_that_fit_the_disk(self):
+        quotas = {item['name']: item for item in DEFAULTS['pve_bulk_storage_quotas']}
+        self.assertEqual(set(quotas), {'backup', 'cloud'})
+        self.assertEqual(quotas['backup']['path'], '{{ pve_bulk_storage_backup_dir }}')
+        self.assertEqual(quotas['cloud']['path'], '{{ pve_bulk_storage_disks_dir }}')
+        self.assertNotEqual(quotas['backup']['id'], quotas['cloud']['id'])
+        # 6TB の実容量は約 5.5TiB（5588GiB）。
+        self.assertLessEqual(sum(item['hard_gib'] for item in quotas.values()), 5500)
+
+    def test_enabling_quotas_never_unmounts_without_an_explicit_request(self):
+        self.assertFalse(DEFAULTS['pve_bulk_storage_enable_quota_offline'])
+        names = self.task_names()
+        self.assertLess(names.index('Refuse to unmount the bulk disk without an explicit request'),
+                        names.index('Enable project quotas on the unmounted filesystem'))
 
     def task_names(self):
         return [task.get('name', '') for task in TASKS]
@@ -187,47 +177,30 @@ class MediaBaseTests(unittest.TestCase):
         self.text = read(MEDIA_BASE)
         self.tasks = yaml.safe_load(self.text)[0]['tasks']
 
-    def test_it_installs_the_nfs_client(self):
-        packages = [task['ansible.builtin.apt']['name'] for task in self.tasks
-                    if 'ansible.builtin.apt' in task]
-        self.assertIn('nfs-common', packages)
-
-    def test_it_creates_the_mount_points_before_mounting(self):
-        # 無いと mount.nfs4 が rc=32 で止まり、Docker も起動しない。
-        task = [task for task in self.tasks
-                if task.get('name') == 'Create the shared storage mount points'][0]
-        self.assertEqual(task['ansible.builtin.file']['state'], 'directory')
-        self.assertEqual(task['loop'],
-                         ['{{ library_root }}', '{{ nextcloud_data_dir }}',
-                          '{{ client_backup_root }}'])
+    def test_the_bulk_volume_is_formatted_only_on_request_and_never_over_data(self):
         names = [t.get('name', '') for t in self.tasks]
-        self.assertLess(names.index('Create the shared storage mount points'),
-                        names.index('Mount the shared library at boot'))
+        refuse = names.index('Refuse to format a device that already has a filesystem')
+        mkfs = names.index('Format the bulk volume')
+        self.assertLess(refuse, mkfs)
+        for task in self.tasks[refuse:mkfs + 1]:
+            self.assertEqual(task['when'], 'media_bulk_initialize_device is defined')
 
-    def test_it_mounts_the_host_share_at_the_library_root(self):
-        task = [task for task in self.tasks
-                if task.get('name') == 'Mount the shared library at boot'][0]
-        line = task['ansible.builtin.lineinfile']['line']
-        for fragment in ('bulk_storage_server', 'bulk_storage_media_path',
-                         'library_root', 'nfs4', 'bulk_storage_mount_opts'):
-            self.assertIn(fragment, line)
-        self.assertIn('mountpoint', self.text)
+    def test_it_mounts_the_volume_by_label_then_binds_the_application_paths(self):
+        names = [t.get('name', '') for t in self.tasks]
+        self.assertLess(names.index('Mount the bulk volume now'),
+                        names.index('Bind the bulk volume directories now'))
+        mount = [t for t in self.tasks if t.get('name') == 'Mount the bulk volume at boot'][0]
+        self.assertIn('LABEL={{ media_bulk_label }}', mount['ansible.builtin.lineinfile']['line'])
+        bind = [t for t in self.tasks if t.get('name') == 'Bind the bulk volume directories at boot'][0]
+        line = bind['ansible.builtin.lineinfile']['line']
+        self.assertIn('bind', line)
+        self.assertIn('x-systemd.requires-mounts-for={{ media_bulk_mount }}', line)
 
-    def test_it_mounts_the_nextcloud_data_on_the_host_share(self):
-        task = [task for task in self.tasks
-                if task.get('name') == 'Mount the Nextcloud data at boot'][0]
-        line = task['ansible.builtin.lineinfile']['line']
-        for fragment in ('bulk_storage_server', 'bulk_storage_nextcloud_path',
-                         'nextcloud_data_dir', 'nfs4', 'bulk_storage_mount_opts'):
-            self.assertIn(fragment, line)
-
-    def test_it_mounts_the_client_backups_on_the_host_share(self):
-        task = [task for task in self.tasks
-                if task.get('name') == 'Mount the client backups at boot'][0]
-        line = task['ansible.builtin.lineinfile']['line']
-        for fragment in ('bulk_storage_server', 'bulk_storage_client_backups_path',
-                         'client_backup_root', 'nfs4', 'bulk_storage_mount_opts'):
-            self.assertIn(fragment, line)
+    def test_the_nfs_mounts_are_removed(self):
+        self.assertNotIn('nfs-common', self.text)
+        task = [t for t in self.tasks
+                if t.get('name') == 'Drop the NFS mounts the bulk volume replaced'][0]
+        self.assertEqual(task['ansible.builtin.lineinfile']['state'], 'absent')
 
     def test_docker_will_not_start_without_the_library(self):
         task = [task for task in self.tasks
@@ -240,22 +213,22 @@ class MediaBaseTests(unittest.TestCase):
 
     def test_an_added_mount_restarts_docker(self):
         task = [task for task in self.tasks
-                if task.get('name') == 'Mount the shared library now'][0]
+                if task.get('name') == 'Bind the bulk volume directories now'][0]
         self.assertEqual(task['notify'], 'Restart Docker to pick up the shared library')
         handlers = yaml.safe_load(self.text)[0]['handlers']
         restart = [handler for handler in handlers if handler.get('name') == task['notify']][0]
         self.assertEqual(restart['ansible.builtin.systemd_service']['state'], 'restarted')
 
-    def test_the_group_vars_point_at_the_host_export(self):
+    def test_the_group_vars_bind_every_application_path(self):
         values = yaml.safe_load(read(GROUP_VARS))
-        self.assertEqual(values['bulk_storage_server'], '192.168.10.10')
-        self.assertEqual(values['bulk_storage_media_path'], '/srv/bulk/media')
-        self.assertEqual(values['bulk_storage_nextcloud_path'], '/srv/bulk/nextcloud-data')
         self.assertEqual(values['nextcloud_data_dir'], '/srv/media-stack/storage/nextcloud/data')
-        self.assertEqual(values['bulk_storage_client_backups_path'], '/srv/bulk/client-backups')
         self.assertEqual(values['client_backup_root'], '/srv/media-stack/client-backups')
-        self.assertIn('_netdev', values['bulk_storage_mount_opts'])
-        self.assertIn('nofail', values['bulk_storage_mount_opts'])
+        self.assertIn('nofail', values['media_bulk_mount_opts'])
+        binds = {item['source']: item for item in values['media_bulk_binds']}
+        self.assertEqual(set(binds), {'library', 'nextcloud-data', 'client-backups'})
+        self.assertEqual(binds['library']['target'], '{{ library_root }}')
+        # コンテナ内 urbackup ユーザー（entrypoint の既定）と同じ値にする。
+        self.assertEqual(binds['client-backups']['uid'], 101)
 
 
 class DocumentationTests(unittest.TestCase):
