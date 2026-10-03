@@ -9,6 +9,8 @@
     argv: [sops, --decrypt, --extract, '["CLOUDFLARE_DNS_API_TOKEN"]', '{{ tls_proxy_sops_file }}']
   register: tls_proxy_token
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
   when: not tls_proxy_behind_edge
 

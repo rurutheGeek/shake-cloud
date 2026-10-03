@@ -39,6 +39,8 @@
                '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
       register: nextcloud_mcp_tag_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Write the MCP environment
       # 利用者の資格情報は保存しない。ここにあるのはtag-apiの共有トークンだけ。

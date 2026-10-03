@@ -79,6 +79,8 @@
       become: false
       register: eufy_values
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
       when: eufy_sops.stat.exists
 

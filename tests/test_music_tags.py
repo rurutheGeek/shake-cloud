@@ -12,7 +12,7 @@ import urllib.error
 
 import yaml
 
-from support import read
+from support import compose_stack_vars, read
 
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/music-tools'
@@ -130,9 +130,7 @@ class DeploymentTests(unittest.TestCase):
     def test_the_playbook_ships_the_api_and_its_token(self):
         services = self.play['vars']['music_tools_services']
         self.assertIn('tag-api', services)
-        copy_task = [task for task in self.play['tasks']
-                     if task['name'] == 'Copy tool definitions'][0]
-        self.assertIn('tag_api.py', str(copy_task['loop']))
+        self.assertIn('tag_api.py', compose_stack_vars(self.play)['compose_stack_files'])
         text = read(PLAYBOOK)
         self.assertIn('music-tags.sops.yaml', text)
         self.assertIn("'tag-api' in music_tools_services", text)

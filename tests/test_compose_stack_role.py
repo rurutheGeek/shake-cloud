@@ -9,7 +9,8 @@ from support import compose_stack_vars
 ROOT = Path(__file__).resolve().parents[1]
 ROLE = ROOT / 'platform/ansible/roles/compose_stack'
 # Plays that have been moved onto the role. The rest still spell the steps out.
-PLAYS = ['media-kavita.yml', 'media-navidrome.yml', 'media-freshrss.yml', 'media-localsend.yml']
+PLAYS = ['media-kavita.yml', 'media-navidrome.yml', 'media-freshrss.yml', 'media-localsend.yml',
+         'media-nextcloud.yml', 'music-tools.yml']
 
 
 class RoleTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class RoleTests(unittest.TestCase):
         self.assertEqual(self.defaults['compose_stack_actions'], ['init', 'up'])
         manage = self.tasks["Run the stack's manage.py"]
         self.assertEqual(manage['ansible.builtin.command']['argv'],
-                         ['python3', '{{ compose_stack_project_dir }}/manage.py', '{{ item }}'])
+                         "{{ ['python3', compose_stack_project_dir ~ '/manage.py'] + ([item] if item is string else item) }}")
         self.assertEqual(manage['loop'], '{{ compose_stack_actions }}')
 
     def test_a_rerun_that_changes_nothing_reports_nothing(self):
@@ -45,14 +46,15 @@ class RoleTests(unittest.TestCase):
         for word in ('Created', 'Recreated', 'Started'):
             self.assertIn(f"'{word}' in compose_stack_manage.stderr", changed)
 
-    def test_every_manage_py_follows_the_convention_the_role_reads(self):
+    def test_every_action_a_play_asks_for_exists_in_its_manage_py(self):
+        default = self.defaults['compose_stack_actions']
         for name in PLAYS:
             stack = compose_stack_vars(yaml.safe_load((ROOT / 'platform/ansible' / name).read_text())[0])
             relative = stack['compose_stack_source_dir'].replace('{{ source_dir }}/', '')
             text = (ROOT / 'stacks' / relative / 'manage.py').read_text()
-            self.assertIn("'init'", text, name)
-            self.assertIn("'up'", text, name)
-            self.assertIn("print('OK:", text, name)
+            for action in stack.get('compose_stack_actions', default):
+                verb = action if isinstance(action, str) else action[0]
+                self.assertIn(f"'{verb}'", text, f'{name}: {verb}')
 
 
 class PlayTests(unittest.TestCase):

@@ -198,6 +198,7 @@ terraform -chdir=platform/terraform/services/<name> apply
 - `compose.lock.yaml`（イメージのdigest）は**必ずリポジトリに置いて配ります**。配備先で `pull` して決めさせません（`tests/test_image_locks.py`）。
 - `manage.py` は、何かを作った・変えたときだけ `CHANGED:` を、そうでなければ `OK:` を出します。ロールはこれと `docker compose` の出力を見て、**変わったときだけ「changed」と報告します**。再実行して `changed=0` なら、実機はリポジトリと揃っています。
 - 追加の手順（初期ユーザーの作成、systemd タイマーなど）は、ロールの呼び出しの後ろへタスクとして足します（例: `platform/ansible/media-kavita.yml`）。
+- 配り直す前に `--check --diff` を付けて流すと、実機を変えずに差分だけを確かめられます。秘密値を読むタスクには `check_mode: false` を付けて、確認モードでも後続が値を使えるようにします。
 - 秘密は SOPS から写すか、`manage.py init` に配備先で生成させます。**Git へ入れません。** `.env` に秘密値を書く場合は `compose_stack_env_no_log: true` を付けます。
 
 ### 5. 名前を付ける（任意）

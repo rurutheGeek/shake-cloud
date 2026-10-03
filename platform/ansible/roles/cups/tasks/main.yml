@@ -185,6 +185,8 @@
     argv: [sops, --decrypt, --extract, '["PRINT_API_TOKEN"]', '{{ cups_print_api_sops_file }}']
   register: cups_print_api_token
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Create the print API directory

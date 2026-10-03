@@ -18,6 +18,7 @@
 compose_stack_directories: []
 compose_stack_directory_mode: '0750'
 # manage.py へ順に渡す。init は秘密値や保存先を作り、up は起動して待つ。
+# 引数が要るものはリストで書く（例: [up, --services, metube]）。
 compose_stack_actions: [init, up]
 # .env に秘密値を書くスタックは true にして、差分をログへ出さない。
 compose_stack_env_no_log: false
