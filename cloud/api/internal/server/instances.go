@@ -295,6 +295,41 @@ func (s *Server) modifyInstance(w http.ResponseWriter, r *http.Request, c *call)
 	s.writeInstance(w, r, http.StatusOK, service, instance, true)
 }
 
+// modifyInstanceTags replaces an instance's tags. The owner or an admin may do
+// it; Name is the display name and may change too.
+func (s *Server) modifyInstanceTags(w http.ResponseWriter, r *http.Request, c *call) {
+	service := s.computeService(w, r)
+	if service == nil {
+		return
+	}
+	id := r.PathValue("instance_id")
+	if !s.mayAct(w, r, c, id) {
+		return
+	}
+	var request struct {
+		Tags map[string]string `json:"tags"`
+	}
+	if !decodeJSON(w, r, &request) {
+		return
+	}
+	instance, err := service.SetInstanceTags(r.Context(), id, request.Tags, c.mayTouch,
+		func(tx pgx.Tx, i db.Instance) error {
+			event := c.event("", map[string]any{"owner_account_id": i.AccountID, "tags": i.Tags})
+			event.ResourceID = i.ID
+			return db.RecordAudit(r.Context(), tx, event)
+		})
+	if err != nil {
+		if refusal := (*compute.Error)(nil); errors.As(err, &refusal) {
+			event := c.event(refusal.Code, nil)
+			event.ResourceID = id
+			s.recordDenied(r.Context(), event)
+		}
+		s.computeError(w, r, err)
+		return
+	}
+	s.writeInstance(w, r, http.StatusOK, service, instance, true)
+}
+
 // instanceAction handles terminate, start, stop and reboot, which differ only
 // in the word they record.
 func instanceAction(action string) func(*Server, http.ResponseWriter, *http.Request, *call) {

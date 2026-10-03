@@ -58,6 +58,7 @@ shakecloud [--endpoint URL] [--json] <command> [args]
 | `instance rm ID [--wait]` | 削除（Terminate） |
 | `instance console ID` | 短命のコンソールURLを表示（開くと noVNC） |
 | `instance sg ID GROUP...` | セキュリティグループを差し替え |
+| `instance tag [--name 名前] [--tag キー=値]... [--remove キー]... ID` | 名前（`Name` タグ）やタグを変える。指定したものだけ変わる。**名前を変えても、VMの中のホスト名は変わらない** |
 | `instance modify ID [--vcpus N] [--memory MIB] [--min-memory MIB] [--balloon=true\|false] [--disk GiB]` | 大きさの変更（管理者） |
 | `instance types` | サイズの雛形 |
 | `instance adopt --vmid N --account ID [--name NAME] [--ip ADDR] [--disk GiB]` | 既存VMの引き取り（管理者） |

@@ -34,6 +34,8 @@ func (g globals) instances(args []string) error {
 		return g.instanceConsole(rest)
 	case "sg", "security-groups":
 		return g.instanceSetGroups(rest)
+	case "tag", "tags":
+		return g.instanceTag(rest)
 	case "modify":
 		return g.instanceModify(rest)
 	case "adopt":
@@ -329,6 +331,54 @@ func (g globals) instanceSetGroups(args []string) error {
 		return g.printJSON(instance)
 	}
 	fmt.Printf("%s security groups updated\n", instance.InstanceID)
+	return nil
+}
+
+// instanceTag edits tags in place: the API replaces the whole set, so the
+// current tags are read first and only the named ones change.
+func (g globals) instanceTag(args []string) error {
+	flags := flag.NewFlagSet("shakecloud instance tag", flag.ContinueOnError)
+	set := keyValues{}
+	flags.Var(set, "tag", "tag to add or change, key=value (repeatable)")
+	name := flags.String("name", "", "new display name (the Name tag); the guest hostname does not change")
+	var remove stringsFlag
+	flags.Var(&remove, "remove", "tag key to remove (repeatable)")
+	id, err := parseWithID(flags, args)
+	if err != nil {
+		return err
+	}
+	if len(set) == 0 && *name == "" && len(remove) == 0 {
+		return errors.New("usage: shakecloud instance tag [--name NAME] [--tag key=value]... [--remove key]... INSTANCE_ID")
+	}
+	c, err := g.client()
+	if err != nil {
+		return err
+	}
+	current, err := c.DescribeInstance(context.Background(), id)
+	if err != nil {
+		return err
+	}
+	tags := map[string]string{}
+	for key, value := range current.Tags {
+		tags[key] = value
+	}
+	for _, key := range remove {
+		delete(tags, key)
+	}
+	for key, value := range set {
+		tags[key] = value
+	}
+	if *name != "" {
+		tags["Name"] = *name
+	}
+	instance, err := c.SetInstanceTags(context.Background(), id, tags)
+	if err != nil {
+		return err
+	}
+	if g.json {
+		return g.printJSON(instance)
+	}
+	fmt.Printf("%s tags updated\n", instance.InstanceID)
 	return nil
 }
 

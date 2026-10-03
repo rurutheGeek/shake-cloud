@@ -109,6 +109,19 @@ func (c *Client) CreateConsoleSession(ctx context.Context, id string) (ConsoleSe
 	return out.Console, err
 }
 
+// SetInstanceTags replaces the whole tag set. Name is the display name.
+func (c *Client) SetInstanceTags(ctx context.Context, id string, tags map[string]string) (Instance, error) {
+	var out struct {
+		Instance Instance `json:"instance"`
+	}
+	if tags == nil {
+		tags = map[string]string{}
+	}
+	body := map[string]any{"tags": tags}
+	err := c.do(ctx, http.MethodPut, "/v1/instances/"+url.PathEscape(id)+"/tags", nil, body, &out)
+	return out.Instance, err
+}
+
 func (c *Client) SetInstanceSecurityGroups(ctx context.Context, id string, groupIDs []string) (Instance, error) {
 	var out struct {
 		Instance Instance `json:"instance"`
