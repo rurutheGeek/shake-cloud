@@ -29,7 +29,7 @@ class UnitTests(unittest.TestCase):
         },
         'homarr': {
             'service': 'homarr', 'port': '${HOMARR_PORT:-7575}',
-            'prefixes': ['/srv/services/homarr', '/srv/homarr-stack'], 'playbook': 'homarr.yml',
+            'prefixes': ['/srv/homarr'], 'playbook': 'homarr.yml', 'hosts': 'apps',
         },
         'librespeed': {
             'service': 'librespeed', 'port': '${LIBRESPEED_PORT:-8300}',

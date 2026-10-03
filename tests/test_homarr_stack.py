@@ -418,7 +418,7 @@ class IntegrationTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_homarr_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/homarr.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'services')
+        self.assertEqual(play[0]['hosts'], 'apps')
         roles = play[0]['roles']
         # tls_proxy first: configure logs in through the public name, where
         # NextAuth's cookies are Secure and only HTTPS carries them.
@@ -431,7 +431,7 @@ class IacTests(unittest.TestCase):
     def test_the_role_reads_the_identity_client_and_manages_the_stack(self):
         defaults = yaml.safe_load(
             (ROOT / 'platform/ansible/roles/homarr/defaults/main.yml').read_text(encoding='utf-8'))
-        self.assertEqual(defaults['homarr_project_dir'], '/opt/homarr-stack')
+        self.assertEqual(defaults['homarr_project_dir'], '/opt/homarr')
         self.assertEqual(defaults['homarr_oidc_credentials_path'],
                          '/opt/identity-stack/secrets/oidc-homarr.json')
         tasks = (ROOT / 'platform/ansible/roles/homarr/tasks/main.yml').read_text(encoding='utf-8')
@@ -441,10 +441,10 @@ class IacTests(unittest.TestCase):
                       'manage.py, up', 'manage.py, configure'):
             self.assertIn(token, tasks, token)
 
-    def test_dns_declares_the_entry_point_on_services_01(self):
+    def test_dns_declares_the_entry_point_on_apps_01(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
         record = dns['records']['homarr']
-        self.assertEqual(record['host'], 'services-01')
+        self.assertEqual(record['host'], 'apps-01')
         self.assertEqual(record['upstream'], '127.0.0.1:7575')
 
     def test_identity_offers_the_homarr_client(self):
