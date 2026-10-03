@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent Vaultwarden lifecycle on services-01. Run with sudo.
+"""Independent Vaultwarden lifecycle on apps-01. Run with sudo.
 
 The stack is Vaultwarden alone: no old media-hub database, no docs site, no
 other service's storage. The admin token is generated here; the OIDC client
@@ -57,7 +57,7 @@ def compose(*args, locked=True, **kwargs):
 
 
 def storage():
-    configured = Path(settings().get('STORAGE_ROOT', '/srv/services/vaultwarden'))
+    configured = Path(settings().get('STORAGE_ROOT', '/srv/vaultwarden'))
     path = configured.resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')

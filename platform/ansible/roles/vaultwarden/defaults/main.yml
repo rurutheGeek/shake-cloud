@@ -1,7 +1,7 @@
 ---
-# Vaultwarden（パスワード管理・SSO）を services-01 に単独で置く。
-vaultwarden_project_dir: /opt/services/vaultwarden
-vaultwarden_storage_root: /srv/services/vaultwarden
+# Vaultwarden（パスワード管理・SSO）を apps-01 に単独で置く。
+vaultwarden_project_dir: /opt/vaultwarden
+vaultwarden_storage_root: /srv/vaultwarden
 vaultwarden_source_dir: '{{ playbook_dir }}/../../stacks/vaultwarden'
 # 入口は同じホストの Caddy（tls_proxy ロール）が https://vault.<ゾーン> で受ける。
 vaultwarden_bind_address: 127.0.0.1

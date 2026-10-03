@@ -37,7 +37,7 @@ class UnitTests(unittest.TestCase):
         },
         'vaultwarden': {
             'service': 'vaultwarden', 'port': '${VAULTWARDEN_PORT:-8222}',
-            'prefixes': ['/srv/services/vaultwarden'], 'playbook': 'vaultwarden.yml',
+            'prefixes': ['/srv/vaultwarden'], 'playbook': 'vaultwarden.yml', 'hosts': 'apps',
         },
     }
 

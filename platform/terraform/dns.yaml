@@ -151,7 +151,8 @@ records:
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8222
     description: Vaultwarden（パスワード管理・SSO）
   speed:
