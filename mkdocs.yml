@@ -7,6 +7,7 @@ theme:
   locale: ja
 nav:
   - ホーム: index.md
+  - サービス図: service-map.md
   - ドキュメント地図: map.md
   - ドキュメントの書き方: contributing-docs.md
   - 利用者向け:
@@ -162,3 +163,11 @@ nav:
 extra_javascript:
   - assets/js/mermaid.min.js
   - assets/js/mermaid-init.js
+  - assets/js/service-map-data.js
+  - assets/js/service-map.js
+extra_css:
+  - assets/css/service-map.css
+# トップページのカードで、HTML の中に Markdown のリンクを書く（リンク切れを
+# mkdocs が検査できるようにするため）。
+markdown_extensions:
+  - md_in_html

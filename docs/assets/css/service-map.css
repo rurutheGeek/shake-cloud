@@ -1,0 +1,36 @@
+/* サービス図（docs/service-map.md）とトップページのカード。 */
+.sm-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0; }
+.sm-toolbar input { flex: 1 1 260px; padding: 6px 10px; border: 1px solid #bbb; border-radius: 6px; }
+.sm-legend { display: flex; gap: 8px; font-size: 12px; }
+.sm-kind { padding: 2px 8px; border-radius: 10px; border-left: 4px solid; background: #f4f4f4; }
+.sm-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+.sm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.sm-card { border: 1px solid #d5d5d5; border-top: 4px solid; border-radius: 8px; background: #fff; }
+.sm-base { border-color: #d5d5d5; border-top-color: #3b6ea5; border-left-color: #3b6ea5; }
+.sm-cloud { border-color: #d5d5d5; border-top-color: #e8734a; border-left-color: #e8734a; }
+.sm-host { border-color: #d5d5d5; border-top-color: #777; border-left-color: #777; }
+.sm-card.sm-on-route { box-shadow: 0 0 0 3px #f2c94c; }
+.sm-vm { display: block; width: 100%; padding: 8px 10px; border: 0; background: none; text-align: left; cursor: pointer; }
+.sm-vm strong { display: block; font-size: 15px; }
+.sm-vm span { font-size: 12px; color: #555; }
+.sm-services { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 10px; }
+.sm-chip { padding: 3px 9px; border: 1px solid #c8c8c8; border-radius: 12px; background: #f7f7f7; font-size: 13px; cursor: pointer; }
+.sm-chip.sm-web { background: #eef5ff; border-color: #a9c6ea; }
+.sm-chip:hover, .sm-chip.sm-selected { background: #f2c94c; border-color: #c9a227; }
+.sm-detail { position: sticky; top: 70px; padding: 12px 14px; border: 1px solid #d5d5d5; border-radius: 8px; background: #fafafa; min-height: 160px; }
+.sm-detail h3 { margin: 0 0 6px; font-size: 18px; }
+.sm-row { display: flex; gap: 8px; margin: 4px 0; font-size: 13px; }
+.sm-label { flex: 0 0 64px; color: #666; }
+.sm-hop + .sm-hop::before { content: " → "; color: #999; }
+.sm-open { word-break: break-all; font-weight: 600; }
+.sm-docs { margin: 10px 0 0; padding-left: 18px; font-size: 13px; }
+.sm-empty { color: #888; }
+@media (max-width: 860px) {
+  .sm-layout { grid-template-columns: 1fr; }
+  .sm-detail { position: static; }
+}
+
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.home-cards > div { padding: 12px 16px; border: 1px solid #d5d5d5; border-radius: 8px; background: #fff; }
+.home-cards h2 { margin: 0 0 8px; font-size: 18px; border: 0; }
+.home-cards ul { margin: 0; padding-left: 18px; }
