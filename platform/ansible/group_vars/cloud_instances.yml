@@ -1,0 +1,5 @@
+---
+# クラウドAPIが作ったVM（NetBoxのタグ managed-by-cloud-api）。Debianのクラウド
+# イメージが cloud-init で作る debian ユーザーで入る。
+ansible_user: debian
+ansible_python_interpreter: /usr/bin/python3

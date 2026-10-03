@@ -1,7 +1,16 @@
 locals {
   # Ansible の動的インベントリが見るタグ。正本は ../tags.yaml。
-  # media-stack は seed_inventory.py が作る既存タグなのでここでは扱わない。
   netbox_tags = keys(yamldecode(file("${path.module}/../tags.yaml")).tags)
+
+  state_backend = {
+    bucket                      = var.state_bucket
+    region                      = "auto"
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    skip_s3_checksum            = true
+  }
 }
 
 resource "netbox_tag" "this" {
@@ -94,4 +103,51 @@ resource "netbox_ip_range" "dhcp" {
   status        = "active"
   description   = "DHCP pool served by dnsmasq. Leases are mirrored by tools/netbox-dhcp-sync.py."
   tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
+}
+
+
+# services-01（05-seed）は NetBox より先に存在するので、台帳には後からここで載せる。
+# これが無いと Ansible の動的インベントリに出てこず、services-01 だけ手書きの
+# インベントリ（seed.ini）で配備し続けることになる。VM 本体は 05-seed の持ち物で、
+# ここは台帳の器と primary IP だけを作る。
+data "terraform_remote_state" "seed" {
+  backend = "s3"
+  config  = merge(local.state_backend, { key = "shake-cloud/05-seed/terraform.tfstate" })
+}
+
+locals {
+  seed_prefix_length = split("/", local.network.management.range_start)[1]
+}
+
+resource "netbox_virtual_machine" "seed" {
+  name        = data.terraform_remote_state.seed.outputs.name
+  description = "NetBox など台帳・共有サービスの置き場（05-seed が作る）。"
+  cluster_id  = tonumber(netbox_cluster.this.id)
+  site_id     = tonumber(netbox_site.this.id)
+  status      = "active"
+  tags        = ["services"]
+
+  depends_on = [netbox_tag.this]
+}
+
+resource "netbox_interface" "seed" {
+  name               = "primary"
+  virtual_machine_id = tonumber(netbox_virtual_machine.seed.id)
+  enabled            = true
+}
+
+resource "netbox_ip_address" "seed" {
+  ip_address   = "${data.terraform_remote_state.seed.outputs.address}/${local.seed_prefix_length}"
+  status       = "active"
+  object_type  = "virtualization.vminterface"
+  interface_id = tonumber(netbox_interface.seed.id)
+  dns_name     = data.terraform_remote_state.seed.outputs.name
+  tags         = ["services"]
+
+  depends_on = [netbox_tag.this]
+}
+
+resource "netbox_primary_ip" "seed" {
+  virtual_machine_id = tonumber(netbox_virtual_machine.seed.id)
+  ip_address_id      = tonumber(netbox_ip_address.seed.id)
 }

@@ -31,6 +31,7 @@ def render(directory):
     isos = load(directory, 'isos.yaml')
     flavors = load(directory, 'flavors.yaml')
     cloud = load(directory, 'cloud.yaml')
+    tags = load(directory, 'tags.yaml')['tags']
 
     unmeasured = [name for name, value in {
         'node_name': site['node_name'],
@@ -87,6 +88,16 @@ def render(directory):
         raise SystemExit(f'volume_holder_vmid {holder} collides with a probe VMID '
                          f'{cloud["probe_vmids"]}; fix cloud.yaml')
 
+    # The ledger turns instances into NetBox VMs, and its tags into Ansible
+    # groups. A tag NetBox does not have would be refused on every sync, so a
+    # typo is caught here instead.
+    ledger = cloud.get('ledger') or {}
+    for name, slugs in (ledger.get('tags_by_name') or {}).items():
+        unknown = [slug for slug in slugs if slug not in tags]
+        if unknown:
+            raise SystemExit(f'ledger.tags_by_name.{name} uses {unknown}, which tags.yaml does not '
+                             'declare; fix cloud.yaml or add the tag')
+
     return {
         'node': site['node_name'],
         'pool': 'cloud',
@@ -122,6 +133,11 @@ def render(directory):
             'root_disk_gib': cloud['root_disk_gib'],
             'volume_size_gib': cloud['volume_size_gib'],
             'capacity': cloud['capacity'],
+        },
+        'ledger': {
+            'cluster': ledger.get('cluster', ''),
+            'group_accounts': ledger.get('group_accounts') or [],
+            'tags_by_name': ledger.get('tags_by_name') or {},
         },
     }
 

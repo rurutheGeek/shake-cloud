@@ -112,7 +112,7 @@ class RoleTests(unittest.TestCase):
 
     def test_the_playbook_targets_services_01(self):
         play = yaml.safe_load(read(PLAYBOOK))[0]
-        self.assertEqual(play['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play['hosts'], 'services')
         self.assertTrue(play['become'])
         self.assertIn('cups', play['roles'])
 

@@ -3,7 +3,7 @@
 # ホストネットワークで HA の compose ネットワーク（services-home-assistant_homeassistant）
 # のゲートウェイ 172.31.254.1 だけに bind するので、home-assistant.yml の後に実行する。
 - name: Deploy eufy-security-ws
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks/eufy-security-ws'

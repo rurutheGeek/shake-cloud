@@ -2,7 +2,7 @@
 # Home Assistant Container を services-01 の独立 Compose プロジェクトへ配備する。
 # 初回は静的な seed inventory、以後は services-01 を含む基盤 inventory を使う。
 - name: Deploy Home Assistant Container
-  hosts: netbox_bootstrap
+  hosts: services
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks/home-assistant'

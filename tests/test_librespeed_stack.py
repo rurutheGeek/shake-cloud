@@ -204,7 +204,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_librespeed_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/librespeed.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'netbox_bootstrap')
+        self.assertEqual(play[0]['hosts'], 'services')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('librespeed'))
         # tls_proxy first: Caddy serves https://speed.<zone> and owns the cert.

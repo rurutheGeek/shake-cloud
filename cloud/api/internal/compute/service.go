@@ -93,9 +93,12 @@ func refuse(status int, code, format string, args ...any) *Error {
 const NetBoxTag = "managed-by-cloud-api"
 
 type Service struct {
-	Pool    *pgxpool.Pool
-	PVE     Hypervisor
-	IPAM    IPAM
+	Pool *pgxpool.Pool
+	PVE  Hypervisor
+	IPAM IPAM
+	// Ledger registers instances as NetBox virtual machines. It is nil when
+	// the deployment declares no ledger cluster.
+	Ledger  Ledger
 	Site    site.Site
 	Log     *slog.Logger
 	WorkDir string
@@ -127,17 +130,19 @@ type Service struct {
 	// RetryDelay is the first backoff; it doubles up to five minutes.
 	RetryDelay time.Duration
 
-	wake    chan struct{}
-	rangeMu sync.Mutex
-	rangeID int
-	now     func() time.Time
+	wake chan struct{}
+	// ledgerWake asks the ledger sync to run now instead of at its next tick.
+	ledgerWake chan struct{}
+	rangeMu    sync.Mutex
+	rangeID    int
+	now        func() time.Time
 }
 
 func New(pool *pgxpool.Pool, pve Hypervisor, ipam IPAM, s site.Site, log *slog.Logger, workDir string) *Service {
 	return &Service{
 		Pool: pool, PVE: pve, IPAM: ipam, Site: s, Log: log, WorkDir: workDir,
 		MaxAttempts: 6, RetryDelay: 5 * time.Second,
-		wake: make(chan struct{}, 1), now: time.Now,
+		wake: make(chan struct{}, 1), ledgerWake: make(chan struct{}, 1), now: time.Now,
 	}
 }
 
