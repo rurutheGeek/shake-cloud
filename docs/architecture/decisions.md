@@ -1,6 +1,6 @@
 ---
 title: 決定ログ
-updated: 2026-09-23
+updated: 2026-10-02
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 決定ログ
 
-> **更新日** 2026-09-23 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-02 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 このホームラボで**すでに決まっていること**と、その理由です。`operations/handover.md` の「確定した決定」を、進捗と分けてここへ移しました。
 
@@ -73,3 +73,5 @@ tags:
 | ルータ管理画面の認証 | **LuCI にはSSOを付けない。** ルータは復旧経路なので、identity が止まっていても開ける必要がある。認証は LuCI 自身の root パスワード。AdGuard の管理画面は復旧に必須でないので Forward Auth を通す |
 | VLAN分離の前提 | **アンマネージドスイッチ（TL-SG605）ではVLANを設定できない。** N03 はマネージドスイッチの調達が前提条件で、機器購入なしには完了できない |
 | メール送信 | **外部SMTPリレーを各アプリから直接使う。Postfix（ローカルMTA）は置かない。** 家庭回線のIPからの直接MX配送は PTR・SPF/DKIM・ポート25遮断で拒否・迷惑メール扱いになりやすいため。**2026-09-12 に Gmail（`shake.notify@gmail.com`、アプリパスワード）を設定済み・実送信確認済み。** SMTP の資格情報は `platform/sops/smtp.sops.yaml` に置き、identity 配備で `.env` へ写す。招待メールは `stacks/identity/invitations.py` が送る（[SMTPとメール送信](../operations/smtp.md)） |
+| Kubernetesの稼働 | **メモリが足りるときだけ動かす。常時起動は仕様にしない（2026-10-02）。** cp と worker-01 で11GiB以上を固定で使うため、普段は停止しておき、database（CNPG）・function（Knative）・AWX を使うときに `tools/k8s up` で起こす。停止中はこれらの機能が使えないのが正常で、障害ではない。常時動かす必要があるものは k8s に載せない（[Kubernetes](../operations/kubernetes.md#起動と停止)） |
+| 生存確認の持ち方 | **dead man's switch は監視ノード（monitor-01）にだけ置く。それ以外のサービスの生死は監視（Prometheus・blackbox）で見る（2026-10-02）。** 各コンテナに `healthcheck` を揃えることは目標にしない。新しいサービスを足すときは、コンテナの `healthcheck` ではなく `stacks/monitoring/prometheus/blackbox-targets.yml` へ probe を足す（`tests/test_monitoring_stack.py` が `dns.yaml` との一致を検査する）。起動順の待ち合わせに要る `healthcheck`（DB→アプリ）は残してよい（[監視](../operations/monitoring.md)） |

@@ -93,7 +93,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [Android VMの画面を使う（RDP）](services/android.md) | 2026-09-26 | `guide` `vm` `rdp` |
+| [Android VMの画面を使う（RDP）](services/android.md) | 2026-10-02 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
 | [Homarrの使い方](services/homarr.md) | 2026-09-12 | `guide` `homarr` |
@@ -120,7 +120,7 @@ flowchart TB
 | [A03 汎用RAGの構築](development/A03-rag.md) | 2026-09-12 | `plan` `ai` |
 | [A04 Discord Botの構築](development/A04-discord-bot.md) | 2026-09-12 | `plan` `ai` |
 | [A05 OpenHomeの製品・要件調査](development/A05-openhome.md) | 2026-09-12 | `plan` `ai` |
-| [A06 NextcloudファイルAIエージェント（nextcloud-mcp）](development/A06-nextcloud-mcp.md) | 2026-09-28 | `plan` `nextcloud` |
+| [A06 NextcloudファイルAIエージェント（nextcloud-mcp）](development/A06-nextcloud-mcp.md) | 2026-10-02 | `plan` `nextcloud` |
 | [D01 開発参加ガイドの更新](development/D01-onboarding.md) | 2026-09-12 | `plan` `onboarding` |
 | [D02 配置・配分表・構成図の更新](development/D02-placement.md) | 2026-09-12 | `plan` `placement` |
 | [D03 サービス配置とIaC所有境界の更新](development/D03-service-boundaries.md) | 2026-09-12 | `plan` `placement` |
@@ -138,7 +138,7 @@ flowchart TB
 | [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-09-23 | `plan` `home-assistant` |
 | [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-09-23 | `plan` `home-assistant` `reverse-engineering` |
 | [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
-| [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-09-12 | `plan` `media` |
+| [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-10-02 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-09-12 | `plan` `cloud` `ansible` |
 | [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-09-12 | `plan` `cloud` `network` |
 | [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-23 | `plan` `terraform` |
@@ -155,10 +155,10 @@ flowchart TB
 | [O03 VM・アプリ状態の復元](development/O03-restore.md) | 2026-09-12 | `plan` `backup` |
 | [W01 Homarrのservices-01移行](development/W01-homarr.md) | 2026-09-13 | `plan` `homarr` |
 | [W02 Vaultwardenのservices-01移行](development/W02-vaultwarden.md) | 2026-09-16 | `plan` `vaultwarden` |
-| [W03 Nextcloud・Calendar・Tasksのmedia-01移行](development/W03-nextcloud.md) | 2026-09-19 | `plan` `nextcloud` `cloud` |
+| [W03 Nextcloud・Calendar・Tasksのmedia-01移行](development/W03-nextcloud.md) | 2026-10-02 | `plan` `nextcloud` `cloud` |
 | [W04 Kavitaのmedia-01移行](development/W04-kavita.md) | 2026-09-13 | `plan` `kavita` |
 | [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-09-13 | `plan` `navidrome` |
-| [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-09-16 | `plan` `music` |
+| [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-02 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
 | [機能別VMと並列開発計画](development/index.md) | 2026-10-01 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
@@ -168,6 +168,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-09-22 | `ops` `network` `dns` |
+| [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-09-22 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-09-12 | `ops` `bootstrap` |
@@ -180,12 +181,12 @@ flowchart TB
 | [ディスク増設](operations/disk.md) | 2026-09-13 | `ops` `storage` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-09-11 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-01 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-02 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-09-27 | `ops` `identity` |
-| [運用手順の入口](operations/index.md) | 2026-09-23 | `ops` |
+| [運用手順の入口](operations/index.md) | 2026-10-02 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-09-13 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（monitor-01）](operations/monitoring.md) | 2026-09-23 | `ops` `monitoring` |
+| [監視（monitor-01）](operations/monitoring.md) | 2026-10-02 | `ops` `monitoring` |
 | [net-01（Tailscale subnet router）](operations/net.md) | 2026-10-01 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-09-27 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
@@ -210,7 +211,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-09-13 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-09-23 | `design` `decisions` |
+| [決定ログ](architecture/decisions.md) | 2026-10-02 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-09-23 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-09-13 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-09-27 | `design` `iac` |
@@ -234,9 +235,10 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [記録の入口](audits/index.md) | 2026-09-18 | `record` |
+| [構成監査（2026-09-16）の未対応指摘](audits/config-audit-2026-09-16.md) | 2026-10-02 | `record` `security` |
+| [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 121 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 123 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

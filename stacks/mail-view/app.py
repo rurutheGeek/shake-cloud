@@ -437,7 +437,7 @@ def message_page(config, uid):
     ]
     definition = ''.join(
         f'<dt>{label}</dt><dd>{html.escape(value)}</dd>' for label, value in details)
-    body = [f'<p class="meta"><a href="/">← 一覧へ</a></p>',
+    body = ['<p class="meta"><a href="/">← 一覧へ</a></p>',
             f'<h2 class="subject">{html.escape(message["subject"])}</h2>',
             f'<dl class="meta">{definition}</dl>']
     if message['truncated']:

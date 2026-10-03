@@ -1,0 +1,74 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Asia/Tokyo",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "dependencyDashboard": true,
+  "enabledManagers": [
+    "github-actions",
+    "gomod",
+    "pip_requirements",
+    "terraform",
+    "dockerfile",
+    "docker-compose"
+  ],
+  "pip_requirements": {
+    "managerFilePatterns": [
+      "/^tools/requirements\\.txt$/",
+      "/^platform/ansible/requirements\\.txt$/"
+    ]
+  },
+  "docker-compose": {
+    "managerFilePatterns": [
+      "/^stacks/.+/compose\\.yaml$/"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "GitHub Actions は1本にまとめる",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github-actions"
+    },
+    {
+      "description": "cloud/* のGoモジュールは1本にまとめる",
+      "matchManagers": [
+        "gomod"
+      ],
+      "groupName": "go modules"
+    },
+    {
+      "description": "pip の requirements は1本にまとめる",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "groupName": "python requirements"
+    },
+    {
+      "description": "Terraform のプロバイダとモジュールは1本にまとめる",
+      "matchManagers": [
+        "terraform"
+      ],
+      "groupName": "terraform providers"
+    },
+    {
+      "description": "コンテナイメージ（Dockerfile・Compose）は1本にまとめる",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "groupName": "container images"
+    }
+  ]
+}

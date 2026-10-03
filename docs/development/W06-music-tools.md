@@ -1,6 +1,6 @@
 ---
 title: W06 MeTube・音楽変換・タグ編集のmedia-01移行
-updated: 2026-09-16
+updated: 2026-10-02
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # W06 MeTube・音楽変換・タグ編集のmedia-01移行
 
-> **更新日** 2026-09-16 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
@@ -65,3 +65,41 @@ tags:
 - 2026-09-24: **既存のポケモン4アルバム（458曲）を日本語盤のメタデータへ修正。** ダウンロード時に英語だった `album`・`title` と外部ツール由来の英語クレジットを、MusicBrainzの日本語盤（赤・緑 2016 / ブラック2・ホワイト2 2012 / X・Y 2013 / Let's Go 2018）に `(disc, track)` と尺の一致で対応付けて書き換えた。アルバム名・曲名は日本語、`artist`/`composer` は日本語の作曲者クレジット、`albumartist` は盤のクレジット、`date` は発売日。ファイル名も日本語曲名へ改名。移行スクリプトは `stacks/music-tools/retag-japanese.py`（plan/apply、旧名・旧タグのジャーナル）。ポケモン不思議のダンジョン救助隊DXは日本語サウンドトラックが無いため対象外。**ブラック2・ホワイト2 は403で中断して79/173曲だったため、未取得の94曲を同じ対応表（KHInsiderのslug `pokemon-black-and-white-2-super-music-collection`）で日本語の曲名・タグ付きで追加取得し、173/173曲にした。** 旧中断の0バイト`.part`も削除。ジャーナル・マニフェスト・使用スクリプトは media-01 の `/srv/media-stack/storage/retag-japanese/`。
 - 2026-09-24: **公式サウンドトラックがある日本語盤を追加で6枚（約1,000曲）修正。** サン・ムーン（161/169）・ハートゴールド&ソウルシルバー（262/270）・オメガルビー&アルファサファイア（268/269）・LEGENDS アルセウス（110/110）・ルビー&サファイア（108/109）・ファイアレッド&リーフグリーン（89/90）を、MusicBrainzの日本語盤へ `(disc, track)`＋尺で対応付けて、アルバム名・曲名・作曲/アーティスト・発売日を日本語化し、ファイル名も日本語曲名へ改名した（`stacks/music-tools/retag-japanese.py` の `ALBUMS` に追記）。尺が一致しない計19曲（『The End』などの短い曲・重複テイク）は英語のまま。日本語盤が見つからないもの（BDSP・ソード/シールド+エキスパンションパス・不思議のダンジョン各作・レンジャー・ランブル・シャッフル・マスターズEX・スマブラ・タイピング）は対象外。
 - 2026-09-24: **KHInsiderの403（Cloudflareのbot challenge）を解消。** 旧実装のurllib＋独自UAにはCloudflareが `cf-mitigated: challenge` の403を返す（UAをブラウザに変えてもTLS/HTTP2指紋が違うと解けない）。MeTubeイメージがyt-dlp経由で同梱する **curl_cffi** を使い、Chromeの指紋で接続する。1セッションを使い回してクリアランスCookieを曲ページ・配信URLへ引き継ぎ、`403`/`429`/`503` は5→15→30秒で再試行。それでも通らないときは理由を画面に出す。テストは `tests/test_music_khinsider.py` の `BrowserFetchTests`（セッション利用・再試行・失敗時の非書込）。実機ではコンテナ内から `pokemon-x-y` のアルバムページ取得（200）と1曲のダウンロードを確認した。
+
+<a id="handover-log"></a>
+
+## handover移動分の作業記録
+
+handover.md の「5. 進捗とTODO」表の該当行から移した記録（原文のまま。表セルを日付ごとの箇条書きに整形しただけ）。いまの状態と未完は handover.md の該当行を参照。
+
+- **2026-09-26: 全曲レビュー（review）をmusic-toolsへ追加。
+- ** `https://navidrome.apextox.dpdns.org/review/`（SSO）でアーティスト→アルバム→曲をたどり、ページ遷移なしで試聴、👍いいね／⚠指摘（項目・正しい値・メモ）を付けられる。指摘は `/opt/media-stack/music-tools/storage/review/events.jsonl`（追記のみ）に保存し、AIが読んで直す。ユーザーはForward Authのヘッダーで識別し、確認数とアルバム・アーティストの完了印を出す。旧静的確認HTMLは `/review-static/` へ移動（Caddyのパス入口は `dns.yaml` の `path_routes`、前置きの除去は認証の後ろ）。
+- **2026-09-26: レビューで見つかった作曲者タグを調査・一括修正（339曲）。
+- ** 非サントラ中心にMB任せでなく手調べで `composer` を補完（たなかひろかず/中田ヤスタカ/川谷絵音/神前暁/田代智一/多和田吏/三原康司/小林武史/きくお 等）。タグ全欠けだった「ポケモンカフェミックス」36曲（作曲・アーティスト=多和田吏）と「はねろ!コイキング」11曲（artist=SOLIDTUNE Inc.、作曲=高本誠一・舛田智）はalbum/artistも補完。ID3バックアップは `/opt/media-stack/music-tools/storage/tags/tag-backups/composer-fill/`（適用は`docker exec media-music-tools-tag-api-1 python3 -`、dry→apply）。
+- **2026-09-26: バンドリ（BanG Dream!）全56曲を補完。
+- ** Roseliaは先行分、今回は Poppin'Party/Afterglow/ハロー、ハッピーワールド！/Pastel＊Palettes/RAISE A SUILEN/花園たえ/カバー計34曲に Elements Garden 系のクレジット（上松範康・藤永龍太郎・藤田淳平・都丸椋太・岩橋星実・藤間仁・末益涼太・菊田大介・笠井雄太・母里治樹）とカバー原曲（ヒゲドライバー/みきとP/Orangestar/EasyPop）を反映。索引の再読込はNFS上の7,562曲で約3分かかる。残りは 非ゲームの要調査（MEGAREX/PSYQUI等の同人コンピ、Charisma.com、Avril/The Wantedの追加曲、IOSYS東方、平野綾/松本梨香 等）と、作曲者=アーティストで正しいゲームBGM・Vocaloid。タグ全欠けのポケモンBGM 193曲を補完（ポッ拳56=Various Artists/橋本大樹ほか10名、ピンボールRS38=巣山員也・佐野あゆみ、マグナゲート28=いとうけいすけ・川越康弘、スマイル27=裏谷玲央、コマスター22=景山将太、とうぞく18=西村隆文、ポケパーク2・牧場・はねろ ほか）。
+- **はねろ!コイキングの11曲は中身がM4A（ftyp）なのに.mp3拡張子で、先頭のID3v2がMP4の絶対オフセットを壊していた**ため、ID3を剥がしてffmpegで実MP3へ変換しタグを付け直した（`/state/m4a_to_mp3.py`、原本は `/opt/media-stack/music-tools/storage/tags/tag-backups/m4a-originals/`）。非ゲームも追加補完（DA PUMP if...=富樫明生、CHEMISTRY Period、BLUE SAPPHIRE、The Wanted Warzone、Sk8er Boi、薔薇園アヴ、ホログラム=光村龍哉、Perfume、松本梨香/ライオン/GARDEN=たなかひろかず、ZUN、しも、Butter-Fly=千綿偉功、創聖=菅野よう子 等）。
+- **2026-09-26: レビュー索引をNavidromeのSQLite（`media_file`）から作る方式へ変更。
+- ** `storage/navidrome` をreviewコンテナへ読み取り専用でマウントし（`NAVIDROME_DATA_ROOT`）、再構築は約0.6秒。タグの正本はファイルのまま、一覧はNavidromeが見ている内容と揃う。
+- **Navidromeのアルバム分割を修正。
+- ** 原因は同一フォルダ内のalbumartist不一致（Navidromeはalbumartist+albumでアルバムを分ける）。ポケパーク2の2曲（オープニング/タイトル、Various Artists→橘田拓人/小谷野謙一）とポケモンコロシアムの1曲（コロシアム・スタジアム：ファイナル、多和田吏→多和田吏/Tsukasa Tawada）を揃え、両アルバムとも1つに統合。NavidromeはWatchChangesで数秒で再スキャンする。
+- **2026-09-26: ローマ字重複と同名アルバムを整理。
+- ** ローマ字併記（例「多和田吏 • Tsukasa Tawada」）は TPE2 ではなく **TXXX:ALBUM ARTIST / TXXX:ENSEMBLE** が残っていたのが原因（Navidromeは両方をalbumartistとして結合する）。340ファイルから該当TXXX（Tsukasa Tawada / Takuto Kitsuta / Kenichi Koyano）を除去し、コロシアム・ポケモンレンジャー3作のアルバムを統合。モンスターハンター（7曲）・Singles（23曲）・クラシック（19曲）は albumartist=Various Artists に統一、ロケット団よ永遠にの別リップ1曲は既存シングルへ統合。カバー/アレンジの3曲（Arthur Ebeling「Bad Guy」・R.O.T.「You Should See Me in a Crown」・Baguettes Ensemble「ブラック★ロックシューター」）は album=曲名にして衝突解消。結果、albumartistが複数あるアルバムは0件。
+- **2026-09-26: レビュー板の不具合修正とC418整備。
+- ** 保存後に `openArtist` が `VIEW.album` を null にして `album=null` の0曲（null表示）になっていたため、保存前のアルバムを保持して復元するよう修正。投票・指摘の保存で一覧を作り直してスクロールが先頭に戻る問題を、行だけ更新（`applyRowState`／`refreshCounts`）してスクロール維持に変更（保存時は編集欄を閉じる）。再読込完了時の自動更新もアルバム選択を保持するようにした。読み込み時に全指摘の編集欄を自動展開していたのをやめ、⚠を押したときだけ開くようにした。ヘッダーの ◧/◨ ボタンと **Ctrl+B（Cmd+B）** でアーティスト一覧、▤/▥ ボタンと **Ctrl+Alt+B** でアルバム一覧を折りたためる（状態は localStorage に保持、両方たたむと曲一覧が全幅）。
+- **東方Project原作のKHInsider一括ダウンロードを投入（2026-09-26）**: ユーザー要望で「本編だけ30枚」に確定。PC-98 5作（靈異伝・封魔録OPNA・夢時空OPNA・幻想郷・怪綺談）＋Windows 25枚（7.5/09/9.5/10/10.5/11/12/12.3/12.5/12.8/13/13.5/14/14.3/14.5/15/15.5/16/16.5/17/17.5/18/18.5/19/20）。紅魔郷・妖々夢・永夜抄は既存が完全なため除外。ZUN's Music Collection 12枚は対象外。重複のOPN版2枚と深秘録初回特典CDは `/opt/media-stack/music-tools/storage/trash/touhou-extras-20260926/` へ退避。日本語化は進行中。公式曲名の取得元は MusicBrainz（PC-98盤のみ存在）と Touhou Wiki（en.touhouwiki.net の各作品 /Music ページ、コンテナの curl_cffi で取得）。英訳↔日本語の対応で自動照合した結果、Windows本編は概ね90%以上一致（09/09.5/10/12.8=100%、11/12/14/15=17/18 等）。格闘ゲーム派生（7.5/10.5/12.3/13.5/14.5/15.5/17.5）とPC-98（01〜05）は英語名が公式訳と一致せず要手当て。方針: ファイル名は「曲名.mp3」（NNなし）、曲番はID3のtracknumber。作業データは /var/tmp/work/music-review/（touhou_ja.json・touhou_wiki.json・touhou_match.py・apply_touhou.py）。
+- **適用済み（2026-09-26）**: 30枚を `/srv/media-stack/library/music/ZUN/<公式日本語アルバム名>/` へ移動し、album/artist/albumartist=ZUN・composer=ZUN・discnumber=1・tracknumber を設定、ファイル名は曲名のみ。曲名は294曲を日本語化（本編Windowsはほぼ完了）。残り420曲は英語のまま（格闘ゲーム派生7作・PC-98・神霊廟の霊界版・虹龍洞など、KHの英語名がTouhou Wikiの公式訳と一致せず要手当て）。旧ZUN/の4枚（紅魔郷・妖々夢・永夜抄・花映塚の「サウンドトラック」付き）は既存のまま（ファイル名のNN除去は未実施）。
+- **確定（2026-09-26）**: ユーザー定義により「原作」= 弾幕シューティング本編ラインのみ（PC-98 01〜05＋Windows 06〜20の20作）。派生13作（7.5/9.5/10.5/12.3/12.5/12.8/13.5/14.3/14.5/15.5/16.5/17.5/18.5）と旧花映塚1曲はゴミ箱 `/opt/media-stack/music-tools/storage/trash/touhou-spinoffs-20260926/` へ退避。ZUN/ は本編20アルバム。428曲中323曲を公式日本語曲名に（Touhou Wikiの英訳対応＋ja.wikipediaの曲目リスト、PC-98はMusicBrainz）。残り105曲は英語（PC-98の公式英語タイトル A Sacred Lot / Bad Apple!! 等が中心で、これは公式名のため正しい。加えて神霊廟の霊界版の一部・虹龍洞などの未照合）。ファイル名は曲名のみ（NNなし）、tracknumber/discnumber/album/artist/albumartist/composer=ZUN を設定済み。作業データ: /var/tmp/work/music-review/。
+- **クラシック19曲を整備（2026-09-26）**: アルバム名をすべて作曲者名に変更（album=albumartist=作曲者）。曲名を正しい曲目名に修正（剣の舞、ユーモレスク第7番、ジムノペディ第1番、月の光、木星、怒りの日、ファランドール、交響曲第5番「革命」第4楽章、熊蜂の飛行、ラ・カンパネラ、愛の夢第3番、小犬のワルツ、夜想曲第2番、G線上のアリア、カノン、タイプライター、ピアノソナタ第14番「月光」、ディエス・イレ 等）。ホルストの「惑星」は長さ約8分から木星と推定（要確認）。
+- **C418のMinecraft 2アルバムを整備**: `C418/Minecraft/` の28曲を公式『Minecraft – Volume Alpha』(14曲)・『Minecraft – Volume Beta』(25曲)へ振り分け（曲名・曲番は公式トラックリスト、全長一致を確認。ゲーム内名はcommentに保持）、Volume Betaフォルダの既存10曲の曲番も公式に修正（Alpha=#2, Chirp=#20, Wait=#21, Mellohi=#22, Stal=#23, Strad=#24, Ward=#26, Mall=#27, Blocks=#28, Far=#29）、Cat=#19。Navidromeの再読込はタグの実書き込みで発火し、TXXX除去は40ファイルずつ8秒間隔で実行した。残りは自己名義（Such/group_inou/日食なつこ等）と未確認のみ（SMバナーの2曲、Charisma.com、The Wanted追加曲、IOSYS東方、太鼓/アイマス等 約70曲）。
+- **2026-09-27: 東方本編20作のタグを東方元ネタwiki（seesaawiki.jp/toho-motoneta_2nd）基準で再構築。
+- ** PC-98 5作は英語wikiベースの誤り（「死なばもろとも」欠落、魔鏡（別バージョン）の入替、曲順がM.TEST/MusicModeと不一致、ファイル名の切り詰め）を全面修正し、公式曲順・公式曲名に統一（A Sacred Lot / Bad Apple!! 等の公式英語名はそのまま）。Windows 15作も、06/07/08に混入していた重複8ファイル（`/opt/media-stack/music-tools/storage/trash/touhou-dup-extras-20260927/` へ退避）による曲番ズレ、神霊廟の霊界版14曲挿入によるタグズレ（古きユアンシェン欠落）、「風神少女 (Short Version)」「秘神マターラ ～ Hidden Star in All Seasons.」「綿月のスペルカード ～ 神海戦」「最後の一人は慣れてるから ～ Stone Goddess」等の切り詰め・ローマ字混入、ファイル名の「～」切れを修正。全20作でファイル名=曲名・tracknumber=公式順・重複0・連番を実機確認。
+- **2026-09-27: ゲーム系サントラのアルバム名を整理（公式サントラが無いものは有名な日本語ゲームタイトル）。
+- ** DKC2の残り1曲→「スーパードンキーコング2 ディディーコング&ディクシーコング」（別バージョンとして統合、36曲）、Pokémon Bank→ポケモンバンク、Pokémon Sleep（Spotify）→ポケモンスリープ（既存リップと統合し112曲・albumartist統一）。公式サントラ側の英語名も日本語公式名へ（Mega Man 2 Sound Collection→ロックマン2 サウンドコレクション、MONSTER STRIKE OFFICIAL SOUNDTRACK→モンスターストライク オリジナルサウンドトラック、The Very Best of Kirby: 52 Hit Tracks→星のカービィ ベストセレクション）。空だったKhinsider配下7フォルダを削除。
+- **2026-09-27: アルバムカバー整備（方針: 公式サントラが無いゲームはゲームのパッケージ/タイトルの日本語版）。
+- ** 東方本編20作すべてにカバーを設定（PC-98の5作は各ゲームのタイトル画面、錦上京は公式カバーTh20cover。cover.png/jpg＋ID3 APICを埋め込み）。直近で整理したゲームアルバム（スーパードンキーコング2、ポケモンバンク、ポケモンスリープ、星のカービィ ベストセレクション、ロックマン2 サウンドコレクション、モンスターストライク オリジナルサウンドトラック）にもカバーを設定。
+- **他のゲーム系アルバム98枚も対応**（KH由来でフォルダにあったcover画像をID3へ埋め込み72枚、KHから検索・取得して設定13枚。ポケモン各作・モンスターハンター・ドラゴンクエスト・カービィ・どうぶつの森・スマブラ等）。
+- **残り8枚**（ドラクエII/IV、FF V、FF VIIアドベントチルドレン、スーパーマリオRPG、交響組曲DQライブベスト、めざせポケモンマスター、I Miss You — EarthBound 2012）はKHに該当リリースが無く、VGMdbはCloudflareで自動取得不可のため未設定（公式CDのジャケットを手動で用意するか、別ソースの許可が必要）。
+- **2026-09-30: `00_未整理` の39曲を整理。
+- ** アーティスト/アルバムフォルダへ移動（稲葉曇は既存アルバムへ統合、涼宮ハルヒのキャラソンは各キャラフォルダ、ボカロ系はシングル名アルバム）、artist/album/albumartist/tracknumberを正規化（「(CV.…)」除去）、ファイル名=曲名、カバーはAPLMate埋め込みを保持しcover.jpg/pngを配置。未完成の.crdownloadはゴミ箱へ。
+- **歌詞はLRCLIB（lrclib.net API）で時報付き.lrcを取得**（32曲同期＋15曲はプレーン、うち3曲は歌ネット等からプレーン.lrcを手書き）。対象22フォルダは全mp3に.lrcが揃った（56曲）。

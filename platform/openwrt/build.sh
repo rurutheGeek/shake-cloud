@@ -15,6 +15,8 @@
 # Image Builder 自身も prereq を見るので gawk・bzip2・unzip・perl・file が要る
 # （Debian なら apt-get install make gawk bzip2 unzip file）。下のループで
 # **先に**弾く。ここを通さないと make の奥で失敗して原因が読みにくい。
+# version, url, checksum 等は後段の eval が宣言から定義するため、未代入警告は誤り。
+# shellcheck disable=SC2154
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
