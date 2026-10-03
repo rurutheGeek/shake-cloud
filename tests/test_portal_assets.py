@@ -57,6 +57,21 @@ class PortalAssetsTests(unittest.TestCase):
         # onAction's locking and the dirty-form guard live in PortalUI.init().
         self.assertIn('window.PortalUI.init()', self.portal)
 
+    def test_the_instance_list_has_only_the_basic_columns(self):
+        # ID, image, disk, groups and tags belong to the detail view: the list
+        # must not grow back into a nine-column table.
+        section = re.search(r'<section id="instances-view".*?</section>', self.html, re.S).group(0)
+        headings = re.findall(r'<th[^>]*>(.*?)</th>', section, re.S)
+        cleaned = [re.sub(r'<[^>]+>', '', heading).strip() for heading in headings]
+        self.assertEqual(cleaned, ['選択', '名前', '状態', 'IP', '構成', '所有者'])
+
+    def test_the_bulk_buttons_start_disabled(self):
+        # Without a selection, or before the script loads, they must not act.
+        section = re.search(r'<section id="instances-view".*?</section>', self.html, re.S).group(0)
+        for button in ('instance-start', 'instance-stop', 'instance-reboot', 'instance-delete'):
+            tag = re.search(rf'<button id="{button}"[^>]*>', section).group(0)
+            self.assertIn('disabled', tag)
+
     def test_no_table_header_is_empty(self):
         # axe-core flags an action column with an empty <th> (empty-table-header).
         self.assertNotRegex(self.html, r'<th>\s*</th>')

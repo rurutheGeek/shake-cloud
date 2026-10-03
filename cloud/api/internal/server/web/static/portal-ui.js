@@ -209,7 +209,10 @@ window.PortalUI = (() => {
     // every section stays visible.
     const views = [...document.querySelectorAll('section[data-view]')];
     const showView = (moveFocus) => {
-      const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      // A view may carry an argument after "/" (the instance detail view
+      // appends the instance ID), so only the first segment names the section.
+      const [viewID] = decodeURIComponent(location.hash.slice(1)).split('/');
+      const target = document.getElementById(viewID);
       // A link to something outside the views (the skip link's #main) must
       // not change which view is open.
       if (target && !target.closest('section[data-view]') && moveFocus) return;
