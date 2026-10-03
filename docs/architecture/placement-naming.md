@@ -106,7 +106,7 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 | 3 | storage-s3 を cloud-01 へ合流する | **完了（2026-10-03）**。旧 Garage はバケットもキーも0件だったので、cloud-01 にデータディスク（32GiB）を足して新しく構築し、クラウドAPIの接続先とトークンを切り替えた。storage-s3 の Garage は停止 |
 | 4 | Tailscale をルータへ移し、net-01 を消す | **ルータへ移した（2026-10-03）**。OpenWrt に tailscale を入れ、net-01 の端末の身元（状態ファイル）を引き継いだので、tailnet 上の名前（`router-01`）・アドレス・承認済みの経路はそのまま。net-01 の tailscaled は停止・無効化、VMは停止。**宅外からの実際の接続は未確認** |
 | 5 | monitor-01 を基盤へ移す | **完了（2026-10-03）**。基盤側に `monitor-02`（192.168.10.210）を作り、Prometheus・Grafana のデータと秘密値をコピーして切り替えた。旧 monitor-01（クラウドVM）は停止。**旧側を消したあと、monitor-02 を `monitor-01` へ改名する**（VMは作り直さない。core-01 と同じ手順） |
-| 6 | 開発VM（dev-a・dev-b）をクラウドVMへ、win11pro・game1 を改名 | **dev-a・dev-b・game1 は使用中のため、指示があるまで触らない**。win11pro は空いた（改名はタグ変更APIが要る） |
+| 6 | 開発VM（dev-a・dev-b）をクラウドVMへ、win11pro・game1 を改名 | **win11pro は `win-01` へ改名済み（2026-10-03）。** dev-a・dev-b・game1 は使用中のため、指示があるまで触らない |
 | 7 | 空になった identity・storage-s3、基盤側の dev-a・dev-b を消す | 未着手 |
 
 ### 段階2: core-01 の作り方

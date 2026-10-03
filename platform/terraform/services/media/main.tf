@@ -108,7 +108,8 @@ resource "shakecloud_instance" "media" {
     data_mount_path = var.data_mount_path
   })
 
-  tags = { Name = var.name }
+  # Purpose は用途（service / dev）。ポータルでの絞り込みに使う。
+  tags = { Name = var.name, Purpose = "service" }
 }
 
 resource "shakecloud_volume" "data" {
