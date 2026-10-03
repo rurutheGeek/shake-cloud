@@ -43,6 +43,11 @@ packages:
   # アドレスを作る瞬間しか学習できず、ルータ再起動後に固定アドレスの端末が
   # IPv6 を失う（docs/development/N06-router.md）。
   - ndppd
+  # 宅外から管理LANへ入る復旧経路（Tailscale の subnet router）。2026-10-03 に
+  # net-01（クラウドVM）から移した。クラウドやほかのVMが止まっていても入れるよう、
+  # 最初に起動するルータに置く。端末の身元（/etc/tailscale/tailscaled.state）は
+  # 秘密値なのでイメージに含めない（docs/operations/net.md）。
+  - tailscale
 
 # dist/ へ出すファイル名。Terraform の router モジュールが同じ名前を読む。
 output_image: openwrt-router.raw

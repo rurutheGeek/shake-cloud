@@ -278,6 +278,22 @@ class ImageContentsTests(unittest.TestCase):
         self.assertEqual(forwarding['options']['src'], 'lan')
         self.assertEqual(forwarding['options']['dest'], 'wan')
 
+    def test_the_recovery_path_from_outside_runs_on_the_router(self):
+        # Tailscale's subnet router lives on the router, the one machine that
+        # is up whenever anything is reachable at all (it used to be a cloud
+        # VM, which needs the cloud API to be rebuilt).
+        self.assertIn('tailscale', load(OPENWRT / 'openwrt.yaml')['packages'])
+        zone = section(self.firewall, 'zone', 'tailscale')
+        self.assertEqual(zone['lists']['device'], ['tailscale0'])
+        self.assertEqual(zone['options']['forward'], 'REJECT')
+        # tailscaled does the SNAT for the advertised routes itself.
+        self.assertNotIn('masq', zone['options'])
+        forwarding = section(self.firewall, 'forwarding', 'tailscale_lan')
+        self.assertEqual(forwarding['options']['src'], 'tailscale')
+        self.assertEqual(forwarding['options']['dest'], 'lan')
+        # The node's identity is a secret and must not be baked into the image.
+        self.assertFalse((OPENWRT / 'rootfs/etc/tailscale').exists())
+
     def test_the_dns_entry_point_is_adguard(self):
         # dnsmasq keeps DHCP and local names on 5353; the LAN is told to use
         # the router (AdGuard) for DNS. The `dns` list is for odhcpd (IPv6),
