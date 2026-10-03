@@ -97,7 +97,7 @@
       var chip = el('button', { type: 'button', class: 'sm-chip' + (service.url ? ' sm-web' : ''), text: service.name });
       chip.addEventListener('click', function () { showService(vm, service, chip); });
       list.appendChild(chip);
-      chips.push({ chip: chip, card: card, text: (service.name + ' ' + service.description + ' ' + vm.name + ' ' + vm.role).toLowerCase() });
+      chips.push({ chip: chip, card: card, vm: vm.name.toLowerCase(), text: (service.name + ' ' + service.description).toLowerCase() });
     });
     grid.appendChild(card);
   });
@@ -106,7 +106,8 @@
     var query = search.value.trim().toLowerCase();
     var shown = {};
     chips.forEach(function (item) {
-      var match = !query || item.text.indexOf(query) >= 0;
+      // VM の名前で絞ったときは、その VM のサービスを全部出す。
+      var match = !query || item.text.indexOf(query) >= 0 || item.vm.indexOf(query) >= 0;
       item.chip.hidden = !match;
       if (match) shown[item.card.querySelector('strong').textContent] = true;
     });
