@@ -29,6 +29,19 @@ config forwarding
 	option src 'lan'
 	option dest 'wan'
 
+# Tailscale（宅外からの復旧経路）。tailnet の端末から LAN へ入れる。送信元の
+# 書き換え（SNAT）は tailscaled 自身が nftables で行うので、ここでは masq しない。
+config zone 'tailscale'
+	option name 'tailscale'
+	option input 'ACCEPT'
+	option output 'ACCEPT'
+	option forward 'REJECT'
+	list device 'tailscale0'
+
+config forwarding 'tailscale_lan'
+	option src 'tailscale'
+	option dest 'lan'
+
 config rule
 	option name 'Allow-DHCP-Renew'
 	option src 'wan'
