@@ -12,13 +12,13 @@ tags:
 
 > **更新日** 2026-09-21 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
-端末（パソコン・スマートフォン）と services-01 の間の**実効速度**を測るページです。
+端末（パソコン・スマートフォン）と apps-01 の間の**実効速度**を測るページです。
 入口は <https://speed.apextox.dpdns.org>（家庭内LANから）。Homarrの
 **LibreSpeed** タイルからも開けます。
 
 ## 何を測っているか
 
-- 測っているのは **ページを開いた端末 ↔ services-01** の速度です。Wi-Fiの電波状況、
+- 測っているのは **ページを開いた端末 ↔ apps-01** の速度です。Wi-Fiの電波状況、
   LANケーブル、VMの仮想NICまで含めた「その端末・その場所」の実測値になります。
 - インターネット回線の速度ではありません。回線速度はサーバー側から測る別の仕組みが
   必要です（このページの対象外）。
@@ -38,8 +38,8 @@ tags:
 
 | 項目 | 意味 | 目安 |
 | --- | --- | --- |
-| Download | services-01 から端末へ受け取る速さ | 有線で 900Mbps 前後、Wi-Fiは電波次第で 100〜800Mbps |
-| Upload | 端末から services-01 へ送る速さ | 有線で 900Mbps 前後 |
+| Download | apps-01 から端末へ受け取る速さ | 有線で 900Mbps 前後、Wi-Fiは電波次第で 100〜800Mbps |
+| Upload | 端末から apps-01 へ送る速さ | 有線で 900Mbps 前後 |
 | Ping / Jitter | 1往復の遅れとばらつき | 有線で 1ms 未満。Wi-Fiは大きくなる |
 
 家庭内LANは 1Gbps なので、有線でも TCP・TLS のオーバーヘッドを含めて 940Mbps 前後が
@@ -47,7 +47,7 @@ tags:
 
 ## 前の結果を見る
 
-計測履歴は services-01 のデータベースに残っています。履歴の統計ページ
+計測履歴は apps-01 のデータベースに残っています。履歴の統計ページ
 `https://speed.apextox.dpdns.org/results/stats.php` は管理者からパスワードを
 聞いて開きます（`secrets/stats_password`。通常の利用では不要です）。
 
@@ -61,7 +61,7 @@ tags:
 
 ## 管理者向け
 
-- スタック: `stacks/librespeed/`（services-01 の独立Compose）。正本は
+- スタック: `stacks/librespeed/`（apps-01 の独立Compose）。正本は
   `platform/terraform/dns.yaml` の `speed` レコードと `stacks/librespeed/` です。
 - 配備: `platform/ansible/librespeed.yml`（roles: `docker` → `tls_proxy` →
   `librespeed`）。詳細は `stacks/librespeed/README.md`。
@@ -74,7 +74,7 @@ tags:
 
 | 症状 | 確認すること |
 | --- | --- |
-| タイルが赤い | services-01 で `sudo python3 manage.py status`。コンテナが動いているか |
+| タイルが赤い | apps-01 で `sudo python3 manage.py status`。コンテナが動いているか |
 | ページは開くが数値が低い | 端末がWi-Fiか有線か、電波状況、同時通信の有無 |
 | 有線なのに300Mbps前後で頭打ち | USB接続のGbEアダプタ・USB-Cドック経由（USB 2.0では約300Mbpsが天井）。PC本体のLANポートへ直挿しして再測 |
 | LAN内なのに300Mbps前後（Tailscale導入端末） | Tailscaleのsubnet routeがLANより優先され、net-01経由で回り込むことがある。TailscaleのIFメトリックを上げる（`Set-NetIPInterface -InterfaceAlias Tailscale -InterfaceMetric 9999`）、または計測時だけOFF |

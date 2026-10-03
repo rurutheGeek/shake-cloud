@@ -64,7 +64,7 @@ tags:
 | **OpenWrt** | ルータ用のLinux。`router-01` の中身。設定の正本は `platform/openwrt/` |
 | **AdGuard Home** | DNSサーバー兼広告・トラッカー遮断。`router-01` 上で家中の名前解決を担う（[AdGuard Home](../operations/adguard.md)） |
 | **LuCI** | OpenWrt の管理画面。**SSOを付けていない**（復旧経路のため） |
-| **LibreSpeed** | 自前の回線速度テスト。services-01（[LibreSpeed](../services/librespeed.md)） |
+| **LibreSpeed** | 自前の回線速度テスト。apps-01（[LibreSpeed](../services/librespeed.md)） |
 | **Homarr** | サービス一覧のハブ画面 |
 | **Nextcloud / Kavita / Navidrome / FreshRSS** | ファイル／本／音楽／RSS |
 | **Vaultwarden** | パスワード保管庫 |
