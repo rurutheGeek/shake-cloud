@@ -151,6 +151,25 @@ func (c *Client) AllocateIP(ctx context.Context, rangeID int, allocation Allocat
 	return address, err
 }
 
+// CreateIPAddress records an address the caller already knows, e.g.
+// "192.168.10.202/24": the one a VM had before the cloud adopted it.
+func (c *Client) CreateIPAddress(ctx context.Context, address string, allocation Allocation) (IPAddress, error) {
+	tags := make([]map[string]string, 0, len(allocation.Tags))
+	for _, slug := range allocation.Tags {
+		tags = append(tags, map[string]string{"slug": slug})
+	}
+	body := map[string]any{
+		"address":     address,
+		"status":      "active",
+		"description": allocation.Description,
+		"dns_name":    allocation.DNSName,
+		"tags":        tags,
+	}
+	var created IPAddress
+	err := c.do(ctx, http.MethodPost, "/ipam/ip-addresses/", body, &created)
+	return created, err
+}
+
 // DeleteIPAddress releases an address. An address that is already gone is not an error.
 func (c *Client) DeleteIPAddress(ctx context.Context, id int) error {
 	err := c.do(ctx, http.MethodDelete, fmt.Sprintf("/ipam/ip-addresses/%d/", id), nil, nil)
