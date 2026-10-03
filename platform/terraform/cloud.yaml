@@ -93,3 +93,4 @@ ledger:
     media-01: [media-stack]
     net-01: [vpn]
     monitor-01: [monitoring]
+    apps-01: [apps]
