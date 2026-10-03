@@ -35,7 +35,7 @@ cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
   auth:
-    host: identity
+    host: services-01
     upstream: 127.0.0.1:9000
     description: Authentik（共通ログイン）
   cloud:

@@ -20,6 +20,13 @@
 {
 	# 設定は起動時にだけ読む。管理用 API は開けない。
 	admin off
+{% if tls_proxy_catchall_upstream | default('') %}
+	# 他のホストの Caddy は Forward Auth で、アプリの名前を SNI にして auth の名前へ
+	# つなぎ、証明書は auth の名前で確かめる。このホストには証明書が複数あるので、
+	# 知らない SNI には auth の証明書を返すと決めておく（2026-10-03 に実機で発生:
+	# 既定の証明書が別のサイトのものになり、Forward Auth が全部 502 になった）。
+	fallback_sni {{ tls_proxy_auth_record | default('auth') }}.{{ tls_proxy_dns.zone }}
+{% endif %}
 {% if behind_edge %}
 	# 端末からの通信は入口（{{ tls_proxy_edge_address }}）が受けて、ここへ中継する。入口が付けた
 	# X-Forwarded-For だけを信じる。

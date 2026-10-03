@@ -2,3 +2,10 @@
 # services-01（05-seed が作る、NetBox など共有サービスの置き場）。
 ansible_user: debian
 ansible_python_interpreter: /usr/bin/python3
+# Authentik がこのホストに居る（core-01）。
+# 未知の Host は Authentik へ渡す: 他のホストの Caddy が Forward Auth で、アプリの
+# Host のまま auth の名前（＝このホスト）へ問い合わせに来る。
+tls_proxy_catchall_upstream: '127.0.0.1:9000'
+# このホスト自身のサイト（adguard など）の Forward Auth は、auth の名前を経由せず
+# Authentik へ直接つなぐ。名前経由だと自分のサイトに当たり、問い合わせが輪になる。
+tls_proxy_authentik_url: 'http://127.0.0.1:9000'

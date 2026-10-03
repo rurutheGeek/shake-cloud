@@ -34,7 +34,7 @@
     - name: Read the media OIDC client credentials on the identity VM
       ansible.builtin.slurp:
         src: /opt/identity-stack/secrets/oidc-media.json
-      delegate_to: '{{ media_sso_identity_host | default("identity") }}'
+      delegate_to: "{{ media_sso_identity_host | default((groups.get('identity_provider') or ['identity'])[0]) }}"
       register: media_freshrss_oidc
       no_log: true
     - name: Check the FreshRSS client credentials

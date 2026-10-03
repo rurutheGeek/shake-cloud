@@ -59,8 +59,10 @@ hosts:
     disk_gib: 32
     on_boot: true
     started: true
-    tags: [identity, managed-by-terraform-admin]
-    description: Authentikと専用DB。SSOの土台なので常時起動。
+    # 2026-10-03: Authentik は services-01（core-01 になる）へ移した。identity タグは
+    # 外し、Ansible の identity_provider グループから外す。VMは戻せるよう残す。
+    tags: [managed-by-terraform-admin]
+    description: 退役予定。Authentik は services-01 へ移した（2026-10-03）。
 
   cloud-01:
     vm_id: 140

@@ -44,7 +44,7 @@ variable "cpu_cores" {
 
 variable "memory_mib" {
   type    = number
-  default = 4096
+  default = 6144
 }
 
 variable "disk_gib" {

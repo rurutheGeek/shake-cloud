@@ -134,8 +134,9 @@ class TlsProxyTests(unittest.TestCase):
         self.assertEqual(defaults('cloud_api')['cloud_api_bind_address'], '127.0.0.1')
 
     def test_every_host_with_upstreams_deploys_the_proxy(self):
-        playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
-                     SEED_HOST: ['netbox.yml'],
+        playbooks = {'cloud-01': ['cloud.yml'],
+                     # Authentik lives next to NetBox on the core host.
+                     SEED_HOST: ['netbox.yml', 'identity.yml'],
                      'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml',
                                  'vaultwarden.yml', 'cups.yml', 'poke-translate.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
@@ -290,7 +291,7 @@ class EdgeRenderingTests(unittest.TestCase):
     def test_without_backends_nothing_about_the_edge_is_rendered(self):
         # Until a host is moved, every host keeps requesting its own
         # certificates exactly as before.
-        for host in ('identity', 'cloud-01', CLOUD_NAME, 'monitor-01', SEED_HOST):
+        for host in ('cloud-01', CLOUD_NAME, 'monitor-01', SEED_HOST):
             rendered = caddyfile(sites_of(host))
             self.assertIn('dns cloudflare {file./run/secrets/cloudflare_dns_api_token}', rendered, host)
             for marker in ('tls internal', 'trusted_proxies', 'tls_trust_pool', 'X-Forwarded-For', '@outpost'):
@@ -375,14 +376,13 @@ class EdgeRoleTests(unittest.TestCase):
             (work / 'ca').mkdir()
             (work / 'out').mkdir()
             dns = json.loads(json.dumps(DNS))
-            dns['edge']['backends'] = ['monitor-01', CLOUD_NAME, 'identity']
+            dns['edge']['backends'] = ['monitor-01', CLOUD_NAME]
             for backend in dns['edge']['backends']:
                 (work / 'ca' / f'{backend}.crt').write_text('test\n')
             (work / 'vars.json').write_text(json.dumps({
                 'tls_proxy_dns': dns, 'tls_proxy_backend_ca_dir': str(work / 'ca'), 'out': str(work / 'out')}))
             (work / 'inventory.ini').write_text(
                 f'{SEED_HOST} ansible_host={EDGE_ADDRESS}\n'
-                f'identity ansible_host={IDENTITY_ADDRESS} tls_proxy_catchall_upstream=127.0.0.1:9000\n'
                 'cloud-01 ansible_host=192.168.10.205\n'
                 f'{CLOUD_INSTANCE_ID} ansible_host={MEDIA_ADDRESS} cloud_name={CLOUD_NAME}\n'
                 'i-2193bd70bacdd1602 ansible_host=192.168.10.102 cloud_name=monitor-01\n')
@@ -405,11 +405,11 @@ class EdgeRoleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-2000:])
             rendered = {path.stem: path.read_text() for path in (work / 'out').iterdir()}
 
-        self.assertEqual(set(rendered), {SEED_HOST, 'identity', 'cloud-01', CLOUD_NAME, 'monitor-01'})
+        self.assertEqual(set(rendered), {SEED_HOST, 'cloud-01', CLOUD_NAME, 'monitor-01'})
         # Only the edge and the host that has not been moved hold the token.
         holders = {host for host, text in rendered.items() if 'dns cloudflare' in text}
         self.assertEqual(holders, {SEED_HOST, 'cloud-01'})
-        for host in (CLOUD_NAME, 'monitor-01', 'identity'):
+        for host in (CLOUD_NAME, 'monitor-01'):
             self.assertIn(f'trusted_proxies static {EDGE_ADDRESS}/32', rendered[host], host)
         edge = rendered[SEED_HOST]
         relayed = [name for name, record in DNS['records'].items()
@@ -417,8 +417,8 @@ class EdgeRoleTests(unittest.TestCase):
         self.assertEqual(edge.count('へ中継）'), len(relayed))
         # The cloud VM is found by its display name, and relayed to its address.
         self.assertIn(f'reverse_proxy https://{MEDIA_ADDRESS} {{', site_block(edge, 'nextcloud'))
-        self.assertIn(f'reverse_proxy https://{IDENTITY_ADDRESS} {{', site_block(edge, 'auth'))
-        self.assertIn(f'forward_auth https://{IDENTITY_ADDRESS} {{', site_block(edge, 'adguard'))
+        # Authentik is on the edge host itself, so auth is one of its own sites.
+        self.assertIn('reverse_proxy 127.0.0.1:9000', site_block(edge, 'auth'))
         self.assertNotIn('cloud.', ''.join(line for line in edge.splitlines() if 'へ中継）' in line))
 
 
