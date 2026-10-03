@@ -10,7 +10,7 @@
 # 設計と検証は docs/operations/router-config.md。
 schema_version: 29
 http:
-  # 管理画面はルータの LAN アドレス。**ファイアウォールで services-01（HTTPS
+  # 管理画面はルータの LAN アドレス。**ファイアウォールで core-01（HTTPS
   # 入口の Caddy）だけに開けてある**（LAN 全体には開けない。SSO を迂回される
   # ため）。入口は https://adguard.apextox.dpdns.org（Forward Auth）。
   # SSH トンネルでも開ける: ssh -L 3000:192.168.10.1:3000 root@192.168.10.1

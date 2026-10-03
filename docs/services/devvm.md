@@ -123,8 +123,8 @@ VS Code は「Remote-SSH: Connect to Host」で `dev-a` を選びます。
 
 ## 6. 元に戻す方法と注意点
 
-- **宅外からは使えません。** services-01のVPNが入るまでは宅内LANからだけです。ProxmoxのWeb画面をインターネットへ公開しません。
-- どの鍵がどのVMに入るかは `platform/terraform/access.yaml` の `admin_ssh_public_keys`（全ホスト）と `host_ssh_public_keys`（ホスト個別）で決まります。`05-seed`（services-01）だけは専用の `seed_ssh_public_keys` を使います。
+- **宅外からは使えません。** apps-01のVPNが入るまでは宅内LANからだけです。ProxmoxのWeb画面をインターネットへ公開しません。
+- どの鍵がどのVMに入るかは `platform/terraform/access.yaml` の `admin_ssh_public_keys`（全ホスト）と `host_ssh_public_keys`（ホスト個別）で決まります。`05-seed`（apps-01）だけは専用の `seed_ssh_public_keys` を使います。
 - VM自体はTerraformで作り直せますが、その際ディスクの中身は失われます。
 - `~/tf`（0700）が各VMのTerraform state置き場として用意してあります。
 - 電源の状態をTerraformは追いかけません。止めたVMを勝手に起動し直すことはありません。

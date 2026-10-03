@@ -1,7 +1,7 @@
 """Guard the LibreSpeed stack's isolation, local-only measurement and wiring.
 
-LibreSpeed is its own Compose project on services-01. The browser measures the
-path between the device that opens the page and services-01, so the stack must
+LibreSpeed is its own Compose project on apps-01. The browser measures the
+path between the device that opens the page and apps-01, so the stack must
 stay loopback-only behind Caddy and must not pretend to measure the internet
 line. A test that exposed the port on the LAN, that let the stats password into
 .env, or that lost the pinned digest would be worse than no test.
@@ -60,7 +60,7 @@ class StackTests(unittest.TestCase):
         self.assertEqual(environment['MODE'], 'standalone')
         # 端末↔サーバの計測なので、ISP・距離の外部問い合わせは使わない。
         self.assertEqual(environment['DISABLE_IPINFO'], 'true')
-        self.assertEqual(environment['TAGLINE'], '端末 ↔ services-01 の実効速度')
+        self.assertEqual(environment['TAGLINE'], '端末 ↔ apps-01 の実効速度')
 
     def test_telemetry_is_local_sqlite_with_ip_redaction(self):
         environment = self.service()['environment']

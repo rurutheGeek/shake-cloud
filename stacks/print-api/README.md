@@ -1,7 +1,7 @@
-# print-api（services-01）
+# print-api（apps-01）
 
 Nextcloudの「印刷」アクション（公開リポジトリ [`rurutheGeek/nextcloud-cups-print`](https://github.com/rurutheGeek/nextcloud-cups-print) の `cups_print`）
-からのHTTP POSTを受け、services-01のCUPSキュー `ts8430` へ流す小さなAPIです。
+からのHTTP POSTを受け、apps-01のCUPSキュー `ts8430` へ流す小さなAPIです。
 標準ライブラリだけで動きます。
 
 ## 構成

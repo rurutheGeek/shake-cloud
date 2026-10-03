@@ -94,9 +94,9 @@ python3 tools/packets_to_annexb.py /tmp/appstream.bin -o /tmp/live.h265
 ffmpeg -i /tmp/live.h265 -fps_mode passthrough /tmp/live_%04d.png
 ```
 
-## 配備（services-01・HA と同じホスト）
+## 配備（apps-01・HA と同じホスト）
 
-HA と同じ LAN に居ればよいので、常駐は services-01 の独立 Compose で動かす
+HA と同じ LAN に居ればよいので、常駐は apps-01 の独立 Compose で動かす
 （android-01 VM は開発・アプリ捕捉の作業台で、常駐先ではない）。
 
 ```bash
@@ -143,7 +143,7 @@ LEO_OUT=/var/tmp/live bash tools/live_supervisor.sh
 HA 側は Generic Camera（UI 専用）として登録する:
 
 ```bash
-# services-01（HA ホスト）で
+# apps-01（HA ホスト）で
 sudo python3 /opt/home-assistant/manage.py ensure-camera \
   --name 'eufyCam S4 (leo_rtc)' --stream rtsp://<leo_rtc ホスト>:8554/eufy \
   --still http://<leo_rtc ホスト>:8888/snapshot.jpg

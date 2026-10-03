@@ -1,8 +1,8 @@
 # LibreSpeed
 
-端末 ↔ services-01 の実効速度を測るページです。**services-01 に単独の Compose
+端末 ↔ apps-01 の実効速度を測るページです。**apps-01 に単独の Compose
 プロジェクトとして置いています。** ブラウザー内の JavaScript が測るので、測って
-いるのは「ページを開いた端末と services-01 の間」の速度（Wi-Fi・LANケーブル・
+いるのは「ページを開いた端末と apps-01 の間」の速度（Wi-Fi・LANケーブル・
 仮想NIC を含む）です。インターネット回線の速度ではありません。
 
 - 利用・計測の考え方: [通信速度テスト（LibreSpeed）](../../docs/services/librespeed.md)
@@ -22,12 +22,12 @@
 
 ## 配備（IaC）
 
-services-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
+apps-01 は `05-seed` の静的インベントリ（`seed.ini`）で扱います。
 
 ```bash
 # 1. speed.apextox.dpdns.org の A レコードを作る
 tools/tf 20-dns apply
-# 2. services-01 へ配備（role: platform/ansible/roles/librespeed、play: librespeed.yml）
+# 2. apps-01 へ配備（role: platform/ansible/roles/librespeed、play: librespeed.yml）
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/librespeed.yml
 ```

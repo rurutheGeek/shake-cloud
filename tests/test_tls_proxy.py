@@ -13,8 +13,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 DNS = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text())
 TLS_PROXY = ROOT / 'platform/ansible/roles/tls_proxy'
-# services-01 is created by 05-seed, not declared in hosts.yaml.
-SEED_HOST = 'services-01'
+# core-01 is created by 05-seed, not declared in hosts.yaml.
+SEED_HOST = 'core-01'
 # The cloud VM's inventory host name is its instance id; the display name
 # (tags.Name) arrives as cloud_name and is what dns.yaml records by.
 CLOUD_INSTANCE_ID = 'i-a06df9a2dfd1ce6db'
@@ -69,7 +69,7 @@ class DnsDeclarationTests(unittest.TestCase):
         # clients dial directly, and CUPS rejects a non-localhost Host on
         # loopback connections, so Caddy dials the LAN address and keeps Host.
         # AdGuard の UI はルータ上にあり、ルータのファイアウォールが :3000 を
-        # services-01（Caddy のホスト）だけに開けている。router（LuCI）も同じく
+        # core-01（Caddy のホスト）だけに開けている。router（LuCI）も同じく
         # ルータ上で、80 はルータ自身の管理画面。
         for name, record in DNS['records'].items():
             if 'upstream' in record and name not in ('cups', 'adguard', 'router'):
@@ -103,7 +103,7 @@ class DnsDeclarationTests(unittest.TestCase):
                          f'127.0.0.1:{review_port}')
         # CUPS は 631 の IPP と同居するWeb UI。印刷クライアントは 631 を直接使う。
         self.assertEqual(records['cups']['upstream'], '192.168.10.105:631')
-        # AdGuard の UI はルータ上。ルータ側のファイアウォールで services-01 だけに開ける。
+        # AdGuard の UI はルータ上。ルータ側のファイアウォールで core-01 だけに開ける。
         self.assertEqual(records['adguard']['upstream'], '192.168.10.1:3000')
         # ルータの LuCI もルータ上。認証は LuCI 自身（SSO を付けない）。
         self.assertEqual(records['router']['upstream'], '192.168.10.1:80')
@@ -260,7 +260,7 @@ class EdgeDeclarationTests(unittest.TestCase):
 
     def test_the_edge_has_its_own_playbook_on_the_dynamic_inventory(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/edge.yml').read_text())[0]
-        self.assertEqual(play['hosts'], 'services')
+        self.assertEqual(play['hosts'], 'core')
         self.assertIn('tls_proxy', play['roles'])
 
     def test_dns_points_relayed_names_at_the_edge(self):

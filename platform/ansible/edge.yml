@@ -8,8 +8,19 @@
 # 中継先を足すときは、先にそのホストを配備する（内部CAを取ってくる）。
 # 手順は docs/operations/edge.md。
 - name: Deploy the HTTPS edge
-  hosts: services
+  hosts: core
   become: true
+  pre_tasks:
+    # 2026-10-03 に services-01 から改名した。ゲストのホスト名を台帳の名前に揃える
+    # （cloud-init は初回にしかホスト名を書かない）。
+    - name: Match the hostname to the ledger
+      ansible.builtin.hostname:
+        name: '{{ inventory_hostname }}'
+    - name: Keep the hostname resolvable
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1\s'
+        line: '127.0.1.1 {{ inventory_hostname }}'
   roles:
     - docker
     - tls_proxy

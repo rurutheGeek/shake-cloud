@@ -10,7 +10,7 @@
 - 公開: `127.0.0.1:${NEXTCLOUD_PORT:-8080}` のみ。LAN へ直接公開せず、HTTPS と SSO は前段の入口（[N05](../../../docs/development/N05-https.md)）で行う
 - `cron` コンテナが Nextcloud のバックグラウンドジョブを実行する
 - 自作アプリ `cups_print`（印刷）・`localsend_share`（LocalSend送信）・`shake_tags`（MP3タグ）を `html/custom_apps/` へ置き、中継APIのURLとトークンを `occ` で設定する。`cups_print` と `localsend_share` は公開リポジトリのGitHub Releaseから `manage.py custom-apps` が導入し、イメージは固定のままでコンテナには html ボリューム越しに見える
-- Vaultwarden は含まない（[W02](../../../docs/development/W02-vaultwarden.md) で services-01 へ分離）
+- Vaultwarden は含まない（[W02](../../../docs/development/W02-vaultwarden.md) で core-01 へ分離）
 
 ## 使い方（media-01）
 

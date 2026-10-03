@@ -122,7 +122,7 @@ config rule
 	option proto 'udp'
 	option target 'ACCEPT'
 
-# AdGuard Home の管理画面（:3000）。HTTPS 入口の Caddy が動く services-01
+# AdGuard Home の管理画面（:3000）。HTTPS 入口の Caddy が動く core-01
 # だけに開ける。LAN 全体に開けると SSO（Forward Auth）を迂回できてしまう。
 # ルールは書いた順に評価されるので、許可のあとに拒否を置く。
 config rule

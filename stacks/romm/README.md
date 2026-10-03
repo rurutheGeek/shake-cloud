@@ -27,4 +27,4 @@ ROM原本とアプリDB・メタデータを分け、game1内の保存先を参�
 書き込まない。イメージのダイジェスト固定、冷間バックアップ、停止・再開は
 `manage.py` の明示操作で行う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。services-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

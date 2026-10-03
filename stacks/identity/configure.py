@@ -30,7 +30,7 @@ MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
                       'khinsider': 'KHInsider', 'backup': 'バックアップポータル',
                       'urbackup': 'UrBackup管理画面'}
 MEDIA_OUTPOST = 'Embedded'
-# The service entry point lives on services-01, not media-01, but it is an
+# The service entry point lives on core-01, not media-01, but it is an
 # OIDC client of the same identity and is reachable by every invited person.
 HOMARR = 'homarr'
 HOMARR_REDIRECT_PATH = '/api/auth/callback/oidc'
@@ -48,14 +48,14 @@ VAULTWARDEN_REDIRECT_PATH = '/identity/connect/oidc-signin'
 HOME_ASSISTANT = 'home-assistant'
 HOME_ASSISTANT_HOST = 'ha'
 HOME_ASSISTANT_REDIRECT_PATH = '/auth/oidc/callback'
-# CUPS runs on services-01. The status page is a browser tool like the media
+# CUPS runs on core-01. The status page is a browser tool like the media
 # proxies, so it goes through Forward Auth too; printing itself stays on the
 # plain IPP port (631) and the /admin paths are blocked at the proxy.
 CUPS = 'cups'
 # AdGuard Home runs on the router. Only its browser UI goes through SSO; the
-# router's firewall allows :3000 just from services-01 (where Caddy runs).
+# router's firewall allows :3000 just from core-01 (where Caddy runs).
 ADGUARD = 'adguard'
-# The Gmail viewer runs on services-01. It only reads the notification mailbox,
+# The Gmail viewer runs on core-01. It only reads the notification mailbox,
 # which also carries Authentik invitations and recovery links, so its browser
 # UI goes through Forward Auth like the media tools.
 MAIL_VIEW = 'mail-view'

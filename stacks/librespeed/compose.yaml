@@ -1,6 +1,6 @@
-# LibreSpeed（端末 ↔ services-01 の実効速度）を services-01 に単独で置く。
+# LibreSpeed（端末 ↔ apps-01 の実効速度）を apps-01 に単独で置く。
 #
-# ブラウザー内のJavaScriptが測るので、測っているのは「その端末と services-01 の
+# ブラウザー内のJavaScriptが測るので、測っているのは「その端末と apps-01 の
 # 間」の速度（Wi-Fi・LANケーブル・仮想NICを含む）。インターネット回線の速度では
 # ない。到達点は端末がページを開いた先（このホスト）になる。
 # イメージは compose.lock.yaml でダイジェスト固定する。
@@ -15,7 +15,7 @@ services:
       MODE: standalone
       # ページの見出しと説明。日本語のままHTMLエスケープされて差し込まれる。
       TITLE: Shake Lab 速度テスト
-      TAGLINE: 端末 ↔ services-01 の実効速度
+      TAGLINE: 端末 ↔ apps-01 の実効速度
       USE_NEW_DESIGN: 'true'
       # 履歴を SQLite（/database）に残す。統計ページは下の PASSWORD で守る。
       TELEMETRY: 'true'

@@ -25,7 +25,7 @@ dhcp:
   range_end: 192.168.10.99/24
 
 management:
-  # 基盤VMの静的割り当て。既存: .200 services-01（05-seed が静的に持つ）、
+  # 基盤VMの静的割り当て。既存: .200 core-01（05-seed が静的に持つ）、
   # .201 probe-01、.202 dev-a、.203 dev-b。
   # 末尾 .240-.249 は MetalLB 用に切り出してある（下の metallb）。
   range_start: 192.168.10.201/24

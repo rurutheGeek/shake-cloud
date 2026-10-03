@@ -144,7 +144,7 @@ class InventoryTests(unittest.TestCase):
         # compose sees NetBox's raw object, where the name sits on the primary IP.
         self.assertEqual(self.inventory['compose']['cloud_name'],
                          "(primary_ip4 | default({}, true)).dns_name | default('')")
-        for group in ('cloud_instances', 'services'):
+        for group in ('cloud_instances', 'core'):
             group_vars = yaml.safe_load(
                 (ROOT / f'platform/ansible/group_vars/{group}.yml').read_text(encoding='utf-8'))
             self.assertEqual(group_vars['ansible_user'], 'debian', group)
@@ -347,7 +347,7 @@ class AccessTests(unittest.TestCase):
 
     def test_seed_keys_are_public_keys(self):
         keys = self.access['seed_ssh_public_keys']
-        self.assertTrue(keys, '05-seed would lock everyone out of services-01')
+        self.assertTrue(keys, '05-seed would lock everyone out of core-01')
         for key in keys:
             self.assertTrue(key.startswith(('ssh-ed25519 ', 'ssh-rsa ', 'ecdsa-')), key[:20])
             self.assertNotIn('PRIVATE', key)

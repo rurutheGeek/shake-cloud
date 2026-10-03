@@ -25,8 +25,8 @@ admin_ssh_public_keys:
   # これまでどおり ssh-copy-id で各自が足す（この並びの先頭2鍵）。
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAf6bUWJhHu0IOTKHGJYGbG0w9SEjfvcT4pzKfSOn2L0 dev-b@ruru (opencode diagnostic)
 
-# 05-seed（services-01）だけは別の並びを使う。ブートストラップ時はこの順で適用済みで、
-# **変えると services-01 の cloud-init に差分が出る**（Proxmox は鍵を1つの文字列で持つ）。
+# 05-seed（core-01）だけは別の並びを使う。ブートストラップ時はこの順で適用済みで、
+# **変えると core-01 の cloud-init に差分が出る**（Proxmox は鍵を1つの文字列で持つ）。
 # admin の先頭2鍵の**逆順**で、automation 鍵は入っていない（当時まだ無かった）。
 # 値は実機（VMID 150 の sshkeys、2026-09-12 確認）から取った。
 seed_ssh_public_keys:

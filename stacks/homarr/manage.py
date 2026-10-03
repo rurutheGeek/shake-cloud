@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent Homarr lifecycle on services-01. Run with sudo.
+"""Independent Homarr lifecycle on apps-01. Run with sudo.
 
 The stack is Homarr alone: no Authentik database, no docs site, no other
 service's storage. Secrets are generated here and passed to Compose as

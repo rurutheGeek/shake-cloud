@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent Gmail viewer lifecycle on services-01. Run with sudo.
+"""Independent Gmail viewer lifecycle on apps-01. Run with sudo.
 
 The stack is mail-view alone. It holds no data: the mailbox stays on Gmail and
 the page only reads it over IMAP. The app password is installed by the Ansible
