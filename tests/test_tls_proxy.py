@@ -135,7 +135,8 @@ class TlsProxyTests(unittest.TestCase):
     def test_every_host_with_upstreams_deploys_the_proxy(self):
         playbooks = {'identity': ['identity.yml'], 'cloud-01': ['cloud.yml'],
                      SEED_HOST: ['netbox.yml', 'docs-site.yml', 'vaultwarden.yml', 'cups.yml',
-                                 'librespeed.yml', 'mail-view.yml'],
+                                 'mail-view.yml'],
+                     'apps-01': ['librespeed.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
                      'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}

@@ -53,7 +53,7 @@ class StackTests(unittest.TestCase):
     def test_the_state_lives_outside_the_deployment_directory(self):
         volumes = self.service()['volumes']
         self.assertEqual(volumes,
-                         ['${STORAGE_ROOT:-/srv/services/librespeed}/database:/database'])
+                         ['${STORAGE_ROOT:-/srv/librespeed}/database:/database'])
 
     def test_the_measurement_is_device_to_server_not_the_internet_line(self):
         environment = self.service()['environment']
@@ -204,7 +204,7 @@ class ManageTests(unittest.TestCase):
 class IacTests(unittest.TestCase):
     def test_the_playbook_deploys_librespeed_behind_tls(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/librespeed.yml').read_text(encoding='utf-8'))
-        self.assertEqual(play[0]['hosts'], 'services')
+        self.assertEqual(play[0]['hosts'], 'apps')
         roles = play[0]['roles']
         self.assertLess(roles.index('docker'), roles.index('librespeed'))
         # tls_proxy first: Caddy serves https://speed.<zone> and owns the cert.
@@ -213,8 +213,8 @@ class IacTests(unittest.TestCase):
     def test_the_role_manages_the_stack(self):
         defaults = yaml.safe_load(
             (ROOT / 'platform/ansible/roles/librespeed/defaults/main.yml').read_text(encoding='utf-8'))
-        self.assertEqual(defaults['librespeed_project_dir'], '/opt/services/librespeed')
-        self.assertEqual(defaults['librespeed_storage_root'], '/srv/services/librespeed')
+        self.assertEqual(defaults['librespeed_project_dir'], '/opt/librespeed')
+        self.assertEqual(defaults['librespeed_storage_root'], '/srv/librespeed')
         self.assertEqual(defaults['librespeed_port'], 8300)
         self.assertEqual(defaults['librespeed_tz'], 'Asia/Tokyo')
         self.assertEqual(defaults['librespeed_public_url'], 'https://speed.{{ librespeed_dns.zone }}')
@@ -237,10 +237,10 @@ class IacTests(unittest.TestCase):
         for key in ('STORAGE_ROOT=', 'LIBRESPEED_PORT=', 'TZ='):
             self.assertIn(key, environment, key)
 
-    def test_dns_declares_speed_on_services_01(self):
+    def test_dns_declares_speed_on_apps_01(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
         record = dns['records']['speed']
-        self.assertEqual(record['host'], 'services-01')
+        self.assertEqual(record['host'], 'apps-01')
         self.assertEqual(record['upstream'], '127.0.0.1:8300')
         self.assertIn('LibreSpeed', record['description'])
 
