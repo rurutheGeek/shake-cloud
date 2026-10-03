@@ -81,16 +81,16 @@ class SelectTests(unittest.TestCase):
     def test_the_default_is_the_management_vms(self):
         names = [vm['name'] for vm in trim.select_vms(None, False)]
         self.assertIn('cloud-01', names)
-        self.assertNotIn('dev-a', names)
+        self.assertNotIn('dev-01', names)
 
     def test_dev_vms_are_opt_in(self):
         names = [vm['name'] for vm in trim.select_vms(None, True)]
-        self.assertIn('dev-a', names)
-        self.assertIn('dev-b', names)
+        self.assertIn('dev-01', names)
+        self.assertIn('dev-02', names)
 
     def test_naming_a_dev_vm_is_enough(self):
-        names = [vm['name'] for vm in trim.select_vms('dev-a', False)]
-        self.assertEqual(names, ['dev-a'])
+        names = [vm['name'] for vm in trim.select_vms('dev-01', False)]
+        self.assertEqual(names, ['dev-01'])
 
     def test_an_unknown_name_stops_the_run(self):
         with self.assertRaises(SystemExit):

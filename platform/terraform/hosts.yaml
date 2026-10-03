@@ -22,32 +22,6 @@ hosts:
     tags: [lab, managed-by-terraform-admin]
     description: 復元ドリル用の検証VM。使い捨て。
 
-  dev-a:
-    vm_id: 400
-    pool: dev
-    flavor: small
-    # I01（2026-09-12）の実測に合わせる。実機は6GiBで、次回起動時に反映される。
-    memory_mib: 6144
-    memory_min_mib: 2048
-    disk_gib: 40
-    on_boot: false
-    started: true
-    tags: [devbox, managed-by-terraform-admin]
-    description: 開発VM（利用者A）。利用時のみ起動する。
-
-  dev-b:
-    vm_id: 401
-    pool: dev
-    flavor: small
-    # I01（2026-09-12）の実測に合わせる。実機は6GiB。
-    memory_mib: 6144
-    memory_min_mib: 2048
-    disk_gib: 40
-    on_boot: false
-    started: true
-    tags: [devbox, managed-by-terraform-admin]
-    description: 開発VM（利用者B）。利用時のみ起動する。
-
   cloud-01:
     vm_id: 140
     pool: platform

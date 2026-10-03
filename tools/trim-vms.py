@@ -12,7 +12,7 @@ the script runs the reclamation, then shows the disk before and after.
     python3 tools/trim-vms.py --apply               # build cache + apt
     python3 tools/trim-vms.py --apply --images --journal-max 100M
     python3 tools/trim-vms.py --apply --only cloud-01,core-01
-    python3 tools/trim-vms.py --apply --include-dev # dev-a / dev-b too
+    python3 tools/trim-vms.py --apply --include-dev # dev-01 / dev-02 too
 
 Run it from dev-b (or the admin machine) where ~/.ssh/id_ed25519_pve opens the
 VMs. Keep the default hosts and dev VMs apart: the dev VMs are two people's
@@ -33,8 +33,8 @@ VMS = [
     {'name': 'core-01', 'address': '192.168.10.200', 'user_vm': False},
     {'name': 'cloud-01', 'address': '192.168.10.205', 'user_vm': False},
     {'name': 'monitor-01', 'address': '192.168.10.210', 'user_vm': False},
-    {'name': 'dev-a', 'address': '192.168.10.202', 'user_vm': True},
-    {'name': 'dev-b', 'address': '192.168.10.203', 'user_vm': True},
+    {'name': 'dev-01', 'address': '192.168.10.202', 'user_vm': True},
+    {'name': 'dev-02', 'address': '192.168.10.203', 'user_vm': True},
 ]
 SSH_KEY = Path.home() / '.ssh/id_ed25519_pve'
 SSH_OPTIONS = [

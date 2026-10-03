@@ -34,6 +34,9 @@ tags:
   devbox:
     ansible_group: devbox
     description: 開発VM
+  automation:
+    ansible_group: automation
+    description: 自動化の実行ホスト（NetBoxとルータのDHCP同期など）
   identity:
     # グループ名はホスト名 identity と重ねない。同名だと Ansible が
     # 「グループを自分自身へ足す」例外でインベントリ全体の読み込みに失敗する。
