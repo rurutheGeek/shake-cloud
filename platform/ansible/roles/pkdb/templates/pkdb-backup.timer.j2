@@ -1,0 +1,10 @@
+[Unit]
+Description=Dump the pkdb PostgreSQL databases every day
+
+[Timer]
+OnCalendar={{ pkdb_backup_calendar }}
+Persistent=true
+Unit=pkdb-backup.service
+
+[Install]
+WantedBy=timers.target

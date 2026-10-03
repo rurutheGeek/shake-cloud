@@ -116,6 +116,8 @@ nav:
           - Nextcloudのアクセス権限: operations/nextcloud-permissions.md
           - Nextcloud MCPサーバ: operations/nextcloud-mcp.md
           - Vaultwardenの管理: operations/vaultwarden.md
+          - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
+          - Discord Bot（UBSLEEPY）: operations/ubsleepy.md
           - メール設定: operations/smtp.md
           - Windows 11 ProのVMを作る: operations/windows.md
           - android-01（Waydroid）の環境: operations/android-01.md

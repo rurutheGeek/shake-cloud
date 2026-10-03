@@ -1,0 +1,13 @@
+---
+# ポケモン系のPostgreSQL（sleepy_pkdb・shakeweb・pkhack）を apps-01 に単独で置く。
+pkdb_project_dir: /opt/pkdb
+pkdb_storage_root: /srv/pkdb
+pkdb_source_dir: '{{ playbook_dir }}/../../stacks/pkdb'
+# 旧ホストに残るBotなどが LAN 越しにつなぐので全アドレスで待ち受ける。送信元は
+# セキュリティグループ（platform/terraform/services/apps）が LAN に絞る。
+pkdb_bind_address: 0.0.0.0
+pkdb_port: 5432
+# 日次の論理ダンプ。データと同じディスクなので、VMごとの保全は週次 vzdump が持つ。
+pkdb_backup_dir: '{{ pkdb_storage_root }}/backups'
+pkdb_backup_keep: 14
+pkdb_backup_calendar: '*-*-* 04:20:00'

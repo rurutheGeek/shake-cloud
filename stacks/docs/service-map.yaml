@@ -107,6 +107,7 @@ record_docs:
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]
+  pkdb: [operations/pkdb.md]
   ha: [services/home-assistant.md]
   docs: [contributing-docs.md]
   localsend: [services/usage.md]

@@ -1,6 +1,6 @@
 ---
 title: 機能別VMと並列開発計画
-updated: 2026-10-03
+updated: 2026-10-04
 section: 開発計画
 audience: 開発者
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # 機能別VMと並列開発計画
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-04 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 **状態**: **計画書・開発用READMEを整備。並行作業のI01で実測・軽量化、I02でmedia-01作成、I05でサービスstateの資格情報境界、W01でHomarr新規スタック、H01でHome Assistant Container（HA 2026.9.2）をservices-01へ配備（2026-10-03にapps-01へ移設）し、ローカルオーナー作成とAuthentik SSO（hass-oidc-auth）ログインまで確認（バックアップ復元試験・未認証拒否・テスト自動化は未完）。H02でSwitchBot Cloud統合を追加し鍵・ドアセンサー・赤外線家電のエンティティを確認（実機操作は未確認）。H04はeufy-security-ws 3.1.0＋eufy_security v8.2.4でログイン・デバイス一覧・Pushまで動作（イベントは2026-09-23にHAで確認済み。ライブ映像は新WebRTC方式のため公開ソフトでは不可）。H05はネイティブleo_rtcの自前実装で、wake・ICE・KCP・候補交換まで実機で成立（開始コマンドが未解決）。H03は見送り決定。M01はmonitor-01へ監視スタック（Prometheus・Alertmanager・Grafana・blackbox・pve/nut exporter・PeaNUT）を配備し、28ターゲット収集（AWX以外成功）・UPS取得・メール通知・node資源とバックアップのアラート・dead man's switch（healthchecks.io）・低電池の自動停止（upsmon）まで実機確認済み、D06 LocalSendとD08 Nextcloud印刷は配備済みで実機確認が残る**。
 
@@ -29,7 +29,7 @@ tags:
 | 配置先 | 機能群 | vCPU / RAM | ディスク・停止単位 |
 | --- | --- | --- | --- |
 | core-01（旧services-01、2026-10-03改名） | Authentik・NetBox・HTTPS入口のCaddy | 4 / 8GiB | 現行容量と実データを確認。常時VM内で別Compose・別保存先 |
-| apps-01（クラウドVM、`192.168.10.105`、2026-10-03に移設） | Homarr・Vaultwarden・LibreSpeed・ドキュメントサイト・mail-view・CUPS／印刷API・ポケモン翻訳・Home Assistant・eufy-security-ws・eufy-leo-rtc（VPNは計画のみ） | 2 / 4GiB（下限3GiB） | `/opt/<アプリ名>`・`/srv/<アプリ名>` |
+| apps-01（クラウドVM、`192.168.10.105`、2026-10-03に移設） | Homarr・Vaultwarden・LibreSpeed・ドキュメントサイト・mail-view・CUPS／印刷API・ポケモン翻訳・ポケモン系のPostgreSQL（pkdb）・Discord Bot（UBSLEEPY）・Home Assistant・eufy-security-ws・eufy-leo-rtc（VPNは計画のみ） | 2 / 4GiB（下限3GiB） | `/opt/<アプリ名>`・`/srv/<アプリ名>` |
 | game1（既存） | ゲーム・RomM・Ollama・ポケモンAI一式・汎用RAG・Discord Bot | 8 / 現行12GiB、実測後16GiB候補 | 現行ディスクを維持しAI・ROM容量を測定。VM停止中はAI・Bot・ライブラリも停止 |
 | media-01（VM作成済み） | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPIと依存DB | 4 / 6GiB | OS32＋データ64GiBを仮予算。原本・索引・WAL・復元領域から確定 |
 | 既存Kubernetes | AWX・DB提供（CNPG）・関数提供（Knative） | cp 2 / 3GiB、worker-01 4 / 8GiB | 固定RAM。worker-02は必要量から起動・join判断 |
@@ -53,7 +53,7 @@ apps-01のVM再起動では家電も停止します。宅外からの復旧経�
 | [W06 MeTube・音楽変換・タグ編集](W06-music-tools.md) | 移行・新規 | media-01 | 一部完了（同期切替が残り） |
 | [W07 RomM](W07-romm.md) | 新規 | game1 | 一部完了（実装済み・実機未） |
 | [W08 クライアント端末のバックアップ](W08-client-backup.md) | 新規 | media-01・Windows PC・Android | 配備済み（Windows実端末の初回バックアップ・復元が残る） |
-| [A01 ポケモンDB・WebUI・agent](A01-pokemon-ai.md) | 移行・参照元取得待ち | game1 | 外部待ち |
+| [A01 ポケモンDB・WebUI・agent](A01-pokemon-ai.md) | 移行・参照元取得待ち | DBは apps-01、他は game1 | 一部完了（DBは移行済み） |
 | [A02 Ollama](A02-ollama.md) | 新規・実機検証 | game1 | 一部完了（実装済み・実機未） |
 | [A03 汎用RAG](A03-rag.md) | 新規 | game1 | 計画（未着手） |
 | [A04 Discord Bot](A04-discord-bot.md) | 新規 | game1 | 外部待ち |

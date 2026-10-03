@@ -1,0 +1,12 @@
+---
+# Discord Bot「UBSLEEPY」を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy.yml'
+# 外から受ける通信は無い（Discord へ出ていくだけ）ので入口（Caddy）は通さない。
+# セーブデータの移行は docs/operations/ubsleepy.md。
+- name: Deploy the UBSLEEPY Discord bot
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    - ubsleepy

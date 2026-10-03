@@ -1,0 +1,3 @@
+# platform/sops/ubsleepy.sops.yaml の中身の例。Discord Bot「UBSLEEPY」のトークン。
+# Discord Developer Portal → Applications → Bot → Token。
+DISCORD_TOKEN: "xxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

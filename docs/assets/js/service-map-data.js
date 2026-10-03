@@ -377,6 +377,17 @@ window.SERVICE_MAP = {
      "url": "https://docs.apextox.dpdns.org/"
     },
     {
+     "description": "apps-01・5432",
+     "docs": [
+      {
+       "path": "operations/pkdb/",
+       "title": "ポケモン系のPostgreSQL（pkdb）"
+      }
+     ],
+     "name": "ポケモン系のPostgreSQL",
+     "url": "https://pkdb.apextox.dpdns.org/"
+    },
+    {
      "description": "印刷状況。Forward Auth",
      "docs": [
       {

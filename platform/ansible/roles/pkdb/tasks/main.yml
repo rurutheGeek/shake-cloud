@@ -1,0 +1,74 @@
+---
+- name: Create the pkdb deployment directory
+  ansible.builtin.file:
+    path: '{{ pkdb_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the pkdb stack
+  ansible.builtin.copy:
+    src: '{{ pkdb_source_dir }}/{{ item }}'
+    dest: '{{ pkdb_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# .env は宣言値だけを role が描画する（秘密値は secrets/ へ）。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ pkdb_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize storage and the superuser password
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ pkdb_project_dir }}'
+  register: pkdb_init
+  changed_when: "'CHANGED' in pkdb_init.stdout"
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ pkdb_project_dir }}'
+  register: pkdb_pinned
+  changed_when: "'CHANGED' in pkdb_pinned.stdout"
+
+- name: Start PostgreSQL and wait for health
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ pkdb_project_dir }}'
+  register: pkdb_up
+  changed_when: "'Recreate' in pkdb_up.stderr or 'Created' in pkdb_up.stderr"
+
+- name: Wait for PostgreSQL on its port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: '{{ pkdb_port }}'
+    timeout: 60
+
+- name: Install the backup service
+  ansible.builtin.template:
+    src: pkdb-backup.service.j2
+    dest: /etc/systemd/system/pkdb-backup.service
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install the backup timer
+  ansible.builtin.template:
+    src: pkdb-backup.timer.j2
+    dest: /etc/systemd/system/pkdb-backup.timer
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable and start the backup timer
+  ansible.builtin.systemd:
+    name: pkdb-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true

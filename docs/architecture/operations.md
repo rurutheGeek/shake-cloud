@@ -1,6 +1,6 @@
 ---
 title: 配備・Git管理・ストレージ・復旧
-updated: 2026-10-03
+updated: 2026-10-04
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 配備・Git管理・ストレージ・復旧
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-04 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
@@ -174,16 +174,12 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 <a id="pokemon-db"></a>
 ### ポケモンRDBの配置と移行単位
 
-**配置先はgame1へ変更しました。DB・WebUI・agent・推論を同じVMに置き、game1停止中はポケモンAI一式も停止します。** 旧案の「ゲーム停止中もSQL検索を維持」「専用CNPGへ移行」「一時pokemon-ai-01を作成」は採用しません。[A01 ポケモンAI](../development/A01-pokemon-ai.md)が実装・移行の計画です。
+**ポケモン系のPostgreSQLは apps-01 に置きます（2026-10-04 に移行済み。[pkdb](../operations/pkdb.md)）。** WebUI・agent・推論は game1 のままで、game1 停止中もDBは使えます。旧案の「DBも game1 に同居」「専用CNPGへ移行」「一時pokemon-ai-01を作成」は採用しません。
 
-参照元の `pokemon-ai-lab/compose.yaml` は本リポジトリにはありません。旧設計では同じPostgreSQLに `pokemon_rdb` と `openwebui` があり、Embeddingは `openwebui.rag.pokedex_documents` とされています。現行のソース・版・データ量を取得して確認し、未確認の内容を実機状態として扱いません。
-
-- 両DB、ロール・読み取り権限、pgvector、WebUIの状態と鍵、agent設定を移行単位にする。汎用RAGのデータ・文書権限とは分離する。
-- 既存PostgreSQL・拡張・Embeddingの版と次元を保持し、移行とモデル変更を同時に行わない。
-- game1内でゲーム・モデル・AI状態の保存先を分け、GPU負荷試験は[G03](../development/G03-game-ai-resources.md)で調整する。AI用の4GiBという旧見積もりは実測保証ではなく、VM全体の12–16GiB内で再測定する。
-- CNPG移行を前提とした別VM・別ディスクの予算は加算しない。データ・索引・WAL・モデル・復元領域を実測して必要な仮想ディスク容量を決める。
-
-切替手順は、更新・取り込み停止 → 両DBとWebUI状態の整合バックアップ → 隔離した移行先へ復元 → ロール再設定・agent接続 → 全表件数と `fingerprint_data.py` の比較 → SQL・図鑑検索・WebUI/SSEの確認 → 接続先切替、です。元環境は停止して保持し、合格前にボリュームを消しません。切替後に新規チャット等の書き込みが入った場合は、その差分を保全してから切り戻します。
+- 実体は PostgreSQL 15 の `sleepy_pkdb`（スキーマ `pokemondb`）・`shakeweb`・`pkhack` で、計約50MB、拡張は `plpgsql` のみ。以前ここに書いていた `pokemon_rdb`・`openwebui`・pgvector の構成は、実測した旧ホストには無かった。
+- game1 に置かない理由：Botなどが常時つなぐこと、game1 は構成管理の鍵で入れずバックアップがセーブだけであること、`shakeweb`・`pkhack` はポケモンAIの一部ではないこと。
+- CNPG に置かない理由：Kubernetes は必要時のみ稼働（[決定ログ](decisions.md)）。
+- WebUI・agent を移すときは、その状態と鍵・agent設定を移行単位にする。汎用RAGのデータ・文書権限とは分離する（[A01](../development/A01-pokemon-ai.md)）。
 
 <a id="home-devices"></a>
 ### Home Assistant・SwitchBot・Eufy（Echoは見送り）

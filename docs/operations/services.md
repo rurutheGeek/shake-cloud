@@ -1,6 +1,6 @@
 ---
 title: サービスの置き場所とクラウドVMでの作り方
-updated: 2026-10-03
+updated: 2026-10-04
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # サービスの置き場所とクラウドVMでの作り方
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 方針と手順。apps-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み（apps-01 へは 2026-10-03 に移設）。
 
@@ -22,8 +22,8 @@ tags:
 
 **配置は停止単位と運用上の利点で決めます。** 既存KubernetesのAWX・DB提供（CloudNativePG）・関数提供（Knative）は維持します。Homarr・Vaultwardenを単に小さいWebアプリだからKubernetesへ移すことはしません。
 
-- core-01 には NetBox・入口の Caddy・Authentik を残し、その他の常用サービスは apps-01（クラウドVM）へ置きます。apps-01 には Home Assistant Container・eufy-security-ws（HAとは別Compose）・eufy-leo-rtc・Homarr・Vaultwarden・CUPS・メールビューア・ドキュメントサイト・LibreSpeed・ポケモン翻訳を別Composeで置きます。**2026-10-03 に services-01 から移設済みで、配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>` です**（VPNは未配備）。
-- game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
+- core-01 には NetBox・入口の Caddy・Authentik を残し、その他の常用サービスは apps-01（クラウドVM）へ置きます。apps-01 には Home Assistant Container・eufy-security-ws（HAとは別Compose）・eufy-leo-rtc・Homarr・Vaultwarden・CUPS・メールビューア・ドキュメントサイト・LibreSpeed・ポケモン翻訳・ポケモン系のPostgreSQL（[pkdb](pkdb.md)）・Discord Bot（[UBSLEEPY](ubsleepy.md)）を別Composeで置きます。**2026-10-03 に services-01 から移設済みで、配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>` です**（VPNは未配備）。
+- game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。ポケモン系のPostgreSQLだけは常時つなぐため apps-01 に置きます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
 - media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
 - monitor-01は基盤VM（VMID 120、`192.168.10.210`）で、Prometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-10-03 にクラウドVMから基盤VMへ移し、Grafanaは `https://grafana.apextox.dpdns.org`（core-01 の Authentik OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。

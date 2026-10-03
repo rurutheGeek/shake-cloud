@@ -1,0 +1,11 @@
+---
+# ポケモン系のPostgreSQL（sleepy_pkdb・shakeweb・pkhack）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/pkdb.yml'
+# HTTPではないので入口（Caddy）は通さない。データの移行は docs/operations/pkdb.md。
+- name: Deploy the pkdb PostgreSQL server
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    - pkdb

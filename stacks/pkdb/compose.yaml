@@ -1,0 +1,37 @@
+# ポケモン系のPostgreSQL（sleepy_pkdb・shakeweb・pkhack）を apps-01 に単独で置く。
+#
+# 旧ホスト（aarch64）の PostgreSQL 15 から論理ダンプで移した。版は旧ホストと同じ
+# 15 系・Alpine に揃え、版上げを移行と同時に行わない。照合順序（en_US.utf8）の
+# 並びも旧ホストと同じ musl のものになる。
+# イメージは compose.lock.yaml でダイジェスト固定する。
+name: pkdb
+
+services:
+  db:
+    image: postgres:15.15-alpine
+    restart: unless-stopped
+    environment:
+      # 旧ホストと同じ UTC のままにする（initdb が TZ から timezone を決める）。
+      TZ: UTC
+      # 管理者 postgres のパスワードは secrets/ から Compose secret で渡す。
+      # アプリ用ロールは旧ホストのハッシュごと manage.py restore が作る。
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    volumes:
+      - ${STORAGE_ROOT:-/srv/pkdb}/data:/var/lib/postgresql/data
+    ports:
+      # 既定は 127.0.0.1。LAN の別ホストから使うときだけ配備側で広げ、
+      # 送信元はセキュリティグループで絞る。
+      - '${PKDB_BIND_ADDRESS:-127.0.0.1}:${PKDB_PORT:-5432}:5432'
+    secrets:
+      - postgres_password
+    healthcheck:
+      # 初期化中の一時サーバ（ソケットのみ）を健全と見なさないよう TCP で確かめる。
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, postgres]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password

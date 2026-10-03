@@ -1,0 +1,10 @@
+[Unit]
+Description=Archive the UBSLEEPY save data every day
+
+[Timer]
+OnCalendar={{ ubsleepy_backup_calendar }}
+Persistent=true
+Unit=ubsleepy-backup.service
+
+[Install]
+WantedBy=timers.target
