@@ -62,34 +62,29 @@ services-01 は、NetBox を最初に立てるための「過渡的なホスト�
 
 core-01 の中身は、いま測った使用量で約2.9GB（Authentik 約1.4GB・NetBox 約1.4GB・Caddy）です。互いに依存している（Authentik が止まればポータルに入れず、NetBox が止まればIPを払い出せない）ので、別VMに分けても使えなくなる範囲はほとんど変わりません。**1つの暴走がほかを巻き込まないよう、コンテナごとのメモリ上限を入れることを前提にします**（2026-09-26 の identity のメモリ枯渇と同じ形を防ぐ）。
 
-### サービス（クラウドAPI。`platform/terraform/services/<name>`）
+### クラウドVM（クラウドAPI。`platform/terraform/services/<name>`）
 
-| VM | 中身 |
-| --- | --- |
-| media-01 | 変更なし |
-| **apps-01**（新） | services-01 に同居しているアプリ全部（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy 2つ・CUPS・mail-view・ドキュメント・poke-translate） |
-| game-01・android-01 | 変更なし（game1 は作り直すときに `game-01` へ改名し、VMID も直す） |
+用途は「サービス」と「開発」の2つに分け、タグ `Purpose` に書きます（ポータルで見分けるのにも使う）。所有者は2人だけです。
 
-services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-10-03 実測）。アプリを apps-01 へ、NetBox を core-01 へ移すと、services-01 は役目を終えて消せます。
+| VM | いまの名前 | 用途 | 所有者 | 中身 |
+| --- | --- | --- | --- | --- |
+| media-01 | media-01 | サービス | `rurutheGeek` | 変更なし |
+| **apps-01**（新） | — | サービス | `rurutheGeek` | services-01 に同居しているアプリ全部（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy 2つ・CUPS・mail-view・ドキュメント・poke-translate） |
+| game-01 | game1 | サービス | `shunyazhiyuan97` | ゲームサーバ。作り直すときに改名し、VMID も直す |
+| **dev-01** | dev-a | 開発 | `shunyazhiyuan97` | 開発VM。基盤（Terraform）からクラウドVMへ移す |
+| **dev-02** | dev-b | 開発 | `rurutheGeek` | 開発VM。同上。**このリポジトリの管理作業をしている機械**なので、移すのは最後にし、作業中のデータ（ホーム約20GB）を先に退避する |
+| android-01 | android-01 | 開発 | `rurutheGeek` | Android の検証 |
+| win-01 | win11pro | 開発 | `rurutheGeek` | Windows 11 の検証 |
 
-### 所有者（クラウドVM）
+2026-10-03 に管理DBで確かめた時点の所有者は、game1 が1つのアカウント、ほか5台（win11pro・media-01・monitor-01・net-01・android-01）が別の1つのアカウントで、上の割り当てと食い違いはありません。
 
-クラウドVMの所有者は2人だけにします。
-
-| VM | 所有者 |
-| --- | --- |
-| game-01（いまの game1） | `shunyazhiyuan97` |
-| それ以外すべて（media-01・apps-01・android-01 など） | `rurutheGeek` |
-
-### 開発・検証
-
-dev-a・dev-b・probe-01 は使うときだけ動かすVMで、置き場所は判断待ち（基盤のままか、クラウドVMにするか）。
+services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-10-03 実測）。アプリを apps-01 へ、NetBox を core-01 へ移すと、services-01 は役目を終えて消せます。検証用の probe-01 は基盤のまま（クラウドの検証に使うので、クラウドの外に置く）。
 
 ## 3. 命名規則
 
 | 対象 | 規則 | 例 |
 | --- | --- | --- |
-| ホスト名 | `<役割>-<2桁の連番>`。役割は**機能の名前**で、製品名にしない。連番は、同じ役割を並べるとき（`k8s-worker-01`・`02`）と、作り直すときに使う（動いている `core-01` を残したまま `core-02` を作り、移し終えてから01を消す。新旧が NetBox・DNS・Proxmox で名前をぶつけない）。1台だけの役割にも付けて揃える | `router-01`・`core-01`・`cloud-01`・`monitor-01`・`media-01`・`apps-01`・`game-01`・`android-01`・`dev-01` |
+| ホスト名 | `<役割>-<2桁の連番>`。役割は**機能の名前**で、製品名にしない。連番は、同じ役割を並べるとき（`k8s-worker-01`・`02`）と、作り直すときに使う（動いている `core-01` を残したまま `core-02` を作り、移し終えてから01を消す。新旧が NetBox・DNS・Proxmox で名前をぶつけない）。1台だけの役割にも付けて揃える | `router-01`・`core-01`・`cloud-01`・`monitor-01`・`media-01`・`apps-01`・`game-01`・`dev-01`・`android-01`・`win-01` |
 | VMID | 100〜199 基盤、200〜299 Kubernetes、400〜499 開発、900〜999 検証、5000〜 クラウドAPIが払い出す | — |
 | Compose のプロジェクト名 | アプリ名だけ。ホスト名を前置きしない（ホストがすでに区切り） | `kavita`・`home-assistant`・`netbox` |
 | 配備先 | `/opt/<アプリ名>`、データは `/srv/<アプリ名>` | `/opt/kavita`・`/srv/kavita` |
@@ -109,7 +104,8 @@ dev-a・dev-b・probe-01 は使うときだけ動かすVMで、置き場所は�
 3. **storage-s3 を cloud-01 へ合流する。** Garage のデータディスクを付け替える。
 4. **Tailscale をルータへ移し、net-01 を消す。** OpenWrt に Tailscale を入れて subnet router を登録し直す。
 5. **monitor-01 を基盤へ移す。** `hosts.yaml` に宣言して作り直し、Prometheus のデータを移す。
-6. 空になった identity・services-01・storage-s3 を消す。
+6. **開発VMをクラウドVMへ移す。** dev-01 → dev-02 の順。win11pro は `win-01` へ改名する。
+7. 空になった identity・services-01・storage-s3 と、基盤側の dev-a・dev-b を消す。
 
 リポジトリの中だけで済む整理（Playbook の置き場所、インベントリと変数の分離、`stacks/media/*` の1段化、NetBox のタグ名とグループ名の統一）は、移行と並行して先に進められる。
 
@@ -124,5 +120,6 @@ dev-a・dev-b・probe-01 は使うときだけ動かすVMで、置き場所は�
 | monitor-01 を基盤へ（core-01 とは別VM） | **合意（2026-10-03）** |
 | services-01 のアプリを apps-01 の1台へ | **合意（2026-10-03）** |
 | 命名規則（3章）で統一する。ホスト名はすべて `<役割>-<2桁>` | **合意（2026-10-03）** |
-| クラウドVMの所有者は game-01 だけ `shunyazhiyuan97`、ほかは `rurutheGeek` | **合意（2026-10-03）** |
-| 開発VM（dev-a・dev-b）を基盤のままにするか、クラウドVMにするか | 未決（名前は `dev-01`・`dev-02` に揃える） |
+| クラウドVMの所有者は game-01 と dev-01 が `shunyazhiyuan97`、ほかは `rurutheGeek` | **合意（2026-10-03）** |
+| 開発VM もクラウドVMにする。dev-01（今の dev-a）は `shunyazhiyuan97`、dev-02（今の dev-b）は `rurutheGeek` | **合意（2026-10-03）** |
+| dev・android・win は用途「開発」としてまとめる（タグ `Purpose`） | **合意（2026-10-03）** |
