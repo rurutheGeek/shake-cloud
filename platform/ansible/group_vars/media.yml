@@ -9,6 +9,9 @@ library_root: /srv/media-stack/library
 media_bulk_label: media-bulk
 media_bulk_mount: /srv/media-bulk
 media_bulk_mount_opts: nofail,noatime,x-systemd.device-timeout=30
+# SSD のデータディスク（/srv/media-stack）を載せるユニット。cloud-init が入れる
+# （platform/terraform/services/media/cloud-init.yaml）。bind はこの後に行う。
+media_data_mount_unit: media-data-mount.service
 # Nextcloud のデータディレクトリ（ユーザーホーム・appdata）。
 nextcloud_data_dir: /srv/media-stack/storage/nextcloud/data
 # クライアント端末（Windows等）のバックアップ置き場。UrBackup のイメージは

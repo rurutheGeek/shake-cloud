@@ -63,6 +63,7 @@ media-01 のデータは、クラウドの HDD ボリューム（`platform/terra
     ... platform/ansible/media-base.yml -e media_bulk_initialize_device=/dev/disk/by-id/virtio-vol...
     ```
 
+- bind は、SSD のデータディスク（`/srv/media-stack`）を載せるユニット `media-data-mount.service` の**後**に行うよう fstab で順序を固定しています。逆になると、後から載るデータディスクが bind を隠し、アプリが古い中身を見たまま動きます（2026-10-04 に実機で発生。Nextcloud が 503）。確認は `findmnt /srv/media-stack/library` の SOURCE が `/dev/vdc[/library]` であること。
 - `docker.service` に `RequiresMountsFor` のdrop-in（`20-media-library.conf`）があります。**この3つをマウントできなければDockerは起動しません**（未マウントのまま原本領域へ書かせない）。
 - Nextcloudの外部ストレージ・Kavita・Navidrome・LocalSendの `LIBRARY_ROOT` は今までどおり `/srv/media-stack/library` です。見え方は[Nextcloudの共有ライブラリのアクセス権限](nextcloud-permissions.md)のままです。
 - 所有権はコンテナの利用者そのまま（`library`・`nextcloud-data` は www-data 33、`client-backups` は UrBackup 101）。NFS の頃の `all_squash` による読み替えはもうありません。

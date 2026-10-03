@@ -274,24 +274,25 @@
         name: nfs-kernel-server
         state: started
 
-- name: Read each area's project
+# +P は「この下に作るものへ同じプロジェクトを継がせる」で、ディレクトリにしか
+# 付けられない（ファイルへ付けると Operation not supported。2026-10-04 に実測）。
+# 既存のファイルにはプロジェクトの番号だけを付ける。同じ値を書くだけなので毎回
+# 実行する（途中で失敗した回の残りも、次の実行で揃う）。
+- name: Put each area's directories in its project
   ansible.builtin.command:
-    argv: [lsattr, -pd, '{{ item.path }}']
-  register: pve_bulk_storage_projects
+    argv: [find, '{{ item.path }}', -xdev, -type, d, -exec, chattr, +P, -p, '{{ item.id }}', '{}', +]
   changed_when: false
   loop: '{{ pve_bulk_storage_quotas }}'
   loop_control:
     label: '{{ item.name }}'
 
-# +P は「この下に作るものへ同じプロジェクトを継がせる」。既存の中身にも付ける。
-- name: Put each area in its project
+- name: Put each area's existing files in its project
   ansible.builtin.command:
-    argv: [chattr, -R, +P, -p, '{{ item.item.id }}', '{{ item.item.path }}']
-  when: item.stdout is not match('^\s*' ~ item.item.id ~ '\s+\S*P')
-  changed_when: true
-  loop: '{{ pve_bulk_storage_projects.results }}'
+    argv: [find, '{{ item.path }}', -xdev, -type, f, -exec, chattr, -p, '{{ item.id }}', '{}', +]
+  changed_when: false
+  loop: '{{ pve_bulk_storage_quotas }}'
   loop_control:
-    label: '{{ item.item.name }}'
+    label: '{{ item.name }}'
 
 # 同じ値を書くだけなので毎回実行する（単位は 1KiB ブロック）。
 - name: Set each area's limit

@@ -120,13 +120,18 @@
       loop_control:
         label: '{{ item.target }}'
 
+    # bind の先は SSD のデータディスク（/srv/media-stack）の中にある。データディスクは
+    # fstab ではなく cloud-init が入れたユニットが載せるので、その後に bind すると
+    # 明示する。順序が逆だと、後から載るデータディスクが bind を隠し、アプリは
+    # 古い中身を見たまま動く（2026-10-04 に実機で発生）。
     - name: Bind the bulk volume directories at boot
       ansible.builtin.lineinfile:
         path: /etc/fstab
         regexp: '^{{ (media_bulk_mount ~ "/" ~ item.source) | regex_escape }}\s'
         line: >-
           {{ media_bulk_mount }}/{{ item.source }} {{ item.target }}
-          none bind,nofail,x-systemd.requires-mounts-for={{ media_bulk_mount }} 0 0
+          none bind,nofail,x-systemd.requires-mounts-for={{ media_bulk_mount }},x-systemd.requires={{ media_data_mount_unit }},x-systemd.after={{ media_data_mount_unit }}
+          0 0
         state: present
       loop: '{{ media_bulk_binds }}'
       loop_control:
