@@ -82,7 +82,7 @@ flowchart TB
 | 監視 | monitor-01（platform） | 2 / 2GiB / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
 | 復旧経路 | router-01（platform） | （router-01と共用） | Tailscale subnet router（OpenWrt上）。宅外から管理LANへ（N02） |
-| 開発 | dev-a・dev-b（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
+| 開発 | dev-01・dev-02（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
 | 利用者VM（例） | win-01（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
@@ -521,7 +521,7 @@ flowchart TB
 - **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 
-## 14. 開発・運用の進め方（dev-a・dev-b）
+## 14. 開発・運用の進め方（dev-01・dev-02）
 
 ```mermaid
 flowchart LR
@@ -568,7 +568,7 @@ flowchart LR
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](../development/H01-home-assistant.md)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](../operations/kubernetes.md)） |
 | 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](../development/N04-public-edge.md)） |
-| タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-bは未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
+| タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-02は未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ
 

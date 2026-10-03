@@ -53,7 +53,7 @@ ssh root@192.168.10.10 'qm terminal 101'
 
 ### 1. まずスクリプトを回す
 
-LAN 端末（dev-b など）から。個別に見る前に、これで当たりが付きます。
+LAN 端末（dev-02 など）から。個別に見る前に、これで当たりが付きます。
 
 ```bash
 python3 tools/verify-router.py

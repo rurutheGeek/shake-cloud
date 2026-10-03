@@ -18,7 +18,7 @@ tags:
 
 ## いまの電源構成
 
-- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・monitor-01・Kubernetes の各ノード・dev-a／dev-b）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
+- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・monitor-01・Kubernetes の各ノード・dev-01／dev-02）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
 - **ルータ（`router-01`）は K11 上の OpenWrt VM です**（2026-09-20 に切替）。K11 が落ちると家中のインターネットも落ちます。K11 と別電源で残るのは ONU・スイッチ（TL-SG605）・Aterm（APモード）だけで、**そこに DNS も DHCP も居ません**（[router-01](router.md)・[障害モード](../architecture/failure-modes.md)）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
 

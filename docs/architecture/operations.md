@@ -34,7 +34,7 @@ tags:
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
 | media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
 | monitor-01（基盤VM、120、192.168.10.210） | 2 / 2GiB（宣言値） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
-| dev-a / dev-b（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
+| dev-01 / dev-02（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
 | （net-01は2026-10-03に削除） | — | — | Tailscale subnet router（宅外からの復旧経路）は router-01（OpenWrt）の上で動く。**K11上のVMなので、K11そのものの停止はカバーしない** |
@@ -54,7 +54,7 @@ tags:
 | --- | --- |
 | CPU | Ryzen 9 8945HS、8コア/16スレッド。直近1日の平均使用率 7%、iowait 0% |
 | Proxmoxが認識したRAM | **59.7GiB**（2026-09-10と同じ） |
-| 稼働中VMの割当合計 | **35.1GiB**（game1 12 + identity 4 + services-01 4 + dev-a 6 + dev-b 6 + cloud-01 2 + storage-s3 1 + ボリューム保持VM 0.1） |
+| 稼働中VMの割当合計 | **35.1GiB**（game1 12 + identity 4 + services-01 4 + dev-01 6 + dev-02 6 + cloud-01 2 + storage-s3 1 + ボリューム保持VM 0.1） |
 | ホストの実使用 / 空き | 34.3GiB / **25.4GiB**。swapは8GiB中ほぼ未使用（直近1日の最大0.45GiB） |
 | `local-lvm` | **226.7GiB / 794.3GiB（29%）**。メタデータ 101MiB / 8.7GiB |
 | rootfs（`local`・`cloud-images`） | 22.0GiB / 93.9GiB。うちISOが17.5GiB |
@@ -73,8 +73,8 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 | 200 | k8s-cp-01 | 停止 | 2 / 3GiB固定 | — | 32GiB |
 | 210 | k8s-worker-01 | 停止 | 4 / 8GiB固定 | — | OS32 + データ64GiB |
 | 211 | k8s-worker-02 | 停止 | 4 / 8GiB固定 | — | OS32 + データ48GiB |
-| 400 | dev-a | 稼働 | 2 / 6GiB（下限2GiB） | 0.5GiB / 4.3GiB | 22 / 40GiB |
-| 401 | dev-b | 稼働 | 2 / 6GiB（下限2GiB） | 1.4GiB / 5.8GiB | 7.9 / 40GiB |
+| 400 | dev-01 | 稼働 | 2 / 6GiB（下限2GiB） | 0.5GiB / 4.3GiB | 22 / 40GiB |
+| 401 | dev-02 | 稼働 | 2 / 6GiB（下限2GiB） | 1.4GiB / 5.8GiB | 7.9 / 40GiB |
 | 900 | probe-01 | 停止 | 2 / 2GiB（下限0.5GiB） | — | 32GiB |
 | 5000 | win11pro（クラウド利用者VM） | 停止 | 2 / 4GiB（下限1GiB） | — | 64GiB |
 | 5997 | shakecloud-volumes | 稼働 | 1 / 64MiB | — | 0 |
@@ -83,7 +83,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 
 **上の表は2026-09-12時点の名前です（当時のidentity・services-01は現在core-01、storage-s3は削除済み、win11proはwin-01に改名）。この測定の後にmonitor-01（当時はVMID 5002のcloud VM。現在は基盤VM・VMID 120）を作成したため、上の表と合計には含まれません。** 配備の結果は[M01](../development/M01-monitoring.md)、最新の電源・容量は[配備台帳](../operations/handover.md)とポータルの「容量」を正とします。
 
-**軽量化（同日実施）**: ビルドキャッシュの削除と `apt` キャッシュの掃除でthin poolを15.1GiB回収しました。cloud-01 17.0→6.2GiB、services-01 5.7→3.5GiB、identity 6.1→3.8GiB。同じ処理は `tools/trim-vms.py` で再実行できます（既定は確認のみで、`--apply` を付けたときだけ削除。dev VMは `--include-dev` で明示したときだけ対象）。dev-aには未使用イメージ7.98GiBとビルドキャッシュ6.0GiBが残るため、利用者と調整します（2026-09-12時点で未削除）。journalはどのVMも121MiB以下で対象外です。
+**軽量化（同日実施）**: ビルドキャッシュの削除と `apt` キャッシュの掃除でthin poolを15.1GiB回収しました。cloud-01 17.0→6.2GiB、services-01 5.7→3.5GiB、identity 6.1→3.8GiB。同じ処理は `tools/trim-vms.py` で再実行できます（既定は確認のみで、`--apply` を付けたときだけ削除。dev VMは `--include-dev` で明示したときだけ対象）。dev-01には未使用イメージ7.98GiBとビルドキャッシュ6.0GiBが残るため、利用者と調整します（2026-09-12時点で未削除）。journalはどのVMも121MiB以下で対象外です。
 
 **作成・増枠の判断（`node_memory_reserve_mib` = 4GiB）**:
 
@@ -91,7 +91,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 - game1の16GiB（+4GiB）: media-01作成後でもKubernetes停止中なら作成できます（空き14.6GiB）。ゲームとAIの同時負荷は[G03](../development/G03-game-ai-resources.md)で測ります。
 - services-01（現core-01）の8GiB（+4GiB）: ゲストの実使用は1.6GiBで、緊急性はありません。
 - k8s-worker-02: **起動しません**。起動する場合は開発VM・ゲームの停止と引き換えにします。
-- 重い処理を止める順は開発VM → Ollama → バッチ、復帰は逆順です。dev VMsはバルーニングでホストRSSを割当（各6GiB）より小さく抑えています（測定時は2台で約5GiB。作業中のdev-bは増える）。
+- 重い処理を止める順は開発VM → Ollama → バッチ、復帰は逆順です。dev VMsはバルーニングでホストRSSを割当（各6GiB）より小さく抑えています（測定時は2台で約5GiB。作業中のdev-02は増える）。
 
 負荷を掛けた組合せの試験（ゲーム・AI取り込み・AWX同時実行）は未実施で、[G03](../development/G03-game-ai-resources.md)・[A02](../development/A02-ollama.md)・[I06](../development/I06-awx.md)と窓を調整して行います。
 
@@ -103,7 +103,7 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 | --- | --- |
 | CPU | Ryzen 9 8945HS、8コア / 16スレッド |
 | Proxmoxが認識したRAM | **59.7GiB**（64GB の公称からファーム・iGPU 予約を引いた値） |
-| 稼働中VMの上限合計 | **40GiB**（game1 12 + dev-a 8 + dev-b 8 + identity 4 + services-01 4 + cloud-01 2 + probe-01 2） |
+| 稼働中VMの上限合計 | **40GiB**（game1 12 + dev-01 8 + dev-02 8 + identity 4 + services-01 4 + cloud-01 2 + probe-01 2） |
 | そのときの実使用 | 35.1GiB。空き 23.8GiB |
 | `local-lvm`（VMディスク） | 794GiB のうち使用 99GiB（13%） |
 | `local` / `cloud-images` | 94GiB のうち使用 13GiB（14%） |

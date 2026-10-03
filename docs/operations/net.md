@@ -72,7 +72,7 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 
 ## 検証（N02の合格条件）
 
-**一部完了（2026-10-01、dev-b の `accept-dns` 有効で実測）。** 旧 net-01 時代の結果です。
+**一部完了（2026-10-01、dev-02 の `accept-dns` 有効で実測）。** 旧 net-01 時代の結果です。
 
 - tailnet resolver が `192.168.10.1` になる（`tailscale dns status`）
 - `100.100.100.100` が公開名（`example.com`）と内部名

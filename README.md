@@ -30,7 +30,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機（クラウド管理下） |
 | monitor-01 | Prometheus、Alertmanager、Grafana、exporter |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative。普段は停止） |
-| dev-a / dev-b | 開発VM |
+| dev-01 / dev-02 | 開発VM |
 | probe-01 | 疎通確認用の基盤VM |
 | game1・win-01・android-01 | ゲームサーバ・Windows・Android（クラウド管理下） |
 

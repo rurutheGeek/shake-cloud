@@ -73,7 +73,7 @@ Proxmox VE の1台に役割ごとのVMを分け、メディア・家電・パス
 | 監視 | monitor-01 | Prometheus・Alertmanager・Grafana |
 | ゲーム・AI | game1（GPUパススルー） | Wolf・RomM・SFTPGo |
 | 復旧経路 | router-01 | Tailscale subnet router（OpenWrt上。宅外から管理LANへ） |
-| 開発 | dev-a・dev-b | Terraform・Docker・Go |
+| 開発 | dev-01・dev-02 | Terraform・Docker・Go |
 
 **インターネットの入口も自作です。** 家庭内ルータは K11 上の OpenWrt VM（`router-01`）で、DNS と DHCP もそこにあります。つまり **K11 が落ちると家中のネットが落ちます**（[障害モード](architecture/failure-modes.md)）。
 

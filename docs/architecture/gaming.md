@@ -88,7 +88,7 @@ OpenHomeもgame1へ入れる希望として管理します。製品／リポジ�
 
 ## 軽量な開発VM
 
-各自にGUIなしのDebian／Ubuntu cloud imageを用意します。既存dev-a／dev-bの宣言値は各2vCPU、RAM 6GiB（バルーニング下限2GiB）、ディスク40GiBです。SSHやVS Code Remote SSHで使い、ビルド負荷を測って調整します。
+各自にGUIなしのDebian／Ubuntu cloud imageを用意します。既存dev-01／dev-02の宣言値は各2vCPU、RAM 6GiB（バルーニング下限2GiB）、ディスク40GiBです。SSHやVS Code Remote SSHで使い、ビルド負荷を測って調整します。
 
 SSH鍵、ホームディレクトリ、APIキー、Terraform stateは個別に保持します。普段はCLI中心とし、必要なときだけDev Containersを使います。インフラ開発でDockerやネットワーク設定を触るため、特権やネストを増やしたLXCより小型VMを優先します。
 
