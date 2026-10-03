@@ -141,13 +141,11 @@ records:
     description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
   # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
-    host: monitor-01
-    address: 192.168.10.102
+    host: monitor-02
     upstream: 127.0.0.1:3000
     description: Grafana（監視ポータル。OIDC）
   peanut:
-    host: monitor-01
-    address: 192.168.10.102
+    host: monitor-02
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:

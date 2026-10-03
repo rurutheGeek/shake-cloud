@@ -112,7 +112,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
 | media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
-| monitor-01 | `debian@192.168.10.102` | Prometheus・Alertmanager・Grafana・exporter（M01。クラウド管理下） |
+| monitor-02 | `debian@192.168.10.210` | 監視（Prometheus・Grafana・Alertmanager・PeaNUT）。基盤VM。旧 monitor-01（192.168.10.102）は停止中 |
 
 VM の正本は[配備台帳](../operations/handover.md)と `platform/terraform/hosts.yaml` です。
 

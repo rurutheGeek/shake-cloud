@@ -97,6 +97,18 @@ hosts:
     tags: [managed-by-terraform-admin]
     description: 退役予定。Garage は cloud-01 へ合流した（2026-10-03）。
 
+  monitor-02:
+    vm_id: 120
+    pool: platform
+    flavor: small
+    memory_min_mib: 1024
+    # Prometheus の時系列と Grafana の状態も同じディスクに置く（2026-10-03 時点で約1.3GiB）。
+    disk_gib: 48
+    on_boot: true
+    started: true
+    tags: [monitoring, managed-by-terraform-admin]
+    description: 監視（Prometheus・Alertmanager・Grafana・UPS）。クラウドが壊れても原因を見られるよう基盤側に置く。クラウドVMの monitor-01 から移した（2026-10-03）。
+
   k8s-cp-01:
     vm_id: 200
     pool: platform
