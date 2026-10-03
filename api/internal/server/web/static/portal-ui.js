@@ -249,11 +249,26 @@ window.PortalUI = (() => {
         event.returnValue = '';
       }
     });
-    for (const scroll of document.querySelectorAll('.scroll')) {
-      scroll.tabIndex = 0;
-      scroll.setAttribute('role', 'region');
-      scroll.setAttribute('aria-label', (scroll.closest('section').querySelector('h2')?.textContent || '') + 'の一覧');
-    }
+    // Tables never scroll sideways: on a narrow screen a row is shown as a
+    // card (portal.css), and each cell needs its column heading as a label.
+    // Rows are created and replaced at run time, so label them as they come.
+    const labelCells = () => {
+      for (const table of document.querySelectorAll('table')) {
+        const headings = [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+        for (const row of table.querySelectorAll('tbody tr')) {
+          [...row.cells].forEach((cell, index) => {
+            if (cell.colSpan === 1 && headings[index]) cell.dataset.label = headings[index];
+          });
+        }
+      }
+    };
+    let labelling = false;
+    new MutationObserver(() => {
+      if (labelling) return;
+      labelling = true;
+      requestAnimationFrame(() => { labelling = false; labelCells(); });
+    }).observe(document.body, { childList: true, subtree: true });
+    labelCells();
   }
 
   return { onAction, showError, announce, fieldError, blockForm, confirmAction,
