@@ -97,17 +97,28 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 
 ## 4. 進め方
 
-名前を変えるだけのために、動いているVMやデータの置き場所を一斉に動かすことはしません。新しいVMを横に作って1つずつ移し、移し終えた古いVMを消します。
+名前を変えるだけのために、動いているVMやデータの置き場所を一斉に動かすことはしません。
 
-1. **apps-01 を作り、services-01 のアプリを1つずつ移す。** services-01 のメモリが逼迫しているので最初にやる。新しい命名（`/opt/<アプリ名>`、Compose名=アプリ名）で作る。CUPS を `192.168.10.200:631` で登録している端末は設定し直しが要る。
-2. **core-01 を作り、NetBox・Authentik・入口を移す。** Authentik は全サイトのSSOに関わるので、DBの移行を確かめてから切り替える。入口の1台化（[HTTPSの入口](../operations/edge.md)）は core-01 の上で行う。
-3. **storage-s3 を cloud-01 へ合流する。** Garage のデータディスクを付け替える。
-4. **Tailscale をルータへ移し、net-01 を消す。** OpenWrt に Tailscale を入れて subnet router を登録し直す。
-5. **monitor-01 を基盤へ移す。** `hosts.yaml` に宣言して作り直し、Prometheus のデータを移す。
-6. **開発VMをクラウドVMへ移す。** dev-01 → dev-02 の順。win11pro は `win-01` へ改名する。**dev-a・dev-b・game1・win11pro は使用中なので、指示があるまで触らない（2026-10-03）。**
-7. 空になった identity・services-01・storage-s3 と、基盤側の dev-a・dev-b を消す。
+| 段階 | 内容 | 状態 |
+| --- | --- | --- |
+| 1 | apps-01 を作り、services-01 のアプリを移す | **完了（2026-10-03）**。LibreSpeed・ドキュメント・mail-view・Homarr・Vaultwarden・CUPS・ポケモン翻訳・Home Assistant・eufy 2つ。services-01 に残るのは NetBox と入口の Caddy |
+| 2 | core-01 を作る（Authentik・NetBox・入口） | 手順を決めた（下）。未着手 |
+| 3 | storage-s3 を cloud-01 へ合流する | 未着手 |
+| 4 | Tailscale をルータへ移し、net-01 を消す | 未着手 |
+| 5 | monitor-01 を基盤へ移す | 未着手 |
+| 6 | 開発VM（dev-a・dev-b）をクラウドVMへ、win11pro・game1 を改名 | **dev-a・dev-b・game1 は使用中のため、指示があるまで触らない**。win11pro は空いた（改名はタグ変更APIが要る） |
+| 7 | 空になった identity・storage-s3、基盤側の dev-a・dev-b を消す | 未着手 |
 
-リポジトリの中だけで済む整理（Playbook の置き場所、インベントリと変数の分離、`stacks/media/*` の1段化、NetBox のタグ名とグループ名の統一）は、移行と並行して先に進められる。
+### 段階2: core-01 の作り方
+
+**新しいVMを作って両方を移すのではなく、services-01 を core-01 にします。** services-01 には既に NetBox と入口があり、残る仕事は Authentik を受け入れることだけです。新しいVMへ NetBox まで移すと、NetBox をアドレスで参照している利用者（Terraform・クラウドAPI・インベントリ・AWX の資格情報）と、ルータのファイアウォール（AdGuard の画面を 192.168.10.200 だけに開けている）を全部付け替えることになり、得るものがありません。
+
+1. **services-01 のメモリを 4 → 6GiB にする**（`05-seed`）。Authentik（約1.4GiB）と NetBox（約1.4GiB）を同居させるため。VMの再起動で、NetBox と AdGuard・ルータの画面が数分止まる（DNS そのものはルータ上なので止まらない）。あわせて、コンテナごとのメモリ上限を入れる。
+2. **Authentik を services-01 へ移す。** identity 側を止める → PostgreSQL のデータ・メディア・秘密値（`secret_key`・DBパスワード・OIDC クライアント秘密）をコピー → `auth` のDNSを services-01 へ → services-01 で起動。**この間（10分前後）、SSO を使う全サービスで新しいログインができない**（ログイン済みのセッションは各アプリ側で生きている）。
+3. 各アプリの配備が OIDC の秘密値を読む先（Ansible の `identity_provider` グループ）を services-01 へ向ける。
+4. 確認: Authentik のログイン、Forward Auth のサイト（Navidrome など）、OIDC のサイト（Homarr・Grafana・Vaultwarden・NetBox・クラウドのポータル）。
+5. 問題が無ければ identity のVMを止める（数日は消さずに残す）。戻すときは `auth` のDNSを戻して identity を起動する。
+6. **services-01 を `core-01` に改名する**（Proxmox のVM名・ゲストのホスト名・NetBox・`dns.yaml` の `host`・インベントリ）。VMは作り直さない。入口の1台化（[HTTPSの入口](../operations/edge.md)）はこのあと行う。
 
 ## 5. 決まったこと・決めてほしいこと
 
