@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -143,10 +142,9 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"tags": schema.MapAttribute{
-				ElementType:   types.StringType,
-				Optional:      true,
-				Description:   "Tags. `Name` is the guest hostname. There is no tag update API, so changing them replaces the instance.",
-				PlanModifiers: []planmodifier.Map{mapplanmodifier.RequiresReplace()},
+				ElementType: types.StringType,
+				Optional:    true,
+				Description: "Tags, updated in place. `Name` is the display name and the guest hostname at first boot; renaming later does not change the hostname inside the guest.",
 			},
 			"client_token": schema.StringAttribute{
 				Optional:      true,
@@ -296,6 +294,19 @@ func (r *instanceResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 		if _, err := r.client.SetInstanceSecurityGroups(ctx, plan.ID.ValueString(), groups); err != nil {
 			addError(&resp.Diagnostics, "change the instance's security groups", err)
+			return
+		}
+	}
+
+	// Tags, which the API replaces wholesale too.
+	if !plan.Tags.Equal(state.Tags) {
+		tags, diags := stringMapValues(ctx, plan.Tags)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if _, err := r.client.SetInstanceTags(ctx, plan.ID.ValueString(), tags); err != nil {
+			addError(&resp.Diagnostics, "change the instance's tags", err)
 			return
 		}
 	}

@@ -1319,6 +1319,42 @@ paths:
         '403': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
 
+  /v1/instances/{instance_id}/tags:
+    put:
+      operationId: ModifyInstanceTags
+      x-shakecloud-scope: write
+      tags: [compute]
+      summary: Replace the tags of an instance.
+      description: |
+        Owner or admins only (403 UnauthorizedOperation otherwise).
+        **Replaces the whole set**: a tag left out is removed. The same rules
+        as at launch apply (at most 20, keys 1-128 characters, values at most
+        256, `shakecloud:` reserved).
+
+        `Name` is the display name and may change. The VM is renamed in the
+        hypervisor and in the ledger, **but not inside the guest**: its
+        hostname was written at first boot and stays what it was. Works in
+        any state except shutting-down and terminated (409
+        IncorrectInstanceState).
+      parameters:
+        - $ref: '#/components/parameters/InstanceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModifyInstanceTagsRequest'}
+      responses:
+        '200':
+          description: The updated instance.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InstanceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+
   /v1/instances/{instance_id}/security-groups:
     put:
       operationId: ModifyInstanceSecurityGroups
@@ -2351,6 +2387,17 @@ components:
           type: array
           minItems: 1
           items: {$ref: '#/components/schemas/SecurityGroupRuleRequest'}
+    ModifyInstanceTagsRequest:
+      type: object
+      additionalProperties: false
+      required: [tags]
+      properties:
+        tags:
+          type: object
+          maxProperties: 20
+          additionalProperties: {type: string, maxLength: 256}
+          description: The complete new set. `{}` removes every tag.
+
     ModifyInstanceSecurityGroupsRequest:
       type: object
       additionalProperties: false

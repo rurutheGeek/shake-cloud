@@ -111,6 +111,7 @@ func routes() []route {
 		{"POST", "/v1/instances/{instance_id}/stop", "StopInstance", anyCredential, writeOp, instanceAction(db.ActionStop)},
 		{"POST", "/v1/instances/{instance_id}/reboot", "RebootInstance", anyCredential, writeOp, instanceAction(db.ActionReboot)},
 		{"POST", "/v1/instances/{instance_id}/console", "CreateConsoleSession", anyCredential, writeOp, (*Server).createConsoleSession},
+		{"PUT", "/v1/instances/{instance_id}/tags", "ModifyInstanceTags", anyCredential, writeOp, (*Server).modifyInstanceTags},
 		{"PUT", "/v1/instances/{instance_id}/security-groups", "ModifyInstanceSecurityGroups", anyCredential, writeOp, (*Server).modifyInstanceSecurityGroups},
 		{"GET", "/v1/volumes", "DescribeVolumes", anyCredential, readOp, (*Server).describeVolumes},
 		{"POST", "/v1/volumes", "CreateVolume", anyCredential, writeOp, (*Server).createVolume},
