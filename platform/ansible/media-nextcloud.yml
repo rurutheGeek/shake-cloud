@@ -7,20 +7,16 @@
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
-    - name: Create Nextcloud deployment directory
-      ansible.builtin.file:
-        path: '{{ project_dir }}/media/nextcloud'
-        state: directory
-        mode: '0750'
-    - name: Copy Nextcloud definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/nextcloud/{{ item }}'
-        dest: '{{ project_dir }}/media/nextcloud/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
-    - name: Configure Nextcloud environment
-      ansible.builtin.copy:
-        content: |
+    # 自作アプリを入れてから起動するので、ここでは init までにする（up は下）。
+    - name: Prepare the Nextcloud stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/nextcloud'
+        compose_stack_project_dir: '{{ project_dir }}/media/nextcloud'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_actions: [init]
+        compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
           LIBRARY_ROOT={{ library_root }}
           TZ={{ tz | default('Asia/Tokyo') }}
@@ -28,17 +24,6 @@
           NEXTCLOUD_PORT={{ nextcloud_port | default(8080) }}
           NEXTCLOUD_ADMIN_USER={{ nextcloud_admin_user | default('admin') }}
           NEXTCLOUD_TRUSTED_DOMAINS={{ nextcloud_trusted_domains | default('localhost 127.0.0.1') }}
-        dest: '{{ project_dir }}/media/nextcloud/.env'
-        mode: '0600'
-    - name: Prepare Nextcloud directories and secrets
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', init]
-      register: nextcloud_init
-      changed_when: >-
-        'CHANGED' in nextcloud_init.stdout
-        or 'Created' in nextcloud_init.stderr
-        or 'Recreated' in nextcloud_init.stderr
-        or 'Started' in nextcloud_init.stderr
     # 自作アプリはそれぞれの公開リポジトリのGitHub Releaseから入れる。
     # バージョンは group_vars の nextcloud_custom_apps が正本で、上げると更新される。
     - name: Install or update the custom Nextcloud apps
@@ -125,6 +110,8 @@
                '{{ playbook_dir }}/../sops/print-api.sops.yaml']
       register: nextcloud_print_token
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Point the cups_print app at the services-01 relay
       ansible.builtin.command:
@@ -143,6 +130,8 @@
                '{{ playbook_dir }}/../sops/localsend-send.sops.yaml']
       register: nextcloud_localsend_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Point the localsend_share app at the media-01 relay
       ansible.builtin.command:
@@ -161,6 +150,8 @@
                '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
       register: nextcloud_tags_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Point the tag editor app at the music-tools tag API
       ansible.builtin.command:

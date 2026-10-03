@@ -121,6 +121,8 @@
     argv: [sops, --decrypt, --output-type, json, '{{ cloud_api_cloudapi_sops_file }}']
   register: cloud_api_credentials
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Install the Proxmox, NetBox and Garage tokens
@@ -163,6 +165,8 @@
     argv: [sops, --decrypt, --output-type, json, '{{ cloud_api_k8s_sops_file }}']
   register: cloud_api_k8s
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Install the Kubernetes CA

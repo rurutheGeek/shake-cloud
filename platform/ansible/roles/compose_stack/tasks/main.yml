@@ -32,7 +32,7 @@
 # 何も変わらなければ changed=0 になる。
 - name: Run the stack's manage.py
   ansible.builtin.command:
-    argv: [python3, '{{ compose_stack_project_dir }}/manage.py', '{{ item }}']
+    argv: "{{ ['python3', compose_stack_project_dir ~ '/manage.py'] + ([item] if item is string else item) }}"
   loop: '{{ compose_stack_actions }}'
   register: compose_stack_manage
   changed_when: >-

@@ -70,6 +70,8 @@
   become: false
   register: netbox_oidc_secret
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
 
 - name: Install the NetBox OIDC client secret

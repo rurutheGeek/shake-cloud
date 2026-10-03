@@ -19,6 +19,8 @@ from unittest.mock import patch
 
 import yaml
 
+from support import compose_stack_vars
+
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = ROOT / 'stacks/media/nextcloud'
 COMPOSE = yaml.safe_load((UNIT / 'compose.yaml').read_text(encoding='utf-8'))
@@ -410,22 +412,19 @@ class AnsibleTests(unittest.TestCase):
         self.assertTrue(self.play['become'])
 
     def test_it_deploys_the_unit_under_the_project_directory(self):
-        copies = [task['ansible.builtin.copy'] for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task]
-        self.assertTrue(any(copy['dest'].startswith('{{ project_dir }}/media/nextcloud/')
-                            for copy in copies))
+        stack = compose_stack_vars(self.play)
+        self.assertEqual(stack['compose_stack_project_dir'], '{{ project_dir }}/media/nextcloud')
+        # The custom apps go in before the first start, so the role stops at init.
+        self.assertEqual(stack['compose_stack_actions'], ['init'])
 
-    def test_it_generates_a_private_env_from_group_vars(self):
-        copies = [task['ansible.builtin.copy'] for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task]
-        env = [copy for copy in copies if copy['dest'].endswith('/.env')]
-        self.assertEqual(len(env), 1)
-        self.assertEqual(env[0]['mode'], '0600')
-        self.assertIn('{{ storage_root }}', env[0]['content'])
-        self.assertIn('{{ library_root }}', env[0]['content'])
+    def test_it_generates_the_env_from_group_vars(self):
+        # The role writes it 0600 (tests/test_compose_stack_role.py).
+        env = compose_stack_vars(self.play)['compose_stack_env']
+        self.assertIn('{{ storage_root }}', env)
+        self.assertIn('{{ library_root }}', env)
 
     def test_it_prepares_and_starts_the_unit_with_manage_py(self):
-        self.assertTrue(self.action('init'))
+        self.assertEqual(compose_stack_vars(self.play)['compose_stack_actions'], ['init'])
         self.assertTrue(self.action('up'))
 
     def test_it_runs_setup_and_apps_after_starting_the_unit(self):
