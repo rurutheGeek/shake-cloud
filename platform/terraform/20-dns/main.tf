@@ -23,10 +23,19 @@ locals {
     { (data.terraform_remote_state.seed.outputs.name) = data.terraform_remote_state.seed.outputs.address },
   )
 
-  # address があればそれ、無ければ host の出力。どちらにも無ければここで止まる。
+  # 入口（dns.yaml の edge）。後ろへ移し終えたホストの、Caddy が受ける名前
+  # （upstream を持つレコード）は入口のアドレスへ向ける。入口が中継する。
+  edge = try(local.dns.edge, { host = "", backends = [] })
+  via_edge = {
+    for name, record in local.dns.records :
+    name => can(record.upstream) && contains(local.edge.backends, try(record.host, ""))
+  }
+
+  # 入口経由なら入口。そうでなければ address があればそれ、無ければ host の出力。
+  # どちらにも無ければここで止まる。
   addresses = {
     for name, record in local.dns.records :
-    name => try(record.address, local.known_hosts[record.host])
+    name => local.via_edge[name] ? local.known_hosts[local.edge.host] : try(record.address, local.known_hosts[record.host])
   }
 }
 

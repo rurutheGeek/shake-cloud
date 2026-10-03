@@ -1,9 +1,43 @@
+{% set behind_edge = tls_proxy_behind_edge | default(false) %}
+{% set auth_backend = tls_proxy_auth_backend | default({}) %}
+{% macro auth_transport(indent) %}
+{% if auth_backend %}
+{{ indent }}# identity も入口の後ろに居る。auth の名前は入口（このホスト自身）を指すので、
+{{ indent }}# identity の Caddy へ直接つなぐ。相手の証明書は identity 自身の内部CAのもの。
+{{ indent }}transport http {
+{{ indent }}	tls_server_name {{ auth_backend.name }}
+{{ indent }}	tls_trust_pool file /etc/caddy/backend-ca/{{ auth_backend.host }}.crt
+{{ indent }}}
+{% endif %}
+{% endmacro %}
+{% macro client_address(indent) %}
+{% if behind_edge %}
+{{ indent }}# 入口を経由して来るので、アプリには入口ではなく元の端末のアドレスを渡す。
+{{ indent }}header_up X-Forwarded-For {client_ip}
+{% endif %}
+{% endmacro %}
 # platform/ansible/roles/tls_proxy が platform/terraform/dns.yaml から書く。ホスト上で直さない。
 {
 	# 設定は起動時にだけ読む。管理用 API は開けない。
 	admin off
+{% if behind_edge %}
+	# 端末からの通信は入口（{{ tls_proxy_edge_address }}）が受けて、ここへ中継する。入口が付けた
+	# X-Forwarded-For だけを信じる。
+	servers {
+		trusted_proxies static {{ tls_proxy_edge_address }}/32
+	}
+	# 内部CAは入口だけが確かめる。コンテナ自身の信頼ストアへは入れない。
+	skip_install_trust
+{% endif %}
 }
 
+{% if behind_edge %}
+# 公開の証明書は入口だけが持つ。ここは入口との間を暗号化するための、この
+# ホスト自身の内部CAの証明書で受ける。Cloudflare のトークンは持たない。
+(dns_challenge) {
+	tls internal
+}
+{% else %}
 (dns_challenge) {
 	tls {
 		dns cloudflare {file./run/secrets/cloudflare_dns_api_token}
@@ -11,6 +45,7 @@
 		resolvers 1.1.1.1 1.0.0.1
 	}
 }
+{% endif %}
 {% for site in tls_proxy_sites %}
 
 # {{ site.value.description }}
@@ -30,7 +65,12 @@
 		# Subsonic など自前の認証を持つクライアントの経路は SSO を通さず、
 		# Remote-User も付けない（Navidrome の外部認証を素通しさせない）。
 		handle {{ site.value.auth_except | join(' ') }} {
+{% if behind_edge %}
+			reverse_proxy {{ site.value.upstream }} {
+{{ client_address('				') }}			}
+{% else %}
 			reverse_proxy {{ site.value.upstream }}
+{% endif %}
 		}
 {% endif %}
 {% if site.value.path_routes | default([]) %}
@@ -46,12 +86,12 @@
 					uri /outpost.goauthentik.io/auth/caddy
 					copy_headers X-Authentik-Username
 					header_up Host {http.request.host}
-				}
+{{ auth_transport('					') }}				}
 				uri strip_prefix {{ route.path }}
 				reverse_proxy {{ route.upstream }} {
 					header_up Remote-User sso_{http.request.header.X-Authentik-Username}
 					header_up -X-Authentik-Username
-				}
+{{ client_address('					') }}				}
 			}
 		}
 {% endfor %}
@@ -64,7 +104,7 @@
 					uri /outpost.goauthentik.io/auth/caddy
 					copy_headers X-Authentik-Username
 					header_up Host {http.request.host}
-				}
+{{ auth_transport('					') }}				}
 				uri strip_prefix {{ site.value.static_prefix }}
 				root * {{ site.value.static_data | default('/data') }}
 				file_server
@@ -78,11 +118,11 @@
 				# Authentik の outpost は Host でアプリを選ぶ。Caddy は中継先の
 				# Host を upstream に書き換えないので、元の名前を明示して渡す。
 				header_up Host {http.request.host}
-			}
+{{ auth_transport('				') }}			}
 			reverse_proxy {{ site.value.upstream }} {
 				header_up Remote-User sso_{http.request.header.X-Authentik-Username}
 				header_up -X-Authentik-Username
-			}
+{{ client_address('				') }}			}
 		}
 	}
 {% else %}
@@ -90,7 +130,54 @@
 	@blocked path {{ site.value.block | join(' ') }}
 	respond @blocked 403
 {% endif %}
+{% if behind_edge %}
+	reverse_proxy {{ site.value.upstream }} {
+{{ client_address('		') }}	}
+{% else %}
 	reverse_proxy {{ site.value.upstream }}
+{% endif %}
+{% endif %}
+}
+{% endfor %}
+{% for site in tls_proxy_passthrough_sites | default([]) %}
+
+# {{ site.value.description }}（{{ site.value.host }} へ中継）
+{{ site.key }}.{{ tls_proxy_dns.zone }} {
+	import dns_challenge
+{% if auth_backend and site.value.auth | default(false) %}
+	# Forward Auth の問い合わせは、アプリの名前（Host）のまま auth の名前＝この入口へ
+	# 届く。アプリのホストへ戻すと問い合わせが輪になるので、identity へ渡す。
+	@outpost path /outpost.goauthentik.io/*
+	handle @outpost {
+		reverse_proxy https://{{ auth_backend.address }} {
+			header_up Host {host}
+			transport http {
+				tls_server_name {{ auth_backend.name }}
+				tls_trust_pool file /etc/caddy/backend-ca/{{ auth_backend.host }}.crt
+			}
+		}
+	}
+	handle {
+		reverse_proxy https://{{ site.address }} {
+			header_up Host {host}
+			transport http {
+				tls_server_name {{ site.key }}.{{ tls_proxy_dns.zone }}
+				tls_trust_pool file /etc/caddy/backend-ca/{{ site.value.host }}.crt
+			}
+		}
+	}
+{% else %}
+	# 認証・経路の振り分けは中継先のホストの Caddy が今までどおり行う。ここは
+	# 公開の証明書で受けて、中継先の内部CAを確かめたうえで暗号化して渡すだけ。
+	# Caddy は https の中継先へ渡す Host を中継先のアドレスに書き換える。中継先は
+	# Host でサイトを選ぶので、元の名前を明示して渡す（2026-10-02 に手元で実測）。
+	reverse_proxy https://{{ site.address }} {
+		header_up Host {host}
+		transport http {
+			tls_server_name {{ site.key }}.{{ tls_proxy_dns.zone }}
+			tls_trust_pool file /etc/caddy/backend-ca/{{ site.value.host }}.crt
+		}
+	}
 {% endif %}
 }
 {% endfor %}
@@ -101,6 +188,11 @@
 # その Host でプロバイダを選ぶので、identity だけがこの入口を持つ。
 :443 {
 	tls internal
+{% if behind_edge %}
+	reverse_proxy {{ tls_proxy_catchall_upstream }} {
+{{ client_address('		') }}	}
+{% else %}
 	reverse_proxy {{ tls_proxy_catchall_upstream }}
+{% endif %}
 }
 {% endif %}
