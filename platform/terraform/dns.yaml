@@ -163,7 +163,8 @@ records:
     upstream: 127.0.0.1:8123
     description: Home Assistant（家電・自動化）
   docs:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8090
     description: ドキュメントサイト
   # LocalSend の受信機はアプリ自身のTLSをそのまま使う（Caddyを通さない）ため
@@ -184,7 +185,8 @@ records:
     # 見えてしまうため、入口で弾いて LAN/VPN から開けないままにする。
     block: ['/admin', '/admin/*']
   mail-view:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8310
     description: Gmailビューア（通知メールを読み取り専用で表示。Forward Auth）
     auth: true
