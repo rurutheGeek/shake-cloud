@@ -12,34 +12,45 @@
 <body>
 <a class="skip-link" href="#main">本文へ移動</a>
 <header>
-  <h1>shake-cloud</h1>
+  <h1 class="brand"><img src="/static/favicon.svg" alt="" width="28" height="28">shake-cloud</h1>
   {{- if .LoggedIn}}
   <div class="who">
     <span>{{.Account.Username}}</span>
     <span class="muted">アカウント {{.Account.ID}}</span>
-    {{- if .Account.IsAdmin}}<span class="badge">admins</span>{{end}}
+    {{- if .Account.IsAdmin}}<span class="badge">管理者</span>{{end}}
     <button id="logout" type="button">ログアウト</button>
   </div>
   {{- end}}
 </header>
 <main id="main">
 {{- if .LoggedIn}}
+  <div class="layout">
   <nav id="navigation" aria-label="クラウドの操作">
     <a href="#overview">概要</a>
+    <div class="nav-group" role="group" aria-labelledby="nav-compute">
+      <p id="nav-compute" class="nav-heading">計算</p>
+      <a href="#instances-view">インスタンス</a>
+      <a href="#volumes-view">ボリューム</a>
+      <a href="#security-view">セキュリティグループ</a>
+      <a href="#images-view">イメージ</a>
+      <a href="#isos-view">ISO</a>
+      <a href="#ssh-view">SSH鍵</a>
+    </div>
+    <div class="nav-group" role="group" aria-labelledby="nav-data">
+      <p id="nav-data" class="nav-heading">データ</p>
+      <a href="#s3-view">S3バケット</a>
+      <a href="#databases-view">データベース</a>
+      <a href="#functions-view">関数</a>
+    </div>
+    <div class="nav-group" role="group" aria-labelledby="nav-account">
+      <p id="nav-account" class="nav-heading">アカウント</p>
+      <a href="#keys-view">アクセスキー</a>
+      <a href="#events-view">操作履歴</a>
+      {{if .Account.IsAdmin}}<a href="#settings">管理設定</a>{{end}}
+    </div>
     <a href="/help" class="help-link">ヘルプ</a>
-    <a href="#instances-view">インスタンス</a>
-    <a href="#volumes-view">ボリューム</a>
-    <a href="#security-view">セキュリティグループ</a>
-    <a href="#s3-view">S3ストレージ</a>
-    <a href="#databases-view">データベース</a>
-    <a href="#functions-view">関数</a>
-    <a href="#images-view">イメージ</a>
-    <a href="#isos-view">ISO</a>
-    <a href="#ssh-view">SSH鍵</a>
-    <a href="#keys-view">アクセスキー</a>
-    <a href="#events-view">操作履歴</a>
-    {{if .Account.IsAdmin}}<a href="#settings">管理設定</a>{{end}}
   </nav>
+  <div id="content">
   <div class="toolbar"><button id="refresh-all" type="button">表示を更新</button><span id="refresh-status" class="muted" role="status"></span></div>
   <aside id="feedback" aria-label="操作の通知">
     <div id="error" class="error" role="alert" hidden></div>
@@ -75,7 +86,7 @@
   </section>
   {{- if .Account.IsAdmin}}
   <section id="settings" data-view>
-    <h2 tabindex="-1">上限</h2>
+    <h2 tabindex="-1">管理設定（上限）</h2>
     <p class="muted">
       利用数・容量枠の <strong>0 は無制限です。</strong>空欄は既定値に戻します。
       このフォーム全体の上書き設定を保存します。保存前に変更内容を確認できます。
@@ -154,7 +165,7 @@
       </div>
     </div>
   </section>
-  <section id="instance-create-view" data-view>
+  <section id="instance-create-view" data-view data-nav="instances-view">
     <h2 tabindex="-1">インスタンスを作成</h2>
     <p><a href="#instances-view">一覧へ戻る</a> · <a href="#ssh-view">SSH鍵を登録</a> · <a href="#images-view">イメージを追加</a> · <a href="#isos-view">ISOを追加</a></p>
     <form id="create-instance">
@@ -427,6 +438,8 @@
     </div>
     <button id="more-events" type="button" hidden>さらに20件表示</button>
   </section>
+  </div>
+  </div>
 {{- else}}
   <section>
     <p>ホームラボのプライベートクラウドです。ログインすると、自分のVMの作成・電源操作・コンソール、追加ボリューム、セキュリティグループ、イメージとSSH鍵、Terraform・CLI 用アクセスキーを扱えます。</p>

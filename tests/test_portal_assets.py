@@ -34,6 +34,25 @@ class PortalAssetsTests(unittest.TestCase):
         refs = set(re.findall(r"\$\('([^']+)'\)", self.portal + self.ui))
         self.assertEqual(refs - ids - RUNTIME_IDS, set())
 
+    def test_every_view_is_reachable_from_the_menu(self):
+        # One view is shown at a time, so a section the menu cannot reach is
+        # a section nobody can open.
+        navigation = self.html[self.html.index('<nav id="navigation"'):self.html.index('</nav>')]
+        linked = set(re.findall(r'href="#([^"]+)"', navigation))
+        for match in re.finditer(r'<section id="([^"]+)" data-view(?: data-nav="([^"]+)")?', self.html):
+            view, parent = match.group(1), match.group(2)
+            self.assertIn(parent or view, linked, view)
+        # Everything linked from the menu exists.
+        ids = set(re.findall(r'id="([^"{}]+)"', self.html))
+        self.assertEqual(linked - ids, set())
+
+    def test_the_menu_is_grouped(self):
+        navigation = self.html[self.html.index('<nav id="navigation"'):self.html.index('</nav>')]
+        self.assertEqual(re.findall(r'class="nav-heading">([^<]+)<', navigation), ['計算', 'データ', 'アカウント'])
+        # The script switches views; without it every section stays visible.
+        self.assertIn("section[data-view]", self.ui)
+        self.assertIn("aria-current", self.ui)
+
     def test_the_shared_ui_is_initialised(self):
         # onAction's locking and the dirty-form guard live in PortalUI.init().
         self.assertIn('window.PortalUI.init()', self.portal)
