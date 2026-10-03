@@ -106,7 +106,7 @@ Garage の S3 バケットとアクセスキーを、クラウドAPIがアカウ
 - **Garage の管理API（v2、`:3903`）を叩きます。** クラウドAPIは用途を絞った管理トークンを使います（`CreateBucket`・`CreateKey`・`AllowBucketKey` など10個だけ）。正本は `platform/sops/cloudapi.sops.yaml` の `GARAGE_ADMIN_TOKEN` で、`cloud_api` ロールが `cloud-01` の `secrets/garage_admin_token` へ写します。
 - **鍵の秘密値は保存しません。** Garage が作成時に一度だけ返すもので、APIはその応答で返して捨てます。DBには鍵IDと名前だけを持ちます。
 - **バケット名はクラウド全体で一意**（Garage の global alias）。S3 の規則（3–63文字、小文字・数字・`.`・`-`）で検証します。
-- **応答の `s3_endpoint`・`s3_region`** が、利用者がクライアントへ設定する値です（いまは `http://192.168.10.206:3900`、`garage`）。
+- **応答の `s3_endpoint`・`s3_region`** が、利用者がクライアントへ設定する値です（いまは `http://192.168.10.205:3900`、`garage`）。
 
 ```bash
 # バケットと鍵を作り、鍵に権限を付ける

@@ -1,5 +1,5 @@
 ---
-# Garage（S3互換オブジェクトストア）を storage-s3 VM へ構築する。
+# Garage（S3互換オブジェクトストア）を cloud-01 へ構築する（2026-10-03 に storage-s3 から合流）。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/garage.yml'
 #

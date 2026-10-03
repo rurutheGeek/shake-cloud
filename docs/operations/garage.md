@@ -24,8 +24,8 @@ S3を自作クラウドの一部にするための土台です。Garageを **sto
 | VM | `storage-s3`（VMID 130、platform プール、2 vCPU / 1 GiB / OS 16GiB） |
 | データ | 専用ディスク 32GiB（`/srv/garage`。OS と分けてある） |
 | 版 | Garage v2.4.1（x86_64-musl。バイナリの sha256 をロールに固定） |
-| S3 API | `http://192.168.10.206:3900`、region `garage` |
-| 管理API | `http://192.168.10.206:3903`（Bearerトークン） |
+| S3 API | `http://192.168.10.205:3900`、region `garage` |
+| 管理API | `http://192.168.10.205:3903`（Bearerトークン） |
 | replication factor | **1（冗長性なし）** |
 
 **唯一の保存先・唯一のバックアップにはしません。** 単一ノード・RF1 なので、ディスクが壊れればデータは失われます。
@@ -59,7 +59,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 sudo garage -c /etc/garage.toml status
 
 # 実クライアント（awscli）で。鍵はください（下記）
-export AWS_ENDPOINT_URL='http://192.168.10.206:3900' AWS_DEFAULT_REGION='garage'
+export AWS_ENDPOINT_URL='http://192.168.10.205:3900' AWS_DEFAULT_REGION='garage'
 export AWS_ACCESS_KEY_ID='<key id>' AWS_SECRET_ACCESS_KEY='<secret>'
 aws s3 cp hello.txt s3://<bucket>/hello.txt
 aws s3 ls s3://<bucket>/

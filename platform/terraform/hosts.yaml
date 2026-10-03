@@ -71,9 +71,12 @@ hosts:
     # 常時起動のAPIと管理DB。下限0.5GiBでは足りないので1GiBにする。
     memory_min_mib: 1024
     disk_gib: 40
+    # Garage（S3 の実体）もここに置く（2026-10-03。storage-s3 から合流）。
+    # メタデータとオブジェクトは OS と別ディスクに置く。
+    data_disk_gib: 32
     on_boot: true
     started: true
-    tags: [cloud-control, managed-by-terraform-admin]
+    tags: [cloud-control, storage, managed-by-terraform-admin]
     description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。
 
   storage-s3:
@@ -89,8 +92,10 @@ hosts:
     data_disk_gib: 32
     on_boot: true
     started: true
-    tags: [storage, managed-by-terraform-admin]
-    description: Garage（S3互換オブジェクトストア）。OS16+データ32。利用開始後は常時起動。
+    # 2026-10-03: Garage は cloud-01 へ合流した。storage タグを外し、Ansible の
+    # storage グループから外す。VMは戻せるよう残す。
+    tags: [managed-by-terraform-admin]
+    description: 退役予定。Garage は cloud-01 へ合流した（2026-10-03）。
 
   k8s-cp-01:
     vm_id: 200
