@@ -143,6 +143,7 @@ flowchart TB
 | [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-09-12 | `plan` `cloud` `network` |
 | [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-23 | `plan` `terraform` |
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
+| [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-03 | `plan` `cloud` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-09-23 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-09-23 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-01 | `plan` `network` |
@@ -220,6 +221,7 @@ flowchart TB
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-01 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-09-23 | `design` `placement` |
 | [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-09-23 | `design` `overview` |
+| [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
 | [信頼境界とセキュリティ方針](architecture/security.md) | 2026-09-23 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-01 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-09-23 | `design` `bootstrap` |
@@ -240,6 +242,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 124 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 126 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
