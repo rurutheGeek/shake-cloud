@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -667,4 +668,28 @@ func TestPortalPageRendersForBothStates(t *testing.T) {
 		t.Fatal("logged-in page is missing the account or does not escape the username")
 	}
 	expectStatus(t, do(t, s, req{method: "GET", path: "/static/portal.js"}), http.StatusOK)
+}
+
+// Every page names the favicon, so the portal, a console and the help page
+// can be told apart from other tabs.
+func TestEveryPageCarriesTheFavicon(t *testing.T) {
+	s := testServer(t, nil)
+	icon := do(t, s, req{method: "GET", path: "/static/favicon.svg"})
+	expectStatus(t, icon, http.StatusOK)
+	if got := icon.Header().Get("Content-Type"); !strings.HasPrefix(got, "image/svg+xml") {
+		t.Fatalf("favicon content type = %q", got)
+	}
+	pages, err := fs.Glob(webFiles, "web/*.html")
+	if err != nil || len(pages) == 0 {
+		t.Fatalf("pages = %v, %v", pages, err)
+	}
+	for _, page := range pages {
+		text, err := fs.ReadFile(webFiles, page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(text), `<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">`) {
+			t.Errorf("%s does not link the favicon", page)
+		}
+	}
 }

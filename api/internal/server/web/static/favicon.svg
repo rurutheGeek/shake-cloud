@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<title>shake-cloud</title>
+<rect width="64" height="64" rx="14" fill="#29B6F6"/>
+<path d="M6 58a8 8 0 0 1 8-8 10 10 0 0 1 19-2 8 8 0 0 1 9 10Z" fill="#E1F5FE"/>
+<g transform="rotate(-20 32 32)">
+<path d="M20 32 8 23l4 9-4 9Z" fill="#F4511E"/>
+<path d="M54 32C47 21 29 21 18 32c11 11 29 11 36 0Z" fill="#FF7043"/>
+<path d="M54 32C47 43 29 43 18 32Z" fill="#FFAB91"/>
+<path d="M38 28C35 14 24 8 12 10c5 4 9 10 12 18Z" fill="#FFFFFF"/>
+<path d="M38 28C33 19 26 15 18 15c3 4 5 8 7 13Z" fill="#B3E5FC"/>
+<circle cx="46" cy="30" r="2.2" fill="#263238"/>
+</g>
+</svg>

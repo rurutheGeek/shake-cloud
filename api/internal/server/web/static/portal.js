@@ -868,6 +868,26 @@
     });
   }
 
+  function tagText(key, value) {
+    return value === '' ? key : `${key}=${value}`;
+  }
+
+  // "Purpose=dev, Team=home" from the create form. A key without "=" is a
+  // tag with an empty value, as in the API.
+  function parseTags(text) {
+    const tags = {};
+    for (const part of text.split(',')) {
+      const item = part.trim();
+      if (!item) continue;
+      const at = item.indexOf('=');
+      const key = (at < 0 ? item : item.slice(0, at)).trim();
+      if (!key) throw new Error(`タグ「${item}」にキーがありません。キー=値 の形で入力してください。`);
+      if (key === 'Name') throw new Error('Name は「名前」の欄で指定してください。');
+      tags[key] = at < 0 ? '' : item.slice(at + 1).trim();
+    }
+    return tags;
+  }
+
   function instanceRow(instance, viewerAccountId, isAdmin) {
     const row = document.createElement('tr');
     row.dataset.resource = instance.instance_id;
@@ -884,6 +904,26 @@
       badge.className = 'badge';
       badge.textContent = '引き取り';
       nameCell.append(badge);
+    }
+    // Name is the first line of the cell; every other tag is listed, and
+    // choosing one narrows the list to the instances that carry it.
+    const tagEntries = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').sort();
+    if (tagEntries.length > 0) {
+      const tagList = document.createElement('div');
+      tagList.className = 'tags';
+      for (const [key, value] of tagEntries) {
+        const tag = document.createElement('button');
+        tag.type = 'button';
+        tag.className = 'tag';
+        tag.textContent = tagText(key, value);
+        tag.title = 'このタグで絞り込む';
+        tag.addEventListener('click', () => {
+          $('instance-search').value = tagText(key, value);
+          renderInstances();
+        });
+        tagList.append(tag);
+      }
+      nameCell.append(tagList);
     }
     if (instance.state_reason) {
       const reason = document.createElement('div');
@@ -1028,7 +1068,8 @@
     let visible = 0;
     const rows = lastInstances.map((instance) => {
       const row = instanceRow(instance, wrap.dataset.accountId, wrap.dataset.isAdmin === 'true');
-      const text = [instance.tags?.Name, instance.instance_id, instance.private_ip_address, instance.owner_username, instance.account_id].join(' ').toLocaleLowerCase();
+      const tagTexts = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').map(([key, value]) => tagText(key, value));
+      const text = [instance.tags?.Name, instance.instance_id, instance.private_ip_address, instance.owner_username, instance.account_id, ...tagTexts].join(' ').toLocaleLowerCase();
       row.hidden = !!((search && !text.includes(search)) || (owner === 'mine' && instance.account_id !== wrap.dataset.accountId) || (state && state !== instance.state));
       if (!row.hidden) visible++;
       return row;
@@ -1131,7 +1172,9 @@
     const keyName = (windows || fromISO) ? '' : data.get('key_name');
     if (keyName) body.key_name = keyName;
     const name = data.get('name');
-    if (name) body.tags = { Name: name };
+    const tags = parseTags(data.get('tags') || '');
+    if (name) tags.Name = name;
+    if (Object.keys(tags).length > 0) body.tags = tags;
     // Omitted entirely (rather than sent empty) when nothing is checked, so
     // the API falls back to the account's default group.
     const groupIds = data.getAll('security_group_ids');

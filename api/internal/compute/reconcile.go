@@ -79,6 +79,7 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			if err := db.ObserveState(ctx, s.Pool, instance.ID, instance.State, observed, reason); err != nil {
 				return err
 			}
+			s.wakeLedger()
 		case strings.HasPrefix(instance.StateReason, "Server.VMMissing"):
 			if err := db.NoteReason(ctx, s.Pool, instance.ID, ""); err != nil {
 				return err

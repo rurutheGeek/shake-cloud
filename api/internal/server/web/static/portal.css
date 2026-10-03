@@ -90,6 +90,9 @@ input[type="checkbox"] { min-width: auto; }
 #create-instance input[type="number"], .edit-instance input[type="number"] { min-width: 6rem; }
 .wide { flex-basis: 100%; }
 .small { display: block; font-size: 0.78rem; }
+.tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.tag { font: inherit; font-size: 0.78rem; padding: 0 0.5rem; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.tag:hover, .tag:focus-visible { border-color: var(--accent); color: var(--accent); }
 .state { display: inline-block; padding: 0.05rem 0.55rem; border-radius: 999px; border: 1px solid currentColor; font-size: 0.85rem; }
 .state-running { color: var(--good); }
 .state-stopped, .state-terminated { color: var(--muted); }

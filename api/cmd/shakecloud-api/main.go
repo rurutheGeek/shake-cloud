@@ -73,10 +73,11 @@ func run(log *slog.Logger) error {
 		if err != nil {
 			return err
 		}
+		ledger := netbox.New(cfg.NetBoxURL, cfg.NetBoxToken)
 		service := compute.New(pool,
 			proxmox.New(cfg.ProxmoxURL, cfg.ProxmoxToken, deployment.Node, cfg.ProxmoxInsecure),
-			netbox.New(cfg.NetBoxURL, cfg.NetBoxToken),
-			deployment, log, cfg.WorkDir)
+			ledger, deployment, log, cfg.WorkDir)
+		service.Ledger = ledger
 		service.UploadDir = cfg.UploadDir
 		if cfg.StorageConfigured() {
 			service.Garage = garage.New(cfg.GarageAdminURL, cfg.GarageAdminToken)
@@ -108,6 +109,7 @@ func run(log *slog.Logger) error {
 		srv.Compute = service
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)
+		go service.RunLedger(ctx, 15*time.Minute)
 		log.Info("instances enabled", "node", deployment.Node, "pool", deployment.Pool,
 			"vmid_range", fmt.Sprintf("%d-%d", deployment.VMIDFrom, deployment.VMIDTo), "images", len(deployment.Images))
 	} else {
