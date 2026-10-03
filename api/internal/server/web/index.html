@@ -134,13 +134,21 @@
   {{- end}}
   <section id="instances-view" data-view>
     <h2 tabindex="-1">インスタンス</h2>
-    <p class="muted">全アカウントのVMが並びます。自分のものだけではありません。</p>
+    <p class="muted">全アカウントのVMが並びます。自分のものだけではありません。名前を選ぶと詳細と個別の操作を開きます。</p>
     <div class="toolbar">
       <label>検索 <input id="instance-search" type="search" placeholder="名前・ID・IP・所有者・タグ"></label>
       <label>所有者 <select id="instance-owner"><option value="all">全アカウント</option><option value="mine">自分のみ</option></select></label>
       <label>状態 <select id="instance-state"><option value="">すべて</option><option value="running">稼働中</option><option value="stopped">停止中</option><option value="pending">起動準備中</option><option value="stopping">停止処理中</option><option value="shutting-down">削除処理中</option><option value="terminated">削除済み</option></select></label>
       <a class="button" href="#instance-create-view">インスタンスを作成</a>
     </div>
+    <div class="bulk-bar" role="group" aria-label="選んだインスタンスの操作">
+      <span id="instance-selection" class="muted" role="status">選んだインスタンスはありません</span>
+      <button id="instance-start" type="button" disabled>起動</button>
+      <button id="instance-stop" type="button" disabled>停止</button>
+      <button id="instance-reboot" type="button" disabled>再起動</button>
+      <button id="instance-delete" type="button" class="danger" disabled>削除</button>
+    </div>
+    <p class="muted small">チェックしたインスタンスにまとめて実行します。停止中だけ起動、稼働中だけ停止・再起動、削除済み以外は削除できます。</p>
     <p id="instances-status" class="muted" role="status">読み込み中…</p>
     {{- if .Account.IsAdmin}}
     <details id="adopt-instance">
@@ -159,11 +167,18 @@
     <div id="instances-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div class="scroll">
         <table>
-          <thead><tr><th>名前</th><th>所有者</th><th>状態</th><th>IP</th><th>イメージ</th><th>構成</th><th>ディスク</th><th>セキュリティグループ</th><th>操作</th></tr></thead>
+          <thead><tr><th class="select-column"><span class="visually-hidden">選択</span></th><th>名前</th><th>状態</th><th>IP</th><th>構成</th><th>所有者</th></tr></thead>
           <tbody id="instances"></tbody>
         </table>
       </div>
     </div>
+  </section>
+  <section id="instance-detail-view" data-view data-nav="instances-view">
+    <h2 tabindex="-1">インスタンスの詳細</h2>
+    <p><a href="#instances-view">一覧へ戻る</a></p>
+    <p id="instance-detail-status" class="muted" role="status" hidden></p>
+    <div id="instance-detail"></div>
+    <div id="instance-detail-editors"></div>
   </section>
   <section id="instance-create-view" data-view data-nav="instances-view">
     <h2 tabindex="-1">インスタンスを作成</h2>

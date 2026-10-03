@@ -667,7 +667,7 @@
   // unrequested popup instead of a direct result of the click. The tab's
   // location is filled in once the one-time console URL comes back, or the
   // tab is closed again if the request fails.
-  function consoleButton(instance) {
+  function consoleButton(instance, container = $('instances-view')) {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = 'コンソール';
@@ -692,7 +692,6 @@
           link.target = '_blank';
           link.rel = 'noopener';
           link.textContent = `${instance.tags?.Name || instance.instance_id} のコンソールを開く`;
-          const container = $('instances-view');
           container.querySelector('.console-fallback')?.remove();
           link.className = 'console-fallback button';
           container.prepend(link);
@@ -743,34 +742,47 @@
     return { label, input };
   }
 
-  async function dismissEditor(editRow, source) {
-    if (editRow.querySelector('form[data-dirty="true"]') && !await confirmAction({
+  function detailEditors() {
+    return $('instance-detail-editors');
+  }
+
+  async function dismissEditor(holder, source) {
+    if (holder.querySelector('form[data-dirty="true"]') && !await confirmAction({
       title: '編集中の内容を閉じる', message: '保存していない変更を破棄します。', confirmLabel: '変更を破棄' })) return false;
-    editRow.remove();
-    renderInstances();
+    holder.remove();
     source?.focus();
     return true;
   }
 
-  function mountEditor(row, instance, form, source) {
-    const editRow = document.createElement('tr');
-    editRow.className = 'edit-row';
+  // The detail view keeps its editors in one container outside the read-only
+  // part, so the periodic refresh can update values without dropping focus or
+  // unsaved input. One editor per kind is open at a time.
+  function openEditor(instance, kind, form, source) {
+    const container = detailEditors();
+    container.querySelector(`[data-editor="${kind}"]`)?.remove();
     form.dataset.resource = instance.instance_id;
-    const td = document.createElement('td');
-    td.colSpan = 9;
-    td.append(form);
-    editRow.append(td);
-    row.after(editRow);
+    const holder = document.createElement('div');
+    holder.className = 'editor';
+    holder.dataset.editor = kind;
+    holder.append(form);
     const cancel = document.createElement('button');
     cancel.type = 'button';
     cancel.textContent = '閉じる';
-    onAction(cancel, 'click', async () => { await dismissEditor(editRow, source); });
+    onAction(cancel, 'click', async () => { await dismissEditor(holder, source); });
     form.append(cancel);
+    container.append(holder);
     form.querySelector('input:not(:disabled), select:not(:disabled), button')?.focus();
-    return editRow;
+    return holder;
   }
 
-  async function currentInstance(instance) {
+  function editorOpen(kind) {
+    return detailEditors().querySelector(`[data-editor="${kind}"]`);
+  }
+
+  // The editor's baseline is the row it was opened from; the API is asked
+  // again before writing, so a change made elsewhere is not silently
+  // overwritten.
+  async function freshInstance(instance) {
     const { instances } = await api('GET', '/v1/instances');
     const current = instances.find((item) => item.instance_id === instance.instance_id);
     if (!current || ['terminated', 'shutting-down'].includes(current.state)) {
@@ -779,9 +791,9 @@
     return current;
   }
 
-  async function toggleEditRow(row, instance, source) {
-    const already = row.nextElementSibling;
-    if (already?.classList.contains('edit-row')) { await dismissEditor(already, source); return; }
+  async function openResizeEditor(instance, source) {
+    const open = editorOpen('resize');
+    if (open) { await dismissEditor(open, source); return; }
     const vcpus = numberField('vCPU', 'vcpus', instance.vcpus, 1);
     const memory = numberField('メモリ MiB', 'memory_mib', instance.memory_mib, 512);
     const memoryMin = numberField('最小メモリ MiB', 'memory_min_mib', instance.memory_min_mib || 512, 512);
@@ -805,7 +817,7 @@
     const form = document.createElement('form');
     form.className = 'edit-instance';
     form.append(vcpus.label, memory.label, balloonLabel, memoryMin.label, disk.label, hint, save);
-    const editRow = mountEditor(row, instance, form, source);
+    const holder = openEditor(instance, 'resize', form, source);
     onAction(form, 'submit', async (event, scope) => {
       const patch = {};
       if (stopped && Number(vcpus.input.value) !== instance.vcpus) patch.vcpus = Number(vcpus.input.value);
@@ -817,21 +829,21 @@
       if (balloon.checked && Number(memoryMin.input.value) > Number(memory.input.value)) {
         fieldError(memoryMin.input, '最小メモリは最大メモリ以下にしてください。'); return;
       }
-      const current = await currentInstance(instance);
+      const current = await freshInstance(instance);
       const fields = ['vcpus', 'memory_mib', 'memory_min_mib', 'ballooning', 'root_disk_gib'];
       if (fields.some((name) => current[name] !== instance[name])) throw new Error('別の操作で構成が変わりました。入力を控え、編集を開き直して最新の構成を確認してください。');
       if (current.state !== 'stopped' && Object.keys(patch).some((name) => name !== 'root_disk_gib')) throw new Error('VMが停止中ではありません。CPU・メモリを変更するには停止が必要です。入力は保持しています。');
       await api('PATCH', `/v1/instances/${encodeURIComponent(instance.instance_id)}`, patch);
       delete form.dataset.dirty;
-      editRow.remove();
+      holder.remove();
       announce(`${instance.tags?.Name || instance.instance_id} の構成を変更しました。`);
       await Promise.all([loadInstances(), loadCapacity()]);
     });
   }
 
-  async function toggleGroupEditRow(row, instance, source) {
-    const already = row.nextElementSibling;
-    if (already?.classList.contains('edit-row')) { await dismissEditor(already, source); return; }
+  async function openGroupEditor(instance, source) {
+    const open = editorOpen('groups');
+    if (open) { await dismissEditor(open, source); return; }
     const candidates = lastSecurityGroups.filter((group) => group.account_id === instance.account_id);
     const current = new Set((instance.security_groups || []).map((group) => group.group_id));
     const form = document.createElement('form');
@@ -850,11 +862,11 @@
     const save = document.createElement('button');
     save.type = 'submit'; save.textContent = '変更内容を確認';
     form.append(checklist, save);
-    const editRow = mountEditor(row, instance, form, source);
+    const holder = openEditor(instance, 'groups', form, source);
     onAction(form, 'submit', async (event, scope) => {
       const selected = inputs.filter((input) => input.checked).map((input) => input.value);
       if (selected.length < 1 || selected.length > 5) throw new Error('セキュリティグループは1〜5個選んでください。');
-      const latest = await currentInstance(instance);
+      const latest = await freshInstance(instance);
       const latestIDs = (latest.security_groups || []).map((group) => group.group_id).sort().join(',');
       if (latestIDs !== [...current].sort().join(',')) throw new Error('別の操作でグループが変更されました。入力を控え、編集を開き直してください。');
       const { security_groups: groups } = await api('GET', '/v1/security-groups');
@@ -862,7 +874,7 @@
       if (!await confirmAction({ title: '通信の許可範囲を変更', confirmLabel: 'このグループを適用', message: resourceDescription(latest) + '\n\n適用するグループ: ' + selected.map((id) => groups.find((g) => g.group_id === id).group_name).join('、') + '\n接続中の通信が切れる場合があります。' })) return;
       await api('PUT', `/v1/instances/${encodeURIComponent(instance.instance_id)}/security-groups`, { security_group_ids: selected });
       delete form.dataset.dirty;
-      editRow.remove();
+      holder.remove();
       announce('セキュリティグループの変更を受け付けました。反映状態を確認しています。');
       await loadInstances();
     });
@@ -870,9 +882,9 @@
 
   // The API replaces the whole tag set, so the form shows every tag and what
   // is saved is exactly what the form holds.
-  async function toggleTagEditRow(row, instance, source) {
-    const already = row.nextElementSibling;
-    if (already?.classList.contains('edit-row')) { await dismissEditor(already, source); return; }
+  async function openTagEditor(instance, source) {
+    const open = editorOpen('tags');
+    if (open) { await dismissEditor(open, source); return; }
     const before = instance.tags || {};
     const form = document.createElement('form');
     form.className = 'edit-instance';
@@ -893,18 +905,18 @@
     const save = document.createElement('button');
     save.type = 'submit'; save.textContent = '保存';
     form.append(nameLabel, tagsLabel, note, save);
-    const editRow = mountEditor(row, instance, form, source);
+    const holder = openEditor(instance, 'tags', form, source);
     onAction(form, 'submit', async () => {
       const tags = parseTags(tagsInput.value);
       const name = nameInput.value.trim();
       if (name) tags.Name = name;
-      const latest = await currentInstance(instance);
+      const latest = await freshInstance(instance);
       if (JSON.stringify(Object.entries(latest.tags || {}).sort()) !== JSON.stringify(Object.entries(before).sort())) {
         throw new Error('別の操作でタグが変更されました。入力を控え、編集を開き直してください。');
       }
       await api('PUT', `/v1/instances/${encodeURIComponent(instance.instance_id)}/tags`, { tags });
       delete form.dataset.dirty;
-      editRow.remove();
+      holder.remove();
       announce(`${name || instance.instance_id} の名前・タグを保存しました。`);
       await loadInstances();
     });
@@ -930,48 +942,43 @@
     return tags;
   }
 
-  function instanceRow(instance, viewerAccountId, isAdmin) {
+  function instanceCheckbox(instance) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = selectedInstances.has(instance.instance_id);
+    input.disabled = instance.state === 'terminated';
+    input.setAttribute('aria-label', `${instance.tags?.Name || instance.instance_id} を選ぶ`);
+    input.addEventListener('change', () => {
+      if (input.checked) selectedInstances.add(instance.instance_id);
+      else selectedInstances.delete(instance.instance_id);
+      updateBulkBar();
+    });
+    return input;
+  }
+
+  // The list keeps only what identifies an instance and what an operation
+  // needs. Everything else (ID, image, disk, groups, tags, timestamps) lives
+  // in the detail view, opened by the name.
+  function instanceRow(instance) {
     const row = document.createElement('tr');
     row.dataset.resource = instance.instance_id;
     row.dataset.snapshot = JSON.stringify(instance);
 
+    const selectCell = document.createElement('td');
+    selectCell.className = 'select-cell';
+    selectCell.append(instanceCheckbox(instance));
+
     const nameCell = document.createElement('td');
-    nameCell.append((instance.tags && instance.tags.Name) || '—');
-    const identifier = document.createElement('span');
-    identifier.className = 'muted small';
-    identifier.textContent = instance.instance_id;
-    nameCell.append(identifier);
+    const link = document.createElement('a');
+    link.className = 'instance-link';
+    link.href = `#instance-detail-view/${encodeURIComponent(instance.instance_id)}`;
+    link.textContent = (instance.tags && instance.tags.Name) || '（名前なし）';
+    nameCell.append(link);
     if (instance.adopted) {
       const badge = document.createElement('span');
       badge.className = 'badge';
       badge.textContent = '引き取り';
       nameCell.append(badge);
-    }
-    // Name is the first line of the cell; every other tag is listed, and
-    // choosing one narrows the list to the instances that carry it.
-    const tagEntries = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').sort();
-    if (tagEntries.length > 0) {
-      const tagList = document.createElement('div');
-      tagList.className = 'tags';
-      for (const [key, value] of tagEntries) {
-        const tag = document.createElement('button');
-        tag.type = 'button';
-        tag.className = 'tag';
-        tag.textContent = tagText(key, value);
-        tag.title = 'このタグで絞り込む';
-        tag.addEventListener('click', () => {
-          $('instance-search').value = tagText(key, value);
-          renderInstances();
-        });
-        tagList.append(tag);
-      }
-      nameCell.append(tagList);
-    }
-    if (instance.state_reason) {
-      const reason = document.createElement('div');
-      reason.className = 'muted small';
-      reason.textContent = instance.state_reason;
-      nameCell.append(reason);
     }
 
     const stateCell = document.createElement('td');
@@ -987,100 +994,303 @@
     }
 
     const configCell = document.createElement('td');
-    const typeLine = document.createElement('div');
-    typeLine.textContent = instance.instance_type || 'カスタム';
-    const detailLine = document.createElement('div');
-    detailLine.className = 'muted small';
-    detailLine.textContent = `${instance.vcpus} vCPU / ${mib(instance.memory_mib)}`
-      + (instance.ballooning ? ` ・ 最小 ${mib(instance.memory_min_mib)}` : ' ・ 固定');
-    configCell.append(typeLine, detailLine);
-
-    const groupsCell = document.createElement('td');
-    const groups = instance.security_groups || [];
-    if (groups.length === 0) {
-      const none = document.createElement('span');
-      none.className = 'muted';
-      none.textContent = 'なし（制限なし）';
-      groupsCell.append(none);
-    } else {
-      groupsCell.append(groups.map((group) => group.group_name).join(', '));
-    }
-    if (instance.firewall_state === 'applying') {
-      const applying = document.createElement('div');
-      applying.className = 'muted small';
-      applying.textContent = '反映中';
-      groupsCell.append(applying);
-    }
+    configCell.textContent = `${instance.vcpus} vCPU / ${mib(instance.memory_mib)}`;
 
     row.append(
+      selectCell,
       nameCell,
-      cell(instance.owner_username || instance.account_id),
       stateCell,
       cell(instance.private_ip_address || '—'),
-      cell(instance.adopted ? '—（引き取り）' : (instance.image_name || instance.image_id)),
       configCell,
-      cell(`${instance.root_disk_gib} GiB（${tierLabel(instance.disk_tier)}）`),
-      groupsCell,
+      cell(instance.owner_username || instance.account_id),
     );
-
-    const canAct = instance.account_id === viewerAccountId || isAdmin;
-    if (canAct && instance.state !== 'terminated') {
-      const changeGroups = document.createElement('button');
-      changeGroups.type = 'button';
-      changeGroups.textContent = '変更';
-      onAction(changeGroups, 'click', async () => { await toggleGroupEditRow(row, instance, changeGroups); });
-      groupsCell.append(changeGroups);
-      const changeTags = document.createElement('button');
-      changeTags.type = 'button';
-      changeTags.textContent = '名前・タグを編集';
-      onAction(changeTags, 'click', async () => { await toggleTagEditRow(row, instance, changeTags); });
-      nameCell.append(changeTags);
-    }
-
-    const actions = document.createElement('td');
-    if (canAct) {
-      const id = encodeURIComponent(instance.instance_id);
-      actions.append(
-        powerButton('起動', 'start', `/v1/instances/${id}/start`, instance.state === 'stopped', instance),
-        powerButton('停止', 'stop', `/v1/instances/${id}/stop`, instance.state === 'running', instance),
-        powerButton('再起動', 'reboot', `/v1/instances/${id}/reboot`, instance.state === 'running', instance),
-        consoleButton(instance),
-        deleteInstanceButton(instance),
-      );
-    }
-    if (isAdmin && !['terminated', 'shutting-down'].includes(instance.state)) {
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.textContent = '編集';
-      onAction(edit, 'click', async () => { await toggleEditRow(row, instance, edit); });
-      actions.append(edit);
-    }
-    row.append(actions);
     return row;
+  }
+
+  const INSTANCE_DETAIL_PREFIX = 'instance-detail-view/';
+
+  function detailInstanceID() {
+    const raw = decodeURIComponent(location.hash.slice(1));
+    return raw.startsWith(INSTANCE_DETAIL_PREFIX) ? raw.slice(INSTANCE_DETAIL_PREFIX.length) : null;
+  }
+
+  function detailItem(list, term, value) {
+    const dt = document.createElement('dt');
+    dt.textContent = term;
+    const dd = document.createElement('dd');
+    if (value instanceof Node) dd.append(value);
+    else dd.textContent = value ?? '—';
+    list.append(dt, dd);
+  }
+
+  // Tags were shown in the list before this view existed; the chips stay as
+  // the way to jump back to the list filtered by that tag.
+  function detailTags(instance) {
+    const entries = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').sort();
+    if (entries.length === 0) return null;
+    const wrap = document.createElement('span');
+    wrap.className = 'tags';
+    for (const [key, value] of entries) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag';
+      chip.textContent = tagText(key, value);
+      chip.title = 'このタグで絞り込む';
+      chip.addEventListener('click', () => {
+        $('instance-search').value = tagText(key, value);
+        location.hash = 'instances-view';
+        renderInstances();
+      });
+      wrap.append(chip);
+    }
+    return wrap;
+  }
+
+  function detailPowerActions(instance) {
+    const id = encodeURIComponent(instance.instance_id);
+    return [
+      powerButton('起動', 'start', `/v1/instances/${id}/start`, instance.state === 'stopped', instance),
+      powerButton('停止', 'stop', `/v1/instances/${id}/stop`, instance.state === 'running', instance),
+      powerButton('再起動', 'reboot', `/v1/instances/${id}/reboot`, instance.state === 'running', instance),
+      consoleButton(instance, $('instance-detail-view')),
+    ];
+  }
+
+  function buildInstanceDetail(instance, isAdmin, viewerAccountId) {
+    const canAct = instance.account_id === viewerAccountId || isAdmin;
+
+    const fields = document.createElement('dl');
+    fields.className = 'detail';
+    detailItem(fields, '名前', (instance.tags && instance.tags.Name) || '—（名前なし）');
+    detailItem(fields, 'インスタンスID', instance.instance_id);
+    detailItem(fields, '所有者', `${instance.owner_username || '—'}（${instance.account_id}）`);
+
+    const state = document.createElement('span');
+    state.className = `state state-${instance.state}`;
+    state.textContent = stateLabel(instance.state);
+    if (instance.pending_action) {
+      const pending = document.createElement('span');
+      pending.className = 'muted small';
+      pending.textContent = ` ${pendingLabel(instance.pending_action)}処理中…`;
+      state.append(pending);
+    }
+    if (instance.firewall_state === 'applying') {
+      const applying = document.createElement('span');
+      applying.className = 'muted small';
+      applying.textContent = ' セキュリティグループ反映中';
+      state.append(applying);
+    }
+    detailItem(fields, '状態', state);
+    if (instance.state_reason) detailItem(fields, '状態の理由', instance.state_reason);
+    if (instance.last_error) detailItem(fields, '最後のエラー', instance.last_error);
+    detailItem(fields, 'IPアドレス', instance.private_ip_address || '—');
+    detailItem(fields, 'MACアドレス', instance.mac_address || '—');
+
+    const image = document.createElement('span');
+    image.textContent = instance.image_name || instance.image_id
+      || (instance.install_iso_id ? 'ISOからインストール' : '—（引き取り）');
+    const imageNote = document.createElement('span');
+    imageNote.className = 'muted small';
+    imageNote.textContent = `ゲストOS: ${instance.guest_os === 'windows' ? 'Windows 11' : 'Linux'}`;
+    image.append(imageNote);
+    detailItem(fields, 'イメージ', image);
+
+    const config = document.createElement('span');
+    config.textContent = `${instance.vcpus} vCPU / ${mib(instance.memory_mib)}`;
+    const configNote = document.createElement('span');
+    configNote.className = 'muted small';
+    configNote.textContent = (instance.instance_type ? `${instance.instance_type}・` : '')
+      + (instance.ballooning ? `最小 ${mib(instance.memory_min_mib)}・バルーニング` : '固定');
+    config.append(configNote);
+    detailItem(fields, '構成', config);
+
+    detailItem(fields, 'ディスク', `${instance.root_disk_gib} GiB（${tierLabel(instance.disk_tier)}）`);
+
+    const groups = instance.security_groups || [];
+    const groupWrap = document.createElement('span');
+    groupWrap.textContent = groups.length === 0 ? 'なし（制限なし）' : groups.map((group) => group.group_name).join('、');
+    if (instance.firewall_state === 'applying') {
+      const applying = document.createElement('span');
+      applying.className = 'muted small';
+      applying.textContent = '反映中';
+      groupWrap.append(applying);
+    }
+    detailItem(fields, 'セキュリティグループ', groupWrap);
+
+    detailItem(fields, 'タグ', detailTags(instance) || 'なし');
+    detailItem(fields, '作成日時', when(instance.launch_time));
+    if (instance.terminated_at) detailItem(fields, '削除日時', when(instance.terminated_at));
+    if (instance.key_name) detailItem(fields, 'SSH鍵', instance.key_name);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    if (canAct && instance.state !== 'terminated') {
+      actions.append(...detailPowerActions(instance));
+      const editTags = document.createElement('button');
+      editTags.type = 'button';
+      editTags.textContent = '名前・タグを編集';
+      onAction(editTags, 'click', async () => { await openTagEditor(instance, editTags); });
+      const editGroups = document.createElement('button');
+      editGroups.type = 'button';
+      editGroups.textContent = 'セキュリティグループを変更';
+      onAction(editGroups, 'click', async () => { await openGroupEditor(instance, editGroups); });
+      actions.append(editTags, editGroups);
+    }
+    if (canAct) actions.append(deleteInstanceButton(instance));
+    if (isAdmin && !['terminated', 'shutting-down'].includes(instance.state)) {
+      const resize = document.createElement('button');
+      resize.type = 'button';
+      resize.textContent = 'サイズ変更（管理者）';
+      onAction(resize, 'click', async () => { await openResizeEditor(instance, resize); });
+      actions.append(resize);
+    }
+    return { fields, actions };
+  }
+
+  let detailInstance = null;
+  let detailSnapshot = null;
+
+  function renderInstanceDetail() {
+    const root = $('instance-detail');
+    const status = $('instance-detail-status');
+    const id = detailInstanceID();
+    if (!id) {
+      if (detailInstance !== null) {
+        detailInstance = null;
+        detailSnapshot = null;
+        detailEditors().replaceChildren();
+      }
+      return;
+    }
+    if (!instancesLoaded) {
+      status.hidden = false;
+      status.textContent = '読み込み中…';
+      return;
+    }
+    if (detailInstance !== id) {
+      detailEditors().replaceChildren();
+      detailInstance = id;
+      detailSnapshot = null;
+    }
+    const instance = lastInstances.find((item) => item.instance_id === id);
+    if (!instance) {
+      detailSnapshot = null;
+      root.replaceChildren();
+      root.removeAttribute('data-resource');
+      status.hidden = false;
+      status.textContent = 'このインスタンスは一覧にありません。削除された可能性があります。';
+      return;
+    }
+    status.hidden = true;
+    const snapshot = JSON.stringify(instance);
+    if (detailSnapshot === snapshot) return;
+    const active = root.contains(document.activeElement) ? document.activeElement.textContent : null;
+    detailSnapshot = snapshot;
+    root.dataset.resource = instance.instance_id;
+    const wrap = $('instances-wrap');
+    const { fields, actions } = buildInstanceDetail(instance, wrap.dataset.isAdmin === 'true', wrap.dataset.accountId);
+    root.replaceChildren(fields, actions);
+    if (active) [...actions.querySelectorAll('button:not(:disabled)')].find((button) => button.textContent === active)?.focus();
   }
 
   let lastInstances = [];
   let instancesLoaded = false;
   let instancePollTimer = null;
   let instanceFailures = 0;
+  const selectedInstances = new Set();
+
+  // The bulk buttons act on the whole selection: each one is enabled only
+  // when every checked instance is eligible, so a mixed selection never
+  // half-applies an operation.
+  function instanceEligible(instance, action) {
+    if (instance.pending_action) return false;
+    switch (action) {
+      case 'start': return instance.state === 'stopped';
+      case 'stop':
+      case 'reboot': return instance.state === 'running';
+      case 'delete': return !['terminated', 'shutting-down'].includes(instance.state);
+      default: return false;
+    }
+  }
+
+  function selectedInstanceList() {
+    return lastInstances.filter((instance) => selectedInstances.has(instance.instance_id));
+  }
+
+  function updateBulkBar() {
+    const selected = selectedInstanceList();
+    const count = selected.length;
+    $('instance-selection').textContent = count === 0 ? '選んだインスタンスはありません' : `選択中 ${count}台`;
+    const controls = [['instance-start', 'start'], ['instance-stop', 'stop'],
+      ['instance-reboot', 'reboot'], ['instance-delete', 'delete']];
+    for (const [id, action] of controls) {
+      $(id).disabled = count === 0 || !selected.every((instance) => instanceEligible(instance, action));
+    }
+  }
+
+  function bulkLabel(instance) {
+    return (instance.tags && instance.tags.Name) || instance.instance_id;
+  }
+
+  let bulkRunning = false;
+  async function runBulk(action) {
+    if (bulkRunning) return;
+    bulkRunning = true;
+    try {
+      const selected = selectedInstanceList();
+      const eligible = selected.filter((instance) => instanceEligible(instance, action));
+      if (eligible.length === 0 || eligible.length !== selected.length) {
+        announce('選択したインスタンスの状態では、その操作はできません。', $('instances-view'));
+        return;
+      }
+      if (action === 'delete' && !await confirmAction({
+        title: 'インスタンスをまとめて削除',
+        message: eligible.map(bulkLabel).join('、') + ` の${eligible.length}台とルートディスクを削除します。追加ボリュームは切り離して保持します。この操作は取り消せません。`,
+        confirmLabel: `${eligible.length}台を削除`, danger: true,
+      })) return;
+      const verbs = { start: '起動', stop: '停止', reboot: '再起動', delete: '削除' };
+      const failures = [];
+      const results = await Promise.allSettled(eligible.map((instance) => {
+        const id = encodeURIComponent(instance.instance_id);
+        if (action === 'delete') return api('DELETE', `/v1/instances/${id}`);
+        return api('POST', `/v1/instances/${id}/${action}`);
+      }));
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') failures.push(`${bulkLabel(eligible[index])}: ${result.reason?.message || '失敗'}`);
+      });
+      if (action === 'delete') {
+        for (const instance of eligible) selectedInstances.delete(instance.instance_id);
+      }
+      await Promise.all([loadInstances(), loadCapacity()]);
+      if (failures.length === 0) {
+        announce(`${eligible.length}台の${verbs[action]}を受け付けました。`, $('instances-view'));
+      } else {
+        const error = new Error(`${eligible.length - failures.length}台の${verbs[action]}を受け付けました。${failures.length}台は失敗しました。`);
+        error.detail = failures.join('\n');
+        showError(error, $('instances-view'));
+      }
+    } finally {
+      bulkRunning = false;
+      updateBulkBar();
+    }
+  }
 
   function syncResourceRows(body, rows, columns) {
     const existing = new Map([...body.querySelectorAll(':scope > tr[data-resource]')]
       .map((row) => [row.dataset.resource, row]));
     const ids = new Set(rows.map((row) => row.dataset.resource));
-    for (const placeholder of body.querySelectorAll(':scope > tr:not([data-resource]):not(.edit-row)')) placeholder.remove();
+    for (const placeholder of body.querySelectorAll(':scope > tr:not([data-resource])')) placeholder.remove();
     for (const next of rows) {
       const old = existing.get(next.dataset.resource);
       if (!old) { body.append(next); continue; }
-      const edit = old.nextElementSibling?.classList.contains('edit-row') ? old.nextElementSibling : null;
-      const protectedRow = edit || old.dataset.dirty === 'true' || old.matches('[aria-busy="true"]') || old.querySelector('[aria-busy="true"]');
+      // A row with an action in flight or unsaved input keeps its controls and
+      // closures' baseline; only the cells that describe it are refreshed.
+      const protectedRow = old.dataset.dirty === 'true' || old.matches('[aria-busy="true"]') || old.querySelector('[aria-busy="true"]');
       old.hidden = next.hidden;
-      if (edit) edit.hidden = next.hidden;
       if (old.dataset.snapshot === next.dataset.snapshot) continue;
       if (protectedRow) {
-        // Preserve the controls and closures' baseline. The save handler checks
-        // the latest resource before applying its patch.
-        const indices = body.id === 'instances' ? [2, 3, 5, 6] : [3, 4, 5, 6];
+        // instances: 0 selection, 1 name, 2 state, 3 IP, 4 config, 5 owner.
+        const indices = body.id === 'instances' ? [2, 3, 4, 5] : [3, 4, 5, 6];
         for (const index of indices) old.cells[index].replaceChildren(...next.cells[index].childNodes);
         let warning = old.cells[0].querySelector('.stale-warning');
         if (!warning) {
@@ -1097,10 +1307,8 @@
     }
     for (const [id, old] of existing) {
       if (ids.has(id) || !old.isConnected) continue;
-      const edit = old.nextElementSibling?.classList.contains('edit-row') ? old.nextElementSibling : null;
-      if (edit || old.dataset.dirty === 'true' || old.matches('[aria-busy="true"]')) {
+      if (old.dataset.dirty === 'true' || old.matches('[aria-busy="true"]')) {
         old.cells[0].textContent = `${id}：一覧からなくなりました。未保存の入力を保持しています。`;
-        if (edit) blockForm(edit.querySelector('form'), true);
       } else old.remove();
     }
     if (!body.children.length) body.append(emptyRow(columns, 'まだ登録されていません。作成するとここに表示されます。'));
@@ -1114,14 +1322,14 @@
     const state = $('instance-state').value;
     let visible = 0;
     const rows = lastInstances.map((instance) => {
-      const row = instanceRow(instance, wrap.dataset.accountId, wrap.dataset.isAdmin === 'true');
+      const row = instanceRow(instance);
       const tagTexts = Object.entries(instance.tags || {}).filter(([key]) => key !== 'Name').map(([key, value]) => tagText(key, value));
       const text = [instance.tags?.Name, instance.instance_id, instance.private_ip_address, instance.owner_username, instance.account_id, ...tagTexts].join(' ').toLocaleLowerCase();
       row.hidden = !!((search && !text.includes(search)) || (owner === 'mine' && instance.account_id !== wrap.dataset.accountId) || (state && state !== instance.state));
       if (!row.hidden) visible++;
       return row;
     });
-    syncResourceRows($('instances'), rows, 9);
+    syncResourceRows($('instances'), rows, 6);
     let empty = $('instance-filter-empty');
     if (!empty) {
       empty = document.createElement('p'); empty.id = 'instance-filter-empty';
@@ -1129,6 +1337,7 @@
     }
     empty.textContent = '条件に一致するインスタンスはありません。検索条件を変更してください。';
     empty.hidden = visible > 0 || lastInstances.length === 0;
+    updateBulkBar();
     $('operation-summary').textContent = `インスタンス ${lastInstances.length}台 · 処理中 ${lastInstances.filter((i) => TRANSIENT_STATES.has(i.state) || i.firewall_state === 'applying').length}台 · 状態の説明あり ${lastInstances.filter((i) => i.state_reason).length}台`;
   }
 
@@ -1148,7 +1357,12 @@
       lastInstances = instances;
       instancesLoaded = true;
       instanceFailures = 0;
+      const live = new Set(instances.map((instance) => instance.instance_id));
+      for (const selected of [...selectedInstances]) {
+        if (!live.has(selected)) selectedInstances.delete(selected);
+      }
       renderInstances();
+      renderInstanceDetail();
       listStatus('instances', `${instances.length}台 · 最終更新 ${when(new Date())}`);
       const busy = instances.some((instance) => TRANSIENT_STATES.has(instance.state) || instance.firewall_state === 'applying');
       scheduleInstancePoll(busy && !document.hidden ? 5000 : 30000);
@@ -1157,6 +1371,28 @@
       scheduleInstancePoll(Math.min(60000, 5000 * (2 ** Math.min(++instanceFailures, 4))));
     }
   }
+
+  for (const [id, action] of [['instance-start', 'start'], ['instance-stop', 'stop'],
+    ['instance-reboot', 'reboot'], ['instance-delete', 'delete']]) {
+    onAction($(id), 'click', async () => { await runBulk(action); });
+  }
+  // Leaving an open editor asks first: the detail view is rebuilt on every
+  // refresh, and an unsaved form must not disappear without a word.
+  let currentDetailHash = location.hash;
+  window.addEventListener('hashchange', async () => {
+    const target = detailInstanceID();
+    const dirty = detailEditors().querySelector('form[data-dirty="true"]');
+    if (dirty && detailInstance && target !== detailInstance) {
+      if (!await confirmAction({ title: '編集中の内容を破棄',
+        message: '別の画面へ移動すると、保存していない変更を破棄します。',
+        confirmLabel: '破棄して移動', danger: true })) {
+        location.hash = currentDetailHash;
+        return;
+      }
+    }
+    currentDetailHash = location.hash;
+    renderInstanceDetail();
+  });
 
   const createInstanceForm = $('create-instance');
   createInstanceForm.querySelector('select[name="image_id"]').addEventListener('change', updateGuestOS);
@@ -2607,6 +2843,7 @@
     }
   });
 
+  window.PortalUI.setAfterAction(updateBulkBar);
   window.PortalUI.init();
   loadInstanceTypes();
   refresh().catch(showError);

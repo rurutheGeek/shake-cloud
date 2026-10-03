@@ -72,6 +72,8 @@ button.danger, .button.danger { color: var(--danger); border-color: var(--danger
 .help li { margin: 0.3rem 0; }
 .help h2 { margin-top: 1.5rem; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin: 0 0 1rem; }
+.bulk-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0 0 0.5rem; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.bulk-bar #instance-selection { margin-right: auto; }
 .form-message { flex-basis: 100%; margin: 0.5rem 0; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; }
 .form-message.error { border-color: var(--danger); color: var(--danger); }
 .empty-state { text-align: center; }
@@ -98,7 +100,6 @@ td button, td .button { margin: 0.1rem 0.25rem 0.1rem 0; }
   td[data-label] { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.5rem; }
   td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.85rem; }
   td[data-label] > * { grid-column: 2; }
-  tr.edit-row { border-style: dashed; }
 }
 pre { padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
 .notice { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
@@ -128,8 +129,15 @@ input[type="checkbox"] { min-width: auto; }
 .state-running { color: var(--good); }
 .state-stopped, .state-terminated { color: var(--muted); }
 .state-pending, .state-stopping, .state-shutting-down { color: var(--warn); }
-tr.edit-row td { background: var(--bg); }
-tr.edit-row form { margin: 0.5rem 0; }
+.select-column, .select-cell { width: 2.5rem; }
+.instance-link { font-weight: 600; }
+/* The detail view's read-only field list. */
+.detail { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: 0.3rem 0.75rem; margin: 0.5rem 0 1rem; }
+.detail dt { color: var(--muted); font-size: 0.85rem; }
+.detail dd { margin: 0; overflow-wrap: anywhere; }
+.detail .small { margin-top: 0.1rem; }
+/* Instance detail editors sit outside the refreshed fields. */
+.editor { margin: 0.75rem 0; padding: 0.75rem 0.9rem; border: 1px dashed var(--line); border-radius: 6px; }
 
 /* Images / SSH keys section */
 progress { width: 12rem; height: 8px; border: none; border-radius: 999px; overflow: hidden; vertical-align: middle; }
@@ -159,6 +167,8 @@ code { padding: 0.05rem 0.35rem; border: 1px solid var(--line); border-radius: 4
 @media (max-width: 40rem) {
   main { padding: 1rem; }
   section { padding: 0.75rem 0.9rem; }
+  .detail { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .detail dt { margin-top: 0.5rem; }
   form { flex-direction: column; align-items: stretch; }
   form label { width: 100%; }
   form input:not([type="checkbox"]):not([type="radio"]), form select, form textarea { width: 100%; }
