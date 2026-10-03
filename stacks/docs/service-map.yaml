@@ -1,0 +1,126 @@
+---
+# サービス図（docs/service-map.md）の元データ。URL と中継先は書かない:
+# platform/terraform/dns.yaml が正本で、tools/render-service-map.py が合わせる。
+# ここに書くのは、VM の並びと役割、dns.yaml に無いサービス、手順書へのリンクだけ。
+#
+#   kind : base（Terraform が作る基盤VM）/ cloud（自作クラウドAPIが作るVM）/ host
+#   docs : docs/ からの相対パス。tests/test_service_map.py が存在を確かめる
+vms:
+  - name: router-01
+    kind: base
+    role: ルーター・DNS・VPN
+    address: 192.168.10.1
+    docs: [operations/router.md]
+    services:
+      - {name: OpenWrt, description: 家庭内ルーター（WAN・LAN・DHCP）, docs: [operations/router.md, operations/router-config.md]}
+      - {name: Tailscale, description: 宅外から管理LANへ入る復旧経路, docs: [operations/net.md]}
+  - name: core-01
+    kind: base
+    role: 共通ログイン・台帳・HTTPSの入口
+    address: 192.168.10.200
+    docs: [operations/identity.md, operations/edge.md]
+    services:
+      - {name: Caddy（入口）, description: すべての HTTPS を受けて各VMへ中継する, docs: [operations/edge.md]}
+  - name: cloud-01
+    kind: base
+    role: 自作クラウド・S3
+    address: 192.168.10.205
+    docs: [operations/cloud.md]
+    services:
+      - {name: Garage, description: S3互換オブジェクトストア, docs: [operations/garage.md]}
+  - name: monitor-01
+    kind: base
+    role: 監視
+    address: 192.168.10.210
+    docs: [operations/monitoring.md]
+    services:
+      - {name: Prometheus, description: メトリクスの収集とアラート, docs: [operations/monitoring.md]}
+      - {name: Alertmanager, description: アラートの通知, docs: [operations/monitoring.md]}
+  - name: apps-01
+    kind: cloud
+    role: 入口のハブ・パスワード・家電
+    address: 192.168.10.105
+    docs: [operations/services.md]
+    services:
+      - {name: eufy-security-ws, description: Eufy カメラと Home Assistant の橋渡し, docs: [services/home-assistant.md]}
+  - name: media-01
+    kind: cloud
+    role: ファイル・本・音楽
+    address: 192.168.10.101
+    docs: [operations/nextcloud.md, operations/bulk-storage.md]
+    services: []
+  - name: game-01
+    kind: cloud
+    role: ゲーム（GPUパススルー）
+    address: 192.168.10.127
+    docs: [architecture/gaming.md]
+    services:
+      - {name: Wolf, description: ゲームのストリーミング, docs: [architecture/gaming.md]}
+      - {name: RomM, description: ROM ライブラリ, docs: [architecture/gaming.md]}
+  - name: dev-01 / dev-02
+    kind: cloud
+    role: 開発
+    address: 192.168.10.202 / .203
+    docs: [services/devvm.md, onboarding.md]
+    services: []
+  - name: win-01 / android-01
+    kind: cloud
+    role: 開発用の Windows・Android
+    address: 192.168.10.100 / .104
+    docs: [operations/windows.md, services/android.md]
+    services: []
+  - name: k8s（必要なときだけ起動）
+    kind: base
+    role: AWX・DB・関数
+    address: 192.168.10.220-
+    docs: [operations/kubernetes.md]
+    services:
+      - {name: CloudNativePG, description: クラウドのデータベース, docs: [operations/cloud-resources.md]}
+      - {name: Knative, description: クラウドの関数, docs: [operations/cloud-resources.md]}
+  - name: apextox
+    kind: host
+    role: Proxmox VE のホスト
+    address: 192.168.10.10
+    docs: [operations/bootstrap.md, operations/backup.md]
+    services: []
+
+# dns.yaml の名前 → 手順書。書いていない名前はリンクなしで載る。
+record_docs:
+  auth: [services/identity.md, operations/identity.md]
+  cloud: [services/cloud.md, operations/cloud-api.md]
+  nextcloud: [services/nextcloud-guide.md, operations/nextcloud.md]
+  kavita: [services/usage.md]
+  navidrome: [services/music.md]
+  navidrome-api: [services/music.md]
+  nextcloud-mcp: [services/nextcloud-agent.md, operations/nextcloud-mcp.md]
+  backup: [operations/client-backup.md]
+  urbackup: [operations/client-backup.md]
+  metube: [services/usage.md]
+  khinsider: [services/music.md]
+  freshrss: [services/rss.md]
+  netbox: [operations/netbox.md]
+  homarr: [services/homarr.md]
+  adguard: [operations/adguard.md]
+  router: [operations/router.md]
+  grafana: [operations/monitoring.md]
+  peanut: [operations/power.md]
+  vault: [operations/vaultwarden.md]
+  speed: [services/librespeed.md]
+  poke: [services/poke-translate.md]
+  ha: [services/home-assistant.md]
+  docs: [contributing-docs.md]
+  localsend: [services/usage.md]
+  cups: [services/printer.md]
+  mail-view: [operations/smtp.md]
+  pve: [operations/bootstrap.md]
+  awx: [operations/awx.md]
+
+# dns.yaml で host を持たない名前の置き場所。
+record_vms:
+  pve: apextox
+  awx: k8s（必要なときだけ起動）
+  "*.functions.k8s": k8s（必要なときだけ起動）
+# 入口の Caddy が別の機器へ中継している名前は、中継先のVMに載せる。
+record_vm_overrides:
+  adguard: router-01
+  router: router-01

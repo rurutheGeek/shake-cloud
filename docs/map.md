@@ -86,8 +86,9 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
-| [Shake Lab Docs](index.md) | 2026-10-03 | `hub` |
+| [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
+| [サービス図](service-map.md) | 2026-10-04 | `hub` |
 
 ### 利用ガイド
 
@@ -246,6 +247,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 130 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 131 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
