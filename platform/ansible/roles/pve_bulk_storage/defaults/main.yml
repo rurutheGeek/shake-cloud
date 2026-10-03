@@ -68,3 +68,7 @@ pve_bulk_storage_quotas:
 # （HDD を使うVMを止めてから）。入っていないときは、明示されたときだけ行う。
 #   -e pve_bulk_storage_enable_quota_offline=true
 pve_bulk_storage_enable_quota_offline: false
+
+# 領域ごとの使用量を監視へ出す（node_exporter の textfile。置き場は
+# pve_node_exporter ロールと同じ）。アラートは stacks/monitoring/prometheus/alerts.yml。
+pve_bulk_storage_textfile_dir: /var/lib/prometheus/node-exporter
