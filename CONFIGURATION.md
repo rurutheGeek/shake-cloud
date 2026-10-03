@@ -8,16 +8,15 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 
 | VM | 役割 |
 | --- | --- |
-| identity | Authentik（共通ログイン・AWS風ポータルの認証） |
-| cloud-01 | クラウドAPI・管理DB・ポータル |
-| services-01 | NetBox、ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws、Gmailビューア |
-| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機 |
-| storage-s3 | Garage（S3互換オブジェクトストア） |
+| core-01 | Authentik（共通ログイン）、NetBox、ドキュメントサイト、入口の Caddy（HTTPS の受け口） |
+| cloud-01 | クラウドAPI・管理DB・ポータル、Garage（S3互換オブジェクトストア） |
+| apps-01 | Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws、Gmailビューア |
+| media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機、UrBackup |
 | monitor-01 | Prometheus、Alertmanager、Grafana |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
-| dev-a / dev-b | 開発VM |
-| game1 | ゲームサーバ（クラウド管理下） |
-| router-01 | OpenWrt（家庭内ルータ。WAN=ONU、LAN=既存LAN。切替済み） |
+| dev-01 / dev-02 | 開発VM（クラウド管理下） |
+| game-01 | ゲームサーバ（クラウド管理下） |
+| router-01 | OpenWrt（家庭内ルータ。WAN=ONU、LAN=既存LAN）、AdGuard Home、Tailscale |
 
 ## 設定する場所
 
@@ -29,7 +28,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | music-tools | 取込先、変換、タグAPI、同期 | `stacks/music-tools/compose.yaml`・`manage.py`。配備は `platform/ansible/music-tools.yml` |
 | Vaultwarden | SSO、登録可否、公開URL | `stacks/vaultwarden/compose.yaml`・`manage.py`。保存された `/data/config.json` が環境変数より優先されることがある |
 | Homarr | ボード、タイル、権限 | `stacks/homarr/apps.json`・`configure.py`。配備は `platform/ansible/homarr.yml` |
-| LibreSpeed | 端末↔services-01の速度計測、履歴、統計パスワード | `stacks/librespeed/compose.yaml`・`manage.py`。配備は `platform/ansible/librespeed.yml` |
+| LibreSpeed | 端末↔apps-01の速度計測、履歴、統計パスワード | `stacks/librespeed/compose.yaml`・`manage.py`。配備は `platform/ansible/librespeed.yml` |
 | Gmailビューア | 通知メールの表示件数・キャッシュ・IMAP接続 | `stacks/mail-view/compose.yaml`・`app.py`・`.env.example`。資格情報は `platform/sops/mail-view.sops.yaml`（無ければ `smtp.sops.yaml`）。配備は `platform/ansible/mail-view.yml` |
 | Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
 | 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
