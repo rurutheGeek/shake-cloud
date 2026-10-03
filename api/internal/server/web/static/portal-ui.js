@@ -203,6 +203,32 @@ window.PortalUI = (() => {
         input.removeAttribute('aria-invalid');
       }
     }, true);
+    // One view at a time. The page used to be every section stacked in one
+    // long scroll; the address (#instances-view …) picks the section, so
+    // links, the back button and reloads keep working. Without this script
+    // every section stays visible.
+    const views = [...document.querySelectorAll('section[data-view]')];
+    const showView = (moveFocus) => {
+      const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      // A link to something outside the views (the skip link's #main) must
+      // not change which view is open.
+      if (target && !target.closest('section[data-view]') && moveFocus) return;
+      const view = target?.closest('section[data-view]') || $('overview');
+      for (const section of views) section.hidden = section !== view;
+      const current = '#' + (view.dataset.nav || view.id);
+      for (const link of document.querySelectorAll('#navigation a')) {
+        if (link.getAttribute('href') === current) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      }
+      if (moveFocus) {
+        window.scrollTo(0, 0);
+        view.querySelector('h2')?.focus();
+      }
+    };
+    if (views.length > 0) {
+      window.addEventListener('hashchange', () => showView(true));
+      showView(false);
+    }
     $('dismiss-error').addEventListener('click', () => { $('error').hidden = true; });
     $('dismiss-notice').addEventListener('click', () => { $('notice').hidden = true; });
     // Keep Tab inside the modal confirmation in both directions.
