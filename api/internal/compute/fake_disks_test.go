@@ -23,7 +23,8 @@ type fakeFirewall struct {
 	optionWrites int
 }
 
-var allocation = regexp.MustCompile(`^local-lvm:(\d+)$`)
+// allocation matches a disk being created: "<storage>:<size in GiB>".
+var allocation = regexp.MustCompile(`^([a-z0-9-]+):(\d+)$`)
 
 func (f *fakePVE) firewall(vmid int) *fakeFirewall {
 	if f.firewalls[vmid] == nil {
@@ -32,10 +33,11 @@ func (f *fakePVE) firewall(vmid int) *fakeFirewall {
 	return f.firewalls[vmid]
 }
 
-// nextDisk names a new disk for vmid the way Proxmox does: the lowest free number.
-func (f *fakePVE) nextDisk(vmid int) string {
+// nextDisk names a new disk for vmid the way Proxmox does: the lowest free
+// number on the storage it was asked for.
+func (f *fakePVE) nextDisk(vmid int, storage string) string {
 	for n := 0; ; n++ {
-		volid := fmt.Sprintf("local-lvm:vm-%d-disk-%d", vmid, n)
+		volid := fmt.Sprintf("%s:vm-%d-disk-%d", storage, vmid, n)
 		_, exists := f.disks[volid]
 		referenced := false
 		if vm := f.vms[vmid]; vm != nil {
@@ -71,13 +73,13 @@ func (f *fakePVE) ConfigureVM(ctx context.Context, vmid int, params url.Values) 
 		}
 		switch m := allocation.FindStringSubmatch(parts[0]); {
 		case m != nil:
-			volid := f.nextDisk(vmid)
+			volid := f.nextDisk(vmid, m[1])
 			var gib int64
-			fmt.Sscan(m[1], &gib)
+			fmt.Sscan(m[2], &gib)
 			f.disks[volid] = gib << 30
 			vm.config[key] = fmt.Sprintf("%s%s,size=%dG", volid, options, gib)
 		case f.disks[parts[0]] != 0:
-			if !strings.HasPrefix(parts[0], fmt.Sprintf("local-lvm:vm-%d-", vmid)) {
+			if !strings.HasPrefix(parts[0], fmt.Sprintf("%s:vm-%d-", storageOfVolid(parts[0]), vmid)) {
 				return "", fmt.Errorf("volume %s is not owned by VM %d", parts[0], vmid)
 			}
 			for other, current := range vm.config {
@@ -136,7 +138,7 @@ func (f *fakePVE) MoveDisk(ctx context.Context, vmid int, disk string, targetVMI
 		return "", fmt.Errorf("VM %d already has %s", targetVMID, targetDisk)
 	}
 	old := strings.SplitN(value, ",", 2)[0]
-	renamed := f.nextDisk(targetVMID)
+	renamed := f.nextDisk(targetVMID, storageOfVolid(old))
 	f.disks[renamed], f.labels[renamed] = f.disks[old], f.labels[old]
 	delete(f.disks, old)
 	delete(f.labels, old)

@@ -43,6 +43,7 @@ type instanceResourceModel struct {
 	MemoryMinMiB     types.Int64  `tfsdk:"memory_min_mib"`
 	Ballooning       types.Bool   `tfsdk:"ballooning"`
 	RootDiskGiB      types.Int64  `tfsdk:"root_disk_gib"`
+	DiskTier         types.String `tfsdk:"disk_tier"`
 	KeyName          types.String `tfsdk:"key_name"`
 	SecurityGroupIDs types.Set    `tfsdk:"security_group_ids"`
 	UserData         types.String `tfsdk:"user_data"`
@@ -115,6 +116,14 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Computed:      true,
 				Description:   "Root disk in GiB. It can grow but never shrink.",
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"disk_tier": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Disk tier: `ssd` (default) or `hdd` (the bulk disk). " +
+					"Changing it replaces the instance; a disk cannot move between pools in place.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
 			"key_name": schema.StringAttribute{
 				Optional:      true,
@@ -202,6 +211,7 @@ func (r *instanceResource) Create(ctx context.Context, req resource.CreateReques
 		MemoryMinMiB:     optionalInt(plan.MemoryMinMiB),
 		Ballooning:       optionalBool(plan.Ballooning),
 		RootDiskGiB:      int(plan.RootDiskGiB.ValueInt64()),
+		DiskTier:         plan.DiskTier.ValueString(),
 		UserData:         plan.UserData.ValueString(),
 		ClientToken:      plan.ClientToken.ValueString(),
 		Tags:             tags,
@@ -353,6 +363,7 @@ func (r *instanceResource) fill(ctx context.Context, model *instanceResourceMode
 	model.MemoryMinMiB = types.Int64Value(int64(instance.MemoryMinMiB))
 	model.Ballooning = types.BoolValue(instance.Ballooning)
 	model.RootDiskGiB = types.Int64Value(int64(instance.RootDiskGiB))
+	model.DiskTier = stringOrNull(instance.DiskTier)
 	if instance.InstanceType != "" {
 		model.InstanceType = types.StringValue(instance.InstanceType)
 	}

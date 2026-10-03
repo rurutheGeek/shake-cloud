@@ -123,7 +123,13 @@ func (f *fakePVE) CreateVM(ctx context.Context, params url.Values) (string, erro
 	if f.failCreate != nil {
 		return f.task(f.failCreate), nil
 	}
-	config := map[string]any{"virtio0": "local-lvm:vm-" + params.Get("vmid") + "-disk-0,discard=on,size=3G"}
+	// The imported disk lands on the pool the request named; Proxmox reports
+	// the disk it made, not the import source.
+	storage := "local-lvm"
+	if name := storageOfVolid(params.Get("virtio0")); name != "" {
+		storage = name
+	}
+	config := map[string]any{"virtio0": storage + ":vm-" + params.Get("vmid") + "-disk-0,discard=on,size=3G"}
 	for key := range params {
 		if key != "virtio0" {
 			config[key] = params.Get(key)
@@ -222,7 +228,7 @@ func (f *fakePVE) DeleteVM(ctx context.Context, vmid int) (string, error) {
 	delete(f.vms, vmid)
 	// destroy-unreferenced-disks: every disk named after the VM goes with it.
 	for volid := range f.disks {
-		if strings.HasPrefix(volid, fmt.Sprintf("local-lvm:vm-%d-", vmid)) {
+		if strings.HasPrefix(volid, fmt.Sprintf("%s:vm-%d-", storageOfVolid(volid), vmid)) {
 			delete(f.disks, volid)
 		}
 	}

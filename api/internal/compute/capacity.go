@@ -49,8 +49,10 @@ type NodeCapacity struct {
 }
 
 type StorageCapacity struct {
-	Name        string
-	Purpose     string
+	Name    string
+	Purpose string
+	// DiskTier names which tier's disks live here; empty for the image store.
+	DiskTier    string
 	TotalMiB    int64
 	UsedMiB     int64
 	AvailMiB    int64
@@ -87,12 +89,13 @@ func (s *Service) Capacity(ctx context.Context, accountID string, accounts bool)
 	}
 
 	stores := []struct {
-		name, purpose  string
-		maxUsedPercent int
-		minFreeMiB     int
+		name, purpose, tier string
+		maxUsedPercent      int
+		minFreeMiB          int
 	}{
-		{s.Site.Storage.VMDisks, PurposeInstanceDisks, limits.Capacity.VMDiskMaxUsedPercent, 0},
-		{s.Site.Storage.Images, PurposeImages, 0, limits.Capacity.ImageStoreMinFreeMiB},
+		{s.Site.Storage.VMDisks, PurposeInstanceDisks, site.TierSSD, limits.Capacity.VMDiskMaxUsedPercent, 0},
+		{s.Site.Storage.VMDisksHDD, PurposeInstanceDisks, site.TierHDD, limits.Capacity.VMDiskMaxUsedPercent, 0},
+		{s.Site.Storage.Images, PurposeImages, "", 0, limits.Capacity.ImageStoreMinFreeMiB},
 	}
 	for _, store := range stores {
 		if store.name == "" || (len(capacity.Storage) > 0 && capacity.Storage[0].Name == store.name) {
@@ -107,7 +110,7 @@ func (s *Service) Capacity(ctx context.Context, accountID string, accounts bool)
 			used = float64(st.Used) * 100 / float64(st.Total)
 		}
 		capacity.Storage = append(capacity.Storage, StorageCapacity{
-			Name: store.name, Purpose: store.purpose,
+			Name: store.name, Purpose: store.purpose, DiskTier: store.tier,
 			TotalMiB: st.Total >> 20, UsedMiB: st.Used >> 20, AvailMiB: st.Avail >> 20,
 			UsedPercent: used, MaxUsedPercent: store.maxUsedPercent, MinFreeMiB: store.minFreeMiB,
 		})

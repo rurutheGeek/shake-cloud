@@ -119,7 +119,13 @@ func (s *Service) Modify(ctx context.Context, id string, r ModifyRequest, audit 
 		return db.Instance{}, refuse(http.StatusConflict, "IncorrectInstanceState", "instance %s has no VM yet", id)
 	}
 
-	if err := s.checkHost(ctx, target, max(0, target.MemoryMiB-instance.MemoryMiB), limits); err != nil {
+	// The instance's own pool. A tier the deployment no longer has falls back
+	// to the default, since this only measures and never allocates.
+	diskStorage, ok := s.Site.Storage.DiskTierStorage(instance.DiskTier)
+	if !ok {
+		diskStorage = s.Site.Storage.VMDisks
+	}
+	if err := s.checkHost(ctx, target, max(0, target.MemoryMiB-instance.MemoryMiB), limits, diskStorage); err != nil {
 		return db.Instance{}, err
 	}
 	err = pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {

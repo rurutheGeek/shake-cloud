@@ -73,7 +73,7 @@ func TestAnInstallVmBootsTheISOWithAnEmptyDisk(t *testing.T) {
 		RootDiskGiB: 64, GuestOS: seed.OSWindows}
 	values := s.installVmParams(instance, 5000,
 		db.Resources{SeedVolume: "cloud-images:iso/seed.iso"},
-		"cloud-images:iso/win11.iso", "cloud-images:iso/virtio-win.iso")
+		"cloud-images:iso/win11.iso", "cloud-images:iso/virtio-win.iso", "local-lvm")
 
 	if strings.Contains(values.Get("virtio0"), "import-from") {
 		t.Fatalf("the root disk is not empty: %q", values.Get("virtio0"))

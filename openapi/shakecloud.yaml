@@ -669,6 +669,16 @@ paths:
                 root_disk_gib:
                   type: integer
                   description: Omit for the deployment's default. Never smaller than the image.
+                disk_tier:
+                  type: string
+                  enum: [ssd, hdd]
+                  default: ssd
+                  description: |
+                    Which pool the VM's disks live on. `ssd` is the default
+                    (fast, small); `hdd` is the bulk disk (large, slow, and
+                    already shared with backups and media). A deployment
+                    without an HDD pool refuses `hdd`. The tier cannot be
+                    changed later: replacing an instance moves its disk.
                 user_data:
                   type: string
                   maxLength: 16384
@@ -1807,7 +1817,7 @@ components:
         instance: {$ref: '#/components/schemas/Instance'}
     Instance:
       type: object
-      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, ballooning, launch_time, security_groups, firewall_state]
+      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, disk_tier, ballooning, launch_time, security_groups, firewall_state]
       properties:
         instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
         account_id: {type: string}
@@ -1849,6 +1859,10 @@ components:
           type: boolean
           description: Whether the memory balloon driver is enabled. When false the instance has fixed memory and memory_min_mib is 0.
         root_disk_gib: {type: integer}
+        disk_tier:
+          type: string
+          enum: [ssd, hdd]
+          description: The pool the instance's disks live on. Chosen at launch and never changed.
         tags:
           type: object
           additionalProperties: {type: string}
@@ -2042,7 +2056,7 @@ components:
               type: integer
               minimum: 0
               maximum: 100
-              description: Refuse launches when the instance disk pool is this full. 0 turns the check off.
+              description: Refuse new disks when an instance disk pool is this full. Applies to every tier, so on the HDD it includes the backups and media sharing the filesystem. 0 turns the check off.
             image_store_min_free_mib: {type: integer, minimum: 0}
     LimitOverrides:
       type: object
@@ -2135,6 +2149,10 @@ components:
             properties:
               name: {type: string}
               purpose: {type: string, enum: [instance_disks, images_and_seed_isos]}
+              disk_tier:
+                type: string
+                enum: [ssd, hdd]
+                description: Present for instance disk pools; which disk_tier lives here.
               total_mib: {type: integer}
               used_mib: {type: integer, description: Real use; the pool is thin provisioned.}
               avail_mib: {type: integer}
@@ -2154,7 +2172,7 @@ components:
           items: {$ref: '#/components/schemas/Usage'}
     Volume:
       type: object
-      required: [volume_id, account_id, size_gib, state, serial, create_time]
+      required: [volume_id, account_id, size_gib, disk_tier, state, serial, create_time]
       properties:
         volume_id: {type: string, pattern: '^vol-[0-9a-f]{17}$'}
         account_id: {type: string}
@@ -2162,6 +2180,10 @@ components:
           type: string
           description: The account's username, so a viewer can tell whose volume this is.
         size_gib: {type: integer}
+        disk_tier:
+          type: string
+          enum: [ssd, hdd]
+          description: The pool the volume's disk lives on. Chosen at creation and never changed.
         state:
           type: string
           enum: [creating, available, in-use, deleting, deleted, error]
@@ -2214,6 +2236,14 @@ components:
           type: integer
           minimum: 1
           description: Bounded by limits.volume_size_gib and the account quota.
+        disk_tier:
+          type: string
+          enum: [ssd, hdd]
+          default: ssd
+          description: |
+            Which pool the volume's disk lives on. Independent of the
+            instance it is later attached to. A deployment without an HDD
+            pool refuses `hdd`, and the tier cannot be changed later.
         client_token: {type: string, maxLength: 64}
         tags:
           type: object

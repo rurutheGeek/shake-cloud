@@ -42,8 +42,10 @@ type Volume struct {
 	RequestSHA256 []byte
 	// SizeGiB is the size asked for. During a resize the disk is still smaller.
 	SizeGiB int
-	Tags    map[string]string
-	State   string
+	// DiskTier is "ssd" or "hdd"; the pool behind it comes from site.json.
+	DiskTier string
+	Tags     map[string]string
+	State    string
 	// InstanceID, Device and AttachmentState are set from the moment an attach
 	// is requested until the disk is back on the holder.
 	InstanceID      string
@@ -73,7 +75,7 @@ type Location struct {
 
 const volumeColumns = `v.volume_id, v.account_id,
 	coalesce((SELECT a.username FROM accounts a WHERE a.id = v.account_id), ''),
-	coalesce(v.client_token, ''), v.request_sha256, v.size_gib, v.tags, v.state,
+	coalesce(v.client_token, ''), v.request_sha256, v.size_gib, v.disk_tier, v.tags, v.state,
 	coalesce(v.instance_id, ''), coalesce(v.device, ''), coalesce(v.attachment_state, ''),
 	coalesce(v.pending_action, ''), v.state_reason, v.last_error, v.attempts, v.next_attempt_at,
 	v.vmid, coalesce(v.config_key, ''), coalesce(v.volid, ''), v.move_vmid, coalesce(v.move_key, ''),
@@ -81,7 +83,7 @@ const volumeColumns = `v.volume_id, v.account_id,
 
 func scanVolume(row pgx.Row) (Volume, error) {
 	var v Volume
-	err := row.Scan(&v.ID, &v.AccountID, &v.OwnerUsername, &v.ClientToken, &v.RequestSHA256, &v.SizeGiB, &v.Tags, &v.State,
+	err := row.Scan(&v.ID, &v.AccountID, &v.OwnerUsername, &v.ClientToken, &v.RequestSHA256, &v.SizeGiB, &v.DiskTier, &v.Tags, &v.State,
 		&v.InstanceID, &v.Device, &v.AttachmentState,
 		&v.PendingAction, &v.StateReason, &v.LastError, &v.Attempts, &v.NextAttemptAt,
 		&v.Location.VMID, &v.Location.ConfigKey, &v.Location.VolID, &v.Location.MoveVMID, &v.Location.MoveKey,
@@ -102,10 +104,11 @@ func InsertVolume(ctx context.Context, q Querier, v Volume) (Volume, error) {
 		v.Tags = map[string]string{}
 	}
 	return scanVolume(q.QueryRow(ctx, `INSERT INTO volumes AS v
-		(volume_id, account_id, client_token, request_sha256, size_gib, tags, state, pending_action)
-		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, 'creating', 'create')
+		(volume_id, account_id, client_token, request_sha256, size_gib, tags, state, pending_action, disk_tier)
+		VALUES ($1, $2, nullif($3::text, ''), $4, $5, $6, 'creating', 'create',
+		        coalesce(nullif($7::text, ''), 'ssd'))
 		RETURNING `+volumeColumns,
-		v.ID, v.AccountID, v.ClientToken, v.RequestSHA256, v.SizeGiB, v.Tags))
+		v.ID, v.AccountID, v.ClientToken, v.RequestSHA256, v.SizeGiB, v.Tags, v.DiskTier))
 }
 
 func GetVolume(ctx context.Context, q Querier, id string) (Volume, error) {

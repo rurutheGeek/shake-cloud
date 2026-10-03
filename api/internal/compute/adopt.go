@@ -116,9 +116,12 @@ func (s *Service) Adopt(ctx context.Context, r AdoptRequest, audit func(pgx.Tx, 
 	if ballooning {
 		memoryMinMiB = balloon
 	}
+	// The root disk names its pool, which is how the adopted instance's tier
+	// is known. A disk on a pool this deployment does not know counts as the
+	// default tier; nothing is re-created from it, so that is only a label.
+	volid := firstDiskVolid(config)
 	rootDisk := r.RootDiskGiB
 	if rootDisk <= 0 {
-		volid := firstDiskVolid(config)
 		if volid == "" {
 			return db.Instance{}, bad("VM %d has no disk to measure; pass root_disk_gib", r.VMID)
 		}
@@ -131,6 +134,7 @@ func (s *Service) Adopt(ctx context.Context, r AdoptRequest, audit func(pgx.Tx, 
 		}
 		rootDisk = size
 	}
+	tier := s.Site.Storage.TierOfStorage(storageOfVolid(volid))
 	limits, _, err := s.EffectiveLimits(ctx, s.Pool)
 	if err != nil {
 		return db.Instance{}, err
@@ -166,7 +170,7 @@ func (s *Service) Adopt(ctx context.Context, r AdoptRequest, audit func(pgx.Tx, 
 		instance, err = db.InsertAdoptedInstance(ctx, tx, db.Instance{
 			ID: newInstanceID(), AccountID: owner.ID, Name: name,
 			CPUCores: cores, MemoryMiB: memoryMiB, MemoryMinMiB: memoryMinMiB, Ballooning: ballooning,
-			RootDiskGiB: rootDisk, Tags: r.Tags, State: state, VMID: &r.VMID,
+			RootDiskGiB: rootDisk, DiskTier: tier, Tags: r.Tags, State: state, VMID: &r.VMID,
 			MACAddress: mac, IPAddress: r.PrivateIPAddress,
 		})
 		if err != nil {
@@ -244,6 +248,12 @@ func macFromNet0(config map[string]any) string {
 	}
 	mac, _, _ := strings.Cut(rest, ",")
 	return strings.TrimSpace(mac)
+}
+
+// storageOfVolid names the pool a Proxmox volume ID lives on.
+func storageOfVolid(volid string) string {
+	name, _, _ := strings.Cut(volid, ":")
+	return name
 }
 
 // firstDiskVolid names the volume holding a VM's first disk, searching the

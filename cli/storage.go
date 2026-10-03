@@ -85,6 +85,7 @@ func (g globals) volumes(args []string) error {
 func (g globals) volumeCreate(args []string) error {
 	flags := flag.NewFlagSet("shakecloud volume create", flag.ContinueOnError)
 	size := flags.Int("size", 0, "size in GiB (required)")
+	diskTier := flags.String("disk-tier", "", "disk tier: ssd or hdd (default ssd)")
 	name := flags.String("name", "", "Name tag")
 	clientToken := flags.String("client-token", "", "idempotency token")
 	if err := flags.Parse(args); err != nil {
@@ -94,7 +95,7 @@ func (g globals) volumeCreate(args []string) error {
 		flags.Usage()
 		return errors.New("--size is required")
 	}
-	request := client.CreateVolumeRequest{SizeGiB: *size, ClientToken: *clientToken}
+	request := client.CreateVolumeRequest{SizeGiB: *size, DiskTier: *diskTier, ClientToken: *clientToken}
 	if *name != "" {
 		request.Tags = map[string]string{"Name": *name}
 	}
@@ -152,14 +153,14 @@ func (g globals) volumeResult(volume client.Volume) error {
 
 func printVolumes(volumes []client.Volume) {
 	w := table()
-	fmt.Fprintln(w, "VOLUME_ID\tNAME\tOWNER\tSIZE\tSTATE\tATTACHED_TO\tDEVICE")
+	fmt.Fprintln(w, "VOLUME_ID\tNAME\tOWNER\tSIZE\tTIER\tSTATE\tATTACHED_TO\tDEVICE")
 	for _, v := range volumes {
 		attachedTo, device := "-", "-"
 		if v.Attachment != nil {
 			attachedTo, device = v.Attachment.InstanceID, v.Attachment.Device
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%dGiB\t%s\t%s\t%s\n",
-			v.VolumeID, dash(v.Tags["Name"]), dash(v.OwnerUsername), v.SizeGiB, v.State, attachedTo, device)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%dGiB\t%s\t%s\t%s\t%s\n",
+			v.VolumeID, dash(v.Tags["Name"]), dash(v.OwnerUsername), v.SizeGiB, dash(v.DiskTier), v.State, attachedTo, device)
 	}
 	w.Flush()
 }
