@@ -113,7 +113,7 @@
       # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
       check_mode: false
       no_log: true
-    - name: Point the cups_print app at the services-01 relay
+    - name: Point the cups_print app at the print relay
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-print]
       environment:

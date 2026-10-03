@@ -21,9 +21,9 @@ tags:
 | もの | 値 |
 | --- | --- |
 | キューの名前 | `ts8430` |
-| CUPSの場所 | `192.168.10.200`（LAN/VPNから。631/tcp） |
+| CUPSの場所 | `192.168.10.105`（LAN/VPNから。631/tcp） |
 | Web確認（HTTPS） | <https://cups.apextox.dpdns.org>（Authentik SSO。`/admin` は入口のCaddyが403で閉じる） |
-| Web確認（直） | <http://192.168.10.200:631>（印刷クライアント用の素のHTTP） |
+| Web確認（直） | <http://192.168.10.105:631>（印刷クライアント用の素のHTTP） |
 | 印刷の許可 | LAN `192.168.10.0/24` と VPN `100.64.0.0/10`（Tailscale） |
 | 管理画面 | `127.0.0.1` のCUPSだけ（LANからは開けない） |
 
@@ -34,9 +34,9 @@ tags:
 ### コマンドから（Linux・macOS）
 
 ```bash
-lp -h 192.168.10.200 -d ts8430 印刷したいファイル.pdf
-lpstat -h 192.168.10.200 -p ts8430   # 状態
-lpq -h 192.168.10.200                 # キュー
+lp -h 192.168.10.105 -d ts8430 印刷したいファイル.pdf
+lpstat -h 192.168.10.105 -p ts8430   # 状態
+lpq -h 192.168.10.105                 # キュー
 ```
 
 ### Windows
@@ -45,29 +45,29 @@ lpq -h 192.168.10.200                 # キュー
 「手動で追加」→「URLでプリンターを検索」で:
 
 ```text
-ipp://192.168.10.200:631/printers/ts8430
+ipp://192.168.10.105:631/printers/ts8430
 ```
 
 ### macOS
 
 「プリンターとスキャナー」→「プリンターを追加」→「IP」タブ:
 
-- アドレス: `192.168.10.200`
+- アドレス: `192.168.10.105`
 - プロトコル: IPP
 - キュー: `printers/ts8430`
 
 ### iPhone / Android
 
-VPN接続中はCUPSを直接見つけられないことがあります。端末の印刷アプリ（Canon PRINTなど）でIPアドレス `192.168.10.200`・IPPを指定するか、LAN内でAirPrint/Mopriaを使ってください。
+VPN接続中はCUPSを直接見つけられないことがあります。端末の印刷アプリ（Canon PRINTなど）でIPアドレス `192.168.10.105`・IPPを指定するか、LAN内でAirPrint/Mopriaを使ってください。
 
 ## Nextcloudから印刷
 
-Nextcloudのファイル一覧で対象ファイルの「…」→「印刷」を選ぶと、services-01 の印刷API経由でそのまま印刷できます。PDF・PNG・JPEG・テキストに対応し、今は1部・カラーで出します。利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。
+Nextcloudのファイル一覧で対象ファイルの「…」→「印刷」を選ぶと、apps-01 の印刷API経由でそのまま印刷できます。PDF・PNG・JPEG・テキストに対応し、今は1部・カラーで出します。利用者向けの操作は[Nextcloudの使い方（利用者向け）](nextcloud-guide.md)にまとめています。
 
 | もの | 値 |
 | --- | --- |
 | アプリ | `cups_print`（自作。公開リポジトリ [`rurutheGeek/nextcloud-cups-print`](https://github.com/rurutheGeek/nextcloud-cups-print)） |
-| 印刷API | services-01 の `:6320`。トークン認証で、Nextcloud（media-01）からのみ受け付け |
+| 印刷API | apps-01 の `:6320`。トークン認証で、Nextcloud（media-01）からのみ受け付け |
 | トークン | `platform/sops/print-api.sops.yaml`（CUPSロールとNextcloudの配備が読む） |
 | 配備 | `platform/ansible/media-nextcloud.yml`（アプリのコピーと `occ` 設定まで行う） |
 
