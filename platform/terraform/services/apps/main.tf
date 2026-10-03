@@ -85,6 +85,17 @@ resource "shakecloud_security_group_rule" "print_api" {
   description = "Print API from media-01"
 }
 
+# node_exporter。監視（monitor-01）だけに開ける。
+resource "shakecloud_security_group_rule" "node_exporter" {
+  group_id    = shakecloud_security_group.apps.id
+  direction   = "ingress"
+  protocol    = "tcp"
+  from_port   = 9100
+  to_port     = 9100
+  cidr        = "192.168.10.102/32"
+  description = "node_exporter from monitor-01"
+}
+
 resource "shakecloud_instance" "apps" {
   image_id = var.image_id
 
