@@ -260,7 +260,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 | 必要なもの | 今どこにあるか | 新しい人の分を作る方法 |
 | --- | --- | --- |
-| SOPS の復号（age 鍵） | dev-b の `~/.config/sops/age/keys.txt` | 新しい人が自分の age 鍵を作り、**公開鍵だけ**を渡す。保持者が `.sops.yaml` へ足し、`sops updatekeys platform/sops/*.sops.yaml` を実行する（[秘密値の管理](secrets.md)） |
+| SOPS の復号（age 鍵） | dev-b の `~/.config/sops/age/keys.txt`。**復旧専用の鍵を別に登録済み（2026-10-03）。** 秘密鍵は dev-02 の `~/.config/sops/age/recovery-key.txt` にあり、スマホ・印刷・Vaultwarden へ写したら dev-02 からは消す（[秘密値](secrets.md)） | 新しい人が自分の age 鍵を作り、**公開鍵だけ**を渡す。保持者が `.sops.yaml` へ足し、`sops updatekeys platform/sops/*.sops.yaml` を実行する（[秘密値の管理](secrets.md)） |
 | 基盤VMへの SSH | `platform/terraform/access.yaml` の公開鍵 | 公開鍵を `admin_ssh_public_keys` の**末尾に**足す（順序を変えない）。新しく作るVMにはこれで入る。既にあるVMには、入れる人が `ssh-copy-id` か Ansible で足す |
 | Proxmox ホストへの SSH | 人が管理（dev-b の鍵は未登録） | ホストの `authorized_keys` へ公開鍵を足す |
 | クラウドの管理者権限 | Authentik の `admins` グループ | 新しい人の Authentik アカウントを `admins` に入れる。ブートストラップ管理キーは共有しない |
