@@ -1,11 +1,11 @@
 ---
-# メールビューア（Gmail 読み取り専用）を services-01 へ配備する。
-#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-#     .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/mail-view.yml
+# メールビューア（Gmail 読み取り専用）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/mail-view.yml'
 # Forward Auth のプロバイダとアプリは identity の configure.py が作るので、
 # 先に identity.yml を流す。
 - name: Deploy the Gmail viewer
-  hosts: services
+  hosts: apps
   become: true
   roles:
     - docker
