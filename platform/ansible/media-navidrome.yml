@@ -8,33 +8,17 @@
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks'
   tasks:
-    - name: Create Navidrome deployment directory
-      ansible.builtin.file:
-        path: '{{ project_dir }}/media/navidrome'
-        state: directory
-        mode: '0750'
-    - name: Copy Navidrome definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/navidrome/{{ item }}'
-        dest: '{{ project_dir }}/media/navidrome/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
-    - name: Configure Navidrome environment
-      ansible.builtin.copy:
-        content: |
+    - name: Deploy the Navidrome stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/navidrome'
+        compose_stack_project_dir: '{{ project_dir }}/media/navidrome'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
           LIBRARY_ROOT={{ library_root }}
           TZ={{ tz | default('Asia/Tokyo') }}
           NAVIDROME_PORT={{ navidrome_port | default(4533) }}
           MEDIA_UID={{ media_uid | default(33) }}
           MEDIA_GID={{ media_gid | default(33) }}
-        dest: '{{ project_dir }}/media/navidrome/.env'
-        mode: '0600'
-    - name: Prepare Navidrome data directories
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/navidrome/manage.py', init]
-      changed_when: true
-    - name: Deploy Navidrome
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/navidrome/manage.py', up]
-      changed_when: true

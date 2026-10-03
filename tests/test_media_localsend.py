@@ -10,7 +10,7 @@ import unittest
 
 import yaml
 
-from support import read
+from support import compose_stack_vars, read
 
 ROOT = Path(__file__).resolve().parents[1]
 STACK = ROOT / 'stacks/media/localsend'
@@ -67,6 +67,9 @@ class UnitTests(unittest.TestCase):
     def test_the_playbook_targets_media_and_waits_for_info(self):
         play = yaml.safe_load(read(PLAYBOOK))[0]
         self.assertEqual(play['hosts'], 'media')
+        stack = compose_stack_vars(play)
+        self.assertEqual(stack['compose_stack_project_dir'], '{{ project_dir }}/media/localsend')
+        self.assertIn('LOCALSEND_PORT=', stack['compose_stack_env'])
         self.assertIn('/api/localsend/v2/info', read(PLAYBOOK))
 
     def test_the_entry_point_imports_it(self):

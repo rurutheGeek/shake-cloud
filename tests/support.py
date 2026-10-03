@@ -69,3 +69,16 @@ def syntax_check(playbook, inventory='localhost,'):
     return subprocess.run(
         [ansible_playbook(), '--syntax-check', '-i', inventory, str(playbook)],
         cwd=ROOT, capture_output=True, text=True, env=environment)
+
+
+def compose_stack_vars(play):
+    """The variables a play hands to the shared compose_stack role.
+
+    The role owns the directory, the copied definitions, the 0600 .env and the
+    manage.py calls; a unit play only says where and what.
+    """
+    calls = [task for task in play['tasks']
+             if task.get('ansible.builtin.include_role', {}).get('name') == 'compose_stack']
+    if len(calls) != 1:
+        raise AssertionError(f'expected one compose_stack call, found {len(calls)}')
+    return calls[0]['vars']

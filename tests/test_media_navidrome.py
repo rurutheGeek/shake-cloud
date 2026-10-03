@@ -18,6 +18,8 @@ from unittest.mock import patch
 
 import yaml
 
+from support import compose_stack_vars
+
 ROOT = Path(__file__).resolve().parents[1]
 UNIT = ROOT / 'stacks/media/navidrome'
 COMPOSE = yaml.safe_load((UNIT / 'compose.yaml').read_text(encoding='utf-8'))
@@ -222,26 +224,22 @@ class AnsibleTests(unittest.TestCase):
         self.assertTrue(self.play['become'])
 
     def test_it_deploys_the_unit_under_the_project_directory(self):
-        copies = [task['ansible.builtin.copy'] for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task]
-        self.assertTrue(any(copy['dest'].startswith('{{ project_dir }}/media/navidrome/')
-                            for copy in copies))
+        stack = compose_stack_vars(self.play)
+        self.assertEqual(stack['compose_stack_project_dir'], '{{ project_dir }}/media/navidrome')
+        self.assertEqual(stack['compose_stack_source_dir'], '{{ source_dir }}/media/navidrome')
+        # The reviewed digests travel with the definitions.
+        self.assertIn('compose.lock.yaml', stack['compose_stack_files'])
 
-    def test_it_generates_a_private_env_from_group_vars(self):
-        copies = [task['ansible.builtin.copy'] for task in self.play['tasks']
-                  if 'ansible.builtin.copy' in task]
-        env = [copy for copy in copies if copy['dest'].endswith('/.env')]
-        self.assertEqual(len(env), 1)
-        self.assertEqual(env[0]['mode'], '0600')
-        self.assertIn('{{ storage_root }}', env[0]['content'])
-        self.assertIn('{{ library_root }}', env[0]['content'])
-        self.assertIn('MEDIA_UID', env[0]['content'])
+    def test_it_generates_the_env_from_group_vars(self):
+        # The role writes it 0600 (tests/test_compose_stack_role.py).
+        env = compose_stack_vars(self.play)['compose_stack_env']
+        self.assertIn('{{ storage_root }}', env)
+        self.assertIn('{{ library_root }}', env)
+        self.assertIn('MEDIA_UID', env)
 
-    def test_it_starts_the_unit_with_manage_py(self):
-        commands = [task['ansible.builtin.command']['argv'] for task in self.play['tasks']
-                    if 'ansible.builtin.command' in task]
-        self.assertTrue(any(argv[-1] == 'up' and argv[-2].endswith('manage.py')
-                            for argv in commands))
+    def test_it_starts_the_unit_with_the_roles_default_actions(self):
+        # init, then up: the role's default.
+        self.assertNotIn('compose_stack_actions', compose_stack_vars(self.play))
 
 
 class SecretTests(unittest.TestCase):

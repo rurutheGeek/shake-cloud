@@ -84,7 +84,12 @@
       # 文字列はそのまま、リストは join して manage.py のカンマ区切りへ揃える。
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/music-tools/manage.py', up, '--services', "{{ music_tools_services if music_tools_services is string else (music_tools_services | join(',')) }}"]
-      changed_when: true
+      register: music_tools_up
+      changed_when: >-
+        'CHANGED' in music_tools_up.stdout
+        or 'Created' in music_tools_up.stderr
+        or 'Recreated' in music_tools_up.stderr
+        or 'Started' in music_tools_up.stderr
     - name: Create synchronization code directory
       # services-01 では既にあったが、media-01 の新規配備では無い。
       # copy 先の親ディレクトリが無いと失敗する（2026-09-12 実機で発見）。
