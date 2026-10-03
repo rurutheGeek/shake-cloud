@@ -152,3 +152,37 @@ func TestAdoptionRespectsTheAccountQuota(t *testing.T) {
 		t.Fatalf("over quota: %v", err)
 	}
 }
+
+func TestAnAdoptedAddressIsRecordedInTheLedgerOnce(t *testing.T) {
+	s, pve, ipam := testService(t)
+	ctx := context.Background()
+	ownerID := newAccount(t, s, "alice")
+	addFakeVM(pve, 5100, "running", adoptableConfig())
+	instance, err := s.Adopt(ctx, AdoptRequest{VMID: 5100, AccountID: ownerID, PrivateIPAddress: "192.168.10.202"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instance.NetBoxIPID != nil {
+		t.Fatal("adoption itself does not talk to NetBox")
+	}
+	for pass := 0; pass < 2; pass++ {
+		instances, err := db.UnterminatedInstances(ctx, s.Pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.recordAdoptedAddresses(ctx, instances); err != nil {
+			t.Fatal(err)
+		}
+	}
+	instance, err = db.GetInstance(ctx, s.Pool, instance.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instance.NetBoxIPID == nil || instance.IPAddress != "192.168.10.202" {
+		t.Fatalf("netbox id %v address %q", instance.NetBoxIPID, instance.IPAddress)
+	}
+	recorded, _ := ipam.IPAddressesByDescription(ctx, instance.ID)
+	if len(recorded) != 1 || recorded[0].Address != "192.168.10.202/24" || recorded[0].ID != *instance.NetBoxIPID {
+		t.Fatalf("recorded %+v", recorded)
+	}
+}

@@ -2,12 +2,15 @@ package compute
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
 )
 
 // Ledger is the part of *netbox.Client that registers instances as virtual
@@ -77,7 +80,65 @@ func (s *Service) SyncLedger(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.syncLedger(ctx, instances)
+	recordErr := s.recordAdoptedAddresses(ctx, instances)
+	if err := s.syncLedger(ctx, instances); err != nil {
+		return err
+	}
+	return recordErr
+}
+
+// recordAdoptedAddresses puts the address of each adopted instance into
+// NetBox. A launch takes its address from NetBox, so it is recorded from the
+// start; an adopted VM brought its own, and until NetBox knows it the address
+// looks free -- to this API's next launch and to Terraform alike -- and the
+// instance stays out of the ledger. One refusal does not stop the others.
+func (s *Service) recordAdoptedAddresses(ctx context.Context, instances []db.Instance) error {
+	var failed error
+	for i := range instances {
+		instance := &instances[i]
+		if !instance.Adopted || instance.NetBoxIPID != nil || instance.IPAddress == "" {
+			continue
+		}
+		address, err := s.adoptedAddress(ctx, *instance)
+		if err == nil {
+			instance.NetBoxIPID = &address.ID
+			err = db.RecordResources(ctx, s.Pool, instance.ID, resourcesOf(*instance))
+		}
+		if err != nil {
+			instance.NetBoxIPID = nil
+			s.Log.Warn("adopted address not recorded", "instance_id", instance.ID, "err", err)
+			if failed == nil {
+				failed = err
+			}
+			continue
+		}
+		s.Log.Info("adopted address recorded", "instance_id", instance.ID, "address", address.Address)
+	}
+	return failed
+}
+
+// adoptedAddress reuses the entry an interrupted attempt already made.
+func (s *Service) adoptedAddress(ctx context.Context, instance db.Instance) (netbox.IPAddress, error) {
+	existing, err := s.IPAM.IPAddressesByDescription(ctx, instance.ID)
+	if err != nil {
+		return netbox.IPAddress{}, err
+	}
+	if len(existing) > 0 {
+		return existing[0], nil
+	}
+	address := instance.IPAddress
+	if !strings.Contains(address, "/") {
+		// Adoption accepts a bare address; NetBox wants the prefix length,
+		// which is the cloud network's.
+		_, length, found := strings.Cut(s.Site.Network.IPRangeStart, "/")
+		if !found {
+			return netbox.IPAddress{}, fmt.Errorf("the site's ip_range_start %q has no prefix length", s.Site.Network.IPRangeStart)
+		}
+		address += "/" + length
+	}
+	return s.IPAM.CreateIPAddress(ctx, address, netbox.Allocation{
+		Description: instance.ID, DNSName: seed.Hostname(instance.Name, instance.ID), Tags: []string{NetBoxTag},
+	})
 }
 
 // syncLedger converges NetBox on instances, which must be every instance that

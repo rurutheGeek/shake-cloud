@@ -374,6 +374,15 @@ func (f *fakeIPAM) AllocateIP(ctx context.Context, rangeID int, a netbox.Allocat
 	return address, nil
 }
 
+func (f *fakeIPAM) CreateIPAddress(ctx context.Context, cidr string, a netbox.Allocation) (netbox.IPAddress, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.next++
+	address := netbox.IPAddress{ID: f.next, Address: cidr, Description: a.Description, DNSName: a.DNSName}
+	f.addresses[address.ID] = address
+	return address, nil
+}
+
 func (f *fakeIPAM) DeleteIPAddress(ctx context.Context, id int) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

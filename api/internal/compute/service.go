@@ -73,6 +73,7 @@ type IPAM interface {
 	IPRangeID(ctx context.Context, startAddress string) (int, error)
 	IPAddressesByDescription(ctx context.Context, description string) ([]netbox.IPAddress, error)
 	AllocateIP(ctx context.Context, rangeID int, allocation netbox.Allocation) (netbox.IPAddress, error)
+	CreateIPAddress(ctx context.Context, address string, allocation netbox.Allocation) (netbox.IPAddress, error)
 	DeleteIPAddress(ctx context.Context, id int) error
 }
 
