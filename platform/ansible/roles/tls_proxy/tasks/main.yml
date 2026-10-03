@@ -1,35 +1,18 @@
 ---
-# クラウドVMの inventory はホスト名をインスタンスIDにし、表示名を cloud_name で
-# 渡す。dns.yaml の host は表示名なので、両方を候補にする。
-# set_fact は同じタスク内の新しい変数を見ないため、2つに分ける。
-- name: List the names this host answers to
-  ansible.builtin.set_fact:
-    tls_proxy_names: "{{ [inventory_hostname] + ([cloud_name] if cloud_name is defined and cloud_name else []) }}"
-
-- name: Work out the names this host serves
-  ansible.builtin.set_fact:
-    tls_proxy_sites: >-
-      {{ tls_proxy_dns.records | dict2items
-         | selectattr('value.host', 'defined')
-         | selectattr('value.host', 'in', tls_proxy_names)
-         | selectattr('value.upstream', 'defined')
-         | list }}
-
-- name: Refuse a host that has nothing to serve
-  ansible.builtin.assert:
-    that: tls_proxy_sites | length > 0
-    fail_msg: platform/terraform/dns.yaml has no record with host in {{ tls_proxy_names }} and an upstream
-    quiet: true
+- name: Work out what this host serves and where the edge is
+  ansible.builtin.include_tasks: facts.yml
 
 - name: Read the Cloudflare DNS token
   delegate_to: localhost
   become: false
-  run_once: true
   ansible.builtin.command:
     argv: [sops, --decrypt, --extract, '["CLOUDFLARE_DNS_API_TOKEN"]', '{{ tls_proxy_sops_file }}']
   register: tls_proxy_token
   changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
   no_log: true
+  when: not tls_proxy_behind_edge
 
 - name: Create the deployment directories
   ansible.builtin.file:
@@ -39,6 +22,7 @@
   loop:
     - {path: '{{ tls_proxy_project_dir }}', mode: '0750'}
     - {path: '{{ tls_proxy_project_dir }}/conf', mode: '0755'}
+    - {path: '{{ tls_proxy_project_dir }}/conf/backend-ca', mode: '0755'}
     - {path: '{{ tls_proxy_project_dir }}/secrets', mode: '0700'}
     - {path: '{{ tls_proxy_storage_root }}/data', mode: '0700'}
     - {path: '{{ tls_proxy_storage_root }}/config', mode: '0700'}
@@ -48,14 +32,25 @@
     src: '{{ tls_proxy_source_dir }}/{{ item }}'
     dest: '{{ tls_proxy_project_dir }}/{{ item }}'
     mode: '0644'
-  loop: [Dockerfile, compose.yaml]
+  loop: [Dockerfile, compose.yaml, compose.token.yaml]
 
-- name: Write the storage location
+# 入口の後ろのホストは compose.token.yaml を重ねない（トークンを渡さない）。
+- name: Write the storage location and the compose files in use
   ansible.builtin.copy:
     dest: '{{ tls_proxy_project_dir }}/.env'
     content: |
       STORAGE_ROOT={{ tls_proxy_storage_root }}
+      COMPOSE_FILE=compose.yaml{{ '' if tls_proxy_behind_edge else ':compose.token.yaml' }}
     mode: '0644'
+
+- name: Install the CAs of the backends the edge relays to
+  ansible.builtin.copy:
+    src: '{{ tls_proxy_backend_ca_dir }}/{{ item }}.crt'
+    dest: '{{ tls_proxy_project_dir }}/conf/backend-ca/{{ item }}.crt'
+    mode: '0644'
+  loop: '{{ tls_proxy_edge.backends | default([]) }}'
+  register: tls_proxy_backend_cas
+  when: tls_proxy_is_edge
 
 - name: Write the site list
   ansible.builtin.template:
@@ -71,6 +66,13 @@
     mode: '0400'
   register: tls_proxy_secret
   no_log: true
+  when: not tls_proxy_behind_edge
+
+- name: Remove the Cloudflare DNS token from a host behind the edge
+  ansible.builtin.file:
+    path: '{{ tls_proxy_project_dir }}/secrets/cloudflare_dns_api_token'
+    state: absent
+  when: tls_proxy_behind_edge
 
 - name: Build and start Caddy
   ansible.builtin.command:
@@ -81,16 +83,17 @@
 
 # 管理用 API を閉じているので設定は起動時にしか読まない。トークンは単一ファイルの
 # マウントで、置き換えると古い中身を見続けるため、再起動ではなく作り直す。
-- name: Recreate Caddy after the site list or token changed
+- name: Recreate Caddy after the site list, a backend CA or the token changed
   ansible.builtin.command:
     argv: [docker, compose, up, -d, --force-recreate]
     chdir: '{{ tls_proxy_project_dir }}'
   when:
-    - tls_proxy_caddyfile is changed or tls_proxy_secret is changed
+    - tls_proxy_caddyfile is changed or tls_proxy_secret is changed or tls_proxy_backend_cas is changed
     - tls_proxy_up is not changed
   changed_when: true
 
-# 初回は証明書の取得（DNS の伝播待ちを含む）に1〜2分かかる。
+# 初回は証明書の取得（DNS の伝播待ちを含む）に1〜2分かかる。入口の後ろのホストは
+# 公開の証明書を持たず、名前も入口を指すので、ここでは確かめない（入口の配備が確かめる）。
 - name: Wait until every name answers over HTTPS with a trusted certificate
   ansible.builtin.uri:
     url: 'https://{{ item.key }}.{{ tls_proxy_dns.zone }}/'
@@ -107,3 +110,60 @@
   retries: 40
   delay: 6
   until: tls_proxy_check is succeeded
+  when: not tls_proxy_behind_edge
+
+# Caddy は起動時に内部CAを作る。入口はこのCAで中継先を確かめるので、公開してよい
+# 証明書（root.crt）だけを構成管理側へ持ち帰る。入口の配備がこれを配る。
+- name: Wait for the internal CA this host answers the edge with
+  ansible.builtin.wait_for:
+    path: '{{ tls_proxy_storage_root }}/data/caddy/pki/authorities/local/root.crt'
+    timeout: 120
+  when: tls_proxy_behind_edge
+
+- name: Read the internal CA certificate
+  ansible.builtin.slurp:
+    src: '{{ tls_proxy_storage_root }}/data/caddy/pki/authorities/local/root.crt'
+  register: tls_proxy_internal_ca
+  when: tls_proxy_behind_edge
+
+- name: Keep the internal CA certificate where the edge deployment finds it
+  delegate_to: localhost
+  become: false
+  ansible.builtin.copy:
+    content: '{{ tls_proxy_internal_ca.content | b64decode }}'
+    dest: '{{ tls_proxy_backend_ca_dir }}/{{ tls_proxy_ledger_name }}.crt'
+    mode: '0644'
+  when: tls_proxy_behind_edge
+
+# 名前が入口を指す前でも確かめられるよう、入口のアドレスを直接指定して聞く。
+# 設定を変えた回だけ確かめる: 中継先のアプリが落ちているだけで、入口のホストの
+# 無関係な配備（Homarr など）まで止めないため。502 は「入口が中継先のCAを確かめ
+# られない」場合にも出るので、ここでは合格にしない。
+- name: Check that the edge relays every backend name
+  delegate_to: localhost
+  become: false
+  ansible.builtin.command:
+    argv:
+      - curl
+      - --silent
+      - --show-error
+      - --output
+      - /dev/null
+      - --write-out
+      - '%{http_code}'
+      - --max-time
+      - '20'
+      - --resolve
+      - '{{ item.key }}.{{ tls_proxy_dns.zone }}:443:{{ tls_proxy_addresses[tls_proxy_edge.host] }}'
+      - 'https://{{ item.key }}.{{ tls_proxy_dns.zone }}/'
+  loop: '{{ tls_proxy_passthrough_sites | default([]) }}'
+  loop_control:
+    label: '{{ item.key }}.{{ tls_proxy_dns.zone }} -> {{ item.value.host }}'
+  register: tls_proxy_relay
+  changed_when: false
+  retries: 40
+  delay: 6
+  until: tls_proxy_relay.stdout in ['200', '301', '302', '303', '307', '308', '401', '403', '404']
+  when:
+    - tls_proxy_is_edge
+    - tls_proxy_caddyfile is changed or tls_proxy_backend_cas is changed

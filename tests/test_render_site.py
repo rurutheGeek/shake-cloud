@@ -47,8 +47,38 @@ class RenderSiteTests(unittest.TestCase):
             self.assertTrue(image['volume'].startswith(f'{store}:import/'), image_id)
             self.assertIn(images[image['name']]['file_name'], image['volume'])
 
+    def test_the_ledger_names_the_cluster_terraform_creates(self):
+        # The API files its VMs under this cluster; a name NetBox does not have
+        # would fail every sync.
+        variables = (TERRAFORM / '10-platform/variables.tf').read_text()
+        block = variables.split('variable "netbox_cluster_name"')[1].split('}')[0]
+        self.assertIn(f'default = "{self.site["ledger"]["cluster"]}"', block)
+
+    def test_ledger_groups_use_declared_tags_and_trusted_accounts(self):
+        ledger = self.site['ledger']
+        tags = self.yaml('tags.yaml')['tags']
+        self.assertTrue(ledger['group_accounts'])
+        for account in ledger['group_accounts']:
+            self.assertRegex(account, r'^[0-9]{12}$')
+        for name, slugs in ledger['tags_by_name'].items():
+            for slug in slugs:
+                self.assertIn(slug, tags, name)
+                # A cloud VM must never be put in a group that receives the
+                # platform's own secrets.
+                self.assertNotIn(slug, ('identity', 'cloud-control', 'k8s-cp', 'k8s-worker',
+                                        'storage', 'devbox', 'managed-by-terraform-admin'), name)
+
+    def test_an_undeclared_ledger_tag_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            def change(cloud):
+                cloud['ledger']['tags_by_name']['media-01'] = ['no-such-tag']
+            self.edit_declarations(directory, {'cloud.yaml': change})
+            with self.assertRaises(SystemExit) as raised:
+                render_site.render(directory)
+            self.assertIn('no-such-tag', str(raised.exception))
+
     def edit_declarations(self, directory, edits):
-        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
+        for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml', 'tags.yaml'):
             (Path(directory) / name).write_text((TERRAFORM / name).read_text())
         for name, change in edits.items():
             loaded = yaml.safe_load((TERRAFORM / name).read_text())
@@ -140,7 +170,7 @@ class RenderSiteTests(unittest.TestCase):
 
     def test_an_unmeasured_site_stops_instead_of_guessing(self):
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml', 'tags.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'site.yaml').read_text())
             broken['storage']['vm_disks'] = 'UNMEASURED'
@@ -152,7 +182,7 @@ class RenderSiteTests(unittest.TestCase):
         # A holder outside 5000-5999 would sit where the cloud API's ACLs
         # cannot reach it; catch that at render time, not at first volume detach.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml', 'tags.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = 1
@@ -164,7 +194,7 @@ class RenderSiteTests(unittest.TestCase):
         # The probe script deletes and recreates its VMIDs; a holder sharing
         # one would lose its volumes the next time a probe runs.
         with tempfile.TemporaryDirectory() as directory:
-            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml'):
+            for name in ('site.yaml', 'pools.yaml', 'network.yaml', 'images.yaml', 'isos.yaml', 'flavors.yaml', 'cloud.yaml', 'tags.yaml'):
                 (Path(directory) / name).write_text((TERRAFORM / name).read_text())
             broken = yaml.safe_load((TERRAFORM / 'cloud.yaml').read_text())
             broken['volume_holder_vmid'] = broken['probe_vmids'][0]

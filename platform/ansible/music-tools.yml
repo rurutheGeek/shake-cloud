@@ -29,25 +29,6 @@
     music_tools_khinsider_port: 5820
     music_tools_review_port: 5830
   tasks:
-    - name: Create tool directory
-      # tagger コンテナ (33:33) は /tools 以下を名前で読むため、他者に x を
-      # 与える（r は与えないので一覧はできない。.env は 0600 のまま）。
-      ansible.builtin.file:
-        path: '{{ project_dir }}/music-tools'
-        state: directory
-        mode: '0711'
-    - name: Copy tool definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/music-tools/{{ item }}'
-        dest: '{{ project_dir }}/music-tools/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, review.py, organize.py, organize-aliases.json, strip-embedded-art.py, strip-itunes-comments.py, lyrics.py, embed_sylt.py, rename-lrc-sidecars.py, make-review-html.py, make-lyrics-pages.py, make-cover-review.py, .env.example]
-    - name: Copy pinned tool images
-      ansible.builtin.copy:
-        src: '{{ item }}'
-        dest: '{{ project_dir }}/music-tools/compose.lock.yaml'
-        mode: '0644'
-      with_fileglob: ['{{ source_dir }}/music-tools/compose.lock.yaml']
     - name: Read the music tag API token
       delegate_to: localhost
       become: false
@@ -56,35 +37,39 @@
                '{{ playbook_dir }}/../sops/music-tags.sops.yaml']
       register: music_tools_tag_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
-    - name: Configure environment
-      # 既存ホストの .env は LIBRARY_ROOT だけだった。TZ は compose.yaml の
-      # 既定値と同じ値で追記するので再実行しても挙動は変わらない。
-      # TAG_API_* はそのサービスを配備対象にしたときだけ書く。
-      # TAG_API_TOKEN は SOPS から渡し、ログには残さない。
-      # 行はテキスト＋式で組む（{% if %} ブロックの直後は trim_blocks で
-      # 改行が消え、値が連結してしまうため）。
-      ansible.builtin.copy:
-        content: |
+    # tagger コンテナ (33:33) は /tools 以下を名前で読むため、ディレクトリは他者に
+    # x を与える（r は与えないので一覧はできない。.env は 0600 のまま）。
+    # .env: 既存ホストの .env は LIBRARY_ROOT だけだった。TZ は compose.yaml の
+    # 既定値と同じ値で追記するので再実行しても挙動は変わらない。TAG_API_* は
+    # そのサービスを配備対象にしたときだけ書く。TAG_API_TOKEN は SOPS から渡し、
+    # ログには残さない。行はテキスト＋式で組む（{% if %} ブロックの直後は
+    # trim_blocks で改行が消え、値が連結してしまうため）。
+    # up: manage.py に足した --services へ music_tools_services を渡す。既定は
+    # 全サービスのため、従来の `manage.py up` と同じ `up -d --wait` になる。init
+    # （ディレクトリ・ライブラリID）は manage.py の up 側で従来どおり。
+    # `-e music_tools_services=picard` は文字列、JSONリストはリストで届くので、
+    # 文字列はそのまま、リストは join して manage.py のカンマ区切りへ揃える。
+    - name: Deploy selected music tools
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/music-tools'
+        compose_stack_project_dir: '{{ project_dir }}/music-tools'
+        compose_stack_directory_mode: '0711'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, convert.py, bcstm_pcm.py, edit-tags.py, download.py, tags.example.json, tag_api.py, khinsider.py, khinsider-ja.json, review.py, organize.py, organize-aliases.json, strip-embedded-art.py, strip-itunes-comments.py, lyrics.py, embed_sylt.py, rename-lrc-sidecars.py, make-review-html.py, make-lyrics-pages.py, make-cover-review.py, .env.example]
+        compose_stack_env_no_log: true
+        compose_stack_actions:
+          - [up, --services, "{{ music_tools_services if music_tools_services is string else (music_tools_services | join(',')) }}"]
+        compose_stack_env: |
           LIBRARY_ROOT={{ library_root }}
           TZ={{ music_tools_tz }}
           {{ ('TAG_API_TOKEN=' ~ (music_tools_tag_secrets.stdout | from_json).TAG_API_TOKEN) if 'tag-api' in music_tools_services else '' }}
           {{ ('TAG_API_PORT=' ~ music_tools_tag_port) if 'tag-api' in music_tools_services else '' }}
           {{ ('KHINSIDER_PORT=' ~ music_tools_khinsider_port) if 'khinsider' in music_tools_services else '' }}
           {{ ('REVIEW_PORT=' ~ music_tools_review_port) if 'review' in music_tools_services else '' }}
-        dest: '{{ project_dir }}/music-tools/.env'
-        mode: '0600'
-      no_log: true
-    - name: Deploy selected music tools
-      # manage.py up は引数でサービスを絞れないため、manage.py に足した
-      # --services へ music_tools_services を渡す。既定は全サービスのため、
-      # このタスクは従来の `manage.py up` と同じ `up -d --wait` を実行する。
-      # init（ディレクトリ・ライブラリID・lock 生成）は manage.py 側で従来どおり。
-      # `-e music_tools_services=picard` は文字列、JSONリストはリストで届くので、
-      # 文字列はそのまま、リストは join して manage.py のカンマ区切りへ揃える。
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/music-tools/manage.py', up, '--services', "{{ music_tools_services if music_tools_services is string else (music_tools_services | join(',')) }}"]
-      changed_when: true
     - name: Create synchronization code directory
       # services-01 では既にあったが、media-01 の新規配備では無い。
       # copy 先の親ディレクトリが無いと失敗する（2026-09-12 実機で発見）。

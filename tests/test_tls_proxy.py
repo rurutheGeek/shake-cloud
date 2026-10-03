@@ -1,6 +1,10 @@
 import json
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from jinja2 import Environment, FileSystemLoader
@@ -21,15 +25,22 @@ def defaults(role):
     return yaml.safe_load((ROOT / f'platform/ansible/roles/{role}/defaults/main.yml').read_text())
 
 
-def caddyfile(sites):
+def caddyfile(sites, **extra):
     # Ansible's templar enables trim_blocks; keep the same rendering here.
     environment = Environment(
         loader=FileSystemLoader(str(TLS_PROXY / 'templates')), trim_blocks=True)
-    return environment.get_template('Caddyfile.j2').render(
+    variables = dict(
         tls_proxy_sites=sites,
         tls_proxy_dns=DNS,
         tls_proxy_authentik_url=defaults('tls_proxy')['tls_proxy_authentik_url'],
     )
+    variables.update(extra)
+    return environment.get_template('Caddyfile.j2').render(**variables)
+
+
+def sites_of(host):
+    return [{'key': name, 'value': record} for name, record in DNS['records'].items()
+            if record.get('host') == host and 'upstream' in record]
 
 
 def site_block(rendered, name):
@@ -224,6 +235,186 @@ class TlsProxyTests(unittest.TestCase):
         environment = yaml.safe_load((ROOT / 'cloud/compose.yaml').read_text())['services']['api']['environment']
         for prefix in environment['SHAKECLOUD_TRUSTED_PROXIES'].split(','):
             self.assertRegex(prefix, r'^(127\.0\.0\.1/32|172\.16\.0\.0/12)$')
+
+
+EDGE_ADDRESS = '192.168.10.200'
+IDENTITY_ADDRESS = '192.168.10.204'
+MEDIA_ADDRESS = '192.168.10.101'
+
+
+class EdgeDeclarationTests(unittest.TestCase):
+    """One host holds the public certificates and the Cloudflare token."""
+
+    def test_the_edge_is_a_host_that_already_serves_names(self):
+        edge = DNS['edge']
+        served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
+        self.assertEqual(edge['host'], SEED_HOST)
+        self.assertIn(edge['host'], served)
+        # A backend is a host with names of its own, and never the edge itself.
+        for backend in edge['backends']:
+            self.assertIn(backend, served - {edge['host']}, backend)
+        self.assertEqual(len(edge['backends']), len(set(edge['backends'])))
+
+    def test_the_edge_has_its_own_playbook_on_the_dynamic_inventory(self):
+        play = yaml.safe_load((ROOT / 'platform/ansible/edge.yml').read_text())[0]
+        self.assertEqual(play['hosts'], 'services')
+        self.assertIn('tls_proxy', play['roles'])
+
+    def test_dns_points_relayed_names_at_the_edge(self):
+        main = (ROOT / 'platform/terraform/20-dns/main.tf').read_text()
+        # Only names Caddy serves move; a record without an upstream (the
+        # LocalSend receiver, Proxmox) keeps its own address.
+        self.assertIn('can(record.upstream) && contains(local.edge.backends, try(record.host, ""))', main)
+        self.assertIn('local.via_edge[name] ? local.known_hosts[local.edge.host]', main)
+
+    def test_the_token_is_mounted_only_where_certificates_are_requested(self):
+        base = yaml.safe_load((ROOT / 'stacks/tls-proxy/compose.yaml').read_text())
+        overlay = yaml.safe_load((ROOT / 'stacks/tls-proxy/compose.token.yaml').read_text())
+        self.assertNotIn('secrets', base)
+        self.assertNotIn('secrets', base['services']['caddy'])
+        self.assertEqual(overlay['services']['caddy']['secrets'], ['cloudflare_dns_api_token'])
+        tasks = yaml.safe_load((TLS_PROXY / 'tasks/main.yml').read_text())
+        by_name = {task['name']: task for task in tasks}
+        environment = by_name['Write the storage location and the compose files in use']['ansible.builtin.copy']['content']
+        self.assertIn("COMPOSE_FILE=compose.yaml{{ '' if tls_proxy_behind_edge else ':compose.token.yaml' }}", environment)
+        for name in ('Read the Cloudflare DNS token', 'Install the Cloudflare DNS token'):
+            self.assertEqual(by_name[name]['when'], 'not tls_proxy_behind_edge', name)
+        removal = by_name['Remove the Cloudflare DNS token from a host behind the edge']
+        self.assertEqual(removal['ansible.builtin.file']['state'], 'absent')
+        self.assertEqual(removal['when'], 'tls_proxy_behind_edge')
+
+
+class EdgeRenderingTests(unittest.TestCase):
+    def test_without_backends_nothing_about_the_edge_is_rendered(self):
+        # Until a host is moved, every host keeps requesting its own
+        # certificates exactly as before.
+        for host in ('identity', 'cloud-01', CLOUD_NAME, 'monitor-01', SEED_HOST):
+            rendered = caddyfile(sites_of(host))
+            self.assertIn('dns cloudflare {file./run/secrets/cloudflare_dns_api_token}', rendered, host)
+            for marker in ('tls internal', 'trusted_proxies', 'tls_trust_pool', 'X-Forwarded-For', '@outpost'):
+                self.assertNotIn(marker, rendered, f'{host}: {marker}')
+
+    def test_a_host_behind_the_edge_holds_no_token_and_keeps_its_own_auth(self):
+        rendered = caddyfile(sites_of(CLOUD_NAME), tls_proxy_behind_edge=True,
+                             tls_proxy_edge_address=EDGE_ADDRESS)
+        self.assertNotIn('cloudflare', rendered)
+        self.assertIn('(dns_challenge) {\n\ttls internal\n}', rendered)
+        self.assertIn(f'trusted_proxies static {EDGE_ADDRESS}/32', rendered)
+        self.assertIn('skip_install_trust', rendered)
+        # Forward Auth and the header hygiene stay on the host that runs the app.
+        navidrome = site_block(rendered, 'navidrome')
+        self.assertIn('request_header -Remote-User', navidrome)
+        self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'), 5)
+        # Every hop to an app passes the real client, not the edge.
+        self.assertEqual(rendered.count('reverse_proxy 127.0.0.1:'),
+                         rendered.count('header_up X-Forwarded-For {client_ip}'))
+
+    def test_the_edge_relays_over_tls_and_checks_the_backends_own_ca(self):
+        relayed = [{'key': name, 'value': record, 'address': MEDIA_ADDRESS}
+                   for name, record in DNS['records'].items()
+                   if record.get('host') == CLOUD_NAME and 'upstream' in record]
+        rendered = caddyfile(sites_of(SEED_HOST), tls_proxy_passthrough_sites=relayed)
+        self.assertIn('dns cloudflare', rendered)
+        for site in relayed:
+            block = site_block(rendered, site['key'])
+            name = f"{site['key']}.{DNS['zone']}"
+            self.assertIn('import dns_challenge', block, name)
+            self.assertIn(f'reverse_proxy https://{MEDIA_ADDRESS} {{', block, name)
+            # Caddy rewrites Host for an https upstream; the backend picks the
+            # site by Host, so the original must be passed explicitly.
+            self.assertIn('header_up Host {host}', block, name)
+            self.assertIn(f'tls_server_name {name}', block, name)
+            self.assertIn(f'tls_trust_pool file /etc/caddy/backend-ca/{CLOUD_NAME}.crt', block, name)
+            # The edge only relays: authentication is the backend's job.
+            self.assertNotIn('forward_auth', block, name)
+            self.assertNotIn('127.0.0.1', block, name)
+        # The edge's own sites are untouched.
+        self.assertIn('reverse_proxy 127.0.0.1:', site_block(rendered, 'homarr'))
+        self.assertNotIn('@outpost', rendered)
+
+    def test_forward_auth_does_not_loop_once_identity_is_behind_the_edge(self):
+        identity = {'host': 'identity', 'address': IDENTITY_ADDRESS, 'name': f"auth.{DNS['zone']}"}
+        relayed = [{'key': name, 'value': record,
+                    'address': IDENTITY_ADDRESS if record['host'] == 'identity' else MEDIA_ADDRESS}
+                   for name, record in DNS['records'].items()
+                   if record.get('host') in (CLOUD_NAME, 'identity') and 'upstream' in record]
+        rendered = caddyfile(sites_of(SEED_HOST), tls_proxy_passthrough_sites=relayed,
+                             tls_proxy_auth_backend=identity,
+                             tls_proxy_authentik_url=f'https://{IDENTITY_ADDRESS}')
+        # A backend asks auth.<zone>, which is now the edge, with the app's
+        # Host. The edge must hand that to identity, not back to the app.
+        navidrome = site_block(rendered, 'navidrome')
+        self.assertIn('@outpost path /outpost.goauthentik.io/*', navidrome)
+        outpost = navidrome[navidrome.index('handle @outpost'):navidrome.index('handle {')]
+        self.assertIn(f'reverse_proxy https://{IDENTITY_ADDRESS}', outpost)
+        self.assertIn('header_up Host {host}', outpost)
+        self.assertIn('tls_trust_pool file /etc/caddy/backend-ca/identity.crt', outpost)
+        # Sites without Forward Auth need no such route.
+        self.assertNotIn('@outpost', site_block(rendered, 'nextcloud'))
+        # The edge's own Forward Auth sites go to identity directly as well.
+        adguard = site_block(rendered, 'adguard')
+        self.assertIn(f'forward_auth https://{IDENTITY_ADDRESS} {{', adguard)
+        self.assertIn(f"tls_server_name auth.{DNS['zone']}", adguard)
+        self.assertNotIn('forward_auth https://auth.', rendered)
+
+
+class EdgeRoleTests(unittest.TestCase):
+    """Run the role's own decision tasks through Ansible, against no host."""
+
+    @unittest.skipUnless(shutil.which('ansible-playbook') or (Path(sys.executable).parent / 'ansible-playbook').exists(),
+                         'ansible-playbook is not installed')
+    def test_the_role_works_out_each_hosts_place(self):
+        ansible = shutil.which('ansible-playbook') or str(Path(sys.executable).parent / 'ansible-playbook')
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            (work / 'ca').mkdir()
+            (work / 'out').mkdir()
+            dns = json.loads(json.dumps(DNS))
+            dns['edge']['backends'] = ['monitor-01', CLOUD_NAME, 'identity']
+            for backend in dns['edge']['backends']:
+                (work / 'ca' / f'{backend}.crt').write_text('test\n')
+            (work / 'vars.json').write_text(json.dumps({
+                'tls_proxy_dns': dns, 'tls_proxy_backend_ca_dir': str(work / 'ca'), 'out': str(work / 'out')}))
+            (work / 'inventory.ini').write_text(
+                f'{SEED_HOST} ansible_host={EDGE_ADDRESS}\n'
+                f'identity ansible_host={IDENTITY_ADDRESS} tls_proxy_catchall_upstream=127.0.0.1:9000\n'
+                'cloud-01 ansible_host=192.168.10.205\n'
+                f'{CLOUD_INSTANCE_ID} ansible_host={MEDIA_ADDRESS} cloud_name={CLOUD_NAME}\n'
+                'i-2193bd70bacdd1602 ansible_host=192.168.10.102 cloud_name=monitor-01\n')
+            (work / 'play.yml').write_text(
+                '- hosts: all\n'
+                '  gather_facts: false\n'
+                '  connection: local\n'
+                '  tasks:\n'
+                '    - ansible.builtin.include_role:\n'
+                '        name: tls_proxy\n'
+                '        tasks_from: facts\n'
+                '        public: true\n'
+                '    - ansible.builtin.template:\n'
+                f"        src: {TLS_PROXY / 'templates/Caddyfile.j2'}\n"
+                "        dest: '{{ out }}/{{ tls_proxy_ledger_name }}.Caddyfile'\n"
+                "        mode: '0644'\n")
+            result = subprocess.run(
+                [ansible, '-i', str(work / 'inventory.ini'), '-e', f"@{work / 'vars.json'}", str(work / 'play.yml')],
+                cwd=ROOT, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-2000:])
+            rendered = {path.stem: path.read_text() for path in (work / 'out').iterdir()}
+
+        self.assertEqual(set(rendered), {SEED_HOST, 'identity', 'cloud-01', CLOUD_NAME, 'monitor-01'})
+        # Only the edge and the host that has not been moved hold the token.
+        holders = {host for host, text in rendered.items() if 'dns cloudflare' in text}
+        self.assertEqual(holders, {SEED_HOST, 'cloud-01'})
+        for host in (CLOUD_NAME, 'monitor-01', 'identity'):
+            self.assertIn(f'trusted_proxies static {EDGE_ADDRESS}/32', rendered[host], host)
+        edge = rendered[SEED_HOST]
+        relayed = [name for name, record in DNS['records'].items()
+                   if record.get('host') in dns['edge']['backends'] and 'upstream' in record]
+        self.assertEqual(edge.count('へ中継）'), len(relayed))
+        # The cloud VM is found by its display name, and relayed to its address.
+        self.assertIn(f'reverse_proxy https://{MEDIA_ADDRESS} {{', site_block(edge, 'nextcloud'))
+        self.assertIn(f'reverse_proxy https://{IDENTITY_ADDRESS} {{', site_block(edge, 'auth'))
+        self.assertIn(f'forward_auth https://{IDENTITY_ADDRESS} {{', site_block(edge, 'adguard'))
+        self.assertNotIn('cloud.', ''.join(line for line in edge.splitlines() if 'へ中継）' in line))
 
 
 if __name__ == '__main__':

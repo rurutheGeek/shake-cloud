@@ -9,20 +9,14 @@
     source_dir: '{{ playbook_dir }}/../../stacks'
     localsend_send_dir: /opt/localsend-send
   tasks:
-    - name: Create LocalSend deployment directory
-      ansible.builtin.file:
-        path: '{{ project_dir }}/media/localsend'
-        state: directory
-        mode: '0750'
-    - name: Copy LocalSend definitions
-      ansible.builtin.copy:
-        src: '{{ source_dir }}/media/localsend/{{ item }}'
-        dest: '{{ project_dir }}/media/localsend/{{ item }}'
-        mode: '0644'
-      loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
-    - name: Configure LocalSend environment
-      ansible.builtin.copy:
-        content: |
+    - name: Deploy the LocalSend stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/localsend'
+        compose_stack_project_dir: '{{ project_dir }}/media/localsend'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
           LIBRARY_ROOT={{ library_root }}
           TZ={{ tz | default('Asia/Tokyo') }}
@@ -31,16 +25,6 @@
           LOCALSEND_PORT={{ localsend_port | default(53317) }}
           LOCALSEND_ADMIN_PORT={{ localsend_admin_port | default(53318) }}
           LOCALSEND_DEVICE_NAME={{ localsend_device_name | default('media-01') }}
-        dest: '{{ project_dir }}/media/localsend/.env'
-        mode: '0600'
-    - name: Prepare LocalSend storage and the PIN secret
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', init]
-      changed_when: true
-    - name: Deploy LocalSend
-      ansible.builtin.command:
-        argv: [python3, '{{ project_dir }}/media/localsend/manage.py', up]
-      changed_when: true
     # 受信機は自己署名TLSなので、証明書検証を外して info を確認する。
     - name: Wait for the LocalSend receiver
       ansible.builtin.uri:
@@ -60,6 +44,8 @@
                '{{ playbook_dir }}/../sops/localsend-send.sops.yaml']
       register: localsend_send_secrets
       changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
       no_log: true
     - name: Create the LocalSend send directory
       ansible.builtin.file:

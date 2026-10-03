@@ -31,6 +31,22 @@ type Site struct {
 	SharedISOs    map[string]ISO          `json:"shared_isos"`
 	InstanceTypes map[string]InstanceType `json:"instance_types"`
 	Limits        Limits                  `json:"limits"`
+	Ledger        Ledger                  `json:"ledger"`
+}
+
+// Ledger says how instances are registered in NetBox as virtual machines,
+// which is where the Ansible inventory finds them. An empty Cluster turns
+// registration off.
+type Ledger struct {
+	// Cluster is the NetBox cluster the VMs are filed under.
+	Cluster string `json:"cluster"`
+	// GroupAccounts are the account IDs whose instances may be given the tags
+	// in TagsByName. Everyone else's instances are registered without them.
+	GroupAccounts []string `json:"group_accounts"`
+	// TagsByName maps an instance's Name tag to NetBox tag slugs. The tags
+	// become Ansible groups, so this is a checked-in declaration rather than
+	// something an instance can claim for itself.
+	TagsByName map[string][]string `json:"tags_by_name"`
 }
 
 // ISO is a shared installation image. Volume is the Proxmox volume ID in the
@@ -151,6 +167,8 @@ type Quota struct {
 }
 
 var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
+var ledgerAccountID = regexp.MustCompile(`^[0-9]{12}$`)
+var ledgerTag = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 var sharedISOID = regexp.MustCompile(`^iso-[a-z0-9-]+$`)
 
 // Load reads and checks the rendered file. A half-rendered site is refused at
@@ -210,6 +228,17 @@ func (s Site) Validate() error {
 	check(len(s.InstanceTypes) > 0, "site: no instance types")
 	for name, t := range s.InstanceTypes {
 		check(t.CPUCores > 0 && t.MemoryMiB >= t.MemoryMinMiB && t.MemoryMinMiB > 0, "site: instance type %s is inconsistent", name)
+	}
+	check(s.Ledger.Cluster != "" || (len(s.Ledger.GroupAccounts) == 0 && len(s.Ledger.TagsByName) == 0),
+		"site: ledger groups are declared but ledger.cluster is empty")
+	for _, account := range s.Ledger.GroupAccounts {
+		check(ledgerAccountID.MatchString(account), "site: ledger account %q is not a 12-digit account ID", account)
+	}
+	for name, tags := range s.Ledger.TagsByName {
+		check(name != "" && len(tags) > 0, "site: ledger entry %q has no tags", name)
+		for _, tag := range tags {
+			check(ledgerTag.MatchString(tag), "site: ledger tag %q for %s is not a NetBox tag slug", tag, name)
+		}
 	}
 	q, r, c := s.Limits.AccountQuota, s.Limits.RootDiskGiB, s.Limits.Capacity
 	check(q.Instances > 0 && q.VCPUs > 0 && q.MemoryMiB > 0 && q.RootDiskGiB > 0, "site: account quota must be positive")

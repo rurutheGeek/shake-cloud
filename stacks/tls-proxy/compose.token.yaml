@@ -1,0 +1,7 @@
+# Let's Encrypt から DNS-01 で証明書を取るホストだけに重ねる。入口の後ろのホストは
+# 重ねない（Cloudflare のトークンを持たない）。
+services:
+  caddy:
+    secrets: [cloudflare_dns_api_token]
+secrets:
+  cloudflare_dns_api_token: {file: ./secrets/cloudflare_dns_api_token}

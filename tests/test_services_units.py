@@ -70,12 +70,12 @@ class UnitTests(unittest.TestCase):
                       compose['services']['homarr']['environment']['SECRET_ENCRYPTION_KEY'])
         self.assertIn(':?', compose['services']['homarr']['environment']['SECRET_ENCRYPTION_KEY'])
 
-    def test_playbooks_use_the_static_bootstrap_group_and_isolated_paths(self):
+    def test_playbooks_target_the_services_group_and_isolated_paths(self):
         for name, expected in self.units.items():
             path = ROOT / 'platform/ansible' / expected['playbook']
             text = path.read_text(encoding='utf-8')
             play = yaml.safe_load(text)[0]
-            self.assertEqual(play['hosts'], 'netbox_bootstrap', name)
+            self.assertEqual(play['hosts'], 'services', name)
             # Services may be entered directly through manage.py (the new
             # units) or through the existing role wrapper (Homarr).
             role_based = 'manage.py' not in text and name in str(play.get('roles', []))

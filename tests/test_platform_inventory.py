@@ -137,6 +137,23 @@ class InventoryTests(unittest.TestCase):
             "'media-stack' in tags or 'media-stack' in "
             "(tags | map(attribute='slug', default='') | list)")
 
+    def test_cloud_instances_get_their_login_user_and_display_name(self):
+        # The cloud API registers a VM under its instance ID. Its readable name
+        # travels as cloud_name, and the group supplies the login user.
+        self.assertIn("'managed-by-cloud-api'", self.inventory['groups']['cloud_instances'])
+        # compose sees NetBox's raw object, where the name sits on the primary IP.
+        self.assertEqual(self.inventory['compose']['cloud_name'],
+                         "(primary_ip4 | default({}, true)).dns_name | default('')")
+        for group in ('cloud_instances', 'services'):
+            group_vars = yaml.safe_load(
+                (ROOT / f'platform/ansible/group_vars/{group}.yml').read_text(encoding='utf-8'))
+            self.assertEqual(group_vars['ansible_user'], 'debian', group)
+
+    def test_only_active_hosts_with_a_primary_address_are_targets(self):
+        # A stopped cloud VM is marked offline in NetBox, which keeps it out.
+        self.assertIn({'status': 'active'}, self.inventory['query_filters'])
+        self.assertIn({'has_primary_ip': 'true'}, self.inventory['vm_query_filters'])
+
     def test_the_inventory_no_longer_filters_on_the_media_tag(self):
         keys = [key for entry in self.inventory['query_filters'] for key in entry]
         self.assertNotIn('tag', keys)

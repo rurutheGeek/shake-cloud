@@ -113,3 +113,21 @@ func TestEveryProblemIsReported(t *testing.T) {
 		}
 	}
 }
+
+func TestALedgerWithGroupsNeedsAClusterAndRealNames(t *testing.T) {
+	s := sample()
+	s.Ledger = Ledger{Cluster: "k11", GroupAccounts: []string{"934162309796"}, TagsByName: map[string][]string{"media-01": {"media-stack"}}}
+	if err := s.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	s.Ledger = Ledger{GroupAccounts: []string{"ruru"}, TagsByName: map[string][]string{"media-01": {"Media Stack"}, "net-01": {}}}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("a broken ledger was accepted")
+	}
+	for _, want := range []string{"ledger.cluster is empty", `"ruru" is not a 12-digit account ID`, `"Media Stack"`, `"net-01" has no tags`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}

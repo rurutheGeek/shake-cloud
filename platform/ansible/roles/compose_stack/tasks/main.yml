@@ -1,0 +1,42 @@
+---
+- name: Create the stack directory
+  ansible.builtin.file:
+    path: '{{ compose_stack_project_dir }}'
+    state: directory
+    mode: '{{ compose_stack_directory_mode }}'
+
+- name: Copy the stack definitions
+  ansible.builtin.copy:
+    src: '{{ compose_stack_source_dir }}/{{ item }}'
+    dest: '{{ compose_stack_project_dir }}/{{ item }}'
+    mode: '0644'
+  loop: '{{ compose_stack_files }}'
+
+- name: Copy the stack directories
+  ansible.builtin.copy:
+    src: '{{ compose_stack_source_dir }}/{{ item }}/'
+    dest: '{{ compose_stack_project_dir }}/{{ item }}/'
+    mode: '0644'
+    directory_mode: '0755'
+  loop: '{{ compose_stack_directories }}'
+
+- name: Write the stack environment
+  ansible.builtin.copy:
+    content: '{{ compose_stack_env }}'
+    dest: '{{ compose_stack_project_dir }}/.env'
+    mode: '0600'
+  no_log: '{{ compose_stack_env_no_log }}'
+
+# manage.py は、何かを作った・変えたときだけ `CHANGED:` を出し、そうでなければ
+# `OK:` を出す。docker compose は作り直したコンテナを標準エラーへ書く。再実行で
+# 何も変わらなければ changed=0 になる。
+- name: Run the stack's manage.py
+  ansible.builtin.command:
+    argv: "{{ ['python3', compose_stack_project_dir ~ '/manage.py'] + ([item] if item is string else item) }}"
+  loop: '{{ compose_stack_actions }}'
+  register: compose_stack_manage
+  changed_when: >-
+    'CHANGED' in compose_stack_manage.stdout
+    or 'Created' in compose_stack_manage.stderr
+    or 'Recreated' in compose_stack_manage.stderr
+    or 'Started' in compose_stack_manage.stderr

@@ -71,3 +71,25 @@ capacity:
 
 # プール内でも API が払い出さない VMID。tools/verify-cloud.py の使い捨てVMが使う。
 probe_vmids: [5998, 5999]
+
+
+# NetBox への台帳登録。API は自分が作ったVMを NetBox の仮想マシンとして載せ、
+# Ansible の動的インベントリ（platform/ansible/inventory.netbox.yml）はそこから
+# 配備対象を見つける。稼働中のVMだけが active になり、止めると対象から外れる。
+ledger:
+  # 登録先のクラスタ。10-platform の netbox_cluster_name と同じ値。
+  cluster: k11
+  # Ansible のグループは NetBox のタグで決まる。**VM自身のタグでは決めない。**
+  # グループは「どの秘密値をそのホストへ配るか」を決めるので、誰でも付けられる
+  # 名前やタグに任せられない。ここに書いたアカウントの、ここに書いた名前
+  # （tags.Name）のVMだけにタグを付ける。それ以外のVMは台帳に載るだけ。
+  #
+  # アカウントIDは `shakecloud whoami`（GET /v1/caller-identity）で確かめる。
+  group_accounts:
+    - "934162309796"
+  # tags.Name → NetBox のタグ（platform/terraform/tags.yaml にあるものだけ）。
+  # VMを作り直しても名前が同じなら、ここは直さなくてよい。
+  tags_by_name:
+    media-01: [media-stack]
+    net-01: [vpn]
+    monitor-01: [monitoring]

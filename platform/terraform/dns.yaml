@@ -16,6 +16,21 @@
 #
 # 整合は tests/test_tls_proxy.py が検査する。
 zone: apextox.dpdns.org
+
+# HTTPS の入口。公開の証明書（Let's Encrypt）と Cloudflare のトークンを持つのは
+# このホストの Caddy だけにする。
+#
+#   host     : 入口のホスト
+#   backends : 入口の後ろへ移し終えたホスト。ここに書いたホストの名前は 20-dns が
+#              入口のアドレスへ向け、入口が中継する。中継先との間は、中継先の
+#              Caddy が自分の内部CAで出す証明書で暗号化し、入口がそのCAを確かめる。
+#              認証（Forward Auth）や経路の振り分けは、今までどおり中継先の Caddy が行う。
+#
+# **1台ずつ足す。** 手順は docs/operations/edge.md。空のあいだは、各ホストが
+# 従来どおり自分で証明書を取る。
+edge:
+  host: services-01
+  backends: []
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
