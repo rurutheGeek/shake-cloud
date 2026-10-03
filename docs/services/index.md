@@ -62,8 +62,6 @@ tags:
 
 ## 管理側のページ
 
-次のページは利用者が変更する場所ではありません。内容を知りたいときだけ読んでください。
-
 - [Nextcloudのアクセス権限](../operations/nextcloud-permissions.md)
 - [共通ログインの管理](../operations/identity.md)
 - [配備台帳](../operations/handover.md)
