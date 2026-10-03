@@ -111,6 +111,8 @@ Commands:
   instance rm ID [--wait]        Terminate an instance
   instance console ID            Print a short-lived console URL
   instance sg ID GROUP...        Replace an instance's security groups
+  instance tag [--name N] [--tag k=v]... [--remove k]... ID
+                                 Rename an instance or change its tags
   instance modify ID [--vcpus N] [--memory MIB] [--min-memory MIB]
                      [--balloon=true|false] [--disk GiB]
   instance types                 List size presets

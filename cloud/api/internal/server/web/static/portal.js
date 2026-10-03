@@ -868,6 +868,48 @@
     });
   }
 
+  // The API replaces the whole tag set, so the form shows every tag and what
+  // is saved is exactly what the form holds.
+  async function toggleTagEditRow(row, instance, source) {
+    const already = row.nextElementSibling;
+    if (already?.classList.contains('edit-row')) { await dismissEditor(already, source); return; }
+    const before = instance.tags || {};
+    const form = document.createElement('form');
+    form.className = 'edit-instance';
+    const nameLabel = document.createElement('label');
+    nameLabel.textContent = '名前 ';
+    const nameInput = document.createElement('input');
+    nameInput.name = 'name'; nameInput.maxLength = 255; nameInput.value = before.Name || '';
+    nameLabel.append(nameInput);
+    const tagsLabel = document.createElement('label');
+    tagsLabel.textContent = 'タグ ';
+    const tagsInput = document.createElement('input');
+    tagsInput.name = 'tags'; tagsInput.maxLength = 1024; tagsInput.placeholder = '例: Purpose=dev, Team=home';
+    tagsInput.value = Object.entries(before).filter(([key]) => key !== 'Name').sort().map(([key, value]) => tagText(key, value)).join(', ');
+    tagsLabel.append(tagsInput);
+    const note = document.createElement('p');
+    note.className = 'muted small';
+    note.textContent = '名前を変えると一覧と Proxmox の表示名が変わります。VMの中のホスト名は変わりません。';
+    const save = document.createElement('button');
+    save.type = 'submit'; save.textContent = '保存';
+    form.append(nameLabel, tagsLabel, note, save);
+    const editRow = mountEditor(row, instance, form, source);
+    onAction(form, 'submit', async () => {
+      const tags = parseTags(tagsInput.value);
+      const name = nameInput.value.trim();
+      if (name) tags.Name = name;
+      const latest = await currentInstance(instance);
+      if (JSON.stringify(Object.entries(latest.tags || {}).sort()) !== JSON.stringify(Object.entries(before).sort())) {
+        throw new Error('別の操作でタグが変更されました。入力を控え、編集を開き直してください。');
+      }
+      await api('PUT', `/v1/instances/${encodeURIComponent(instance.instance_id)}/tags`, { tags });
+      delete form.dataset.dirty;
+      editRow.remove();
+      announce(`${name || instance.instance_id} の名前・タグを保存しました。`);
+      await loadInstances();
+    });
+  }
+
   function tagText(key, value) {
     return value === '' ? key : `${key}=${value}`;
   }
@@ -988,6 +1030,11 @@
       changeGroups.textContent = '変更';
       onAction(changeGroups, 'click', async () => { await toggleGroupEditRow(row, instance, changeGroups); });
       groupsCell.append(changeGroups);
+      const changeTags = document.createElement('button');
+      changeTags.type = 'button';
+      changeTags.textContent = '名前・タグを編集';
+      onAction(changeTags, 'click', async () => { await toggleTagEditRow(row, instance, changeTags); });
+      nameCell.append(changeTags);
     }
 
     const actions = document.createElement('td');

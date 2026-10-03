@@ -167,6 +167,13 @@ func GetInstance(ctx context.Context, q Querier, id string) (Instance, error) {
 }
 
 // LockInstance reads an instance and holds its row until the transaction ends.
+// SetInstanceTags replaces an instance's tags and its display name (the Name tag).
+func SetInstanceTags(ctx context.Context, q Querier, id, name string, tags map[string]string) error {
+	_, err := q.Exec(ctx, `UPDATE instances SET tags = $2, name = $3, updated_at = now() WHERE instance_id = $1`,
+		id, tags, name)
+	return err
+}
+
 func LockInstance(ctx context.Context, q Querier, id string) (Instance, error) {
 	return scanInstance(q.QueryRow(ctx, `SELECT `+instanceColumns+` FROM instances i WHERE i.instance_id = $1 FOR UPDATE`, id))
 }
