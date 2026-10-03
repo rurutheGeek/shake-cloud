@@ -95,3 +95,6 @@ ledger:
   tags_by_name:
     media-01: [media-stack]
     apps-01: [apps]
+    # 旧 dev-b（引き取り）。自動化の実行ホスト。devbox のタグは基盤VM用なので
+    # 付けない。dev-01 は別の利用者のVMで、台帳に載るだけ。
+    dev-02: [automation]

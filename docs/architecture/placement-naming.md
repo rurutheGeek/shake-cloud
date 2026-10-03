@@ -25,7 +25,7 @@ VMの置き場所（Terraformで直接作るか、クラウドAPIで作るか）
 | router-01 | Terraform（router） | 家庭内ルータ（OpenWrt） |
 | identity・cloud-01・storage-s3 | Terraform（`hosts.yaml`） | Authentik、クラウドAPI、Garage |
 | k8s-cp-01・k8s-worker-01/02 | Terraform（`hosts.yaml`） | Kubernetes（使うときだけ起動） |
-| dev-a・dev-b・probe-01 | Terraform（`hosts.yaml`） | 開発VM、クラウドの検証用 |
+| probe-01 | Terraform（`hosts.yaml`） | クラウドの検証用（dev-a・dev-b は 2026-10-03 にクラウドVMへ引き取り済み） |
 | services-01 | Terraform（`05-seed`） | **NetBox・入口のCaddy と、アプリ10個の同居**（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy 2つ・CUPS・mail-view・ドキュメント・poke-translate） |
 | media-01・monitor-01・net-01・android-01・win11pro | クラウドAPI | メディア、監視、Tailscale、Android、Windows検証 |
 | game1 | 手作り（クラウドAPIが引き取り済み） | ゲームサーバ |
@@ -71,8 +71,8 @@ core-01 の中身は、いま測った使用量で約2.9GB（Authentik 約1.4GB�
 | media-01 | media-01 | サービス | `rurutheGeek` | 変更なし |
 | **apps-01**（新） | — | サービス | `rurutheGeek` | services-01 に同居しているアプリ全部（Homarr・Vaultwarden・LibreSpeed・Home Assistant・eufy 2つ・CUPS・mail-view・ドキュメント・poke-translate） |
 | game-01 | game1 | サービス | `shunyazhiyuan97` | ゲームサーバ。作り直すときに改名し、VMID も直す |
-| **dev-01** | dev-a | 開発 | `shunyazhiyuan97` | 開発VM。基盤（Terraform）からクラウドVMへ移す |
-| **dev-02** | dev-b | 開発 | `rurutheGeek` | 開発VM。同上。**このリポジトリの管理作業をしている機械**なので、移すのは最後にし、作業中のデータ（ホーム約20GB）を先に退避する |
+| **dev-01** | dev-a | 開発 | `shunyazhiyuan97` | 開発VM。**2026-10-03 にクラウドVMへ引き取り済み**（作り直さず、そのまま登録） |
+| **dev-02** | dev-b | 開発 | `rurutheGeek` | 開発VM。同上（引き取りなのでデータの退避は不要だった）。**このリポジトリの管理作業をしている機械** |
 | android-01 | android-01 | 開発 | `rurutheGeek` | Android の検証 |
 | win-01 | win11pro | 開発 | `rurutheGeek` | Windows 11 の検証 |
 
@@ -106,8 +106,8 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 | 3 | storage-s3 を cloud-01 へ合流する | **完了（2026-10-03）**。旧 Garage はバケットもキーも0件だったので、cloud-01 にデータディスク（32GiB）を足して新しく構築し、クラウドAPIの接続先とトークンを切り替えた。storage-s3 の Garage は停止 |
 | 4 | Tailscale をルータへ移し、net-01 を消す | **完了（2026-10-03）**。ルータへ移し、宅外からの接続を確認。net-01 は削除（`services/net`・`net.yml`・`tailscale` ロールもリポジトリから外した） |
 | 5 | monitor-01 を基盤へ移す | **完了（2026-10-03）**。基盤側の VMID 120（192.168.10.210）。移行中は `monitor-02` という名前で作り、旧クラウドVMを削除したあと `monitor-01` へ改名した（VMは作り直していない） |
-| 6 | 開発VM（dev-a・dev-b）をクラウドVMへ、win11pro・game1 を改名 | **win11pro は `win-01` へ改名済み（2026-10-03）。** dev-a・dev-b・game1 は使用中のため、指示があるまで触らない |
-| 7 | 空になった identity・storage-s3、基盤側の dev-a・dev-b を消す | **identity・storage-s3 は削除済み（2026-10-03）**。core-01 に残していたアプリの旧データも削除。dev-a・dev-b は段階6のあと |
+| 6 | 開発VM（dev-a・dev-b）をクラウドVMへ、win11pro・game1 を改名 | **win11pro は `win-01` へ改名済み（2026-10-03）。** **dev-a・dev-b は `dev-01`・`dev-02` としてクラウドVMへ引き取り済み（2026-10-03。再起動なし）。** VMの中のホスト名は次の再起動で新しい名前になる。game1 は使用中のため、指示があるまで触らない |
+| 7 | 空になった identity・storage-s3、基盤側の dev-a・dev-b を消す | **identity・storage-s3 は削除済み（2026-10-03）**。core-01 に残していたアプリの旧データも削除。基盤側の dev-a・dev-b の定義（`hosts.yaml`・NetBox）も削除済み（2026-10-03） |
 
 ### 段階2: core-01 の作り方
 

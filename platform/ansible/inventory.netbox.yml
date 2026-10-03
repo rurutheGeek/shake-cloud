@@ -30,6 +30,7 @@ groups:
   identity_provider: "'identity' in tags or 'identity' in (tags | map(attribute='slug', default='') | list)"
   cloud_control: "'cloud-control' in tags or 'cloud-control' in (tags | map(attribute='slug', default='') | list)"
   devbox: "'devbox' in tags or 'devbox' in (tags | map(attribute='slug', default='') | list)"
+  automation: "'automation' in tags or 'automation' in (tags | map(attribute='slug', default='') | list)"
   edge: "'edge' in tags or 'edge' in (tags | map(attribute='slug', default='') | list)"
   storage: "'storage' in tags or 'storage' in (tags | map(attribute='slug', default='') | list)"
   vpn: "'vpn' in tags or 'vpn' in (tags | map(attribute='slug', default='') | list)"

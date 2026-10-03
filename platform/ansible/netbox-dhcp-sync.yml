@@ -1,5 +1,5 @@
 ---
-# dev-b で NetBox とルータの DHCP を定期同期する。
+# dev-02（旧 dev-b）で NetBox とルータの DHCP を定期同期する。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 #        .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
@@ -9,7 +9,8 @@
 # 実行ユーザー（既定 ruru）の SOPS age 鍵・ルータへの SSH 鍵・リポジトリを使う。
 # 手順と分担は docs/operations/netbox.md を参照。
 - name: Sync NetBox and the router's DHCP on a timer
-  hosts: dev-b
+  # dev-02 はクラウドVMなので、台帳では i-... の名前で載る。群で指す。
+  hosts: automation
   become: true
   roles:
     - netbox_dhcp_sync
