@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-CONFIG = Path('/srv/services/home-assistant/config')
+CONFIG = Path('/srv/home-assistant/config')
 ENTITY = 'camera.eufycam_s4_leo_rtc'
 BASE = 'http://127.0.0.1:8123'
 

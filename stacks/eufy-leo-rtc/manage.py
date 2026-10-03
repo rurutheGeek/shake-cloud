@@ -28,7 +28,7 @@ def settings():
 
 def storage_path(config=None):
     config = settings() if config is None else config
-    path = Path(config.get('STORAGE_ROOT', '/srv/services/eufy-leo-rtc')).resolve()
+    path = Path(config.get('STORAGE_ROOT', '/srv/eufy-leo-rtc')).resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must be outside the project directory')
     return path

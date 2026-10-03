@@ -1,13 +1,14 @@
 ---
-# Home Assistant Container を services-01 の独立 Compose プロジェクトへ配備する。
-# 初回は静的な seed inventory、以後は services-01 を含む基盤 inventory を使う。
+# Home Assistant Container を apps-01 の独立 Compose プロジェクトへ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/home-assistant.yml'
 - name: Deploy Home Assistant Container
-  hosts: services
+  hosts: apps
   become: true
   vars:
     source_dir: '{{ playbook_dir }}/../../stacks/home-assistant'
-    home_assistant_project_dir: /opt/services/home-assistant
-    home_assistant_storage_root: /srv/services/home-assistant
+    home_assistant_project_dir: /opt/home-assistant
+    home_assistant_storage_root: /srv/home-assistant
     home_assistant_port: 8123
     home_assistant_tz: Asia/Tokyo
     # compose.yaml で固定した homeassistant ネットワークのゲートウェイ。

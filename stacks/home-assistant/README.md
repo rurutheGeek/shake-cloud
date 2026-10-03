@@ -1,16 +1,16 @@
 # Home Assistant Containerの開発入口
 
-状態: **H01は2026-09-12にservices-01へ配備済み（HA 2026.9.2）。ローカルオーナーの作成とAuthentik SSO（`hass-oidc-auth`）での実ログイン、Eufy統合の導入まで動作確認済み。バックアップと復元試験は未完**。Compose・`manage.py`・Ansible・テストはこのディレクトリにある。H02はSwitchBot Cloud統合を追加済み、H03は見送り、H04はライブ映像不可を実機で確定。
+状態: **H01は2026-09-12にapps-01へ配備済み（HA 2026.9.2）。ローカルオーナーの作成とAuthentik SSO（`hass-oidc-auth`）での実ログイン、Eufy統合の導入まで動作確認済み。バックアップと復元試験は未完**。Compose・`manage.py`・Ansible・テストはこのディレクトリにある。H02はSwitchBot Cloud統合を追加済み、H03は見送り、H04はライブ映像不可を実機で確定。
 
 ## 配備先・担当
 
-配備先: **services-01**。プロジェクトは `/opt/services/home-assistant`、状態は `/srv/services/home-assistant`（`config/`）で、Composeプロジェクト名は `services-home-assistant`。127.0.0.1:8123に閉じ、入口は既存Caddyの <https://ha.apextox.dpdns.org>（[H01](../../docs/development/H01-home-assistant.md)）。
+配備先: **apps-01**。プロジェクトは `/opt/home-assistant`、状態は `/srv/home-assistant`（`config/`）で、Composeプロジェクト名は `services-home-assistant`。127.0.0.1:8123に閉じ、入口は既存Caddyの <https://ha.apextox.dpdns.org>（[H01](../../docs/development/H01-home-assistant.md)）。
 
 担当計画: [H01 Home Assistant](../../docs/development/H01-home-assistant.md)、[H02 SwitchBot](../../docs/development/H02-switchbot.md)、[H03 Echo](../../docs/development/H03-echo.md)、[H04 Eufy](../../docs/development/H04-eufy.md)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
 
 ## 配備と管理
 
-初回は静的inventory、以後はservices-01を含む基盤inventoryを使う。
+初回は静的inventory、以後はapps-01を含む基盤inventoryを使う。
 
 ```bash
 .venv/bin/ansible-playbook -i platform/ansible/seed.ini platform/ansible/home-assistant.yml
@@ -22,7 +22,7 @@
 - **カメラの死活監視**: ライブ配信が長く失敗すると HA がカメラを `unavailable` にし、UI がライブを開始できなくなる（キャッシュされた静止画だけが出る）。`camera_watch.py` を systemd timer（2 分ごと）で回し、`unavailable` のときだけ generic の config entry を reload して復帰させる（Ansible が配備）。
 - **Generic Camera も UI 専用**（2026.9 時点で YAML 不可）。`manage.py ensure-camera --name <名前> --stream rtsp://<host>:8554/<path>` が `.storage/core.config_entries` へ直接エントリを書き、再起動して反映する（`ensure-http-proxy` と同じ方針）。Ansible は `home_assistant_camera_name`／`home_assistant_camera_stream` で呼ぶ。ストリームは Eufy leo_rtc クライアント（`stacks/eufy-leo-rtc/`、android-01 VM の Mediamtx）が供給する。
 - `manage.py install-integration` はEufy統合 `eufy_security`（v8.2.4）も入れる。実機接続は中継の[`stacks/eufy-security-ws/`](../eufy-security-ws/README.md)（H04）とHAの「統合を追加」で行う。
-- `configuration.yaml` などのHAの設定はGitに置かず、`/srv/services/home-assistant/config` を正本として上書きしない（`auth_oidc` の管理ブロックだけが例外）。秘密値・トークンはHAのconfig entry側に入り、Git/ログへ出さない。
+- `configuration.yaml` などのHAの設定はGitに置かず、`/srv/home-assistant/config` を正本として上書きしない（`auth_oidc` の管理ブロックだけが例外）。秘密値・トークンはHAのconfig entry側に入り、Git/ログへ出さない。
 
 ## 再利用するもの
 
@@ -34,4 +34,4 @@
 
 同居サービスのCompose名・ポート・永続保存先を衝突させない。共有DNS／TLS・同一state適用・VM再起動だけを調整し、コードと資料の作業は並列に進める。サービスの起動確認・認証・再配備・停止再開・データ復元は各担当計画の完了条件を使う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。services-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。apps-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

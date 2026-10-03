@@ -1,4 +1,4 @@
-"""配備スタック（services-01）の静的な検査。
+"""配備スタック（apps-01）の静的な検査。
 
 壊れると: ホストネットワークや秘密値の受け渡しが崩れ、HA と同じホストで
 ライブ配信が動かなくなる。
@@ -49,8 +49,8 @@ class StackTests(unittest.TestCase):
 class PlaybookTests(unittest.TestCase):
     def test_playbook_deploys_the_stack_with_sops_credentials(self):
         play = yaml.safe_load(PLAY.read_text(encoding='utf-8'))[0]
-        self.assertEqual(play['hosts'], 'netbox_bootstrap')
-        self.assertEqual(play['vars']['leo_project_dir'], '/opt/services/eufy-leo-rtc')
+        self.assertEqual(play['hosts'], 'apps')
+        self.assertEqual(play['vars']['leo_project_dir'], '/opt/eufy-leo-rtc')
         self.assertEqual(play['vars']['leo_keys'],
                          ['EUFY_SN', 'EUFY_DID', 'EUFY_LICENSE', 'EUFY_ACCOUNT', 'EUFY_CONTACT'])
         self.assertIn('eufy-security.sops.yaml', play['vars']['leo_sops_file'])

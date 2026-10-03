@@ -166,7 +166,8 @@ records:
     upstream: 127.0.0.1:8320
     description: ポケモン用語対応翻訳（翻訳サイトと拡張機能の配布）
   ha:
-    host: services-01
+    host: apps-01
+    address: 192.168.10.105
     upstream: 127.0.0.1:8123
     description: Home Assistant（家電・自動化）
   docs:

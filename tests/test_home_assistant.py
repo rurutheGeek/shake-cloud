@@ -40,7 +40,7 @@ class ComposeTests(unittest.TestCase):
     def test_service_is_loopback_only_and_persists_config(self):
         service = self.compose['services']['homeassistant']
         self.assertEqual(service['ports'], ['127.0.0.1:${HOME_ASSISTANT_PORT:-8123}:8123'])
-        self.assertIn('${STORAGE_ROOT:-/srv/services/home-assistant}/config:/config',
+        self.assertIn('${STORAGE_ROOT:-/srv/home-assistant}/config:/config',
                       service['volumes'])
 
     def test_the_container_does_not_require_host_network_or_privileged_mode(self):
@@ -62,7 +62,7 @@ class ManageTests(unittest.TestCase):
         self.patch = patch.object(self.manage, 'ROOT', self.root)
         self.patch.start()
         (self.root / '.env.example').write_text(
-            'STORAGE_ROOT=/srv/services/home-assistant\nHOME_ASSISTANT_PORT=8123\nTZ=Asia/Tokyo\n',
+            'STORAGE_ROOT=/srv/home-assistant\nHOME_ASSISTANT_PORT=8123\nTZ=Asia/Tokyo\n',
             encoding='utf-8',
         )
 
@@ -381,7 +381,7 @@ class IdentityTests(unittest.TestCase):
 class AnsibleTests(unittest.TestCase):
     def test_playbook_uses_independent_project_and_storage(self):
         play = yaml.safe_load(PLAYBOOK.read_text(encoding='utf-8'))[0]
-        self.assertEqual(play['hosts'], 'services')
+        self.assertEqual(play['hosts'], 'apps')
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn('home_assistant_project_dir', text)
         self.assertIn('home_assistant_storage_root', text)
