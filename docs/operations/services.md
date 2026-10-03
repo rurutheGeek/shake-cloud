@@ -248,7 +248,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ### 切替の手順と、まだ残っている手書きインベントリ
 
-**2026-10-02 時点ではコードだけ入っていて、実機への切替は未実施です。** 次の順で切り替えます。
+**2026-10-03 に実機を切り替えました**（1 は NetBox のタグと services-01 の台帳だけを `-target` で適用。全体の apply は、使用中の開発VMに差分が出るため未実施）。手順は次のとおりです。
 
 1. `tools/tf 10-platform apply` — NetBox にタグ `media-stack`・`monitoring`・`services` と、services-01 の台帳（VM・インターフェース・primary IP）を作る
 2. `cloud.yml` を流してクラウドAPIを更新する（`site.json` に `ledger` が入り、API が台帳への登録を始める）

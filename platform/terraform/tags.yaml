@@ -16,6 +16,9 @@ tags:
   monitoring:
     ansible_group: monitoring
     description: 監視（Prometheus・Alertmanager・Grafana）
+  apps:
+    ansible_group: apps
+    description: 利用者向けアプリの置き場（apps-01。Homarr・Vaultwarden・Home Assistant など）
   services:
     ansible_group: services
     description: 台帳・共有サービスの置き場（NetBox・Homarr・Vaultwarden など）

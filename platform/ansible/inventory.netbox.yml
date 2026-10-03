@@ -36,6 +36,7 @@ groups:
   lab: "'lab' in tags or 'lab' in (tags | map(attribute='slug', default='') | list)"
   monitoring: "'monitoring' in tags or 'monitoring' in (tags | map(attribute='slug', default='') | list)"
   services: "'services' in tags or 'services' in (tags | map(attribute='slug', default='') | list)"
+  apps: "'apps' in tags or 'apps' in (tags | map(attribute='slug', default='') | list)"
   cloud_instances: "'managed-by-cloud-api' in tags or 'managed-by-cloud-api' in (tags | map(attribute='slug', default='') | list)"
 # クラウドAPIが登録したVMは、ホスト名がインスタンスID（i-...）になる。作り直しても
 # 変わらない表示名は primary IP の dns_name にあるので、cloud_name として渡す

@@ -1,0 +1,18 @@
+# platform/terraform/services/monitor の入力例。
+# **terraform.tfvars はコミットしない。** state と同様、秘密値が入り得る。
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   # 必要な値だけ書く
+
+# cloud API の鍵ペアへ登録する公開鍵のファイル。秘密鍵ではない。
+# 正本は platform/terraform/access.yaml の admin_ssh_public_keys。
+# 既定は ~/.ssh/id_ed25519.pub。
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+
+# サイズは M01 の開始予算（2vCPU／2GiB、OS32＋データ32GiB）。
+# Prometheus の保持期間と実測で確定する。
+# vcpus          = 2
+# memory_mib     = 2048
+# memory_min_mib = 1024
+# root_disk_gib  = 32
+# data_disk_gib  = 32
