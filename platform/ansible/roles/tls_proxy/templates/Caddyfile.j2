@@ -151,11 +151,12 @@
 # {{ site.value.description }}（{{ site.value.host }} へ中継）
 {{ site.key }}.{{ tls_proxy_dns.zone }} {
 	import dns_challenge
-{% if auth_backend and site.value.auth | default(false) %}
+{% if (auth_backend or tls_proxy_catchall_upstream | default('')) and site.value.auth | default(false) %}
 	# Forward Auth の問い合わせは、アプリの名前（Host）のまま auth の名前＝この入口へ
-	# 届く。アプリのホストへ戻すと問い合わせが輪になるので、identity へ渡す。
+	# 届く。アプリのホストへ戻すと問い合わせが輪になるので、Authentik へ渡す。
 	@outpost path /outpost.goauthentik.io/*
 	handle @outpost {
+{% if auth_backend %}
 		reverse_proxy https://{{ auth_backend.address }} {
 			header_up Host {host}
 			transport http {
@@ -163,6 +164,10 @@
 				tls_trust_pool file /etc/caddy/backend-ca/{{ auth_backend.host }}.crt
 			}
 		}
+{% else %}
+		# Authentik はこの入口と同じホストに居る。
+		reverse_proxy {{ tls_proxy_catchall_upstream }}
+{% endif %}
 	}
 	handle {
 		reverse_proxy https://{{ site.address }} {

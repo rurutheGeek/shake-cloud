@@ -338,6 +338,23 @@ class EdgeRenderingTests(unittest.TestCase):
         self.assertIn('reverse_proxy 127.0.0.1:', site_block(rendered, 'netbox'))
         self.assertNotIn('@outpost', rendered)
 
+    def test_forward_auth_does_not_loop_when_authentik_is_on_the_edge(self):
+        # Authentik runs on the edge host itself (core-01). A backend asks
+        # auth.<zone> (= the edge) with the app's Host; the edge must hand
+        # that to Authentik, not relay it back to the backend.
+        relayed = [{'key': name, 'value': record, 'address': MEDIA_ADDRESS}
+                   for name, record in DNS['records'].items()
+                   if record.get('host') == CLOUD_NAME and 'upstream' in record]
+        rendered = caddyfile(sites_of(SEED_HOST), tls_proxy_passthrough_sites=relayed,
+                             tls_proxy_catchall_upstream='127.0.0.1:9000',
+                             tls_proxy_authentik_url='http://127.0.0.1:9000')
+        navidrome = site_block(rendered, 'navidrome')
+        outpost = navidrome[navidrome.index('handle @outpost'):navidrome.index('handle {')]
+        self.assertIn('reverse_proxy 127.0.0.1:9000', outpost)
+        self.assertNotIn('backend-ca', outpost)
+        self.assertIn(f'reverse_proxy https://{MEDIA_ADDRESS} {{', navidrome)
+        self.assertNotIn('@outpost', site_block(rendered, 'nextcloud'))
+
     def test_forward_auth_does_not_loop_once_identity_is_behind_the_edge(self):
         identity = {'host': 'identity', 'address': IDENTITY_ADDRESS, 'name': f"auth.{DNS['zone']}"}
         relayed = [{'key': name, 'value': record,
