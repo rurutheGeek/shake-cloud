@@ -126,8 +126,10 @@ class DeploymentTests(unittest.TestCase):
         defaults = yaml.safe_load((ROLE / 'defaults/main.yml').read_text(encoding='utf-8'))
         self.assertEqual(defaults['pkdb_sql'], [
             {'database': 'sleepy_pkdb', 'file': 'lowercase.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'data_fixes.sql'},
             {'database': 'postgres', 'file': 'ubsleepy.sql'},
             {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
+            {'database': 'ubsleepy_test', 'file': 'ubsleepy_tables.sql'},
         ])
         text = (STACK / 'sql/lowercase.sql').read_text(encoding='utf-8')
         for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
@@ -146,6 +148,19 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('PASSWORD', text)
         for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
             self.assertNotIn(forbidden, text, forbidden)
+
+    def test_the_data_fixes_only_add_or_correct_and_refresh_the_views(self):
+        text = (STACK / 'sql/data_fixes.sql').read_text(encoding='utf-8')
+        for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE '):
+            self.assertNotIn(forbidden, text, forbidden)
+        self.assertIn('ON CONFLICT DO NOTHING', text)
+        self.assertIn('IS DISTINCT FROM', text)
+        self.assertIn('REFRESH MATERIALIZED VIEW mv_latest_pokemon_status', text)
+
+    def test_the_test_deployment_has_its_own_save_database(self):
+        text = (STACK / 'sql/ubsleepy.sql').read_text(encoding='utf-8')
+        self.assertIn("CREATE DATABASE ubsleepy_test OWNER ubsleepy_writer", text)
+        self.assertNotIn('PASSWORD', text.replace('パスワード', ''))
 
     def test_the_ubsleepy_tables_script_grants_the_reader(self):
         text = (STACK / 'sql/ubsleepy_tables.sql').read_text(encoding='utf-8')
@@ -306,6 +321,20 @@ class ManageTests(unittest.TestCase):
         with patch.object(manage, 'local', client):
             manage.apply('sleepy_pkdb', script)
         self.assertEqual(len(calls), 1)
+
+    def test_apply_always_runs_against_the_maintenance_database(self):
+        project, _ = self.project()
+        script = project / 'ubsleepy.sql'
+        script.write_text('select 1;', encoding='utf-8')
+        calls = []
+
+        def client(program, *args, **kwargs):
+            calls.append(args)
+            return SimpleNamespace(stdout='', stderr='')
+        with patch.object(manage, 'local', client):
+            manage.apply('postgres', script)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:2], ('-d', 'postgres'))
 
     def test_apply_runs_the_script_in_one_transaction_and_reports_changes(self):
         project, _ = self.project()
