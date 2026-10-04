@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from . import actions
@@ -76,11 +76,12 @@ def render_service(request: Request, user: str, service: actions.Service,
         timeout=60)
     if code != 0:
         logs = logs or 'ログを取得できませんでした'
+    files = [actions.read_file_view(spec) for spec in service.files]
     return templates.TemplateResponse(
         request, 'service.html',
         {'user': user, 'service': service, 'state': state,
          'revision': actions.git_revision(service.source_dir),
-         'buttons': service.action_buttons(),
+         'buttons': service.action_buttons(), 'files': files,
          'logs': logs, 'tail': lines, 'result': result},
         status_code=status_code)
 

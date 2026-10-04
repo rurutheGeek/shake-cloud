@@ -78,6 +78,23 @@ class RegistryTests(unittest.TestCase):
             actions.command_for(service, 'down')
 
 
+class FileViewTests(unittest.TestCase):
+    def test_csv_view_keeps_the_tail_and_header(self):
+        with tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, encoding='utf-8') as file:
+            file.write('学籍番号,ユーザー名\nJ1,a\nJ2,b\nJ3,c\n')
+            path = file.name
+        self.addCleanup(lambda: Path(path).unlink(missing_ok=True))
+
+        view = actions.read_file_view({'label': '名簿', 'path': path, 'kind': 'csv', 'tail': 2})
+        self.assertEqual(view['header'], ['学籍番号', 'ユーザー名'])
+        self.assertEqual(view['rows'], [['J2', 'b'], ['J3', 'c']])
+        self.assertEqual(view['total'], 3)
+
+    def test_missing_file_reports_an_error(self):
+        view = actions.read_file_view({'label': '名簿', 'path': '/no/such/file.csv', 'kind': 'csv'})
+        self.assertEqual(view['error'], 'ファイルがありません')
+
+
 class StackTests(unittest.TestCase):
     def compose(self):
         return yaml.safe_load((STACK / 'compose.yaml').read_text(encoding='utf-8'))
@@ -91,6 +108,7 @@ class StackTests(unittest.TestCase):
         self.assertIn('/var/run/docker.sock:/var/run/docker.sock', volumes)
         self.assertIn('/opt/ubsleepy:/opt/ubsleepy', volumes)
         self.assertIn('/opt/circleauth:/opt/circleauth', volumes)
+        self.assertIn('/srv/circleauth-test:/srv/circleauth-test', volumes)
 
     def test_the_dns_record_goes_through_forward_auth(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
@@ -107,6 +125,8 @@ class StackTests(unittest.TestCase):
         self.assertEqual(configure.BOT_PORTAL, 'portal')
         source = (ROOT / 'stacks/identity/configure.py').read_text(encoding='utf-8')
         self.assertIn('configure_bot_portal(api, groups, flows, portal_url)', source)
+        # コンテナとmanage.pyを触れる画面なので、adminsだけに開ける。
+        self.assertIn("admins may use {BOT_PORTAL}", source)
 
     def test_the_playbook_targets_apps(self):
         play = yaml.safe_load(
