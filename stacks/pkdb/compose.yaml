@@ -13,8 +13,8 @@ services:
     environment:
       # 旧ホストと同じ UTC のままにする（initdb が TZ から timezone を決める）。
       TZ: UTC
-      # 管理者 postgres のパスワードは secrets/ から Compose secret で渡す。
-      # アプリ用ロールは旧ホストのハッシュごと manage.py restore が作る。
+      # 空のサーバを初期化するときの管理者パスワード。secrets/ から Compose secret で
+      # 渡す。manage.py restore が、全ロール（postgres を含む）をダンプのハッシュへ揃える。
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     volumes:
       - ${STORAGE_ROOT:-/srv/pkdb}/data:/var/lib/postgresql/data

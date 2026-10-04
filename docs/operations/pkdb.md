@@ -23,11 +23,37 @@ tags:
 | 版 | PostgreSQL 15.15（`postgres:15.15-alpine`、digest固定）。旧ホストと同じ版・同じ musl |
 | DB | `sleepy_pkdb`（スキーマ `pokemondb`）、`shakeweb`、`pkhack` |
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |
-| 管理者 | `postgres`。パスワードは apps-01 の `/opt/pkdb/secrets/postgres_password`（0400、初回に生成。**旧ホストのものとは別**） |
+| 管理者 | `postgres`。**パスワードは旧ホストと同じ**。apps-01 の `/opt/pkdb/secrets/postgres_password`（0400）にも同じ値を置いてある |
 | タイムゾーン | UTC（旧ホストと同じ） |
-| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。普段は `pkdb_editor`、`postgres` は必要なときだけ |
+| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。パスワードはどのロールも旧ホストと同じ。普段は `pkdb_editor`、`postgres` は必要なときだけ |
 | 表と列の説明 | [ポケモンDBの取扱説明書](../reference/pokemondb.md) |
 | コード | `stacks/pkdb/`、`platform/ansible/roles/pkdb`、`platform/ansible/pkdb.yml`、セキュリティグループは `platform/terraform/services/apps/main.tf`、名前は `platform/terraform/dns.yaml` |
+
+## 名前の小文字化
+
+**`sleepy_pkdb` の表・列・制約・索引の名前は、2026-10-04 に大文字から小文字へ改名しました**（`"POKEMON_STATUS"` → `pokemon_status`）。引用符なしで書けます。データベースの `search_path` も `pokemondb, public` にしたので、スキーマ名も省けます。
+
+- 定義は `stacks/pkdb/sql/lowercase.sql`。配備のたびに流れ、改名済みなら何もしません。ビューとマテリアライズドビューの定義は PostgreSQL が追従します。関数 `upsert_pokemon_move_learn` は本体を書き換えて作り直します（引数は同じ）。
+- **旧ホストのDBは大文字のまま**です。`bsquiz` などを切り替えるときに、アプリのSQLを小文字へ直します。
+- 旧ホストから取り直して復元したときも、配備（または下のコマンド）で小文字に揃います。
+- 改名後は、旧ホストとの `fingerprint` の比較は表の名前が合わないので使えません。
+
+```bash
+sudo python3 /opt/pkdb/manage.py apply --database sleepy_pkdb /opt/pkdb/sql/lowercase.sql
+```
+
+## UBSLEEPYのセーブDB（ubsleepy）
+
+Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびきけん・クイズ戦績）用のDBです。テーブルの定義は `stacks/pkdb/sql/ubsleepy_tables.sql` が正です。
+
+| 項目 | 値 |
+| --- | --- |
+| DB | `ubsleepy` |
+| ロール | `ubsleepy_writer`（Botが読み書き）、`ubsleepy_reader`（閲覧） |
+| パスワード | `platform/sops/ubsleepy.sops.yaml` の `UBSLEEPY_DB_PASSWORD` / `UBSLEEPY_DB_READER_PASSWORD` |
+| 作成 | 配備時に `sql/ubsleepy.sql`（ロールとDB）と `sql/ubsleepy_tables.sql`（テーブルと権限）が流れる。どちらも冪等で、**既存ロールのパスワードは変えない** |
+
+`ubsleepy.sql` は `CREATE DATABASE` を含むため `-- manage.py: no-transaction` を付けています（トランザクション内では実行できない）。
 
 ## 配備
 
@@ -53,7 +79,7 @@ sudo python3 /opt/pkdb/manage.py backup --destination /srv/pkdb/backups
 sudo python3 /opt/pkdb/manage.py restore /srv/pkdb/backups/<日時>
 ```
 
-`restore` は**すでにあるDBには触りません**。作り直すDBは先に `DROP DATABASE` します。ロールは、無ければ作り、あれば属性とパスワードのハッシュをダンプの内容に揃えます。`postgres` のパスワードは変えません。
+`restore` は**すでにあるDBには触りません**。作り直すDBは先に `DROP DATABASE` します。ロールは、無ければ作り、あれば属性とパスワードのハッシュをダンプの内容に揃えます（`postgres` を含む）。
 
 ## 旧ホストからの移行（2026-10-04 に実施）
 

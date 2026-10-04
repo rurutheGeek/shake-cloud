@@ -122,6 +122,40 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(record['host'], 'apps-01')
         self.assertNotIn('upstream', record)
 
+    def test_the_rename_script_is_applied_on_every_deploy_and_only_renames(self):
+        defaults = yaml.safe_load((ROLE / 'defaults/main.yml').read_text(encoding='utf-8'))
+        self.assertEqual(defaults['pkdb_sql'], [
+            {'database': 'sleepy_pkdb', 'file': 'lowercase.sql'},
+            {'database': 'postgres', 'file': 'ubsleepy.sql'},
+            {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
+        ])
+        text = (STACK / 'sql/lowercase.sql').read_text(encoding='utf-8')
+        for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
+            self.assertNotIn(forbidden, text, forbidden)
+        self.assertIn('RENAME COLUMN', text)
+        self.assertIn('SET search_path = pokemondb, public', text)
+
+    def test_the_ubsleepy_script_creates_only_and_never_touches_passwords(self):
+        text = (STACK / 'sql/ubsleepy.sql').read_text(encoding='utf-8')
+        self.assertIn(manage.NO_TRANSACTION_MARKER, text)
+        self.assertIn('CREATE ROLE ubsleepy_writer', text)
+        self.assertIn('CREATE ROLE ubsleepy_reader', text)
+        self.assertIn('CREATE DATABASE', text)
+        self.assertIn('\\gexec', text)
+        self.assertNotIn('ALTER ROLE', text)
+        self.assertNotIn('PASSWORD', text)
+        for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
+            self.assertNotIn(forbidden, text, forbidden)
+
+    def test_the_ubsleepy_tables_script_grants_the_reader(self):
+        text = (STACK / 'sql/ubsleepy_tables.sql').read_text(encoding='utf-8')
+        self.assertIn('CREATE TABLE IF NOT EXISTS save_user', text)
+        self.assertIn('CREATE TABLE IF NOT EXISTS save_value', text)
+        self.assertIn('GRANT SELECT', text)
+        self.assertIn('ubsleepy_reader', text)
+        for forbidden in ('DROP ', 'DELETE FROM', 'TRUNCATE ', 'UPDATE '):
+            self.assertNotIn(forbidden, text, forbidden)
+
     def test_the_backup_runs_daily_from_the_deployment_directory(self):
         service = (ROLE / 'templates/pkdb-backup.service.j2').read_text(encoding='utf-8')
         self.assertIn('manage.py backup --destination {{ pkdb_backup_dir }}', service)
@@ -173,9 +207,10 @@ class ManageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             manage.storage()
 
-    def test_the_old_superuser_password_is_not_replayed(self):
+    def test_every_password_is_carried_over_including_the_superusers(self):
         sql = manage.roles_sql(GLOBALS, {'postgres'})
-        self.assertNotIn('ROLE postgres', sql)
+        self.assertNotIn('CREATE ROLE postgres', sql)
+        self.assertIn("ALTER ROLE postgres WITH SUPERUSER LOGIN PASSWORD 'SCRAM-SHA-256$4096:old'", sql)
         self.assertIn('CREATE ROLE pkdb_reader;', sql)
         self.assertIn("PASSWORD 'SCRAM-SHA-256$4096:reader'", sql)
         self.assertIn('GRANT pkdb_reader TO pkdb_editor', sql)
@@ -262,6 +297,51 @@ class ManageTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 manage.restore(directory)
         self.assertEqual(calls, [])
+
+    def test_apply_skips_a_database_that_is_not_restored_yet(self):
+        project, _ = self.project()
+        script = project / 'lowercase.sql'
+        script.write_text('select 1;', encoding='utf-8')
+        client, calls = self.client(names=())
+        with patch.object(manage, 'local', client):
+            manage.apply('sleepy_pkdb', script)
+        self.assertEqual(len(calls), 1)
+
+    def test_apply_runs_the_script_in_one_transaction_and_reports_changes(self):
+        project, _ = self.project()
+        script = project / 'lowercase.sql'
+        script.write_text('select 1;', encoding='utf-8')
+        calls = []
+
+        def client(program, *args, **kwargs):
+            calls.append((args, kwargs))
+            if manage.LIST_DATABASES in args:
+                return SimpleNamespace(stdout='sleepy_pkdb\n')
+            return SimpleNamespace(stdout='', stderr='NOTICE:  CHANGED: renamed 3 columns\n')
+        with patch.object(manage, 'local', client), patch('builtins.print') as printed:
+            manage.apply('sleepy_pkdb', script)
+        args, kwargs = calls[-1]
+        self.assertIn('--single-transaction', args)
+        self.assertIn('ON_ERROR_STOP=1', args)
+        self.assertEqual(kwargs['input'], 'select 1;')
+        self.assertEqual(printed.call_args.args[0], 'CHANGED: renamed 3 columns')
+
+    def test_apply_skips_the_transaction_for_a_marked_script(self):
+        project, _ = self.project()
+        script = project / 'ubsleepy.sql'
+        script.write_text(manage.NO_TRANSACTION_MARKER + '\nselect 1;', encoding='utf-8')
+        calls = []
+
+        def client(program, *args, **kwargs):
+            calls.append((args, kwargs))
+            if manage.LIST_DATABASES in args:
+                return SimpleNamespace(stdout='postgres\n')
+            return SimpleNamespace(stdout='', stderr='')
+        with patch.object(manage, 'local', client), patch('builtins.print'):
+            manage.apply('postgres', script)
+        args, kwargs = calls[-1]
+        self.assertNotIn('--single-transaction', args)
+        self.assertIn('ON_ERROR_STOP=1', args)
 
     def test_backup_keeps_only_the_newest_dumps(self):
         project, _ = self.project()

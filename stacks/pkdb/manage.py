@@ -27,6 +27,8 @@ SOURCE_PASSWORD = 'PKDB_SOURCE_PASSWORD'
 NAME = re.compile(r'^[A-Za-z0-9_]+$')
 STAMP = re.compile(r'^\d{8}T\d{6}Z$')
 ROLE_STATEMENT = re.compile(r'^(CREATE|ALTER) ROLE ("?)([^" ;]+)\2[ ;]')
+# この行を含むSQLはトランザクションで包まない（CREATE DATABASE 用）。
+NO_TRANSACTION_MARKER = '-- manage.py: no-transaction'
 
 LIST_DATABASES = ("select datname from pg_database "
                   f"where not datistemplate and datname <> '{SUPERUSER}' order by 1")
@@ -68,7 +70,11 @@ def storage():
 
 
 def init():
-    """Create .env, storage and the superuser password once. Never regenerate it."""
+    """Create .env, storage and the first-start superuser password. Never regenerate it.
+
+    The generated password only initializes an empty server; restore replaces it
+    with the one in the dump.
+    """
     changed = False
     if not (ROOT / '.env').exists():
         shutil.copyfile(ROOT / '.env.example', ROOT / '.env')
@@ -215,16 +221,17 @@ def backup(destination, keep):
 def roles_sql(text, existing):
     """Drop what must not be replayed from a globals dump.
 
-    The superuser keeps the password generated on this server, and a role that
-    already exists is not created again. ALTER ROLE for the other roles is kept,
-    so a rerun sets their attributes and password hashes to the dump's.
+    A role that already exists is not created again (the superuser always
+    exists). Every ALTER ROLE is kept, the superuser's included, so all roles
+    get the dump's attributes and password hashes: nobody's password changes
+    because the server moved.
     """
     kept = []
     for line in text.splitlines():
         match = ROLE_STATEMENT.match(line)
         if match:
             verb, role = match.group(1), match.group(3)
-            if role == SUPERUSER or (verb == 'CREATE' and role in existing):
+            if verb == 'CREATE' and (role == SUPERUSER or role in existing):
                 continue
         kept.append(line)
     return '\n'.join(kept) + '\n'
@@ -258,6 +265,29 @@ def restore(directory):
           + (f'; kept existing {", ".join(skipped)}' if skipped else ''))
 
 
+def apply(database, script):
+    """Run an idempotent SQL script. Skips a missing database.
+
+    The script runs in one transaction unless it carries the no-transaction
+    marker, which CREATE DATABASE needs (it cannot run in a transaction).
+    """
+    if not NAME.match(database):
+        raise ValueError(f'Unsupported database name: {database}')
+    if database not in databases(local):
+        print(f'OK: database {database} does not exist yet, {Path(script).name} not applied')
+        return
+    text = Path(script).read_text(encoding='utf-8')
+    args = ['-d', database, '-v', 'ON_ERROR_STOP=1']
+    if NO_TRANSACTION_MARKER not in text:
+        args.append('--single-transaction')
+    done = local('psql', *args, input=text, capture_output=True)
+    notices = [line for line in done.stderr.splitlines() if 'CHANGED' in line]
+    for line in notices:
+        print(line.split('NOTICE:', 1)[-1].strip())
+    if not notices:
+        print(f'OK: {Path(script).name} already applied to {database}')
+
+
 def fingerprint(client):
     """Print `database schema.table rows digest` for every table and matview."""
     for name in databases(client):
@@ -270,8 +300,10 @@ def fingerprint(client):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup',
-                                           'fetch', 'restore', 'fingerprint'])
-    parser.add_argument('directory', nargs='?', help='dump directory for fetch and restore')
+                                           'fetch', 'restore', 'fingerprint', 'apply'])
+    parser.add_argument('directory', nargs='?',
+                        help='dump directory for fetch and restore, SQL script for apply')
+    parser.add_argument('--database', help='database for apply')
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--keep', type=int, default=14, help='backups to keep')
@@ -297,6 +329,10 @@ def main():
         fetch(args.host, args.port, args.user, args.directory)
     elif args.action == 'restore':
         restore(args.directory)
+    elif args.action == 'apply':
+        if not (args.database and args.directory):
+            parser.error('apply requires --database and the SQL script')
+        apply(args.database, args.directory)
     else:
         fingerprint(remote(args.host, args.port, args.user) if args.host else local)
 
@@ -305,5 +341,6 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
-        print(f'ERROR: {error}', file=sys.stderr)
+        detail = getattr(error, 'stderr', '') or ''
+        print(f'ERROR: {error}{": " + detail.strip() if detail else ""}', file=sys.stderr)
         sys.exit(1)
