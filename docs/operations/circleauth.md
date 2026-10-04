@@ -102,3 +102,30 @@ sudo python3 /opt/circleauth/manage.py up        # 起動（セーブデータ�
 5. **通話**: ボイスチャンネルへ2人で入る（1人目で開始、最後の1人が抜けると終了）。通知は `CALLSTATUS_CHANNEL_ID`（debugでは `DEBUG_CHANNEL_ID`）に出る。`/calltitle` でタイトル変更、`/invite` で招待DMを送れる。
 
 Botポータル（https://portal.apextox.dpdns.org/）の CIRCLEAUTH ページにも同じ確認手順が出る。ログと再起動はそこから行える。
+
+## 名簿の取り込みとOBOG（Issue #73）
+
+メンバー管理者からもらう在籍者リスト（登録フォームのExcel `.xlsm` やCSV）を、管理者がDiscordで `/roster` を実行して取り込みます。
+
+- 形式: ヘッダー「学籍番号」（無ければ1列目）。任意で「氏名」。複数シートは学籍番号がいちばん多いシートを採用
+- 全角・空白・ハイフンは正規化し、「ー」など空を表す印は飛ばす。形式が違う行だけ行番号つきで報告
+- `/roster` は `apply` なしなら確認のみ（新規・復帰・非在籍への件数）。`apply:True` で反映
+- ファイルにあるID=在籍、前回あって今回無いID=非在籍（OBOG）
+- 非在籍: OBOGロールを付与し、UNKNOWN（未認証）を外す。在籍に戻ったらOBOGを外す
+- 認証時: 在籍→メンバー、非在籍→OBOG、**名簿に無いID→UNKNOWNのまま**（在籍が確認できるまで学内生の情報は見せない）
+- 起動時と `/roster`（ファイル省略）でもロールのずれを同期
+
+### 設定
+
+- `state/config.json` の `OBOG_ROLE_ID`。**0の間はOBOG同期をしません**
+- サーバー側: 学内生限定のチャンネルは、OBOGとUNKNOWNをdeny（または在籍ロールをallow）する。OBOGロールは付与対象より下に置く
+- 取り込んだ名簿・認証ログはBotポータルの CIRCLEAUTH ページ（SQLiteのクエリ表示）で確認できる
+
+### CLI（ファイルをホストに置いて使う場合）
+
+```bash
+sudo docker cp 名簿.xlsm circleauth-bot-1:/tmp/roster.xlsm
+sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm          # 確認のみ
+sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm --apply  # 反映
+sudo docker exec circleauth-bot-1 rm -f /tmp/roster.xlsm
+```

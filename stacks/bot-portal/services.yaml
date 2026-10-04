@@ -35,11 +35,13 @@ services:
       - ポータルの「名簿」で、該当の学籍番号にユーザーID・ユーザー名・好きなポケモンが入るか。
       - ポータルの「認証ログ」に1行増えるか。
       - "ボイスチャンネルに入って通話通知が出るか。`/calltitle` でタイトル変更、`/invite` で招待DM。"
+      - "管理者が `/roster file:名簿.xlsm` を実行し、確認のみの件数が出るか。apply:True で名簿が更新されるか。"
+      - "名簿から外れた人にOBOGロールが付き、在籍に戻ると外れるか（OBOG_ROLE_IDの設定が必要）。"
     files:
       - label: "名簿（SQLite: member）"
         path: /srv/circleauth/state/save/auth.sqlite3
         kind: sqlite
-        query: "select student_id, discord_id, username, favorite, updated_at from member order by student_id limit 100"
+        query: "select student_id, name, discord_id, username, favorite, active, left_at, updated_at from member order by student_id limit 200"
       - label: "認証ログ（SQLite: auth_log）"
         path: /srv/circleauth/state/save/auth.sqlite3
         kind: sqlite
@@ -81,7 +83,7 @@ services:
       - label: "名簿（テスト・SQLite）"
         path: /srv/circleauth-test/state/save/auth.sqlite3
         kind: sqlite
-        query: "select student_id, discord_id, username, favorite, updated_at from member order by student_id limit 100"
+        query: "select student_id, name, discord_id, username, favorite, active, left_at, updated_at from member order by student_id limit 200"
       - label: "認証ログ（テスト・SQLite）"
         path: /srv/circleauth-test/state/save/auth.sqlite3
         kind: sqlite
