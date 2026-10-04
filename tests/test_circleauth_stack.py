@@ -271,3 +271,4 @@ class ManageTests(unittest.TestCase):
         with patch.object(manage, 'git', git), patch.object(manage, 'compose', return_value=ps) as compose:
             manage.update()
         self.assertIn(('reset', '--hard', 'b' * 40), calls)
+        self.assertEqual(compose.call_args.args, ('up', '-d', '--force-recreate'))
