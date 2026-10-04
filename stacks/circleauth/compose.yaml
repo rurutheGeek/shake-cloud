@@ -1,0 +1,27 @@
+# Discord Bot「CIRCLEAUTH」（サークル認証Bot）を apps-01 に単独で置く。
+#
+# 本体は非公開リポジトリ rurutheGeek/CIRCLEAUTH。manage.py update が main を
+# SOURCE_ROOT へ取得し、そのままコンテナへ渡す。取得には secrets/deploy_key の
+# 読み取り専用deploy keyを使う。Bot が書き換えるファイルは Git の外の
+# STORAGE_ROOT/state に置き、コードの更新で触れないよう上から重ねる。
+# 対象は manage.py の STATE と揃える。イメージは compose.lock.yaml で固定する。
+name: circleauth
+
+services:
+  bot:
+    image: python:3.13
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      # トークンは secrets/discord_token から manage.py が環境変数で渡す。
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?run manage.py up}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/circleauth}/source:/app
+      - ${STORAGE_ROOT:-/srv/circleauth}/state/save:/app/save
+      - ${STORAGE_ROOT:-/srv/circleauth}/state/log:/app/log
+      - ${STORAGE_ROOT:-/srv/circleauth}/state/config.json:/app/config.json
+      - ${STORAGE_ROOT:-/srv/circleauth}/state/resource/image:/app/resource/image
+    command:
+      - bash
+      - -c
+      - pip install --no-cache-dir -r setup/requirements.txt && python main.py

@@ -1,0 +1,12 @@
+---
+# サークル認証Bot「CIRCLEAUTH」を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/circleauth.yml'
+# 外から受ける通信は無い（Discord へ出ていくだけ）ので入口（Caddy）は通さない。
+# 名簿・認証ログの移行は docs/operations/circleauth.md。
+- name: Deploy the CIRCLEAUTH Discord bot
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    - circleauth
