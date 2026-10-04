@@ -1,0 +1,10 @@
+[Unit]
+Description=Archive the CIRCLEAUTH save data every day
+
+[Timer]
+OnCalendar={{ circleauth_backup_calendar }}
+Persistent=true
+Unit=circleauth-backup.service
+
+[Install]
+WantedBy=timers.target

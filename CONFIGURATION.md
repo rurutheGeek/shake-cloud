@@ -10,7 +10,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | --- | --- |
 | core-01 | Authentik（共通ログイン）、NetBox、ドキュメントサイト、入口の Caddy（HTTPS の受け口） |
 | cloud-01 | クラウドAPI・管理DB・ポータル、Garage（S3互換オブジェクトストア） |
-| apps-01 | Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws、Gmailビューア、ポケモン系のPostgreSQL、Discord Bot（UBSLEEPY） |
+| apps-01 | Homarr、Vaultwarden、LibreSpeed、Home Assistant、CUPS、eufy-security-ws、Gmailビューア、ポケモン系のPostgreSQL、Discord Bot（UBSLEEPY・CIRCLEAUTH） |
 | media-01 | Nextcloud、Kavita、Navidrome、FreshRSS、MeTube、LocalSend受信機、UrBackup |
 | monitor-01 | Prometheus、Alertmanager、Grafana |
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check the CIRCLEAUTH source for updates
+
+[Timer]
+OnCalendar={{ circleauth_update_calendar }}
+Persistent=true
+Unit=circleauth-update.service
+
+[Install]
+WantedBy=timers.target

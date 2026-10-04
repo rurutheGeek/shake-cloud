@@ -1,0 +1,20 @@
+# テストサーバー（エーテルル財団）で動かすための上書き。
+# 本番と同じコードを debug モードで動かし、state は別に持つ。
+#
+#   DISCORD_TOKEN=... TEST_STORAGE_ROOT=/srv/circleauth-test \
+#     docker compose -p circleauth-test -f compose.yaml -f compose.lock.yaml \
+#       -f compose.test.yaml up -d
+#
+# 本番の circleauth-update.timer とは無関係（別プロジェクト名・別state）。
+services:
+  bot:
+    volumes:
+      - ${TEST_STORAGE_ROOT:-/srv/circleauth-test}/source:/app
+      - ${TEST_STORAGE_ROOT:-/srv/circleauth-test}/state/save:/app/save
+      - ${TEST_STORAGE_ROOT:-/srv/circleauth-test}/state/log:/app/log
+      - ${TEST_STORAGE_ROOT:-/srv/circleauth-test}/state/config.json:/app/config.json
+      - ${TEST_STORAGE_ROOT:-/srv/circleauth-test}/state/resource/image:/app/resource/image
+    command:
+      - bash
+      - -c
+      - pip install --no-cache-dir -r setup/requirements.txt && python main.py debug

@@ -29,7 +29,7 @@ tags:
 | 配置先 | 機能群 | vCPU / RAM | ディスク・停止単位 |
 | --- | --- | --- | --- |
 | core-01（旧services-01、2026-10-03改名） | Authentik・NetBox・HTTPS入口のCaddy | 4 / 8GiB | 現行容量と実データを確認。常時VM内で別Compose・別保存先 |
-| apps-01（クラウドVM、`192.168.10.105`、2026-10-03に移設） | Homarr・Vaultwarden・LibreSpeed・ドキュメントサイト・mail-view・CUPS／印刷API・ポケモン翻訳・ポケモン系のPostgreSQL（pkdb）・Discord Bot（UBSLEEPY）・Home Assistant・eufy-security-ws・eufy-leo-rtc（VPNは計画のみ） | 2 / 4GiB（下限3GiB） | `/opt/<アプリ名>`・`/srv/<アプリ名>` |
+| apps-01（クラウドVM、`192.168.10.105`、2026-10-03に移設） | Homarr・Vaultwarden・LibreSpeed・ドキュメントサイト・mail-view・CUPS／印刷API・ポケモン翻訳・ポケモン系のPostgreSQL（pkdb）・Discord Bot（UBSLEEPY・CIRCLEAUTH）・Home Assistant・eufy-security-ws・eufy-leo-rtc（VPNは計画のみ） | 2 / 4GiB（下限3GiB） | `/opt/<アプリ名>`・`/srv/<アプリ名>` |
 | game1（既存） | ゲーム・RomM・Ollama・ポケモンAI一式・汎用RAG・Discord Bot | 8 / 現行12GiB、実測後16GiB候補 | 現行ディスクを維持しAI・ROM容量を測定。VM停止中はAI・Bot・ライブラリも停止 |
 | media-01（VM作成済み） | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPIと依存DB | 4 / 6GiB | OS32＋データ64GiBを仮予算。原本・索引・WAL・復元領域から確定 |
 | 既存Kubernetes | AWX・DB提供（CNPG）・関数提供（Knative） | cp 2 / 3GiB、worker-01 4 / 8GiB | 固定RAM。worker-02は必要量から起動・join判断 |

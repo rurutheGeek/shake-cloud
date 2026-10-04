@@ -1,0 +1,11 @@
+[Unit]
+Description=Archive the CIRCLEAUTH save data
+Documentation=https://docs.apextox.dpdns.org/operations/circleauth/
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ circleauth_project_dir }}
+ExecStart=/usr/bin/python3 manage.py backup --destination {{ circleauth_backup_dir }} --keep {{ circleauth_backup_keep }}
