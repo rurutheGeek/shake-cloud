@@ -185,6 +185,12 @@ records:
     host: apps-01
     address: 192.168.10.105
     description: ポケモン系のPostgreSQL（apps-01・5432）
+  adminer:
+    host: apps-01
+    address: 192.168.10.105
+    upstream: 127.0.0.1:8330
+    description: Adminer（ポケモン系PostgreSQLの管理画面。Forward Auth・admins のみ）
+    auth: true
   cups:
     host: apps-01
     address: 192.168.10.105

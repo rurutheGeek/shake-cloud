@@ -7,6 +7,10 @@ pkdb_source_dir: '{{ playbook_dir }}/../../stacks/pkdb'
 # セキュリティグループ（platform/terraform/services/apps）が LAN に絞る。
 pkdb_bind_address: 0.0.0.0
 pkdb_port: 5432
+# Adminer。入口は同じホストの Caddy（tls_proxy ロール）が https://adminer.<ゾーン> で受ける。
+pkdb_adminer_port: 8330
+pkdb_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
+pkdb_adminer_url: 'https://adminer.{{ pkdb_dns.zone }}'
 # 日次の論理ダンプ。データと同じディスクなので、VMごとの保全は週次 vzdump が持つ。
 pkdb_backup_dir: '{{ pkdb_storage_root }}/backups'
 pkdb_backup_keep: 14

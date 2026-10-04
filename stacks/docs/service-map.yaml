@@ -108,6 +108,7 @@ record_docs:
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]
   pkdb: [operations/pkdb.md]
+  adminer: [operations/pkdb.md]
   ha: [services/home-assistant.md]
   docs: [contributing-docs.md]
   localsend: [services/usage.md]

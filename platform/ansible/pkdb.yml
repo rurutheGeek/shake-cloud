@@ -2,10 +2,14 @@
 # ポケモン系のPostgreSQL（sleepy_pkdb・shakeweb・pkhack）を apps-01 へ配備する。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/pkdb.yml'
-# HTTPではないので入口（Caddy）は通さない。データの移行は docs/operations/pkdb.md。
+# PostgreSQL 自体は入口（Caddy）を通さない。Adminer だけ https://adminer.<ゾーン> で出す
+# （Forward Auth のアプリは identity の configure.py が作るので、先に identity.yml を流す）。
+# データの移行は docs/operations/pkdb.md。
 - name: Deploy the pkdb PostgreSQL server
   hosts: apps
   become: true
   roles:
     - docker
+    # 先に HTTPS の入口を作る。最後の確認は公開名の SSO リダイレクトを見る。
+    - tls_proxy
     - pkdb

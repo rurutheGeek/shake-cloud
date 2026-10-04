@@ -50,6 +50,26 @@
     port: '{{ pkdb_port }}'
     timeout: 60
 
+- name: Wait for Adminer on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ pkdb_adminer_port }}/'
+  register: pkdb_adminer
+  retries: 20
+  delay: 3
+  until: pkdb_adminer.status == 200
+
+# tls_proxy が先に入口を作る。SSO へのリダイレクトまで届くことを確かめる。
+- name: Wait for the Adminer entry point
+  ansible.builtin.uri:
+    url: '{{ pkdb_adminer_url }}/'
+    follow_redirects: none
+    status_code: [200, 302]
+    validate_certs: true
+  register: pkdb_adminer_entry
+  retries: 20
+  delay: 3
+  until: pkdb_adminer_entry.status in [200, 302]
+
 - name: Install the backup service
   ansible.builtin.template:
     src: pkdb-backup.service.j2

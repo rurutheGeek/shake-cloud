@@ -30,7 +30,8 @@ tags:
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（apps-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
-| ポケモン系のPostgreSQL | `pkdb.apextox.dpdns.org:5432` | PostgreSQL 15（apps-01）。DBは `sleepy_pkdb`・`shakeweb`・`pkhack`。[運用](../operations/pkdb.md) | DBのロールを持つアプリ |
+| ポケモン系のPostgreSQL | `pkdb.apextox.dpdns.org:5432` | PostgreSQL 15（apps-01）。DBは `sleepy_pkdb`・`shakeweb`・`pkhack`。[運用](../operations/pkdb.md)・[取扱説明書](pokemondb.md) | DBのロールを持つアプリ |
+| Adminer | <https://adminer.apextox.dpdns.org> | ポケモン系PostgreSQLの管理画面（apps-01。`127.0.0.1:8330`。Forward Auth）。「サーバ」は `db` | `admins` |
 | プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（apps-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.105:631`（LAN/VPN） | 全員 |
 | AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は core-01 だけに開けている | 全員 |
 | ルータ（LuCI） | <https://router.apextox.dpdns.org> | router-01 の管理画面。**SSO なし**（復旧経路のため）。認証は LuCI の root パスワード。IP 直は `http://192.168.10.1` | 管理者 |

@@ -239,6 +239,7 @@ flowchart TB
 | --- | --- | --- |
 | [用語集](reference/glossary.md) | 2026-10-03 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
+| [ポケモンDBの取扱説明書](reference/pokemondb.md) | 2026-10-04 | `reference` `database` `pokemon` |
 | [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-04 | `reference` `network` |
 
 ### 記録

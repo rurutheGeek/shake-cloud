@@ -42,10 +42,19 @@ class StackTests(unittest.TestCase):
     def service(self):
         return self.compose()['services']['db']
 
-    def test_the_project_is_postgresql_alone(self):
+    def test_the_project_is_postgresql_and_its_admin_ui(self):
         compose = self.compose()
         self.assertEqual(compose['name'], 'pkdb')
-        self.assertEqual(list(compose['services']), ['db'])
+        self.assertEqual(list(compose['services']), ['db', 'adminer'])
+
+    def test_the_admin_ui_is_loopback_only_and_pinned(self):
+        adminer = self.compose()['services']['adminer']
+        self.assertEqual(adminer['ports'], ['127.0.0.1:${PKDB_ADMINER_PORT:-8330}:8080'])
+        self.assertRegex(adminer['image'], r'^adminer:\d+\.\d+\.\d+$')
+        lock = json.loads((STACK / 'compose.lock.yaml').read_text(encoding='utf-8'))
+        self.assertRegex(lock['services']['adminer']['image'], r'^adminer@sha256:[0-9a-f]{64}$')
+        record = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))['records']['adminer']
+        self.assertTrue(record['auth'])
 
     def test_the_major_version_and_libc_match_the_source(self):
         self.assertRegex(self.service()['image'], r'^postgres:15\.\d+-alpine$')
@@ -87,10 +96,10 @@ class StackTests(unittest.TestCase):
 
 
 class DeploymentTests(unittest.TestCase):
-    def test_the_playbook_targets_apps_without_the_http_entry(self):
+    def test_the_playbook_targets_apps_and_builds_the_entry_first(self):
         play = yaml.safe_load((ROOT / 'platform/ansible/pkdb.yml').read_text(encoding='utf-8'))[0]
         self.assertEqual(play['hosts'], 'apps')
-        self.assertEqual(play['roles'], ['docker', 'pkdb'])
+        self.assertEqual(play['roles'], ['docker', 'tls_proxy', 'pkdb'])
 
     def test_the_role_uses_isolated_paths_and_the_declared_port(self):
         defaults = yaml.safe_load((ROLE / 'defaults/main.yml').read_text(encoding='utf-8'))

@@ -25,6 +25,8 @@ tags:
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |
 | 管理者 | `postgres`。パスワードは apps-01 の `/opt/pkdb/secrets/postgres_password`（0400、初回に生成。**旧ホストのものとは別**） |
 | タイムゾーン | UTC（旧ホストと同じ） |
+| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。普段は `pkdb_editor`、`postgres` は必要なときだけ |
+| 表と列の説明 | [ポケモンDBの取扱説明書](../reference/pokemondb.md) |
 | コード | `stacks/pkdb/`、`platform/ansible/roles/pkdb`、`platform/ansible/pkdb.yml`、セキュリティグループは `platform/terraform/services/apps/main.tf`、名前は `platform/terraform/dns.yaml` |
 
 ## 配備
@@ -82,4 +84,3 @@ sudo rm -rf /srv/pkdb/import
 
 - `bsquiz`・`pkhack_app`・shakeweb の移行。接続先を `pkdb.apextox.dpdns.org:5432` に変える（いまは `host.docker.internal:5432`）。**切替までに旧ホストへ書き込みが入ったDBは、取り直す**（`DROP DATABASE` → `fetch` → `restore`）。移行時点で書き込みがあったのは `shakeweb` だけ（9/20以降でUPDATE 1件）。
 - 旧ホストのDBの停止。全利用者を切り替えてから行い、ボリュームは消さずに残す。
-- Adminer 相当の画面は置いていない。

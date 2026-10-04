@@ -155,6 +155,7 @@ nav:
   - リファレンス:
       - リファレンスの入口: reference/index.md
       - 接続先一覧（URL）: reference/urls.md
+      - ポケモンDBの取扱説明書: reference/pokemondb.md
       - 用語集: reference/glossary.md
   - 記録:
       - 記録の入口: audits/index.md

@@ -32,6 +32,19 @@ services:
       retries: 5
       start_period: 60s
 
+  # 管理画面。LAN へ出すのは HTTPS 入口（Caddy）だけにし、Authentik の
+  # Forward Auth（admins のみ）を前に置く。DBのログインはその後に別途要る。
+  adminer:
+    image: adminer:6.1.1
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - '127.0.0.1:${PKDB_ADMINER_PORT:-8330}:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password
