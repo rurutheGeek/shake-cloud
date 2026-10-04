@@ -23,9 +23,9 @@ tags:
 | 版 | PostgreSQL 15.15（`postgres:15.15-alpine`、digest固定）。旧ホストと同じ版・同じ musl |
 | DB | `sleepy_pkdb`（スキーマ `pokemondb`）、`shakeweb`、`pkhack` |
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |
-| 管理者 | `postgres`。パスワードは apps-01 の `/opt/pkdb/secrets/postgres_password`（0400、初回に生成。**旧ホストのものとは別**） |
+| 管理者 | `postgres`。**パスワードは旧ホストと同じ**。apps-01 の `/opt/pkdb/secrets/postgres_password`（0400）にも同じ値を置いてある |
 | タイムゾーン | UTC（旧ホストと同じ） |
-| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。普段は `pkdb_editor`（パスワードは旧ホストと同じ）。**`postgres` のパスワードは旧ホストのものでは入れない**（apps-01 で新しく生成した。下の「管理者としてつなぐ」） |
+| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。パスワードはどのロールも旧ホストと同じ。普段は `pkdb_editor`、`postgres` は必要なときだけ |
 | 表と列の説明 | [ポケモンDBの取扱説明書](../reference/pokemondb.md) |
 | コード | `stacks/pkdb/`、`platform/ansible/roles/pkdb`、`platform/ansible/pkdb.yml`、セキュリティグループは `platform/terraform/services/apps/main.tf`、名前は `platform/terraform/dns.yaml` |
 
@@ -57,12 +57,6 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 ssh debian@192.168.10.105 'sudo docker exec -it pkdb-db-1 psql -U postgres -d sleepy_pkdb'
 ```
 
-Adminer へ `postgres` で入るときのパスワードは、apps-01 のファイルにあります。
-
-```bash
-ssh debian@192.168.10.105 'sudo cat /opt/pkdb/secrets/postgres_password'
-```
-
 ## バックアップと復元
 
 `pkdb-backup.timer` が毎日 04:20（UTC）に `manage.py backup` を実行し、`/srv/pkdb/backups/<日時>/` へ `globals.sql`（ロール）と DB ごとの `<名前>.dump`（`pg_dump -Fc`）を書きます。14世代を残します。ダンプはデータと同じディスクにあり、VMごとの保全は apps-01 の週次 vzdump（[バックアップ](backup.md)）が持ちます。
@@ -72,7 +66,7 @@ sudo python3 /opt/pkdb/manage.py backup --destination /srv/pkdb/backups
 sudo python3 /opt/pkdb/manage.py restore /srv/pkdb/backups/<日時>
 ```
 
-`restore` は**すでにあるDBには触りません**。作り直すDBは先に `DROP DATABASE` します。ロールは、無ければ作り、あれば属性とパスワードのハッシュをダンプの内容に揃えます。`postgres` のパスワードは変えません。
+`restore` は**すでにあるDBには触りません**。作り直すDBは先に `DROP DATABASE` します。ロールは、無ければ作り、あれば属性とパスワードのハッシュをダンプの内容に揃えます（`postgres` を含む）。
 
 ## 旧ホストからの移行（2026-10-04 に実施）
 

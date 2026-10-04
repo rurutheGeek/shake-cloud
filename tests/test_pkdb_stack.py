@@ -182,9 +182,10 @@ class ManageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             manage.storage()
 
-    def test_the_old_superuser_password_is_not_replayed(self):
+    def test_every_password_is_carried_over_including_the_superusers(self):
         sql = manage.roles_sql(GLOBALS, {'postgres'})
-        self.assertNotIn('ROLE postgres', sql)
+        self.assertNotIn('CREATE ROLE postgres', sql)
+        self.assertIn("ALTER ROLE postgres WITH SUPERUSER LOGIN PASSWORD 'SCRAM-SHA-256$4096:old'", sql)
         self.assertIn('CREATE ROLE pkdb_reader;', sql)
         self.assertIn("PASSWORD 'SCRAM-SHA-256$4096:reader'", sql)
         self.assertIn('GRANT pkdb_reader TO pkdb_editor', sql)
