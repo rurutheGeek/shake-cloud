@@ -25,9 +25,22 @@ tags:
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |
 | 管理者 | `postgres`。パスワードは apps-01 の `/opt/pkdb/secrets/postgres_password`（0400、初回に生成。**旧ホストのものとは別**） |
 | タイムゾーン | UTC（旧ホストと同じ） |
-| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。普段は `pkdb_editor`、`postgres` は必要なときだけ |
+| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。普段は `pkdb_editor`（パスワードは旧ホストと同じ）。**`postgres` のパスワードは旧ホストのものでは入れない**（apps-01 で新しく生成した。下の「管理者としてつなぐ」） |
 | 表と列の説明 | [ポケモンDBの取扱説明書](../reference/pokemondb.md) |
 | コード | `stacks/pkdb/`、`platform/ansible/roles/pkdb`、`platform/ansible/pkdb.yml`、セキュリティグループは `platform/terraform/services/apps/main.tf`、名前は `platform/terraform/dns.yaml` |
+
+## 名前の小文字化
+
+**`sleepy_pkdb` の表・列・制約・索引の名前は、2026-10-04 に大文字から小文字へ改名しました**（`"POKEMON_STATUS"` → `pokemon_status`）。引用符なしで書けます。データベースの `search_path` も `pokemondb, public` にしたので、スキーマ名も省けます。
+
+- 定義は `stacks/pkdb/sql/lowercase.sql`。配備のたびに流れ、改名済みなら何もしません。ビューとマテリアライズドビューの定義は PostgreSQL が追従します。関数 `upsert_pokemon_move_learn` は本体を書き換えて作り直します（引数は同じ）。
+- **旧ホストのDBは大文字のまま**です。`bsquiz` などを切り替えるときに、アプリのSQLを小文字へ直します。
+- 旧ホストから取り直して復元したときも、配備（または下のコマンド）で小文字に揃います。
+- 改名後は、旧ホストとの `fingerprint` の比較は表の名前が合わないので使えません。
+
+```bash
+sudo python3 /opt/pkdb/manage.py apply --database sleepy_pkdb /opt/pkdb/sql/lowercase.sql
+```
 
 ## 配備
 
@@ -42,6 +55,12 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ```bash
 ssh debian@192.168.10.105 'sudo docker exec -it pkdb-db-1 psql -U postgres -d sleepy_pkdb'
+```
+
+Adminer へ `postgres` で入るときのパスワードは、apps-01 のファイルにあります。
+
+```bash
+ssh debian@192.168.10.105 'sudo cat /opt/pkdb/secrets/postgres_password'
 ```
 
 ## バックアップと復元
