@@ -89,3 +89,16 @@ sudo python3 /opt/circleauth/manage.py up        # 起動（セーブデータ�
 - Server Members Intent の有効化と、サーバーへの招待
 - 初回配備と、UBSLEEPYからのデータ移行（上記）
 - UBSLEEPY側の認証・通話の停止（UBSLEEPY-next の配備）と同時に行う
+
+## 動作確認（テストサーバー）
+
+エーテルル財団で、テスト用のDiscordアカウントを使って確かめる。debugモード（`main.py debug`）で動かすと、`config.json` の開発用ギルド（1140787268370583634）のチャンネル設定になる。
+
+1. **入室**: テスト用アカウントをサーバーへ参加させる。`UNKNOWN_ROLE_ID` が付き、`HELLO_CHANNEL_ID` に案内と「メンバー認証」ボタンが出る。
+2. **認証**: ボタンを押し、学籍番号7桁（例 `J111111`）と好きなポケモン（任意）を送信する。`UNKNOWN_ROLE_ID` が外れ、「照合に成功しました」または「照合に失敗しました ?」が本人にだけ表示される。
+   - ロールを外すのは形式が正しければ行われる。名簿との照合は、既存の学籍番号の行にDiscordのユーザーID・名前・好きなポケモンを書き込む処理。
+3. **名簿**: `sudo grep J111111 /srv/circleauth/state/save/pogakuin_list.csv` で、該当行にユーザーID・ユーザー名・好きなポケモンが入っている。
+4. **認証ログ**: `sudo tail -n 3 /srv/circleauth/state/log/auth_log.csv` に登録日時・ユーザーID・ユーザー名・学籍番号・好きなポケモンの1行が増える。
+5. **通話**: ボイスチャンネルへ2人で入る（1人目で開始、最後の1人が抜けると終了）。通知は `CALLSTATUS_CHANNEL_ID`（debugでは `DEBUG_CHANNEL_ID`）に出る。`/calltitle` でタイトル変更、`/invite` で招待DMを送れる。
+
+Botポータル（https://portal.apextox.dpdns.org/）の CIRCLEAUTH ページにも同じ確認手順が出る。ログと再起動はそこから行える。
