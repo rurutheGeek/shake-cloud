@@ -1,0 +1,27 @@
+# Botポータル（ログ閲覧・再起動・状態・manage.pyの定型操作）。
+# 入口は tls-proxy の Caddy（Authentik forward auth）で、ここは 127.0.0.1 にだけ出す。
+#
+# 注意: manage.py を動かすため docker.sock と /opt・/srv を直接マウントする。
+# 実質的にホストと同じ権限なので、SSO の内側とLAN/VPN限定を崩さないこと。
+name: bot-portal
+
+services:
+  portal:
+    build: .
+    image: shakecloud-bot-portal:local
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ['no-new-privileges:true']
+    ports:
+      - '127.0.0.1:${PORTAL_PORT:-8095}:8095'
+    environment:
+      PORTAL_REGISTRY: /app/services.yaml
+      PORTAL_STATE: /app/state
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/ubsleepy:/opt/ubsleepy
+      - /opt/circleauth:/opt/circleauth
+      - /srv/ubsleepy:/srv/ubsleepy
+      - /srv/circleauth:/srv/circleauth
+      - ${STORAGE_ROOT:-./storage}/state:/app/state

@@ -115,6 +115,7 @@ nav:
           - Nextcloudと追加アプリ: operations/nextcloud.md
           - Nextcloudのアクセス権限: operations/nextcloud-permissions.md
           - Nextcloud MCPサーバ: operations/nextcloud-mcp.md
+          - Botポータル: operations/bot-portal.md
           - Vaultwardenの管理: operations/vaultwarden.md
           - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
           - Discord Bot（UBSLEEPY）: operations/ubsleepy.md

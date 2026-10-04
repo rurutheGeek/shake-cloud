@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ service.title }} - Botポータル{% endblock %}
+{% block content %}
+<p><a href="/">← サービス一覧</a></p>
+<h1>{{ service.title }} <span class="pill {{ state.Status }}">{{ state.Status }}</span></h1>
+<p class="lead">{{ service.description }}</p>
+
+{% if service.help %}<div class="card">{{ service.help }}</div>{% endif %}
+
+<div class="card">
+  <h2>状態</h2>
+  <table>
+    <tr><th>コンテナ</th><td><code>{{ service.container }}</code></td></tr>
+    <tr><th>状態</th><td>{{ state.Status }}{% if state.Health %}（health: {{ state.Health.Status }}）{% endif %}</td></tr>
+    {% if state.StartedAt %}<tr><th>稼働開始</th><td>{{ state.StartedAt }}</td></tr>{% endif %}
+    {% if state.Image %}<tr><th>イメージ</th><td><code>{{ state.Image }}</code></td></tr>{% endif %}
+    <tr><th>コード</th><td><code>{{ revision or "取得できません" }}</code></td></tr>
+    <tr><th>ディレクトリ</th><td><code>{{ service.project_dir }}</code></td></tr>
+  </table>
+</div>
+
+{% if result %}
+<div class="result {% if result.code != 0 %}fail{% endif %}">
+  <strong>{{ result.action }}</strong> を実行しました（exit {{ result.code }}）
+{{ result.output }}
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>操作</h2>
+  <div class="actions">
+  {% for button in buttons %}
+    <form method="post" action="/service/{{ service.name }}/action">
+      <input type="hidden" name="action" value="{{ button.name }}">
+      <div class="action">
+        <button type="submit" class="{% if button.dangerous %}danger{% else %}primary{% endif %}">{{ button.label }}</button>
+        <span class="hint">{{ button.description }}</span>
+        {% if button.dangerous %}
+        <label class="confirm"><input type="checkbox" name="confirm" value="yes"> 実行する</label>
+        {% endif %}
+      </div>
+    </form>
+  {% endfor %}
+  </div>
+  {% if not buttons %}<p class="meta">このサービスに許可された操作はありません。</p>{% endif %}
+</div>
+
+{% if service.checks %}
+<div class="card">
+  <h2>確認のしかた</h2>
+  <ol class="checks">
+    {% for check in service.checks %}<li>{{ check }}</li>{% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>ログ</h2>
+  <form class="toolbar" method="get" action="/service/{{ service.name }}">
+    <label>表示行数
+      <input type="number" name="tail" value="{{ tail }}" min="10" max="1000" step="10">
+    </label>
+    <button type="submit" class="neutral">再読み込み</button>
+    <span class="meta">タイムスタンプ付き・最新{{ tail }}行</span>
+  </form>
+  <pre>{{ logs }}</pre>
+</div>
+{% endblock %}

@@ -177,6 +177,7 @@ flowchart TB
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
+| [Botポータル](operations/bot-portal.md) | 2026-10-04 | `ops` `discord` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-03 | `ops` `storage` `nfs` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
 | [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-02 | `ops` `backup` `urbackup` `android` |
@@ -250,6 +251,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 134 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 135 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

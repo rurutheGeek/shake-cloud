@@ -1,0 +1,66 @@
+# Botポータルに表示するサービス。ここを増やすと画面が増える。
+# actions は manage.py の定型操作（status/update/up/down/backup）と restart だけ許可される。
+# help / checks は画面にそのまま出る（何をするBotか・どう確認するか）。
+services:
+  - name: ubsleepy
+    title: UBSLEEPY（本番）
+    description: 公開Discord Bot。図鑑・クイズ・日替わり投稿・おこづかい・IDくじ。
+    container: ubsleepy-bot-1
+    project_dir: /opt/ubsleepy
+    source_dir: /srv/ubsleepy/source
+    actions: [restart, status, update, up, down, backup]
+    help: |
+      本番サーバー向けのBotです。セーブデータは /srv/ubsleepy/state（save/・log/・config.json・resource/image/）にあり、
+      更新しても消えません。取得先は rurutheGeek/UBSLEEPY-next です。
+    checks:
+      - "テストサーバー（エーテルル財団）で `/dex ピカチュウ` を実行し、図鑑とグラフが出るか。"
+      - "`/q` でクイズを出題し、ポケモン名をリプライして正誤判定・ヒント・ギブが動くか。"
+      - "`/quizrate` で戦績、`/bmode` で連続出題のON/OFFが切り替わるか。"
+      - この画面のログに警告以上が出ていないか（通常ログはdocker logsにだけ出ます）。
+
+  - name: circleauth
+    title: CIRCLEAUTH（本番・サークル認証）
+    description: 学籍番号の照合・ロール付与・入室案内・通話通知。
+    container: circleauth-bot-1
+    project_dir: /opt/circleauth
+    source_dir: /srv/circleauth/source
+    actions: [restart, status, update, up, down, backup]
+    help: |
+      サークル向けの認証Botです。名簿は /srv/circleauth/state/save/pogakuin_list.csv、
+      認証ログは /srv/circleauth/state/log/auth_log.csv、通話データは save/call_cache.csv と log/call_log.csv。
+      図鑑・クイズはUBSLEEPY側です。
+    checks:
+      - テストサーバーで新しいアカウントを参加させ、ロール（UNKNOWN_ROLE_ID）が付いて案内メッセージが出るか。
+      - 案内の「メンバー認証」ボタン→学籍番号7桁（例 J111111）を送信→「照合に成功しました」と表示され、ロールが外れるか。
+      - 名簿 save/pogakuin_list.csv の該当行にユーザーID・ユーザー名・好きなポケモンが入るか。
+      - 認証ログ log/auth_log.csv に1行追記されるか。
+      - "ボイスチャンネルに入って通話通知が出るか。`/calltitle` でタイトル変更、`/invite` で招待DM。"
+
+  - name: ubsleepy-test
+    title: UBSLEEPY（テスト）
+    description: エーテルル財団で新コードをdebugモードで動かす使い捨てインスタンス。
+    container: ubsleepy-test-bot-1
+    project_dir: /srv/ubsleepy-test/stack
+    source_dir: /srv/ubsleepy-test/source
+    actions: [restart]
+    help: |
+      テストサーバー用です。debugモードなので config.json の開発用ギルド（エーテルル財団）の
+      チャンネル設定を使います。本番のstateとは別です。
+    checks:
+      - "エーテルル財団で `/dex` `/q` を試す。"
+      - この画面でログを見て、接続と警告の有無を確かめる。
+
+  - name: circleauth-test
+    title: CIRCLEAUTH（テスト）
+    description: エーテルル財団で認証・通話を試す使い捨てインスタンス。
+    container: circleauth-test-bot-1
+    project_dir: /srv/circleauth-test/stack
+    source_dir: /srv/circleauth-test/source
+    actions: [restart]
+    help: |
+      テストサーバー用です。debugモードでエーテルル財団のチャンネル設定を使います。
+      起動にはDiscordポータルで SERVER MEMBERS INTENT を有効にしておく必要があります。
+    checks:
+      - 新規アカウントで参加→ロール付与と案内。
+      - 「メンバー認証」→学籍番号を送信→ロールが外れる。
+      - ボイスチャンネルで通話通知。

@@ -1,0 +1,13 @@
+---
+# Botポータル（ログ閲覧・再起動・状態・manage.pyの定型操作）を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/bot-portal.yml'
+# 入口は tls-proxy の Caddy（dns.yaml の portal レコード + Authentik forward auth）。
+- name: Deploy the bot portal
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    - bot_portal
+    # portal.<zone> のTLSとForward Auth。dns.yaml の portal レコードが正本。
+    - tls_proxy

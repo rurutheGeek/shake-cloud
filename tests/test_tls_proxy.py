@@ -155,7 +155,7 @@ class TlsProxyTests(unittest.TestCase):
         behind_auth = {name for name, record in records.items() if record.get('auth')}
         self.assertEqual(behind_auth,
                          {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
-                          'mail-view', 'backup', 'urbackup', 'adminer'})
+                          'mail-view', 'backup', 'urbackup', 'adminer', 'portal'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):

@@ -173,6 +173,12 @@ records:
     address: 192.168.10.105
     upstream: 127.0.0.1:8090
     description: ドキュメントサイト
+  portal:
+    host: apps-01
+    address: 192.168.10.105
+    upstream: 127.0.0.1:8095
+    description: Botポータル（ログ・再起動・manage.pyの定型操作。Forward Auth）
+    auth: true
   # LocalSend の受信機はアプリ自身のTLSをそのまま使う（Caddyを通さない）ため
   # upstream は持たず、名前だけ引けるようにする。
   localsend:

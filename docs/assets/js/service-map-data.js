@@ -377,6 +377,23 @@ window.SERVICE_MAP = {
      "url": "https://docs.apextox.dpdns.org/"
     },
     {
+     "description": "ログ・再起動・manage.pyの定型操作。Forward Auth",
+     "docs": [
+      {
+       "path": "operations/bot-portal/",
+       "title": "Botポータル"
+      }
+     ],
+     "name": "Botポータル",
+     "route": [
+      "core-01",
+      "apps-01"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8095",
+     "url": "https://portal.apextox.dpdns.org/"
+    },
+    {
      "description": "apps-01・5432",
      "docs": [
       {

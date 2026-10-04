@@ -1,0 +1,35 @@
+---
+- name: Create the bot-portal directory
+  ansible.builtin.file:
+    path: '{{ bot_portal_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the bot-portal stack
+  ansible.builtin.copy:
+    src: '{{ bot_portal_source_dir }}/'
+    dest: '{{ bot_portal_project_dir }}/'
+    mode: preserve
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ bot_portal_project_dir }}/.env'
+    mode: '0600'
+
+- name: Create the portal state directory
+  ansible.builtin.file:
+    path: '{{ bot_portal_storage_root }}/state'
+    state: directory
+    mode: '0750'
+
+- name: Build and start the portal
+  ansible.builtin.command:
+    argv: [docker, compose, --env-file, .env, up, -d, --build]
+    chdir: '{{ bot_portal_project_dir }}'
+  register: bot_portal_up
+  changed_when: >-
+    'Started' in (bot_portal_up.stderr + bot_portal_up.stdout)
+    or 'Recreated' in (bot_portal_up.stderr + bot_portal_up.stdout)
+    or 'Created' in (bot_portal_up.stderr + bot_portal_up.stdout)
+    or 'Built' in (bot_portal_up.stderr + bot_portal_up.stdout)

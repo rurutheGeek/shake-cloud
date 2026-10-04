@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}操作履歴 - Botポータル{% endblock %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0">操作履歴</h2>
+  <p class="muted">直近20,000文字（追記のみ・ローテーションは未実装）</p>
+  <pre>{{ audit }}</pre>
+</div>
+{% endblock %}
