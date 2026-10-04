@@ -258,6 +258,22 @@ def restore(directory):
           + (f'; kept existing {", ".join(skipped)}' if skipped else ''))
 
 
+def apply(database, script):
+    """Run an idempotent SQL script in one transaction. Skips a missing database."""
+    if not NAME.match(database):
+        raise ValueError(f'Unsupported database name: {database}')
+    if database not in databases(local):
+        print(f'OK: database {database} does not exist yet, {Path(script).name} not applied')
+        return
+    done = local('psql', '-d', database, '-v', 'ON_ERROR_STOP=1', '--single-transaction',
+                 input=Path(script).read_text(encoding='utf-8'), capture_output=True)
+    notices = [line for line in done.stderr.splitlines() if 'CHANGED' in line]
+    for line in notices:
+        print(line.split('NOTICE:', 1)[-1].strip())
+    if not notices:
+        print(f'OK: {Path(script).name} already applied to {database}')
+
+
 def fingerprint(client):
     """Print `database schema.table rows digest` for every table and matview."""
     for name in databases(client):
@@ -270,8 +286,10 @@ def fingerprint(client):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup',
-                                           'fetch', 'restore', 'fingerprint'])
-    parser.add_argument('directory', nargs='?', help='dump directory for fetch and restore')
+                                           'fetch', 'restore', 'fingerprint', 'apply'])
+    parser.add_argument('directory', nargs='?',
+                        help='dump directory for fetch and restore, SQL script for apply')
+    parser.add_argument('--database', help='database for apply')
     parser.add_argument('--refresh-images', action='store_true')
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     parser.add_argument('--keep', type=int, default=14, help='backups to keep')
@@ -297,6 +315,10 @@ def main():
         fetch(args.host, args.port, args.user, args.directory)
     elif args.action == 'restore':
         restore(args.directory)
+    elif args.action == 'apply':
+        if not (args.database and args.directory):
+            parser.error('apply requires --database and the SQL script')
+        apply(args.database, args.directory)
     else:
         fingerprint(remote(args.host, args.port, args.user) if args.host else local)
 
@@ -305,5 +327,6 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
-        print(f'ERROR: {error}', file=sys.stderr)
+        detail = getattr(error, 'stderr', '') or ''
+        print(f'ERROR: {error}{": " + detail.strip() if detail else ""}', file=sys.stderr)
         sys.exit(1)

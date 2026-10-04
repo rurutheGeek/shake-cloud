@@ -50,6 +50,21 @@
     port: '{{ pkdb_port }}'
     timeout: 60
 
+- name: Copy the SQL scripts
+  ansible.builtin.copy:
+    src: '{{ pkdb_source_dir }}/sql/'
+    dest: '{{ pkdb_project_dir }}/sql/'
+    mode: '0644'
+    directory_mode: '0750'
+
+- name: Apply the SQL scripts
+  ansible.builtin.command:
+    argv: [python3, manage.py, apply, --database, '{{ item.database }}', 'sql/{{ item.file }}']
+    chdir: '{{ pkdb_project_dir }}'
+  loop: '{{ pkdb_sql }}'
+  register: pkdb_applied
+  changed_when: "'CHANGED' in pkdb_applied.stdout"
+
 - name: Wait for Adminer on loopback
   ansible.builtin.uri:
     url: 'http://127.0.0.1:{{ pkdb_adminer_port }}/'
