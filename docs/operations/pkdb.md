@@ -42,6 +42,19 @@ tags:
 sudo python3 /opt/pkdb/manage.py apply --database sleepy_pkdb /opt/pkdb/sql/lowercase.sql
 ```
 
+## UBSLEEPYのセーブDB（ubsleepy）
+
+Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびきけん・クイズ戦績）用のDBです。テーブルの定義は `stacks/pkdb/sql/ubsleepy_tables.sql` が正です。
+
+| 項目 | 値 |
+| --- | --- |
+| DB | `ubsleepy` |
+| ロール | `ubsleepy_writer`（Botが読み書き）、`ubsleepy_reader`（閲覧） |
+| パスワード | `platform/sops/ubsleepy.sops.yaml` の `UBSLEEPY_DB_PASSWORD` / `UBSLEEPY_DB_READER_PASSWORD` |
+| 作成 | 配備時に `sql/ubsleepy.sql`（ロールとDB）と `sql/ubsleepy_tables.sql`（テーブルと権限）が流れる。どちらも冪等で、**既存ロールのパスワードは変えない** |
+
+`ubsleepy.sql` は `CREATE DATABASE` を含むため `-- manage.py: no-transaction` を付けています（トランザクション内では実行できない）。
+
 ## 配備
 
 ```bash

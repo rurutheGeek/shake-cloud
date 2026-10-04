@@ -27,6 +27,8 @@ SOURCE_PASSWORD = 'PKDB_SOURCE_PASSWORD'
 NAME = re.compile(r'^[A-Za-z0-9_]+$')
 STAMP = re.compile(r'^\d{8}T\d{6}Z$')
 ROLE_STATEMENT = re.compile(r'^(CREATE|ALTER) ROLE ("?)([^" ;]+)\2[ ;]')
+# この行を含むSQLはトランザクションで包まない（CREATE DATABASE 用）。
+NO_TRANSACTION_MARKER = '-- manage.py: no-transaction'
 
 LIST_DATABASES = ("select datname from pg_database "
                   f"where not datistemplate and datname <> '{SUPERUSER}' order by 1")
@@ -264,14 +266,21 @@ def restore(directory):
 
 
 def apply(database, script):
-    """Run an idempotent SQL script in one transaction. Skips a missing database."""
+    """Run an idempotent SQL script. Skips a missing database.
+
+    The script runs in one transaction unless it carries the no-transaction
+    marker, which CREATE DATABASE needs (it cannot run in a transaction).
+    """
     if not NAME.match(database):
         raise ValueError(f'Unsupported database name: {database}')
     if database not in databases(local):
         print(f'OK: database {database} does not exist yet, {Path(script).name} not applied')
         return
-    done = local('psql', '-d', database, '-v', 'ON_ERROR_STOP=1', '--single-transaction',
-                 input=Path(script).read_text(encoding='utf-8'), capture_output=True)
+    text = Path(script).read_text(encoding='utf-8')
+    args = ['-d', database, '-v', 'ON_ERROR_STOP=1']
+    if NO_TRANSACTION_MARKER not in text:
+        args.append('--single-transaction')
+    done = local('psql', *args, input=text, capture_output=True)
     notices = [line for line in done.stderr.splitlines() if 'CHANGED' in line]
     for line in notices:
         print(line.split('NOTICE:', 1)[-1].strip())

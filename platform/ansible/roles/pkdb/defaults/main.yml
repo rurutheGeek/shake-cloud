@@ -12,9 +12,14 @@ pkdb_adminer_port: 8330
 pkdb_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
 pkdb_adminer_url: 'https://adminer.{{ pkdb_dns.zone }}'
 # 配備のたびに流す冪等なSQL。DBがまだ無い（復元前の）ときは何もしない。
+# ubsleepy.sql がDBを作り、次の ubsleepy_tables.sql がそのDBへ流れる。
 pkdb_sql:
   - database: sleepy_pkdb
     file: lowercase.sql
+  - database: postgres
+    file: ubsleepy.sql
+  - database: ubsleepy
+    file: ubsleepy_tables.sql
 # 日次の論理ダンプ。データと同じディスクなので、VMごとの保全は週次 vzdump が持つ。
 pkdb_backup_dir: '{{ pkdb_storage_root }}/backups'
 pkdb_backup_keep: 14
