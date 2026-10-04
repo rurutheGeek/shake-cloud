@@ -1,0 +1,30 @@
+# Discord Bot「UBSLEEPY」(-next) のテスト配備。
+#
+# apps-01 で本番(ubsleepy)と別プロジェクト・別ディレクトリで動かす。
+# manage.py update が非公開リポジトリ UBSLEEPY-next を SOURCE_ROOT へ取得し、
+# setup/Dockerfile でイメージをビルドする。セーブデータは STORAGE_ROOT/state
+# から重ねる（本番の state には触らない）。
+name: ubsleepy-next
+
+services:
+  bot:
+    build:
+      context: ${STORAGE_ROOT:-/srv/ubsleepy-next}/source
+      dockerfile: setup/Dockerfile
+    image: ubsleepy-next-bot:local
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?run manage.py up}
+      PKDB_PASSWORD: ${PKDB_PASSWORD:?run manage.py up}
+      UBSLEEPY_DB_PASSWORD: ${UBSLEEPY_DB_PASSWORD:?run manage.py up}
+    volumes:
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/save:/app/save
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/log:/app/log
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/config.json:/app/config.json
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/pokemon_senryu.csv:/app/resource/pokemon_senryu.csv
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/image:/app/resource/image
+    command:
+      - python
+      - main.py
+      - debug

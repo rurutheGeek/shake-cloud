@@ -211,6 +211,7 @@ flowchart TB
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
+| [UBSLEEPY 本番切替の手順](operations/ubsleepy-next-switch.md) | 2026-10-04 | `ops` `discord` |
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-04 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
@@ -252,6 +253,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 136 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 137 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

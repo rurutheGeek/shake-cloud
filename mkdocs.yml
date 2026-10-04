@@ -119,6 +119,7 @@ nav:
           - Vaultwardenの管理: operations/vaultwarden.md
           - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
           - Discord Bot（UBSLEEPY）: operations/ubsleepy.md
+          - UBSLEEPY 本番切替の手順: operations/ubsleepy-next-switch.md
           - サークル認証Bot（CIRCLEAUTH）: operations/circleauth.md
           - メール設定: operations/smtp.md
           - Windows 11 ProのVMを作る: operations/windows.md
