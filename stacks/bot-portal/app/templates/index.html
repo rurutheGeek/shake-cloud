@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Botポータル</h1>
+<p class="lead">
+  Botの状態確認・ログ閲覧・再起動・定型操作を行う画面です。サービスを選ぶと詳細と確認手順が出ます。
+  操作はすべて操作履歴に残ります。入口はAuthentikで認証されています。
+</p>
+
+<div class="legend">
+  <span><span class="pill running">running</span> 稼働中</span>
+  <span><span class="pill exited">exited</span> 停止</span>
+  <span><span class="pill missing">missing</span> 未作成</span>
+  <span class="meta">コード = デプロイ中の短いSHA</span>
+</div>
+
+<div class="grid" style="margin-top:1rem">
+{% for row in rows %}
+  <div class="card service-card">
+    <h2><a href="/service/{{ row.service.name }}">{{ row.service.title }}</a></h2>
+    <div><span class="pill {{ row.state.Status }}">{{ row.state.Status }}</span></div>
+    <div class="desc">{{ row.service.description }}</div>
+    <div class="meta">
+      コンテナ <code>{{ row.service.container }}</code>
+      {% if row.revision %}／ コード <code>{{ row.revision }}</code>{% endif %}
+      {% if row.state.StartedAt %}<br>稼働開始 {{ row.state.StartedAt }}{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

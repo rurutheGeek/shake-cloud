@@ -34,6 +34,7 @@
     # ポータルと UrBackup 管理画面は Forward Auth の内側。未認証は302。
     - https://backup.apextox.dpdns.org/
     - https://urbackup.apextox.dpdns.org/
+    - https://portal.apextox.dpdns.org/
   labels:
     group: media
 - targets:

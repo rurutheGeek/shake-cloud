@@ -60,6 +60,9 @@ ADGUARD = 'adguard'
 # UI goes through Forward Auth like the media tools.
 MAIL_VIEW = 'mail-view'
 ADMINER = 'adminer'
+# The bot portal runs on apps-01. It controls the bots' containers and runs
+# manage.py, so its browser UI goes through Forward Auth too.
+BOT_PORTAL = 'portal'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -810,6 +813,27 @@ def configure_adminer(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'Adminer forward-auth provider')
 
 
+def configure_bot_portal(api, groups, flows, portal_url):
+    """Reconcile the bot portal: Forward Auth provider and access."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, BOT_PORTAL, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{BOT_PORTAL}.{zone}',
+    })
+    application = ensure_application(api, BOT_PORTAL, {
+        'name': 'Botポータル', 'slug': BOT_PORTAL, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{BOT_PORTAL}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['users']['pk']):
+        print(f'CHANGED: users may use {BOT_PORTAL}')
+    else:
+        print(f'OK: users may use {BOT_PORTAL}')
+    ensure_outpost(api, [provider['pk']], zone, 'bot-portal forward-auth provider')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -880,6 +904,7 @@ def main():
     configure_adguard(api, groups, flows, portal_url)
     configure_mail_view(api, groups, flows, portal_url)
     configure_adminer(api, groups, flows, portal_url)
+    configure_bot_portal(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

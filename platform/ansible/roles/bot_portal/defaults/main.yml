@@ -1,0 +1,7 @@
+---
+# Botポータル（ログ閲覧・再起動・定型操作）を apps-01 に置く。
+bot_portal_project_dir: /opt/bot-portal
+bot_portal_storage_root: /opt/bot-portal/storage
+bot_portal_source_dir: '{{ playbook_dir }}/../../stacks/bot-portal'
+# tls-proxy の Caddy が 127.0.0.1:8095 へ中継する。
+bot_portal_port: 8095

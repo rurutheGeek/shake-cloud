@@ -50,6 +50,7 @@ tags:
 | [Vaultwardenの管理](vaultwarden.md) | 保管庫・SSO・招待 |
 | [ポケモン系のPostgreSQL（pkdb）](pkdb.md) | 接続先・バックアップ・旧ホストからの移行 |
 | [Discord Bot（UBSLEEPY）](ubsleepy.md) | コードの自動更新・セーブデータ・旧ホストからの移行 |
+| [Botポータル](bot-portal.md) | Botのログ・再起動・定型操作 |
 | [メール設定（SMTP）](smtp.md) | 招待・復旧メールの送信 |
 | [Windows 11 Pro のVMを作る](windows.md) | ポータルからのISOインストール |
 | [android-01（Waydroid）の環境](android-01.md) | Android VMの構成・復旧・FROZEN対策・Frida未解決の課題 |

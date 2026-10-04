@@ -111,6 +111,7 @@ record_docs:
   adminer: [operations/pkdb.md]
   ha: [services/home-assistant.md]
   docs: [contributing-docs.md]
+  portal: [operations/bot-portal.md]
   localsend: [services/usage.md]
   cups: [services/printer.md]
   mail-view: [operations/smtp.md]
