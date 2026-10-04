@@ -105,13 +105,16 @@ Botポータル（https://portal.apextox.dpdns.org/）の CIRCLEAUTH ページ�
 
 ## 名簿の取り込みとOBOG（Issue #73）
 
-メンバー管理者からもらう在籍者リスト（登録フォームのExcel `.xlsm` やCSV）を、管理者がDiscordで `/roster` を実行して取り込みます。
+メンバー管理者からもらう在籍者リスト（登録フォームのExcel `.xlsm` やCSV）は、**メンバー管理者がBotへDMで添付して送る**のが基本です。サーバーのチャンネルにファイルは残りません。管理者はサーバーで `/roster` を使うこともできます。
 
 - 形式: ヘッダー「学籍番号」（無ければ1列目）。任意で「氏名」。複数シートは学籍番号がいちばん多いシートを採用
 - 全角・空白・ハイフンは正規化し、「ー」など空を表す印は飛ばす。形式が違う行だけ行番号つきで報告
-- `/roster` は `apply` なしなら確認のみ（新規・復帰・非在籍への件数）。`apply:True` で反映
+- 送るだけで反映（`/roster` は `preview` を付けたときだけ確認のみ）
+- 送れる人: `config.json` の `ROSTER_DM_USER_IDS`（メンバー管理者のDiscord ID）と開発者
+- 取り込んだ名簿は日付つきの履歴として残り、過去の名簿にいる人＝OBOGの判定に使う
 - ファイルにあるID=在籍、前回あって今回無いID=非在籍（OBOG）
 - 非在籍: OBOGロールを付与し、UNKNOWN（未認証）を外す。在籍に戻ったらOBOGを外す
+- **ロールが実際に変わったときだけ本人へDM**で通知（「メンバー籍が確認できなくなったためOBOGに変更。心当たりがなければ管理者まで」）。再取り込みや再起動では二重送信しない
 - 認証時: 在籍→メンバー、非在籍→OBOG、**名簿に無いID→UNKNOWNのまま**（在籍が確認できるまで学内生の情報は見せない）
 - 起動時と `/roster`（ファイル省略）でもロールのずれを同期
 
@@ -125,7 +128,8 @@ Botポータル（https://portal.apextox.dpdns.org/）の CIRCLEAUTH ページ�
 
 ```bash
 sudo docker cp 名簿.xlsm circleauth-bot-1:/tmp/roster.xlsm
-sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm          # 確認のみ
-sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm --apply  # 反映
+sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm              # 確認のみ
+sudo docker exec circleauth-bot-1 python -m bot_module.roster /tmp/roster.xlsm --apply      # 履歴＋反映
+sudo docker exec circleauth-bot-1 python -m bot_module.roster 過去名簿.xlsm --history --date 2024-04  # 履歴のみ
 sudo docker exec circleauth-bot-1 rm -f /tmp/roster.xlsm
 ```
