@@ -68,7 +68,11 @@ def storage():
 
 
 def init():
-    """Create .env, storage and the superuser password once. Never regenerate it."""
+    """Create .env, storage and the first-start superuser password. Never regenerate it.
+
+    The generated password only initializes an empty server; restore replaces it
+    with the one in the dump.
+    """
     changed = False
     if not (ROOT / '.env').exists():
         shutil.copyfile(ROOT / '.env.example', ROOT / '.env')
@@ -215,16 +219,17 @@ def backup(destination, keep):
 def roles_sql(text, existing):
     """Drop what must not be replayed from a globals dump.
 
-    The superuser keeps the password generated on this server, and a role that
-    already exists is not created again. ALTER ROLE for the other roles is kept,
-    so a rerun sets their attributes and password hashes to the dump's.
+    A role that already exists is not created again (the superuser always
+    exists). Every ALTER ROLE is kept, the superuser's included, so all roles
+    get the dump's attributes and password hashes: nobody's password changes
+    because the server moved.
     """
     kept = []
     for line in text.splitlines():
         match = ROLE_STATEMENT.match(line)
         if match:
             verb, role = match.group(1), match.group(3)
-            if role == SUPERUSER or (verb == 'CREATE' and role in existing):
+            if verb == 'CREATE' and (role == SUPERUSER or role in existing):
                 continue
         kept.append(line)
     return '\n'.join(kept) + '\n'
