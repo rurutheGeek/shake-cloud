@@ -6,6 +6,7 @@ FastAPIに依存しないので、テストはここを直接見る。
 """
 import json
 import csv
+import sqlite3
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,12 +96,24 @@ def load_services(path) -> list[Service]:
 def read_file_view(spec: dict) -> dict:
     """services.yaml の files 指定を画面用のデータにする。
 
-    kind: csv なら header/rows（末尾 tail 行）、それ以外は text。
+    kind: csv なら header/rows（末尾 tail 行）、sqlite なら query の結果、
+    それ以外は text。
     """
     path = Path(spec['path'])
     view = {'label': spec.get('label', path.name), 'path': str(path)}
     if not path.exists():
         view['error'] = 'ファイルがありません'
+        return view
+    if spec.get('kind') == 'sqlite':
+        connection = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+        try:
+            cursor = connection.execute(spec['query'])
+            view['header'] = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+            view['rows'] = [list(row) for row in rows]
+            view['total'] = len(view['rows'])
+        finally:
+            connection.close()
         return view
     text = path.read_text(encoding='utf-8', errors='replace')
     if spec.get('kind') == 'csv':

@@ -26,28 +26,28 @@ services:
     source_dir: /srv/circleauth/source
     actions: [restart, status, update, up, down, backup]
     help: |
-      サークル向けの認証Botです。名簿は /srv/circleauth/state/save/pogakuin_list.csv、
-      認証ログは /srv/circleauth/state/log/auth_log.csv、通話データは save/call_cache.csv と log/call_log.csv。
+      サークル向けの認証Botです。名簿・認証ログ・通話ログはSQLite
+      （/srv/circleauth/state/save/auth.sqlite3）にあります。
       図鑑・クイズはUBSLEEPY側です。
     checks:
       - テストサーバーで新しいアカウントを参加させ、ロール（UNKNOWN_ROLE_ID）が付いて案内メッセージが出るか。
       - 案内の「メンバー認証」ボタン→学籍番号7桁（例 J111111）を送信→「照合に成功しました」と表示され、ロールが外れるか。
-      - 名簿 save/pogakuin_list.csv の該当行にユーザーID・ユーザー名・好きなポケモンが入るか。
-      - 認証ログ log/auth_log.csv に1行追記されるか。
+      - ポータルの「名簿」で、該当の学籍番号にユーザーID・ユーザー名・好きなポケモンが入るか。
+      - ポータルの「認証ログ」に1行増えるか。
       - "ボイスチャンネルに入って通話通知が出るか。`/calltitle` でタイトル変更、`/invite` で招待DM。"
     files:
-      - label: 名簿（pogakuin_list.csv）
-        path: /srv/circleauth/state/save/pogakuin_list.csv
-        kind: csv
-        tail: 100
-      - label: 認証ログ（auth_log.csv）
-        path: /srv/circleauth/state/log/auth_log.csv
-        kind: csv
-        tail: 50
-      - label: 通話ログ（call_log.csv）
-        path: /srv/circleauth/state/log/call_log.csv
-        kind: csv
-        tail: 20
+      - label: "名簿（SQLite: member）"
+        path: /srv/circleauth/state/save/auth.sqlite3
+        kind: sqlite
+        query: "select student_id, discord_id, username, favorite, updated_at from member order by student_id limit 100"
+      - label: "認証ログ（SQLite: auth_log）"
+        path: /srv/circleauth/state/save/auth.sqlite3
+        kind: sqlite
+        query: "select at, discord_id, username, student_id, favorite from auth_log order by id desc limit 50"
+      - label: "通話ログ（SQLite: call_log）"
+        path: /srv/circleauth/state/save/auth.sqlite3
+        kind: sqlite
+        query: "select started_at, ended_at, duration, title, channel, members from call_log order by id desc limit 20"
 
   - name: ubsleepy-test
     title: UBSLEEPY（テスト）
@@ -78,11 +78,11 @@ services:
       - 「メンバー認証」→学籍番号を送信→ロールが外れる。
       - ボイスチャンネルで通話通知。
     files:
-      - label: 名簿（テスト）
-        path: /srv/circleauth-test/state/save/pogakuin_list.csv
-        kind: csv
-        tail: 100
-      - label: 認証ログ（テスト）
-        path: /srv/circleauth-test/state/log/auth_log.csv
-        kind: csv
-        tail: 50
+      - label: "名簿（テスト・SQLite）"
+        path: /srv/circleauth-test/state/save/auth.sqlite3
+        kind: sqlite
+        query: "select student_id, discord_id, username, favorite, updated_at from member order by student_id limit 100"
+      - label: "認証ログ（テスト・SQLite）"
+        path: /srv/circleauth-test/state/save/auth.sqlite3
+        kind: sqlite
+        query: "select at, discord_id, username, student_id, favorite from auth_log order by id desc limit 50"

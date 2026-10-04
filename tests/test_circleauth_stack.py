@@ -11,6 +11,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import tarfile
 import tempfile
@@ -242,6 +243,25 @@ class ManageTests(unittest.TestCase):
             manage.digest()
         lines = ''.join(call.args[0] + '\n' for call in printed.call_args_list)
         self.assertEqual(lines, expected)
+
+    def test_backup_checkpoints_sqlite_before_archiving(self):
+        project, storage = self.project()
+        manage.import_state(self.tarball(project))
+        database = storage / 'state' / 'save' / 'auth.sqlite3'
+        connection = sqlite3.connect(database)
+        connection.execute('PRAGMA journal_mode=WAL')
+        connection.execute('CREATE TABLE t (x)')
+        connection.execute('INSERT INTO t VALUES (1)')
+        connection.commit()
+        connection.close()
+
+        manage.checkpoint_sqlite(storage / 'state')
+
+        connection = sqlite3.connect(database)
+        self.assertEqual(connection.execute('SELECT count(*) FROM t').fetchone()[0], 1)
+        connection.close()
+        wal = Path(str(database) + '-wal')
+        self.assertFalse(wal.exists() and wal.stat().st_size > 0)
 
     def update_fixture(self, head, fetched, running):
         calls = []

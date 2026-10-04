@@ -19,7 +19,7 @@ UBSLEEPY（公開・ポケモン機能）とは別のDiscordアプリ・別ト�
 ## 担当する機能
 
 - 学籍番号モーダル、ロール付与、入室時の案内
-- 名簿（`save/pogakuin_list.csv`）と認証ログ（`log/auth_log.csv`）
+- 名簿・認証ログ・通話データは SQLite（`save/auth.sqlite3`）
 - 通話通知（`CallPost`、`/calltitle`、`/invite`）
 
 図鑑・クイズ・日替わり投稿・おこづかいはUBSLEEPY側にある。
@@ -30,7 +30,7 @@ UBSLEEPY（公開・ポケモン機能）とは別のDiscordアプリ・別ト�
 | --- | --- |
 | 配備先 | apps-01（`192.168.10.105`）。`/opt/circleauth`（Compose・`manage.py`・`secrets/`） |
 | コード | `/srv/circleauth/source`。非公開リポジトリ [rurutheGeek/CIRCLEAUTH](https://github.com/rurutheGeek/CIRCLEAUTH) の `main` の checkout |
-| セーブデータ | `/srv/circleauth/state`。`save/`・`log/`・`config.json`・`resource/image/`。**Git の外**に置き、コンテナ内でコードの上へ重ねる |
+| セーブデータ | `/srv/circleauth/state`。`save/auth.sqlite3`（名簿・認証ログ・通話）・`config.json`・`resource/image/`。**Git の外**に置き、コンテナ内でコードの上へ重ねる |
 | イメージ | `python:3.13`（digest固定）。起動時に `setup/requirements.txt` を入れて `python main.py` |
 | トークン | `platform/sops/circleauth.sops.yaml` の `DISCORD_TOKEN` → apps-01 の `/opt/circleauth/secrets/discord_token`（0400） |
 | 取得用鍵 | 同SOPSの `DEPLOY_KEY`（読み取り専用deploy key）→ `/opt/circleauth/secrets/deploy_key`（0400）。`known_hosts` も同ディレクトリ |
@@ -55,7 +55,7 @@ sudo tar -C /srv/ubsleepy/state -czf /tmp/circleauth-state.tar.gz \
 sudo python3 /opt/circleauth/manage.py import /tmp/circleauth-state.tar.gz
 ```
 
-`log/auth_log.csv` と `log/call_log.csv` が無い場合（移行後に記録が無い場合）は、そのまま空で始まる。
+起動時に、残っているCSV（`save/pogakuin_list.csv`・`log/auth_log.csv`・`save/call_cache.csv`・`log/call_log.csv`）をSQLiteへ取り込みます。CSVは消さずに残します。
 
 ## コードの更新（自動）
 
@@ -82,7 +82,7 @@ sudo python3 /opt/circleauth/manage.py up        # 起動（セーブデータ�
 
 ## バックアップ
 
-`circleauth-backup.timer` が毎日 19:20（UTC）に名簿・認証ログ・通話データを `/srv/circleauth/backups/<日時>.tar.gz` へ固めます（14世代）。戻すときは `manage.py down` → state を退避 → `init` → `import` → `up` の順です（[UBSLEEPY](ubsleepy.md) と同じ）。
+`circleauth-backup.timer` が毎日 19:20（UTC）に名簿・認証ログ・通話データ（SQLiteはWALを畳んでから）を `/srv/circleauth/backups/<日時>.tar.gz` へ固めます（14世代）。戻すときは `manage.py down` → state を退避 → `init` → `import` → `up` の順です（[UBSLEEPY](ubsleepy.md) と同じ）。
 
 ## 残り
 
@@ -97,8 +97,8 @@ sudo python3 /opt/circleauth/manage.py up        # 起動（セーブデータ�
 1. **入室**: テスト用アカウントをサーバーへ参加させる。`UNKNOWN_ROLE_ID` が付き、`HELLO_CHANNEL_ID` に案内と「メンバー認証」ボタンが出る。
 2. **認証**: ボタンを押し、学籍番号7桁（例 `J111111`）と好きなポケモン（任意）を送信する。`UNKNOWN_ROLE_ID` が外れ、「照合に成功しました」または「照合に失敗しました ?」が本人にだけ表示される。
    - ロールを外すのは形式が正しければ行われる。名簿との照合は、既存の学籍番号の行にDiscordのユーザーID・名前・好きなポケモンを書き込む処理。
-3. **名簿**: `sudo grep J111111 /srv/circleauth/state/save/pogakuin_list.csv` で、該当行にユーザーID・ユーザー名・好きなポケモンが入っている。
-4. **認証ログ**: `sudo tail -n 3 /srv/circleauth/state/log/auth_log.csv` に登録日時・ユーザーID・ユーザー名・学籍番号・好きなポケモンの1行が増える。
+3. **名簿**: Botポータルの「名簿」で、該当の学籍番号にユーザーID・ユーザー名・好きなポケモンが入っている。
+4. **認証ログ**: Botポータルの「認証ログ」に、登録日時・ユーザーID・ユーザー名・学籍番号・好きなポケモンの1行が増える。
 5. **通話**: ボイスチャンネルへ2人で入る（1人目で開始、最後の1人が抜けると終了）。通知は `CALLSTATUS_CHANNEL_ID`（debugでは `DEBUG_CHANNEL_ID`）に出る。`/calltitle` でタイトル変更、`/invite` で招待DMを送れる。
 
 Botポータル（https://portal.apextox.dpdns.org/）の CIRCLEAUTH ページにも同じ確認手順が出る。ログと再起動はそこから行える。
