@@ -110,6 +110,13 @@
     "pingUrl": "https://vault.apextox.dpdns.org/alive"
   },
   {
+    "name": "Adminer",
+    "href": "https://adminer.apextox.dpdns.org",
+    "description": "ポケモン系PostgreSQLの管理画面（SSO・管理者のみ）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adminer.svg",
+    "pingUrl": "https://adminer.apextox.dpdns.org/"
+  },
+  {
     "name": "ゲームポータル",
     "href": "https://play.apextox.dpdns.org",
     "description": "ゲーム配信・ランチャーの入口",
