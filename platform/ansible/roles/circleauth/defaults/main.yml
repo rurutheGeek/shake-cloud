@@ -1,0 +1,18 @@
+---
+# サークル認証Bot「CIRCLEAUTH」を apps-01 に単独で置く。
+circleauth_project_dir: /opt/circleauth
+circleauth_storage_root: /srv/circleauth
+circleauth_source_dir: '{{ playbook_dir }}/../../stacks/circleauth'
+circleauth_repository: git@github.com:rurutheGeek/CIRCLEAUTH.git
+circleauth_branch: main
+# Discord のトークン（DISCORD_TOKEN）と読み取り専用deploy key（DEPLOY_KEY）。
+circleauth_sops_file: '{{ playbook_dir }}/../sops/circleauth.sops.yaml'
+# main の更新を apps-01 が自分で取りに行く間隔。
+circleauth_update_calendar: '*:0/5'
+# 名簿・認証ログの日次アーカイブ。データと同じディスクなので、VMごとの保全は
+# 週次 vzdump が持つ。
+circleauth_backup_dir: '{{ circleauth_storage_root }}/backups'
+circleauth_backup_keep: 14
+circleauth_backup_calendar: '*-*-* 19:20:00'
+# 非公開リポジトリの取得に使う。manage.py は環境変数を引き継ぐ。
+circleauth_git_ssh_command: 'ssh -i {{ circleauth_project_dir }}/secrets/deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile={{ circleauth_project_dir }}/secrets/known_hosts'

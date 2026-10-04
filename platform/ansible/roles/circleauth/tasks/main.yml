@@ -1,0 +1,122 @@
+---
+- name: Install git
+  ansible.builtin.apt:
+    name: git
+    state: present
+
+- name: Create the CIRCLEAUTH deployment directory
+  ansible.builtin.file:
+    path: '{{ circleauth_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the CIRCLEAUTH stack
+  ansible.builtin.copy:
+    src: '{{ circleauth_source_dir }}/{{ item }}'
+    dest: '{{ circleauth_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# .env は宣言値だけを role が描画する（トークンとdeploy keyは secrets/ へ）。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ circleauth_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize the deployment
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ circleauth_project_dir }}'
+  register: circleauth_init
+  changed_when: "'CHANGED' in circleauth_init.stdout"
+
+- name: Read the credentials
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ circleauth_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: circleauth_credentials
+  changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
+  no_log: true
+
+- name: Install the Discord token
+  ansible.builtin.copy:
+    content: '{{ (circleauth_credentials.stdout | from_json).DISCORD_TOKEN }}'
+    dest: '{{ circleauth_project_dir }}/secrets/discord_token'
+    mode: '0400'
+  no_log: true
+
+- name: Install the read-only deploy key
+  ansible.builtin.copy:
+    content: '{{ (circleauth_credentials.stdout | from_json).DEPLOY_KEY }}'
+    dest: '{{ circleauth_project_dir }}/secrets/deploy_key'
+    mode: '0400'
+  no_log: true
+
+- name: Trust github.com for the deploy key
+  ansible.builtin.copy:
+    content: |
+      github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+    dest: '{{ circleauth_project_dir }}/secrets/known_hosts'
+    mode: '0644'
+
+- name: Pin images
+  ansible.builtin.command:
+    argv: [python3, manage.py, lock]
+    chdir: '{{ circleauth_project_dir }}'
+  register: circleauth_pinned
+  changed_when: "'CHANGED' in circleauth_pinned.stdout"
+
+- name: Fetch the source
+  ansible.builtin.command:
+    argv: [python3, manage.py, update]
+    chdir: '{{ circleauth_project_dir }}'
+  environment:
+    GIT_SSH_COMMAND: '{{ circleauth_git_ssh_command }}'
+  register: circleauth_updated
+  changed_when: "'CHANGED' in circleauth_updated.stdout"
+
+# 名簿・認証ログ・通話データは UBSLEEPY の state から manage.py import で運ぶ
+# （docs/operations/circleauth.md）。運ぶ前は Bot を起動しない。
+- name: Look for the save data
+  ansible.builtin.stat:
+    path: '{{ circleauth_storage_root }}/state/config.json'
+  register: circleauth_state
+
+- name: Start the bot
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ circleauth_project_dir }}'
+  register: circleauth_up
+  changed_when: "'Recreate' in circleauth_up.stderr or 'Created' in circleauth_up.stderr or 'Started' in circleauth_up.stderr"
+  when: circleauth_state.stat.exists
+
+- name: Install the update and backup units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - circleauth-update.service
+    - circleauth-update.timer
+    - circleauth-backup.service
+    - circleauth-backup.timer
+
+- name: Enable and start the timers
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - circleauth-update.timer
+    - circleauth-backup.timer

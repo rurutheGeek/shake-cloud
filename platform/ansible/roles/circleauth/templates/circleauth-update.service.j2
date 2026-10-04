@@ -1,0 +1,12 @@
+[Unit]
+Description=Fetch the CIRCLEAUTH source and restart the bot when it changed
+Documentation=https://docs.apextox.dpdns.org/operations/circleauth/
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ circleauth_project_dir }}
+Environment="GIT_SSH_COMMAND={{ circleauth_git_ssh_command }}"
+ExecStart=/usr/bin/python3 manage.py update

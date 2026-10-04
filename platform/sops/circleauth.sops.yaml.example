@@ -1,0 +1,8 @@
+# platform/sops/circleauth.sops.yaml の中身の例。
+# Discord Bot「CIRCLEAUTH」のトークンと、apps-01 が private リポジトリを
+# 取得するための読み取り専用 deploy key。
+DISCORD_TOKEN: "xxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+DEPLOY_KEY: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  -----END OPENSSH PRIVATE KEY-----
