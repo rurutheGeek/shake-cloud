@@ -1,0 +1,11 @@
+[Unit]
+Description=Archive the UBSLEEPY save data
+Documentation=https://docs.apextox.dpdns.org/operations/ubsleepy/
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ ubsleepy_project_dir }}
+ExecStart=/usr/bin/python3 manage.py backup --destination {{ ubsleepy_backup_dir }} --keep {{ ubsleepy_backup_keep }}

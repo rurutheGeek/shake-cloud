@@ -1,6 +1,6 @@
 ---
 title: A01 ポケモンDB・WebUI・agentのgame1移行
-updated: 2026-09-12
+updated: 2026-10-04
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,17 +10,17 @@ tags:
 
 # A01 ポケモンDB・WebUI・agentのgame1移行
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-04 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: 外部コード・データ待ち、移行準備
+**状態**: **DBは apps-01 へ移行済み（2026-10-04、[pkdb](../operations/pkdb.md)）。** WebUI・agentは外部コード待ち。Discord Bot（UBSLEEPY）は別物で、[apps-01 へ移行済み](../operations/ubsleepy.md)
 
 [既存構成の記録](../architecture/operations.md#pokemon-db)に外部 `pokemon-ai-lab/compose.yaml` の内容があるが、本リポジトリにコードやダンプはない。DB名・読み取りロール等は資料の記録であり、取得した実体と照合するまで検証済みとしない。
 
-配備先・開発範囲: **game1。開発先 `stacks/pokemon-ai/`。DB・WebUI・agentを同居し、VM停止時は全体が停止する**。
+配備先・開発範囲: **WebUI・agentは game1（開発先 `stacks/pokemon-ai/`）、DBは apps-01（`stacks/pkdb/`）。** 実測したDBは `sleepy_pkdb`・`shakeweb`・`pkhack` で、下の手順にある `pokemon_rdb`・`openwebui`・pgvector・`pokemon_reader`／`rag_reader` は旧ホストに無かった。手順2〜4のDBに関する部分は pkdb の移行で置き換える。
 
 ## 実装手順
 

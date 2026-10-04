@@ -1,0 +1,10 @@
+[Unit]
+Description=Dump the pkdb PostgreSQL databases
+Documentation=https://docs.apextox.dpdns.org/operations/pkdb/
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ pkdb_project_dir }}
+ExecStart=/usr/bin/python3 manage.py backup --destination {{ pkdb_backup_dir }} --keep {{ pkdb_backup_keep }}

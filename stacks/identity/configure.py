@@ -59,6 +59,7 @@ ADGUARD = 'adguard'
 # which also carries Authentik invitations and recovery links, so its browser
 # UI goes through Forward Auth like the media tools.
 MAIL_VIEW = 'mail-view'
+ADMINER = 'adminer'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -787,6 +788,28 @@ def configure_mail_view(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'mail-view forward-auth provider')
 
 
+def configure_adminer(api, groups, flows, portal_url):
+    """Reconcile the database admin UI: Forward Auth provider, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, ADMINER, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{ADMINER}.{zone}',
+    })
+    application = ensure_application(api, ADMINER, {
+        'name': 'Adminer', 'slug': ADMINER, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{ADMINER}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    # データベースを書き換えられる画面なので、利用者全員には開けない。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {ADMINER}')
+    else:
+        print(f'OK: admins may use {ADMINER}')
+    ensure_outpost(api, [provider['pk']], zone, 'Adminer forward-auth provider')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -856,6 +879,7 @@ def main():
     configure_cups(api, groups, flows, portal_url)
     configure_adguard(api, groups, flows, portal_url)
     configure_mail_view(api, groups, flows, portal_url)
+    configure_adminer(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

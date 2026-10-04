@@ -144,6 +144,18 @@ class MailViewEntryTests(unittest.TestCase):
                 return {'pk': 'app1', 'slug': body['slug']}
             return {}
 
+    def test_adminer_is_a_forward_auth_application_for_admins_only(self):
+        api = self.RecordingAPI()
+        configure.configure_adminer(api, {'users': {'pk': 'group-users'}, 'admins': {'pk': 'group-admins'}},
+                                    FLOWS, 'https://cloud.example.org')
+        provider = next(body for method, path, body in api.calls
+                        if method == 'POST' and path == 'providers/proxy/')
+        self.assertEqual(provider['mode'], 'forward_single')
+        self.assertEqual(provider['external_host'], 'https://adminer.example.org')
+        bindings = [body for method, path, body in api.calls
+                    if method == 'POST' and path == 'policies/bindings/']
+        self.assertEqual(bindings, [{'target': 'app1', 'group': 'group-admins', 'order': 10}])
+
     def test_mail_view_is_a_forward_auth_application_for_every_user(self):
         api = self.RecordingAPI()
         configure.configure_mail_view(api, {'users': {'pk': 'group-users'}},

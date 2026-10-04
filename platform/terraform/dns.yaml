@@ -179,6 +179,18 @@ records:
     host: media-01
     address: 192.168.10.101
     description: LocalSend受信機（media-01・53317）
+  # PostgreSQL は HTTP ではない（Caddyを通さない）ため upstream は持たず、
+  # 名前だけ引けるようにする。
+  pkdb:
+    host: apps-01
+    address: 192.168.10.105
+    description: ポケモン系のPostgreSQL（apps-01・5432）
+  adminer:
+    host: apps-01
+    address: 192.168.10.105
+    upstream: 127.0.0.1:8330
+    description: Adminer（ポケモン系PostgreSQLの管理画面。Forward Auth・admins のみ）
+    auth: true
   cups:
     host: apps-01
     address: 192.168.10.105

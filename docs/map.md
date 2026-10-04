@@ -117,7 +117,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [A01 ポケモンDB・WebUI・agentのgame1移行](development/A01-pokemon-ai.md) | 2026-09-12 | `plan` `ai` |
+| [A01 ポケモンDB・WebUI・agentのgame1移行](development/A01-pokemon-ai.md) | 2026-10-04 | `plan` `ai` |
 | [A02 Ollamaのgame1導入](development/A02-ollama.md) | 2026-09-13 | `plan` `ai` |
 | [A03 汎用RAGの構築](development/A03-rag.md) | 2026-09-12 | `plan` `ai` |
 | [A04 Discord Botの構築](development/A04-discord-bot.md) | 2026-09-12 | `plan` `ai` |
@@ -165,7 +165,7 @@ flowchart TB
 | [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-02 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
 | [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-10-03 | `plan` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-10-04 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
@@ -175,7 +175,7 @@ flowchart TB
 | [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-03 | `ops` `network` `dns` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
-| [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-03 | `ops` `backup` `storage` |
+| [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-03 | `ops` `storage` `nfs` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
@@ -188,9 +188,9 @@ flowchart TB
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-03 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-04 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
-| [運用手順の入口](operations/index.md) | 2026-10-03 | `ops` |
+| [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
@@ -199,15 +199,17 @@ flowchart TB
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-03 | `ops` `nextcloud` `cloud` |
+| [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-04 | `ops` `database` |
 | [電源と UPS](operations/power.md) | 2026-10-03 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-03 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
-| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-03 | `ops` `placement` |
+| [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-04 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
 | [Terraformの実行手順](operations/terraform.md) | 2026-09-13 | `ops` `terraform` |
+| [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-04 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-10-03 | `ops` `network` |
@@ -218,13 +220,13 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-10-03 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-10-02 | `design` `decisions` |
+| [決定ログ](architecture/decisions.md) | 2026-10-04 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-10-03 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-10-03 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-10-03 | `design` `iac` |
 | [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
-| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-03 | `design` `placement` |
+| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-04 | `design` `placement` |
 | [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-03 | `design` `overview` |
 | [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
 | [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-03 | `design` `security` |
@@ -237,7 +239,8 @@ flowchart TB
 | --- | --- | --- |
 | [用語集](reference/glossary.md) | 2026-10-03 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
-| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-03 | `reference` `network` |
+| [ポケモンDBの取扱説明書](reference/pokemondb.md) | 2026-10-04 | `reference` `database` `pokemon` |
+| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-04 | `reference` `network` |
 
 ### 記録
 
@@ -247,6 +250,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 131 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 134 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
