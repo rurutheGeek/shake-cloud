@@ -65,6 +65,26 @@ sudo python3 /opt/ubsleepy/manage.py import /srv/ubsleepy/backups/<日時>.tar.g
 sudo python3 /opt/ubsleepy/manage.py up
 ```
 
+## テスト配備（UBSLEEPY-next）
+
+再開発版（[rurutheGeek/UBSLEEPY-next](https://github.com/rurutheGeek/UBSLEEPY-next)、非公開）を、本番と同じ apps-01 で別プロジェクト・別ディレクトリで動かします。テストトークン（`TEST_DISCORD_TOKEN`）と debug モードを使い、**本番の `/srv/ubsleepy/state` には触りません**（state は写し）。
+
+| 項目 | 値 |
+| --- | --- |
+| 定義 | `stacks/ubsleepy-next/`（`compose.yaml`・`manage.py`） |
+| 配備先 | `/opt/ubsleepy-next`、`/srv/ubsleepy-next`（`source`・`state`） |
+| プロジェクト名 | `ubsleepy-next` |
+| ソース | `git@github.com:rurutheGeek/UBSLEEPY-next.git`。`secrets/deploy_key`（deploy key）で取得 |
+| 秘密 | `secrets/discord_token`（テストトークン）、`pkdb_password`、`ubsleepy_db_password`、`deploy_key` |
+| イメージ | `setup/Dockerfile` でビルド（`ubsleepy-next-bot:local`） |
+
+```bash
+sudo python3 /opt/ubsleepy-next/manage.py update   # 取得とビルド
+sudo python3 /opt/ubsleepy-next/manage.py up
+sudo python3 /opt/ubsleepy-next/manage.py status
+sudo docker logs --tail 50 ubsleepy-next-bot-1
+```
+
 ## 旧ホストからの移行（2026-10-04 に実施）
 
 同じトークンのBotは2つ同時に動かせないため、並行稼働はしていません。停止から起動までは約70秒でした。
