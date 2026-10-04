@@ -1,0 +1,14 @@
+{
+  "group": "homelab",
+  "members": ["ルルザギーク"],
+  "board": {"title": "ホームラボ", "color": "0082c9"},
+  "stacks": ["依頼", "着手中", "確認待ち", "完了"],
+  "labels": [
+    {"title": "pkdb", "color": "31708f"},
+    {"title": "bot", "color": "8e44ad"},
+    {"title": "ネットワーク", "color": "f39c12"},
+    {"title": "メディア", "color": "27ae60"},
+    {"title": "基盤", "color": "7f8c8d"},
+    {"title": "急ぎ", "color": "e74c3c"}
+  ]
+}

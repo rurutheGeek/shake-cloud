@@ -1,6 +1,6 @@
 ---
 title: Nextcloudと追加アプリ
-updated: 2026-10-03
+updated: 2026-10-04
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # Nextcloudと追加アプリ
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **利用者向けの操作は[Nextcloudの使い方（利用者向け）](../services/nextcloud-guide.md)にまとめています。** このページは管理者向け（アプリの追加・配備）です。
 
@@ -100,6 +100,23 @@ sudo python3 manage.py import-calendar \
 - CalDAVの認証は一時的なアプリパスワード（`occ user:auth-tokens:add`）を使い、終了時に削除する
 
 Calendarアプリの「インポート」はブラウザー上のファイルを対象にするため、サーバー上のICSを直接指定できません。配備のたびに走る処理ではないのでAnsibleには載せず、移行時の手動操作とします。
+
+## 作業待ちのボード（Deck）
+
+**ホームラボの作業待ちは、Nextcloud の Deck のボード「ホームラボ」に置きます**（2026-10-04 に作成）。<https://nextcloud.apextox.dpdns.org/apps/deck/> か、Homarr の「作業待ち」から開きます。GitHub には載せたくない依頼（DBの中身、家の機器の話）をここへ書きます。
+
+| 項目 | 中身 |
+| --- | --- |
+| 列 | 依頼 → 着手中 → 確認待ち → 完了 |
+| ラベル | `pkdb`・`bot`・`ネットワーク`・`メディア`・`基盤`・`急ぎ` |
+| 見える人 | Nextcloud のグループ `homelab`（いまは ルルザギーク） |
+| 持ち主 | Nextcloud の `admin` |
+| 定義 | `stacks/media/nextcloud/deck.json`。`manage.py config-deck` が配備のたびに揃える |
+
+- カード1枚が依頼1つ。「何を」「なぜ」「終わりの条件」を書く。
+- **これからやることは Deck、やった結果と実機の状態は[台帳](handover.md)**に書く。
+- 見える人を足すときは `deck.json` の `members` に Nextcloud の表示名を足して配備する（利用者IDは Authentik 由来のハッシュなので、表示名で指定する）。
+- 配備は足りないものを足すだけ。カードと、画面から足した列・ラベルは変えない。
 
 ## 重要な境界
 

@@ -14,7 +14,7 @@
       vars:
         compose_stack_source_dir: '{{ source_dir }}/media/nextcloud'
         compose_stack_project_dir: '{{ project_dir }}/media/nextcloud'
-        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example, deck.json]
         compose_stack_actions: [init]
         compose_stack_env: |
           STORAGE_ROOT={{ storage_root }}
@@ -97,6 +97,12 @@
           - "{{ (nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
+    # 作業待ちのボード（ホームラボ）。定義は stacks/media/nextcloud/deck.json。
+    - name: Reconcile the shared work board
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-deck]
+      register: nextcloud_deck_config
+      changed_when: "'CHANGED:' in nextcloud_deck_config.stdout"
     - name: Default Notes to the plain Markdown editor
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-notes]

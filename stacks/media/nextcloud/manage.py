@@ -505,7 +505,7 @@ def dav_request(config, user, token, method, path, body=None, headers=None,
     except urllib.error.HTTPError as error:
         if error.code in ok:
             return error.code, error.read().decode('utf-8', 'replace')
-        raise RuntimeError('CalDAV {} {} failed: HTTP {}'.format(method, path, error.code))
+        raise RuntimeError('{} {} failed: HTTP {}'.format(method, path, error.code))
 
 
 def find_calendar(config, user, token, name):
@@ -591,13 +591,107 @@ def import_calendar(user, path, name, shares, default_minutes=60):
         occ('user:auth-tokens:delete', user, token_id)
 
 
+DECK_API = '/index.php/apps/deck/api/v1.0'
+
+
+def deck_request(config, user, token, method, path, body=None):
+    """Call the Deck REST API and return the decoded JSON."""
+    _, text = dav_request(
+        config, user, token, method, DECK_API + path,
+        json.dumps(body) if body is not None else None,
+        {'OCS-APIRequest': 'true', 'Content-Type': 'application/json',
+         'Accept': 'application/json'})
+    return json.loads(text) if text.strip() else None
+
+
+def deck_group(name, members):
+    """Create the group that sees the board and add the named people to it.
+
+    People sign in through Authentik and their user ids are opaque hashes, so
+    the board definition names them by display name.
+    """
+    groups = json.loads(occ('group:list', '--output=json', capture_output=True).stdout)
+    if name not in groups:
+        occ('group:add', name)
+        print('CHANGED: group created: {}'.format(name))
+        groups[name] = []
+    users = json.loads(occ('user:list', '--output=json', capture_output=True).stdout)
+    for member in members:
+        ids = [uid for uid, display in users.items() if display == member]
+        if len(ids) != 1:
+            raise RuntimeError('Expected one Nextcloud user named {}, found {}'.format(
+                member, len(ids)))
+        if ids[0] in groups[name]:
+            print('OK: {} already in {}'.format(member, name))
+        else:
+            occ('group:adduser', name, ids[0])
+            print('CHANGED: {} added to {}'.format(member, name))
+
+
+def config_deck(path):
+    """Reconcile the shared work board: group, board, lists, labels, sharing.
+
+    Only missing pieces are added. Cards, and lists or labels people added by
+    hand, are never changed or removed. The labels Deck puts on a new board are
+    removed once, when this creates the board. The temporary app password is
+    always removed.
+    """
+    wanted = json.loads(Path(path).read_text(encoding='utf-8'))
+    config = settings()
+    user = config.get('NEXTCLOUD_ADMIN_USER', 'admin')
+    title = wanted['board']['title']
+    deck_group(wanted['group'], wanted.get('members', []))
+    token, token_id = create_app_password(user, 'deck-setup')
+    try:
+        boards = deck_request(config, user, token, 'GET', '/boards')
+        board = next((item for item in boards
+                      if item['title'] == title and not item.get('deletedAt')), None)
+        if board:
+            print('OK: board exists: {}'.format(title))
+        else:
+            board = deck_request(config, user, token, 'POST', '/boards', wanted['board'])
+            for label in board.get('labels') or []:
+                deck_request(config, user, token, 'DELETE',
+                             '/boards/{}/labels/{}'.format(board['id'], label['id']))
+            print('CHANGED: board created: {}'.format(title))
+        board = deck_request(config, user, token, 'GET', '/boards/{}'.format(board['id']))
+        stacks = deck_request(config, user, token, 'GET',
+                              '/boards/{}/stacks'.format(board['id']))
+        present = {stack['title'] for stack in stacks}
+        for order, name in enumerate(wanted['stacks']):
+            if name in present:
+                continue
+            deck_request(config, user, token, 'POST',
+                         '/boards/{}/stacks'.format(board['id']),
+                         {'title': name, 'order': order})
+            print('CHANGED: list created: {}'.format(name))
+        present = {label['title'] for label in board.get('labels') or []}
+        for label in wanted['labels']:
+            if label['title'] in present:
+                continue
+            deck_request(config, user, token, 'POST',
+                         '/boards/{}/labels'.format(board['id']), label)
+            print('CHANGED: label created: {}'.format(label['title']))
+        shared = {entry['participant']['uid'] for entry in board.get('acl') or []
+                  if entry.get('type') == 1}
+        if wanted['group'] in shared:
+            print('OK: board shared with {}'.format(wanted['group']))
+        else:
+            deck_request(config, user, token, 'POST', '/boards/{}/acl'.format(board['id']),
+                         {'type': 1, 'participant': wanted['group'], 'permissionEdit': True,
+                          'permissionShare': False, 'permissionManage': True})
+            print('CHANGED: board shared with {}'.format(wanted['group']))
+    finally:
+        occ('user:auth-tokens:delete', user, token_id)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
                         choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
                                  'custom-apps', 'remove-apps',
                                  'config-notes', 'config-print', 'config-localsend',
-                                 'config-tags', 'import-calendar', 'status', 'down'])
+                                 'config-tags', 'config-deck', 'import-calendar', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     parser.add_argument('--repos', dest='app_repos',
                         help='Comma-separated GitHub repositories for custom-apps')
@@ -606,7 +700,7 @@ def main():
     parser.add_argument('--user', dest='calendar_user',
                         help='Nextcloud user id for import-calendar')
     parser.add_argument('--file', dest='calendar_file',
-                        help='iCalendar file on the host for import-calendar')
+                        help='iCalendar file for import-calendar, board definition for config-deck')
     parser.add_argument('--name', dest='calendar_name',
                         help='Calendar display name for import-calendar')
     parser.add_argument('--share', dest='calendar_shares', action='append', default=[],
@@ -651,6 +745,8 @@ def main():
         config_localsend()
     elif args.action == 'config-tags':
         config_tags()
+    elif args.action == 'config-deck':
+        config_deck(args.calendar_file or str(ROOT / 'deck.json'))
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':
