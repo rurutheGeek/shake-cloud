@@ -273,7 +273,9 @@ def apply(database, script):
     """
     if not NAME.match(database):
         raise ValueError(f'Unsupported database name: {database}')
-    if database not in databases(local):
+    # databases() は管理用の postgres を数えない。postgres は必ずあるので通す
+    # （ロールやデータベースを作るスクリプトはここへ流す）。
+    if database != SUPERUSER and database not in databases(local):
         print(f'OK: database {database} does not exist yet, {Path(script).name} not applied')
         return
     text = Path(script).read_text(encoding='utf-8')
