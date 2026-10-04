@@ -35,6 +35,19 @@ services:
       - 名簿 save/pogakuin_list.csv の該当行にユーザーID・ユーザー名・好きなポケモンが入るか。
       - 認証ログ log/auth_log.csv に1行追記されるか。
       - "ボイスチャンネルに入って通話通知が出るか。`/calltitle` でタイトル変更、`/invite` で招待DM。"
+    files:
+      - label: 名簿（pogakuin_list.csv）
+        path: /srv/circleauth/state/save/pogakuin_list.csv
+        kind: csv
+        tail: 100
+      - label: 認証ログ（auth_log.csv）
+        path: /srv/circleauth/state/log/auth_log.csv
+        kind: csv
+        tail: 50
+      - label: 通話ログ（call_log.csv）
+        path: /srv/circleauth/state/log/call_log.csv
+        kind: csv
+        tail: 20
 
   - name: ubsleepy-test
     title: UBSLEEPY（テスト）
@@ -64,3 +77,12 @@ services:
       - 新規アカウントで参加→ロール付与と案内。
       - 「メンバー認証」→学籍番号を送信→ロールが外れる。
       - ボイスチャンネルで通話通知。
+    files:
+      - label: 名簿（テスト）
+        path: /srv/circleauth-test/state/save/pogakuin_list.csv
+        kind: csv
+        tail: 100
+      - label: 認証ログ（テスト）
+        path: /srv/circleauth-test/state/log/auth_log.csv
+        kind: csv
+        tail: 50

@@ -827,10 +827,11 @@ def configure_bot_portal(api, groups, flows, portal_url):
         'meta_launch_url': f'https://{BOT_PORTAL}.{zone}',
         'policy_engine_mode': 'any',
     })
-    if bind_group(api, application['pk'], groups['users']['pk']):
-        print(f'CHANGED: users may use {BOT_PORTAL}')
+    # Botのコンテナとmanage.pyを触れる画面なので、利用者全員には開けない。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {BOT_PORTAL}')
     else:
-        print(f'OK: users may use {BOT_PORTAL}')
+        print(f'OK: admins may use {BOT_PORTAL}')
     ensure_outpost(api, [provider['pk']], zone, 'bot-portal forward-auth provider')
 
 

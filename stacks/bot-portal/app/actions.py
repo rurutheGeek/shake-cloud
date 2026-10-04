@@ -5,6 +5,7 @@
 FastAPIに依存しないので、テストはここを直接見る。
 """
 import json
+import csv
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,7 @@ class Service:
     actions: tuple = ()
     help: str = ''
     checks: tuple = ()
+    files: tuple = ()
 
     def allows(self, action: str) -> bool:
         return action in self.actions and action in ALL_ACTIONS
@@ -85,8 +87,32 @@ def load_services(path) -> list[Service]:
             actions=actions,
             help=entry.get('help', ''),
             checks=tuple(entry.get('checks', ())),
+            files=tuple(entry.get('files', ())),
         ))
     return services
+
+
+def read_file_view(spec: dict) -> dict:
+    """services.yaml の files 指定を画面用のデータにする。
+
+    kind: csv なら header/rows（末尾 tail 行）、それ以外は text。
+    """
+    path = Path(spec['path'])
+    view = {'label': spec.get('label', path.name), 'path': str(path)}
+    if not path.exists():
+        view['error'] = 'ファイルがありません'
+        return view
+    text = path.read_text(encoding='utf-8', errors='replace')
+    if spec.get('kind') == 'csv':
+        rows = list(csv.reader(text.splitlines()))
+        header = rows[0] if rows else []
+        body = rows[1:]
+        total = len(body)
+        tail = int(spec.get('tail', 50))
+        view.update({'header': header, 'rows': body[-tail:], 'total': total})
+    else:
+        view['text'] = text[-20000:]
+    return view
 
 
 def command_for(service: Service, action: str) -> list[str]:
