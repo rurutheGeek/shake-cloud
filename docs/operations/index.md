@@ -50,6 +50,7 @@ tags:
 | [Vaultwardenの管理](vaultwarden.md) | 保管庫・SSO・招待 |
 | [ポケモン系のPostgreSQL（pkdb）](pkdb.md) | 接続先・バックアップ・旧ホストからの移行 |
 | [Discord Bot（UBSLEEPY）](ubsleepy.md) | コードの自動更新・セーブデータ・旧ホストからの移行 |
+| [UBSLEEPY 本番切替の手順](ubsleepy-next-switch.md) | -next（図鑑pkdb・セーブDB）への切替と戻し方 |
 | [サークル認証Bot（CIRCLEAUTH）](circleauth.md) | 認証・入室案内・通話通知。テストサーバーでの確認手順 |
 | [Botポータル](bot-portal.md) | Botのログ・再起動・定型操作 |
 | [メール設定（SMTP）](smtp.md) | 招待・復旧メールの送信 |

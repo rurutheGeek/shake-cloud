@@ -85,6 +85,8 @@ sudo python3 /opt/ubsleepy-next/manage.py status
 sudo docker logs --tail 50 ubsleepy-next-bot-1
 ```
 
+本番への切替と戻し方は[UBSLEEPY 本番切替の手順](ubsleepy-next-switch.md)にあります（実施は別途相談）。
+
 ## 旧ホストからの移行（2026-10-04 に実施）
 
 同じトークンのBotは2つ同時に動かせないため、並行稼働はしていません。停止から起動までは約70秒でした。
