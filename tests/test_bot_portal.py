@@ -94,6 +94,22 @@ class FileViewTests(unittest.TestCase):
         view = actions.read_file_view({'label': '名簿', 'path': '/no/such/file.csv', 'kind': 'csv'})
         self.assertEqual(view['error'], 'ファイルがありません')
 
+    def test_sqlite_view_runs_a_read_only_query(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'auth.sqlite3'
+            connection = sqlite3.connect(path)
+            connection.execute('CREATE TABLE member (student_id TEXT, username TEXT)')
+            connection.execute("INSERT INTO member VALUES ('J1', 'るる')")
+            connection.commit()
+            connection.close()
+
+            view = actions.read_file_view({
+                'label': '名簿', 'path': str(path), 'kind': 'sqlite',
+                'query': 'SELECT student_id, username FROM member'})
+        self.assertEqual(view['header'], ['student_id', 'username'])
+        self.assertEqual(view['rows'], [['J1', 'るる']])
+
 
 class StackTests(unittest.TestCase):
     def compose(self):

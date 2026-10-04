@@ -14,6 +14,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tarfile
@@ -211,12 +212,24 @@ def digest():
         print(f'{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}')
 
 
+def checkpoint_sqlite(root):
+    """WALを本体へ畳んでから固める。動いているSQLiteを一貫した状態で取るため。"""
+    for path in sorted(root.rglob('*.sqlite3')):
+        try:
+            connection = sqlite3.connect(path)
+            connection.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+            connection.close()
+        except sqlite3.Error as error:
+            print(f'WARNING: checkpoint failed: {path}: {error}')
+
+
 def backup(destination, keep):
     destination = Path(destination).resolve()
     if destination == state() or state() in destination.parents:
         raise ValueError('Backup destination must be outside the save data')
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
     destination.chmod(0o700)
+    checkpoint_sqlite(state())
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     target = destination / f'{stamp}.tar.gz'
     partial = destination / f'{stamp}.incomplete'
