@@ -153,6 +153,12 @@ class DeploymentTests(unittest.TestCase):
         self.assertTrue(database['no_log'])
         self.assertTrue((ROOT / 'platform/sops/ubsleepy.sops.yaml.example').exists())
 
+    def test_the_role_fetches_the_cries_into_the_state(self):
+        task = next(task for task in self.tasks() if task['name'] == 'Fetch the cries')
+        self.assertEqual(task['ansible.builtin.command']['argv'],
+                         ['python3', 'manage.py', 'cries'])
+        self.assertEqual(task['when'], 'ubsleepy_next_state.stat.exists')
+
     def test_the_host_archives_the_save_data_daily(self):
         service = (ROLE / 'templates/ubsleepy-backup.service.j2').read_text(encoding='utf-8')
         self.assertIn('manage.py backup --destination', service)
@@ -276,6 +282,29 @@ class ManageTests(unittest.TestCase):
         with tarfile.open(destination / names[-1]) as tar:
             archived = {member.name for member in tar.getmembers() if member.isfile()}
         self.assertEqual(archived, set(SAVE))
+
+    def test_backup_leaves_the_redownloadable_cries_out(self):
+        _, storage = self.project()
+        self.write_state(storage)
+        cry = storage / 'state' / 'resource' / 'cry' / 'latest'
+        cry.mkdir(parents=True)
+        (cry / '0006.ogg').write_bytes(b'cry')
+        destination = storage / 'backups'
+        manage.backup(destination, keep=2)
+        target = sorted(destination.glob('*.tar.gz'))[-1]
+        with tarfile.open(target) as tar:
+            archived = {member.name for member in tar.getmembers() if member.isfile()}
+        self.assertEqual(archived, set(SAVE))  # 鳴き声は再取得できるので入らない
+
+    def test_cries_runs_the_fetch_inside_the_container(self):
+        self.project()
+        with patch.object(manage, 'compose',
+                          return_value=SimpleNamespace(stdout='abc123\n')) as compose, \
+                patch.object(manage, 'run') as run:
+            manage.cries()
+        self.assertEqual(compose.call_args.args, ('ps', '-q', 'bot'))
+        run.assert_called_once_with(
+            ['docker', 'exec', 'abc123', 'python', 'tools/fetch_cries.py'])
 
     def test_backup_refuses_a_destination_inside_the_save_data(self):
         _, storage = self.project()

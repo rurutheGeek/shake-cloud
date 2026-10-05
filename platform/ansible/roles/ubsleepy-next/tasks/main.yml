@@ -83,6 +83,16 @@
   changed_when: "'Recreate' in ubsleepy_next_up.stderr or 'Created' in ubsleepy_next_up.stderr or 'Started' in ubsleepy_next_up.stderr"
   when: ubsleepy_next_state.stat.exists
 
+# 鳴き声クイズの音源はサーバに置いておき、クイズはローカル参照だけにする。
+# 未取得ぶんだけ取るので、2回目以降は何もしない。
+- name: Fetch the cries
+  ansible.builtin.command:
+    argv: [python3, manage.py, cries]
+    chdir: '{{ ubsleepy_next_project_dir }}'
+  register: ubsleepy_next_cries
+  changed_when: "'fetched 0' not in ubsleepy_next_cries.stdout"
+  when: ubsleepy_next_state.stat.exists
+
 # イメージ固定なので更新タイマーは無い。セーブデータの日次アーカイブだけを持つ。
 - name: Install the backup units
   ansible.builtin.template:
