@@ -19,7 +19,7 @@ tags:
 ## 前提
 
 - テスト配備（`stacks/ubsleepy-next/`）で `/dex` `/comp` `/simil` `/q` `/search` とセーブ移行の照合が済んでいること
-- 本番用の -next スタックを用意する（テスト配備と同じ構成で、トークンは本番の `DISCORD_TOKEN`、debug なし。別途）
+- 本番切替は `platform/ansible/ubsleepy-next.yml` を `ubsleepy_next_test=false`・`ubsleepy_next_token_key=DISCORD_TOKEN` で実行する（本番の `DISCORD_TOKEN`、debug なし、DBは `ubsleepy`）
 - 本番の `ubsleepy-bot-1` と `ubsleepy-next-bot-1` を同時に起動しない（同じトークンは同時接続できない）
 
 ## 手順
@@ -73,7 +73,10 @@ PY
 ### 4. 新Botの起動
 
 ```bash
-sudo python3 /opt/ubsleepy-next/manage.py up   # 本番用 -next スタックのコマンド
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
+   -e ubsleepy_next_test=false -e ubsleepy_next_token_key=DISCORD_TOKEN \
+   platform/ansible/ubsleepy-next.yml'
 sudo docker logs --tail 50 ubsleepy-next-bot-1
 ```
 

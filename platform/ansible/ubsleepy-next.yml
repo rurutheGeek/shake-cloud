@@ -1,0 +1,12 @@
+---
+# Discord Bot「UBSLEEPY」(-next) を apps-01 へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy-next.yml'
+# イメージは GitHub Actions が main のマージ時に出す GHCR の固定タグ。
+# apps-01 ではビルドしない。外から受ける通信は無い（Discord へ出ていくだけ）。
+- name: Deploy the UBSLEEPY (-next) Discord bot
+  hosts: apps
+  become: true
+  roles:
+    - docker
+    - ubsleepy-next

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""UBSLEEPY（-next）のテスト配備。Run with sudo.
+"""UBSLEEPY（-next）の運用。Run with sudo.
 
-apps-01 で本番(ubsleepy)と別プロジェクト・別ディレクトリで動かす。ソースは
-非公開リポジトリ rurutheGeek/UBSLEEPY-next で、secrets/deploy_key を使って
-取得する。セーブデータは STORAGE_ROOT/state からコンテナへ重ねる。
+配備はAnsible（platform/ansible/ubsleepy-next.yml）が行う。ここは状態の確認や
+手元操作のためのもの。イメージは compose.lock.yaml の digest（GitHub Actions が
+main のマージ時に出すコミットIDタグのもの）を使い、apps-01 ではビルドしない。
+セーブデータは STORAGE_ROOT/state からコンテナへ重ねる。
 """
 import argparse
 import hashlib
@@ -16,7 +17,6 @@ import sys
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'bot'
 TOKEN = 'discord_token'
-DEPLOY_KEY = 'deploy_key'
 # 環境変数名 -> secrets/ のファイル名
 DB_SECRETS = {
     'PKDB_PASSWORD': 'pkdb_password',
@@ -40,15 +40,13 @@ def secret(name):
     return path.read_text().strip() if path.exists() else ''
 
 
-def git_env():
-    return dict(os.environ,
-                GIT_SSH_COMMAND=f'ssh -i {ROOT / "secrets" / DEPLOY_KEY} '
-                                '-o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new')
-
-
 def compose(*args, **kwargs):
     cmd = ['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml']
-    # config と build は値を使わないので、秘密が無くても通るよう仮の値を渡す。
+    if (ROOT / 'compose.lock.yaml').exists():
+        cmd += ['-f', 'compose.lock.yaml']
+    if (ROOT / 'compose.test.yaml').exists() and settings().get('UBSLEEPY_TEST') == 'true':
+        cmd += ['-f', 'compose.test.yaml']
+    # config と pull は値を使わないので、秘密が無くても通るよう仮の値を渡す。
     env = dict(os.environ, DISCORD_TOKEN=secret(TOKEN) or 'unset')
     env.update({name: secret(file) or 'unset' for name, file in DB_SECRETS.items()})
     return run(cmd + list(args), env=env, **kwargs)
@@ -60,10 +58,6 @@ def storage():
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')
     return path
-
-
-def source():
-    return storage() / 'source'
 
 
 def state():
@@ -88,57 +82,21 @@ def init():
     print('CHANGED: ubsleepy-next initialized' if changed else 'OK: ubsleepy-next already initialized')
 
 
-def git(*args):
-    return run(['git', '-C', str(source()), *args], env=git_env(), capture_output=True).stdout.strip()
-
-
-def running():
-    return SERVICE in compose('ps', '--services', '--status', 'running',
-                              capture_output=True).stdout.split()
-
-
-def update():
-    """Bring the checkout to the branch head and rebuild the image."""
-    configured = settings()
-    repository = configured['UBSLEEPY_REPOSITORY']
-    branch = configured.get('UBSLEEPY_BRANCH', 'main')
-    if not (source() / '.git').exists():
-        source().parent.mkdir(parents=True, exist_ok=True)
-        run(['git', 'clone', '--branch', branch, repository, str(source())],
-            env=git_env(), capture_output=True)
-        compose('build')
-        print(f'CHANGED: source cloned at {git("rev-parse", "--short", "HEAD")}')
-        return
-    run(['git', '-C', str(source()), 'fetch', '--quiet', repository, branch],
-        env=git_env(), capture_output=True)
-    wanted = git('rev-parse', 'FETCH_HEAD')
-    if git('rev-parse', 'HEAD') == wanted:
-        print(f'OK: source at {wanted[:7]}')
-        return
-    # The save data is mounted from state/, so resetting the checkout cannot reach it.
-    git('reset', '--hard', wanted)
-    compose('build')
-    if running():
-        compose('up', '-d', '--force-recreate')
-    print(f'CHANGED: source updated to {wanted[:7]}')
-
-
 def missing_state():
     paths = [state() / name for name in STATE_DIRECTORIES + STATE_FILES]
     return [str(path) for path in paths if not path.exists()]
 
 
 def up():
-    for name in (TOKEN, DEPLOY_KEY, *DB_SECRETS.values()):
+    for name in (TOKEN, *DB_SECRETS.values()):
         if not secret(name):
             raise ValueError(f'secrets/{name} is missing')
-    if not (source() / 'main.py').exists():
-        raise ValueError('Run update first: the source is not checked out')
     missing = missing_state()
     if missing:
         # Starting without the save data would let the bot begin from nothing.
         raise ValueError(f'Save data is missing: {", ".join(missing)}')
-    compose('up', '-d', '--build', '--remove-orphans')
+    compose('pull')
+    compose('up', '-d', '--remove-orphans')
 
 
 def state_files():
@@ -155,12 +113,10 @@ def digest():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'update', 'up', 'down', 'status', 'digest'])
+    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest'])
     args = parser.parse_args()
     if args.action == 'init':
         init()
-    elif args.action == 'update':
-        update()
     elif args.action == 'up':
         up()
     elif args.action == 'down':
