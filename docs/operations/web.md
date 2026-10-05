@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **web-01 へ移行・配備済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移した。**公開の切り替え（negitoroserver の向き先）と旧ホストの停止は未実施**で、いまは両方が動いている。旧ホストの配備は [shake-infra](https://github.com/rurutheGeek/shake-infra) の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本になる。
+**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
 
 ## 構成
 
@@ -49,17 +49,17 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
 - ビルドに失敗したら `ssh debian@192.168.10.102 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
 
-## 公開の切り替え（未完）
+## 公開の切り替え（2026-10-05 実施済み）
 
-1. `negitoroserver` の `stream_proxy.conf` の `proxy_pass` と `sslh` の HTTP 先を `100.116.167.59` から `192.168.10.102` へ変える（tailnet のサブネットルート経由）。`set_real_ip_from` は変わらない。
-2. 疎通は「Cloudflare → negitoroserver → web-01」で確認する（`/quiz/api/bsquiz/pokedex` が `308` で pkhack へ、`/` が200）。
-3. 旧ホストのコンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）を停止する。ボリュームは消さずに残す。
-4. shake-infra の CD（repository_dispatch → `deploy_shakeweb` など）を止める。**止めるまで shake-web / pkhack の `main` へ push しない**（旧ホストへ二重配備される）。
+1. `shake-infra#26` で `negitoroserver` の `stream_proxy.conf`（443）と `sslh`（80）の向き先を web-01 の tailnet IP へ変更した。
+2. GitHub Actions「アプリからの自動デプロイ」→ `target=proxy` で適用し、HSTS ヘッダで切替を確認した。
+3. 旧ホストの Web コンテナを停止し、`restart=no` にした（ボリュームは残す）。
+4. **残り**: shake-infra の CD（repository_dispatch → `deploy_shakeweb` など）は旧ホスト向けのまま。旧ホストの Web コンテナは停止しているため実害は無いが、`deploy_shakeweb` を流すと停止中のコンテナへ配備を試みる。整理するまで shake-web / pkhack の `main` へ push した際の自動デプロイは止めておくのが安全。
 
 ## 既知の不具合
 
 - `pkhack` の practice 3本（`langquiz/practice`・`bsquiz/practice`・`abilityquiz/practice`）は **旧ホストでも 500**。クエリが存在しない `POKEMON_NAMES` を参照する、`mv_quiz_status` に無い種族値・特性の列を読む、が原因。移行とは無関係の既存不具合。
-- 2026-10-05 の移行では pkhack の SQL を小文字スキーマへ合わせた（未 push。web-01 へはソースを直接転送）。PR 化して `main` へ入れるまでは、Ansible を流し直すと `fetch` が `origin/main` に戻してしまう点に注意。
+- 2026-10-05 の移行で pkhack の SQL を小文字スキーマへ合わせた（[pkhack#7](https://github.com/rurutheGeek/pkhack/pull/7)、merge 済み）。web-01 は main から fetch して動く。
 
 ## 守り（外部公開の前提・2026-10-05 に強化）
 
@@ -68,7 +68,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
 - Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
 - クイズのトークン暗号鍵 `QUIZ_SECRET` を SOPS に追加し、`platform/sops/shake-web.sops.yaml` から配る（pkhack のコードは既定値フォールバックを削除。`QUIZ_SECRET` 未設定なら起動しない）。
-- 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストには DB パスワードのハードコードが残る（pkhack リポジトリの履歴と稼働中のデプロイ）。切替後に `pkdb_reader` のパスワードをローテーションするのが望ましい。③ web-01 の pkhack は修正済みソースを直接転送しており、`fetch` で戻らないよう PR 化まで再配備しない。
+- 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
 
 ### 外向き（egress）と自宅LANの分離
 
