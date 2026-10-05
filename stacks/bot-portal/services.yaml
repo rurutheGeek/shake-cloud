@@ -70,20 +70,6 @@ services:
       - "`search みず 合計<400` で検索結果が出るか。"
       - "エーテルル財団で `/dex` `/search` を試す。"
 
-  - name: ubsleepy-test
-    title: UBSLEEPY（テスト）
-    description: エーテルル財団で新コードをdebugモードで動かす使い捨てインスタンス。
-    container: ubsleepy-test-bot-1
-    project_dir: /srv/ubsleepy-test/stack
-    source_dir: /srv/ubsleepy-test/source
-    actions: [restart]
-    help: |
-      テストサーバー用です。debugモードなので config.json の開発用ギルド（エーテルル財団）の
-      チャンネル設定を使います。本番のstateとは別です。
-    checks:
-      - "エーテルル財団で `/dex` `/q` を試す。"
-      - この画面でログを見て、接続と警告の有無を確かめる。
-
   - name: circleauth-test
     title: CIRCLEAUTH（テスト）
     description: エーテルル財団で認証・通話を試す使い捨てインスタンス。
