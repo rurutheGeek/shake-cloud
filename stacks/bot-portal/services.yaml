@@ -3,19 +3,22 @@
 # help / checks は画面にそのまま出る（何をするBotか・どう確認するか）。
 services:
   - name: ubsleepy
-    title: UBSLEEPY（本番）
-    description: 公開Discord Bot。図鑑・クイズ・日替わり投稿・おこづかい・IDくじ。
+    title: UBSLEEPY（本番・おねむなbot【研修中】）
+    description: 公開Discord Bot。図鑑・クイズ・日替わり投稿・おこづかい・IDくじ。イメージ固定で配備。
     container: ubsleepy-bot-1
     project_dir: /opt/ubsleepy
-    source_dir: /srv/ubsleepy/source
-    actions: [restart, status, update, up, down, backup]
+    source_dir: ''
+    actions: [restart, status, up, down, backup]
     help: |
-      本番サーバー向けのBotです。セーブデータは /srv/ubsleepy/state（save/・log/・config.json・resource/image/）にあり、
-      更新しても消えません。取得先は rurutheGeek/UBSLEEPY-next です。
+      本番サーバー向けのBotです。イメージはGHCRの固定digest（compose.lock.yaml）で、apps-01ではビルドしません。
+      セーブデータ（おこづかい・クジびきけん・クイズ戦績）はPostgreSQL（ubsleepy DB）で、全サーバー共通です。
+      設定（チャンネル・ロール）はDiscordの /channel /role からDBへ保存されます（config.jsonは既定値）。
+      「起動」はイメージをpullしてから起動します。digestの更新はGit（shake-cloud）で行います。
     checks:
-      - "テストサーバー（エーテルル財団）で `/dex ピカチュウ` を実行し、図鑑とグラフが出るか。"
+      - "本番サーバーで `/help` `/dex ピカチュウ` `/search みず 合計<400` が動くか。"
       - "`/q` でクイズを出題し、ポケモン名をリプライして正誤判定・ヒント・ギブが動くか。"
-      - "`/quizrate` で戦績、`/bmode` で連続出題のON/OFFが切り替わるか。"
+      - "`/quizrate` で戦績、`/pocketmoney` で残高・ランキングが出るか。"
+      - "`/channel`（引数なし）で投稿先が見えるか。日替わり投稿・IDくじが動くか。"
       - この画面のログに警告以上が出ていないか（通常ログはdocker logsにだけ出ます）。
 
   - name: circleauth
@@ -53,22 +56,21 @@ services:
         query: "select started_at, ended_at, duration, title, channel, members from call_log order by id desc limit 20"
 
   - name: ubsleepy-next
-    title: UBSLEEPY-next（テスト配備）
-    description: 再開発版。図鑑はpkdb、セーブはubsleepy_test。テストサーバーでdebugモード。
+    title: UBSLEEPY（テスト・ねてばかりだったBot）
+    description: 本番と同じコードをdebugで動かす開発用。セーブはubsleepy_test。使うときだけ起動。
     container: ubsleepy-next-bot-1
     project_dir: /opt/ubsleepy-next
     source_dir: ''
     actions: [restart, status, up, down]
     debug: true
     help: |
-      再開発版のテスト配備です。イメージはGHCRの固定digestで、apps-01ではビルドしません。
+      開発・テスト用です。本番と同じイメージ（固定digest）を、テストトークン・debugモード・
+      ubsleepy_test で動かします。ふだんは停止しておき、開発するときだけ「起動」します。
       デバッグ欄からDiscordなしでコマンドを試せます（q → hint → give のように複数行で）。
-      セーブは ubsleepy_test へ書きます（「実際に保存する」を選んだときだけ）。
     checks:
+      - "テストサーバー（エーテルル財団）で `/help` `/dex` `/search` が動くか。"
       - デバッグ欄で `sources` を実行し、図鑑pkdb・セーブDB(ubsleepy_test)と出るか。
       - "`q bq` → `hint ヒント` → `give` で出題・ヒント・答えが出るか。"
-      - "`search みず 合計<400` で検索結果が出るか。"
-      - "エーテルル財団で `/dex` `/search` を試す。"
 
   - name: circleauth-test
     title: CIRCLEAUTH（テスト）
