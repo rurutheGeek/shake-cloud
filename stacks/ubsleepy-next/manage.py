@@ -7,12 +7,15 @@ main のマージ時に出すコミットIDタグのもの）を使い、apps-01
 セーブデータは STORAGE_ROOT/state からコンテナへ重ねる。
 """
 import argparse
+import datetime
 import hashlib
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'bot'
@@ -24,6 +27,7 @@ DB_SECRETS = {
 }
 STATE_DIRECTORIES = ('save', 'log', 'resource/image')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
+STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
 
 
 def run(args, **kwargs):
@@ -111,9 +115,33 @@ def digest():
         print(f'{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}')
 
 
+def backup(destination, keep):
+    """Archive the save data. The destination must be outside the state."""
+    destination = Path(destination).resolve()
+    if destination == state() or state() in destination.parents:
+        raise ValueError('Backup destination must be outside the save data')
+    destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    destination.chmod(0o700)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    target = destination / f'{stamp}.tar.gz'
+    partial = destination / f'{stamp}.incomplete'
+    with tarfile.open(partial, 'w:gz') as tar:
+        for name in STATE_DIRECTORIES + STATE_FILES:
+            tar.add(state() / name, arcname=name)
+    partial.rename(target)
+    complete = sorted(path for path in destination.iterdir() if STAMP.match(path.name))
+    for path in complete[:-keep] if keep > 0 else []:
+        path.unlink()
+    print(f'ubsleepy backup complete: {target}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest'])
+    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
+                                           'backup'])
+    parser.add_argument('--destination', default=str(storage() / 'backups'),
+                        help='backup destination directory')
+    parser.add_argument('--keep', type=int, default=14, help='backups to keep')
     args = parser.parse_args()
     if args.action == 'init':
         init()
@@ -123,6 +151,8 @@ def main():
         compose('down')
     elif args.action == 'status':
         compose('ps')
+    elif args.action == 'backup':
+        backup(args.destination, args.keep)
     else:
         digest()
 
