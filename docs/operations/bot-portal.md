@@ -55,8 +55,14 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 画面の「再起動」は `docker restart`、「manage.py …」は各サービスの `/opt/<名前>/manage.py` を実行する。`update` `up` `down` `backup` は確認チェックが必要。実行結果は操作履歴（`/audit`）と `storage/state/audit.log` に残る。
 
+## 登録しているサービス（2026-10-05）
+
+- `ubsleepy`（本番・おねむなbot【研修中】）: イメージ固定。操作は restart / status / up / down / backup（`update` は無い）
+- `ubsleepy-next`（テスト・ねてばかりだったBot）: 本番と同じイメージをdebugで動かす開発用。ふだんは停止
+- `circleauth`（本番・CIRCLEAUTH）: 配備済み・未起動
+- `circleauth-test`（テスト・CIRCLEAUTH）: restart のみ
+
 ## 残り
 
 - systemd ユニット・HTTPヘルスなどDiscord以外のサービスの表示
 - 操作履歴のローテーション
-- テスト用インスタンス（`ubsleepy-test` / `circleauth-test`）の登録
