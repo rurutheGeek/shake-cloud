@@ -11,6 +11,9 @@ pkdb_port: 5432
 pkdb_adminer_port: 8330
 pkdb_dns: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml }}"
 pkdb_adminer_url: 'https://adminer.{{ pkdb_dns.zone }}'
+# ポケモンの登録画面。入口は https://pkdb-entry.<ゾーン>（Forward Auth）。
+pkdb_entry_port: 8331
+pkdb_entry_url: 'https://pkdb-entry.{{ pkdb_dns.zone }}'
 # 配備のたびに流す冪等なSQL。DBがまだ無い（復元前の）ときは何もしない。
 # ubsleepy.sql がDBを作り、次の ubsleepy_tables.sql がそのDBへ流れる。
 pkdb_sql:
@@ -18,6 +21,8 @@ pkdb_sql:
     file: lowercase.sql
   - database: sleepy_pkdb
     file: data_fixes.sql
+  - database: sleepy_pkdb
+    file: entry.sql
   - database: postgres
     file: ubsleepy.sql
   - database: ubsleepy

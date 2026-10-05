@@ -45,7 +45,7 @@ class StackTests(unittest.TestCase):
     def test_the_project_is_postgresql_and_its_admin_ui(self):
         compose = self.compose()
         self.assertEqual(compose['name'], 'pkdb')
-        self.assertEqual(list(compose['services']), ['db', 'adminer'])
+        self.assertEqual(list(compose['services']), ['db', 'adminer', 'entry'])
 
     def test_the_admin_ui_is_loopback_only_and_pinned(self):
         adminer = self.compose()['services']['adminer']
@@ -127,6 +127,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(defaults['pkdb_sql'], [
             {'database': 'sleepy_pkdb', 'file': 'lowercase.sql'},
             {'database': 'sleepy_pkdb', 'file': 'data_fixes.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry.sql'},
             {'database': 'postgres', 'file': 'ubsleepy.sql'},
             {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
             {'database': 'ubsleepy_test', 'file': 'ubsleepy_tables.sql'},
@@ -148,6 +149,58 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('PASSWORD', text)
         for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
             self.assertNotIn(forbidden, text, forbidden)
+
+    def test_the_entry_page_is_loopback_only_locked_down_and_reuses_the_pinned_image(self):
+        entry = yaml.safe_load(
+            (STACK / 'compose.yaml').read_text(encoding='utf-8'))['services']['entry']
+        self.assertEqual(entry['ports'], ['127.0.0.1:${PKDB_ENTRY_PORT:-8331}:8080'])
+        self.assertEqual(entry['volumes'], ['./entry:/app:ro'])
+        self.assertTrue(entry['read_only'])
+        self.assertEqual(entry['cap_drop'], ['ALL'])
+        self.assertEqual(entry['environment']['PKDB_ENTRY_USER'], 'pkdb_entry')
+        self.assertEqual(entry['environment']['PKDB_ENTRY_PASSWORD'],
+                         '${PKDB_ENTRY_PASSWORD:?run manage.py up}')
+        lock = json.loads((STACK / 'compose.lock.yaml').read_text(encoding='utf-8'))
+        self.assertEqual(lock['services']['entry'], lock['services']['adminer'])
+        record = yaml.safe_load(
+            (ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))['records']['pkdb-entry']
+        self.assertTrue(record['auth'])
+
+    def test_the_entry_role_cannot_write_tables_directly(self):
+        text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        grants = [line for line in text.splitlines() if line.startswith('GRANT') or 'TO pkdb_entry' in line]
+        joined = ' '.join(grants)
+        for forbidden in ('INSERT', 'UPDATE', 'DELETE', 'ALL PRIVILEGES'):
+            self.assertNotIn(forbidden, joined, forbidden)
+        self.assertEqual(text.count('SECURITY DEFINER SET search_path = pokemondb, pg_temp'), 5)
+        self.assertIn('FROM PUBLIC', text)
+        self.assertNotIn('PASSWORD', text)
+
+    def test_the_entry_page_binds_every_value_and_escapes_output(self):
+        page = (STACK / 'entry/index.php').read_text(encoding='utf-8')
+        self.assertIn('$pdo->prepare(', page)
+        self.assertNotRegex(page, r'(query|exec|prepare)\([^)]*\$_(POST|GET|COOKIE)')
+        self.assertIn("hash_equals($token, (string) ($_POST['csrf'] ?? ''))", page)
+        self.assertIn('HTTP_X_AUTHENTIK_USERNAME', page)
+        echoes = __import__('re').findall(r'<\?= (.+?) \?>', page)
+        self.assertGreater(len(echoes), 40)
+        for echoed in echoes:
+            self.assertTrue(echoed.startswith(('h(', 'attr(')), echoed)
+        # 呼ぶ関数は2つの固定名からしか選ばない。
+        self.assertIn("$function = $update ? 'update_pokemon' : 'register_pokemon';", page)
+
+    def test_the_entry_page_shows_existing_rows_and_offers_edit_and_copy(self):
+        page = (STACK / 'entry/index.php').read_text(encoding='utf-8')
+        for text in ('修正', '新作の値へコピー', '新しい姿へコピー', '新しいポケモンへコピー',
+                     '登録の例（最近のポケモン）', '次の空きは', '00 が基本の姿'):
+            self.assertIn(text, page, text)
+
+    def test_an_update_keeps_the_previous_values_in_the_log(self):
+        text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        body = text.split('CREATE OR REPLACE FUNCTION pokemondb.update_pokemon(')[1].split('$fn$;')[0]
+        self.assertIn("'before', v_snapshot", body)
+        self.assertIn('PERFORM refresh_views();', body)
+        self.assertIn('TO pkdb_entry, pkdb_editor', text.split('update_pokemon(')[-1])
 
     def test_the_data_fixes_only_add_or_correct_and_refresh_the_views(self):
         text = (STACK / 'sql/data_fixes.sql').read_text(encoding='utf-8')
@@ -371,6 +424,38 @@ class ManageTests(unittest.TestCase):
         args, kwargs = calls[-1]
         self.assertNotIn('--single-transaction', args)
         self.assertIn('ON_ERROR_STOP=1', args)
+
+    def test_the_entry_password_is_set_only_when_the_stored_one_does_not_log_in(self):
+        project, _ = self.project()
+        manage.init()
+        stored = (project / 'secrets' / 'entry_password').read_text(encoding='utf-8').strip()
+        for returncode, expected in ((0, 0), (2, 1)):
+            statements = []
+
+            def client(program, *args, **kwargs):
+                if 'input' in kwargs:
+                    statements.append(kwargs['input'])
+                return SimpleNamespace(stdout='1\n', stderr='')
+            with patch.object(manage, 'local', client), \
+                 patch.object(manage.subprocess, 'run',
+                              return_value=SimpleNamespace(returncode=returncode)) as probe:
+                manage.entry_password()
+            self.assertEqual(len(statements), expected)
+            self.assertNotIn(stored, ' '.join(probe.call_args.args[0]))
+            self.assertNotIn('127.0.0.1', ' '.join(probe.call_args.args[0]))
+            for statement in statements:
+                self.assertEqual(statement, f"ALTER ROLE pkdb_entry PASSWORD '{stored}';\n")
+
+    def test_init_adds_the_entry_secret_without_touching_the_superusers(self):
+        project, _ = self.project()
+        manage.init()
+        password = project / 'secrets' / 'postgres_password'
+        password.chmod(0o600)
+        password.write_text('keep-me\n', encoding='utf-8')
+        (project / 'secrets' / 'entry_password').unlink()
+        manage.init()
+        self.assertEqual(password.read_text(encoding='utf-8'), 'keep-me\n')
+        self.assertTrue((project / 'secrets' / 'entry_password').read_text(encoding='utf-8').strip())
 
     def test_backup_keeps_only_the_newest_dumps(self):
         project, _ = self.project()

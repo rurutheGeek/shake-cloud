@@ -45,6 +45,32 @@ services:
       db:
         condition: service_healthy
 
+  # ポケモンの登録画面（1ページ）。Adminer と同じイメージの PHP で entry/index.php を
+  # 配るだけで、登録の中身は sql/entry.sql の関数が持つ。LAN へ出すのは HTTPS 入口
+  # （Caddy）だけにし、Authentik の Forward Auth を前に置く。
+  entry:
+    image: adminer:6.1.1
+    restart: unless-stopped
+    entrypoint: [php]
+    command: ['-S', '0.0.0.0:8080', '-t', /app]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      PKDB_ENTRY_HOST: db
+      PKDB_ENTRY_DATABASE: sleepy_pkdb
+      PKDB_ENTRY_USER: pkdb_entry
+      # manage.py が secrets/entry_password から環境変数で渡す。
+      PKDB_ENTRY_PASSWORD: ${PKDB_ENTRY_PASSWORD:?run manage.py up}
+    volumes:
+      - ./entry:/app:ro
+    ports:
+      - '127.0.0.1:${PKDB_ENTRY_PORT:-8331}:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password

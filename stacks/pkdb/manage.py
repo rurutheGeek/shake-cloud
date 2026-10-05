@@ -21,7 +21,9 @@ import sys
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'db'
 SUPERUSER = 'postgres'
-GENERATED_SECRETS = ('postgres_password',)
+ENTRY_ROLE = 'pkdb_entry'
+ENTRY_SECRET = 'entry_password'
+GENERATED_SECRETS = ('postgres_password', ENTRY_SECRET)
 STORAGE_DIRECTORY = 'data'
 SOURCE_PASSWORD = 'PKDB_SOURCE_PASSWORD'
 NAME = re.compile(r'^[A-Za-z0-9_]+$')
@@ -58,7 +60,12 @@ def compose(*args, locked=True, **kwargs):
     cmd = ['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml']
     if locked and (ROOT / 'compose.lock.yaml').exists():
         cmd += ['-f', 'compose.lock.yaml']
-    return run(cmd + list(args), **kwargs)
+    # 登録画面（entry）のDBパスワードは .env に書かず、ここで渡す。
+    # config や ps は値を使わないので、まだ無いときは仮の値で通す。
+    secret = ROOT / 'secrets' / ENTRY_SECRET
+    env = dict(os.environ,
+               PKDB_ENTRY_PASSWORD=secret.read_text().strip() if secret.exists() else 'unset')
+    return run(cmd + list(args), env=env, **kwargs)
 
 
 def storage():
@@ -290,6 +297,39 @@ def apply(database, script):
         print(f'OK: {Path(script).name} already applied to {database}')
 
 
+def entry_password():
+    """Make the entry page's own role log in with the password kept on this host.
+
+    pkdb_entry is used by the entry container alone and its password lives only
+    in secrets/entry_password. It is set when the role has none (just created)
+    or when the stored one no longer logs in (a restore onto another host). No
+    other role is touched.
+    """
+    password = (ROOT / 'secrets' / ENTRY_SECRET).read_text().strip()
+    if not password or "'" in password or '\\' in password:
+        raise ValueError(f'Unusable secret: {ENTRY_SECRET}')
+    exists = local('psql', '-d', 'postgres', '-At', '-c',
+                   f"select 1 from pg_roles where rolname = '{ENTRY_ROLE}'",
+                   capture_output=True).stdout.strip()
+    if not exists:
+        print(f'OK: role {ENTRY_ROLE} does not exist yet')
+        return
+    probe = subprocess.run(
+        ['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml',
+         'exec', '-T', '-e', 'PGPASSWORD', SERVICE, 'sh', '-c',
+         # ループバックは pg_hba で認証なし（trust）なので、確認にならない。
+         # 登録画面と同じく、コンテナのアドレスへパスワードでつなぐ。
+         f'psql -h "$(hostname -i)" -U {ENTRY_ROLE} -d postgres -Atc "select 1"'],
+        cwd=ROOT, text=True, capture_output=True,
+        env=dict(os.environ, PGPASSWORD=password, PKDB_ENTRY_PASSWORD=password))
+    if probe.returncode == 0:
+        print(f'OK: {ENTRY_ROLE} logs in with the stored password')
+        return
+    local('psql', '-d', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1',
+          input=f"ALTER ROLE {ENTRY_ROLE} PASSWORD '{password}';\n")
+    print(f'CHANGED: {ENTRY_ROLE} password set from {ENTRY_SECRET}')
+
+
 def fingerprint(client):
     """Print `database schema.table rows digest` for every table and matview."""
     for name in databases(client):
@@ -302,7 +342,8 @@ def fingerprint(client):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'lock', 'up', 'status', 'backup',
-                                           'fetch', 'restore', 'fingerprint', 'apply'])
+                                           'fetch', 'restore', 'fingerprint', 'apply',
+                                           'entry-password'])
     parser.add_argument('directory', nargs='?',
                         help='dump directory for fetch and restore, SQL script for apply')
     parser.add_argument('--database', help='database for apply')
@@ -331,6 +372,8 @@ def main():
         fetch(args.host, args.port, args.user, args.directory)
     elif args.action == 'restore':
         restore(args.directory)
+    elif args.action == 'entry-password':
+        entry_password()
     elif args.action == 'apply':
         if not (args.database and args.directory):
             parser.error('apply requires --database and the SQL script')

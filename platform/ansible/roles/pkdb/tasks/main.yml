@@ -16,6 +16,14 @@
     - manage.py
     - .env.example
 
+# 登録画面のコンテナ（root 以外で動く）が読めるよう、誰でも読める権限で置く。
+- name: Copy the entry page
+  ansible.builtin.copy:
+    src: '{{ pkdb_source_dir }}/entry/'
+    dest: '{{ pkdb_project_dir }}/entry/'
+    mode: '0644'
+    directory_mode: '0755'
+
 # .env は宣言値だけを role が描画する（秘密値は secrets/ へ）。
 - name: Render the deployment environment
   ansible.builtin.template:
@@ -64,6 +72,35 @@
   loop: '{{ pkdb_sql }}'
   register: pkdb_applied
   changed_when: "'CHANGED' in pkdb_applied.stdout"
+
+# 登録画面のロール（pkdb_entry）は entry.sql が作る。パスワードはこのホストの
+# secrets/entry_password だけにあり、既存のロールのパスワードには触らない。
+- name: Let the entry page log in with its own role
+  ansible.builtin.command:
+    argv: [python3, manage.py, entry-password]
+    chdir: '{{ pkdb_project_dir }}'
+  register: pkdb_entry_password
+  changed_when: "'CHANGED' in pkdb_entry_password.stdout"
+
+- name: Wait for the entry page on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ pkdb_entry_port }}/'
+    return_content: true
+  register: pkdb_entry
+  retries: 20
+  delay: 3
+  until: pkdb_entry.status == 200 and 'ポケモン登録' in pkdb_entry.content
+
+- name: Wait for the entry page entry point
+  ansible.builtin.uri:
+    url: '{{ pkdb_entry_url }}/'
+    follow_redirects: none
+    status_code: [200, 302]
+    validate_certs: true
+  register: pkdb_entry_public
+  retries: 20
+  delay: 3
+  until: pkdb_entry_public.status in [200, 302]
 
 - name: Wait for Adminer on loopback
   ansible.builtin.uri:

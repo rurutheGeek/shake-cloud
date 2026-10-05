@@ -190,7 +190,7 @@ flowchart TB
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-04 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-05 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
@@ -201,7 +201,7 @@ flowchart TB
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
-| [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-04 | `ops` `database` |
+| [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-05 | `ops` `database` |
 | [電源と UPS](operations/power.md) | 2026-10-03 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
@@ -242,8 +242,8 @@ flowchart TB
 | --- | --- | --- |
 | [用語集](reference/glossary.md) | 2026-10-03 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
-| [ポケモンDBの取扱説明書](reference/pokemondb.md) | 2026-10-04 | `reference` `database` `pokemon` |
-| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-04 | `reference` `network` |
+| [ポケモンDBの取扱説明書](reference/pokemondb.md) | 2026-10-05 | `reference` `database` `pokemon` |
+| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-05 | `reference` `network` |
 
 ### 記録
 
