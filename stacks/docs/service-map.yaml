@@ -49,6 +49,15 @@ vms:
     address: 192.168.10.101
     docs: [operations/nextcloud.md, operations/bulk-storage.md]
     services: []
+  - name: web-01
+    kind: cloud
+    role: 公開サイト
+    address: 192.168.10.102
+    docs: [operations/web.md]
+    services:
+      - {name: Shake-Web, description: Issues・Shaketter・ToBa・ikura と Wiki, docs: [operations/web.md]}
+      - {name: pkhack, description: ポケモンクイズ, docs: [operations/web.md]}
+      - {name: nginx, description: 4サイトの入口。CloudFlare Origin 証明書で TLS 終端, docs: [operations/web.md]}
   - name: game-01
     kind: cloud
     role: ゲーム（GPUパススルー）

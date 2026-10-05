@@ -1,0 +1,17 @@
+---
+# web-01 へ Shake-Web の公開サイトを配る。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+#        -i platform/ansible/inventory.netbox.yml platform/ansible/shake-web.yml'
+#
+# 秘密値（Deploy key 3本・CloudFlare Origin 証明鍵・DB のパスワード）は
+# platform/sops/shake-web.sops.yaml から role が読む。
+- name: Deploy the Shake-Web sites
+  hosts: web
+  become: true
+  roles:
+    # cloud VM の基本は cloud-init が入れる（common は qemu-guest-agent の
+    # virtio ポート前提で、クラウドVMには無い）。他のクラウドVMの playbook と揃える。
+    - docker
+    - shake_web

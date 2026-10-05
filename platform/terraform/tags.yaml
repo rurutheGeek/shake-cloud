@@ -19,6 +19,9 @@ tags:
   apps:
     ansible_group: apps
     description: 利用者向けアプリの置き場（apps-01。Homarr・Vaultwarden・Home Assistant など）
+  web:
+    ansible_group: web
+    description: Web の公開サイト（web-01。Shake-Web・pkhack・Alexa スキル・ayahuya）
   core:
     ansible_group: core
     description: 台帳・共有サービスの置き場（NetBox・Homarr・Vaultwarden など）
