@@ -92,6 +92,15 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
+## 外からの監視（たらこサーバ）
+
+ミニPC（K11）が落ちても気づけるよう、**たらこサーバ（Pi 4）** が外から見張る。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに次を確認し、**状態が変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`）。
+
+- 公開サイト: `shake`・`pkhack`・`ayahuya`・ルート
+- 監視の入口: `grafana.apextox.dpdns.org`（monitor-01）
+
+コードとユーザーは [配備台帳](handover.md) を参照。状態はたらこサーバの `/var/lib/public-monitor/` に残る。
+
 ## 検証
 
 ```bash

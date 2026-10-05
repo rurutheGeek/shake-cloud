@@ -1,0 +1,58 @@
+---
+- name: Install curl
+  ansible.builtin.apt:
+    name: curl
+    state: present
+
+- name: Read the Discord webhook
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ public_monitor_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: public_monitor_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: '{{ public_monitor_config_dir }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+
+- name: Install the webhook
+  ansible.builtin.copy:
+    content: '{{ (public_monitor_secrets.stdout | from_json).DISCORD_WEBHOOK_URL }}'
+    dest: '{{ public_monitor_config_dir }}/webhook'
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+
+- name: Install the checker
+  ansible.builtin.template:
+    src: public-monitor.sh.j2
+    dest: /usr/local/sbin/public-monitor
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the systemd units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - public-monitor.service
+    - public-monitor.timer
+
+- name: Enable the timer
+  ansible.builtin.systemd:
+    name: public-monitor.timer
+    enabled: true
+    state: started
+    daemon_reload: true
