@@ -52,6 +52,24 @@ services:
         kind: sqlite
         query: "select started_at, ended_at, duration, title, channel, members from call_log order by id desc limit 20"
 
+  - name: ubsleepy-next
+    title: UBSLEEPY-next（テスト配備）
+    description: 再開発版。図鑑はpkdb、セーブはubsleepy_test。テストサーバーでdebugモード。
+    container: ubsleepy-next-bot-1
+    project_dir: /opt/ubsleepy-next
+    source_dir: ''
+    actions: [restart, status, up, down]
+    debug: true
+    help: |
+      再開発版のテスト配備です。イメージはGHCRの固定digestで、apps-01ではビルドしません。
+      デバッグ欄からDiscordなしでコマンドを試せます（q → hint → give のように複数行で）。
+      セーブは ubsleepy_test へ書きます（「実際に保存する」を選んだときだけ）。
+    checks:
+      - デバッグ欄で `sources` を実行し、図鑑pkdb・セーブDB(ubsleepy_test)と出るか。
+      - "`q bq` → `hint ヒント` → `give` で出題・ヒント・答えが出るか。"
+      - "`search みず 合計<400` で検索結果が出るか。"
+      - "エーテルル財団で `/dex` `/search` を試す。"
+
   - name: ubsleepy-test
     title: UBSLEEPY（テスト）
     description: エーテルル財団で新コードをdebugモードで動かす使い捨てインスタンス。

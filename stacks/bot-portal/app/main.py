@@ -105,6 +105,24 @@ def do_action(request: Request, name: str, action: str = Form(...), confirm: str
         'action': action, 'code': code, 'output': output[-4000:]})
 
 
+@app.post('/service/{name}/debug', response_class=HTMLResponse)
+def do_debug(request: Request, name: str, command: str = Form(''), save: str = Form('')):
+    user = current_user(request)
+    service = find(name)
+    if not service.debug:
+        raise HTTPException(status_code=400, detail=f'{name}: debug not allowed')
+    text = command.strip()
+    if not text:
+        return render_service(request, user, service, result={
+            'action': 'debug', 'code': 1, 'output': 'コマンドが空です'})
+    code, output = actions.run_command(
+        actions.debug_command(service, save=save == 'yes'),
+        timeout=120, stdin=text + '\n')
+    audit(user, name, 'debug', code)
+    return render_service(request, user, service, result={
+        'action': 'debug', 'code': code, 'output': output[-8000:]})
+
+
 @app.get('/healthz')
 def healthz():
     return {'status': 'ok', 'services': len(SERVICES)}

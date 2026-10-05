@@ -77,6 +77,27 @@ class RegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             actions.command_for(service, 'down')
 
+    def test_loads_the_debug_flag(self):
+        self.assertFalse(self.load()[0].debug)
+        text = REGISTRY.replace(
+            'actions: [restart, status, update]',
+            'actions: [restart, status, update]\n    debug: true')
+        self.assertTrue(self.load(text)[0].debug)
+
+    def test_debug_command_runs_the_cli_in_the_container(self):
+        text = REGISTRY.replace(
+            'actions: [restart, status, update]',
+            'actions: [restart, status, update]\n    debug: true')
+        service = self.load(text)[0]
+        self.assertEqual(actions.debug_command(service), [
+            'docker', 'exec', '-i', 'ubsleepy-bot-1',
+            'python', 'debug_cli.py', '--stdin'])
+        self.assertEqual(actions.debug_command(service, save=True)[-1], '--save')
+
+    def test_debug_command_is_rejected_when_not_enabled(self):
+        with self.assertRaises(ValueError):
+            actions.debug_command(self.load()[0])
+
 
 class FileViewTests(unittest.TestCase):
     def test_csv_view_keeps_the_tail_and_header(self):
@@ -123,8 +144,16 @@ class StackTests(unittest.TestCase):
         volumes = self.compose()['services']['portal']['volumes']
         self.assertIn('/var/run/docker.sock:/var/run/docker.sock', volumes)
         self.assertIn('/opt/ubsleepy:/opt/ubsleepy', volumes)
+        self.assertIn('/opt/ubsleepy-next:/opt/ubsleepy-next', volumes)
         self.assertIn('/opt/circleauth:/opt/circleauth', volumes)
+        self.assertIn('/srv/ubsleepy-next:/srv/ubsleepy-next', volumes)
         self.assertIn('/srv/circleauth-test:/srv/circleauth-test', volumes)
+
+    def test_the_registry_marks_the_next_deployment_for_debug(self):
+        services = {service.name: service
+                    for service in actions.load_services(STACK / 'services.yaml')}
+        self.assertTrue(services['ubsleepy-next'].debug)
+        self.assertEqual(services['ubsleepy-next'].container, 'ubsleepy-next-bot-1')
 
     def test_the_dns_record_goes_through_forward_auth(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))
