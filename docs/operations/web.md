@@ -61,6 +61,15 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - `pkhack` の practice 3本（`langquiz/practice`・`bsquiz/practice`・`abilityquiz/practice`）は **旧ホストでも 500**。クエリが存在しない `POKEMON_NAMES` を参照する、`mv_quiz_status` に無い種族値・特性の列を読む、が原因。移行とは無関係の既存不具合。
 - 2026-10-05 の移行では pkhack の SQL を小文字スキーマへ合わせた（未 push。web-01 へはソースを直接転送）。PR 化して `main` へ入れるまでは、Ansible を流し直すと `fetch` が `origin/main` に戻してしまう点に注意。
 
+## 守り（外部公開の前提・2026-10-05 に強化）
+
+- セキュリティグループは既定で拒否。許可は LAN から 22、入口（core-01）と公開中継（negitoroserver）から 80/443、monitor-01 から 9100 だけ。LAN の dev-02 から 80/443/8443/3000/8010/9100 が閉じていることを実測した。
+- SSH は鍵のみ（`PasswordAuthentication no`・`KbdInteractiveAuthentication no`・root は `without-password`）。`unattended-upgrades` は有効。
+- nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
+- Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
+- クイズのトークン暗号鍵 `QUIZ_SECRET` を SOPS に追加し、`platform/sops/shake-web.sops.yaml` から配る（pkhack のコードは既定値フォールバックを削除。`QUIZ_SECRET` 未設定なら起動しない）。
+- 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストには DB パスワードのハードコードが残る（pkhack リポジトリの履歴と稼働中のデプロイ）。切替後に `pkdb_reader` のパスワードをローテーションするのが望ましい。③ web-01 の pkhack は修正済みソースを直接転送しており、`fetch` で戻らないよう PR 化まで再配備しない。
+
 ## 検証
 
 ```bash

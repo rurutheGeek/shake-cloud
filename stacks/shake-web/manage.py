@@ -97,6 +97,15 @@ def init():
     print('CHANGED: shake-web initialized' if changed else 'OK: shake-web already initialized')
 
 
+def is_repo(path):
+    """git として使えるか。rsync で .git を除いた置き場は作り直す。"""
+    if not (path / '.git').is_dir():
+        return False
+    probe = subprocess.run(['git', '-C', str(path), 'rev-parse', '--git-dir'],
+                           capture_output=True, text=True)
+    return probe.returncode == 0
+
+
 def fetch():
     """4リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
     path = storage()
@@ -105,7 +114,9 @@ def fetch():
     for name, (url, key, ref_var, default_ref) in REPOS.items():
         ref = conf.get(ref_var, default_ref) or default_ref
         target = path / 'src' / name
-        if not (target / '.git').exists():
+        if not is_repo(target):
+            if target.exists():
+                shutil.rmtree(target)
             target.parent.mkdir(parents=True, exist_ok=True)
             run(['git', 'clone', '--branch', ref, url, str(target)],
                 env={**os.environ, **({'GIT_SSH_COMMAND':
