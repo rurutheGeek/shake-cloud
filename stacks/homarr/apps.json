@@ -64,6 +64,13 @@
     "pingUrl": "https://nextcloud.apextox.dpdns.org/status.php"
   },
   {
+    "name": "作業待ち",
+    "href": "https://nextcloud.apextox.dpdns.org/apps/deck/",
+    "description": "ホームラボの作業待ちボード（Nextcloud Deck）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/nextcloud-deck.svg",
+    "pingUrl": "https://nextcloud.apextox.dpdns.org/status.php"
+  },
+  {
     "name": "Kavita",
     "href": "https://kavita.apextox.dpdns.org",
     "description": "PDF・電子書籍リーダー",

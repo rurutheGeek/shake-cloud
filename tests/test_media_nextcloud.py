@@ -395,6 +395,104 @@ class CalendarImportTests(unittest.TestCase):
                          ('user:auth-tokens:delete', 'user1'))
 
 
+class DeckBoardTests(unittest.TestCase):
+    """The shared work board is reconciled without touching what people added."""
+
+    class Deck:
+        def __init__(self, boards=None):
+            self.boards = boards or []
+            self.calls = []
+
+        def request(self, config, user, token, method, path, body=None):
+            self.calls.append((method, path, body))
+            if (method, path) == ('GET', '/boards'):
+                return self.boards
+            if (method, path) == ('POST', '/boards'):
+                board = {'id': 5, 'title': body['title'], 'acl': [], 'stacks': [],
+                         'labels': [{'id': 1, 'title': 'Finished'}, {'id': 2, 'title': 'Later'}]}
+                self.boards.append(board)
+                return board
+            board = next(item for item in self.boards if '/boards/{}'.format(item['id']) in path)
+            if method == 'DELETE':
+                board['labels'] = [label for label in board['labels']
+                                   if not path.endswith('/{}'.format(label['id']))]
+            elif method == 'GET' and path.endswith('/stacks'):
+                return board['stacks']
+            elif method == 'GET':
+                return board
+            elif path.endswith('/stacks'):
+                board['stacks'].append({'title': body['title']})
+            elif path.endswith('/labels'):
+                board['labels'].append({'id': 90, 'title': body['title']})
+            elif path.endswith('/acl'):
+                board['acl'].append({'type': body['type'],
+                                     'participant': {'uid': body['participant']}})
+            return None
+
+    def run_config(self, deck, groups, users=None):
+        occ_calls = []
+
+        def occ(*args, **kwargs):
+            occ_calls.append(args)
+            output = ''
+            if args[0] == 'group:list':
+                output = manage.json.dumps(groups)
+            elif args[0] == 'user:list':
+                output = manage.json.dumps(users or {'hash1': 'ルルザギーク', 'admin': 'admin'})
+            return type('Done', (), {'stdout': output})()
+        with patch.object(manage, 'settings', return_value={}), \
+             patch.object(manage, 'create_app_password', return_value=('token', '7')), \
+             patch.object(manage, 'deck_request', side_effect=deck.request), \
+             patch.object(manage, 'occ', side_effect=occ), \
+             patch('builtins.print') as printed:
+            manage.config_deck(UNIT / 'deck.json')
+        return occ_calls, [call.args[0] for call in printed.call_args_list]
+
+    def test_a_new_board_gets_the_declared_lists_labels_and_sharing(self):
+        deck = self.Deck()
+        occ_calls, printed = self.run_config(deck, {'admin': ['admin']})
+        board = deck.boards[0]
+        self.assertEqual([stack['title'] for stack in board['stacks']],
+                         ['依頼', '着手中', '確認待ち', '完了'])
+        titles = [label['title'] for label in board['labels']]
+        self.assertIn('pkdb', titles)
+        self.assertNotIn('Finished', titles)
+        self.assertEqual(board['acl'], [{'type': 1, 'participant': {'uid': 'homelab'}}])
+        self.assertIn(('group:add', 'homelab'), occ_calls)
+        self.assertIn(('group:adduser', 'homelab', 'hash1'), occ_calls)
+        self.assertEqual(occ_calls[-1], ('user:auth-tokens:delete', 'admin', '7'))
+        self.assertTrue(any(line.startswith('CHANGED: board created') for line in printed))
+
+    def test_an_existing_board_keeps_what_people_added(self):
+        existing = {'id': 5, 'title': 'ホームラボ',
+                    'acl': [{'type': 1, 'participant': {'uid': 'homelab'}}],
+                    'stacks': [{'title': name} for name in
+                               ['依頼', '着手中', '確認待ち', '完了', '保留']],
+                    'labels': [{'id': n, 'title': title} for n, title in enumerate(
+                        ['pkdb', 'bot', 'ネットワーク', 'メディア', '基盤', '急ぎ', '自分で足した'])]}
+        deck = self.Deck([existing])
+        occ_calls, printed = self.run_config(deck, {'admin': ['admin'], 'homelab': ['hash1']})
+        self.assertEqual({method for method, _, _ in deck.calls}, {'GET'})
+        self.assertNotIn(('group:add', 'homelab'), occ_calls)
+        self.assertFalse(any(line.startswith('CHANGED') for line in printed), printed)
+        self.assertIn('保留', [stack['title'] for stack in existing['stacks']])
+
+    def test_an_unknown_member_stops_before_the_board_is_touched(self):
+        deck = self.Deck()
+        with self.assertRaises(RuntimeError):
+            self.run_config(deck, {'admin': ['admin']}, users={'admin': 'admin'})
+        self.assertEqual(deck.calls, [])
+
+    def test_the_playbook_installs_deck_and_reconciles_the_board(self):
+        group_vars = yaml.safe_load(
+            (ROOT / 'platform/ansible/group_vars/media.yml').read_text(encoding='utf-8'))
+        self.assertIn('deck', group_vars['nextcloud_apps'])
+        text = (ROOT / 'platform/ansible/media-nextcloud.yml').read_text(encoding='utf-8')
+        self.assertIn('deck.json', text)
+        self.assertLess(text.index('Install and enable configured Nextcloud apps'),
+                        text.index('Reconcile the shared work board'))
+
+
 class AnsibleTests(unittest.TestCase):
     def setUp(self):
         self.play = yaml.safe_load(PLAYBOOK.read_text(encoding='utf-8'))[0]

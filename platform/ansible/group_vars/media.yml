@@ -30,6 +30,7 @@ stack_env: {}
 # Installed and enabled after the stack is healthy. Override per host if needed.
 nextcloud_apps:
   - calendar
+  - deck
   - notes
   - tasks
   - text
