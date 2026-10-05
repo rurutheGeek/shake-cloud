@@ -7,6 +7,39 @@
     state: present
     update_cache: true
 
+# 自宅LANのWeb UI（ルータの LuCI、入口の Caddy、AP など）へ出さない。
+# 外向きの全体制限は SG（PVE 側）が持つ。ここは、アプリが root を取る前の
+# 一段として LAN 宛の 80/443 だけを塞ぐ（policy は accept のままなので
+# Docker の転送や他の通信には触らない）。
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Install the LAN web guard ruleset
+  ansible.builtin.copy:
+    content: |
+      # Shake-Web: 自宅LANの 80/443 へ出さない。外向きの全体制限は SG が正本。
+      table inet homeguard {
+        chain output {
+          type filter hook output priority 0; policy accept;
+          ip daddr 192.168.10.0/24 tcp dport { 80, 443 } drop
+        }
+        chain forward {
+          type filter hook forward priority 0; policy accept;
+          ip daddr 192.168.10.0/24 tcp dport { 80, 443 } drop
+        }
+      }
+    dest: /etc/nftables.conf
+    mode: '0644'
+  notify: Reload nftables
+
+- name: Enable the LAN web guard
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+    state: started
+
 - name: Create the project and storage directories
   ansible.builtin.file:
     path: '{{ item }}'

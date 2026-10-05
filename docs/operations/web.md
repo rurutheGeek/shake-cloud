@@ -79,6 +79,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - GitHub への git は 22 ではなく `ssh.github.com:443` を使う（`manage.py` が指定）。
 - 新しい SG は EC2 と同じで外向きが全許可。既定の「全許可」2本（`0.0.0.0/0`・`::/0` の all）は作成後に import して削除してある。**SG を作り直したときは既定が戻る**ので、`shake_web` ロールが配備のたびに確認して revoke する。
 - IPv6 の外向きは開けない（LAN 側の IPv6 へ届かせないため）。
+- ゲスト側にも nftables の一段（`/etc/nftables.conf` の `inet homeguard`）を置き、**LAN 宛の 80/443 を output と forward の両方で drop** する。SG は宛先 IP の除外を書けないため、ルータの LuCI・入口 core-01 の Caddy・AP の管理画面（いずれも LAN の 80/443）へアプリから届くのをここで塞ぐ。実測（2026-10-05）: `192.168.10.1:80/443`・`192.168.10.200:443`・`192.168.10.2:80` は web-01 から閉じ、pkdb・DNS・インターネット 443 は開いている。policy は accept のままで、Docker の転送や他の通信には触らない。
 
 ### プロキシ（negitoroserver）側（未実施・提案）
 
