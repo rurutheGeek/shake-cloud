@@ -172,7 +172,7 @@ class DeploymentTests(unittest.TestCase):
         joined = ' '.join(grants)
         for forbidden in ('INSERT', 'UPDATE', 'DELETE', 'ALL PRIVILEGES'):
             self.assertNotIn(forbidden, joined, forbidden)
-        self.assertEqual(text.count('SECURITY DEFINER SET search_path = pokemondb, pg_temp'), 4)
+        self.assertEqual(text.count('SECURITY DEFINER SET search_path = pokemondb, pg_temp'), 5)
         self.assertIn('FROM PUBLIC', text)
         self.assertNotIn('PASSWORD', text)
 
@@ -182,9 +182,25 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotRegex(page, r'(query|exec|prepare)\([^)]*\$_(POST|GET|COOKIE)')
         self.assertIn("hash_equals($token, (string) ($_POST['csrf'] ?? ''))", page)
         self.assertIn('HTTP_X_AUTHENTIK_USERNAME', page)
-        for echoed in __import__('re').findall(r'<\?= (.+?) \?>', page):
-            self.assertTrue(echoed.startswith(('h(', '$value(', '$selected(', '$key', '$pokemonAction ?',
-                                               "$row['action'] ===")), echoed)
+        echoes = __import__('re').findall(r'<\?= (.+?) \?>', page)
+        self.assertGreater(len(echoes), 40)
+        for echoed in echoes:
+            self.assertTrue(echoed.startswith(('h(', 'attr(')), echoed)
+        # 呼ぶ関数は2つの固定名からしか選ばない。
+        self.assertIn("$function = $update ? 'update_pokemon' : 'register_pokemon';", page)
+
+    def test_the_entry_page_shows_existing_rows_and_offers_edit_and_copy(self):
+        page = (STACK / 'entry/index.php').read_text(encoding='utf-8')
+        for text in ('修正', '新作の値へコピー', '新しい姿へコピー', '新しいポケモンへコピー',
+                     '登録の例（最近のポケモン）', '次の空きは', '00 が基本の姿'):
+            self.assertIn(text, page, text)
+
+    def test_an_update_keeps_the_previous_values_in_the_log(self):
+        text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        body = text.split('CREATE OR REPLACE FUNCTION pokemondb.update_pokemon(')[1].split('$fn$;')[0]
+        self.assertIn("'before', v_snapshot", body)
+        self.assertIn('PERFORM refresh_views();', body)
+        self.assertIn('TO pkdb_entry, pkdb_editor', text.split('update_pokemon(')[-1])
 
     def test_the_data_fixes_only_add_or_correct_and_refresh_the_views(self):
         text = (STACK / 'sql/data_fixes.sql').read_text(encoding='utf-8')
