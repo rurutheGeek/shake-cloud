@@ -72,8 +72,11 @@ def compose(*args):
 def git(repo, args, key=None):
     env = dict(os.environ)
     if key is not None:
+        # 外向きは 443 だけに絞る（SG の egress）。GitHub の SSH は 22 では
+        # なく ssh.github.com:443 を使う。
         env['GIT_SSH_COMMAND'] = (
-            f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new')
+            f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new '
+            f'-p 443 -o HostName=ssh.github.com')
     return run(['git', '-C', str(repo)] + list(args), env=env, capture_output=True)
 
 
@@ -120,7 +123,8 @@ def fetch():
             target.parent.mkdir(parents=True, exist_ok=True)
             run(['git', 'clone', '--branch', ref, url, str(target)],
                 env={**os.environ, **({'GIT_SSH_COMMAND':
-                     f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new'}
+                     f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new '
+                     f'-p 443 -o HostName=ssh.github.com'}
                      if key else {})})
             changed.append(name)
             continue

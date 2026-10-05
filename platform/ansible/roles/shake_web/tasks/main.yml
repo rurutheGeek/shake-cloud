@@ -60,6 +60,62 @@
     label: '{{ item.path }}'
   no_log: true
 
+# --- 外向き（egress）の確認 ---
+# 公開サイトが突破されても自宅LANへ横展開できないよう、外向きは Terraform が
+# 宣言した許可だけに絞ってある。新しいグループは EC2 と同じで外向きが全許可
+# なので、既定の「全許可」2本が残っていたら消す。グループを作り直しても
+# 次の配備で戻らない。
+- name: Read the cloud access key
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_services_sops }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_cloud_key
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: List the security groups
+  ansible.builtin.uri:
+    url: '{{ shake_web_cloud_api }}/v1/security-groups'
+    headers:
+      Authorization: 'Bearer {{ (shake_web_cloud_key.stdout | from_json).SHAKECLOUD_ACCESS_KEY }}'
+  delegate_to: localhost
+  become: false
+  register: shake_web_cloud_groups
+  changed_when: false
+  no_log: true
+
+- name: Find the web security group
+  ansible.builtin.set_fact:
+    shake_web_cloud_group: >-
+      {{ shake_web_cloud_groups.json.security_groups
+         | selectattr('group_name', 'equalto', shake_web_cloud_group_name)
+         | list | first | default({}) }}
+
+- name: Fail when the web security group is missing
+  ansible.builtin.assert:
+    that:
+      - shake_web_cloud_group.group_id is defined
+    fail_msg: 'security group {{ shake_web_cloud_group_name }} がクラウドAPIに見つからない'
+
+- name: Revoke allow-all egress rules from the web security group
+  ansible.builtin.uri:
+    url: '{{ shake_web_cloud_api }}/v1/security-groups/{{ shake_web_cloud_group.group_id }}/rules/{{ item.rule_id }}'
+    method: DELETE
+    headers:
+      Authorization: 'Bearer {{ (shake_web_cloud_key.stdout | from_json).SHAKECLOUD_ACCESS_KEY }}'
+    status_code: [204, 404]
+  delegate_to: localhost
+  become: false
+  loop: '{{ shake_web_cloud_group.egress | default([]) }}'
+  loop_control:
+    label: '{{ item.rule_id }}'
+  when:
+    - item.protocol == "all"
+    - item.cidr in ["0.0.0.0/0", "::/0"]
+  no_log: true
+
 - name: Install the CloudFlare Origin certificate
   ansible.builtin.copy:
     content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_CERT }}'

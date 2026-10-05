@@ -70,6 +70,23 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - クイズのトークン暗号鍵 `QUIZ_SECRET` を SOPS に追加し、`platform/sops/shake-web.sops.yaml` から配る（pkhack のコードは既定値フォールバックを削除。`QUIZ_SECRET` 未設定なら起動しない）。
 - 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストには DB パスワードのハードコードが残る（pkhack リポジトリの履歴と稼働中のデプロイ）。切替後に `pkdb_reader` のパスワードをローテーションするのが望ましい。③ web-01 の pkhack は修正済みソースを直接転送しており、`fetch` で戻らないよう PR 化まで再配備しない。
 
+### 外向き（egress）と自宅LANの分離
+
+公開サイトが突破されても自宅LANへ横展開できないように、SG の外向きも既定拒否にしている。許可はコード（`platform/terraform/services/web/main.tf`）が正本。
+
+- 許可: DNS（53 tcp/udp → `192.168.10.1`）、NTP（123/udp → 全）、pkdb（5432/tcp → `192.168.10.105`）、HTTP/HTTPS（80/443 → 全）。
+- 実測（2026-10-05）: PVE の `8006`・SSH `22`、Garage `3900`、NetBox `8000`、他VMへ届かない。pkdb とインターネット 443 は OK。
+- GitHub への git は 22 ではなく `ssh.github.com:443` を使う（`manage.py` が指定）。
+- 新しい SG は EC2 と同じで外向きが全許可。既定の「全許可」2本（`0.0.0.0/0`・`::/0` の all）は作成後に import して削除してある。**SG を作り直したときは既定が戻る**ので、`shake_web` ロールが配備のたびに確認して revoke する。
+- IPv6 の外向きは開けない（LAN 側の IPv6 へ届かせないため）。
+
+### プロキシ（negitoroserver）側（未実施・提案）
+
+グローバルIPを持つ negitoroserver が突破されると、Tailscale のサブネットルート経由で LAN 全体へ届く。次のどちらかを推奨する。
+
+- Tailscale の ACL で negitoroserver の宛先を `192.168.10.102` の 80/443 だけに絞る（管理コンソールで設定。切替後は負荷が web-01 へ移る）。
+- サブネットルートをやめ、web-01 に Tailscale を入れて negitoroserver と web-01 だけを共有する。
+
 ## 検証
 
 ```bash

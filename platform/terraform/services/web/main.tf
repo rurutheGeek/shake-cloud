@@ -95,6 +95,78 @@ resource "shakecloud_security_group_rule" "node_exporter" {
   description = "node_exporter from monitor-01"
 }
 
+# --- 外向き（egress）---
+# EC2 と同じで、新しいグループは外向きが全許可。公開サイトが突破されても
+# 自宅LANへ横展開できないよう、明示の宛先だけにする。
+# 注意: 既定の「全許可」2本（0.0.0.0/0 と ::/0 の all）はグループ作成時に
+# API が付ける。Terraform では作れないので、作成後に import して削除して
+# ある（README の手順）。ロールも配備のたびに残っていないか確認して消す。
+# IPv6 の外向きは開けない（LAN 側の IPv6 へ届かせないため。不自由は無い）。
+
+# DNS はホームルータ（AdGuard Home）だけ。53 以外のポートで名前は引けない。
+resource "shakecloud_security_group_rule" "egress_dns_udp" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "udp"
+  from_port   = 53
+  to_port     = 53
+  cidr        = "192.168.10.1/32"
+  description = "DNS to the home router (AdGuard)"
+}
+
+resource "shakecloud_security_group_rule" "egress_dns_tcp" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "tcp"
+  from_port   = 53
+  to_port     = 53
+  cidr        = "192.168.10.1/32"
+  description = "DNS (TCP) to the home router (AdGuard)"
+}
+
+resource "shakecloud_security_group_rule" "egress_ntp" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "udp"
+  from_port   = 123
+  to_port     = 123
+  cidr        = "0.0.0.0/0"
+  description = "NTP"
+}
+
+# ポケモン系 PostgreSQL（apps-01）。この1台だけに開ける。
+resource "shakecloud_security_group_rule" "egress_pkdb" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "tcp"
+  from_port   = 5432
+  to_port     = 5432
+  cidr        = "192.168.10.105/32"
+  description = "PostgreSQL (pkdb) to apps-01"
+}
+
+# インターネット向け。apt・Docker・git（ssh.github.com:443）・Resend など。
+# LAN 内向きの 80/443 も通るが、PVE の 8006 や SSH は通らない。
+resource "shakecloud_security_group_rule" "egress_http" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "tcp"
+  from_port   = 80
+  to_port     = 80
+  cidr        = "0.0.0.0/0"
+  description = "HTTP for package and image updates"
+}
+
+resource "shakecloud_security_group_rule" "egress_https" {
+  group_id    = shakecloud_security_group.web.id
+  direction   = "egress"
+  protocol    = "tcp"
+  from_port   = 443
+  to_port     = 443
+  cidr        = "0.0.0.0/0"
+  description = "HTTPS (updates, git over 443, Resend)"
+}
+
 resource "shakecloud_instance" "web" {
   image_id = var.image_id
 
@@ -133,3 +205,4 @@ resource "shakecloud_volume_attachment" "data" {
   instance_id = shakecloud_instance.web.id
   # device は省略。空いている最小の virtio スロットになる。
 }
+

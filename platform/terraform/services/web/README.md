@@ -31,6 +31,25 @@ negitoroserver の tailnet アドレス `100.92.253.28` のまま届く。
 cloud-init はユーザー・qemu-guest-agent・Docker・データディスクのマウント
 だけを行う。アプリの Compose・設定は `stacks/shake-web/` から配る。
 
+## 外向き（egress）は自宅LANへ届かせない
+
+公開サイトが突破されても自宅LANを踏み台にされないよう、外向きも既定拒否で
+明示の許可だけにしている（DNS→`192.168.10.1`、NTP、pkdb→`192.168.10.105:5432`、
+HTTP/HTTPS）。PVE の `8006`・SSH、他VMへは届かない。
+
+**新しい SG は外向きが全許可**（EC2 と同じ）。作成時に API が付ける
+「全許可」2本（`0.0.0.0/0`・`::/0` の all）は、次の手順で import して削除してある。
+
+```bash
+# 一度だけ。main.tf へ同名・同内容の resource を一時的に足してから
+tools/tf services/web import \
+  shakecloud_security_group_rule.egress_default_all_v4 \
+  "$(tools/tf services/web output -raw security_group_id)/sgr-..."
+# import 後に一時ブロックを消し、plan（2 to destroy）を apply する
+```
+
+SG を作り直すと既定が戻る。`shake_web` ロールが配備のたびに確認して revoke する。
+
 ## データディスクの扱い
 
 - マウント先は `/srv`。`/dev/disk/by-id/virtio-<serial>` を systemd の

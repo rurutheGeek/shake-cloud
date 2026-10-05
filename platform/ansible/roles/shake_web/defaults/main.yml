@@ -6,6 +6,10 @@ shake_web_source_dir: '{{ playbook_dir }}/../../stacks/shake-web'
 # ポケモン系 PostgreSQL（apps-01）。旧ホストでは host.docker.internal だった。
 shake_web_db_host: pkdb.apextox.dpdns.org
 shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
+# 外向き（egress）の確認に使う。クラウドAPI のアクセスキーは services.sops.yaml。
+shake_web_cloud_api: https://cloud.apextox.dpdns.org
+shake_web_services_sops: '{{ playbook_dir }}/../sops/services.sops.yaml'
+shake_web_cloud_group_name: web-01
 # 追う ref。検証中は pkhack だけブランチを指す（main に戻すのは切替時）。
 shake_web_shake_ref: main
 shake_web_pkhack_ref: main
