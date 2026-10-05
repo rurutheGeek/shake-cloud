@@ -139,9 +139,9 @@
     dest: '{{ shake_web_project_dir }}/secrets/{{ item.path }}'
     mode: '0600'
   loop:
-    - { key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web }
-    - { key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack }
-    - { key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya }
+    - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
+    - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
+    - {key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya}
   loop_control:
     label: '{{ item.path }}'
   no_log: true
