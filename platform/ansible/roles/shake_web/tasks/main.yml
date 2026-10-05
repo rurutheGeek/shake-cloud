@@ -40,6 +40,58 @@
     enabled: true
     state: started
 
+# 公開の中継（negitoroserver）は tailnet の端末。旧ホスト（shakeserver）と同じく
+# web-01 も tailnet に入れ、中継は tailnet IP を直接指す。プロキシ側に LAN の
+# サブネットルート（192.168.10.0/24）を持たせないための構成。
+- name: Add the Tailscale repository key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: '0644'
+
+- name: Add the Tailscale repository
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list
+    dest: /etc/apt/sources.list.d/tailscale.list
+    mode: '0644'
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Check the tailnet address
+  ansible.builtin.command:
+    cmd: tailscale ip -4
+  register: shake_web_tailscale_ip
+  changed_when: false
+  failed_when: false
+
+- name: Read the Tailscale auth key
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_tailscale_sops }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_tailscale_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: shake_web_tailscale_ip.rc != 0
+
+- name: Join the tailnet
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - up
+      - '--auth-key={{ (shake_web_tailscale_secrets.stdout | from_json).TAILSCALE_AUTH_KEY }}'
+      - '--hostname={{ shake_web_tailscale_hostname }}'
+      - '--accept-dns=false'
+  register: shake_web_tailscale_up
+  changed_when: true
+  no_log: true
+  when: shake_web_tailscale_ip.rc != 0
+
 - name: Create the project and storage directories
   ansible.builtin.file:
     path: '{{ item }}'

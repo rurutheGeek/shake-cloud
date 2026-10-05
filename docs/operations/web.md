@@ -29,7 +29,7 @@ tags:
 | 配備先 | web-01（`192.168.10.102`）。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（データディスク） |
 | イメージ | nginx・`shake-web-quiz:local`・`shake-web-pkhack:local`・`shake-web-alexa:local`（アプリはホストでビルドするため digest 固定は無い） |
 | DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
-| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ web-01 |
+| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **web-01 の tailnet IP `100.75.249.112`**。web-01 は tailnet 端末（`--accept-dns=false`、ルートは受けない）。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
 | 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 3本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵） |
 | コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、`platform/terraform/services/web/` |
@@ -81,12 +81,16 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - IPv6 の外向きは開けない（LAN 側の IPv6 へ届かせないため）。
 - ゲスト側にも nftables の一段（`/etc/nftables.conf` の `inet homeguard`）を置き、**LAN 宛の 80/443 を output と forward の両方で drop** する。SG は宛先 IP の除外を書けないため、ルータの LuCI・入口 core-01 の Caddy・AP の管理画面（いずれも LAN の 80/443）へアプリから届くのをここで塞ぐ。実測（2026-10-05）: `192.168.10.1:80/443`・`192.168.10.200:443`・`192.168.10.2:80` は web-01 から閉じ、pkdb・DNS・インターネット 443 は開いている。policy は accept のままで、Docker の転送や他の通信には触らない。
 
-### プロキシ（negitoroserver）側（未実施・提案）
+### プロキシ（negitoroserver）側
 
-グローバルIPを持つ negitoroserver が突破されると、Tailscale のサブネットルート経由で LAN 全体へ届く。次のどちらかを推奨する。
+公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-- Tailscale の ACL で negitoroserver の宛先を `192.168.10.102` の 80/443 だけに絞る（管理コンソールで設定。切替後は負荷が web-01 へ移る）。
-- サブネットルートをやめ、web-01 に Tailscale を入れて negitoroserver と web-01 だけを共有する。
+残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+
+### プロキシ（negitoroserver）の侵害に備えて（提案）
+
+- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
+- 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
 ## 検証
 

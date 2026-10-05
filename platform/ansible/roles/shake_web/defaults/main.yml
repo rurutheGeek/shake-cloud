@@ -10,6 +10,9 @@ shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
 shake_web_cloud_api: https://cloud.apextox.dpdns.org
 shake_web_services_sops: '{{ playbook_dir }}/../sops/services.sops.yaml'
 shake_web_cloud_group_name: web-01
+# 公開の中継（negitoroserver）は tailnet 経由でこの VM へ届く。
+shake_web_tailscale_sops: '{{ playbook_dir }}/../sops/tailscale.sops.yaml'
+shake_web_tailscale_hostname: web-01
 # 追う ref。検証中は pkhack だけブランチを指す（main に戻すのは切替時）。
 shake_web_shake_ref: main
 shake_web_pkhack_ref: main
