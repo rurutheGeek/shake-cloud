@@ -1,0 +1,71 @@
+---
+title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
+updated: 2026-10-05
+section: 運用手順
+audience: 管理者
+tags:
+  - ops
+  - web
+---
+
+# 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
+
+> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **web-01 へ移行・配備済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移した。**公開の切り替え（negitoroserver の向き先）と旧ホストの停止は未実施**で、いまは両方が動いている。旧ホストの配備は [shake-infra](https://github.com/rurutheGeek/shake-infra) の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本になる。
+
+## 構成
+
+| サイト | ホスト | 中身 |
+| --- | --- | --- |
+| `shake.ruruthegeek.dpdns.org` | `web-01` | Shake ブランド（Issues・Shaketter・ToBa・ikura）＋ Wiki。Next.js（`quiz_app`＝コンテナ名 `bsquiz`）と静的 HTML |
+| `pkhack.ruruthegeek.dpdns.org` | `web-01` | ポケモンクイズ（Next.js。コンテナ名 `pkhack_app`）と静的ハブ |
+| `ayahuya.ruruthegeek.dpdns.org` | `web-01` | アヤフヤハッカーズ（純静的） |
+| `ruruthegeek.dpdns.org` | `web-01` | ランディング（静的）と旧URLのリダイレクト |
+| Alexa スキル | `web-01` | `alexa_skill`（`127.0.0.1:8010`。公開は nginx 経由の `/alexa/`） |
+
+| 項目 | 値 |
+| --- | --- |
+| 配備先 | web-01（`192.168.10.102`）。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（データディスク） |
+| イメージ | nginx・`shake-web-quiz:local`・`shake-web-pkhack:local`・`shake-web-alexa:local`（アプリはホストでビルドするため digest 固定は無い） |
+| DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
+| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ web-01 |
+| 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
+| 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 3本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵） |
+| コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、`platform/terraform/services/web/` |
+| 監視 | node_exporter（`192.168.10.102:9100`）。Prometheus の `node-targets.yml` に登録済み |
+
+## 配備
+
+```bash
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+     -i platform/ansible/inventory.netbox.yml platform/ansible/shake-web.yml'
+```
+
+`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（4リポジトリを `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `up`（`docker compose up -d --build`）。
+
+- 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
+- アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
+- ビルドに失敗したら `ssh debian@192.168.10.102 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
+
+## 公開の切り替え（未完）
+
+1. `negitoroserver` の `stream_proxy.conf` の `proxy_pass` と `sslh` の HTTP 先を `100.116.167.59` から `192.168.10.102` へ変える（tailnet のサブネットルート経由）。`set_real_ip_from` は変わらない。
+2. 疎通は「Cloudflare → negitoroserver → web-01」で確認する（`/quiz/api/bsquiz/pokedex` が `308` で pkhack へ、`/` が200）。
+3. 旧ホストのコンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）を停止する。ボリュームは消さずに残す。
+4. shake-infra の CD（repository_dispatch → `deploy_shakeweb` など）を止める。**止めるまで shake-web / pkhack の `main` へ push しない**（旧ホストへ二重配備される）。
+
+## 既知の不具合
+
+- `pkhack` の practice 3本（`langquiz/practice`・`bsquiz/practice`・`abilityquiz/practice`）は **旧ホストでも 500**。クエリが存在しない `POKEMON_NAMES` を参照する、`mv_quiz_status` に無い種族値・特性の列を読む、が原因。移行とは無関係の既存不具合。
+- 2026-10-05 の移行では pkhack の SQL を小文字スキーマへ合わせた（未 push。web-01 へはソースを直接転送）。PR 化して `main` へ入れるまでは、Ansible を流し直すと `fetch` が `origin/main` に戻してしまう点に注意。
+
+## 検証
+
+```bash
+tools/tf services/web output
+ssh debian@192.168.10.102 'systemctl is-active web-data-mount.service docker; findmnt /srv'
+ssh debian@192.168.10.102 'sudo docker ps; curl -sk --resolve pkhack.ruruthegeek.dpdns.org:8443:127.0.0.1 \
+  "https://pkhack.ruruthegeek.dpdns.org:8443/quiz/api/langquiz/names?lang=JPN"'
+```

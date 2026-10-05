@@ -1,0 +1,96 @@
+# =============================================================================
+#  shake サブドメイン（Shake ブランド: Issues / Shaketter / ToBa / Ikura）
+# -----------------------------------------------------------------------------
+#  shake-web の静的フロント（html/{issues,shaketter,toba,ikura} 等）と Next.js API
+#  （quiz_app）を配信する。外向き API 名前空間は /api/*（実体は quiz_app の /quiz/api/*）。
+#  後方互換のため /quiz/* も引き続き有効。
+#  TLS は CF↔オリジン ssl=full（apex 証明書流用・ホスト名検証なし）前提。
+#  ブラウザ↔CF は Universal SSL が *.ruruthegeek.dpdns.org を自動カバー。
+# =============================================================================
+server {
+    listen 443 ssl proxy_protocol;
+    listen 8443 ssl;
+    server_name shake.ruruthegeek.dpdns.org;
+
+    set_real_ip_from 100.92.253.28;
+    real_ip_header proxy_protocol;
+
+    ssl_certificate     /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # 共有URL OGP（Discord 等のクローラーにメタタグを返す。ブラウザは SPA へ）。
+    # 動的 proxy_pass（$1 を含む）には resolver が必要（docker 組込み DNS）。
+    resolver 127.0.0.11 valid=30s;
+
+    # 正規表現に { } を含むため location は必ずダブルクオートで囲む（nginx の構文要件）。
+    location ~ "^/shaketter/p/([a-zA-Z0-9_-]+)$" {
+        proxy_pass http://quiz_app:3000/quiz/api/shaketter/og?id=$1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~ "^/toba/e/([a-zA-Z0-9]{12})$" {
+        proxy_pass http://quiz_app:3000/quiz/api/toba/og?id=$1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 外向き API 名前空間 /api/* → Next.js 実体 /quiz/api/*（明示 rewrite で確実に付け替え）
+    location /api/ {
+        rewrite ^/api/(.*)$ /quiz/api/$1 break;
+        proxy_pass http://quiz_app:3000;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Next.js（/quiz 配下：API 実体・パスキー等。後方互換で従来パスも維持）
+    location /quiz {
+        proxy_pass http://quiz_app:3000;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # shake サブドメインのルートは Shake ツールの公開窓口へ。
+    # apex（ruruthegeek.dpdns.org）は従来のランディング、shake.* は窓口を入口にする。
+    location = / {
+        return 302 /shake/;
+    }
+
+    # 静的フロント（html/shake・issues・shaketter・toba・ikura・assets 等）
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+        try_files $uri $uri/ =404;
+    }
+
+    error_page 404 /error/404.html;
+
+    location = /error/404.html {
+        root /usr/share/nginx/html;
+        internal;
+    }
+
+    location /error/ {
+        root /usr/share/nginx/html;
+    }
+
+    access_log /var/log/nginx/shake.access.log;
+    error_log  /var/log/nginx/shake.error.log;
+}

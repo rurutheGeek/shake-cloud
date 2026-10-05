@@ -118,6 +118,7 @@ nav:
           - Botポータル: operations/bot-portal.md
           - Vaultwardenの管理: operations/vaultwarden.md
           - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
+          - 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）: operations/web.md
           - Discord Bot（UBSLEEPY）: operations/ubsleepy.md
           - UBSLEEPY 本番切替の手順: operations/ubsleepy-next-switch.md
           - サークル認証Bot（CIRCLEAUTH）: operations/circleauth.md

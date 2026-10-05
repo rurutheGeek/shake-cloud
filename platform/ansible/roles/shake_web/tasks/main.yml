@@ -1,0 +1,109 @@
+---
+- name: Install git and rsync
+  ansible.builtin.apt:
+    name:
+      - git
+      - rsync
+    state: present
+    update_cache: true
+
+- name: Create the project and storage directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - '{{ shake_web_project_dir }}'
+    - '{{ shake_web_project_dir }}/secrets'
+    - '{{ shake_web_storage_root }}'
+    - '{{ shake_web_storage_root }}/certs'
+
+- name: Copy the stack definitions
+  ansible.builtin.copy:
+    src: '{{ shake_web_source_dir }}/{{ item }}'
+    dest: '{{ shake_web_project_dir }}/'
+    mode: '0644'
+  loop:
+    - compose.yaml
+    - manage.py
+    - .env.example
+
+- name: Copy the nginx templates
+  ansible.builtin.copy:
+    src: '{{ shake_web_source_dir }}/nginx/'
+    dest: '{{ shake_web_storage_root }}/templates/'
+    mode: '0644'
+
+# 秘密値は SOPS から一度だけ読む（暗号化された正本は platform/sops/）。
+- name: Read the Shake-Web secrets
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Install the deploy keys
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json)[item.key] }}'
+    dest: '{{ shake_web_project_dir }}/secrets/{{ item.path }}'
+    mode: '0600'
+  loop:
+    - { key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web }
+    - { key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack }
+    - { key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya }
+  loop_control:
+    label: '{{ item.path }}'
+  no_log: true
+
+- name: Install the CloudFlare Origin certificate
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_CERT }}'
+    dest: '{{ shake_web_storage_root }}/certs/cert.pem'
+    mode: '0644'
+  no_log: true
+
+- name: Install the CloudFlare Origin private key
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_KEY }}'
+    dest: '{{ shake_web_storage_root }}/certs/key.pem'
+    mode: '0600'
+  no_log: true
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ shake_web_project_dir }}/.env'
+    mode: '0600'
+  no_log: true
+
+- name: Initialize the deployment
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', init]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_init
+  changed_when: "'CHANGED' in shake_web_init.stdout"
+
+- name: Fetch the application sources
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', fetch]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_fetch
+  changed_when: "'CHANGED' in shake_web_fetch.stdout"
+
+- name: Sync the static content
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
+    chdir: '{{ shake_web_project_dir }}'
+  changed_when: false
+
+- name: Start the stack
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', up]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_up
+  changed_when: "'CHANGED' in shake_web_up.stdout"

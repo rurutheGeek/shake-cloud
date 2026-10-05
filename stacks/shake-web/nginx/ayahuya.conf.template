@@ -1,0 +1,35 @@
+# =============================================================================
+#  ayahuya サブドメイン（アヤフヤハッカーズ：大辞典・技術デモ・開発環境ドキュメント）
+# -----------------------------------------------------------------------------
+#  rurutheGeek/ayahuya リポジトリ（純静的）を配信する。html/ をルートに置き、
+#  /docs/... のパス構造を維持する（各ページは ../../assets/... を相対参照するため）。
+#  ルート(/) は index.html が /docs/words/ へリダイレクトする。
+#
+#  前提: TLS 証明書 cert.pem が ayahuya.ruruthegeek.dpdns.org をカバーすること
+#        （ワイルドカード *.ruruthegeek.dpdns.org 推奨）。apex 単一名のままでは
+#        このサブドメインは正しい TLS を提供できない。
+# =============================================================================
+server {
+    listen 443 ssl proxy_protocol;
+    listen 8443 ssl;
+    server_name ayahuya.ruruthegeek.dpdns.org;
+
+    set_real_ip_from 100.92.253.28;
+    real_ip_header proxy_protocol;
+
+    ssl_certificate     /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    root  /usr/share/nginx/ayahuya;
+    index index.html index.htm;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    access_log /var/log/nginx/ayahuya.access.log;
+    error_log  /var/log/nginx/ayahuya.error.log;
+}

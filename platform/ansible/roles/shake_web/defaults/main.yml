@@ -1,0 +1,13 @@
+---
+# Shake-Web の公開サイト（旧 shakeserver から 2026-10-05 に web-01 へ移行）。
+shake_web_project_dir: /opt/shake-web
+shake_web_storage_root: /srv/shake-web
+shake_web_source_dir: '{{ playbook_dir }}/../../stacks/shake-web'
+# ポケモン系 PostgreSQL（apps-01）。旧ホストでは host.docker.internal だった。
+shake_web_db_host: pkdb.apextox.dpdns.org
+shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
+# 追う ref。検証中は pkhack だけブランチを指す（main に戻すのは切替時）。
+shake_web_shake_ref: main
+shake_web_pkhack_ref: main
+shake_web_alexa_ref: main
+shake_web_ayahuya_ref: main

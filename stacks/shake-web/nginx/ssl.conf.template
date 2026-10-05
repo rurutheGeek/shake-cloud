@@ -1,0 +1,85 @@
+# =============================================================================
+#  apex（ruruthegeek.dpdns.org）= シェル / ランディング
+# -----------------------------------------------------------------------------
+#  リポジトリ3分割 Phase D 完了状態。各コンテンツはサブドメインへ移設済みのため、
+#  旧URL は恒久リダイレクトする（SEO・既存リンク維持）。
+#    /quiz*  → pkhack.   （ポケモンクイズ）
+#    /docs*  → ayahuya.  （大辞典・技術デモ・開発環境ドキュメント）
+#    /issues* /shaketter* /toba* /ikura* /api* → shake.（Shake ブランド）
+#  apex 自身はランディング（html/index.html）と /alexa・/error のみを配信する。
+#
+#  注意: この最終 apex 設定は **全サブドメインが稼働確認できてから** 適用する
+#  （早期適用すると /quiz・/docs 等が未稼働サブドメインへ飛び 502/未提供になる）。
+#  GET 以外も維持するため API 系は 308（メソッド保持）を用いる。
+# =============================================================================
+server {
+    listen 443 ssl proxy_protocol;
+    listen 8443 ssl;
+    server_name ruruthegeek.dpdns.org;
+
+    set_real_ip_from 100.92.253.28;
+    real_ip_header proxy_protocol;
+
+    ssl_certificate     /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # --- 旧URL → 各サブドメインへの恒久リダイレクト ---
+    location /quiz {
+        return 308 https://pkhack.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /docs {
+        return 301 https://ayahuya.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /issues {
+        return 301 https://shake.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /shaketter {
+        return 301 https://shake.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /toba {
+        return 301 https://shake.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /ikura {
+        return 301 https://shake.ruruthegeek.dpdns.org$request_uri;
+    }
+    location /api {
+        return 308 https://shake.ruruthegeek.dpdns.org$request_uri;
+    }
+
+    # --- apex シェル本体 ---
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+        try_files $uri $uri/ =404;
+    }
+
+    location /alexa {
+        proxy_pass http://alexa_skill:8000/;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    error_page 404 /error/404.html;
+
+    location = /error/404.html {
+        root /usr/share/nginx/html;
+        internal;
+    }
+
+    location /error/ {
+        root /usr/share/nginx/html;
+    }
+
+    access_log /var/log/nginx/access.log;
+    error_log  /var/log/nginx/error.log;
+}
