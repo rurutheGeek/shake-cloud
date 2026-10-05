@@ -82,3 +82,22 @@
   register: ubsleepy_next_up
   changed_when: "'Recreate' in ubsleepy_next_up.stderr or 'Created' in ubsleepy_next_up.stderr or 'Started' in ubsleepy_next_up.stderr"
   when: ubsleepy_next_state.stat.exists
+
+# イメージ固定なので更新タイマーは無い。セーブデータの日次アーカイブだけを持つ。
+- name: Install the backup units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - ubsleepy-backup.service
+    - ubsleepy-backup.timer
+
+- name: Enable and start the backup timer
+  ansible.builtin.systemd:
+    name: ubsleepy-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true

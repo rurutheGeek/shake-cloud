@@ -7,5 +7,5 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory={{ ubsleepy_project_dir }}
-ExecStart=/usr/bin/python3 manage.py backup --destination {{ ubsleepy_backup_dir }} --keep {{ ubsleepy_backup_keep }}
+WorkingDirectory={{ ubsleepy_next_project_dir }}
+ExecStart=/usr/bin/python3 manage.py backup --destination {{ ubsleepy_next_backup_dir }} --keep {{ ubsleepy_next_backup_keep }}
