@@ -1,6 +1,6 @@
 ---
 title: ポケモン系のPostgreSQL（pkdb）
-updated: 2026-10-04
+updated: 2026-10-05
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ポケモン系のPostgreSQL（pkdb）
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）はDBを使いません。
 
@@ -54,6 +54,31 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 | 作成 | 配備時に `sql/ubsleepy.sql`（ロールとDB）と `sql/ubsleepy_tables.sql`（テーブルと権限）が流れる。どちらも冪等で、**既存ロールのパスワードは変えない** |
 
 `ubsleepy.sql` は `CREATE DATABASE` を含むため `-- manage.py: no-transaction` を付けています（トランザクション内では実行できない）。
+
+## ポケモンの登録画面
+
+**<https://pkdb-entry.apextox.dpdns.org>**（Homarr の「ポケモン登録」。Authentik の `admins` のみ、2026-10-05 に追加）。SQLを書かずに、新しいポケモン・新しい姿・既存ポケモンの新作での値を足せます。新しい世代が出たら、先に画面下の「作品を追加」で作品を足してから登録します。
+
+| 入れるもの | 起きること |
+| --- | --- |
+| まだ無い図鑑番号と名前 | 新しいポケモンとして、名前・姿・各言語名・種族値・タイプ・特性をまとめて登録 |
+| すでにある図鑑番号と、新しいフォーム番号 | 新しい姿として登録（メガシンカ、リージョンフォームなど） |
+| すでにある図鑑番号・フォームと、別の作品 | その作品で値が変わったものとして登録（「今の値」がこれに変わる） |
+
+- 特性は名前で入れる。その作品にまだ無い特性は直近の作品から引き継ぎ、どの作品にも無い名前は新しい特性として足す。
+- 登録のたびにマテリアライズドビューを作り直すので、クイズや検索にすぐ出る。
+- 誰が何を登録したかは `pokemondb.entry_log` に残る（画面の「最近の登録」）。
+- **取り消しと修正は画面からはできない。** 間違えたら Adminer で直すか、[作業待ち](nextcloud.md)へ依頼する。
+
+仕組み:
+
+| 部品 | 場所 |
+| --- | --- |
+| 画面 | `stacks/pkdb/entry/index.php`（1ファイル。Adminer と同じイメージの PHP で配る。apps-01 では `127.0.0.1:8331`） |
+| 登録の中身 | `stacks/pkdb/sql/entry.sql` の関数 `register_pokemon`・`register_title`。どの表へ何を入れるかはここにある |
+| DBのロール | `pkdb_entry`。関数の実行と一部の表の閲覧だけで、表へ直接は書けない。パスワードは apps-01 の `/opt/pkdb/secrets/entry_password` にだけあり、この画面のコンテナだけが使う |
+
+関数は SQL からも呼べます（`pkdb_editor` に実行権限あり）。AIやスクリプトから足すときも、表へ直接 `INSERT` せずこれを使います。
 
 ## データの直し
 

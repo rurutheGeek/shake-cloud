@@ -124,6 +124,12 @@
     "pingUrl": "https://adminer.apextox.dpdns.org/"
   },
   {
+    "name": "ポケモン登録",
+    "href": "https://pkdb-entry.apextox.dpdns.org",
+    "description": "新しいポケモン・新作での値をポケモンDBへ足す（SSO・管理者のみ）",
+    "pingUrl": "https://pkdb-entry.apextox.dpdns.org/"
+  },
+  {
     "name": "ゲームポータル",
     "href": "https://play.apextox.dpdns.org",
     "description": "ゲーム配信・ランチャーの入口",

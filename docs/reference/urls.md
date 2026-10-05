@@ -1,6 +1,6 @@
 ---
 title: 接続先一覧（URL・アドレス）
-updated: 2026-10-04
+updated: 2026-10-05
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 接続先一覧（URL・アドレス）
 
-> **更新日** 2026-10-04 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-05 ・ **区分** リファレンス ・ **読む人** 全員
 
 **サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
@@ -32,6 +32,7 @@ tags:
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
 | ポケモン系のPostgreSQL | `pkdb.apextox.dpdns.org:5432` | PostgreSQL 15（apps-01）。DBは `sleepy_pkdb`・`shakeweb`・`pkhack`。[運用](../operations/pkdb.md)・[取扱説明書](pokemondb.md) | DBのロールを持つアプリ |
 | 作業待ち（Deck） | <https://nextcloud.apextox.dpdns.org/apps/deck/> | ホームラボの作業待ちボード（Nextcloud Deck。[運用](../operations/nextcloud.md)） | `homelab` グループ |
+| ポケモン登録 | <https://pkdb-entry.apextox.dpdns.org> | 新しいポケモン・新作での値をポケモンDBへ足す画面（apps-01。`127.0.0.1:8331`。Forward Auth。[運用](../operations/pkdb.md)） | `admins` |
 | Adminer | <https://adminer.apextox.dpdns.org> | ポケモン系PostgreSQLの管理画面（apps-01。`127.0.0.1:8330`。Forward Auth）。「サーバ」は `db` | `admins` |
 | プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（apps-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.105:631`（LAN/VPN） | 全員 |
 | AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は core-01 だけに開けている | 全員 |

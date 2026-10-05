@@ -94,6 +94,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['mail-view']['upstream'], f"127.0.0.1:{defaults('mail_view')['mail_view_port']}")
         self.assertEqual(records['poke']['upstream'], f"127.0.0.1:{defaults('poke_translate')['poke_translate_port']}")
         self.assertEqual(records['adminer']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_adminer_port']}")
+        self.assertEqual(records['pkdb-entry']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_entry_port']}")
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         self.assertEqual(records['nextcloud-mcp']['upstream'], '127.0.0.1:5811')
         # 全曲レビューは navidrome の /review/ から music-tools の review へ中継する。
@@ -155,7 +156,8 @@ class TlsProxyTests(unittest.TestCase):
         behind_auth = {name for name, record in records.items() if record.get('auth')}
         self.assertEqual(behind_auth,
                          {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
-                          'mail-view', 'backup', 'urbackup', 'adminer', 'portal'})
+                          'mail-view', 'backup', 'urbackup', 'adminer', 'portal',
+                          'pkdb-entry'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):

@@ -60,6 +60,7 @@ ADGUARD = 'adguard'
 # UI goes through Forward Auth like the media tools.
 MAIL_VIEW = 'mail-view'
 ADMINER = 'adminer'
+PKDB_ENTRY = 'pkdb-entry'
 # The bot portal runs on apps-01. It controls the bots' containers and runs
 # manage.py, so its browser UI goes through Forward Auth too.
 BOT_PORTAL = 'portal'
@@ -835,6 +836,28 @@ def configure_bot_portal(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'bot-portal forward-auth provider')
 
 
+def configure_pkdb_entry(api, groups, flows, portal_url):
+    """Reconcile the Pokémon entry page: Forward Auth provider, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, PKDB_ENTRY, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{PKDB_ENTRY}.{zone}',
+    })
+    application = ensure_application(api, PKDB_ENTRY, {
+        'name': 'ポケモン登録', 'slug': PKDB_ENTRY, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{PKDB_ENTRY}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    # 図鑑のデータを書き換える画面なので、利用者全員には開けない。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {PKDB_ENTRY}')
+    else:
+        print(f'OK: admins may use {PKDB_ENTRY}')
+    ensure_outpost(api, [provider['pk']], zone, 'pkdb-entry forward-auth provider')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -905,6 +928,7 @@ def main():
     configure_adguard(api, groups, flows, portal_url)
     configure_mail_view(api, groups, flows, portal_url)
     configure_adminer(api, groups, flows, portal_url)
+    configure_pkdb_entry(api, groups, flows, portal_url)
     configure_bot_portal(api, groups, flows, portal_url)
 
 
