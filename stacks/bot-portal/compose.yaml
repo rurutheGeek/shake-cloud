@@ -26,6 +26,5 @@ services:
       - /srv/ubsleepy:/srv/ubsleepy
       - /srv/ubsleepy-next:/srv/ubsleepy-next
       - /srv/circleauth:/srv/circleauth
-      - /srv/ubsleepy-test:/srv/ubsleepy-test
       - /srv/circleauth-test:/srv/circleauth-test
       - ${STORAGE_ROOT:-./storage}/state:/app/state
