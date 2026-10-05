@@ -52,6 +52,7 @@ class Service:
     help: str = ''
     checks: tuple = ()
     files: tuple = ()
+    debug: bool = False
 
     def allows(self, action: str) -> bool:
         return action in self.actions and action in ALL_ACTIONS
@@ -89,6 +90,7 @@ def load_services(path) -> list[Service]:
             help=entry.get('help', ''),
             checks=tuple(entry.get('checks', ())),
             files=tuple(entry.get('files', ())),
+            debug=bool(entry.get('debug', False)),
         ))
     return services
 
@@ -137,10 +139,26 @@ def command_for(service: Service, action: str) -> list[str]:
     return DOCKER_ACTIONS[action] + [service.container]
 
 
-def run_command(command: list[str], timeout: int = 600) -> tuple[int, str]:
+def debug_command(service: Service, save: bool = False) -> list[str]:
+    """DiscordなしのデバッグCLIをコンテナ内で実行するコマンド。
+
+    入力は標準入力から渡す（コマンド行をそのままdebug_cliが解釈する）。
+    """
+    if not service.debug:
+        raise ValueError(f'{service.name}: debug not allowed')
+    command = ['docker', 'exec', '-i', service.container,
+               'python', 'debug_cli.py', '--stdin']
+    if save:
+        command.append('--save')
+    return command
+
+
+def run_command(command: list[str], timeout: int = 600,
+                stdin: str | None = None) -> tuple[int, str]:
     """コマンドを実行し (returncode, 出力) を返す。"""
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        completed = subprocess.run(command, capture_output=True, text=True,
+                                   timeout=timeout, input=stdin)
     except subprocess.TimeoutExpired:
         return 124, f'timeout: {" ".join(command)}'
     except OSError as error:

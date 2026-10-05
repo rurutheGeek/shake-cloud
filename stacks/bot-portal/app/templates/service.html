@@ -45,6 +45,21 @@
   {% if not buttons %}<p class="meta">このサービスに許可された操作はありません。</p>{% endif %}
 </div>
 
+{% if service.debug %}
+<div class="card">
+  <h2>デバッグ（Discordなしで実行）</h2>
+  <p class="meta">1行に1コマンド。例: <code>q bq</code> → <code>hint ヒント</code> → <code>give</code>。読み取りは本物の保存先、書き込みは「実際に保存する」を選んだときだけです。</p>
+  <form method="post" action="/service/{{ service.name }}/debug">
+    <textarea name="command" rows="6" style="width:100%; font-family: ui-monospace, monospace"
+      placeholder="sources&#10;dex リザードン&#10;search みず 合計<400"></textarea>
+    <div class="action">
+      <button type="submit" class="primary">実行</button>
+      <label class="confirm"><input type="checkbox" name="save" value="yes"> 実際に保存する（--save）</label>
+    </div>
+  </form>
+</div>
+{% endif %}
+
 {% if service.checks %}
 <div class="card">
   <h2>確認のしかた</h2>
