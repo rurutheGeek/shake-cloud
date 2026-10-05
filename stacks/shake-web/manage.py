@@ -187,8 +187,13 @@ def sync():
 
 def up():
     result = compose('up', '-d', '--build')
-    changed = any(word in (result.stdout + result.stderr)
-                  for word in ('Created', 'Recreated', 'Started'))
+    output = result.stdout + result.stderr
+    changed = any(word in output for word in ('Created', 'Recreated', 'Started'))
+    if changed:
+        # nginx は upstream（pkhack_app など）の名前を起動時に一度だけ解決する。
+        # アプリを作り直すと IP が変わり、古い IP のままだと別コンテナへ届いて
+        # 404 になる（2026-10-05 に発生）。作り直したら web も再起動する。
+        compose('restart', 'web')
     print('CHANGED: containers up' if changed else 'OK: containers already current')
 
 
