@@ -64,9 +64,34 @@ def storage():
     return path
 
 
+# レジストリのイメージ（compose.lock.yaml で digest を固定するもの）。
+# ビルドするサービス（quiz_app・pkhack_app・alexa_skill）は対象外。
+REGISTRY_IMAGES = {
+    'web': 'nginx:1.27-alpine',
+}
+
+
 def compose(*args):
-    return run(['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml'] + list(args),
-               capture_output=True)
+    cmd = ['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml']
+    if (ROOT / 'compose.lock.yaml').exists():
+        cmd += ['-f', 'compose.lock.yaml']
+    return run(cmd + list(args), capture_output=True)
+
+
+def lock():
+    """レジストリのイメージを pull し、digest を compose.lock.yaml へ固定する。"""
+    import json
+    locked = {'services': {}}
+    for service, image in REGISTRY_IMAGES.items():
+        run(['docker', 'pull', image], capture_output=True)
+        digest = run(['docker', 'inspect', '--format', '{{index .RepoDigests 0}}', image],
+                     capture_output=True).stdout.strip()
+        repository = image.split(':')[0]
+        if not digest.startswith(repository + '@'):
+            sys.exit(f'{image}: unexpected digest {digest}')
+        locked['services'][service] = {'image': digest}
+    (ROOT / 'compose.lock.yaml').write_text(json.dumps(locked, indent=2) + '\n')
+    print('CHANGED: image digests pinned in compose.lock.yaml')
 
 
 def git(repo, args, key=None):
@@ -174,7 +199,7 @@ def status():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'fetch', 'sync', 'up', 'status'])
+    parser.add_argument('action', choices=['init', 'fetch', 'sync', 'lock', 'up', 'status'])
     args = parser.parse_args()
     globals()[args.action]()
 

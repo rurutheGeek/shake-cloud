@@ -112,6 +112,7 @@
     mode: '0644'
   loop:
     - compose.yaml
+    - compose.lock.yaml
     - manage.py
     - .env.example
 
