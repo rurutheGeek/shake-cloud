@@ -26,8 +26,10 @@ DB_SECRETS = {
     'PKDB_PASSWORD': 'pkdb_password',
     'UBSLEEPY_DB_PASSWORD': 'ubsleepy_db_password',
 }
-STATE_DIRECTORIES = ('save', 'log', 'resource/image')
+STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
+# バックアップに入れるもの。鳴き声（resource/cry）は再取得できるので含めない。
+BACKUP_DIRECTORIES = ('save', 'log', 'resource/image')
 STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
 
 
@@ -141,6 +143,14 @@ def deploy(commit):
     print(lock)
 
 
+def cries():
+    """鳴き声を取り込む（コンテナ内で tools/fetch_cries.py を実行。未取得ぶんだけ）。"""
+    container = compose('ps', '-q', 'bot', capture_output=True).stdout.strip()
+    if not container:
+        raise ValueError('bot container is not running')
+    run(['docker', 'exec', container, 'python', 'tools/fetch_cries.py'])
+
+
 def backup(destination, keep):
     """Archive the save data. The destination must be outside the state."""
     destination = Path(destination).resolve()
@@ -152,7 +162,7 @@ def backup(destination, keep):
     target = destination / f'{stamp}.tar.gz'
     partial = destination / f'{stamp}.incomplete'
     with tarfile.open(partial, 'w:gz') as tar:
-        for name in STATE_DIRECTORIES + STATE_FILES:
+        for name in BACKUP_DIRECTORIES + STATE_FILES:
             tar.add(state() / name, arcname=name)
     partial.rename(target)
     complete = sorted(path for path in destination.iterdir() if STAMP.match(path.name))
@@ -164,7 +174,7 @@ def backup(destination, keep):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
-                                           'backup', 'deploy'])
+                                           'backup', 'deploy', 'cries'])
     parser.add_argument('commit', nargs='?', help='deploy するコミットID')
     parser.add_argument('--destination', default=str(storage() / 'backups'),
                         help='backup destination directory')
@@ -182,6 +192,8 @@ def main():
         backup(args.destination, args.keep)
     elif args.action == 'deploy':
         deploy(args.commit)
+    elif args.action == 'cries':
+        cries()
     else:
         digest()
 
