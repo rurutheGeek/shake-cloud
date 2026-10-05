@@ -19,6 +19,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'bot'
+IMAGE = 'ghcr.io/ruruthegeek/ubsleepy-next'
 TOKEN = 'discord_token'
 # 環境変数名 -> secrets/ のファイル名
 DB_SECRETS = {
@@ -115,6 +116,31 @@ def digest():
         print(f'{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}')
 
 
+def deploy(commit):
+    """指定コミットのイメージへ更新して起動する（digestを解決してlockを書き換え）。"""
+    if not commit:
+        raise ValueError('usage: manage.py deploy <commit>')
+    image = f'{IMAGE}:{commit}'
+    run(['docker', 'pull', image], capture_output=True)
+    output = run(
+        ['docker', 'inspect', '--format', '{{index .RepoDigests 0}}', image],
+        capture_output=True).stdout.strip()
+    digest = output.split('@', 1)[1]
+    lock = (
+        f'# この digest は {image}\n'
+        f'# （main のマージコミット）を GitHub Actions がビルドしたもの。\n'
+        f'# イメージを更新するときは、新しいコミットの digest へ書き換えて再配備する。\n'
+        f'services:\n'
+        f'  bot:\n'
+        f'    image: {IMAGE}@{digest}\n'
+    )
+    (ROOT / 'compose.lock.yaml').write_text(lock, encoding='utf-8')
+    compose('pull')
+    compose('up', '-d', '--remove-orphans')
+    print(f'deployed {commit}')
+    print(lock)
+
+
 def backup(destination, keep):
     """Archive the save data. The destination must be outside the state."""
     destination = Path(destination).resolve()
@@ -138,7 +164,8 @@ def backup(destination, keep):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
-                                           'backup'])
+                                           'backup', 'deploy'])
+    parser.add_argument('commit', nargs='?', help='deploy するコミットID')
     parser.add_argument('--destination', default=str(storage() / 'backups'),
                         help='backup destination directory')
     parser.add_argument('--keep', type=int, default=14, help='backups to keep')
@@ -153,6 +180,8 @@ def main():
         compose('ps')
     elif args.action == 'backup':
         backup(args.destination, args.keep)
+    elif args.action == 'deploy':
+        deploy(args.commit)
     else:
         digest()
 
