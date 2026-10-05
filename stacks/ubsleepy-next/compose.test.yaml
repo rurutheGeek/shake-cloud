@@ -1,0 +1,10 @@
+# テスト配備の上書き。debugモードとテスト用DB（ubsleepy_test）を使う。
+# Ansible の ubsleepy_next_test=true で compose.yaml と一緒に使う。
+services:
+  bot:
+    environment:
+      UBSLEEPY_DB_NAME: ubsleepy_test
+    command:
+      - python
+      - main.py
+      - debug

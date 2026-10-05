@@ -1,0 +1,84 @@
+---
+- name: Create the UBSLEEPY-next deployment directory
+  ansible.builtin.file:
+    path: '{{ ubsleepy_next_project_dir }}'
+    state: directory
+    mode: '0750'
+
+- name: Copy the UBSLEEPY-next stack
+  ansible.builtin.copy:
+    src: '{{ ubsleepy_next_source_dir }}/{{ item }}'
+    dest: '{{ ubsleepy_next_project_dir }}/'
+    mode: preserve
+  loop:
+    - compose.yaml
+    - compose.test.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+# .env は宣言値だけを role が描画する（秘密値は secrets/ へ）。
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ ubsleepy_next_project_dir }}/.env'
+    mode: '0600'
+
+- name: Initialize the deployment
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ ubsleepy_next_project_dir }}'
+  register: ubsleepy_next_init
+  changed_when: "'CHANGED' in ubsleepy_next_init.stdout"
+
+- name: Read the UBSLEEPY credentials
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ ubsleepy_next_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: ubsleepy_next_credentials
+  changed_when: false
+  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+  check_mode: false
+  no_log: true
+
+# 改行を足さない（ubsleepy と同じ理由）。manage.py が読むときに strip する。
+- name: Install the Discord token
+  ansible.builtin.copy:
+    content: '{{ (ubsleepy_next_credentials.stdout | from_json)[ubsleepy_next_token_key] }}'
+    dest: '{{ ubsleepy_next_project_dir }}/secrets/discord_token'
+    mode: '0400'
+  no_log: true
+
+- name: Install the database secrets
+  ansible.builtin.copy:
+    content: '{{ (ubsleepy_next_credentials.stdout | from_json)[item] }}'
+    dest: '{{ ubsleepy_next_project_dir }}/secrets/{{ item | lower }}'
+    mode: '0400'
+  loop:
+    - PKDB_PASSWORD
+    - UBSLEEPY_DB_PASSWORD
+  no_log: true
+
+# GHCRが非公開のときだけ。SOPSに GHCR_READ_TOKEN が無ければ何もしない。
+- name: Log in to GHCR
+  ansible.builtin.command:
+    argv: [docker, login, ghcr.io, -u, '{{ ubsleepy_next_registry_username }}', --password-stdin]
+    stdin: '{{ (ubsleepy_next_credentials.stdout | from_json)[ubsleepy_next_registry_token_key] }}'
+  when: ubsleepy_next_registry_token_key in (ubsleepy_next_credentials.stdout | from_json)
+  no_log: true
+  changed_when: true
+
+# セーブデータが無いときは起動しない（空のデータで動き始めない）。
+- name: Look for the save data
+  ansible.builtin.stat:
+    path: '{{ ubsleepy_next_storage_root }}/state/config.json'
+  register: ubsleepy_next_state
+
+- name: Start the bot
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ ubsleepy_next_project_dir }}'
+  register: ubsleepy_next_up
+  changed_when: "'Recreate' in ubsleepy_next_up.stderr or 'Created' in ubsleepy_next_up.stderr or 'Started' in ubsleepy_next_up.stderr"
+  when: ubsleepy_next_state.stat.exists

@@ -1,0 +1,16 @@
+---
+# Discord Bot「UBSLEEPY」(-next) を apps-01 へ配備する。
+# イメージは GitHub Actions が main のマージ時に GHCR へ出すコミットIDタグを使う。
+# apps-01 ではビルドしない（setup/Dockerfile は CI 用）。
+ubsleepy_next_project_dir: /opt/ubsleepy-next
+ubsleepy_next_storage_root: /srv/ubsleepy-next
+ubsleepy_next_source_dir: '{{ playbook_dir }}/../../stacks/ubsleepy-next'
+# 秘密値（DISCORD_TOKEN・PKDB_PASSWORD・UBSLEEPY_DB_PASSWORD）を読むSOPS。
+ubsleepy_next_sops_file: '{{ playbook_dir }}/../sops/ubsleepy.sops.yaml'
+# テスト配備: debugモード・ubsleepy_test・TEST_DISCORD_TOKEN。
+# 本番へ切り替えるときは false / DISCORD_TOKEN にする。
+ubsleepy_next_test: true
+ubsleepy_next_token_key: TEST_DISCORD_TOKEN
+# GHCRが非公開のときの取得用。SOPSに GHCR_READ_TOKEN があれば docker login する。
+ubsleepy_next_registry_username: rurutheGeek
+ubsleepy_next_registry_token_key: GHCR_READ_TOKEN

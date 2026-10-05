@@ -67,23 +67,23 @@ sudo python3 /opt/ubsleepy/manage.py up
 
 ## テスト配備（UBSLEEPY-next）
 
-再開発版（[rurutheGeek/UBSLEEPY-next](https://github.com/rurutheGeek/UBSLEEPY-next)、非公開）を、本番と同じ apps-01 で別プロジェクト・別ディレクトリで動かします。テストトークン（`TEST_DISCORD_TOKEN`）と debug モードを使い、**本番の `/srv/ubsleepy/state` には触りません**（state は写し）。
+再開発版（[rurutheGeek/UBSLEEPY-next](https://github.com/rurutheGeek/UBSLEEPY-next)、非公開）を、本番と同じ apps-01 で別プロジェクト・別ディレクトリで動かします。テストトークン（`TEST_DISCORD_TOKEN`）と debug モード、テスト用DB（`ubsleepy_test`）を使い、**本番の `/srv/ubsleepy/state` には触りません**（state は写し）。
 
 | 項目 | 値 |
 | --- | --- |
-| 定義 | `stacks/ubsleepy-next/`（`compose.yaml`・`manage.py`） |
-| 配備先 | `/opt/ubsleepy-next`、`/srv/ubsleepy-next`（`source`・`state`） |
+| 定義 | `stacks/ubsleepy-next/`（`compose.yaml`・`compose.test.yaml`・`manage.py`） |
+| 配備 | `platform/ansible/ubsleepy-next.yml`（ロール `platform/ansible/roles/ubsleepy-next`） |
+| 配備先 | `/opt/ubsleepy-next`、`/srv/ubsleepy-next`（`state`） |
 | プロジェクト名 | `ubsleepy-next` |
-| ソース | `git@github.com:rurutheGeek/UBSLEEPY-next.git`。`secrets/deploy_key`（deploy key）で取得 |
-| 秘密 | `secrets/discord_token`（テストトークン）、`pkdb_password`、`ubsleepy_db_password`、`deploy_key` |
-| イメージ | `setup/Dockerfile` でビルド（`ubsleepy-next-bot:local`） |
+| イメージ | GitHub Actions が main のマージ時に GHCR へ出す `ghcr.io/ruruthegeek/ubsleepy-next:<コミットID>` を、`compose.lock.yaml` の digest で固定。**apps-01 ではビルドしない** |
+| 秘密 | `secrets/discord_token`（テストトークン）、`pkdb_password`、`ubsleepy_db_password` |
 
 ```bash
-sudo python3 /opt/ubsleepy-next/manage.py update   # 取得とビルド
-sudo python3 /opt/ubsleepy-next/manage.py up
-sudo python3 /opt/ubsleepy-next/manage.py status
-sudo docker logs --tail 50 ubsleepy-next-bot-1
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy-next.yml'
 ```
+
+イメージを更新するときは、GitHub Actions が出した新しいコミットの digest へ `stacks/ubsleepy-next/compose.lock.yaml` を書き換えて再実行します。状態の確認は `sudo python3 /opt/ubsleepy-next/manage.py status`（`digest` も可）です。
 
 本番への切替と戻し方は[UBSLEEPY 本番切替の手順](ubsleepy-next-switch.md)にあります（実施は別途相談）。
 
