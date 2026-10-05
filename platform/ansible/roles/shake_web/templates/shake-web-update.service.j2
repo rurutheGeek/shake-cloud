@@ -1,0 +1,8 @@
+[Unit]
+Description=Update the Shake-Web stack when main changes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/shake-web-update
