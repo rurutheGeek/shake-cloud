@@ -249,3 +249,31 @@
     chdir: '{{ shake_web_project_dir }}'
   register: shake_web_up
   changed_when: "'CHANGED' in shake_web_up.stdout"
+
+# 旧ホスト向けの CD（アプリ側 deploy.yml → shake-infra）の代わり。web-01 が
+# 5分ごとに main を見て、変わっていたら同期して作り直す。
+- name: Install the auto-update script
+  ansible.builtin.template:
+    src: shake-web-update.sh.j2
+    dest: /usr/local/sbin/shake-web-update
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the auto-update units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - shake-web-update.service
+    - shake-web-update.timer
+
+- name: Enable the auto-update timer
+  ansible.builtin.systemd:
+    name: shake-web-update.timer
+    enabled: true
+    state: started
+    daemon_reload: true

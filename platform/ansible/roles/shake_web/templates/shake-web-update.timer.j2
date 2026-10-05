@@ -1,0 +1,10 @@
+[Unit]
+Description=Check main and update the Shake-Web stack every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

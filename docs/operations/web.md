@@ -47,6 +47,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 - 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
 - アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
+- **web-01 が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh debian@192.168.10.102 'sudo systemctl start shake-web-update'`。
 - ビルドに失敗したら `ssh debian@192.168.10.102 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
 
 ## 公開の切り替え（2026-10-05 実施済み）
