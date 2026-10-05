@@ -1,28 +1,28 @@
-# Discord Bot「UBSLEEPY」を apps-01 に単独で置く。
+# Discord Bot「UBSLEEPY」(-next) の配備。
 #
-# 本体は公開リポジトリ rurutheGeek/UBSLEEPY。manage.py update が main を
-# SOURCE_ROOT へ取得し、そのままコンテナへ渡す（旧ホストと同じ動かし方）。
-# Bot が書き換えるファイルは Git の外の STORAGE_ROOT/state に置き、コードの更新で
-# 触れないよう上から重ねる。対象は manage.py の STATE と揃える。
-# イメージは compose.lock.yaml でダイジェスト固定する。
+# イメージは GitHub Actions が main のマージ時に GHCR へ出す
+# ghcr.io/ruruthegeek/ubsleepy-next:<コミットID> を、compose.lock.yaml の
+# digest で固定して使う（どの digest かはGitでレビューする）。
+# apps-01 ではビルドしない（setup/Dockerfile は CI 用）。
+# セーブデータは STORAGE_ROOT/state から重ねる。
 name: ubsleepy
 
 services:
   bot:
-    image: python:3.13
+    image: ${UBSLEEPY_NEXT_IMAGE:-ghcr.io/ruruthegeek/ubsleepy-next}
     restart: unless-stopped
     working_dir: /app
     environment:
-      # トークンは secrets/discord_token から manage.py が環境変数で渡す。
-      DISCORD_TOKEN: ${DISCORD_TOKEN:?run manage.py up}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?run the playbook}
+      PKDB_PASSWORD: ${PKDB_PASSWORD:?run the playbook}
+      UBSLEEPY_DB_PASSWORD: ${UBSLEEPY_DB_PASSWORD:?run the playbook}
+      UBSLEEPY_DB_NAME: ${UBSLEEPY_DB_NAME:-ubsleepy}
     volumes:
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/source:/app
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/state/save:/app/save
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/state/log:/app/log
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/state/config.json:/app/config.json
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/state/resource/pokemon_senryu.csv:/app/resource/pokemon_senryu.csv
-      - ${STORAGE_ROOT:-/srv/ubsleepy}/state/resource/image:/app/resource/image
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/save:/app/save
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/log:/app/log
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/config.json:/app/config.json
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/pokemon_senryu.csv:/app/resource/pokemon_senryu.csv
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/image:/app/resource/image
     command:
-      - bash
-      - -c
-      - pip install --no-cache-dir -r setup/requirements.txt && python main.py
+      - python
+      - main.py

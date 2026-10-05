@@ -1,23 +1,10 @@
-# テストサーバー（エーテルル財団）で動かすための上書き。
-# 本番と同じコードを debug モードで動かし、state は別に持つ。
-#
-#   TEST_DISCORD_TOKEN=... TEST_STORAGE_ROOT=/srv/ubsleepy-test \
-#     docker compose -p ubsleepy-test -f compose.yaml -f compose.lock.yaml \
-#       -f compose.test.yaml up -d
-#
-# 本番の ubsleepy-update.timer とは無関係（別プロジェクト名・別state）。
+# テスト配備の上書き。debugモードとテスト用DB（ubsleepy_test）を使う。
+# Ansible の ubsleepy_next_test=true で compose.yaml と一緒に使う。
 services:
   bot:
     environment:
-      DISCORD_TOKEN: ${TEST_DISCORD_TOKEN:?set TEST_DISCORD_TOKEN}
-    volumes:
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/source:/app
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/state/save:/app/save
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/state/log:/app/log
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/state/config.json:/app/config.json
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/state/resource/pokemon_senryu.csv:/app/resource/pokemon_senryu.csv
-      - ${TEST_STORAGE_ROOT:-/srv/ubsleepy-test}/state/resource/image:/app/resource/image
+      UBSLEEPY_DB_NAME: ubsleepy_test
     command:
-      - bash
-      - -c
-      - pip install --no-cache-dir -r setup/requirements.txt && python main.py debug
+      - python
+      - main.py
+      - debug
