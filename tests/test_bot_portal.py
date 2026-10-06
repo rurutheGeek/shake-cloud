@@ -147,7 +147,7 @@ class StackTests(unittest.TestCase):
         self.assertIn('/opt/ubsleepy-next:/opt/ubsleepy-next', volumes)
         self.assertIn('/opt/circleauth:/opt/circleauth', volumes)
         self.assertIn('/srv/ubsleepy-next:/srv/ubsleepy-next', volumes)
-        self.assertIn('/srv/circleauth-test:/srv/circleauth-test', volumes)
+        self.assertNotIn('/srv/circleauth-test:/srv/circleauth-test', volumes)
 
     def test_the_registry_marks_the_next_deployment_for_debug(self):
         services = {service.name: service
