@@ -1,0 +1,94 @@
+#!/bin/sh
+# ミニPC（apextox）の外から、公開サイトと監視の入口を見る。
+# 状態が「2回続けて」変わったときだけ Discord へ通知する（単発のDNS断・瞬断で
+# 鳴らさない）。結果は標準出力と {{ public_monitor_state_dir }}/<名前> に残す。
+#   --test を付けるとテスト通知を1通送る。
+set -eu
+
+STATE_DIR={{ public_monitor_state_dir }}
+WEBHOOK_FILE={{ public_monitor_config_dir }}/webhook
+THRESHOLD=2
+mkdir -p "$STATE_DIR"
+
+# 名前引きは DoH（1.1.1.1）で行う。tailnet の DNS（100.100.100.100 / fd7a::53）が
+# たまに詰まると、サイトは無事なのに監視だけ NG になる（2026-10-06 に発生）。
+DOH='https://1.1.1.1/dns-query'
+
+notify() {
+    if [ ! -s "$WEBHOOK_FILE" ]; then
+        echo "public-monitor: no webhook; skipped: $1" >&2
+        return 0
+    fi
+    if ! curl -fsS --max-time 10 --doh-url "$DOH" \
+        -H 'Content-Type: application/json' \
+        -d "$(printf '{"content":"%s"}' "$1")" \
+        "$(cat "$WEBHOOK_FILE")" >/dev/null 2>&1; then
+        echo "public-monitor: notify failed: $1" >&2
+    fi
+}
+
+# 失敗しても5秒あけて3回まで試す（単発の取りこぼしを吸収する）。
+fetch_code() {
+    i=0
+    while [ "$i" -lt 3 ]; do
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --doh-url "$DOH" "$1" 2>/dev/null || true)
+        [ -n "$code" ] || code=000
+        [ "$code" != "000" ] && break
+        i=$((i + 1))
+        [ "$i" -lt 3 ] && sleep 5
+    done
+    printf '%s' "$code"
+}
+
+# check <名前> <URL> <許可するHTTPコード（空白区切り）>
+check() {
+    name="$1"; url="$2"; accept="$3"
+    code=$(fetch_code "$url")
+    now=ng
+    for allowed in $accept; do
+        [ "$code" = "$allowed" ] && now=ok
+    done
+
+    file="$STATE_DIR/$name"
+    # 状態ファイル: <確定状態> <保留状態> <保留の連続回数>（古い形式は確定状態だけ）
+    stable=unknown; pending=-; count=0
+    if [ -f "$file" ]; then
+        read stable pending count < "$file" || true
+        stable=${stable:-unknown}; pending=${pending:--}; count=${count:-0}
+    fi
+
+    if [ "$now" = "$stable" ]; then
+        pending=-; count=0
+    else
+        if [ "$now" = "$pending" ]; then
+            count=$((count + 1))
+        else
+            pending="$now"
+            count=1
+        fi
+        if [ "$count" -ge "$THRESHOLD" ]; then
+            if [ "$now" = ng ]; then
+                notify "[監視] NG: $name ($url) 応答=$code"
+            elif [ "$stable" = ng ]; then
+                notify "[監視] 回復: $name ($url) 応答=$code"
+            fi
+            stable="$now"
+            pending=-
+            count=0
+        fi
+    fi
+
+    echo "$stable $pending $count" > "$file"
+    echo "$name $stable$([ "$pending" = - ] || echo " (保留:$pending/$count)") $code"
+}
+
+if [ "${1:-}" = "--test" ]; then
+    notify "[監視] テスト通知（$(hostname)）"
+    exit 0
+fi
+
+check shake   'https://shake.ruruthegeek.dpdns.org/'   '200 302 301'
+check pkhack  'https://pkhack.ruruthegeek.dpdns.org/'  '200 302 301'
+check ayahuya 'https://ayahuya.ruruthegeek.dpdns.org/' '200 302 301'
+check apex    'https://ruruthegeek.dpdns.org/'         '200 302 301'
+check grafana 'https://grafana.apextox.dpdns.org/'     '200 302 401 403'

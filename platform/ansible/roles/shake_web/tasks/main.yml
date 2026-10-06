@@ -1,0 +1,279 @@
+---
+- name: Install git and rsync
+  ansible.builtin.apt:
+    name:
+      - git
+      - rsync
+    state: present
+    update_cache: true
+
+# 自宅LANのWeb UI（ルータの LuCI、入口の Caddy、AP など）へ出さない。
+# 外向きの全体制限は SG（PVE 側）が持つ。ここは、アプリが root を取る前の
+# 一段として LAN 宛の 80/443 だけを塞ぐ（policy は accept のままなので
+# Docker の転送や他の通信には触らない）。
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+- name: Install the LAN web guard ruleset
+  ansible.builtin.copy:
+    content: |
+      # Shake-Web: 自宅LANの 80/443 へ出さない。外向きの全体制限は SG が正本。
+      table inet homeguard {
+        chain output {
+          type filter hook output priority 0; policy accept;
+          ip daddr 192.168.10.0/24 tcp dport { 80, 443 } drop
+        }
+        chain forward {
+          type filter hook forward priority 0; policy accept;
+          ip daddr 192.168.10.0/24 tcp dport { 80, 443 } drop
+        }
+      }
+    dest: /etc/nftables.conf
+    mode: '0644'
+  notify: Reload nftables
+
+- name: Enable the LAN web guard
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+    state: started
+
+# 公開の中継（negitoroserver）は tailnet の端末。旧ホスト（shakeserver）と同じく
+# web-01 も tailnet に入れ、中継は tailnet IP を直接指す。プロキシ側に LAN の
+# サブネットルート（192.168.10.0/24）を持たせないための構成。
+- name: Add the Tailscale repository key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: '0644'
+
+- name: Add the Tailscale repository
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list
+    dest: /etc/apt/sources.list.d/tailscale.list
+    mode: '0644'
+
+- name: Install Tailscale
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: true
+
+- name: Check the tailnet address
+  ansible.builtin.command:
+    cmd: tailscale ip -4
+  register: shake_web_tailscale_ip
+  changed_when: false
+  failed_when: false
+
+- name: Read the Tailscale auth key
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_tailscale_sops }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_tailscale_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+  when: shake_web_tailscale_ip.rc != 0
+
+- name: Join the tailnet
+  ansible.builtin.command:
+    argv:
+      - tailscale
+      - up
+      - '--auth-key={{ (shake_web_tailscale_secrets.stdout | from_json).TAILSCALE_AUTH_KEY }}'
+      - '--hostname={{ shake_web_tailscale_hostname }}'
+      - '--accept-dns=false'
+  register: shake_web_tailscale_up
+  changed_when: true
+  no_log: true
+  when: shake_web_tailscale_ip.rc != 0
+
+- name: Create the project and storage directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: '0750'
+  loop:
+    - '{{ shake_web_project_dir }}'
+    - '{{ shake_web_project_dir }}/secrets'
+    - '{{ shake_web_storage_root }}'
+    - '{{ shake_web_storage_root }}/certs'
+
+- name: Copy the stack definitions
+  ansible.builtin.copy:
+    src: '{{ shake_web_source_dir }}/{{ item }}'
+    dest: '{{ shake_web_project_dir }}/'
+    mode: '0644'
+  loop:
+    - compose.yaml
+    - compose.lock.yaml
+    - manage.py
+    - .env.example
+
+- name: Copy the nginx templates
+  ansible.builtin.copy:
+    src: '{{ shake_web_source_dir }}/nginx/'
+    dest: '{{ shake_web_storage_root }}/templates/'
+    mode: '0644'
+
+# 秘密値は SOPS から一度だけ読む（暗号化された正本は platform/sops/）。
+- name: Read the Shake-Web secrets
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Install the deploy keys
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json)[item.key] }}'
+    dest: '{{ shake_web_project_dir }}/secrets/{{ item.path }}'
+    mode: '0600'
+  loop:
+    - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
+    - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
+    - {key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya}
+  loop_control:
+    label: '{{ item.path }}'
+  no_log: true
+
+# --- 外向き（egress）の確認 ---
+# 公開サイトが突破されても自宅LANへ横展開できないよう、外向きは Terraform が
+# 宣言した許可だけに絞ってある。新しいグループは EC2 と同じで外向きが全許可
+# なので、既定の「全許可」2本が残っていたら消す。グループを作り直しても
+# 次の配備で戻らない。
+- name: Read the cloud access key
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ shake_web_services_sops }}']
+  delegate_to: localhost
+  become: false
+  register: shake_web_cloud_key
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: List the security groups
+  ansible.builtin.uri:
+    url: '{{ shake_web_cloud_api }}/v1/security-groups'
+    headers:
+      Authorization: 'Bearer {{ (shake_web_cloud_key.stdout | from_json).SHAKECLOUD_ACCESS_KEY }}'
+  delegate_to: localhost
+  become: false
+  register: shake_web_cloud_groups
+  changed_when: false
+  no_log: true
+
+- name: Find the web security group
+  ansible.builtin.set_fact:
+    shake_web_cloud_group: >-
+      {{ shake_web_cloud_groups.json.security_groups
+         | selectattr('group_name', 'equalto', shake_web_cloud_group_name)
+         | list | first | default({}) }}
+
+- name: Fail when the web security group is missing
+  ansible.builtin.assert:
+    that:
+      - shake_web_cloud_group.group_id is defined
+    fail_msg: 'security group {{ shake_web_cloud_group_name }} がクラウドAPIに見つからない'
+
+- name: Revoke allow-all egress rules from the web security group
+  ansible.builtin.uri:
+    url: '{{ shake_web_cloud_api }}/v1/security-groups/{{ shake_web_cloud_group.group_id }}/rules/{{ item.rule_id }}'
+    method: DELETE
+    headers:
+      Authorization: 'Bearer {{ (shake_web_cloud_key.stdout | from_json).SHAKECLOUD_ACCESS_KEY }}'
+    status_code: [204, 404]
+  delegate_to: localhost
+  become: false
+  loop: '{{ shake_web_cloud_group.egress | default([]) }}'
+  loop_control:
+    label: '{{ item.rule_id }}'
+  when:
+    - item.protocol == "all"
+    - item.cidr in ["0.0.0.0/0", "::/0"]
+  no_log: true
+
+- name: Install the CloudFlare Origin certificate
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_CERT }}'
+    dest: '{{ shake_web_storage_root }}/certs/cert.pem'
+    mode: '0644'
+  no_log: true
+
+- name: Install the CloudFlare Origin private key
+  ansible.builtin.copy:
+    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_KEY }}'
+    dest: '{{ shake_web_storage_root }}/certs/key.pem'
+    mode: '0600'
+  no_log: true
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ shake_web_project_dir }}/.env'
+    mode: '0600'
+  no_log: true
+
+- name: Initialize the deployment
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', init]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_init
+  changed_when: "'CHANGED' in shake_web_init.stdout"
+
+- name: Fetch the application sources
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', fetch]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_fetch
+  changed_when: "'CHANGED' in shake_web_fetch.stdout"
+
+- name: Sync the static content
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
+    chdir: '{{ shake_web_project_dir }}'
+  changed_when: false
+
+- name: Start the stack
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', up]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_up
+  changed_when: "'CHANGED' in shake_web_up.stdout"
+
+# 旧ホスト向けの CD（アプリ側 deploy.yml → shake-infra）の代わり。web-01 が
+# 5分ごとに main を見て、変わっていたら同期して作り直す。
+- name: Install the auto-update script
+  ansible.builtin.template:
+    src: shake-web-update.sh.j2
+    dest: /usr/local/sbin/shake-web-update
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install the auto-update units
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/systemd/system/{{ item }}'
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - shake-web-update.service
+    - shake-web-update.timer
+
+- name: Enable the auto-update timer
+  ansible.builtin.systemd:
+    name: shake-web-update.timer
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,6 +1,6 @@
 ---
 title: Discord Bot（UBSLEEPY）
-updated: 2026-10-04
+updated: 2026-10-05
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,98 +10,97 @@ tags:
 
 # Discord Bot（UBSLEEPY）
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **apps-01 で稼働中（2026-10-04 に旧ホスト shakeserver から移行）。** 改修なしで移し、Bot は今までどおりCSVで動きます（PostgreSQL は使いません）。旧ホストの `ubsleepy_bot` は停止したまま `/opt/ubsleepy` ごと残してあります。
+**状態**: apps-01 で稼働中。2026-10-05 に UBSLEEPY-next（イメージ固定・セーブDB）へ切替済み。旧ホスト shakeserver の `/opt/ubsleepy` は停止したまま残っています。
 
-## 構成
+## 構成（本番とテスト）
 
-| 項目 | 値 |
-| --- | --- |
-| 配備先 | apps-01（`192.168.10.105`）。`/opt/ubsleepy`（Compose・`manage.py`・`secrets/`） |
-| コード | `/srv/ubsleepy/source`。公開リポジトリ [rurutheGeek/UBSLEEPY](https://github.com/rurutheGeek/UBSLEEPY) の `main` の checkout |
-| セーブデータ | `/srv/ubsleepy/state`。`save/`・`log/`・`config.json`・`resource/pokemon_senryu.csv`・`resource/image/`。**Git の外**に置き、コンテナ内でコードの上へ重ねる |
-| イメージ | `python:3.13`（digest固定。旧ホストと同じdigest）。起動時に `setup/requirements.txt` を入れて `python main.py` |
-| トークン | `platform/sops/ubsleepy.sops.yaml` の `DISCORD_TOKEN` → apps-01 の `/opt/ubsleepy/secrets/discord_token`（0400） |
-| 通信 | Discord へ出ていくだけ。受けるポートは無い |
-| 定義 | `stacks/ubsleepy/`、`platform/ansible/roles/ubsleepy`、`platform/ansible/ubsleepy.yml` |
+| 項目 | 本番 | テスト |
+| --- | --- | --- |
+| サーバー | apps-01（`192.168.10.105`） | 同左 |
+| Bot | おねむなbot【研修中】 | ねてばかりだったBot（debugモード） |
+| プロジェクト名 | `ubsleepy` | `ubsleepy-next` |
+| 配備先 | `/opt/ubsleepy`・`/srv/ubsleepy` | `/opt/ubsleepy-next`・`/srv/ubsleepy-next` |
+| コンテナ | `ubsleepy-bot-1` | `ubsleepy-next-bot-1` |
+| トークン | `DISCORD_TOKEN` | `TEST_DISCORD_TOKEN` |
+| DB | `ubsleepy` | `ubsleepy_test` |
+| 定義 | `stacks/ubsleepy/` | `stacks/ubsleepy-next/` |
+| Ansible | `platform/ansible/ubsleepy.yml` | `platform/ansible/ubsleepy-next.yml` |
 
-## コードの更新（自動）
+- コードは [rurutheGeek/UBSLEEPY-next](https://github.com/rurutheGeek/UBSLEEPY-next)。旧 `rurutheGeek/UBSLEEPY` はもう使いません
+- イメージは GitHub Actions が main のマージ時に GHCR へ出し、`compose.lock.yaml` の digest で固定します。**apps-01 ではビルドしません**
+- 通信は Discord へ出ていくだけ。受けるポートはありません
 
-`ubsleepy-update.timer` が5分おきに `manage.py update` を実行します。`main` に新しいコミットがあれば checkout を更新し、Bot を作り直します（依存の入れ直しで1〜2分止まる）。変化が無ければ何もしません。**UBSLEEPY の `main` へマージすれば配備されます。** セーブデータは `state/` から重ねているので、更新では触れません。
+## 必要なファイル
+
+`/opt/<プロジェクト>/`
+- `compose.yaml`・`compose.lock.yaml`（テストは `compose.test.yaml` も）
+- `manage.py`（操作コマンド）
+- `.env`（宣言値のみ。`STORAGE_ROOT`、テストは `UBSLEEPY_TEST=true`）
+- `secrets/discord_token`・`secrets/pkdb_password`・`secrets/ubsleepy_db_password`（root 0400）
+
+`/srv/<プロジェクト>/state/`
+- `config.json`（全体設定とギルドの既定値。設定の実体はDB）
+- `save/`・`log/`・`resource/pokemon_senryu.csv`・`resource/image/`
+
+秘密の原本は `platform/sops/ubsleepy.sops.yaml`（`DISCORD_TOKEN` / `TEST_DISCORD_TOKEN` / `PKDB_PASSWORD` / `UBSLEEPY_DB_PASSWORD`）。
+
+## 操作（停止・起動・確認）
 
 ```bash
-sudo systemctl start ubsleepy-update.service   # すぐ反映したいとき
-sudo journalctl -u ubsleepy-update.service -n 20
-```
-
-Bot が書くファイルを増やしたときは、`stacks/ubsleepy/compose.yaml` の `volumes` と `manage.py` の `STATE_DIRECTORIES`・`STATE_FILES` に足します。足さないと、そのファイルは checkout の中に書かれ、バックアップに入りません。`save/` と `log/` の下なら足す必要はありません。
-
-## 配備と操作
-
-```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy.yml'
-```
-
-```bash
+# 状態
 sudo python3 /opt/ubsleepy/manage.py status
 sudo docker logs --tail 50 ubsleepy-bot-1
-sudo python3 /opt/ubsleepy/manage.py down      # 止める
-sudo python3 /opt/ubsleepy/manage.py up        # 起動（セーブデータが無ければ起動しない）
-```
 
-## バックアップ
-
-`ubsleepy-backup.timer` が毎日 19:10（UTC）にセーブデータ一式を `/srv/ubsleepy/backups/<日時>.tar.gz` へ固めます（14世代）。データと同じディスクにあり、VMごとの保全は apps-01 の週次 vzdump（[バックアップ](backup.md)）が持ちます。旧ホストにあった R2 への日次バックアップは引き継いでいません。
-
-戻すときは、Bot を止めて `/srv/ubsleepy/state` を退避してから取り込みます。`import` はセーブデータが1つでもあると書き込みません。
-
-```bash
+# 停止 / 起動 / 再起動
 sudo python3 /opt/ubsleepy/manage.py down
-sudo mv /srv/ubsleepy/state /srv/ubsleepy/state.old
-sudo python3 /opt/ubsleepy/manage.py init
-sudo python3 /opt/ubsleepy/manage.py import /srv/ubsleepy/backups/<日時>.tar.gz
-sudo python3 /opt/ubsleepy/manage.py up
+sudo python3 /opt/ubsleepy/manage.py up            # イメージをpullして起動
+sudo docker restart ubsleepy-bot-1                 # 設定ファイルを読み直すとき
+
+# バックアップを手動で取る
+sudo python3 /opt/ubsleepy/manage.py backup \
+  --destination /srv/ubsleepy/backups --keep 14
 ```
 
-## テスト配備（UBSLEEPY-next）
+テストも同じ（`/opt/ubsleepy-next`・`ubsleepy-next-bot-1`）。テストを止めておくときは `cd /opt/ubsleepy-next && sudo python3 manage.py down`。
 
-再開発版（[rurutheGeek/UBSLEEPY-next](https://github.com/rurutheGeek/UBSLEEPY-next)、非公開）を、本番と同じ apps-01 で別プロジェクト・別ディレクトリで動かします。テストトークン（`TEST_DISCORD_TOKEN`）と debug モード、テスト用DB（`ubsleepy_test`）を使い、**本番の `/srv/ubsleepy/state` には触りません**（state は写し）。
+## 設定の変更（Discordから）
 
-| 項目 | 値 |
-| --- | --- |
-| 定義 | `stacks/ubsleepy-next/`（`compose.yaml`・`compose.test.yaml`・`manage.py`） |
-| 配備 | `platform/ansible/ubsleepy-next.yml`（ロール `platform/ansible/roles/ubsleepy-next`） |
-| 配備先 | `/opt/ubsleepy-next`、`/srv/ubsleepy-next`（`state`） |
-| プロジェクト名 | `ubsleepy-next` |
-| イメージ | GitHub Actions が main のマージ時に GHCR へ出す `ghcr.io/ruruthegeek/ubsleepy-next:<コミットID>` を、`compose.lock.yaml` の digest で固定。**apps-01 ではビルドしない** |
-| 秘密 | `secrets/discord_token`（テストトークン）、`pkdb_password`、`ubsleepy_db_password` |
+- `/channel`: クイズ回答の受付・日替わり投稿・ログのチャンネル
+- `/role`: おかねもちロール（IDくじで1位になった人に付く）
+- 設定は**DBに保存**され、再起動後も残ります。`config.json` の `GUILD_DICT` は既定値なので、**手で編集しなくてよい**
+- ギルドを追加・削除するときも config の編集は不要（未登録ギルドは既定0＝機能OFF。`/channel` で設定したギルドだけ日替わり等が動く）
+
+## コードの更新
+
+1. UBSLEEPY-next にPRをマージ → GitHub Actions が `ghcr.io/ruruthegeek/ubsleepy-next:<コミットID>` をビルド
+2. `stacks/ubsleepy(-next)/compose.lock.yaml` の digest を新しいビルドのものへ更新（shake-cloud のPR）
+3. apps-01 の `/opt/ubsleepy(-next)/compose.lock.yaml` を同じ内容にして `manage.py up`
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy-next.yml'
+sudo docker pull ghcr.io/ruruthegeek/ubsleepy-next:<コミットID>
+sudo docker inspect --format='{{index .RepoDigests 0}}' \
+  ghcr.io/ruruthegeek/ubsleepy-next:<コミットID>     # 新しい digest を確認
 ```
 
-イメージを更新するときは、GitHub Actions が出した新しいコミットの digest へ `stacks/ubsleepy-next/compose.lock.yaml` を書き換えて再実行します。状態の確認は `sudo python3 /opt/ubsleepy-next/manage.py status`（`digest` も可）です。
+## バックアップと復元
 
-本番への切替と戻し方は[UBSLEEPY 本番切替の手順](ubsleepy-next-switch.md)にあります（実施は別途相談）。
+- `ubsleepy-backup.timer` が毎日 19:10（UTC）に state を `/srv/ubsleepy/backups/<日時>.tar.gz` へ固めます（14世代）
+- DBは別途 `pg_dump`（`pkdb-db-1` は apps-01 上のコンテナ）:
+  ```bash
+  sudo docker exec -e PGPASSWORD="$(sudo cat /opt/ubsleepy/secrets/ubsleepy_db_password)" \
+    pkdb-db-1 pg_dump -U ubsleepy_writer -d ubsleepy -Fc > /srv/ubsleepy/state/save/ubsleepy-<日付>.dump
+  ```
+- 戻すときは Bot を止めて state を退避し、バックアップを展開するか `manage.py init` からやり直します
 
-## 旧ホストからの移行（2026-10-04 に実施）
+## データ
 
-同じトークンのBotは2つ同時に動かせないため、並行稼働はしていません。停止から起動までは約70秒でした。
+- セーブデータ（おこづかい・クジびきけん・クイズ戦績）は `ubsleepy` DB。**全サーバー共通**（どのサーバーで使っても同じ残高・戦績）
+- 図鑑データは pkdb（PostgreSQL）。設定が無ければCSVへフォールバック
+- 設定（チャンネル・ロール）は `guild_setting` テーブル（ギルドごと）
 
-1. apps-01 へ配備（セーブデータが無いので Bot は起動しない）。使い捨てコンテナで依存の導入と読み込みを確認。
-2. shakeserver で `docker compose stop`（`/opt/ubsleepy`）。`ubsleepy-backup.timer` を無効化（止めないと「Botが停止」の通知を毎日Discordへ送る）。
-3. `save log config.json resource/pokemon_senryu.csv resource/image` を tar で取り出し、apps-01 で `manage.py import`。
-4. 旧ホストの `sha256sum` と `manage.py digest` を比べ、**27ファイルすべて一致**。
-5. Playbook を再実行して起動。Discord のゲートウェイへの接続と、`state/save/output_cache.txt` への書き込みを確認。
+## これまでの経緯
 
-旧ホストの R2 バックアップは `log/bqlog.csv` と `resource/image/` を含んでいませんでした。apps-01 のバックアップは両方を含みます。
-
-## 残り
-
-- [UBSLEEPY#74](https://github.com/rurutheGeek/UBSLEEPY/pull/74)：`main` へのpushで shake-infra の CD を呼ぶ `deploy.yml` を削除する。**マージするまでは、UBSLEEPY の `main` へpushすると shakeserver でもBotが起動して二重になる。**
-- [shake-infra#25](https://github.com/rurutheGeek/shake-infra/pull/25)：`site.yml` と CD から Bot を外す。
-- Discord 上でのコマンドの動作確認（接続までしか確認していない）。
-- shakeserver の `/opt/ubsleepy` の削除は、数日使って問題が無いと分かってから。
+- 2026-10-04: 旧ホスト shakeserver から apps-01 へ移行（CSVのまま・自動更新あり）
+- 2026-10-05: UBSLEEPY-next（イメージ固定・セーブDB・多サーバー対応）へ切替。手順と戻し方は[本番切替の手順](ubsleepy-next-switch.md)

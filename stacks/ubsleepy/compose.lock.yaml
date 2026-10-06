@@ -1,7 +1,6 @@
-{
-  "services": {
-    "bot": {
-      "image": "python@sha256:4f2d437a6b02de3c9f9aab4b90ba4bc50bd8ad825c5640c28a558c5639f6ded1"
-    }
-  }
-}
+# この digest は ghcr.io/ruruthegeek/ubsleepy-next:d9b8be28ead47c473f9621c96eb5be9ce9ac98d7
+# （main のマージコミット）を GitHub Actions がビルドしたもの。
+# イメージを更新するときは、新しいコミットの digest へ書き換えて再配備する。
+services:
+  bot:
+    image: ghcr.io/ruruthegeek/ubsleepy-next@sha256:04d4c20162688ede2e2e6f5f8036414901dcf72a2663d61d40890c02d678dc58

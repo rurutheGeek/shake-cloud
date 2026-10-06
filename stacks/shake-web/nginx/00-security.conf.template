@@ -1,0 +1,9 @@
+# 全サイト共通の守り。server_tokens でバージョンを見せず、代表的なヘッダを付ける。
+# nginx の docker イメージは /etc/nginx/templates/*.template を conf.d/*.conf へ
+# 展開するので、このファイルは http コンテキストで読まれる（各 server より先）。
+server_tokens off;
+
+add_header X-Content-Type-Options nosniff always;
+add_header X-Frame-Options SAMEORIGIN always;
+add_header Referrer-Policy strict-origin-when-cross-origin always;
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;

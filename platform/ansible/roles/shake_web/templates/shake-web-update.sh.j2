@@ -1,0 +1,18 @@
+#!/bin/sh
+# 5分ごとに main を見て、変わっていたら同期して作り直す。
+# 旧ホスト向けの CD（アプリ側の deploy.yml → shake-infra）の代わりに、
+# web-01 が自分で取りに行く方式（UBSLEEPY と同じ）。
+set -eu
+cd {{ shake_web_project_dir }}
+
+out=$(python3 manage.py fetch)
+case "$out" in
+    *CHANGED*)
+        echo "$out"
+        python3 manage.py sync
+        python3 manage.py up
+        ;;
+    *)
+        echo "$out"
+        ;;
+esac

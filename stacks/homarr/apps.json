@@ -117,6 +117,13 @@
     "pingUrl": "https://vault.apextox.dpdns.org/alive"
   },
   {
+    "name": "Botポータル",
+    "href": "https://portal.apextox.dpdns.org",
+    "description": "Discord Botの状態・ログ・再起動・バックアップ（SSO・管理者のみ）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/discord.svg",
+    "pingUrl": "https://portal.apextox.dpdns.org/healthz"
+  },
+  {
     "name": "ポケモン登録",
     "href": "https://pkdb-entry.apextox.dpdns.org",
     "description": "ポケモンDBの更新（ポケモン・わざ・特性・図鑑情報・覚えわざ・順位）。DBを直接いじるAdminerもここから（SSO・管理者のみ）",

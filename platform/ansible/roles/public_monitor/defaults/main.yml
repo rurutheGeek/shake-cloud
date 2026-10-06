@@ -1,0 +1,5 @@
+---
+# ミニPC（K11）の外から公開サイトと監視の入口を見る。たらこサーバ（Pi 4）で動かす。
+public_monitor_state_dir: /var/lib/public-monitor
+public_monitor_config_dir: /etc/public-monitor
+public_monitor_sops_file: '{{ playbook_dir }}/../sops/public-monitor.sops.yaml'

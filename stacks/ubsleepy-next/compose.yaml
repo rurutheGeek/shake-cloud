@@ -23,6 +23,7 @@ services:
       - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/config.json:/app/config.json
       - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/pokemon_senryu.csv:/app/resource/pokemon_senryu.csv
       - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/image:/app/resource/image
+      - ${STORAGE_ROOT:-/srv/ubsleepy-next}/state/resource/cry:/app/resource/cry
     command:
       - python
       - main.py

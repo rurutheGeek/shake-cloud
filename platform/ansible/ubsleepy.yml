@@ -1,12 +1,42 @@
 ---
-# Discord Bot「UBSLEEPY」を apps-01 へ配備する。
+# Discord Bot「UBSLEEPY」を apps-01 へ配備する（本番・イメージ固定）。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/ubsleepy.yml'
-# 外から受ける通信は無い（Discord へ出ていくだけ）ので入口（Caddy）は通さない。
-# セーブデータの移行は docs/operations/ubsleepy.md。
+# イメージは GitHub Actions が main のマージ時に出す GHCR の固定タグ。
+# apps-01 ではビルドしない。外から受ける通信は無い（Discord へ出ていくだけ）。
+# 旧・自動更新（git pull）のタイマーは使わない。
 - name: Deploy the UBSLEEPY Discord bot
   hosts: apps
   become: true
   roles:
     - docker
-    - ubsleepy
+    - role: ubsleepy-next
+      vars:
+        ubsleepy_next_project_dir: /opt/ubsleepy
+        ubsleepy_next_storage_root: /srv/ubsleepy
+        # 本番は本番のスタック（compose の name: ubsleepy）を配る。
+        # 既定はテスト配備の stacks/ubsleepy-next なので、ここで差し替える。
+        ubsleepy_next_source_dir: '{{ playbook_dir }}/../../stacks/ubsleepy'
+        ubsleepy_next_test: false
+        ubsleepy_next_token_key: DISCORD_TOKEN
+  tasks:
+    - name: Stop the old auto-update timer
+      ansible.builtin.systemd:
+        name: ubsleepy-update.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove the old auto-update units
+      ansible.builtin.file:
+        path: '/etc/systemd/system/{{ item }}'
+        state: absent
+      loop:
+        - ubsleepy-update.service
+        - ubsleepy-update.timer
+      notify: Reload systemd
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true

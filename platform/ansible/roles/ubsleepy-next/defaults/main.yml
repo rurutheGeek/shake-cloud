@@ -14,3 +14,8 @@ ubsleepy_next_token_key: TEST_DISCORD_TOKEN
 # GHCRが非公開のときの取得用。SOPSに GHCR_READ_TOKEN があれば docker login する。
 ubsleepy_next_registry_username: rurutheGeek
 ubsleepy_next_registry_token_key: GHCR_READ_TOKEN
+# セーブデータの日次アーカイブ。データと同じディスクなので、VMごとの保全は
+# 週次 vzdump が持つ。イメージ固定なので更新タイマーは無い。
+ubsleepy_next_backup_dir: '{{ ubsleepy_next_storage_root }}/backups'
+ubsleepy_next_backup_keep: 14
+ubsleepy_next_backup_calendar: '*-*-* 19:10:00'

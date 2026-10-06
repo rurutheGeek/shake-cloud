@@ -41,7 +41,8 @@ hosts:
     vm_id: 120
     pool: platform
     flavor: small
-    memory_min_mib: 1024
+    # balloon 下限。1GiB まで縮められて Grafana が OOM 死した（2026-10-06）。
+    memory_min_mib: 2048
     # Prometheus の時系列と Grafana の状態も同じディスクに置く（2026-10-03 時点で約1.3GiB）。
     disk_gib: 48
     on_boot: true

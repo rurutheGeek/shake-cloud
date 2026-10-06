@@ -1,0 +1,8 @@
+[Unit]
+Description=Check the public sites from outside the mini PC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/public-monitor

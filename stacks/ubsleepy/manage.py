@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""The UBSLEEPY Discord bot on apps-01. Run with sudo.
+"""UBSLEEPY（-next）の運用。Run with sudo.
 
-The code is a checkout of the public repository rurutheGeek/UBSLEEPY and is
-replaced by ``update``. Everything the bot writes lives outside that checkout,
-in ``STORAGE_ROOT/state``, and is mounted over it: an update can never touch
-the save data, and ``import`` refuses to write over save data that exists.
+配備はAnsible（platform/ansible/ubsleepy-next.yml）が行う。ここは状態の確認や
+手元操作のためのもの。イメージは compose.lock.yaml の digest（GitHub Actions が
+main のマージ時に出すコミットIDタグのもの）を使い、apps-01 ではビルドしない。
+セーブデータは STORAGE_ROOT/state からコンテナへ重ねる。
 """
 import argparse
 import datetime
 import hashlib
-import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -20,11 +19,17 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'bot'
+IMAGE = 'ghcr.io/ruruthegeek/ubsleepy-next'
 TOKEN = 'discord_token'
-# What the bot writes, relative to the checkout. Keep in step with the volumes
-# in compose.yaml.
-STATE_DIRECTORIES = ('save', 'log', 'resource/image')
+# 環境変数名 -> secrets/ のファイル名
+DB_SECRETS = {
+    'PKDB_PASSWORD': 'pkdb_password',
+    'UBSLEEPY_DB_PASSWORD': 'ubsleepy_db_password',
+}
+STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
+# バックアップに入れるもの。鳴き声（resource/cry）は再取得できるので含めない。
+BACKUP_DIRECTORIES = ('save', 'log', 'resource/image')
 STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
 
 
@@ -37,30 +42,29 @@ def settings():
                 if line and not line.startswith('#') and '=' in line)
 
 
-def token():
-    path = ROOT / 'secrets' / TOKEN
+def secret(name):
+    path = ROOT / 'secrets' / name
     return path.read_text().strip() if path.exists() else ''
 
 
-def compose(*args, locked=True, **kwargs):
+def compose(*args, **kwargs):
     cmd = ['docker', 'compose', '--env-file', str(ROOT / '.env'), '-f', 'compose.yaml']
-    if locked and (ROOT / 'compose.lock.yaml').exists():
+    if (ROOT / 'compose.lock.yaml').exists():
         cmd += ['-f', 'compose.lock.yaml']
-    # config と pull は値を使わないので、トークンが無くても通るよう仮の値を渡す。
-    env = dict(os.environ, DISCORD_TOKEN=token() or 'unset')
+    if (ROOT / 'compose.test.yaml').exists() and settings().get('UBSLEEPY_TEST') == 'true':
+        cmd += ['-f', 'compose.test.yaml']
+    # config と pull は値を使わないので、秘密が無くても通るよう仮の値を渡す。
+    env = dict(os.environ, DISCORD_TOKEN=secret(TOKEN) or 'unset')
+    env.update({name: secret(file) or 'unset' for name, file in DB_SECRETS.items()})
     return run(cmd + list(args), env=env, **kwargs)
 
 
 def storage():
-    configured = Path(settings().get('STORAGE_ROOT', '/srv/ubsleepy'))
+    configured = Path(settings().get('STORAGE_ROOT', '/srv/ubsleepy-next'))
     path = configured.resolve()
     if path == ROOT or ROOT in path.parents:
         raise ValueError('STORAGE_ROOT must not contain the deployment directory')
     return path
-
-
-def source():
-    return storage() / 'source'
 
 
 def state():
@@ -82,63 +86,7 @@ def init():
         if not path.exists():
             path.mkdir(parents=True, mode=0o755)
             changed = True
-    print('CHANGED: ubsleepy initialized' if changed else 'OK: ubsleepy already initialized')
-
-
-def lock(refresh=False):
-    config = json.loads(compose('config', '--format', 'json', locked=False, capture_output=True).stdout)
-    path = ROOT / 'compose.lock.yaml'
-    old = json.loads(path.read_text()).get('services', {}) if path.exists() else {}
-    missing = [name for name in config['services'] if refresh or name not in old]
-    if missing:
-        compose('pull', *missing, locked=False)
-    pinned = {}
-    for name, service in config['services'].items():
-        if name in old and not refresh:
-            pinned[name] = old[name]
-        else:
-            info = json.loads(run(['docker', 'image', 'inspect', service['image']],
-                                  capture_output=True).stdout)[0]
-            pinned[name] = {'image': info['RepoDigests'][0]}
-    content = json.dumps({'services': pinned}, indent=2) + '\n'
-    if path.exists() and path.read_text() == content:
-        print('OK: ubsleepy digests preserved')
-        return
-    temporary = path.with_suffix('.tmp')
-    temporary.write_text(content)
-    temporary.replace(path)
-    print('CHANGED: ubsleepy images pinned')
-
-
-def git(*args):
-    return run(['git', '-C', str(source()), *args], capture_output=True).stdout.strip()
-
-
-def running():
-    return SERVICE in compose('ps', '--services', '--status', 'running',
-                              capture_output=True).stdout.split()
-
-
-def update():
-    """Bring the checkout to the branch head; restart the bot only if it runs."""
-    configured = settings()
-    repository = configured['UBSLEEPY_REPOSITORY']
-    branch = configured.get('UBSLEEPY_BRANCH', 'main')
-    if not (source() / '.git').exists():
-        source().parent.mkdir(parents=True, exist_ok=True)
-        run(['git', 'clone', '--branch', branch, repository, str(source())], capture_output=True)
-        print(f'CHANGED: source cloned at {git("rev-parse", "--short", "HEAD")}')
-        return
-    git('fetch', '--quiet', repository, branch)
-    wanted = git('rev-parse', 'FETCH_HEAD')
-    if git('rev-parse', 'HEAD') == wanted:
-        print(f'OK: source at {wanted[:7]}')
-        return
-    # The save data is mounted from state/, so resetting the checkout cannot reach it.
-    git('reset', '--hard', wanted)
-    if running():
-        compose('up', '-d', '--force-recreate')
-    print(f'CHANGED: source updated to {wanted[:7]}')
+    print('CHANGED: ubsleepy-next initialized' if changed else 'OK: ubsleepy-next already initialized')
 
 
 def missing_state():
@@ -147,61 +95,20 @@ def missing_state():
 
 
 def up():
-    if not (ROOT / 'compose.lock.yaml').exists():
-        raise SystemExit('Run lock first')
-    if not token():
-        raise ValueError('secrets/discord_token is missing')
-    if not (source() / 'main.py').exists():
-        raise ValueError('Run update first: the source is not checked out')
+    for name in (TOKEN, *DB_SECRETS.values()):
+        if not secret(name):
+            raise ValueError(f'secrets/{name} is missing')
     missing = missing_state()
     if missing:
         # Starting without the save data would let the bot begin from nothing.
-        raise ValueError(f'Save data is missing, import it first: {", ".join(missing)}')
+        raise ValueError(f'Save data is missing: {", ".join(missing)}')
+    compose('pull')
     compose('up', '-d', '--remove-orphans')
 
 
 def state_files():
     root = state()
     return sorted(path.relative_to(root).as_posix() for path in root.rglob('*') if path.is_file())
-
-
-def allowed(name):
-    if name in STATE_FILES or name in STATE_DIRECTORIES:
-        return True
-    return any(name.startswith(directory + '/') for directory in STATE_DIRECTORIES)
-
-
-def import_state(archive):
-    """Unpack the old host's save data. Refuses if any save data is here."""
-    present = state_files()
-    if present:
-        raise ValueError(f'Save data already exists ({len(present)} files); not overwritten')
-    root = state()
-    count = 0
-    with tarfile.open(archive, 'r:*') as tar:
-        members = tar.getmembers()
-        for member in members:
-            name = PurePosixPath(member.name).as_posix()
-            if name.startswith('./'):
-                name = name[2:]
-            if '..' in PurePosixPath(name).parts or name.startswith('/') or not allowed(name):
-                raise ValueError(f'Unexpected entry in the archive: {member.name}')
-            if not (member.isfile() or member.isdir()):
-                raise ValueError(f'Unsupported entry in the archive: {member.name}')
-        for member in members:
-            target = root / PurePosixPath(member.name)
-            if member.isdir():
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with tar.extractfile(member) as data, open(target, 'wb') as file:
-                shutil.copyfileobj(data, file)
-            os.utime(target, (member.mtime, member.mtime))
-            count += 1
-    missing = missing_state()
-    if missing:
-        raise ValueError(f'The archive lacks: {", ".join(missing)}')
-    print(f'CHANGED: imported {count} files into {root}')
 
 
 def digest():
@@ -211,7 +118,41 @@ def digest():
         print(f'{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}')
 
 
+def deploy(commit):
+    """指定コミットのイメージへ更新して起動する（digestを解決してlockを書き換え）。"""
+    if not commit:
+        raise ValueError('usage: manage.py deploy <commit>')
+    image = f'{IMAGE}:{commit}'
+    run(['docker', 'pull', image], capture_output=True)
+    output = run(
+        ['docker', 'inspect', '--format', '{{index .RepoDigests 0}}', image],
+        capture_output=True).stdout.strip()
+    digest = output.split('@', 1)[1]
+    lock = (
+        f'# この digest は {image}\n'
+        f'# （main のマージコミット）を GitHub Actions がビルドしたもの。\n'
+        f'# イメージを更新するときは、新しいコミットの digest へ書き換えて再配備する。\n'
+        f'services:\n'
+        f'  bot:\n'
+        f'    image: {IMAGE}@{digest}\n'
+    )
+    (ROOT / 'compose.lock.yaml').write_text(lock, encoding='utf-8')
+    compose('pull')
+    compose('up', '-d', '--remove-orphans')
+    print(f'deployed {commit}')
+    print(lock)
+
+
+def cries():
+    """鳴き声を取り込む（コンテナ内で tools/fetch_cries.py を実行。未取得ぶんだけ）。"""
+    container = compose('ps', '-q', 'bot', capture_output=True).stdout.strip()
+    if not container:
+        raise ValueError('bot container is not running')
+    run(['docker', 'exec', container, 'python', 'tools/fetch_cries.py'])
+
+
 def backup(destination, keep):
+    """Archive the save data. The destination must be outside the state."""
     destination = Path(destination).resolve()
     if destination == state() or state() in destination.parents:
         raise ValueError('Backup destination must be outside the save data')
@@ -221,7 +162,7 @@ def backup(destination, keep):
     target = destination / f'{stamp}.tar.gz'
     partial = destination / f'{stamp}.incomplete'
     with tarfile.open(partial, 'w:gz') as tar:
-        for name in STATE_DIRECTORIES + STATE_FILES:
+        for name in BACKUP_DIRECTORIES + STATE_FILES:
             tar.add(state() / name, arcname=name)
     partial.rename(target)
     complete = sorted(path for path in destination.iterdir() if STAMP.match(path.name))
@@ -232,40 +173,35 @@ def backup(destination, keep):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'lock', 'update', 'up', 'status', 'down',
-                                           'import', 'digest', 'backup'])
-    parser.add_argument('archive', nargs='?', help='save data tarball for import')
-    parser.add_argument('--refresh-images', action='store_true')
-    parser.add_argument('--destination', default=str(ROOT / 'backups'))
+    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
+                                           'backup', 'deploy', 'cries'])
+    parser.add_argument('commit', nargs='?', help='deploy するコミットID')
+    parser.add_argument('--destination', default=str(storage() / 'backups'),
+                        help='backup destination directory')
     parser.add_argument('--keep', type=int, default=14, help='backups to keep')
     args = parser.parse_args()
     if args.action == 'init':
         init()
-    elif args.action == 'lock':
-        lock(args.refresh_images)
-    elif args.action == 'update':
-        update()
     elif args.action == 'up':
         up()
-    elif args.action == 'status':
-        compose('ps')
     elif args.action == 'down':
         compose('down')
-    elif args.action == 'import':
-        if not args.archive:
-            parser.error('import requires the save data tarball')
-        import_state(args.archive)
-    elif args.action == 'digest':
-        digest()
-    else:
+    elif args.action == 'status':
+        compose('ps')
+    elif args.action == 'backup':
         backup(args.destination, args.keep)
+    elif args.action == 'deploy':
+        deploy(args.commit)
+    elif args.action == 'cries':
+        cries()
+    else:
+        digest()
 
 
 if __name__ == '__main__':
     try:
         main()
-    except (OSError, ValueError, KeyError, tarfile.TarError,
-            subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         detail = getattr(error, 'stderr', '') or ''
         print(f'ERROR: {error}{": " + detail.strip() if detail else ""}', file=sys.stderr)
         sys.exit(1)

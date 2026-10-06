@@ -7,23 +7,30 @@ main のマージ時に出すコミットIDタグのもの）を使い、apps-01
 セーブデータは STORAGE_ROOT/state からコンテナへ重ねる。
 """
 import argparse
+import datetime
 import hashlib
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parent
 SERVICE = 'bot'
+IMAGE = 'ghcr.io/ruruthegeek/ubsleepy-next'
 TOKEN = 'discord_token'
 # 環境変数名 -> secrets/ のファイル名
 DB_SECRETS = {
     'PKDB_PASSWORD': 'pkdb_password',
     'UBSLEEPY_DB_PASSWORD': 'ubsleepy_db_password',
 }
-STATE_DIRECTORIES = ('save', 'log', 'resource/image')
+STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
+# バックアップに入れるもの。鳴き声（resource/cry）は再取得できるので含めない。
+BACKUP_DIRECTORIES = ('save', 'log', 'resource/image')
+STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
 
 
 def run(args, **kwargs):
@@ -111,9 +118,67 @@ def digest():
         print(f'{hashlib.sha256((root / name).read_bytes()).hexdigest()}  {name}')
 
 
+def deploy(commit):
+    """指定コミットのイメージへ更新して起動する（digestを解決してlockを書き換え）。"""
+    if not commit:
+        raise ValueError('usage: manage.py deploy <commit>')
+    image = f'{IMAGE}:{commit}'
+    run(['docker', 'pull', image], capture_output=True)
+    output = run(
+        ['docker', 'inspect', '--format', '{{index .RepoDigests 0}}', image],
+        capture_output=True).stdout.strip()
+    digest = output.split('@', 1)[1]
+    lock = (
+        f'# この digest は {image}\n'
+        f'# （main のマージコミット）を GitHub Actions がビルドしたもの。\n'
+        f'# イメージを更新するときは、新しいコミットの digest へ書き換えて再配備する。\n'
+        f'services:\n'
+        f'  bot:\n'
+        f'    image: {IMAGE}@{digest}\n'
+    )
+    (ROOT / 'compose.lock.yaml').write_text(lock, encoding='utf-8')
+    compose('pull')
+    compose('up', '-d', '--remove-orphans')
+    print(f'deployed {commit}')
+    print(lock)
+
+
+def cries():
+    """鳴き声を取り込む（コンテナ内で tools/fetch_cries.py を実行。未取得ぶんだけ）。"""
+    container = compose('ps', '-q', 'bot', capture_output=True).stdout.strip()
+    if not container:
+        raise ValueError('bot container is not running')
+    run(['docker', 'exec', container, 'python', 'tools/fetch_cries.py'])
+
+
+def backup(destination, keep):
+    """Archive the save data. The destination must be outside the state."""
+    destination = Path(destination).resolve()
+    if destination == state() or state() in destination.parents:
+        raise ValueError('Backup destination must be outside the save data')
+    destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+    destination.chmod(0o700)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+    target = destination / f'{stamp}.tar.gz'
+    partial = destination / f'{stamp}.incomplete'
+    with tarfile.open(partial, 'w:gz') as tar:
+        for name in BACKUP_DIRECTORIES + STATE_FILES:
+            tar.add(state() / name, arcname=name)
+    partial.rename(target)
+    complete = sorted(path for path in destination.iterdir() if STAMP.match(path.name))
+    for path in complete[:-keep] if keep > 0 else []:
+        path.unlink()
+    print(f'ubsleepy backup complete: {target}')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest'])
+    parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
+                                           'backup', 'deploy', 'cries'])
+    parser.add_argument('commit', nargs='?', help='deploy するコミットID')
+    parser.add_argument('--destination', default=str(storage() / 'backups'),
+                        help='backup destination directory')
+    parser.add_argument('--keep', type=int, default=14, help='backups to keep')
     args = parser.parse_args()
     if args.action == 'init':
         init()
@@ -123,6 +188,12 @@ def main():
         compose('down')
     elif args.action == 'status':
         compose('ps')
+    elif args.action == 'backup':
+        backup(args.destination, args.keep)
+    elif args.action == 'deploy':
+        deploy(args.commit)
+    elif args.action == 'cries':
+        cries()
     else:
         digest()
 

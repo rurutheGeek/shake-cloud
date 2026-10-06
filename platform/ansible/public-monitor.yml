@@ -1,0 +1,14 @@
+---
+# ミニPC（K11・Proxmox）の外から、公開サイトと監視の入口を見る。
+# たらこサーバ（Pi 4、tailnet）で systemd timer として動かす。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#        -i platform/ansible/outpost.ini platform/ansible/public-monitor.yml'
+#
+# 通知先（Discord Webhook）は platform/sops/public-monitor.sops.yaml。
+- name: Watch the public sites from outside the mini PC
+  hosts: outpost
+  become: true
+  roles:
+    - public_monitor

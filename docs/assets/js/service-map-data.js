@@ -682,6 +682,50 @@ window.SERVICE_MAP = {
    ]
   },
   {
+   "address": "192.168.10.102",
+   "docs": [
+    {
+     "path": "operations/web/",
+     "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+    }
+   ],
+   "kind": "cloud",
+   "name": "web-01",
+   "role": "公開サイト",
+   "services": [
+    {
+     "description": "Issues・Shaketter・ToBa・ikura と Wiki",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "Shake-Web"
+    },
+    {
+     "description": "ポケモンクイズ",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "pkhack"
+    },
+    {
+     "description": "4サイトの入口。CloudFlare Origin 証明書で TLS 終端",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "nginx"
+    }
+   ]
+  },
+  {
    "address": "192.168.10.127",
    "docs": [
     {
