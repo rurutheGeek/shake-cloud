@@ -14,6 +14,9 @@
       vars:
         ubsleepy_next_project_dir: /opt/ubsleepy
         ubsleepy_next_storage_root: /srv/ubsleepy
+        # 本番は本番のスタック（compose の name: ubsleepy）を配る。
+        # 既定はテスト配備の stacks/ubsleepy-next なので、ここで差し替える。
+        ubsleepy_next_source_dir: '{{ playbook_dir }}/../../stacks/ubsleepy'
         ubsleepy_next_test: false
         ubsleepy_next_token_key: DISCORD_TOKEN
   tasks:
