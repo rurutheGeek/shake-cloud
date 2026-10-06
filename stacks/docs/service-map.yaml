@@ -118,6 +118,7 @@ record_docs:
   poke: [services/poke-translate.md]
   pkdb: [operations/pkdb.md]
   adminer: [operations/pkdb.md]
+  pkdb-entry: [operations/pkdb.md]
   ha: [services/home-assistant.md]
   docs: [contributing-docs.md]
   portal: [operations/bot-portal.md]

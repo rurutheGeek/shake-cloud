@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, stat_inputs, ability_inputs, title_select, form_actions, restore_banner, pokemon_datalist %}
+{% block title %}ポケモンの登録 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>
+    {% if mode == 'species' %}新しいポケモンを登録
+    {% elif mode == 'form' %}新しい姿を登録
+    {% else %}新しい作品の値を登録{% endif %}
+  </h1>
+  <p class="page-sub">
+    図鑑番号 <strong>{{ values.ndex }}</strong>
+    {% if species %}／ {{ species.name }}{% endif %}
+    ／ フォーム <strong>{{ values.form_id }}</strong>
+  </p>
+</div>
+
+{{ restore_banner(restore_id) }}
+{% if error %}<p class="flash ng">{{ error }}</p>{% endif %}
+
+<form method="post" action="/pokemon/new" class="card form-grid" autocomplete="off">
+  {{ csrf(request) }}
+
+  <fieldset class="span-all">
+    <legend>どのポケモン・どの姿か</legend>
+    <div class="grid-3">
+      <label>図鑑番号
+        <input name="ndex" inputmode="numeric" pattern="[0-9]{1,4}" required
+               value="{{ values.ndex }}"{{ ' readonly' if mode != 'species' }}>
+        <small>1〜4桁。空き番号は {{ next_ndex }}</small>
+      </label>
+      {% if mode == 'species' %}
+      <label>名前
+        <input name="name" required value="{{ values.name }}" placeholder="例 リザードン">
+        <small>日本語の正式名称</small>
+      </label>
+      {% else %}
+      <input type="hidden" name="name" value="{{ values.name }}">
+      <label>名前
+        <input value="{{ species.name if species else values.name }}" readonly>
+        <small>名前は「名前」の画面で直せます</small>
+      </label>
+      {% endif %}
+      <label>フォーム番号
+        <input name="form_id" inputmode="numeric" pattern="[0-9]{1,2}" required
+               value="{{ values.form_id }}"{{ ' readonly' if mode == 'status' }}>
+        <small>00 が基本の姿。別の姿は 01 から</small>
+      </label>
+    </div>
+    <div class="grid-3">
+      <label>姿の名前
+        <input name="form_name" value="{{ values.form_name }}">
+        <small>基本の姿（00）は空でよい。例 アローラのすがた</small>
+      </label>
+      <label>性別
+        <select name="gender">
+          {% for value, label in GENDERS %}
+          <option value="{{ value }}"{{ ' selected' if values.gender == value }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if values.form_id == '00' %}
+      <label>英語名
+        <input name="english" value="{{ values.english }}" placeholder="例 Charizard">
+        <small>基本の姿（00）にだけ付く</small>
+      </label>
+      {% else %}
+      <input type="hidden" name="english" value="">
+      {% endif %}
+    </div>
+  </fieldset>
+
+  <fieldset class="span-all">
+    <legend>どの作品の値か</legend>
+    <div class="grid-3">
+      <label>作品
+        {{ title_select('title', values.title, true) }}
+        <small>初登場、または値が変わった作品</small>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset class="span-all">
+    <legend>タイプと種族値</legend>
+    <div class="grid-3">
+      <label>タイプ1
+        <select name="type_1" required>
+          <option value=""></option>
+          {% for item in types %}
+          <option value="{{ item.name }}"{{ ' selected' if values.type_1 == item.name }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>タイプ2
+        <select name="type_2">
+          <option value="">（単タイプ）</option>
+          {% for item in types %}
+          <option value="{{ item.name }}"{{ ' selected' if values.type_2 == item.name }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    {{ stat_inputs(values) }}
+  </fieldset>
+
+  <fieldset class="span-all">
+    <legend>特性</legend>
+    {{ ability_inputs(values, ability_names) }}
+  </fieldset>
+
+  {% if mode != 'status' %}
+  <fieldset class="span-all">
+    <legend>進化前とあだ名</legend>
+    <div class="grid-3">
+      <label>進化前
+        <input name="before" list="pokemon-list" value="{{ values.before }}" placeholder="例 0004 ヒトカゲ">
+        <small>進化しないなら空。番号だけでよい</small>
+      </label>
+      <label>進化方法
+        <input name="evolution_method" list="method-list" value="{{ values.evolution_method }}"
+               placeholder="例 レベルアップ">
+        <small>名前で入れると自動で登録される</small>
+      </label>
+      <label>あだ名
+        <input name="aliases" value="{{ values.aliases }}" placeholder="例 リザX、メガリザX">
+        <small>「、」で区切る。ほかと重複は不可</small>
+      </label>
+    </div>
+  </fieldset>
+  {% else %}
+  <input type="hidden" name="before" value="">
+  <input type="hidden" name="evolution_method" value="">
+  <input type="hidden" name="aliases" value="">
+  {% endif %}
+
+  {{ form_actions('/pokemon', '登録する') }}
+</form>
+
+{{ pokemon_datalist(pokemon) }}
+<datalist id="method-list">
+  {% for item in evolution_methods %}<option value="{{ item.method_name }}"></option>{% endfor %}
+</datalist>
+
+<p class="hint">
+  同じ図鑑番号・姿・作品の組み合わせがすでにあると登録できません。そのときは「ポケモン」の画面から
+  該当の行を「修正」してください。
+</p>
+
+{% endblock %}

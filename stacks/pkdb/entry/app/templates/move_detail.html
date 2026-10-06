@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, type_badge, title_select %}
+{% block title %}{{ latest.name }} - わざ - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>{{ latest.name }} <small class="dim">ID {{ latest.move_id }}</small></h1>
+    <p class="page-sub">
+      {{ type_badge(latest.type) }} {{ latest.category }}
+      {% if latest.english_name %}<span class="chip">{{ latest.english_name }}</span>{% endif %}
+    </p>
+  </div>
+  <div class="quick-actions">
+    <a class="button" href="/moves/new?name={{ latest.name }}&type={{ latest.type }}&category={{ latest.category }}&copy_move={{ latest.move_id }}&copy_title={{ latest.title_group_id }}">この値から新しい作品へ</a>
+    <a class="button primary" href="/moves/new">わざを登録</a>
+  </div>
+</div>
+
+<section class="panel">
+  <h2>最新の値（作品 {{ latest.title_group_id }}）</h2>
+  <div class="move-summary">
+    <dl>
+      <dt>威力</dt><dd>{{ latest.power if latest.power is not none else '—' }}</dd>
+      <dt>命中率</dt><dd>{{ latest.accuracy if latest.accuracy is not none else '—' }}</dd>
+      <dt>PP</dt><dd>{{ latest.pp if latest.pp is not none else '—' }}</dd>
+      <dt>優先度</dt><dd>{{ latest.priority if latest.priority is not none else '0' }}</dd>
+      <dt>対象</dt><dd>{{ latest.target or '—' }}</dd>
+      <dt>追加効果</dt><dd>{{ latest.effect_chance if latest.effect_chance is not none else '—' }}%</dd>
+    </dl>
+    {% if latest.description %}<p class="description">{{ latest.description }}</p>{% endif %}
+    {% if latest.notes %}<p class="hint">{{ latest.notes }}</p>{% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>作品ごとの値</h2>
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>作品</th><th>タイプ</th><th>分類</th><th>威力</th><th>命中</th><th>PP</th><th>対象</th><th>覚えるポケモン</th><th></th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><a href="/moves/{{ row.move_id }}/edit?title={{ row.title_group_id }}"><span class="title-chip">{{ row.title_group_id }} {{ row.title_name or '' }}</span></a></td>
+          <td>{{ type_badge(row.type) }}</td>
+          <td>{{ row.category }}</td>
+          <td class="num">{{ row.power if row.power is not none else '—' }}</td>
+          <td class="num">{{ row.accuracy if row.accuracy is not none else '—' }}</td>
+          <td class="num">{{ row.pp if row.pp is not none else '—' }}</td>
+          <td>{{ row.target or '' }}</td>
+          <td class="num">{{ row.learners }}</td>
+          <td class="nowrap">
+            <a href="/moves/{{ row.move_id }}/edit?title={{ row.title_group_id }}">修正</a>
+            <form method="post" action="/moves/{{ row.move_id }}/delete" class="inline-form"
+                  data-confirm="作品 {{ row.title_group_id }} のこの行を消しますか？（覚えているポケモンがいると消せません）">
+              {{ csrf(request) }}
+              <input type="hidden" name="title" value="{{ row.title_group_id }}">
+              <button type="submit" class="link-button danger">消す</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>このわざを覚えるポケモン</h2>
+  {% if holders %}
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>作品</th><th>ポケモン</th><th>姿</th><th></th></tr></thead>
+      <tbody>
+        {% for row in holders %}
+        <tr>
+          <td><span class="title-chip">{{ row.title_group_id }}</span></td>
+          <td><a href="/pokemon/{{ row.ndex_number }}">{{ row.ndex_number }} {{ row.name }}</a></td>
+          <td>{{ row.form_name or '' }}</td>
+          <td><a href="/pokemon/{{ row.ndex_number }}/learnsets?form={{ row.form_id }}&title={{ row.title_group_id }}">覚えわざを開く</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">まだどのポケモンにも登録されていません。ポケモンの「覚えわざ」画面から足せます。</p>
+  {% endif %}
+</section>
+
+{% endblock %}

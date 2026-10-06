@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% from "_macros.html" import type_pair %}
+{% block title %}ポケモンDB管理{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div>
+    <h1>ポケモンDBの更新</h1>
+    <p class="lead">図鑑番号や作品を気にせず、画面から足す・直す。SQLは要りません。</p>
+  </div>
+  <div class="quick-actions">
+    <a class="button primary" href="/pokemon/new">ポケモンを登録</a>
+    <a class="button" href="/moves/new">わざを登録</a>
+    <a class="button" href="/abilities/new">特性を登録</a>
+    <a class="button" href="/titles">作品を追加</a>
+  </div>
+</section>
+
+<section class="stat-cards">
+  <a class="stat-card" href="/pokemon">
+    <span class="stat-card-value">{{ stats.species }}</span>
+    <span class="stat-card-label">ポケモン</span>
+    <span class="stat-card-sub">姿 {{ stats.forms }} / 作品ごとの値 {{ stats.status_rows }}</span>
+  </a>
+  <a class="stat-card" href="/moves">
+    <span class="stat-card-value">{{ stats.moves }}</span>
+    <span class="stat-card-label">わざ</span>
+    <span class="stat-card-sub">覚えわざ {{ stats.learns }}</span>
+  </a>
+  <a class="stat-card" href="/abilities">
+    <span class="stat-card-value">{{ stats.abilities }}</span>
+    <span class="stat-card-label">特性</span>
+  </a>
+  <a class="stat-card" href="/pokedex">
+    <span class="stat-card-value">{{ stats.pokedex_rows }}</span>
+    <span class="stat-card-label">図鑑情報</span>
+    <span class="stat-card-sub">進化 {{ stats.evolutions }}</span>
+  </a>
+</section>
+
+<div class="two-columns">
+  <section class="panel">
+    <h2>手をつけたいところ</h2>
+    <ul class="todo-list">
+      <li>
+        <a href="/pokemon">
+          <strong>{{ missing.forms_without_status }}</strong> の姿に、作品ごとの値（種族値・タイプ・特性）がありません
+        </a>
+      </li>
+      <li>
+        <a href="/pokedex">
+          <strong>{{ missing.species_without_pokedex }}</strong> のポケモンに図鑑情報（高さ・重さ・分類など）がありません
+        </a>
+      </li>
+      <li>
+        <a href="/moves">
+          <strong>{{ missing.moves_without_learns }}</strong> のわざを覚えるポケモンが登録されていません
+        </a>
+      </li>
+      <li>
+        <a href="/pokemon">
+          <strong>{{ missing.forms_without_alias }}</strong> の姿にあだ名（検索用）がありません
+        </a>
+      </li>
+    </ul>
+    <p class="hint">新作が出たら、まず「作品」に足してから、ポケモンの画面で「この値から新しい作品へ」を選ぶと早いです。</p>
+  </section>
+
+  <section class="panel">
+    <h2>機の使い方</h2>
+    <ol class="howto">
+      <li><strong>探す</strong>：上の検索か「ポケモン」から。名前・あだ名・英語名でも見つかります。</li>
+      <li><strong>直す</strong>：作品ごとの行の「修正」。直す前の値は履歴に残るので戻せます。</li>
+      <li><strong>足す</strong>：新しいポケモン・新しい姿・新作の値は「コピー」で下書きしてから保存。</li>
+      <li><strong>まとめて</strong>：覚えわざは複数行を貼り付けて一括追加。新作へはまるごと写せます。</li>
+      <li><strong>直接いじる</strong>：行の削除や生のSQLは、右上の「Adminer」から（同じSSOで開きます）。</li>
+    </ol>
+  </section>
+</div>
+
+<section class="panel">
+  <h2>最近の登録</h2>
+  {% if recent %}
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>日時</th><th>操作</th><th>内容</th><th>登録者</th></tr></thead>
+      <tbody>
+      {% for item in recent %}
+        <tr>
+          <td class="nowrap">{{ item.created.strftime('%m/%d %H:%M') if item.created else '' }}</td>
+          <td><span class="action-chip">{{ ACTION_LABELS.get(item.row.action, item.row.action) }}</span></td>
+          <td>{{ item.summary }}</td>
+          <td>{{ item.row.actor }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a class="button" href="/history">履歴を全部見る</a></p>
+  {% else %}
+  <p class="empty">まだ登録がありません。</p>
+  {% endif %}
+</section>
+
+{% endblock %}

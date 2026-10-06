@@ -422,6 +422,23 @@ window.SERVICE_MAP = {
      "url": "https://adminer.apextox.dpdns.org/"
     },
     {
+     "description": "ポケモン系PostgreSQLへ新しいポケモンを足す画面。Forward Auth",
+     "docs": [
+      {
+       "path": "operations/pkdb/",
+       "title": "ポケモン系のPostgreSQL（pkdb）"
+      }
+     ],
+     "name": "ポケモン登録",
+     "route": [
+      "core-01",
+      "apps-01"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8331",
+     "url": "https://pkdb-entry.apextox.dpdns.org/"
+    },
+    {
      "description": "印刷状況。Forward Auth",
      "docs": [
       {

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, restore_banner, form_actions %}
+{% block title %}名前・言語 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>名前・言語・あだ名</h1>
+  <p class="page-sub">
+    <a href="/pokemon/{{ ndex }}">{{ ndex }} {{ species.name }}</a> ／ フォーム {{ form }}
+  </p>
+</div>
+
+{{ restore_banner(restore) }}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<form method="post" action="/pokemon/{{ ndex }}/names" class="card form-grid" autocomplete="off">
+  {{ csrf(request) }}
+  <input type="hidden" name="form_id" value="{{ form }}">
+
+  <fieldset class="span-all">
+    <legend>表示名</legend>
+    <div class="grid-3">
+      <label>日本語名
+        <input name="jpn" value="{{ values.jpn }}" required>
+        <small>種の名前。図鑑全体で重複できない</small>
+      </label>
+      <label>姿の名前
+        <input name="form_name" value="{{ values.form_name }}">
+        <small>基本の姿（00）は空でよい</small>
+      </label>
+      <label>性別
+        <select name="gender">
+          {% for value, label in GENDERS %}
+          <option value="{{ value }}"{{ ' selected' if values.gender == value }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  {% if form == '00' %}
+  <fieldset class="span-all">
+    <legend>各言語の名前</legend>
+    <div class="grid-3">
+      {% for key, label in LANGUAGES %}
+      <label>{{ label }}<input name="{{ key }}" value="{{ values.get(key, '') }}"></label>
+      {% endfor %}
+      <label>ローマ字（商標どおり）<input name="romaji_trademarked" value="{{ values.get('romaji_trademarked', '') }}"></label>
+      <label>ローマ字（ヘボン式）<input name="romaji_hepburn" value="{{ values.get('romaji_hepburn', '') }}"></label>
+    </div>
+  </fieldset>
+  {% else %}
+  <p class="hint">言語名は基本の姿（フォーム 00）だけで管理します。</p>
+  {% endif %}
+
+  <fieldset class="span-all">
+    <legend>あだ名（検索用）</legend>
+    <label>あだ名
+      <input name="aliases" value="{{ values.aliases }}" placeholder="リザX、メガリザX">
+      <small>「、」または「,」で区切る。ほかのポケモンと重複はできない</small>
+    </label>
+  </fieldset>
+
+  {{ form_actions('/pokemon/' ~ ndex, '保存する') }}
+</form>
+
+{% endblock %}

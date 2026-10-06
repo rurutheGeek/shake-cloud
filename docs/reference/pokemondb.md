@@ -1,6 +1,6 @@
 ---
 title: ポケモンDBの取扱説明書
-updated: 2026-10-04
+updated: 2026-10-05
 section: リファレンス
 audience: 利用者・開発者・AI
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # ポケモンDBの取扱説明書
 
-> **更新日** 2026-10-04 ・ **区分** リファレンス ・ **読む人** 利用者・開発者・AI
+> **更新日** 2026-10-05 ・ **区分** リファレンス ・ **読む人** 利用者・開発者・AI
 
 **このページだけで、ポケモンDBの全部の表に対してSQLを組み立てられること**を目的にしています。表・列・件数は 2026-10-04 に実DBから取り、SQLの例はすべて実行して結果を確かめています。置き場所とバックアップは[運用手順](../operations/pkdb.md)です。
 
@@ -308,7 +308,8 @@ ORDER BY m.move_id, m.title_group_id DESC;
 
 | 表 | 件数 | 1行の意味 | 列 |
 | --- | --- | --- | --- |
-| `pokemon_evolution` | 684 | 進化1段 | **`before_ndex_number`**、**`before_form_id`**、**`after_ndex_number`**、**`after_form_id`**、`method_id`（全行空）、`title_group_id`（ほぼ空） |
+| `pokemon_evolution` | 684 | 進化1段 | **`before_ndex_number`**、**`before_form_id`**、**`after_ndex_number`**、**`after_form_id`**、`method_id`（登録画面が `evolution_method` のIDを入れる。既存行は空）、`title_group_id`（ほぼ空） |
+| `evolution_method` | 登録画面が作る | 進化の方法のマスタ | **`method_id`**（連番の文字列）、`method_name`（例 レベルアップ）、`description` |
 | `pokemon_pokedex` | **0** | 図鑑の情報 | **`ndex_number`**、**`form_id`**、`title_group_id`、`category`（分類）、`height`、`weight`、`gender_ratio`、`egg_group_1`・`_2`、`leveling_rate`、`carch_rate`（被捕獲度。綴りはこのまま）、`evyield_h`〜`_s`（努力値） |
 | `egg_group` | 15 | タマゴグループ | **`egg_group_id`**、`egg_group_name` |
 | `battle_ratematch` | 47,685 | あるシーズンの順位 | **`title_group_id`**、**`battle_season`**、**`battle_type`**、**`ndex_number`**、**`form_id`**、`battle_ranking` |
@@ -353,9 +354,47 @@ REFRESH MATERIALIZED VIEW mv_lang_quiz;
 
 ふつうのビューは2つです。`pokemon_type`（タイプの組ごとの被ダメージ倍率）と `quiz_base_view`（`ndex_number`・`name`・`basestats_h`・`basestats_a`・`type_1`）。
 
+## データを足す
+
+表へ直接 `INSERT` せず、`entry*.sql` の関数で足します。IDの採番・関連する行・マテリアライズドビューの作り直し・`entry_log` への before/after の記録は関数が行います。画面は <https://pkdb-entry.apextox.dpdns.org> です（[運用手順](../operations/pkdb.md)）。
+
+| 何を | 関数 |
+| --- | --- |
+| 作品グループ | `register_title`・`update_title` |
+| 作品1本（発売日） | `save_title_solo` |
+| ポケモン・姿・作品の値 | `register_pokemon`・`update_pokemon` |
+| 名前・各言語名・あだ名 | `update_pokemon_names` |
+| 複数の姿へ値を写す | `copy_pokemon_status` |
+| わざ | `register_move`・`update_move`・`delete_move_title`・`inherit_moves` |
+| 特性 | `register_ability`・`update_ability`・`inherit_abilities` |
+| 図鑑情報 | `save_pokedex` |
+| 地方図鑑番号 | `update_rdex` |
+| 進化 | `set_evolution`・`delete_evolution`（方法は名前から `evolution_method` に自動で入る） |
+| 覚えわざ | `save_learnset`（1匹の一覧をまとめて）・`copy_learnset` |
+| 使用率順位 | `import_rankings`（作品・シーズン・形式ごとに置き換え） |
+
+```sql
+-- わざ（登録者, わざID（空でよい）, 名前, 作品, 英語名, タイプ, 分類, 威力, 命中, PP,
+--        優先度, 対象, 追加効果%, 説明, メモ）。わざIDは名前から自動。
+SELECT register_move('登録者', '', 'でんきショック', '100', 'thundershock', 'でんき', '特殊',
+                     40, 100, 30, 0, '1体選択', 10, 'でんきのショック', '');
+
+-- 覚えわざ（登録者, 図鑑番号, フォーム, 作品, 行のJSON, 消す行のID）
+SELECT save_learnset('登録者', '0025', '00', '100',
+  '[{"move_name":"でんきショック","method_name":"レベルアップ","level":1},
+    {"move_name":"10まんボルト","method_name":"わざマシン"}]'::jsonb, ARRAY[]::bigint[]);
+```
+
+- すでにある図鑑番号に別のフォーム番号を渡すと新しい姿、同じ姿に別の作品を渡すと「その作品で変わった値」になる。
+- 登録済みの行を直すときは、同じ引数で `update_pokemon` を呼ぶ（図鑑番号・フォーム・作品で行が決まる）。直す前の値は `entry_log` に残る。
+- わざ・特性は名前で入れると、その作品に無ければ直近の作品から写し、どの作品にも無ければ新しく足す。
+- 実行できるのは `pkdb_editor` と、登録画面用の `pkdb_entry`。
+- 登録の記録は `entry_log`（`created_at`・`actor`・`action`・`detail`）に残る。`detail` は before/after の形。
+- **他作品からのコピーは根拠を確認する。** 画面のコピーは下書き用で、作品ごとの正しい値を保存し直す前提。
+
 ## まだ入っていないデータ
 
-- **覚えるわざ**（`pokemon_move_learn`）は1行だけ。「じしんを覚えるポケモン」はまだ引けません。
-- **図鑑の情報**（`pokemon_pokedex`）は0行。高さ・重さ・タマゴグループ・努力値はまだ引けません。
-- **進化の方法**（`POKEMON_EVOLUTION.method_id`）は全行が空。「どうやって進化するか」はまだ引けません。
+- **覚えるわざ**（`pokemon_move_learn`）はほぼ空。画面の「覚えわざ」から、わざ名を貼り付けてまとめて入れられます。
+- **図鑑の情報**（`pokemon_pokedex`）は0行。画面の「図鑑情報」から、未登録だけを絞り込んで入れられます。
+- **進化の方法**は `evolution_method` に名前から自動で入ります。既存684行の `method_id` は空のままなので、画面から1つずつ設定していく必要があります。
 - **`095`（ポケモンチャンピオンズ）の特性**は192件で、他の作品（307件）より少ない。

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, title_select, form_actions, restore_banner %}
+{% block title %}図鑑情報 - {{ species.name }} - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>図鑑情報</h1>
+  <p class="page-sub">
+    <a href="/pokemon/{{ ndex }}">{{ ndex }} {{ species.name }}</a>
+    ／ フォーム {{ form }}{% if form_row.form_name %}（{{ form_row.form_name }}）{% endif %}
+  </p>
+</div>
+
+{{ restore_banner(restore) }}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<form method="post" action="/pokedex/{{ ndex }}/{{ form }}" class="card form-grid" autocomplete="off">
+  {{ csrf(request) }}
+  <div class="grid-3">
+    <label>この情報の作品{{ title_select('title', values.title, false) }}
+      <small>どの作品の図鑑情報か（目印）</small>
+    </label>
+    <label>分類<input name="category" value="{{ values.category }}" placeholder="例 かえんポケモン"></label>
+  </div>
+  <div class="grid-3">
+    <label>たかさ<input name="height" value="{{ values.height }}" maxlength="5" placeholder="例 1.7"></label>
+    <label>おもさ<input name="weight" value="{{ values.weight }}" maxlength="5" placeholder="例 90.5"></label>
+    <label>性別比
+      <select name="gender_ratio">
+        <option value="">（未設定）</option>
+        {% for value, label in GENDER_RATIOS %}
+        <option value="{{ value }}"{{ ' selected' if values.gender_ratio == value|string }}>{{ value }}（{{ label }}）</option>
+        {% endfor %}
+        {% if values.gender_ratio and values.gender_ratio not in GENDER_RATIOS | map('first') | map('string') | list %}
+        <option value="{{ values.gender_ratio }}" selected>{{ values.gender_ratio }}（その他）</option>
+        {% endif %}
+      </select>
+      <small>0〜255。よく使う値だけ候補にしています</small>
+    </label>
+  </div>
+  <div class="grid-4">
+    <label>タマゴグループ1
+      <select name="egg_group_1">
+        <option value="">（なし）</option>
+        {% for name in egg_groups %}
+        <option value="{{ name }}"{{ ' selected' if values.egg_group_1 == name }}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>タマゴグループ2
+      <select name="egg_group_2">
+        <option value="">（なし）</option>
+        {% for name in egg_groups %}
+        <option value="{{ name }}"{{ ' selected' if values.egg_group_2 == name }}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>経験値タイプ
+      <select name="leveling_rate">
+        <option value="">（未設定）</option>
+        {% for value, label in LEVELING_RATES %}
+        <option value="{{ value }}"{{ ' selected' if values.leveling_rate == value|string }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>被捕獲度<input name="carch_rate" type="number" min="0" max="255" value="{{ values.carch_rate }}"></label>
+  </div>
+  <fieldset>
+    <legend>倒したときに貰える努力値</legend>
+    <div class="grid-6">
+      {% for key, label in STATS %}
+      <label>{{ label }}<input name="evyield_{{ key }}" type="number" min="0" max="255" value="{{ values.get('evyield_' ~ key, '') }}"></label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {{ form_actions('/pokedex', '保存する') }}
+</form>
+
+{% endblock %}

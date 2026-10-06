@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, restore_banner %}
+{% block title %}覚えわざ - {{ species.name }} - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>覚えわざ</h1>
+    <p class="page-sub">
+      <a href="/pokemon/{{ ndex }}">{{ ndex }} {{ species.name }}</a> ／ フォーム {{ form }}
+      ／ <span class="title-chip">{{ title }}</span>
+    </p>
+  </div>
+  <form class="inline-select" method="get" action="/pokemon/{{ ndex }}/learnsets">
+    <select name="form" onchange="this.form.submit()">
+      {% for item in forms %}
+      <option value="{{ item.form_id }}"{{ ' selected' if item.form_id == form }}>{{ item.form_id }} {{ item.form_name or '' }}</option>
+      {% endfor %}
+    </select>
+    <select name="title" onchange="this.form.submit()">
+      {% for item in titles %}
+      <option value="{{ item.title_group_id }}"{{ ' selected' if item.title_group_id == title }}>{{ item.title_group_id }} {{ item.title_name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+{{ restore_banner(restore) }}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+{% if title_rows %}
+<div class="chip-row">
+  <span class="dim">登録済み:</span>
+  {% for item in title_rows %}
+  <a class="chip{{ ' active' if item.title_group_id == title }}" href="/pokemon/{{ ndex }}/learnsets?form={{ form }}&title={{ item.title_group_id }}">
+    {{ item.title_group_id }} {{ item.title_name }}（{{ item.rows }}）
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="panel">
+  <h2>複数行を貼り付けて追加</h2>
+  <p class="hint">
+    1行に1わざ。<strong>「わざ名 レベル」</strong>または<strong>「わざ名」</strong>の形。
+    下の「一括の覚え方」が適用されます。取り込み後、表で直してから保存してください。
+  </p>
+  <div class="bulk-add">
+    <textarea id="bulk-text" rows="6" placeholder="でんきショック 1&#10;10まんボルト 20&#10;でんきだま&#10;# 行頭の # はコメント"></textarea>
+    <div class="bulk-side">
+      <label>一括の覚え方
+        <select id="bulk-method">
+          {% for method in LEARN_METHODS %}<option value="{{ method }}">{{ method }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="button" id="bulk-add-button">表に展開する</button>
+    </div>
+  </div>
+</section>
+
+<form method="post" action="/pokemon/{{ ndex }}/learnsets/save" id="learnset-form">
+  {{ csrf(request) }}
+  <input type="hidden" name="form_id" value="{{ form }}">
+  <input type="hidden" name="title" value="{{ title }}">
+
+  <div class="scroll">
+    <table class="list learnset-table">
+      <thead>
+        <tr><th>わざ</th><th>覚え方</th><th>レベル</th><th>順序</th><th>出典メモ</th><th>メモ</th><th>削除</th></tr>
+      </thead>
+      <tbody id="learnset-rows">
+        {% for row in rows %}
+        <tr class="learn-row">
+          <td>
+            <input type="hidden" name="learn_id_{{ loop.index0 }}" value="{{ row.get('learn_id') or '' }}">
+            <input name="move_name_{{ loop.index0 }}" list="move-list" value="{{ row.get('move_name') or '' }}" required>
+          </td>
+          <td>
+            <select name="method_name_{{ loop.index0 }}">
+              {% for method in LEARN_METHODS %}
+              <option value="{{ method }}"{{ ' selected' if row.get('method_name') == method }}>{{ method }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input name="level_{{ loop.index0 }}" type="number" min="0" max="100" class="tiny"
+                     value="{{ row.get('level') if row.get('level') is not none else '' }}"></td>
+          <td><input name="learn_order_{{ loop.index0 }}" type="number" class="tiny"
+                     value="{{ row.get('learn_order') if row.get('learn_order') is not none else '' }}"></td>
+          <td><input name="source_{{ loop.index0 }}" value="{{ row.get('source') or '' }}" class="medium"></td>
+          <td><input name="notes_{{ loop.index0 }}" value="{{ row.get('notes') or '' }}"></td>
+          <td class="center"><input type="checkbox" name="delete_{{ loop.index0 }}" value="1"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">「削除」に印を付けて保存すると、その行が消えます。レベルアップ以外はレベルを空にしてよい。</p>
+  <div class="form-actions">
+    <button type="button" id="add-row" class="button">＋ 行を追加</button>
+    <button type="submit" class="primary">保存する</button>
+    <a class="button" href="/pokemon/{{ ndex }}">やめる</a>
+  </div>
+</form>
+
+<details class="sub-panel">
+  <summary>別の作品の覚えわざを、この作品へ写す</summary>
+  <form method="post" action="/pokemon/{{ ndex }}/learnsets/copy" class="form-grid compact">
+    {{ csrf(request) }}
+    <input type="hidden" name="form_id" value="{{ form }}">
+    <input type="hidden" name="title" value="{{ title }}">
+    <div class="grid-3">
+      <label>写し元の作品
+        <select name="from_title" required>
+          {% for item in titles %}
+          <option value="{{ item.title_group_id }}">{{ item.title_group_id }} {{ item.title_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" name="overwrite" value="1"> すでにある行も上書きする</label>
+    </div>
+    <button type="submit">写す</button>
+  </form>
+</details>
+
+<datalist id="move-list">
+  {% for name in move_names %}<option value="{{ name }}"></option>{% endfor %}
+</datalist>
+
+<template id="row-template">
+  <tr class="learn-row">
+    <td>
+      <input type="hidden" name="learn_id___i__" value="">
+      <input name="move_name___i__" list="move-list" required>
+    </td>
+    <td>
+      <select name="method_name___i__">
+        {% for method in LEARN_METHODS %}<option value="{{ method }}">{{ method }}</option>{% endfor %}
+      </select>
+    </td>
+    <td><input name="level___i__" type="number" min="0" max="100" class="tiny"></td>
+    <td><input name="learn_order___i__" type="number" class="tiny"></td>
+    <td><input name="source___i__" class="medium"></td>
+    <td><input name="notes___i__"></td>
+    <td class="center"><span class="remove-row" title="この行を消す">×</span></td>
+  </tr>
+</template>
+
+{% endblock %}

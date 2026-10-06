@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}ポケモンDB管理{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css">
+<script>
+  (function () {
+    try {
+      var choice = localStorage.getItem('pkdb-theme') || 'auto';
+      document.documentElement.dataset.theme = choice;
+    } catch (e) { /* テーマが読めなくても表示は続ける */ }
+  })();
+</script>
+<script defer src="/static/app.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">ポケモン<span>DB管理</span></a>
+  <form class="global-search" action="/pokemon" method="get" role="search">
+    <input id="global-search" name="q" placeholder="番号・名前・あだ名で検索（ポケモン / わざ / 特性）"
+           autocomplete="off" aria-label="検索">
+    <div id="search-results" class="search-results" hidden></div>
+  </form>
+  <nav class="main-nav">
+    <a href="/pokemon" class="{{ 'active' if active == 'pokemon' }}">ポケモン</a>
+    <a href="/moves" class="{{ 'active' if active == 'moves' }}">わざ</a>
+    <a href="/abilities" class="{{ 'active' if active == 'abilities' }}">特性</a>
+    <a href="/pokedex" class="{{ 'active' if active == 'pokedex' }}">図鑑情報</a>
+    <a href="/titles" class="{{ 'active' if active == 'titles' }}">作品</a>
+    <a href="/rankings" class="{{ 'active' if active == 'rankings' }}">順位</a>
+    <a href="/history" class="{{ 'active' if active == 'history' }}">履歴</a>
+  </nav>
+  <div class="top-right">
+    {% if adminer_url %}
+    <a class="external-link" href="{{ adminer_url }}" target="_blank" rel="noopener"
+       title="SQLを直接いじる・行を消す（Adminer）">Adminer ↗</a>
+    {% endif %}
+    <button type="button" id="theme-toggle" class="icon-button" title="表示テーマを切り替える">◐</button>
+    <span class="actor">{{ actor }}</span>
+  </div>
+</header>
+
+<main class="wrap">
+  {% if ok %}<p class="flash ok">{{ ok }}</p>{% endif %}
+  {% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="foot">
+  <span>pkdb-entry</span>
+  <span>SQLを書かずにポケモンDBを更新する画面</span>
+</footer>
+</body>
+</html>

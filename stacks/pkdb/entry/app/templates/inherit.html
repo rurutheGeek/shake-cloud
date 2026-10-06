@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, title_select, form_actions %}
+{% block title %}{{ kind }}をまとめて写す - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ kind }}を、前の作品からまとめて写す</h1>
+  <p class="page-sub">新作が出たときに、まず下書きとして写してから、作品ごとに違いを直す使い方を想定しています。</p>
+</div>
+
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<div class="flash warn">
+  過去作の内容をそのまま写します。写したあと、その作品で本当に同じか（仕様変更が無いか）を確認してください。
+  写した内容は履歴に残ります。
+</div>
+
+<form method="post" action="{{ action }}" class="card form-grid">
+  {{ csrf(request) }}
+  <div class="grid-3">
+    <label>写し元の作品{{ title_select('from_title', from_title, true) }}</label>
+    <label>写し先の作品{{ title_select('to_title', '', true) }}</label>
+  </div>
+  <label class="check"><input type="checkbox" name="overwrite" value="1"> 写し先にすでにある行も上書きする</label>
+  <p class="hint">上書きしない場合、すでにある行はそのまま残ります。</p>
+  {{ form_actions('/' ~ ('moves' if kind == 'わざ' else 'abilities'), '写す') }}
+</form>
+
+{% endblock %}

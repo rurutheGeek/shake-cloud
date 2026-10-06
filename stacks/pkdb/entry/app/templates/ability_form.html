@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, title_select, form_actions, restore_banner %}
+{% block title %}{{ '特性を修正' if mode == 'edit' else '特性を登録' }} - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ (values.name or '特性') + ' を修正' if mode == 'edit' else '特性を登録' }}</h1>
+</div>
+
+{{ restore_banner(restore_id) }}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<form method="post" class="card form-grid" autocomplete="off"
+      action="{{ '/abilities/' ~ ability_id ~ '/edit' if mode == 'edit' else '/abilities/new' }}">
+  {{ csrf(request) }}
+  <div class="grid-3">
+    <label>特性名<input name="name" value="{{ values.name }}" required></label>
+    <label>英語名<input name="english_name" value="{{ values.english_name }}"></label>
+    <label>作品
+      {% if mode == 'edit' %}
+      <input type="hidden" name="title" value="{{ title }}">
+      <input value="{{ title }}" readonly>
+      {% else %}
+      {{ title_select('title', title or (titles[0].title_group_id if titles else ''), true) }}
+      {% endif %}
+    </label>
+  </div>
+  <label>説明<input name="description" value="{{ values.description }}"></label>
+  <p class="hint">説明は作品ごとに違うことがあります。作品を変えて、その作品の説明を入れてください。</p>
+  {{ form_actions('/abilities', '保存する') }}
+</form>
+
+{% endblock %}

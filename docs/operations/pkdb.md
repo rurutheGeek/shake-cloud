@@ -1,6 +1,6 @@
 ---
 title: ポケモン系のPostgreSQL（pkdb）
-updated: 2026-10-04
+updated: 2026-10-05
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ポケモン系のPostgreSQL（pkdb）
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）はDBを使いません。
 
@@ -25,7 +25,7 @@ tags:
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |
 | 管理者 | `postgres`。**パスワードは旧ホストと同じ**。apps-01 の `/opt/pkdb/secrets/postgres_password`（0400）にも同じ値を置いてある |
 | タイムゾーン | UTC（旧ホストと同じ） |
-| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。パスワードはどのロールも旧ホストと同じ。普段は `pkdb_editor`、`postgres` は必要なときだけ |
+| 管理画面 | <https://adminer.apextox.dpdns.org>（Adminer。**登録画面の右上「Adminer」から開ける**。入口は core-01 の Caddy、Authentik の Forward Auth で `admins` のみ。apps-01 では `127.0.0.1:8330`）。「サーバ」は `db`、ユーザ名とパスワードはDBのロール。パスワードはどのロールも旧ホストと同じ。普段は `pkdb_editor`、`postgres` は必要なときだけ |
 | 表と列の説明 | [ポケモンDBの取扱説明書](../reference/pokemondb.md) |
 | コード | `stacks/pkdb/`、`platform/ansible/roles/pkdb`、`platform/ansible/pkdb.yml`、セキュリティグループは `platform/terraform/services/apps/main.tf`、名前は `platform/terraform/dns.yaml` |
 
@@ -55,6 +55,42 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 
 `ubsleepy.sql` は `CREATE DATABASE` を含むため `-- manage.py: no-transaction` を付けています（トランザクション内では実行できない）。
 
+## ポケモンDBの登録画面
+
+**<https://pkdb-entry.apextox.dpdns.org>**（Homarr の「ポケモン登録」。Authentik の `admins` のみ）。SQL を書かずに、ポケモン・わざ・特性・図鑑情報・覚えわざ・進化・作品・使用率順位を足す・直す画面です。
+
+### できること
+
+| 画面 | できること |
+| --- | --- |
+| トップ | 件数と「手をつけたいところ」（値の無い姿・図鑑情報の無いポケモン・覚えわざの無いわざなど）、最近の登録 |
+| ポケモン | 番号・名前・あだ名・英語名で探し、姿ごとの最新値と作品ごとの値を一覧。登録・修正・コピー・名前と各言語名・地方図鑑番号・覚えわざ・進化 |
+| わざ | 作品ごとの値を登録・修正。前の作品からまとめて写す。覚えているポケモンを一覧 |
+| 特性 | 作品ごとの説明を登録・修正。前の作品からまとめて写す。持つポケモンを一覧 |
+| 図鑑情報 | 分類・たかさ・おもさ・性別比・タマゴグループ・経験値タイプ・被捕獲度・努力値を1つの姿ずつ。未登録だけの絞り込み |
+| 作品 | 作品グループと、作品1本（発売日つき）の追加・修正 |
+| 順位 | 使用率を貼り付けて取り込み（同じ作品・シーズン・形式は置き換え）。一覧 |
+| 履歴 | 誰が何をしたか。修正は直す前の値も残り、「この修正前の値を入力欄に入れる」から復元できる |
+
+### 決まりごと
+
+- 正規化（ID・関連行）は裏で関数が行う。新しいポケモン・姿・作品の値は、既存の行から「コピー」で下書きして保存する。
+- 特性・わざ・進化方法は名前で入れる。その作品に無ければ直近の作品から写し、どこにも無ければ新しく足す（IDは自動）。
+- 覚えわざは「複数行を貼り付けて追加」でまとめて入る。消す行は「削除」に印を付けて保存。別の作品からまとめて写すこともできる。
+- 保存のたびに関係するマテリアライズドビューを作り直すので、クイズや検索にすぐ出る（覚えわざ・図鑑情報・順位はビューに影響しない）。
+- 誰が何をしたかは `pokemondb.entry_log` に before/after 付きで残る。画面から消せるのは、わざの行・覚えわざ・進化リンク・（置き換えでの）あだ名だけ。ほかの行や生のSQLは、画面右上の「Adminer」から（同じ SSO で開きます）。
+- **他作品からのコピーは内容を必ず確認する。** スキーマにある「根拠なく過去作のデータを流用しない」原則に従い、コピーは下書きとして使い、作品ごとの正しい値に直す。
+
+仕組み:
+
+| 部品 | 場所 |
+| --- | --- |
+| 画面 | `stacks/pkdb/entry/`（Python 3.13 + FastAPI。apps-01 でイメージを組み立てる。`127.0.0.1:8331`） |
+| 登録の中身 | `stacks/pkdb/sql/entry*.sql` の関数（基盤とポケモン＝`entry.sql`、続きはドメインごと）。どの表へ何を入れるか・IDの採番・before/after の記録はここ |
+| DBのロール | `pkdb_entry`。関数の実行と全表の閲覧だけで、表へ直接は書けない。パスワードは apps-01 の `/opt/pkdb/secrets/entry_password` にだけあり、この画面のコンテナだけが使う |
+
+関数は SQL からも呼べます（`pkdb_editor` に実行権限あり）。AIやスクリプトから足すときも、表へ直接 `INSERT` せずこれを使います。
+
 ## データの直し
 
 pokemondb の誤りや抜けは、手で直さず `stacks/pkdb/sql/data_fixes.sql` に足します。配備のたびに流れ、直っていれば何もしません。直したときは、マテリアライズドビューも依存の順に作り直します。
@@ -77,7 +113,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/pkdb.yml'
 ```
 
-再実行しても、管理者パスワード・データ・イメージのdigestは変わりません。
+再実行しても、管理者パスワード・データ・イメージのdigestは変わりません。登録画面（entry）はこのリポジトリのソースから組むため、ダイジェスト固定の対象外で、配備のたびに `up --build` で作り直します。
 
 ## 管理者としてつなぐ
 

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager %}
+{% block title %}特性一覧 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>特性</h1>
+  <div class="quick-actions">
+    <a class="button" href="/abilities/inherit">前の作品からまとめて写す</a>
+    <a class="button primary" href="/abilities/new">特性を登録</a>
+  </div>
+</div>
+
+<form class="filter-bar" method="get" action="/abilities">
+  <input name="q" value="{{ q }}" placeholder="特性名・英語名">
+  <button type="submit">さがす</button>
+  <a class="button" href="/abilities">クリア</a>
+</form>
+
+<p class="count">{{ total }} 件</p>
+
+{% if rows %}
+<div class="scroll">
+  <table class="list">
+    <thead><tr><th>ID</th><th>特性</th><th>英語名</th><th>説明（最新）</th><th>持つポケモン</th><th>作品</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="num">{{ row.ability_id }}</td>
+        <td><a class="strong-link" href="/abilities/{{ row.ability_id }}">{{ row.name }}</a></td>
+        <td class="dim">{{ row.english_name or '' }}</td>
+        <td class="dim description-cell">{{ row.description or '' }}</td>
+        <td class="num">{{ row.holders }}</td>
+        <td class="num dim">{{ row.title_rows }}</td>
+        <td><a href="/abilities/{{ row.ability_id }}">開く</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(request, page, total, page_size) }}
+{% else %}
+<p class="empty">見つかりませんでした。</p>
+{% endif %}
+
+{% endblock %}

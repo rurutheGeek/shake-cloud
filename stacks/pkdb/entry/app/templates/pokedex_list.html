@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager %}
+{% block title %}図鑑情報 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>図鑑情報</h1>
+    <p class="page-sub">分類・たかさ・おもさ・タマゴグループ・経験値タイプ・努力値などを1つの姿ずつ。</p>
+  </div>
+</div>
+
+<form class="filter-bar" method="get" action="/pokedex">
+  <input name="q" value="{{ q }}" placeholder="番号・名前">
+  <label class="check"><input type="checkbox" name="missing" value="1"{{ ' checked' if missing == '1' }}> 未登録だけ</label>
+  <button type="submit">しぼる</button>
+  <a class="button" href="/pokedex">クリア</a>
+</form>
+
+<p class="count">{{ total }} 件</p>
+
+{% if rows %}
+<div class="scroll">
+  <table class="list">
+    <thead><tr><th>No.</th><th>名前</th><th>姿</th><th>状態</th><th>分類</th><th>たかさ</th><th>おもさ</th><th>作品</th><th>作品ごとの値</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="{{ '' if row.filled else 'row-todo' }}">
+        <td class="num">{{ row.ndex_number }}</td>
+        <td><a class="strong-link" href="/pokemon/{{ row.ndex_number }}">{{ row.name }}</a></td>
+        <td class="num">{{ row.form_id }} {{ row.form_name or '' }}</td>
+        <td>{% if row.filled %}<span class="ok-dot">●</span> 登録済み{% else %}<span class="todo-dot">○</span> 未登録{% endif %}</td>
+        <td>{{ row.category or '' }}</td>
+        <td class="num">{{ row.height or '' }}</td>
+        <td class="num">{{ row.weight or '' }}</td>
+        <td>{% if row.title_group_id %}<span class="title-chip">{{ row.title_group_id }}</span>{% endif %}</td>
+        <td class="num">{{ row.title_rows }}</td>
+        <td><a href="/pokedex/{{ row.ndex_number }}/{{ row.form_id }}">{{ '編集' if row.filled else '登録' }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(request, page, total, page_size) }}
+{% else %}
+<p class="empty">該当する姿はありません。</p>
+{% endif %}
+
+{% endblock %}
