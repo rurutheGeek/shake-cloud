@@ -1,0 +1,103 @@
+{% macro csrf(request) -%}
+<input type="hidden" name="csrf" value="{{ request.state.csrf }}">
+{%- endmacro %}
+
+{% macro type_badge(name) -%}
+{% if name %}<span class="type type-{{ type_slug(name) }}">{{ name }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro type_pair(t1, t2) -%}
+{{ type_badge(t1) }}{{ type_badge(t2) }}
+{%- endmacro %}
+
+{% macro stat_bar(value, label) -%}
+<div class="stat-line">
+  <span class="stat-name">{{ label }}</span>
+  <span class="stat-num">{{ value }}</span>
+  <span class="stat-track"><span class="stat-fill" style="width: {{ stat_pct(value) }}%"></span></span>
+</div>
+{%- endmacro %}
+
+{% macro stat_cells(row) -%}
+{% for key, label in STATS %}<td class="num">{{ row[key] or '' }}</td>{% endfor %}
+{%- endmacro %}
+
+{% macro stat_inputs(values) -%}
+<div class="stat-inputs">
+  {% for key, label in STATS %}
+  <label class="stat-input">
+    <span>{{ label }}</span>
+    <input type="number" name="{{ key }}" min="1" max="255" required value="{{ values.get(key, '') }}">
+  </label>
+  {% endfor %}
+</div>
+<p class="stat-total">合計 <strong data-stat-total>—</strong>　／　255 が上限の目安</p>
+{%- endmacro %}
+
+{% macro title_select(name, selected, required=false, empty_label='') -%}
+<select name="{{ name }}"{{ ' required' if required }}>
+  {% if empty_label %}<option value="">{{ empty_label }}</option>{% endif %}
+  {% for title in titles %}
+  <option value="{{ title.title_group_id }}"{{ ' selected' if selected == title.title_group_id }}>
+    {{ title.title_group_id }} {{ title.title_name }}{% if title.generation %}（第{{ title.generation }}世代）{% endif %}
+  </option>
+  {% endfor %}
+</select>
+{%- endmacro %}
+
+{% macro title_label(id, name) -%}
+<span class="title-chip">{{ id }}{% if name %} {{ name }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro ability_inputs(values, ability_names) -%}
+<label>特性1<input name="ability_1" list="ability-list" value="{{ values.get('ability_1', '') }}">
+  <small>無ければ空。候補に無い名前は新しい特性として足される</small></label>
+<label>特性2<input name="ability_2" list="ability-list" value="{{ values.get('ability_2', '') }}">
+  <small>無ければ空</small></label>
+<label>隠れ特性<input name="ability_h" list="ability-list" value="{{ values.get('ability_h', '') }}">
+  <small>無ければ空</small></label>
+<datalist id="ability-list">
+  {% for name in ability_names %}<option value="{{ name }}"></option>{% endfor %}
+</datalist>
+{%- endmacro %}
+
+{% macro pager(request, page, total, size) -%}
+{% set pages = ((total + size - 1) // size) if size else 1 %}
+{% if pages > 1 %}
+<nav class="pager">
+  {% if page > 1 %}<a href="{{ page_url(request, page - 1) }}">前へ</a>{% endif %}
+  {% for p in range(1, pages + 1) %}
+    {% if p == page %}<span class="current">{{ p }}</span>
+    {% elif p <= 2 or p > pages - 2 or (p >= page - 2 and p <= page + 2) %}
+      <a href="{{ page_url(request, p) }}">{{ p }}</a>
+    {% elif p == 3 or p == pages - 2 %}<span class="dots">…</span>{% endif %}
+  {% endfor %}
+  {% if page < pages %}<a href="{{ page_url(request, page + 1) }}">次へ</a>{% endif %}
+  <span class="pager-info">{{ total }} 件中 {{ (page - 1) * size + 1 }}〜{{ [page * size, total] | min }}</span>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{% macro form_actions(cancel_url, label='保存する') -%}
+<div class="form-actions">
+  <button type="submit" class="primary">{{ label }}</button>
+  {% if cancel_url %}<a class="button" href="{{ cancel_url }}">やめる</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro pokemon_input(name, value='', required=false) -%}
+<input name="{{ name }}" list="pokemon-list" value="{{ value }}"{{ ' required' if required }}
+       placeholder="0006 リザードン のように番号で">
+{%- endmacro %}
+
+{% macro pokemon_datalist(pokemon) -%}
+<datalist id="pokemon-list">
+  {% for row in pokemon %}<option value="{{ row.ndex_number }} {{ row.name }}"></option>{% endfor %}
+</datalist>
+{%- endmacro %}
+
+{% macro restore_banner(restore) -%}
+{% if restore %}
+<p class="flash warn">履歴 #{{ restore }} の修正前の値を入力欄に入れています。保存するとその状態に戻ります。</p>
+{% endif %}
+{%- endmacro %}

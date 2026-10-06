@@ -10,7 +10,9 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -128,6 +130,11 @@ class DeploymentTests(unittest.TestCase):
             {'database': 'sleepy_pkdb', 'file': 'lowercase.sql'},
             {'database': 'sleepy_pkdb', 'file': 'data_fixes.sql'},
             {'database': 'sleepy_pkdb', 'file': 'entry.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry_pokedex.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry_moves.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry_learnsets.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry_evolution.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'entry_rankings.sql'},
             {'database': 'postgres', 'file': 'ubsleepy.sql'},
             {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
             {'database': 'ubsleepy_test', 'file': 'ubsleepy_tables.sql'},
@@ -150,57 +157,89 @@ class DeploymentTests(unittest.TestCase):
         for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE ', 'UPDATE '):
             self.assertNotIn(forbidden, text, forbidden)
 
-    def test_the_entry_page_is_loopback_only_locked_down_and_reuses_the_pinned_image(self):
+    def test_the_entry_page_is_loopback_only_and_built_from_this_repository(self):
         entry = yaml.safe_load(
             (STACK / 'compose.yaml').read_text(encoding='utf-8'))['services']['entry']
         self.assertEqual(entry['ports'], ['127.0.0.1:${PKDB_ENTRY_PORT:-8331}:8080'])
-        self.assertEqual(entry['volumes'], ['./entry:/app:ro'])
+        self.assertEqual(entry['build'], './entry')
+        self.assertEqual(entry['image'], 'shakecloud-pkdb-entry:local')
         self.assertTrue(entry['read_only'])
         self.assertEqual(entry['cap_drop'], ['ALL'])
         self.assertEqual(entry['environment']['PKDB_ENTRY_USER'], 'pkdb_entry')
         self.assertEqual(entry['environment']['PKDB_ENTRY_PASSWORD'],
                          '${PKDB_ENTRY_PASSWORD:?run manage.py up}')
+        self.assertEqual(entry['environment']['PKDB_ENTRY_ADMINER_URL'],
+                         '${PKDB_ENTRY_ADMINER_URL:-https://adminer.apextox.dpdns.org}')
+        self.assertIn('healthz', ' '.join(entry['healthcheck']['test']))
         lock = json.loads((STACK / 'compose.lock.yaml').read_text(encoding='utf-8'))
-        self.assertEqual(lock['services']['entry'], lock['services']['adminer'])
+        self.assertEqual(sorted(lock['services']), ['adminer', 'db'])
         record = yaml.safe_load(
             (ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))['records']['pkdb-entry']
         self.assertTrue(record['auth'])
 
     def test_the_entry_role_cannot_write_tables_directly(self):
-        text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
-        grants = [line for line in text.splitlines() if line.startswith('GRANT') or 'TO pkdb_entry' in line]
-        joined = ' '.join(grants)
+        grantees = []
+        for path in sorted((STACK / 'sql').glob('entry*.sql')):
+            text = path.read_text(encoding='utf-8')
+            self.assertIn('SECURITY DEFINER', text, path.name)
+            grantees += [line for line in text.splitlines() if line.startswith('GRANT')]
+        joined = ' '.join(grantees)
         for forbidden in ('INSERT', 'UPDATE', 'DELETE', 'ALL PRIVILEGES'):
             self.assertNotIn(forbidden, joined, forbidden)
-        self.assertEqual(text.count('SECURITY DEFINER SET search_path = pokemondb, pg_temp'), 5)
-        self.assertIn('FROM PUBLIC', text)
-        self.assertNotIn('PASSWORD', text)
+        self.assertIn('FROM PUBLIC', (STACK / 'sql/entry.sql').read_text(encoding='utf-8'))
+        self.assertNotIn('PASSWORD', joined)
 
-    def test_the_entry_page_binds_every_value_and_escapes_output(self):
-        page = (STACK / 'entry/index.php').read_text(encoding='utf-8')
-        self.assertIn('$pdo->prepare(', page)
-        self.assertNotRegex(page, r'(query|exec|prepare)\([^)]*\$_(POST|GET|COOKIE)')
-        self.assertIn("hash_equals($token, (string) ($_POST['csrf'] ?? ''))", page)
-        self.assertIn('HTTP_X_AUTHENTIK_USERNAME', page)
-        echoes = __import__('re').findall(r'<\?= (.+?) \?>', page)
-        self.assertGreater(len(echoes), 40)
-        for echoed in echoes:
-            self.assertTrue(echoed.startswith(('h(', 'attr(')), echoed)
-        # 呼ぶ関数は2つの固定名からしか選ばない。
-        self.assertIn("$function = $update ? 'update_pokemon' : 'register_pokemon';", page)
+    def test_the_entry_app_is_python_calls_functions_and_never_writes_tables(self):
+        app = STACK / 'entry' / 'app'
+        self.assertTrue((STACK / 'entry' / 'Dockerfile').is_file())
+        self.assertTrue((STACK / 'entry' / 'requirements.txt').is_file())
+        self.assertFalse((STACK / 'entry' / 'index.php').exists())
+        source = '\n'.join(path.read_text(encoding='utf-8') for path in app.rglob('*.py'))
+        for forbidden in ('INSERT INTO', 'UPDATE ', 'DELETE FROM', 'DROP TABLE'):
+            self.assertNotIn(forbidden, source)
+        main = (app / 'main.py').read_text(encoding='utf-8')
+        self.assertIn('Remote-User', main)
+        self.assertIn('sso_', main)
+        web = (app / 'web.py').read_text(encoding='utf-8')
+        self.assertIn('compare_digest', web)
+        self.assertIn('CSRF', web)
+        # Adminer（直接いじる画面）はこの画面から開ける。入口の名前は環境変数で受ける。
+        self.assertIn('PKDB_ENTRY_ADMINER_URL', web)
+        self.assertIn('adminer_url', (app / 'templates' / 'base.html').read_text(encoding='utf-8'))
 
-    def test_the_entry_page_shows_existing_rows_and_offers_edit_and_copy(self):
-        page = (STACK / 'entry/index.php').read_text(encoding='utf-8')
-        for text in ('修正', '新作の値へコピー', '新しい姿へコピー', '新しいポケモンへコピー',
-                     '登録の例（最近のポケモン）', '次の空きは', '00 が基本の姿'):
-            self.assertIn(text, page, text)
+    def test_the_entry_templates_are_autoescaped(self):
+        templates = STACK / 'entry' / 'app' / 'templates'
+        base = (templates / 'base.html').read_text(encoding='utf-8')
+        self.assertIn('{% block content %}', base)
+        # 入口のスキーム/ホストに依存しない相対URLでCSS・JSを読む（httpsページの
+        # mixed content 回避。url_for はプロキシ越しに http を返すことがある）。
+        self.assertIn('href="/static/app.css"', base)
+        self.assertIn('src="/static/app.js"', base)
+        self.assertNotIn('url_for', base)
+        for path in templates.glob('*.html'):
+            text = path.read_text(encoding='utf-8')
+            self.assertNotIn('| safe', text, path.name)
+            self.assertNotIn('autoescape false', text, path.name)
+
+    def test_the_entry_numbers_ids_behind_the_screen(self):
+        entry = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        self.assertIn('CREATE OR REPLACE FUNCTION pokemondb.entry_move_id', entry)
+        self.assertIn('CREATE OR REPLACE FUNCTION pokemondb.entry_ability_id', entry)
+        evolution = (STACK / 'sql/entry_evolution.sql').read_text(encoding='utf-8')
+        self.assertIn('CREATE TABLE IF NOT EXISTS pokemondb.evolution_method', evolution)
+        self.assertIn('CREATE OR REPLACE FUNCTION pokemondb.entry_evolution_method_id', evolution)
+        learn = (STACK / 'sql/entry_learnsets.sql').read_text(encoding='utf-8')
+        self.assertIn(
+            'ON CONFLICT (ndex_number, form_id, title_group_id, move_id, method_id)', learn)
+        moves = (STACK / 'sql/entry_moves.sql').read_text(encoding='utf-8')
+        self.assertIn('ON CONFLICT (ability_id, title_group_id)', moves)
 
     def test_an_update_keeps_the_previous_values_in_the_log(self):
         text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
         body = text.split('CREATE OR REPLACE FUNCTION pokemondb.update_pokemon(')[1].split('$fn$;')[0]
-        self.assertIn("'before', v_snapshot", body)
+        self.assertIn("'before', v_before", body)
         self.assertIn('PERFORM refresh_views();', body)
-        self.assertIn('TO pkdb_entry, pkdb_editor', text.split('update_pokemon(')[-1])
+        self.assertIn('GRANT EXECUTE ON FUNCTION pokemondb.update_pokemon(', text)
 
     def test_the_data_fixes_only_add_or_correct_and_refresh_the_views(self):
         text = (STACK / 'sql/data_fixes.sql').read_text(encoding='utf-8')
@@ -479,6 +518,108 @@ class ManageTests(unittest.TestCase):
         (project / '.env').write_text(f'STORAGE_ROOT={state}\n', encoding='utf-8')
         with self.assertRaises(ValueError):
             manage.backup(state / 'data' / 'backups', keep=2)
+
+
+ENTRY_APP = STACK / 'entry' / 'app'
+PACKAGE = types.ModuleType('pkdb_entry_app')
+PACKAGE.__path__ = [str(ENTRY_APP)]
+sys.modules.setdefault('pkdb_entry_app', PACKAGE)
+PARSING_SPEC = importlib.util.spec_from_file_location('pkdb_entry_app.parsing',
+                                                      ENTRY_APP / 'parsing.py')
+parsing = importlib.util.module_from_spec(PARSING_SPEC)
+sys.modules['pkdb_entry_app.parsing'] = parsing
+PARSING_SPEC.loader.exec_module(parsing)
+
+
+class EntryParsingTests(unittest.TestCase):
+    """登録画面の入力解釈（DBに触らない部分）。"""
+
+    def test_aliases_split_and_deduplicate(self):
+        self.assertEqual(parsing.split_aliases('リザX、メガリザX, リザX\nリザードン'),
+                         ['リザX', 'メガリザX', 'リザードン'])
+        self.assertEqual(parsing.split_aliases(''), [])
+
+    def test_optional_numbers_are_checked(self):
+        self.assertIsNone(parsing.parse_int('', '威力', 0, 999))
+        self.assertEqual(parsing.parse_int(' 30 ', 'PP', 0, 999), 30)
+        with self.assertRaises(parsing.InputError):
+            parsing.parse_int('1000', '威力', 0, 999)
+        with self.assertRaises(parsing.InputError):
+            parsing.parse_int('あ', '威力', 0, 999)
+
+    def test_rankings_accept_numbers_names_and_comments(self):
+        rows, errors = parsing.parse_rankings('1 0006\n2 リザードン\n3 0025 02\n# comment\n')
+        self.assertEqual(errors, [])
+        self.assertEqual(rows, [
+            {'rank': 1, 'ndex': '0006', 'form': '00', 'name': None},
+            {'rank': 2, 'ndex': '', 'form': '', 'name': 'リザードン'},
+            {'rank': 3, 'ndex': '0025', 'form': '02', 'name': None},
+        ])
+
+    def test_rankings_report_bad_lines(self):
+        rows, errors = parsing.parse_rankings('1\nあ 0006\n2 0006\n')
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(errors), 2)
+
+    def test_bulk_moves_read_levels(self):
+        rows, errors = parsing.parse_bulk_moves('でんきショック 1\n10まんボルト\n# x\n')
+        self.assertEqual(errors, [])
+        self.assertEqual(rows, [{'move_name': 'でんきショック', 'level': 1},
+                                 {'move_name': '10まんボルト', 'level': None}])
+
+    def test_diff_pairs_show_changed_values_with_japanese_labels(self):
+        pairs = parsing.diff_pairs(
+            {'stats': [60, 90, 55, 90, 80, 110], 'abilities': {'1': 'せいでんき'}},
+            {'stats': [60, 90, 55, 90, 80, 120], 'abilities': {'1': 'せいでんき'}})
+        self.assertEqual(pairs, [('すばやさ', 110, 120)])
+
+
+class BuiltServiceTests(unittest.TestCase):
+    """entry はこのリポジトリで組むので、ダイジェスト固定から外す。"""
+
+    def project(self):
+        directory = Path(tempfile.mkdtemp(prefix='pkdb-project-'))
+        self.addCleanup(lambda: shutil.rmtree(directory, ignore_errors=True))
+        patcher = patch.object(manage, 'ROOT', directory)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        (directory / '.env.example').write_text('STORAGE_ROOT=/tmp/pkdb-state\n', encoding='utf-8')
+        (directory / 'compose.lock.yaml').write_text('{"services": {}}\n', encoding='utf-8')
+        return directory
+
+    def test_lock_pins_upstream_images_and_skips_built_ones(self):
+        project = self.project()
+        config = {'services': {
+            'db': {'image': 'postgres:15.15-alpine'},
+            'entry': {'image': 'shakecloud-pkdb-entry:local', 'build': {'context': './entry'}},
+        }}
+        calls = []
+
+        def compose(*args, **kwargs):
+            calls.append(args)
+            return SimpleNamespace(stdout=json.dumps(config), stderr='')
+
+        def run(args, **kwargs):
+            return SimpleNamespace(stdout=json.dumps([{'RepoDigests': ['postgres@sha256:' + 'a' * 64]}]))
+
+        with patch.object(manage, 'compose', compose), patch.object(manage, 'run', run):
+            manage.lock()
+        lock = json.loads((project / 'compose.lock.yaml').read_text(encoding='utf-8'))
+        self.assertEqual(sorted(lock['services']), ['db'])
+        self.assertEqual([args for args in calls if args and args[0] == 'pull'], [('pull', 'db')])
+
+    def test_up_rebuilds_the_local_entry_image(self):
+        self.project()
+        calls = []
+
+        def compose(*args, **kwargs):
+            calls.append(args)
+
+        with patch.object(manage, 'compose', compose):
+            manage.up()
+        self.assertEqual(calls, [('up', '-d', '--remove-orphans', '--wait', '--wait-timeout',
+                                  '300', '--build')])
+
 
 
 if __name__ == '__main__':

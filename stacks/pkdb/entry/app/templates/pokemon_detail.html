@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, type_badge, type_pair, stat_cells, stat_bar, title_select, form_actions, pokemon_input, pokemon_datalist %}
+{% block title %}{{ ndex }} {{ species.name }} - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1><span class="dex">{{ ndex }}</span> {{ species.name }}</h1>
+    <p class="page-sub">
+      {% for form_id, names in aliases.items() %}<span class="chip">フォーム {{ form_id }}: {{ names | join('、') }}</span>{% endfor %}
+      {% if languages and languages.eng %}<span class="chip">{{ languages.eng }}</span>{% endif %}
+    </p>
+  </div>
+  <div class="quick-actions">
+    <a class="button" href="/pokemon/{{ ndex }}/names?form=00">名前・言語</a>
+    <a class="button" href="/pokemon/new?ndex={{ ndex }}&form={{ next_form }}">新しい姿</a>
+    <a class="button primary" href="/pokemon/new?ndex={{ ndex }}">新しい作品の値</a>
+  </div>
+</div>
+
+<section class="panel">
+  <h2>姿と最新の値</h2>
+  <div class="scroll">
+    <table class="list">
+      <thead>
+        <tr><th>フォーム</th><th>姿の名前</th><th>最新のタイプ</th><th>種族値</th><th>最新の作品</th>
+            <th>作品ごと</th><th>覚えわざ</th><th>あだ名</th><th>図鑑</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for form in forms %}
+        <tr>
+          <td class="num">{{ form.form_id }}</td>
+          <td>{{ form.form_name or '' }}{% if form.gender == 'm' %} <span class="dim">♂</span>{% elif form.gender == 'f' %} <span class="dim">♀</span>{% endif %}</td>
+          <td class="nowrap">
+            {% if form.type_1 %}{{ type_pair(form.type_1, form.type_2) }}{% else %}<span class="dim">未登録</span>{% endif %}
+          </td>
+          <td class="num">
+            {% if form.h %}{{ [form.h, form.a, form.b, form.c, form.d, form.s] | sum }}
+            <small class="dim">({{ form.h }}-{{ form.a }}-{{ form.b }}-{{ form.c }}-{{ form.d }}-{{ form.s }})</small>
+            {% else %}<span class="dim">—</span>{% endif %}
+          </td>
+          <td>{% if form.latest_title %}<span class="title-chip">{{ form.latest_title }}</span>{% endif %}</td>
+          <td class="num">{{ form.title_rows }}</td>
+          <td class="num">{{ form.learn_rows }}</td>
+          <td class="dim">{{ form.aliases or '' }}</td>
+          <td>{% if form.has_pokedex %}<span class="ok-dot" title="登録済み">●</span>{% else %}<span class="dim">—</span>{% endif %}</td>
+          <td class="nowrap actions">
+            {% if form.latest_title %}
+            <a href="/pokemon/{{ ndex }}/status/edit?form={{ form.form_id }}&title={{ form.latest_title }}">修正</a>
+            <a href="/pokemon/{{ ndex }}/status/new?form={{ form.form_id }}&copy_form={{ form.form_id }}&copy_title={{ form.latest_title }}">新作へ</a>
+            {% else %}
+            <a href="/pokemon/{{ ndex }}/status/new?form={{ form.form_id }}">値を登録</a>
+            {% endif %}
+            <a href="/pokemon/{{ ndex }}/learnsets?form={{ form.form_id }}">覚えわざ</a>
+            <a href="/pokemon/{{ ndex }}/names?form={{ form.form_id }}">名前</a>
+            <a href="/pokemon/{{ ndex }}/rdex?form={{ form.form_id }}">図鑑番号</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>作品ごとの値</h2>
+  {% if statuses %}
+  <div class="scroll">
+    <table class="list">
+      <thead>
+        <tr><th>姿</th><th>作品</th><th>タイプ</th><th>H</th><th>A</th><th>B</th><th>C</th><th>D</th><th>S</th>
+            <th>特性</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for row in statuses %}
+        <tr>
+          <td class="num">{{ row.form_id }}</td>
+          <td><span class="title-chip">{{ row.title_group_id }} {{ row.title_name or '' }}</span></td>
+          <td class="nowrap">{{ type_pair(row.type_1, row.type_2) }}</td>
+          {{ stat_cells(row) }}
+          <td class="abilities-cell">
+            {% if row.ability_1 %}<span>1: {{ row.ability_1 }}</span>{% endif %}
+            {% if row.ability_2 %}<span>2: {{ row.ability_2 }}</span>{% endif %}
+            {% if row.ability_h %}<span>H: {{ row.ability_h }}</span>{% endif %}
+          </td>
+          <td class="nowrap actions">
+            <a href="/pokemon/{{ ndex }}/status/edit?form={{ row.form_id }}&title={{ row.title_group_id }}">修正</a>
+            <a href="/pokemon/{{ ndex }}/status/new?form={{ row.form_id }}&copy_form={{ row.form_id }}&copy_title={{ row.title_group_id }}">新作へコピー</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">このポケモンの作品ごとの値はまだありません。</p>
+  {% endif %}
+
+  <details class="sub-panel">
+    <summary>複数の姿へ、ある作品の値をまとめて写す</summary>
+    <form method="post" action="/pokemon/{{ ndex }}/copy-status" class="form-grid compact">
+      {{ csrf(request) }}
+      <div class="grid-3">
+        <label>写し元のフォーム
+          <select name="from_form">
+            {% for form in forms %}<option value="{{ form.form_id }}">{{ form.form_id }} {{ form.form_name or '' }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>写し元の作品{{ title_select('from_title', '', true) }}</label>
+        <label>写し先の作品{{ title_select('to_title', '', true) }}</label>
+      </div>
+      <fieldset>
+        <legend>写す先のフォーム</legend>
+        <div class="check-row">
+          {% for form in forms %}
+          <label class="check"><input type="checkbox" name="to_forms" value="{{ form.form_id }}"> {{ form.form_id }} {{ form.form_name or '' }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <label class="check"><input type="checkbox" name="overwrite" value="1"> すでにある行も上書きする</label>
+      <p class="hint">作品ごとに正しい値か確認してから使ってください。使い終わったら「作品ごとの値」で1行ずつ直せます。</p>
+      <button type="submit">まとめて写す</button>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>進化</h2>
+  {% if evolution %}
+  <table class="list">
+    <thead><tr><th>進化前</th><th></th><th>進化後</th><th>方法</th><th>作品</th><th></th></tr></thead>
+    <tbody>
+      {% for link in evolution %}
+      <tr>
+        <td><a href="/pokemon/{{ link.before_ndex_number }}">{{ link.before_ndex_number }} {{ link.before_species }}</a>
+            {% if link.before_form_name %}<small>（{{ link.before_form_name }}）</small>{% endif %}</td>
+        <td class="arrow">→</td>
+        <td><a href="/pokemon/{{ link.after_ndex_number }}">{{ link.after_ndex_number }} {{ link.after_species }}</a>
+            {% if link.after_form_name %}<small>（{{ link.after_form_name }}）</small>{% endif %}</td>
+        <td>{{ link.method_name or '（未設定）' }}</td>
+        <td>{% if link.title_group_id %}<span class="title-chip">{{ link.title_group_id }}</span>{% endif %}</td>
+        <td>
+          <form method="post" action="/pokemon/{{ ndex }}/evolution/delete" class="inline-form"
+                data-confirm="この進化のリンクを消しますか？">
+            {{ csrf(request) }}
+            <input type="hidden" name="before_ndex" value="{{ link.before_ndex_number }}">
+            <input type="hidden" name="before_form" value="{{ link.before_form_id }}">
+            <input type="hidden" name="after_ndex" value="{{ link.after_ndex_number }}">
+            <input type="hidden" name="after_form" value="{{ link.after_form_id }}">
+            <button type="submit" class="link-button danger">消す</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">進化のリンクはありません。</p>
+  {% endif %}
+
+  <details class="sub-panel"{{ ' open' if not evolution }}>
+    <summary>進化を追加する</summary>
+    <form method="post" action="/pokemon/{{ ndex }}/evolution/set" class="form-grid compact">
+      {{ csrf(request) }}
+      <div class="grid-4">
+        <label>進化前{{ pokemon_input('before_ndex', ndex ~ ' ' ~ species.name) }}</label>
+        <label>進化前フォーム<input name="before_form" value="00" maxlength="2"></label>
+        <label>進化後{{ pokemon_input('after_ndex', '', true) }}</label>
+        <label>進化後フォーム<input name="after_form" value="00" maxlength="2"></label>
+      </div>
+      <div class="grid-3">
+        <label>進化方法
+          <input name="method_name" list="method-list" placeholder="例 レベルアップ、かみなりのいし">
+          <small>新しい方法は自動で登録される</small>
+        </label>
+        <label>作品{{ title_select('title', '', false, '（作品を紐づけない）') }}</label>
+      </div>
+      <button type="submit">進化を保存</button>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>言語名{% if languages %}<span class="dim">（基本の姿）</span>{% endif %}</h2>
+  {% if languages %}
+  <table class="list compact-table">
+    <tbody>
+      <tr><th>日本語</th><td>{{ languages.jpn }}</td><th>英語</th><td>{{ languages.eng or '' }}</td></tr>
+      <tr><th>フランス語</th><td>{{ languages.fra or '' }}</td><th>ドイツ語</th><td>{{ languages.ger or '' }}</td></tr>
+      <tr><th>イタリア語</th><td>{{ languages.ita or '' }}</td><th>韓国語</th><td>{{ languages.kor or '' }}</td></tr>
+      <tr><th>スペイン語</th><td>{{ languages.spa or '' }}</td><th>簡体字</th><td>{{ languages.chs or '' }}</td></tr>
+      <tr><th>繁体字</th><td>{{ languages.cht or '' }}</td><th>ローマ字</th><td>{{ languages.romaji_hepburn or '' }} / {{ languages.romaji_trademarked or '' }}</td></tr>
+    </tbody>
+  </table>
+  <p><a class="button" href="/pokemon/{{ ndex }}/names?form=00">名前・言語を編集</a></p>
+  {% else %}
+  <p class="empty">言語名はまだありません。<a href="/pokemon/{{ ndex }}/names?form=00">登録する</a></p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>図鑑情報</h2>
+  {% if pokedex %}
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>姿</th><th>分類</th><th>たかさ</th><th>おもさ</th><th>性別比</th><th>タマゴ</th><th>経験値</th><th>捕獲</th><th>努力値</th><th></th></tr></thead>
+      <tbody>
+        {% for row in pokedex %}
+        <tr>
+          <td class="num">{{ row.form_id }}</td>
+          <td>{{ row.category or '' }}</td>
+          <td class="num">{{ row.height or '' }}</td>
+          <td class="num">{{ row.weight or '' }}</td>
+          <td class="num">{{ row.gender_ratio if row.gender_ratio is not none else '' }}</td>
+          <td>{{ row.egg_group_1 or '' }}{% if row.egg_group_2 %} / {{ row.egg_group_2 }}{% endif %}</td>
+          <td class="num">{{ row.leveling_rate if row.leveling_rate is not none else '' }}</td>
+          <td class="num">{{ row.carch_rate if row.carch_rate is not none else '' }}</td>
+          <td class="num">{{ row.evyield_h }}/{{ row.evyield_a }}/{{ row.evyield_b }}/{{ row.evyield_c }}/{{ row.evyield_d }}/{{ row.evyield_s }}</td>
+          <td><a href="/pokedex/{{ ndex }}/{{ row.form_id }}">編集</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">図鑑情報はまだありません。<a href="/pokedex/{{ ndex }}/00">登録する</a></p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>覚えわざ</h2>
+  {% if learn_counts %}
+  <ul class="tile-list">
+    {% for item in learn_counts %}
+    <li>
+      <a href="/pokemon/{{ ndex }}/learnsets?form=00&title={{ item.title_group_id }}">
+        <span class="tile-title">{{ item.title_group_id }} {{ item.title_name }}</span>
+        <span class="tile-sub">{{ item.rows }} わざ</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">基本の姿（00）の覚えわざはまだありません。
+    <a href="/pokemon/{{ ndex }}/learnsets?form=00">登録する</a></p>
+  {% endif %}
+  <p class="hint">姿ごとの覚えわざは、各姿の「覚えわざ」リンクから。一括で入れるときは、そのページの「複数行を貼り付けて追加」が便利です。</p>
+</section>
+
+{{ pokemon_datalist(pokemon) }}
+<datalist id="method-list">
+  {% for item in evolution_methods %}<option value="{{ item.method_name }}"></option>{% endfor %}
+</datalist>
+{% endblock %}

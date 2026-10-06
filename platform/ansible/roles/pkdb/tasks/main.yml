@@ -16,13 +16,20 @@
     - manage.py
     - .env.example
 
-# 登録画面のコンテナ（root 以外で動く）が読めるよう、誰でも読める権限で置く。
-- name: Copy the entry page
+# 登録画面はイメージをこのソースから組む（Dockerfile・requirements・app）。
+# Docker が読めればよいので、誰でも読める権限で置く。
+- name: Copy the entry page sources
   ansible.builtin.copy:
     src: '{{ pkdb_source_dir }}/entry/'
     dest: '{{ pkdb_project_dir }}/entry/'
     mode: '0644'
     directory_mode: '0755'
+
+# 旧版のPHP1ファイルが残っていても使われないが、紛らわしいので消す。
+- name: Drop the old single-file entry page
+  ansible.builtin.file:
+    path: '{{ pkdb_project_dir }}/entry/index.php'
+    state: absent
 
 # .env は宣言値だけを role が描画する（秘密値は secrets/ へ）。
 - name: Render the deployment environment
@@ -82,14 +89,15 @@
   register: pkdb_entry_password
   changed_when: "'CHANGED' in pkdb_entry_password.stdout"
 
+# 入口（Caddy）を通さないので Remote-User が無い。公開の /healthz で確かめる。
 - name: Wait for the entry page on loopback
   ansible.builtin.uri:
-    url: 'http://127.0.0.1:{{ pkdb_entry_port }}/'
+    url: 'http://127.0.0.1:{{ pkdb_entry_port }}/healthz'
     return_content: true
   register: pkdb_entry
   retries: 20
   delay: 3
-  until: pkdb_entry.status == 200 and 'ポケモン登録' in pkdb_entry.content
+  until: pkdb_entry.status == 200 and 'true' in pkdb_entry.content
 
 - name: Wait for the entry page entry point
   ansible.builtin.uri:

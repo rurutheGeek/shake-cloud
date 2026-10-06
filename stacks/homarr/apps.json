@@ -117,16 +117,9 @@
     "pingUrl": "https://vault.apextox.dpdns.org/alive"
   },
   {
-    "name": "Adminer",
-    "href": "https://adminer.apextox.dpdns.org",
-    "description": "ポケモン系PostgreSQLの管理画面（SSO・管理者のみ）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/adminer.svg",
-    "pingUrl": "https://adminer.apextox.dpdns.org/"
-  },
-  {
     "name": "ポケモン登録",
     "href": "https://pkdb-entry.apextox.dpdns.org",
-    "description": "新しいポケモン・新作での値をポケモンDBへ足す（SSO・管理者のみ）",
+    "description": "ポケモンDBの更新（ポケモン・わざ・特性・図鑑情報・覚えわざ・順位）。DBを直接いじるAdminerもここから（SSO・管理者のみ）",
     "pingUrl": "https://pkdb-entry.apextox.dpdns.org/"
   },
   {

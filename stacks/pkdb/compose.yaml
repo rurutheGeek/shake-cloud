@@ -45,14 +45,13 @@ services:
       db:
         condition: service_healthy
 
-  # ポケモンの登録画面（1ページ）。Adminer と同じイメージの PHP で entry/index.php を
-  # 配るだけで、登録の中身は sql/entry.sql の関数が持つ。LAN へ出すのは HTTPS 入口
-  # （Caddy）だけにし、Authentik の Forward Auth を前に置く。
+  # ポケモンDBの登録画面（Web）。リポジトリの stacks/pkdb/entry からイメージを組み、
+  # 登録の中身は sql/entry*.sql の関数が持つ。LAN へ出すのは HTTPS 入口（Caddy）だけに
+  # し、Authentik の Forward Auth（Remote-User）を前に置く。
   entry:
-    image: adminer:6.1.1
+    build: ./entry
+    image: shakecloud-pkdb-entry:local
     restart: unless-stopped
-    entrypoint: [php]
-    command: ['-S', '0.0.0.0:8080', '-t', /app]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -63,13 +62,20 @@ services:
       PKDB_ENTRY_USER: pkdb_entry
       # manage.py が secrets/entry_password から環境変数で渡す。
       PKDB_ENTRY_PASSWORD: ${PKDB_ENTRY_PASSWORD:?run manage.py up}
-    volumes:
-      - ./entry:/app:ro
+      # 画面右上の「Adminer」リンク。入口（Caddy）が受ける名前を配備側が描画する。
+      PKDB_ENTRY_ADMINER_URL: ${PKDB_ENTRY_ADMINER_URL:-https://adminer.apextox.dpdns.org}
     ports:
       - '127.0.0.1:${PKDB_ENTRY_PORT:-8331}:8080'
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # 入口（Caddy）を通さないので Remote-User が無い。公開の /healthz で確かめる。
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
 
 secrets:
   postgres_password:

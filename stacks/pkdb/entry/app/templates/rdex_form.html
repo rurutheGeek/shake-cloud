@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, restore_banner, form_actions %}
+{% block title %}地方図鑑番号 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>地方図鑑番号</h1>
+  <p class="page-sub">
+    <a href="/pokemon/{{ ndex }}">{{ ndex }} {{ species.name }}</a>
+    ／ フォーム {{ form }}{% if form_row.form_name %}（{{ form_row.form_name }}）{% endif %}
+  </p>
+</div>
+
+{{ restore_banner(restore) }}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<p class="hint">載っていない地方は空のままでよい。入れるのは3桁までの数字です（例 001、150）。</p>
+
+<form method="post" action="/pokemon/{{ ndex }}/rdex" class="card" autocomplete="off">
+  {{ csrf(request) }}
+  <input type="hidden" name="form_id" value="{{ form }}">
+  <div class="rdex-grid">
+    {% for key, label in RDEX_REGIONS %}
+    <label>{{ label }}<input name="{{ key }}" value="{{ values.get(key, '') }}" maxlength="3" inputmode="numeric"></label>
+    {% endfor %}
+  </div>
+  {{ form_actions('/pokemon/' ~ ndex, '保存する') }}
+</form>
+
+{% endblock %}

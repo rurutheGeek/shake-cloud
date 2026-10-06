@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, stat_inputs, ability_inputs, title_select, form_actions, restore_banner %}
+{% block title %}作品ごとの値 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>{{ '値を修正' if mode == 'edit' else '新しい作品の値を登録' }}</h1>
+  <p class="page-sub">
+    <a href="/pokemon/{{ ndex }}">{{ ndex }} {{ species.name if species else '' }}</a>
+    ／ フォーム {{ form }}{% if form_row and form_row.form_name %}（{{ form_row.form_name }}）{% endif %}
+    ／ <span class="title-chip">{{ title }}</span>
+  </p>
+</div>
+
+{{ restore_banner(restore) }}
+{% if copy_form %}
+<p class="flash warn">フォーム {{ copy_form }}・作品 {{ copy_title }} の値を写しています。作品ごとに正しい値か確かめて保存してください。</p>
+{% endif %}
+{% if error %}<p class="flash ng">{{ error }}</p>{% endif %}
+
+<form method="post" class="card form-grid"
+      action="/pokemon/{{ ndex }}/status/{{ 'edit' if mode == 'edit' else 'new' }}" autocomplete="off">
+  {{ csrf(request) }}
+  <input type="hidden" name="form_id" value="{{ form }}">
+  {% if mode == 'edit' %}
+  <input type="hidden" name="title" value="{{ title }}">
+  {% else %}
+  <label class="span-all">作品{{ title_select('title', title, true) }}</label>
+  {% endif %}
+
+  {% if form_row is none %}
+  <fieldset class="span-all">
+    <legend>新しい姿</legend>
+    <div class="grid-3">
+      <label>姿の名前<input name="form_name" value="{{ values.get('form_name', '') }}"></label>
+      <label>性別
+        <select name="gender">
+          {% for value, label in GENDERS %}
+          <option value="{{ value }}"{{ ' selected' if values.get('gender') == value }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>英語名<input name="english" value="{{ values.get('english', '') }}"></label>
+    </div>
+  </fieldset>
+  {% endif %}
+
+  <fieldset class="span-all">
+    <legend>タイプと種族値</legend>
+    <div class="grid-3">
+      <label>タイプ1
+        <select name="type_1" required>
+          <option value=""></option>
+          {% for item in types %}
+          <option value="{{ item.name }}"{{ ' selected' if values.type_1 == item.name }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>タイプ2
+        <select name="type_2">
+          <option value="">（単タイプ）</option>
+          {% for item in types %}
+          <option value="{{ item.name }}"{{ ' selected' if values.type_2 == item.name }}>{{ item.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    {{ stat_inputs(values) }}
+  </fieldset>
+
+  <fieldset class="span-all">
+    <legend>特性</legend>
+    {{ ability_inputs(values, ability_names) }}
+  </fieldset>
+
+  {{ form_actions('/pokemon/' ~ ndex, '保存する') }}
+</form>
+
+<div class="button-row">
+  {% if mode == 'edit' %}
+  <a class="button" href="/pokemon/{{ ndex }}/status/new?form={{ form }}&copy_form={{ form }}&copy_title={{ title }}">この値から別の作品へコピー</a>
+  <a class="button" href="/pokemon/{{ ndex }}/learnsets?form={{ form }}&title={{ title }}">この作品の覚えわざ</a>
+  <a class="button" href="/pokemon/{{ ndex }}/names?form={{ form }}">名前・言語・あだ名</a>
+  {% else %}
+  <a class="button" href="/pokemon/{{ ndex }}">ポケモンの画面へ</a>
+  {% endif %}
+</div>
+
+{% endblock %}

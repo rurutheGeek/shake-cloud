@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import type_pair, pager %}
+{% block title %}ポケモン一覧 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>ポケモン</h1>
+  <a class="button primary" href="/pokemon/new">新しいポケモンを登録</a>
+</div>
+
+<form class="filter-bar" method="get" action="/pokemon">
+  <input name="q" value="{{ q }}" placeholder="番号・名前・あだ名・英語名">
+  <select name="type">
+    <option value="">タイプ（すべて）</option>
+    {% for item in types %}
+    <option value="{{ item.name }}"{{ ' selected' if type == item.name }}>{{ item.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="region">
+    <option value="">初登場の地方（すべて）</option>
+    {% for item in regions %}
+    <option value="{{ item }}"{{ ' selected' if region == item }}>{{ item }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort">
+    <option value="ndex"{{ ' selected' if sort == 'ndex' }}>図鑑番号</option>
+    <option value="ndex_desc"{{ ' selected' if sort == 'ndex_desc' }}>図鑑番号（逆）</option>
+    <option value="total"{{ ' selected' if sort == 'total' }}>種族値合計</option>
+    <option value="name"{{ ' selected' if sort == 'name' }}>名前</option>
+  </select>
+  <button type="submit">しぼる</button>
+  <a class="button" href="/pokemon">クリア</a>
+</form>
+
+<p class="count">{{ total }} 件</p>
+
+{% if rows %}
+<div class="scroll">
+  <table class="list pokemon-list">
+    <thead>
+      <tr>
+        <th>No.</th><th>名前</th><th>タイプ</th><th>合計</th><th>姿</th><th>あだ名</th><th>作品ごとの値</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="num nowrap">{{ row.ndex_number }}</td>
+        <td><a class="strong-link" href="/pokemon/{{ row.ndex_number }}">{{ row.name }}</a></td>
+        <td class="nowrap">{{ type_pair(row.type_1, row.type_2) }}</td>
+        <td class="num">{{ row.total }}</td>
+        <td class="num">{{ row.forms }}</td>
+        <td class="dim">{{ row.aliases or '' }}</td>
+        <td class="num">{{ row.history_rows }}</td>
+        <td class="nowrap">
+          <a href="/pokemon/{{ row.ndex_number }}">開く</a>
+          <a href="/pokemon/{{ row.ndex_number }}/status/new?form={{ row.form_id }}&copy_form={{ row.form_id }}&copy_title={{ row.latest_title }}">新作へコピー</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{{ pager(request, page, total, page_size) }}
+{% else %}
+<p class="empty">見つかりませんでした。</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}対戦使用率 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>対戦使用率</h1>
+  <div class="quick-actions">
+    <a class="button primary" href="/rankings/import">貼り付けて取り込む</a>
+  </div>
+</div>
+
+<form class="filter-bar" method="get" action="/rankings">
+  <select name="title" onchange="this.form.submit()">
+    {% for item in ranking_titles %}
+    <option value="{{ item.title_group_id }}"{{ ' selected' if title == item.title_group_id }}>{{ item.title_group_id }} {{ item.title_name or '' }}</option>
+    {% endfor %}
+  </select>
+  <select name="season" onchange="this.form.submit()">
+    {% for item in seasons %}
+    <option value="{{ item.battle_season }}" data-type="{{ item.battle_type }}"
+            {{ ' selected' if season == item.battle_season and type == item.battle_type }}>
+      シーズン {{ item.battle_season }}（{{ item.battle_type }}・{{ item.rows }}件）
+    </option>
+    {% endfor %}
+  </select>
+  <select name="type">
+    {% for item in BATTLE_TYPES %}
+    <option value="{{ item }}"{{ ' selected' if type == item }}>{{ item }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">表示</button>
+</form>
+
+{% if rows %}
+<p class="count">{{ rows | length }} 件</p>
+<div class="scroll">
+  <table class="list">
+    <thead><tr><th>順位</th><th>No.</th><th>ポケモン</th><th>姿</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="num">{{ row.battle_ranking }}</td>
+        <td class="num">{{ row.ndex_number }}</td>
+        <td><a href="/pokemon/{{ row.ndex_number }}">{{ row.name }}</a></td>
+        <td>{{ row.form_name or '' }}</td>
+        <td><a href="/pokemon/{{ row.ndex_number }}/learnsets?form={{ row.form_id }}&title={{ title }}">覚えわざ</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty">この作品・シーズンの順位はまだありません。</p>
+{% endif %}
+
+{% endblock %}

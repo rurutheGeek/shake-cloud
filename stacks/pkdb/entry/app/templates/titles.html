@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, title_select, form_actions %}
+{% block title %}作品 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>作品</h1>
+  <p class="page-sub">作品グループ（世代のまとまり）と、個別のソフト。新作が出たらまずここに足す。</p>
+</div>
+
+<section class="panel">
+  <h2>作品グループ</h2>
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>ID</th><th>作品</th><th>世代</th><th>地方</th><th></th></tr></thead>
+      <tbody>
+        {% for group in groups %}
+        <tr>
+          <td class="num">{{ group.title_group_id }}</td>
+          <td>{{ group.title_name }}</td>
+          <td class="num">{{ group.generation if group.generation is not none else '' }}</td>
+          <td>{{ group.region or '' }}</td>
+          <td>
+            <details class="inline-details">
+              <summary class="link-button">編集</summary>
+              <form method="post" action="/titles/{{ group.title_group_id }}/edit" class="form-grid compact">
+                {{ csrf(request) }}
+                <label>作品名<input name="title_name" value="{{ group.title_name }}" required></label>
+                <label>世代<input name="generation" type="number" min="1" max="99" value="{{ group.generation if group.generation is not none else '' }}"></label>
+                <label>地方<input name="region" value="{{ group.region or '' }}"></label>
+                <button type="submit">保存</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <details class="sub-panel">
+    <summary>作品グループを追加</summary>
+    <form method="post" action="/titles/new" class="form-grid compact">
+      {{ csrf(request) }}
+      <div class="grid-4">
+        <label>作品ID<input name="title_group_id" pattern="[0-9]{3}" required>
+          <small>3桁。上2桁が世代、下1桁が順番。いまの最新は 095</small></label>
+        <label>作品名<input name="title_name" required></label>
+        <label>世代<input name="generation" type="number" min="1" max="99" required></label>
+        <label>地方<input name="region" placeholder="例 パルデア"></label>
+      </div>
+      <button type="submit">追加する</button>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>作品1本（発売日つき）</h2>
+  <div class="scroll">
+    <table class="list">
+      <thead><tr><th>ID</th><th>作品</th><th>グループ</th><th>発売日</th><th></th></tr></thead>
+      <tbody>
+        {% for solo in solos %}
+        <tr>
+          <td class="num">{{ solo.title_id }}</td>
+          <td>{{ solo.title_name }}</td>
+          <td><span class="title-chip">{{ solo.title_group_id }} {{ solo.group_name or '' }}</span></td>
+          <td class="nowrap">
+            {{ solo.release_year or '' }}{% if solo.release_month %}年{{ solo.release_month }}月{% endif %}{% if solo.release_date %}{{ solo.release_date }}日{% endif %}
+          </td>
+          <td>
+            <details class="inline-details">
+              <summary class="link-button">編集</summary>
+              <form method="post" action="/titles/solo" class="form-grid compact">
+                {{ csrf(request) }}
+                <input type="hidden" name="title_id" value="{{ solo.title_id }}">
+                <label>作品名<input name="title_name" value="{{ solo.title_name }}" required></label>
+                <label>グループ{{ title_select('title_group_id', solo.title_group_id, true) }}</label>
+                <div class="grid-3">
+                  <label>年<input name="release_year" type="number" min="1900" max="2200" value="{{ solo.release_year if solo.release_year is not none else '' }}"></label>
+                  <label>月<input name="release_month" type="number" min="1" max="12" value="{{ solo.release_month if solo.release_month is not none else '' }}"></label>
+                  <label>日<input name="release_date" type="number" min="1" max="31" value="{{ solo.release_date if solo.release_date is not none else '' }}"></label>
+                </div>
+                <button type="submit">保存</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <details class="sub-panel">
+    <summary>作品1本を追加</summary>
+    <form method="post" action="/titles/solo" class="form-grid compact">
+      {{ csrf(request) }}
+      <div class="grid-4">
+        <label>作品ID<input name="title_id" pattern="[0-9]{4}" required>
+          <small>4桁。例 0100 赤、0101 緑</small></label>
+        <label>作品名<input name="title_name" required></label>
+        <label>グループ{{ title_select('title_group_id', '', true) }}</label>
+        <label>発売年<input name="release_year" type="number" min="1900" max="2200"></label>
+      </div>
+      <div class="grid-3">
+        <label>発売月<input name="release_month" type="number" min="1" max="12"></label>
+        <label>発売日<input name="release_date" type="number" min="1" max="31"></label>
+      </div>
+      <button type="submit">追加する</button>
+    </form>
+  </details>
+</section>
+
+{% endblock %}

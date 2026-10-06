@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, title_select, form_actions %}
+{% block title %}使用率の取り込み - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>使用率を貼り付けて取り込む</h1>
+  <p class="page-sub">同じ作品・シーズン・形式の順位は、貼り付けた内容で丸ごと置き換わります。</p>
+</div>
+
+{% if errors %}
+<div class="flash ng">
+  <p>取り込めませんでした:</p>
+  <ul>{% for message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if err %}<p class="flash ng">{{ err }}</p>{% endif %}
+
+<form method="post" action="/rankings/import" class="card form-grid">
+  {{ csrf(request) }}
+  <div class="grid-3">
+    <label>作品{{ title_select('title', title, true) }}</label>
+    <label>シーズン<input name="season" type="number" min="1" max="999" value="{{ season }}" required></label>
+    <label>形式
+      <select name="type" required>
+        {% for item in battle_types %}<option value="{{ item }}"{{ ' selected' if type == item }}>{{ item }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <label class="span-all">順位の一覧
+    <textarea name="text" rows="18" placeholder="1 0006&#10;2 リザードン&#10;3 0009 00&#10;4 フシギバナ">{{ text }}</textarea>
+    <small>
+      1行に1匹。<strong>「順位 図鑑番号」</strong>、<strong>「順位 図鑑番号 フォーム」</strong>、
+      <strong>「順位 名前」</strong>（あだ名も可）のどれか。行頭の # はコメント。
+    </small>
+  </label>
+  {{ form_actions('/rankings', '取り込む') }}
+</form>
+
+{% endblock %}

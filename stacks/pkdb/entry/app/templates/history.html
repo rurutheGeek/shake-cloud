@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pager %}
+{% block title %}履歴 - ポケモンDB管理{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1>履歴</h1>
+  <p class="page-sub">誰がいつ何をしたか。修正は直す前の値も残っているので、そこから戻せます。</p>
+</div>
+
+<form class="filter-bar" method="get" action="/history">
+  <select name="action">
+    <option value="">操作（すべて）</option>
+    {% for key in actions %}
+    <option value="{{ key }}"{{ ' selected' if action == key }}>{{ ACTION_LABELS.get(key, key) }}</option>
+    {% endfor %}
+  </select>
+  <select name="actor">
+    <option value="">登録者（すべて）</option>
+    {% for name in actors %}
+    <option value="{{ name }}"{{ ' selected' if actor == name }}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">しぼる</button>
+  <a class="button" href="/history">クリア</a>
+</form>
+
+<p class="count">{{ total }} 件</p>
+
+{% if items %}
+<div class="log-list">
+  {% for item in items %}
+  <article class="log-item">
+    <header class="log-head">
+      <span class="action-chip">{{ item.action_label }}</span>
+      <strong class="log-summary">{{ item.summary }}</strong>
+      <span class="dim">{{ ENTITY_LABELS.get(item.entity, item.entity) }}</span>
+      <span class="log-meta dim">{{ item.created.strftime('%Y/%m/%d %H:%M') if item.created else '' }} / {{ item.row.actor }}</span>
+    </header>
+    {% if item.pairs %}
+    <details>
+      <summary>変更内容（{{ item.pairs | length }} 項目）</summary>
+      <div class="scroll">
+        <table class="diff">
+          <thead><tr><th>項目</th><th>前</th><th>後</th></tr></thead>
+          <tbody>
+            {% for label, before, after in item.pairs %}
+            <tr>
+              <th>{{ label }}</th>
+              <td class="before">{{ before if before is not none else '（なし）' }}</td>
+              <td class="after">{{ after if after is not none else '（なし）' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if item.restore %}
+      <p><a class="button" href="{{ item.restore }}">この修正前の値を入力欄に入れる（保存で戻す）</a></p>
+      {% endif %}
+    </details>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+{{ pager(request, page, total, page_size) }}
+{% else %}
+<p class="empty">履歴はまだありません。</p>
+{% endif %}
+
+{% endblock %}

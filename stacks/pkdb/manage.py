@@ -108,13 +108,19 @@ def init():
 
 def lock(refresh=False):
     config = json.loads(compose('config', '--format', 'json', locked=False, capture_output=True).stdout)
+    # このリポジトリで組み立てるイメージ（entry）はダイジェストで固定できない。
+    # 上流イメージ（db・adminer）だけを固定し、entry は up --build で作り直す。
+    built = {name for name, service in config['services'].items() if service.get('build')}
     path = ROOT / 'compose.lock.yaml'
     old = json.loads(path.read_text()).get('services', {}) if path.exists() else {}
-    missing = [name for name in config['services'] if refresh or name not in old]
+    missing = [name for name in config['services']
+               if name not in built and (refresh or name not in old)]
     if missing:
         compose('pull', *missing, locked=False)
     pinned = {}
     for name, service in config['services'].items():
+        if name in built:
+            continue
         if name in old and not refresh:
             pinned[name] = old[name]
         else:
@@ -134,7 +140,8 @@ def lock(refresh=False):
 def up():
     if not (ROOT / 'compose.lock.yaml').exists():
         raise SystemExit('Run lock first')
-    compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300')
+    # entry はこのリポジトリのソースから組むので、配備のたびに --build で作り直す。
+    compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300', '--build')
 
 
 def local(program, *args, **kwargs):

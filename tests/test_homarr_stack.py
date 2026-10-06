@@ -332,6 +332,13 @@ class StackTests(unittest.TestCase):
                     row['pingUrl'].startswith('http://192.168.10.'), row['pingUrl'])
 
 
+    def test_adminer_is_reached_through_the_pokemon_entry_not_as_its_own_tile(self):
+        apps = configure.load_apps(STACK / 'apps.json')
+        names = {row['name'] for row in apps}
+        self.assertNotIn('Adminer', names)
+        self.assertIn('ポケモン登録', names)
+
+
 class IntegrationTests(unittest.TestCase):
     def test_proxmox_uses_the_read_only_token_secret_kinds(self):
         secrets = integrations.proxmox_secrets({
