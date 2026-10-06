@@ -96,7 +96,7 @@ class StackTests(unittest.TestCase):
         text = (STACK / '.env.example').read_text(encoding='utf-8')
         self.assertNotIn('TOKEN', text)
         self.assertNotIn('PASSWORD', text)
-        self.assertIn('STORAGE_ROOT=/srv/ubsleepy-next', text)
+        self.assertIn('STORAGE_ROOT=/srv/ubsleepy', text)
 
     def test_the_secrets_and_backups_stay_out_of_git(self):
         for name in ('secrets/discord_token', 'backups/20261004T000000Z.tar.gz'):
@@ -123,6 +123,18 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(role['vars']['ubsleepy_next_storage_root'], '/srv/ubsleepy')
         self.assertFalse(role['vars']['ubsleepy_next_test'])
         self.assertEqual(role['vars']['ubsleepy_next_token_key'], 'DISCORD_TOKEN')
+
+    def test_the_playbook_deploys_the_production_stack(self):
+        # 本番playbookは本番スタック（compose の name: ubsleepy）を配る。
+        # ロールの既定（テスト配備の stacks/ubsleepy-next）のままだと、
+        # /opt/ubsleepy に name: ubsleepy-next の compose が入り、
+        # テストと同じ compose プロジェクト名になってしまう。
+        role = self.play()['roles'][1]
+        self.assertEqual(role['vars']['ubsleepy_next_source_dir'],
+                         '{{ playbook_dir }}/../../stacks/ubsleepy')
+        compose = yaml.safe_load(
+            (ROOT / 'stacks/ubsleepy/compose.yaml').read_text(encoding='utf-8'))
+        self.assertEqual(compose['name'], 'ubsleepy')
 
     def test_the_old_auto_update_units_are_removed(self):
         # イメージ固定なので、ホストが git pull する更新タイマーは消して戻さない。
