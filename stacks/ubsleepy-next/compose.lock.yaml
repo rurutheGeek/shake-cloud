@@ -1,6 +1,6 @@
-# この digest は ghcr.io/ruruthegeek/ubsleepy-next:a97dbb61db1a042e7fba2c8dcc040502c06dd109
+# この digest は ghcr.io/ruruthegeek/ubsleepy-next:b1ef9dd37c245a9e8d06f896e80c24286e65512d
 # （main のマージコミット）を GitHub Actions がビルドしたもの。
 # イメージを更新するときは、新しいコミットの digest へ書き換えて再配備する。
 services:
   bot:
-    image: ghcr.io/ruruthegeek/ubsleepy-next@sha256:aaaf6dc3aac6c4ede114823269c3b5ab33ccfc007ce5249de1aa5b2dec3243d4
+    image: ghcr.io/ruruthegeek/ubsleepy-next@sha256:31dededc1222cf24350a206009340452bad762f55cc2283c4224edec5e1aee89
