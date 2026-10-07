@@ -43,6 +43,7 @@ tags:
 `/srv/<プロジェクト>/state/`
 - `config.json`（全体設定とギルドの既定値。設定の実体はDB）
 - `save/`・`log/`・`resource/pokemon_senryu.csv`・`resource/image/`
+- `resource/intro/`（イントロクイズの音源 `clips/` と曲リスト `manifest.csv`。UBSLEEPY-next の `tools/build_intro_clips.py` で作って置く。作り直せるのでバックアップには入れない）
 
 秘密の原本は `platform/sops/ubsleepy.sops.yaml`（`DISCORD_TOKEN` / `TEST_DISCORD_TOKEN` / `PKDB_PASSWORD` / `UBSLEEPY_DB_PASSWORD`）。
 
