@@ -57,7 +57,7 @@ services:
     secrets: [postgres_password, nextcloud_admin_password]
     volumes: *nextcloud-volumes
     ports: ['${BIND_ADDRESS:-127.0.0.1}:${NEXTCLOUD_PORT:-8080}:80']
-    networks: [backend, nextcloud]
+    networks: [backend, nextcloud, ocr]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -75,16 +75,40 @@ services:
     environment: *nextcloud-env
     secrets: [postgres_password, nextcloud_admin_password]
     volumes: *nextcloud-volumes
-    networks: [backend, nextcloud]
+    networks: [backend, nextcloud, ocr]
     depends_on:
       nextcloud: {condition: service_healthy}
+
+  # 画像OCR検索（ocr_search）の認識サービス。ファイルもDBも見ない。Nextcloudは
+  # これに依存しない（止まっていてもアップロード・閲覧は動き、画像はキューで待つ）。
+  # イメージは manage.py ocr-service が取得したソースからのローカルビルド。
+  ocr:
+    image: ocr-search-service:${OCR_SERVICE_VERSION:-0.1.0}
+    build: ./ocr-service
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      OCR_TOKEN_FILE: /run/secrets/ocr_token
+      OCR_MAX_SIDE: ${OCR_MAX_SIDE:-1024}
+      OCR_THREADS: '2'
+    secrets: [ocr_token]
+    networks: [ocr]
+    mem_limit: 1g
+    cpus: 2
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
 
 networks:
   backend: {internal: true}
   nextcloud: {}
+  ocr: {internal: true}
 
 secrets:
   postgres_password:
     file: ./secrets/postgres_password
   nextcloud_admin_password:
     file: ./secrets/nextcloud_admin_password
+  ocr_token:
+    file: ./secrets/ocr_token

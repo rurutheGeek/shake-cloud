@@ -80,7 +80,7 @@ class ComposeTests(unittest.TestCase):
 
     def test_the_expected_services_are_defined(self):
         self.assertEqual(list(COMPOSE['services']),
-                         ['postgres', 'redis', 'nextcloud', 'cron'])
+                         ['postgres', 'redis', 'nextcloud', 'cron', 'ocr'])
 
     def test_vaultwarden_moved_to_services_01(self):
         self.assertNotIn('vaultwarden', (UNIT / 'compose.yaml').read_text(encoding='utf-8'))
@@ -137,9 +137,118 @@ class ComposeTests(unittest.TestCase):
             self.assertIn('healthcheck', COMPOSE['services'][name], name)
 
 
+class OcrServiceTests(unittest.TestCase):
+    """The recognition service of the ocr_search app (image text search)."""
+
+    def setUp(self):
+        self.ocr = COMPOSE['services']['ocr']
+        self.manage = (UNIT / 'manage.py').read_text(encoding='utf-8')
+        self.group = yaml.safe_load(
+            (ROOT / 'platform/ansible/group_vars/media.yml').read_text(encoding='utf-8'))
+
+    def test_it_is_reachable_only_from_nextcloud(self):
+        self.assertNotIn('ports', self.ocr)
+        self.assertEqual(self.ocr['networks'], ['ocr'])
+        self.assertTrue(COMPOSE['networks']['ocr']['internal'])
+        for name in ('nextcloud', 'cron'):
+            self.assertIn('ocr', COMPOSE['services'][name]['networks'], name)
+        for name in ('postgres', 'redis'):
+            self.assertNotIn('ocr', COMPOSE['services'][name]['networks'], name)
+
+    def test_nextcloud_does_not_depend_on_it(self):
+        # OCR停止時もアップロード・閲覧を壊さない。
+        for name in ('nextcloud', 'cron'):
+            self.assertNotIn('ocr', COMPOSE['services'][name].get('depends_on', {}), name)
+
+    def test_its_load_is_capped(self):
+        self.assertEqual(self.ocr['mem_limit'], '1g')
+        self.assertEqual(self.ocr['cpus'], 2)
+
+    def test_it_runs_without_privileges_or_state(self):
+        self.assertTrue(self.ocr['read_only'])
+        self.assertEqual(self.ocr['cap_drop'], ['ALL'])
+        self.assertIn('no-new-privileges:true', self.ocr['security_opt'])
+        self.assertNotIn('volumes', self.ocr)
+
+    def test_the_image_is_a_local_build_tagged_with_the_release(self):
+        self.assertEqual(self.ocr['build'], './ocr-service')
+        self.assertEqual(self.ocr['image'], 'ocr-search-service:${OCR_SERVICE_VERSION:-0.1.0}')
+        self.assertIn('archive/refs/tags/v{version}.tar.gz', self.manage)
+        self.assertIn("marker.read_text().strip() == version", self.manage)
+
+    def test_the_token_is_generated_on_the_host_and_shared_as_a_file(self):
+        self.assertIn("'ocr_token'", self.manage.split('SECRETS = ')[1].splitlines()[0])
+        self.assertEqual(self.ocr['secrets'], ['ocr_token'])
+        self.assertEqual(self.ocr['environment']['OCR_TOKEN_FILE'], '/run/secrets/ocr_token')
+        self.assertEqual(COMPOSE['secrets']['ocr_token']['file'], './secrets/ocr_token')
+        self.assertIn("(ROOT / 'secrets' / 'ocr_token').read_text().strip()", self.manage)
+
+    def test_the_app_is_pointed_at_the_service_by_its_compose_name(self):
+        self.assertIn("OCR_URL = 'http://ocr:8080'", self.manage)
+        self.assertIn("config_app('ocr_search', (('ocr_url', OCR_URL), ('ocr_token', token)))",
+                      self.manage)
+
+    def test_one_version_pins_the_app_and_the_service(self):
+        app = next(item for item in self.group['nextcloud_custom_apps']
+                   if item['name'] == 'ocr_search')
+        self.assertEqual(app['repo'], 'rurutheGeek/nextcloud-ocr-search')
+        self.assertRegex(app['version'], r'^\d+\.\d+\.\d+$')
+        self.assertIn("selectattr('name', 'equalto', 'ocr_search')",
+                      self.group['nextcloud_ocr_search'])
+        text = PLAYBOOK.read_text(encoding='utf-8')
+        self.assertIn('OCR_SERVICE_VERSION={{ nextcloud_ocr_search.version }}', text)
+
+    def test_the_source_archive_must_hold_the_service(self):
+        def archive(names):
+            buffer = io.BytesIO()
+            with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+                for name in names:
+                    info = tarfile.TarInfo(name)
+                    tar.addfile(info, io.BytesIO(b''))
+            buffer.seek(0)
+            return tarfile.open(fileobj=buffer)
+
+        good = archive(['nextcloud-ocr-search-0.1.0/server/Dockerfile',
+                        'nextcloud-ocr-search-0.1.0/server/ocr_service.py'])
+        self.assertEqual(manage.ocr_service_members(good), 'nextcloud-ocr-search-0.1.0')
+        with self.assertRaises(ValueError):
+            manage.ocr_service_members(archive(['app/README.md']))
+        with self.assertRaises(ValueError):
+            manage.ocr_service_members(archive(['app/server/Dockerfile', 'other/x']))
+        with self.assertRaises(ValueError):
+            manage.ocr_service_members(archive(['app/server/Dockerfile', 'app/../../etc/x']))
+
+    def test_the_playbook_builds_configures_and_schedules_it(self):
+        play = yaml.safe_load(PLAYBOOK.read_text(encoding='utf-8'))[0]
+        order = [task['ansible.builtin.command']['argv'][2] for task in play['tasks']
+                 if 'ansible.builtin.command' in task
+                 and task['ansible.builtin.command']['argv'][1].endswith('manage.py')]
+        self.assertLess(order.index('ocr-service'), order.index('up'))
+        self.assertGreater(order.index('config-ocr'), order.index('apps'))
+        config = next(task for task in play['tasks']
+                      if task['name'] == 'Point the ocr_search app at the OCR service')
+        self.assertTrue(config['no_log'])
+        names = [task['name'] for task in play['tasks']]
+        self.assertIn('Enable the nightly OCR index', names)
+
+    def test_the_nightly_index_is_time_boxed(self):
+        service = (UNIT / 'media-stack-ocr-index.service.j2').read_text(encoding='utf-8')
+        timer = (UNIT / 'media-stack-ocr-index.timer.j2').read_text(encoding='utf-8')
+        self.assertIn('manage.py ocr-index --max-runtime {{ nextcloud_ocr_index_max_runtime }}',
+                      service)
+        self.assertIn('OnCalendar={{ nextcloud_ocr_index_calendar }}', timer)
+        self.assertGreater(self.group['nextcloud_ocr_index_max_runtime'], 0)
+        self.assertIn("occ('ocr_search:index')", self.manage)
+        self.assertIn("occ('ocr_search:process', '--max-runtime', str(max_runtime))", self.manage)
+
+
 class LockTests(unittest.TestCase):
     def test_every_service_is_pinned_to_a_digest(self):
-        self.assertEqual(set(LOCK['services']), set(COMPOSE['services']))
+        # ocr はリリースのソースからのローカルビルド（バージョンをタグにする）。
+        pulled = {name for name, service in COMPOSE['services'].items()
+                  if 'build' not in service}
+        self.assertEqual(set(LOCK['services']), pulled)
+        self.assertEqual(set(COMPOSE['services']) - pulled, {'ocr'})
         for name, service in LOCK['services'].items():
             self.assertRegex(service['image'], r'@sha256:[0-9a-f]{64}$', name)
 
@@ -177,7 +286,8 @@ class ManageTests(unittest.TestCase):
         for action in ('init', 'lock', 'up', 'upgrade', 'setup', 'apps',
                        'custom-apps', 'remove-apps',
                        'config-notes', 'config-print', 'config-localsend',
-                       'config-tags', 'import-calendar', 'status', 'down'):
+                       'config-tags', 'config-ocr', 'ocr-service', 'ocr-index',
+                       'import-calendar', 'status', 'down'):
             self.assertIn(f"'{action}'", self.text)
 
     def test_it_uses_only_the_standard_library(self):
@@ -554,7 +664,7 @@ class AnsibleTests(unittest.TestCase):
     def test_apps_use_the_group_var_and_always_add_the_custom_apps(self):
         text = PLAYBOOK.read_text(encoding='utf-8')
         self.assertIn(
-            "nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags']",
+            "nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags', 'ocr_search']",
             text)
 
     def test_notes_default_is_set_through_manage_py_after_apps(self):

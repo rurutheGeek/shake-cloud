@@ -44,6 +44,16 @@ nextcloud_custom_apps:
   - name: localsend_share
     repo: rurutheGeek/nextcloud-localsend
     version: 1.0.2
+  - name: ocr_search
+    repo: rurutheGeek/nextcloud-ocr-search
+    version: 0.1.0
+# 画像OCR検索（ocr_search）。認識サービスはアプリと同じリポジトリ・同じ
+# バージョンのソースからローカルビルドするので、バージョンの正本は上の1行。
+nextcloud_ocr_search: "{{ nextcloud_custom_apps | selectattr('name', 'equalto', 'ocr_search') | first }}"
+# 夜間の一括索引（既存画像と、Nextcloudを通らずに置かれた画像）。認識に使う
+# 上限時間（秒）を過ぎたら、残りは次の夜に回る。
+nextcloud_ocr_index_calendar: '*-*-* 02:30:00'
+nextcloud_ocr_index_max_runtime: 7200
 # Nextcloud MCPサーバ（公開リポジトリのGitHub Releaseが正本。bumpで更新）。
 nextcloud_mcp_version: 1.1.0
 nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6

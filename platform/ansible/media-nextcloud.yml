@@ -24,6 +24,7 @@
           NEXTCLOUD_PORT={{ nextcloud_port | default(8080) }}
           NEXTCLOUD_ADMIN_USER={{ nextcloud_admin_user | default('admin') }}
           NEXTCLOUD_TRUSTED_DOMAINS={{ nextcloud_trusted_domains | default('localhost 127.0.0.1') }}
+          OCR_SERVICE_VERSION={{ nextcloud_ocr_search.version }}
     # 自作アプリはそれぞれの公開リポジトリのGitHub Releaseから入れる。
     # バージョンは group_vars の nextcloud_custom_apps が正本で、上げると更新される。
     - name: Install or update the custom Nextcloud apps
@@ -67,6 +68,14 @@
         path: '{{ storage_root }}/nextcloud/html/custom_apps/shake_tags/{{ item }}'
         state: absent
       loop: [node_modules, node_modules.bak, src, package.json, package-lock.json, .gitignore]
+    # 画像OCR検索の認識サービス。up がこのソースからイメージをビルドする。
+    - name: Fetch the OCR service source
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', ocr-service,
+               --repos, '{{ nextcloud_ocr_search.repo }}',
+               --versions, '{{ nextcloud_ocr_search.version }}']
+      register: nextcloud_ocr_service
+      changed_when: "'CHANGED:' in nextcloud_ocr_service.stdout"
     - name: Deploy Nextcloud
       ansible.builtin.command:
         argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', up]
@@ -94,7 +103,7 @@
           - '{{ project_dir }}/media/nextcloud/manage.py'
           - apps
           - --apps
-          - "{{ (nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags']) | join(',') }}"
+          - "{{ (nextcloud_apps | default([]) + ['cups_print', 'localsend_share', 'shake_tags', 'ocr_search']) | join(',') }}"
       register: nextcloud_apps_result
       changed_when: "'CHANGED:' in nextcloud_apps_result.stdout"
     # 作業待ちのボード（ホームラボ）。定義は stacks/media/nextcloud/deck.json。
@@ -168,3 +177,22 @@
       register: nextcloud_tags_config
       changed_when: "'CHANGED:' in nextcloud_tags_config.stdout"
       no_log: true
+    # トークンは manage.py init が media-01 上で生成したもの（secrets/ocr_token）。
+    - name: Point the ocr_search app at the OCR service
+      ansible.builtin.command:
+        argv: [python3, '{{ project_dir }}/media/nextcloud/manage.py', config-ocr]
+      register: nextcloud_ocr_config
+      changed_when: "'CHANGED:' in nextcloud_ocr_config.stdout"
+      no_log: true
+    - name: Install the nightly OCR index units
+      ansible.builtin.template:
+        src: '{{ source_dir }}/media/nextcloud/media-stack-ocr-index.{{ item }}.j2'
+        dest: '/etc/systemd/system/media-stack-ocr-index.{{ item }}'
+        mode: '0644'
+      loop: [service, timer]
+    - name: Enable the nightly OCR index
+      ansible.builtin.systemd:
+        name: media-stack-ocr-index.timer
+        enabled: true
+        state: started
+        daemon_reload: true
