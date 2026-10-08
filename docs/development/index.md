@@ -53,7 +53,7 @@ apps-01のVM再起動では家電も停止します。宅外からの復旧経�
 | [W06 MeTube・音楽変換・タグ編集](W06-music-tools.md) | 移行・新規 | media-01 | 一部完了（同期切替が残り） |
 | [W07 RomM](W07-romm.md) | 新規 | game1 | 一部完了（実装済み・実機未） |
 | [W08 クライアント端末のバックアップ](W08-client-backup.md) | 新規 | media-01・Windows PC・Android | 配備済み（Windows実端末の初回バックアップ・復元が残る） |
-| [W10 Nextcloudの画像OCR検索](W10-ocr-search.md) | 新規 | media-01 | 実装・公開済み（実機配備が未） |
+| [W10 Nextcloudの画像OCR検索](W10-ocr-search.md) | 新規 | media-01 | 配備済み（ブラウザー表示・レシート類の精度確認が残る） |
 | [A01 ポケモンDB・WebUI・agent](A01-pokemon-ai.md) | 移行・参照元取得待ち | DBは apps-01、他は game1 | 一部完了（DBは移行済み） |
 | [A02 Ollama](A02-ollama.md) | 新規・実機検証 | game1 | 一部完了（実装済み・実機未） |
 | [A03 汎用RAG](A03-rag.md) | 新規 | game1 | 計画（未着手） |
