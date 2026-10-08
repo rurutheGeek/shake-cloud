@@ -46,7 +46,7 @@ nextcloud_custom_apps:
     version: 1.0.2
   - name: ocr_search
     repo: rurutheGeek/nextcloud-ocr-search
-    version: 0.1.0
+    version: 0.1.1
 # 画像OCR検索（ocr_search）。認識サービスはアプリと同じリポジトリ・同じ
 # バージョンのソースからローカルビルドするので、バージョンの正本は上の1行。
 nextcloud_ocr_search: "{{ nextcloud_custom_apps | selectattr('name', 'equalto', 'ocr_search') | first }}"

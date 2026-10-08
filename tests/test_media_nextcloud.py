@@ -172,7 +172,7 @@ class OcrServiceTests(unittest.TestCase):
 
     def test_the_image_is_a_local_build_tagged_with_the_release(self):
         self.assertEqual(self.ocr['build'], './ocr-service')
-        self.assertEqual(self.ocr['image'], 'ocr-search-service:${OCR_SERVICE_VERSION:-0.1.0}')
+        self.assertEqual(self.ocr['image'], 'ocr-search-service:${OCR_SERVICE_VERSION:-0.1.1}')
         self.assertIn('archive/refs/tags/v{version}.tar.gz', self.manage)
         self.assertIn("marker.read_text().strip() == version", self.manage)
 

@@ -83,7 +83,7 @@ services:
   # これに依存しない（止まっていてもアップロード・閲覧は動き、画像はキューで待つ）。
   # イメージは manage.py ocr-service が取得したソースからのローカルビルド。
   ocr:
-    image: ocr-search-service:${OCR_SERVICE_VERSION:-0.1.0}
+    image: ocr-search-service:${OCR_SERVICE_VERSION:-0.1.1}
     build: ./ocr-service
     restart: unless-stopped
     environment:
