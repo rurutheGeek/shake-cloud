@@ -164,6 +164,11 @@ class OcrServiceTests(unittest.TestCase):
         self.assertEqual(self.ocr['mem_limit'], '1g')
         self.assertEqual(self.ocr['cpus'], 2)
 
+    def test_it_is_the_first_to_go_when_the_vm_runs_out_of_memory(self):
+        self.assertGreater(self.ocr['oom_score_adj'], 0)
+        for name in ('nextcloud', 'cron', 'postgres', 'redis'):
+            self.assertNotIn('oom_score_adj', COMPOSE['services'][name], name)
+
     def test_it_runs_without_privileges_or_state(self):
         self.assertTrue(self.ocr['read_only'])
         self.assertEqual(self.ocr['cap_drop'], ['ALL'])

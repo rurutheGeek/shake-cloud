@@ -95,6 +95,9 @@ services:
     networks: [ocr]
     mem_limit: 1g
     cpus: 2
+    # VM全体がメモリ不足になったら、まずこのコンテナが止められるようにする
+    # （状態を持たず、止まっても画像はキューで待つ。2026-10-08のOOMを受けて追加）。
+    oom_score_adj: 500
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
