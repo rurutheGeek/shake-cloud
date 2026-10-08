@@ -105,3 +105,4 @@ sudo docker inspect --format='{{index .RepoDigests 0}}' \
 
 - 2026-10-04: 旧ホスト shakeserver から apps-01 へ移行（CSVのまま・自動更新あり）
 - 2026-10-05: UBSLEEPY-next（イメージ固定・セーブDB・多サーバー対応）へ切替。手順と戻し方は[本番切替の手順](ubsleepy-next-switch.md)
+- 2026-10-08: イントロクイズを配備（本番・テスト。イメージは `1931501`）。音源313曲を `state/resource/intro/` に置き、compose にマウントを追加。切替前のファイルは `/opt/ubsleepy(-next)/*.bak-intro`
