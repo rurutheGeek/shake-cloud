@@ -1,0 +1,13 @@
+---
+# 既存の homeguard だけを置き換える。flush ruleset は Docker のテーブルまで
+# 消すので使わない。nftables.service は起動時にこのファイルをそのまま読む。
+- name: Drop the old egress guard
+  ansible.builtin.command: nft delete table inet homeguard
+  failed_when: false
+  changed_when: false
+  listen: Reload nftables
+
+- name: Load the egress guard
+  ansible.builtin.command: nft -f /etc/nftables.conf
+  changed_when: true
+  listen: Reload nftables

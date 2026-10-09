@@ -1,0 +1,27 @@
+# shakeserver: LAN からは入れる。シャケサーバから LAN へは出ない。
+# 返信（established）とゲートウェイ宛だけ通し、tailnet とインターネットは
+# この ruleset の外なのでそのまま。
+# flush ruleset は使わない（Docker の nft テーブルまで消えてしまう）。
+table inet homeguard {
+  chain output {
+    type filter hook output priority 0; policy accept;
+    ct state established,related accept
+    ip daddr {{ home_egress_gateway }} accept
+    ip daddr {{ home_egress_lan }} drop
+    ip6 daddr fe80::/10 drop
+{% if home_egress_ipv6_prefix %}
+    ip6 daddr {{ home_egress_ipv6_prefix }} drop
+{% endif %}
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy accept;
+    ct state established,related accept
+    ip daddr {{ home_egress_gateway }} accept
+    ip daddr {{ home_egress_lan }} drop
+    ip6 daddr fe80::/10 drop
+{% if home_egress_ipv6_prefix %}
+    ip6 daddr {{ home_egress_ipv6_prefix }} drop
+{% endif %}
+  }
+}

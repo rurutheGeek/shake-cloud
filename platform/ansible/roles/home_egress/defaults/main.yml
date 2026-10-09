@@ -1,0 +1,7 @@
+---
+# shakeserver（Raspberry Pi 5、192.168.10.12）の外向きガード。LAN から入るのは
+# 自由だが、シャケサーバから LAN へは出ない（1台が破られても横へ広がらない）。
+# 返信・ゲートウェイ（DNS/NTP/DHCP の相手）・tailnet・インターネットは通る。
+home_egress_interface: eth0
+home_egress_lan: 192.168.10.0/24
+home_egress_gateway: 192.168.10.1

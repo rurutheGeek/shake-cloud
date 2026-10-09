@@ -1,0 +1,12 @@
+---
+# shakeserver の外向きガード。LAN からは入れるが、シャケサーバから LAN へは
+# 出さない（xrdp もここで閉じる）。LAN の監視は tailnet 経由のまま。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#        -i platform/ansible/outpost.ini platform/ansible/home-egress.yml'
+- name: Keep the home server from reaching the rest of the LAN
+  hosts: home
+  become: true
+  roles:
+    - home_egress
