@@ -260,7 +260,7 @@ class DiscoverTests(unittest.TestCase):
 
     NEIGH = """192.168.10.46 dev br-lan lladdr 4C:EF:C0:58:EA:66 REACHABLE
 192.168.10.36 dev br-lan FAILED
-240b:10:b280:2400::1 dev br-lan lladdr 4c:ef:c0:58:ea:66 REACHABLE
+2001:db8:10:2400::1 dev br-lan lladdr 4c:ef:c0:58:ea:66 REACHABLE
 192.168.10.98 dev br-lan lladdr 2c:8d:48:2c:5a:33 STALE
 bad line
 """

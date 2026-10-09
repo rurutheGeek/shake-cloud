@@ -1,6 +1,8 @@
 # データベースの pod へ入れるのは、クラスタ内の相互（複製など）と、
 # 接続先として使う関数（functions namespace）の PostgreSQL（5432）だけ。
 # 接続先は `db-<id>-rw.databases.svc` で、クラスタの外からは届かない。
+# CNPG のオペレーター（cnpg-system）はインスタンスの状態を 8000 で読む。これを
+# 塞ぐとクラスタの作成・フェイルオーバーが進まない。
 # metrics（9187）など他の port は受けない。外向き（egress）は絞らない:
 # CNPG のインスタンスは Kubernetes API と DNS へ出る必要がある。
 apiVersion: networking.k8s.io/v1
@@ -21,3 +23,10 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - protocol: TCP
+          port: 8000

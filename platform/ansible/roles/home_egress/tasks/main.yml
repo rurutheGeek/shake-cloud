@@ -33,6 +33,8 @@
     src: nftables.conf.j2
     dest: /etc/nftables.conf
     mode: '0644'
+    # 文法を誤ったまま置くと、ハンドラが古い表を消したあとで読み込みに失敗する
+    validate: nft -c -f %s
   notify: Reload nftables
 
 - name: Enable the egress guard

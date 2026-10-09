@@ -52,14 +52,32 @@ class GuardTest(unittest.TestCase):
         self.assertEqual([h['ansible.builtin.command'] for h in handlers],
                          ['nft delete table inet homeguard', 'nft -f /etc/nftables.conf'])
 
-    def test_the_template_lets_replies_and_the_gateway_through(self):
+    def test_the_template_lets_replies_and_the_gateway_services_through(self):
         template = read(ROLE / 'templates/nftables.conf.j2')
         self.assertIn('ct state established,related accept', template)
-        self.assertIn('ip daddr {{ home_egress_gateway }} accept', template)
+        self.assertIn('ip daddr {{ home_egress_gateway }} meta l4proto { tcp, udp } th dport 53 accept',
+                      template)
+        self.assertIn('ip daddr {{ home_egress_gateway }} udp dport { 67, 123 } accept', template)
         self.assertIn('ip daddr {{ home_egress_lan }} drop', template)
         # ゲートウェイの許可が LAN の drop より先に来ていること。
-        self.assertLess(template.index('home_egress_gateway }} accept'),
+        self.assertLess(template.index('th dport 53 accept'),
                         template.index('home_egress_lan }} drop'))
+
+    def test_the_router_admin_pages_are_not_reachable(self):
+        # ゲートウェイを丸ごと許可すると LuCI（80/443）と SSH へ届いてしまう。
+        template = read(ROLE / 'templates/nftables.conf.j2')
+        self.assertNotIn('ip daddr {{ home_egress_gateway }} accept', template)
+
+    def test_containers_follow_the_same_rules(self):
+        template = read(ROLE / 'templates/nftables.conf.j2')
+        for hook in ('hook output', 'hook forward'):
+            chain = template.split(hook)[1].split('}')[0]
+            self.assertIn('jump lan', chain)
+
+    def test_ipv6_neighbour_discovery_survives_the_link_local_drop(self):
+        template = read(ROLE / 'templates/nftables.conf.j2')
+        self.assertLess(template.index('nd-neighbor-solicit'),
+                        template.index('ip6 daddr fe80::/10 drop'))
         # Docker の nft テーブルを消さない（消えるとコンテナの通信が壊れる）。
         self.assertNotIn('flush ruleset', [line.strip() for line in template.splitlines()])
 

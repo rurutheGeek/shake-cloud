@@ -117,6 +117,14 @@ class NetworkPolicyTests(unittest.TestCase):
             'kubernetes.io/metadata.name': 'functions'}}}, rule['from'])
         self.assertEqual(rule['ports'], [{'protocol': 'TCP', 'port': 5432}])
 
+    def test_the_cnpg_operator_can_read_instance_status(self):
+        # Without this the operator cannot reconcile the clusters it created.
+        policy = self.load('platform/flux/apps/databases/network-policy.yaml')[0]
+        rule = policy['spec']['ingress'][1]
+        self.assertEqual(rule['from'], [{'namespaceSelector': {'matchLabels': {
+            'kubernetes.io/metadata.name': 'cnpg-system'}}}])
+        self.assertEqual(rule['ports'], [{'protocol': 'TCP', 'port': 8000}])
+
     def test_flux_applies_the_functions_policy(self):
         root = yaml.safe_load((ROOT / 'platform/flux/kustomization.yaml').read_text())
         self.assertIn('apps/functions-network-policy.yaml', root['resources'])
