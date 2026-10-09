@@ -5,15 +5,18 @@ Authentik の forward auth（tls-proxy の Caddy）が付ける Remote-User
 ヘッダーを信頼する。127.0.0.1 にしか公開しないので、直接アクセスは
 Caddy 経由に限られる。
 """
+import csv
 import datetime as dt
+import io
 import os
+import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
-from . import actions
+from . import actions, quizlog
 
 BASE = Path(__file__).resolve().parent
 REGISTRY = os.environ.get('PORTAL_REGISTRY', str(BASE.parent / 'services.yaml'))
@@ -61,29 +64,39 @@ def index(request: Request):
 
 
 @app.get('/service/{name}', response_class=HTMLResponse)
-def detail(request: Request, name: str, tail: int = 200):
+def detail(request: Request, name: str):
     user = current_user(request)
     service = find(name)
-    return render_service(request, user, service, tail=tail)
+    return render_service(request, user, service)
 
 
 def render_service(request: Request, user: str, service: actions.Service,
-                   tail: int = 200, result: dict = None, status_code: int = 200):
+                   result: dict = None, status_code: int = 200):
     state = actions.container_state(service.container)
+    return templates.TemplateResponse(
+        request, 'service.html',
+        {'user': user, 'service': service, 'state': state,
+         'revision': actions.git_revision(service.source_dir),
+         'buttons': service.action_buttons(),
+         'result': result, 'active_tab': 'overview'},
+        status_code=status_code)
+
+
+@app.get('/service/{name}/logs', response_class=HTMLResponse)
+def logs_view(request: Request, name: str, tail: int = 200):
+    user = current_user(request)
+    service = find(name)
     lines = min(max(tail, 10), 1000)
     code, logs = actions.run_command(
         ['docker', 'logs', '--tail', str(lines), '--timestamps', service.container],
         timeout=60)
     if code != 0:
         logs = logs or 'ログを取得できませんでした'
-    files = [actions.read_file_view(spec) for spec in service.files]
     return templates.TemplateResponse(
-        request, 'service.html',
-        {'user': user, 'service': service, 'state': state,
-         'revision': actions.git_revision(service.source_dir),
-         'buttons': service.action_buttons(), 'files': files,
-         'logs': logs, 'tail': lines, 'result': result},
-        status_code=status_code)
+        request, 'logs.html',
+        {'user': user, 'service': service, 'active_tab': 'logs',
+         'state': actions.container_state(service.container),
+         'logs': logs, 'tail': lines})
 
 
 @app.post('/service/{name}/action', response_class=HTMLResponse)
@@ -121,6 +134,124 @@ def do_debug(request: Request, name: str, command: str = Form(''), save: str = F
     audit(user, name, 'debug', code)
     return render_service(request, user, service, result={
         'action': 'debug', 'code': code, 'output': output[-8000:]})
+
+
+@app.get('/service/{name}/logs/download')
+def download_logs(request: Request, name: str):
+    current_user(request)
+    service = find(name)
+    code, logs = actions.run_command(
+        ['docker', 'logs', '--timestamps', service.container], timeout=120)
+    if code != 0:
+        raise HTTPException(status_code=502, detail=logs or 'ログを取得できませんでした')
+    filename = f'{name}-logs-{dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")}.log'
+    return Response(
+        content=logs, media_type='text/plain; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+
+
+@app.get('/service/{name}/db', response_class=HTMLResponse)
+def db_index(request: Request, name: str):
+    user = current_user(request)
+    service = find(name)
+    if not service.db:
+        raise HTTPException(status_code=404, detail=f'{name}: db not configured')
+    view = actions.db_tables(service)
+    return templates.TemplateResponse(
+        request, 'db.html',
+        {'user': user, 'service': service, 'view': view, 'table': None,
+         'needle': '', 'limit': 50, 'offset': 0,
+         'active_tab': 'db'})
+
+
+@app.get('/service/{name}/db/{table}', response_class=HTMLResponse)
+def db_table(request: Request, name: str, table: str,
+             offset: int = 0, limit: int = 50, q: str = ''):
+    user = current_user(request)
+    service = find(name)
+    if not service.db:
+        raise HTTPException(status_code=404, detail=f'{name}: db not configured')
+    try:
+        view = actions.db_rows(service, table, offset=offset, limit=limit, needle=q)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (OSError, RuntimeError, sqlite3.Error) as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return templates.TemplateResponse(
+        request, 'db.html',
+        {'user': user, 'service': service, 'view': view, 'table': table,
+         'needle': q, 'limit': view['limit'], 'offset': view['offset'],
+         'active_tab': 'db'})
+
+
+@app.get('/service/{name}/db/{table}/csv')
+def download_db_csv(request: Request, name: str, table: str, q: str = ''):
+    current_user(request)
+    service = find(name)
+    if not service.db:
+        raise HTTPException(status_code=404, detail=f'{name}: db not configured')
+    try:
+        view = actions.db_export(service, table, needle=q)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (OSError, RuntimeError, sqlite3.Error) as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(view['header'])
+    writer.writerows(view['rows'])
+    filename = f'{name}-{table}-{dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")}.csv'
+    # BOM付きUTF-8（Excelで開いても日本語が化けない）。
+    return Response(
+        content='\ufeff' + output.getvalue(), media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+
+
+def quiz_view(service: actions.Service, quiz: str, days: int, min_answers: int,
+              account: str = '') -> dict:
+    if not service.db or not service.db.get('quiz_log'):
+        raise HTTPException(status_code=404, detail=f'{service.name}: quiz log not configured')
+    try:
+        return quizlog.report(
+            actions.quiz_log_query(service), quiz=quiz, days=days,
+            min_answers=min_answers, user=account)
+    except (OSError, RuntimeError) as error:
+        return {**quizlog.empty_view(days, min_answers, account), 'error': str(error)}
+
+
+@app.get('/service/{name}/quiz', response_class=HTMLResponse)
+def quiz_analysis(request: Request, name: str, quiz: str = '', days: int = quizlog.DEFAULT_DAYS,
+                  min_answers: int = quizlog.DEFAULT_MIN_ANSWERS, account: str = ''):
+    user = current_user(request)
+    service = find(name)
+    view = quiz_view(service, quiz, days, min_answers, account)
+    return templates.TemplateResponse(
+        request, 'quiz.html',
+        {'user': user, 'service': service, 'view': view, 'active_tab': 'quiz'})
+
+
+@app.get('/service/{name}/quiz/csv')
+def download_quiz_csv(request: Request, name: str, kind: str, quiz: str = '',
+                      days: int = quizlog.DEFAULT_DAYS,
+                      min_answers: int = quizlog.DEFAULT_MIN_ANSWERS, account: str = ''):
+    current_user(request)
+    service = find(name)
+    if kind not in quizlog.EXPORTS:
+        raise HTTPException(status_code=404, detail=f'unknown export: {kind}')
+    view = quiz_view(service, quiz, days, min_answers, account)
+    if view.get('error'):
+        raise HTTPException(status_code=502, detail=view['error'])
+    header, rows = quizlog.export(view, kind)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(header)
+    writer.writerows(rows)
+    stamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S')
+    who = f"-{view['user']}" if view.get('user') is not None else ''
+    filename = f"{name}-quiz-{view['quiz']}{who}-{quizlog.EXPORTS[kind][0]}-{stamp}.csv"
+    return Response(
+        content='\ufeff' + output.getvalue(), media_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'})
 
 
 @app.get('/healthz')
