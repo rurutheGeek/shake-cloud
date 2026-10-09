@@ -1,0 +1,18 @@
+# 関数の pod へ入れるのは、入口（Kourier、knative-serving namespace）と
+# 同じ namespace の pod だけ。他の port は受けない。
+# 外向き（egress）は絞らない: 関数のコードは DNS や外部 API を呼べる必要がある。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: functions
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: knative-serving
+        - podSelector: {}

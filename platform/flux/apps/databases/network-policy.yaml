@@ -1,0 +1,23 @@
+# データベースの pod へ入れるのは、クラスタ内の相互（複製など）と、
+# 接続先として使う関数（functions namespace）の PostgreSQL（5432）だけ。
+# 接続先は `db-<id>-rw.databases.svc` で、クラスタの外からは届かない。
+# metrics（9187）など他の port は受けない。外向き（egress）は絞らない:
+# CNPG のインスタンスは Kubernetes API と DNS へ出る必要がある。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: databases
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: functions
+      ports:
+        - protocol: TCP
+          port: 5432

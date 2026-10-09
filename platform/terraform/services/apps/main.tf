@@ -89,16 +89,16 @@ resource "shakecloud_security_group_rule" "print_api" {
   description = "Print API from media-01"
 }
 
-# ポケモン系のPostgreSQL（stacks/pkdb）。旧ホストに残るBotなどが LAN 越しにつなぐ
-# （tailnet からは router-01 のサブネットルート経由で、送信元は LAN のアドレスになる）。
+# ポケモン系のPostgreSQL（stacks/pkdb）。使うのは web-01 の公開サイトだけで、
+# 管理は Adminer（apps-01 の中）かコンテナ内の psql から行う。
 resource "shakecloud_security_group_rule" "pkdb" {
   group_id    = shakecloud_security_group.apps.id
   direction   = "ingress"
   protocol    = "tcp"
   from_port   = 5432
   to_port     = 5432
-  cidr        = local.lan_cidr
-  description = "PostgreSQL (pkdb) from the LAN"
+  cidr        = "192.168.10.102/32"
+  description = "PostgreSQL (pkdb) from web-01"
 }
 
 # node_exporter。監視（monitor-01）だけに開ける。

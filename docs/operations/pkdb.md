@@ -1,6 +1,6 @@
 ---
 title: ポケモン系のPostgreSQL（pkdb）
-updated: 2026-10-05
+updated: 2026-10-09
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ポケモン系のPostgreSQL（pkdb）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）はDBを使いません。
 
@@ -19,7 +19,7 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | 配備先 | apps-01（`192.168.10.105`）。`/opt/pkdb`（Compose・`manage.py`・`secrets/`）、`/srv/pkdb/data`（データ）、`/srv/pkdb/backups`（日次ダンプ） |
-| 接続先 | `pkdb.apextox.dpdns.org:5432`（LAN のみ。tailnet からは router-01 のサブネットルート経由） |
+| 接続先 | `pkdb.apextox.dpdns.org:5432`（**接続できるのは web-01 の公開サイトだけ**。SG の 5432 は `192.168.10.102/32`。管理は Adminer（apps-01 の中）かコンテナ内の psql で、外から来る `postgres` は `pg_hba.conf` が拒否する） |
 | 版 | PostgreSQL 15.15（`postgres:15.15-alpine`、digest固定）。旧ホストと同じ版・同じ musl |
 | DB | `sleepy_pkdb`（スキーマ `pokemondb`）、`shakeweb`、`pkhack` |
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |

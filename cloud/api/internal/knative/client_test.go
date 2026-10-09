@@ -48,7 +48,13 @@ func TestCreateService(t *testing.T) {
 	if gotAuth != "Bearer tok" {
 		t.Fatalf("auth = %q", gotAuth)
 	}
-	for _, want := range []string{`"image":"example/greeter:v1"`, `"shakecloud.io/account":"4856"`} {
+	for _, want := range []string{
+		`"image":"example/greeter:v1"`,
+		`"shakecloud.io/account":"4856"`,
+		`"automountServiceAccountToken":false`,
+		`"limits":{"cpu":"500m","memory":"256Mi"}`,
+		`"requests":{"cpu":"50m","memory":"64Mi"}`,
+	} {
 		if !strings.Contains(gotBody, want) {
 			t.Fatalf("body missing %s: %s", want, gotBody)
 		}
