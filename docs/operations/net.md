@@ -61,6 +61,7 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 | `tag:home` | shakeserver | 外へ出る許可なし |
 | `tag:router` | router-01 | 外へ出る許可なし（subnet router） |
 
+- **ポリシーが絞るのは tailnet の中だけです。** shakeserver と tarakoserver は宅内LANに直接つながっているので、LAN へ出る通信は各機の nftables（`platform/ansible/home-egress.yml`）で止めています。
 - ポリシーの `tests` が壊れたルールを適用前に弾きます（`tag:relay` から管理レンジや他のサーバーの SSH へ届かないこと、など）。`apply` は先に Tailscale 側の検査（`acl/validate`）へ通します。
 - **タグ付けは端末側で再ログインするまで戻せません。** 付け外しは `policy.yaml` の `devices` を直して `apply` します。
 - `status` は `policy.yaml` に無いのにタグが付いた端末も報告します。誰が付けたか分からないタグはここで見つけます。

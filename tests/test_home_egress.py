@@ -24,22 +24,30 @@ class PlaybookTest(unittest.TestCase):
         result = syntax_check(PLAYBOOK)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_it_targets_the_home_group(self):
-        play = yaml.safe_load(read(PLAYBOOK))[0]
-        self.assertEqual(play['hosts'], 'home')
+    def test_it_guards_both_home_servers(self):
+        plays = yaml.safe_load(read(PLAYBOOK))
+        self.assertEqual([play['hosts'] for play in plays], ['home', 'outpost'])
 
-    def test_the_home_group_is_tarakoserver_free(self):
+    def test_only_the_outpost_reaches_the_monitoring_entrance(self):
+        # たらこサーバの外形監視が見る入口（core-01 の 443）だけが例外。
+        home, outpost = yaml.safe_load(read(PLAYBOOK))
+        self.assertNotIn('home_egress_allow', home['roles'][0].get('vars', {}))
+        self.assertEqual(outpost['roles'][0]['vars']['home_egress_allow'],
+                         [{'address': '192.168.10.200', 'port': 443}])
+
+    def test_the_inventory_names_both_hosts(self):
         text = read(INVENTORY)
-        home = text.split('[home]')[1]
-        self.assertIn('shakeserver', home)
-        self.assertNotIn('tarakoserver', home)
+        self.assertIn('shakeserver', text.split('[home]')[1])
+        self.assertIn('tarakoserver', text.split('[outpost]')[1].split('[')[0])
 
 
 class GuardTest(unittest.TestCase):
-    def test_xrdp_is_stopped_and_disabled(self):
+    def test_xrdp_is_stopped_and_disabled_on_the_home_server(self):
+        home = yaml.safe_load(read(PLAYBOOK))[0]
+        self.assertEqual(home['roles'][0]['vars']['home_egress_disable_units'],
+                         ['xrdp', 'xrdp-sesman'])
         tasks = yaml.safe_load(read(ROLE / 'tasks/main.yml'))
-        task = [t for t in tasks if 'xrdp' in t.get('name', '')][0]
-        self.assertEqual(task['loop'], ['xrdp', 'xrdp-sesman'])
+        task = [t for t in tasks if 'does not need' in t.get('name', '')][0]
         self.assertFalse(task['ansible.builtin.systemd']['enabled'])
         self.assertEqual(task['ansible.builtin.systemd']['state'], 'stopped')
 
@@ -81,12 +89,17 @@ class GuardTest(unittest.TestCase):
         # Docker の nft テーブルを消さない（消えるとコンテナの通信が壊れる）。
         self.assertNotIn('flush ruleset', [line.strip() for line in template.splitlines()])
 
-    def test_the_ipv6_prefix_comes_from_the_router_advertisement(self):
+    def test_the_ipv6_prefix_is_read_from_the_interface(self):
         tasks = yaml.safe_load(read(ROLE / 'tasks/main.yml'))
         task = [t for t in tasks if 'Find the on-link IPv6 prefix' in t.get('name', '')][0]
-        self.assertIn('proto ra', task['ansible.builtin.command'])
+        self.assertIn('ip -6 route show dev', task['ansible.builtin.command'])
         template = read(ROLE / 'templates/nftables.conf.j2')
         self.assertIn('home_egress_ipv6_prefix', template)
+
+    def test_exceptions_come_before_the_lan_drop(self):
+        template = read(ROLE / 'templates/nftables.conf.j2')
+        self.assertLess(template.index('home_egress_allow'),
+                        template.index('home_egress_lan }} drop'))
 
     def test_loopback_and_tailnet_are_not_named(self):
         # いずれもデフォルト accept のまま。名前を足すと閉じてしまう。

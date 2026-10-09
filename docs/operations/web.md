@@ -111,6 +111,8 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - 公開サイト: `shake`・`pkhack`・`ayahuya`・ルート
 - 監視の入口: `grafana.apextox.dpdns.org`（monitor-01）
 
+たらこサーバから LAN へ出る通信は `home-egress.yml` で止めてあり、通すのはこの監視が見る入口（core-01 の 443）だけ。
+
 コードとユーザーは [配備台帳](handover.md) を参照。状態はたらこサーバの `/var/lib/public-monitor/` に残る。
 
 ## 検証

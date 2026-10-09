@@ -1,4 +1,4 @@
-# shakeserver: LAN からは入れる。シャケサーバから LAN へは出ない。
+# 宅内LANの物理サーバ: LAN からは入れる。サーバから LAN へは出ない。
 # 返信（established）と、ゲートウェイの DNS・DHCP・NTP・ping だけ通す。
 # ルータの管理画面（80/443）と SSH へは出さない。tailnet とインターネットは
 # この ruleset の外なのでそのまま。
@@ -8,6 +8,9 @@ table inet homeguard {
     ip daddr {{ home_egress_gateway }} meta l4proto { tcp, udp } th dport 53 accept
     ip daddr {{ home_egress_gateway }} udp dport { 67, 123 } accept
     ip daddr {{ home_egress_gateway }} icmp type echo-request accept
+{% for target in home_egress_allow %}
+    ip daddr {{ target.address }} tcp dport {{ target.port }} accept
+{% endfor %}
     ip daddr {{ home_egress_lan }} drop
     # 近隣探索とルータ要請は IPv6 が動くために要る（リンクローカル宛でも通す）
     icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit } accept

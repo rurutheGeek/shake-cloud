@@ -116,6 +116,7 @@ flowchart TB
 | ネットワーク絞り | セキュリティグループ（VM単位のFW）。効かせるには VM の有効化・NICの `firewall=1`・ルール本体の3つが揃う必要がある |
 | 中継コンテナ | `eufy-security-ws` は `172.31.254.1:3000` にだけbindし、LANへは出さない |
 | 監査ログ | APIの操作を記録する。削除保護は作らない |
+| 宅内の物理サーバ → LAN | 返信と、ゲートウェイの DNS・DHCP・NTP。tarakoserver だけ監視の入口（core-01 の 443） | shakeserver・tarakoserver から LAN 内の他の機器への通信。各機の nftables で落とす（`platform/ansible/home-egress.yml`）。コンテナからの通信も同じ |
 
 ## 5. 守らないと決めたこと
 
