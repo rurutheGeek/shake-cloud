@@ -21,7 +21,7 @@ tags:
 ## 1. 準備
 
 1. ポータルで**読み取り専用**のアクセスキーを発行します（<https://cloud.apextox.dpdns.org> → ログイン →「アクセスキー」→ 権限「読み取り専用」）。用途には `MCP` などと書きます。
-2. ビルドします。Go の版は `cloud/mcp/go.mod`（1.27.1）に合わせます。
+2. ビルドします。Go の版は `cloud/mcp/go.mod`（1.27.2）に合わせます。
 
 ```bash
 cd cloud/mcp
