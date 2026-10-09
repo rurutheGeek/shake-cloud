@@ -1,0 +1,13 @@
+---
+# 公開の中継（negitoroserver）。Cloudflare から受けた 80/443 を tailnet の
+# web-01 へ渡すだけのノード。2026-10-09 に shake-infra の proxy ロールから
+# 移した（shake-infra のセルフホストランナー廃止のため）。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#        -i platform/ansible/outpost.ini platform/ansible/public-relay.yml'
+- name: Serve the public sites from the university relay
+  hosts: relay
+  become: true
+  roles:
+    - public_relay

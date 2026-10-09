@@ -1,0 +1,8 @@
+log_format stream_log "$time_local $remote_addr -> $upstream_addr [$status]";
+access_log /var/log/nginx/stream_access.log stream_log;
+
+server {
+    listen {{ public_relay_https_port }};
+    proxy_pass {{ public_relay_web_upstream }}:{{ public_relay_https_port }};
+    proxy_protocol on;
+}

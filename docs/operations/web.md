@@ -55,7 +55,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 1. `shake-infra#26` で `negitoroserver` の `stream_proxy.conf`（443）と `sslh`（80）の向き先を web-01 の tailnet IP へ変更した。
 2. GitHub Actions「アプリからの自動デプロイ」→ `target=proxy` で適用し、HSTS ヘッダで切替を確認した。
 3. 旧ホストの Web コンテナを停止し、`restart=no` にした（ボリュームは残す）。
-4. **残り**: shake-infra の CD（repository_dispatch → `deploy_shakeweb` など）は旧ホスト向けのまま。旧ホストの Web コンテナは停止しているため実害は無いが、`deploy_shakeweb` を流すと停止中のコンテナへ配備を試みる。整理するまで shake-web / pkhack の `main` へ push した際の自動デプロイは止めておくのが安全。
+4. **2026-10-09 追記**: shake-infra のセルフホストランナーを廃止したため、CD（repository_dispatch → `deploy_shakeweb` など）はもう動かない（ワークフローは残置）。公開サイトの更新は web-01 の `shake-web-update.timer`（5分ごと）だけ。中継ノードの配備は `public-relay.yml` が引き継いだ。
 
 ## 既知の不具合
 
@@ -87,6 +87,18 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
 **Tailscale の ACL は `platform/tailscale/policy.yaml` が正本で、2026-10-09 に適用した**（[Tailscale](net.md)）。`negitoroserver` には `tag:relay` を付け、届く先は `web-01`（`tag:web`）の 80/443 だけ。`tag:relay` には LAN のサブネットルートも SSH も無い。管理コンソールで直接編集せず、差分があれば `tools/tailscale-net.py apply` で戻す。
+
+**中継ノードの配備は `platform/ansible/public-relay.yml`（ロール `public_relay`、`outpost.ini` の `relay`）が正本。** 2026-10-09 に shake-infra の `proxy` ロールから移した（shake-infra のセルフホストランナー廃止のため）。
+
+```bash
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+     -i platform/ansible/outpost.ini platform/ansible/public-relay.yml'
+```
+
+- sshd はパスワード認証を閉じる（cloud-init の `50-cloud-init.conf` より先に読ませる drop-in で上書き）。
+- ufw は **SSH は `tailscale0` だけ、80 は全体、443 は Cloudflare の公開IPレンジだけ**。443 を直結されると PROXY protocol のクライアントIPを偽装できるため、許可しない。レンジは配備時に Cloudflare の公開リストと比べ、違えば失敗する（`public_relay_cloudflare_ipv4` / `_ipv6` を更新して再実行）。
+- `tailscale --accept-routes` は無効（LAN のルートを持たない）。Minecraft（25565）への中継は無い。
 
 ### プロキシ（negitoroserver）の侵害に備えて
 
