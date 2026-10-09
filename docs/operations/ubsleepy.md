@@ -43,6 +43,7 @@ tags:
 `/srv/<プロジェクト>/state/`
 - `config.json`（全体設定とギルドの既定値。設定の実体はDB）
 - `save/`・`log/`・`resource/pokemon_senryu.csv`・`resource/image/`
+- `resource/intro/`（イントロクイズの音源 `clips/` と曲リスト `manifest.csv`。UBSLEEPY-next の `tools/build_intro_clips.py` で作って置く。作り直せるのでバックアップには入れない）
 
 秘密の原本は `platform/sops/ubsleepy.sops.yaml`（`DISCORD_TOKEN` / `TEST_DISCORD_TOKEN` / `PKDB_PASSWORD` / `UBSLEEPY_DB_PASSWORD`）。
 
@@ -104,3 +105,4 @@ sudo docker inspect --format='{{index .RepoDigests 0}}' \
 
 - 2026-10-04: 旧ホスト shakeserver から apps-01 へ移行（CSVのまま・自動更新あり）
 - 2026-10-05: UBSLEEPY-next（イメージ固定・セーブDB・多サーバー対応）へ切替。手順と戻し方は[本番切替の手順](ubsleepy-next-switch.md)
+- 2026-10-08: イントロクイズを配備（本番・テスト。イメージは `1931501`）。音源313曲を `state/resource/intro/` に置き、compose にマウントを追加。切替前のファイルは `/opt/ubsleepy(-next)/*.bak-intro`

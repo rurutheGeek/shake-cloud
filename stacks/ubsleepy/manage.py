@@ -26,9 +26,10 @@ DB_SECRETS = {
     'PKDB_PASSWORD': 'pkdb_password',
     'UBSLEEPY_DB_PASSWORD': 'ubsleepy_db_password',
 }
-STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry')
+STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry', 'resource/intro')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
-# バックアップに入れるもの。鳴き声（resource/cry）は再取得できるので含めない。
+# バックアップに入れるもの。鳴き声（resource/cry）は再取得でき、イントロの音源
+# （resource/intro）は UBSLEEPY-next の tools/build_intro_clips.py で作り直せるので含めない。
 BACKUP_DIRECTORIES = ('save', 'log', 'resource/image')
 STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
 
