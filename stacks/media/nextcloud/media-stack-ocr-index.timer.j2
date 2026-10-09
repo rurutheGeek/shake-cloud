@@ -1,0 +1,9 @@
+[Unit]
+Description=Index the text in Nextcloud images every night
+
+[Timer]
+OnCalendar={{ nextcloud_ocr_index_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

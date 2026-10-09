@@ -23,7 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CONTAINER_UID = 33
 CONTAINER_GID = 33
-SECRETS = ('postgres_password', 'nextcloud_admin_password')
+SECRETS = ('postgres_password', 'nextcloud_admin_password', 'ocr_token')
+OCR_URL = 'http://ocr:8080'
 
 
 def settings():
@@ -302,6 +303,74 @@ def custom_apps(names, repos, versions):
         chown_tree(target)
         marker.write_text(version + '\n')
         print(f'CHANGED: custom app installed: {name} {version}')
+
+
+def ocr_service(repo, version):
+    """Fetch the OCR service source for the image Compose builds locally.
+
+    The service lives in `server/` of the ocr_search app's repository and is
+    released together with the app, so one version pins both. A `.version`
+    marker keeps redeploys idempotent.
+    """
+    target = ROOT / 'ocr-service'
+    marker = target / '.version'
+    if marker.exists() and marker.read_text().strip() == version:
+        print(f'OK: OCR service source up to date: {version}')
+        return
+    url = f'https://github.com/{repo}/archive/refs/tags/v{version}.tar.gz'
+    with urllib.request.urlopen(url, timeout=120) as response:
+        archive = response.read()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'source.tar.gz'
+        path.write_bytes(archive)
+        with tarfile.open(path) as tar:
+            top = ocr_service_members(tar)
+            try:
+                tar.extractall(tmp, filter='data')
+            except TypeError:  # Python < 3.11.4 has no extraction filters
+                tar.extractall(tmp)
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(Path(tmp) / top / 'server'), target)
+    marker.write_text(version + '\n')
+    print(f'CHANGED: OCR service source fetched: {version}')
+
+
+def ocr_service_members(tar):
+    """Return the archive's top folder after checking it holds `server/`."""
+    tops = set()
+    for member in tar.getmembers():
+        parts = Path(member.name).parts
+        if member.name.startswith('/') or '..' in parts or not parts:
+            raise ValueError(f'Unsafe path in the OCR service archive: {member.name}')
+        tops.add(parts[0])
+    if len(tops) != 1:
+        raise ValueError('The OCR service archive must have one top-level folder')
+    top = tops.pop()
+    if f'{top}/server/Dockerfile' not in tar.getnames():
+        raise ValueError('The OCR service archive has no server/Dockerfile')
+    return top
+
+
+def config_ocr():
+    """Point the ocr_search app at the OCR service of this Compose project.
+
+    The token is the one init generated for both sides; it never leaves the
+    host.
+    """
+    token = (ROOT / 'secrets' / 'ocr_token').read_text().strip()
+    config_app('ocr_search', (('ocr_url', OCR_URL), ('ocr_token', token)))
+
+
+def ocr_index(max_runtime):
+    """Queue the images that are not indexed yet and work through the queue.
+
+    Run at night by the media-stack-ocr-index timer. Uploads are indexed by
+    Nextcloud's own background job; this picks up existing images and files
+    that reached the library without passing through Nextcloud.
+    """
+    occ('ocr_search:index')
+    occ('ocr_search:process', '--max-runtime', str(max_runtime))
 
 
 def remove_apps(names):
@@ -691,12 +760,15 @@ def main():
                         choices=['init', 'lock', 'up', 'upgrade', 'setup', 'apps',
                                  'custom-apps', 'remove-apps',
                                  'config-notes', 'config-print', 'config-localsend',
-                                 'config-tags', 'config-deck', 'import-calendar', 'status', 'down'])
+                                 'config-tags', 'config-deck', 'config-ocr', 'ocr-service',
+                                 'ocr-index', 'import-calendar', 'status', 'down'])
     parser.add_argument('--apps', dest='app_names', help='Comma-separated Nextcloud app IDs')
     parser.add_argument('--repos', dest='app_repos',
                         help='Comma-separated GitHub repositories for custom-apps')
     parser.add_argument('--versions', dest='app_versions',
                         help='Comma-separated release versions for custom-apps')
+    parser.add_argument('--max-runtime', dest='max_runtime', type=int, default=3600,
+                        help='Seconds ocr-index may spend on recognition')
     parser.add_argument('--user', dest='calendar_user',
                         help='Nextcloud user id for import-calendar')
     parser.add_argument('--file', dest='calendar_file',
@@ -747,6 +819,14 @@ def main():
         config_tags()
     elif args.action == 'config-deck':
         config_deck(args.calendar_file or str(ROOT / 'deck.json'))
+    elif args.action == 'config-ocr':
+        config_ocr()
+    elif args.action == 'ocr-service':
+        if not (args.app_repos and args.app_versions):
+            raise ValueError('Use --repos owner/name and --versions x.y.z with the ocr-service action')
+        ocr_service(args.app_repos, args.app_versions)
+    elif args.action == 'ocr-index':
+        ocr_index(args.max_runtime)
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':
