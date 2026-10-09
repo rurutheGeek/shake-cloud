@@ -135,6 +135,7 @@ class DeploymentTests(unittest.TestCase):
             {'database': 'sleepy_pkdb', 'file': 'entry_learnsets.sql'},
             {'database': 'sleepy_pkdb', 'file': 'entry_evolution.sql'},
             {'database': 'sleepy_pkdb', 'file': 'entry_rankings.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'app_intro.sql'},
             {'database': 'postgres', 'file': 'ubsleepy.sql'},
             {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
             {'database': 'ubsleepy_test', 'file': 'ubsleepy_tables.sql'},
