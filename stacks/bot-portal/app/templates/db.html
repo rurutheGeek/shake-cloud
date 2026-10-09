@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ service.title }} のDB - Botポータル{% endblock %}
+{% block content %}
+<p><a href="/service/{{ service.name }}">← {{ service.title }}</a></p>
+<h1>{{ service.title }} のDB</h1>
+<p class="lead">
+  {% if service.db.kind == 'sqlite' %}
+    SQLite <code>{{ service.db.path }}</code> を読み取り専用で開いています。
+  {% else %}
+    PostgreSQL <code>{{ service.db.database }}</code>（{{ service.db.container }}・読み取り専用ユーザー <code>{{ service.db.user }}</code>）を読み取り専用で開いています。
+  {% endif %}
+</p>
+
+<div class="tabs">{% include "_tabs.html" %}</div>
+
+{% if view.error %}
+<div class="result fail">{{ view.error }}</div>
+{% elif view.tables %}
+<div class="card">
+  <h2>テーブル</h2>
+  <table>
+    <thead><tr><th>テーブル</th><th>行数</th></tr></thead>
+    <tbody>
+      {% for item in view.tables %}
+      <tr>
+        <td><a href="/service/{{ service.name }}/db/{{ item.name }}"><code>{{ item.name }}</code></a></td>
+        <td>{{ item.rows }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+{% set shown = view.rows | length %}
+<div class="card">
+  <h2><code>{{ table }}</code> <span class="meta">全 {{ view.total }} 行</span></h2>
+  <form class="toolbar" method="get" action="/service/{{ service.name }}/db/{{ table }}">
+    <label>絞り込み <input type="text" name="q" value="{{ needle }}" placeholder="全列の部分一致"></label>
+    <label>1ページ <input type="number" name="limit" value="{{ limit }}" min="10" max="200" step="10"></label>
+    <button type="submit" class="neutral">表示</button>
+    <a href="/service/{{ service.name }}/db/{{ table }}/csv?q={{ needle | urlencode }}" class="button neutral">CSVダウンロード</a>
+  </form>
+  {% if view.total %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>{% for column in view.header %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in view.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="toolbar" style="margin-top:0.7rem">
+    {% if view.offset > 0 %}<a href="/service/{{ service.name }}/db/{{ table }}?q={{ needle | urlencode }}&limit={{ limit }}&offset={{ [view.offset - limit, 0] | max }}">← 前へ</a>{% endif %}
+    <span class="meta">{{ view.offset + 1 }}–{{ view.offset + shown }} / {{ view.total }}</span>
+    {% if view.offset + shown < view.total %}<a href="/service/{{ service.name }}/db/{{ table }}?q={{ needle | urlencode }}&limit={{ limit }}&offset={{ view.offset + limit }}">次へ →</a>{% endif %}
+  </div>
+  {% else %}
+  <p class="meta">該当する行はありません。</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

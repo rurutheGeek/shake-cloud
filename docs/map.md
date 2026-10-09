@@ -177,7 +177,7 @@ flowchart TB
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
-| [Botポータル](operations/bot-portal.md) | 2026-10-04 | `ops` `discord` |
+| [Botポータル](operations/bot-portal.md) | 2026-10-09 | `ops` `discord` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-03 | `ops` `storage` `nfs` |
 | [サークル認証Bot（CIRCLEAUTH）](operations/circleauth.md) | 2026-10-04 | `ops` `discord` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |

@@ -55,6 +55,8 @@
   .result.fail { border-color: var(--danger); background: #fef2f2; }
   .checks { margin: 0; padding-left: 1.2rem; }
   .checks li { margin-bottom: 0.45rem; line-height: 1.5; }
+  .links { margin: 0; padding-left: 1.2rem; }
+  .links li { margin-bottom: 0.45rem; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
   th { color: var(--muted); font-weight: 600; }
@@ -62,6 +64,25 @@
   .toolbar { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.7rem; }
   .toolbar input[type=number] { width: 6rem; padding: 0.35rem; border: 1px solid var(--line); border-radius: 5px; }
   .legend { display: flex; gap: 1rem; flex-wrap: wrap; color: var(--muted); font-size: 0.85rem; }
+  .tabs { margin-top: 1.2rem; }
+  .tab-bar { display: flex; gap: 0.25rem; border-bottom: 2px solid var(--line); margin-bottom: 1rem; }
+  .tab { padding: 0.5rem 1rem; text-decoration: none; color: var(--muted); border-radius: 6px 6px 0 0; font-weight: 600; font-size: 0.95rem; }
+  .tab:hover { background: #eef2f7; color: var(--ink); }
+  .tab.active { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-bottom-color: var(--card); margin-bottom: -2px; }
+  .button { display: inline-block; font: inherit; border: 0; border-radius: 6px; padding: 0.55rem 0.95rem; cursor: pointer; font-weight: 700; text-decoration: none; }
+  .button.neutral { background: #475569; color: #fff; }
+  .button.neutral:hover { background: #334155; }
+  .toolbar select { font: inherit; padding: 0.35rem; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rate { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
+  .rate .bar { width: 90px; height: 8px; background: #eef2f7; border-radius: 4px; overflow: hidden; }
+  .rate .bar span { display: block; height: 100%; background: var(--ng); }
+  .rate.good .bar span { background: var(--ok); }
+  .tag { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 4px; font-size: 0.78rem; font-weight: 700; background: #eef2f7; color: var(--muted); white-space: nowrap; }
+  .tag.hit { background: #fef3c7; color: var(--warn); }
+  tr.current td { background: #f5f8ff; }
+  .card-head { display: flex; gap: 0.8rem; align-items: baseline; flex-wrap: wrap; justify-content: space-between; }
+  .card-head a { font-size: 0.85rem; white-space: nowrap; }
 </style>
 </head>
 <body>
