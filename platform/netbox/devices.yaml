@@ -371,12 +371,12 @@ devices:
   - name: negitoroserver
     device_type: Raspberry Pi Zero 2 W
     role: Server
-    description: Raspberry Pi Zero 2 W（リモート。eth0 がグローバル IP・Tailscale 参加）
+    description: Raspberry Pi Zero 2 W（リモート。外部の中継ホスト。Tailscale 参加）
     purchase_date: 2026-03-24
     purchase_from: パソコンパーツのグラプラス
     price_jpy: 3699
     comments: |
-      eth0: 133.80.183.83 / Tailscale: 100.92.253.28
+      IP アドレスは公開リポジトリに置かない
       （技適あり）
     dhcp: false
     interfaces:
@@ -636,14 +636,12 @@ devices:
     description: 2.5インチ 1TB（旧ノートPC引き取り）
     comments: |
       通電971時間・SMART PASSED。G-Sense が多く長期保管には不向き
-    serial: WD-WXB1C22E3421
   - name: hdd-toshiba-mk1255gsx-1
     device_type: MK1255GSX
     role: Storage
     description: 2.5インチ 120GB（旧ノートPC引き取り）
     comments: |
       通電2,285時間・SMART PASSED
-    serial: Z9BGPD03T
   - name: ssd-samsung-t7-1
     device_type: T7 1TB
     role: Storage

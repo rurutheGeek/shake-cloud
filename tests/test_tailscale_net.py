@@ -86,20 +86,59 @@ class ConfigurationTests(unittest.TestCase):
 
 
 class PolicyTests(unittest.TestCase):
-    def test_the_legacy_allow_all_is_recognised(self):
-        summary = tailscale_net.acl_summary(
-            '{"acls": [{"action": "accept", "src": ["*"], "dst": ["*:*"]}]}')
-        self.assertIn('allow all', summary)
+    def setUp(self):
+        self.policy, self.devices = tailscale_net.load_declaration()
 
-    def test_the_grants_form_of_allow_all_is_recognised(self):
-        summary = tailscale_net.acl_summary(
-            '{"grants": [{"src": ["*"], "dst": ["*"], "ip": ["*"]}]}')
-        self.assertIn('allow all', summary)
+    def test_a_matching_policy_is_no_change(self):
+        self.assertEqual(tailscale_net.policy_changes(dict(self.policy), self.policy), [])
 
-    def test_a_port_restricted_policy_is_not_called_allow_all(self):
-        summary = tailscale_net.acl_summary(
-            '{"grants": [{"src": ["*"], "dst": ["*"], "ip": ["tcp:443"]}]}')
-        self.assertNotIn('DNS も許可されている', summary)
+    def test_an_edit_in_the_console_names_the_section(self):
+        current = dict(self.policy, acls=[{'action': 'accept', 'src': ['*'], 'dst': ['*:*']}])
+        self.assertEqual(tailscale_net.policy_changes(current, self.policy), ['acls'])
+
+    def test_an_empty_section_equals_a_missing_one(self):
+        # The API omits `ssh` when it is empty; that is not a difference.
+        current = {key: value for key, value in self.policy.items() if key != 'ssh'}
+        self.assertEqual(tailscale_net.policy_changes(current, self.policy), [])
+
+    def test_only_people_reach_everything(self):
+        # A tagged server that is broken into must not inherit "*:*".
+        for rule in self.policy['acls']:
+            if any(dst.startswith('*') for dst in rule['dst']):
+                self.assertEqual(rule['src'], ['autogroup:member'])
+
+    def test_the_public_relay_reaches_only_the_web_ports(self):
+        rules = [rule for rule in self.policy['acls'] if 'tag:relay' in rule['src']]
+        self.assertEqual([rule['dst'] for rule in rules], [['tag:web:80,443']])
+
+    def test_every_tag_in_use_is_owned_and_tested(self):
+        tags = {tag for wanted in self.devices.values() for tag in wanted}
+        self.assertEqual(tags, set(self.policy['tagOwners']))
+        self.assertEqual(tags, {test['src'] for test in self.policy['tests']})
+
+    def test_the_relay_is_denied_the_management_plane(self):
+        relay = next(test for test in self.policy['tests'] if test['src'] == 'tag:relay')
+        for target in ('192.168.10.10:8006', '192.168.10.1:443', 'tag:home:22'):
+            self.assertIn(target, relay['deny'])
+
+
+class TagTests(unittest.TestCase):
+    def test_a_missing_tag_is_a_change(self):
+        devices = [{'hostname': 'web-01', 'id': '1', 'tags': []}]
+        ((device, current, wanted),) = tailscale_net.tag_changes(devices, {'web-01': ['tag:web']})
+        self.assertEqual((device['id'], current, wanted), ('1', [], ['tag:web']))
+
+    def test_matching_tags_are_no_change(self):
+        devices = [{'hostname': 'web-01', 'id': '1', 'tags': ['tag:web']}]
+        self.assertEqual(tailscale_net.tag_changes(devices, {'web-01': ['tag:web']}), [])
+
+    def test_a_declared_device_that_is_absent_is_an_error(self):
+        with self.assertRaises(tailscale_net.TailscaleError):
+            tailscale_net.tag_changes([], {'web-01': ['tag:web']})
+
+    def test_a_hand_tagged_device_is_reported(self):
+        devices = [{'hostname': 'stray', 'tags': ['tag:web']}, {'hostname': 'phone'}]
+        self.assertEqual(tailscale_net.undeclared_tags(devices, {}), ['stray'])
 
 
 if __name__ == '__main__':

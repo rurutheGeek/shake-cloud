@@ -1,6 +1,6 @@
 ---
 title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
-updated: 2026-10-05
+updated: 2026-10-09
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
+**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残したが、**2026-10-09 のセキュリティ対応で Minecraft の2コンテナ（`shake_minecraft-pixelmon1.21.1`・`-backup`）を停止し `restart=no` にした**（旧DBは稼働中。公開方法は未決定）。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
 
 ## 構成
 
@@ -86,11 +86,10 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+**Tailscale の ACL は `platform/tailscale/policy.yaml` が正本で、2026-10-09 に適用した**（[Tailscale](net.md)）。`negitoroserver` には `tag:relay` を付け、届く先は `web-01`（`tag:web`）の 80/443 だけ。`tag:relay` には LAN のサブネットルートも SSH も無い。管理コンソールで直接編集せず、差分があれば `tools/tailscale-net.py apply` で戻す。
 
-### プロキシ（negitoroserver）の侵害に備えて（提案）
+### プロキシ（negitoroserver）の侵害に備えて
 
-- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
 ## 外からの監視（たらこサーバ）

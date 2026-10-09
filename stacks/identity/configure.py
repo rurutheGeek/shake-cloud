@@ -591,6 +591,16 @@ def bind_group(api, target, group, order=10):
     return True
 
 
+def unbind_group(api, target, group):
+    """Take one group's access to an application away; return whether it was removed."""
+    removed = False
+    for row in api.rows(f'policies/bindings/?target={target}'):
+        if row.get('group') == group:
+            api.call('DELETE', f"policies/bindings/{row['pk']}/")
+            removed = True
+    return removed
+
+
 def outpost_body(current, provider_pks, zone):
     """Union the outpost's providers and point it at https://auth.<zone>.
 
@@ -785,10 +795,16 @@ def configure_mail_view(api, groups, flows, portal_url):
         'meta_launch_url': f'https://{MAIL_VIEW}.{zone}',
         'policy_engine_mode': 'any',
     })
-    if bind_group(api, application['pk'], groups['users']['pk']):
-        print(f'CHANGED: users may use {MAIL_VIEW}')
+    # 同じ受信箱に Authentik の招待・復旧リンクも届くので、管理者だけに開く。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {MAIL_VIEW}')
     else:
-        print(f'OK: users may use {MAIL_VIEW}')
+        print(f'OK: admins may use {MAIL_VIEW}')
+    # 以前は users に開けていた。既存の環境に残る束縛を外す。
+    if unbind_group(api, application['pk'], groups['users']['pk']):
+        print(f'CHANGED: users may no longer use {MAIL_VIEW}')
+    else:
+        print(f'OK: users have no access to {MAIL_VIEW}')
     ensure_outpost(api, [provider['pk']], zone, 'mail-view forward-auth provider')
 
 

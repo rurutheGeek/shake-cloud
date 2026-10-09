@@ -211,8 +211,7 @@ class TlsProxyTests(unittest.TestCase):
         for name in ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
-            self.assertIn('request_header -Remote-User', block, name)
-            self.assertIn('request_header -X-Authentik-Username', block, name)
+            self.assertIn('import strip_identity', block, name)
             self.assertIn('copy_headers X-Authentik-Username', block, name)
             self.assertIn('header_up Remote-User sso_{http.request.header.X-Authentik-Username}', block, name)
             self.assertIn('header_up -X-Authentik-Username', block, name)
@@ -230,6 +229,48 @@ class TlsProxyTests(unittest.TestCase):
         for name in ('nextcloud', 'kavita', 'freshrss', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)
+            self.assertIn('import strip_identity', site_block(rendered, name), name)
+
+    def strip_snippet(self, rendered):
+        snippet = re.search(r'^\(strip_identity\) \{\n(.*?)^\}', rendered, re.M | re.S)
+        self.assertIsNotNone(snippet)
+        return snippet.group(1)
+
+    def test_every_proxying_site_strips_client_identity_headers(self):
+        names = [CLOUD_INSTANCE_ID, CLOUD_NAME]
+        sites = [{'key': name, 'value': record} for name, record in DNS['records'].items()
+                 if record.get('host') in names and 'upstream' in record]
+        variants = {
+            'plain': caddyfile(sites),
+            'edge-backend': caddyfile(sites, tls_proxy_behind_edge=True, tls_proxy_edge_address='192.0.2.1'),
+            'catchall': caddyfile(sites, tls_proxy_catchall_upstream='127.0.0.1:9000'),
+        }
+        for label, rendered in variants.items():
+            snippet = self.strip_snippet(rendered)
+            self.assertIn('request_header -Remote-User', snippet, label)
+            self.assertIn('request_header -X-Authentik-Username', snippet, label)
+            blocks = re.split(r'^(?=\S.* \{$)', rendered, flags=re.M)
+            proxying = [b for b in blocks if 'reverse_proxy' in b and not b.startswith('(')]
+            self.assertGreaterEqual(len(proxying), len(sites), label)
+            for block in proxying:
+                self.assertIn('import strip_identity', block, f'{label}: {block.splitlines()[0]}')
+
+    def test_navidrome_api_strips_remote_user_before_proxying(self):
+        sites = [{'key': 'navidrome-api', 'value': DNS['records']['navidrome-api']}]
+        rendered = caddyfile(sites)
+        block = site_block(rendered, 'navidrome-api')
+        self.assertNotIn('forward_auth', block)
+        self.assertIn('import strip_identity', block)
+        self.assertLess(block.index('import strip_identity'), block.index('reverse_proxy'))
+        self.assertIn('request_header -Remote-User', self.strip_snippet(rendered))
+
+    def test_passthrough_sites_and_the_catchall_strip_identity_headers(self):
+        passthrough = [{'key': 'relayed', 'address': '192.0.2.5',
+                        'value': {'description': 'x', 'host': 'apps-01'}}]
+        rendered = caddyfile([], tls_proxy_passthrough_sites=passthrough,
+                             tls_proxy_catchall_upstream='127.0.0.1:9000')
+        self.assertIn('import strip_identity', site_block(rendered, 'relayed'))
+        self.assertIn('import strip_identity', rendered[rendered.index(':443 {'):])
 
     def test_the_rendered_caddyfile_keeps_the_plain_sites_unchanged(self):
         sites = [{'key': 'cloud', 'value': DNS['records']['cloud']}]
@@ -309,7 +350,8 @@ class EdgeRenderingTests(unittest.TestCase):
         self.assertIn('skip_install_trust', rendered)
         # Forward Auth and the header hygiene stay on the host that runs the app.
         navidrome = site_block(rendered, 'navidrome')
-        self.assertIn('request_header -Remote-User', navidrome)
+        self.assertIn('import strip_identity', navidrome)
+        self.assertIn('request_header -Remote-User', rendered)
         # As many Forward Auth calls as the host makes when it is not behind the edge.
         self.assertEqual(rendered.count('forward_auth https://auth.apextox.dpdns.org'),
                          caddyfile(sites_of(CLOUD_NAME)).count('forward_auth https://'))

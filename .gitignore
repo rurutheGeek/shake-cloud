@@ -14,6 +14,10 @@ runtime/
 
 platform/ansible/pve.ini
 platform/ansible/seed.ini
+# 実値の手元用インベントリは既定で除外し、例ファイルと追跡する outpost.ini だけ残す。
+platform/ansible/*.ini
+!platform/ansible/*.ini.example
+!platform/ansible/outpost.ini
 platform/ansible/netbox.env
 platform/awx/controller.yml
 platform/awx/context/

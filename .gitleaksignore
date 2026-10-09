@@ -1,0 +1,15 @@
+# gitleaks が履歴から検出した、確認済みの誤検知（commit:file:rule:line）。
+# 例ファイルの伏せ字（xxxx）の鍵本文
+86e016d2244dbe3558a7d4a3d18908babd7a8175:platform/sops/circleauth.sops.yaml.example:private-key:6
+# JWT ヘッダ + "..." のプレースホルダ
+42699ca598879c3d986236b824a03dfb188bd8eb:platform/sops/k8s.sops.yaml.example:generic-api-key:12
+# コミットID（git の ref）
+bd0b032f393cdb8f457bc528aba1f8ba470dff5e:stacks/poke-translate/manage.py:generic-api-key:27
+# Eufy 機器のファームウェアに焼かれた共通定数（ベンダー由来で当方の秘密ではない）
+6ca045a9e4d9a787728fe89c0ce1fefcb9ea3ef2:stacks/eufy-leo-rtc/leo_rtc/media.py:generic-api-key:18
+# RFC 6455 のサンプル nonce
+33604a01842d6ed7df615ebf8e5828da06687a04:cloud/api/internal/server/console_test.go:generic-api-key:134
+# テストの架空トークン nbt_key.secret
+9c7a07c230688b2cf128f833a95819da34f3e4a1:cloud/api/internal/netbox/client_test.go:generic-api-key:19
+# ローカル開発用の Authentik URL
+fac37b89d7a32545cc71ccc826fd4441c05632ad:hub/compose.yaml:generic-api-key:73

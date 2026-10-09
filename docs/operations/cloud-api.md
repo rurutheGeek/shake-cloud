@@ -69,7 +69,7 @@ API のイメージは cloud-01 の上で `cloud/api/` からビルドします�
 - 1アカウント5本まで。期限は任意（30日・90日・1年・無期限）です。
 - 削除したキーは行を残して無効にします。監査ログがキーIDを指したままにするためです。
 - 他人のキーを削除しようとすると「存在しない」と同じ 404 を返します。admins は誰のキーでも削除できます。
-- **権限（scope）は `ReadWrite`（既定）と `ReadOnly` の2つです。** `ReadOnly` は状態を変えない操作だけを呼べます。OpenAPI の各操作の `x-shakecloud-scope: read` が対象で、書き込み（起動・停止・作成・削除・コンソール・limits 変更など）は 403 `AccessDenied` になり、監査ログに残ります。AI エージェントや閲覧専用の自動化には `ReadOnly` を渡します。scope は発行時に決まり、あとから変えられません（作り直します）。既存のキーは `ReadWrite` です。DB では `access_keys.scope`（migration `0012`）。
+- **権限（scope）は `ReadWrite`（既定）と `ReadOnly` の2つです。** `ReadOnly` は状態を変えない操作だけを呼べます。OpenAPI の各操作の `x-shakecloud-scope: read` が対象で、書き込み（起動・停止・作成・削除・コンソール・limits 変更など）と、パスワードを返す `GetDatabaseCredentials`（読み出しも監査ログに残る）は 403 `AccessDenied` になり、監査ログに残ります。AI エージェントや閲覧専用の自動化には `ReadOnly` を渡します。scope は発行時に決まり、あとから変えられません（作り直します）。既存のキーは `ReadWrite` です。DB では `access_keys.scope`（migration `0012`）。
 - 読み取り専用キーをAIエージェントへ渡す入口として、[MCPサーバ](mcp.md)（`cloud/mcp`、22ツール）があります。**読み取り専用キーと組み合わせて使います。**
 
 #### ブートストラップ管理キー（2026-09-11 に無効化済み）

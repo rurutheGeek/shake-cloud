@@ -168,9 +168,9 @@ class MailViewEntryTests(unittest.TestCase):
                     if method == 'POST' and path == 'policies/bindings/']
         self.assertEqual(bindings, [{'target': 'app1', 'group': 'group-admins', 'order': 10}])
 
-    def test_mail_view_is_a_forward_auth_application_for_every_user(self):
+    def test_mail_view_is_a_forward_auth_application_for_admins_only(self):
         api = self.RecordingAPI()
-        configure.configure_mail_view(api, {'users': {'pk': 'group-users'}},
+        configure.configure_mail_view(api, {'users': {'pk': 'group-users'}, 'admins': {'pk': 'group-admins'}},
                                       FLOWS, 'https://cloud.example.org')
         provider = next(body for method, path, body in api.calls
                         if method == 'POST' and path == 'providers/proxy/')
@@ -181,12 +181,29 @@ class MailViewEntryTests(unittest.TestCase):
                            if method == 'POST' and path == 'core/applications/')
         self.assertEqual(application['slug'], 'mail-view')
         self.assertEqual(application['name'], 'Mail View')
-        binding = next(body for method, path, body in api.calls
-                       if method == 'POST' and path == 'policies/bindings/')
-        self.assertEqual(binding, {'target': 'app1', 'group': 'group-users', 'order': 10})
+        bindings = [body for method, path, body in api.calls
+                    if method == 'POST' and path == 'policies/bindings/']
+        self.assertEqual(bindings, [{'target': 'app1', 'group': 'group-admins', 'order': 10}])
+        self.assertFalse([1 for method, _, _ in api.calls if method == 'DELETE'])
         outpost = next(body for method, path, body in api.calls
                        if method == 'PATCH' and path.startswith('outposts/instances/'))
         self.assertEqual(outpost['providers'], ['proxy1'])
+
+    def test_mail_view_drops_the_stale_users_binding(self):
+        class Existing(self.RecordingAPI):
+            def rows(self, path):
+                if path.startswith('policies/bindings/'):
+                    return [{'pk': 'b-users', 'group': 'group-users'},
+                            {'pk': 'b-admins', 'group': 'group-admins'}]
+                return super().rows(path)
+
+        api = Existing()
+        configure.configure_mail_view(api, {'users': {'pk': 'group-users'}, 'admins': {'pk': 'group-admins'}},
+                                      FLOWS, 'https://cloud.example.org')
+        deletes = [path for method, path, _ in api.calls if method == 'DELETE']
+        self.assertEqual(deletes, ['policies/bindings/b-users/'])
+        self.assertFalse([1 for method, path, _ in api.calls
+                          if method == 'POST' and path == 'policies/bindings/'])
 
 
 class InvitationTests(unittest.TestCase):

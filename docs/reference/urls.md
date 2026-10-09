@@ -26,7 +26,7 @@ tags:
 | Homarr | <https://homarr.apextox.dpdns.org> | サービスの入口（apps-01。OIDC。閲覧は全員、編集は `admins`） | `users` / `admins` |
 | LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ apps-01 の実効速度（apps-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
 | ポケモン翻訳 | <https://poke.apextox.dpdns.org> | ポケモン用語を公式名に固定する翻訳と拡張機能の配布（apps-01。`127.0.0.1:8320`） | 全員 |
-| メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（apps-01。`127.0.0.1:8310`。Forward Auth） | 全員 |
+| メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（apps-01。`127.0.0.1:8310`。Forward Auth） | 管理者 |
 | Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（apps-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |

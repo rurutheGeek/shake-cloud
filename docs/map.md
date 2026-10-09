@@ -190,13 +190,13 @@ flowchart TB
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-05 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-09 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
-| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-03 | `ops` `network` |
+| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-09 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
@@ -216,7 +216,7 @@ flowchart TB
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-10-03 | `ops` `network` |
-| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-05 | `ops` `web` |
+| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-09 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
 ### 設計
@@ -233,7 +233,7 @@ flowchart TB
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-04 | `design` `placement` |
 | [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-03 | `design` `overview` |
 | [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
-| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-03 | `design` `security` |
+| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-09 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-03 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-10-03 | `design` `bootstrap` |
 

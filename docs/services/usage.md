@@ -43,7 +43,7 @@ tags:
 | RSS・ニュースをまとめて読む | [FreshRSS](https://freshrss.apextox.dpdns.org)（[使い方](rss.md)） |
 | URLから音声を取り込む | [MeTube](https://metube.apextox.dpdns.org)（[使い方](music.md)） |
 | パスワードを使う | [Vaultwarden](https://vault.apextox.dpdns.org) |
-| 届いた通知メールを読む | [メールビューア](https://mail-view.apextox.dpdns.org) |
+| 届いた通知メールを読む（管理者のみ） | [メールビューア](https://mail-view.apextox.dpdns.org) |
 | 手順書を読む | [Shake Lab Docs](https://docs.apextox.dpdns.org) |
 
 ログインを求められたら、案内に従って共通ログイン画面へ進みます。サービスによっては、最初に招待されたアカウントの登録や、サービス専用のパスワード設定が必要です。

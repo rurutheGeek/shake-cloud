@@ -53,17 +53,32 @@
 	}
 }
 {% endif %}
+
+# 端末が付けてきた本人確認のヘッダーは、どのサイトでも中継の前に捨てる。
+# Navidrome は Caddy が付ける Remote-User を信じるので、素通しにすると
+# LAN の端末が任意の利用者になりすませる。SSO のサイトは認証の後で
+# 自分で付け直す（copy_headers と header_up）。
+(strip_identity) {
+	request_header -Remote-User
+	request_header -X-Authentik-Username
+	request_header -X-Authentik-Email
+	request_header -X-Authentik-Groups
+	request_header -X-Authentik-Name
+	request_header -X-Authentik-Uid
+}
 {% for site in tls_proxy_sites %}
 
 # {{ site.value.description }}
 {{ site.key }}.{{ tls_proxy_dns.zone }} {
 	import dns_challenge
+{% if not site.value.auth | default(false) %}
+	import strip_identity
+{% endif %}
 {% if site.value.auth | default(false) %}
 	# 中身は route で書いた順に評価する。forward_auth は Caddy の内部順で
 	# respond より先に走るため、閉じたいパスを確実に先へ置く。
 	route {
-		request_header -Remote-User
-		request_header -X-Authentik-Username
+		import strip_identity
 {% if site.value.block | default([]) %}
 		@blocked path {{ site.value.block | join(' ') }}
 		respond @blocked 403
@@ -151,6 +166,7 @@
 # {{ site.value.description }}（{{ site.value.host }} へ中継）
 {{ site.key }}.{{ tls_proxy_dns.zone }} {
 	import dns_challenge
+	import strip_identity
 {% if (auth_backend or tls_proxy_catchall_upstream | default('')) and site.value.auth | default(false) %}
 	# Forward Auth の問い合わせは、アプリの名前（Host）のまま auth の名前＝この入口へ
 	# 届く。アプリのホストへ戻すと問い合わせが輪になるので、Authentik へ渡す。
@@ -200,6 +216,7 @@
 # その Host でプロバイダを選ぶので、identity だけがこの入口を持つ。
 :443 {
 	tls internal
+	import strip_identity
 {% if behind_edge %}
 	reverse_proxy {{ tls_proxy_catchall_upstream }} {
 {{ client_address('		') }}	}
