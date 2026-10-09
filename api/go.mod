@@ -1,6 +1,6 @@
 module github.com/rurutheGeek/shake-cloud/cloud/api
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0
@@ -24,7 +24,7 @@ require (
 	github.com/pkg/xattr v0.4.12 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 )
