@@ -319,7 +319,7 @@ func validateSpec(spec Spec) error {
 	return nil
 }
 
-func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limits) (Spec, error) {
+func (s *Service) validate(ctx context.Context, accountID string, r *RunRequest, limits site.Limits) (Spec, error) {
 	bad := func(format string, args ...any) error {
 		return refuse(http.StatusBadRequest, "InvalidParameterValue", format, args...)
 	}
@@ -334,7 +334,7 @@ func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limit
 	if r.ImageID != "" {
 		// Shared images and uploaded ones are both launchable, so existence is a
 		// question for the resolver rather than for site.json alone.
-		image, err := s.ResolveImage(ctx, s.Pool, r.ImageID)
+		image, err := s.ResolveImageFor(ctx, s.Pool, r.ImageID, accountID)
 		if err != nil {
 			return Spec{}, err
 		}
@@ -432,7 +432,7 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 	if err != nil {
 		return db.Instance{}, false, err
 	}
-	spec, err := s.validate(ctx, &r, limits)
+	spec, err := s.validate(ctx, accountID, &r, limits)
 	if err != nil {
 		return db.Instance{}, false, err
 	}

@@ -47,7 +47,9 @@ func newImageID() string {
 	return "img-" + hex.EncodeToString(b)[:17]
 }
 
-// ResolveImage finds an image by ID, shared ones first.
+// ResolveImage finds an image by ID, shared ones first. It does not check
+// ownership: the workers use it for instances already admitted, and a launch
+// goes through ResolveImageFor.
 func (s *Service) ResolveImage(ctx context.Context, q db.Querier, imageID string) (Image, error) {
 	if shared, ok := s.Site.Images[imageID]; ok {
 		return Image{ID: imageID, Name: shared.Name, Volume: shared.Volume, OS: shared.OS, Public: true}, nil
@@ -64,6 +66,28 @@ func (s *Service) ResolveImage(ctx context.Context, q db.Querier, imageID string
 		return Image{}, err
 	}
 	return imageOf(uploaded), nil
+}
+
+// ResolveImageFor is ResolveImage for a caller launching from the image: an
+// uploaded image is usable only by its owner or an administrator, and anyone
+// else gets the refusal a missing image gets, so IDs cannot be probed.
+func (s *Service) ResolveImageFor(ctx context.Context, q db.Querier, imageID, accountID string) (Image, error) {
+	image, err := s.ResolveImage(ctx, q, imageID)
+	if err != nil || image.Public || image.AccountID == accountID {
+		return image, err
+	}
+	if q == nil {
+		q = s.Pool
+	}
+	account, err := db.GetAccount(ctx, q, accountID)
+	if err != nil && !errors.Is(err, db.ErrNotFound) {
+		return Image{}, err
+	}
+	if err == nil && account.IsAdmin {
+		return image, nil
+	}
+	return Image{}, refuse(http.StatusBadRequest, "InvalidImageID.NotFound",
+		"image %q does not exist; see GET /v1/images", imageID)
 }
 
 func imageOf(i db.Image) Image {

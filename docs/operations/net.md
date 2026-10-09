@@ -1,6 +1,6 @@
 ---
 title: Tailscale（router-01 上の subnet router）
-updated: 2026-10-03
+updated: 2026-10-09
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Tailscale（router-01 上の subnet router）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。宅外端末での実機検証が未了。
+**状態**: **router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。**2026-10-09 にポリシーと端末タグを Git 管理へ移し、同日適用した。** 宅外端末での実機検証が未了。
 
 宅外から管理LAN（`192.168.10.0/24`）へ戻るための Tailscale の subnet router です。[N02](../development/N02-tailscale.md) の復旧経路で、最初は cloud VM `net-01` に置いていましたが、2026-10-03 に **依存の最も少ない router-01（OpenWrt）の上へ移しました**。ルータは Proxmox ホスト（K11）上の VM なので、**K11 そのものが落ちれば使えない**点は変わりません。カバーするのは VM 単位の故障までです。真のアウトオブバンドが必要になったら、専用ルータ機や別ハードを検討します（[VPN比較](../architecture/vpn.md)）。
 
@@ -28,6 +28,7 @@ tags:
 | ファイアウォール | `config/tailscale` の `tailscale` ゾーン（`device tailscale0`、forward REJECT）と、`tailscale` → `lan` の `forwarding`（`config/firewall`） |
 | 広告ルート | `192.168.10.0/24`（`site.yaml` の `network.prefix` から取得）。承認済み（2026-10-01） |
 | tailnet DNS | `192.168.10.1`（AdGuard Home）を唯一の global nameserver にし、`overrideLocalDNS` を有効化（MagicDNS は維持） |
+| ポリシーとタグ | `platform/tailscale/policy.yaml` が正本。`tools/tailscale-net.py apply` が管理画面のポリシーと端末のタグを揃える（2026-10-09 に適用） |
 
 tailnet からの着信は `tailscale0` に入り、`tailscale` ゾーンから `lan` へ転送されます。**送信元の書き換え（SNAT）は tailscaled 自身が nftables で行う**ため、ファイアウォール側で `masq` はしません。Tailscale の通信は端末側からの発信と中継で成立するので、WAN 側のポート開放も不要です。
 
@@ -38,14 +39,32 @@ OpenWrt の設定はリポジトリの `platform/openwrt/rootfs/` が正本で�
 1. **端末の身元を引き継ぐ（推奨）**: 作り直す前に `ssh root@192.168.10.1 'cat /etc/tailscale/tailscaled.state'` で状態ファイルを安全な場所へ退避し、新しいイメージで同じパスへ戻して `tailscale up` する。管理画面での再承認は不要。
 2. **認証キーで参加し直す**: 管理画面で認証キーを発行し（Pre-approved: on、Tags: `tag:vpn` を推奨）、ルータで `tailscale up --advertise-routes=192.168.10.0/24 --auth-key=<キー>` を実行する。**ルートの再承認**が必要で、管理画面に古い端末が残っていれば Remove します。認証キーの値は `platform/sops/tailscale.sops.yaml`（`.example` 参照）にあり、シェル履歴へ残さない渡し方をします。
 
-管理画面側の設定（ルート承認・tailnet DNS）は `tools/tailscale-net.py` で宣言どおりに揃えます。**管理画面の端末名は net-01 から移した時点のものを引き継いでいます。** 名前を変えた場合は、ツール冒頭の `HOSTNAME` も合わせてください。
+管理画面側の設定（ルート承認・tailnet DNS・ポリシー・端末タグ）は `tools/tailscale-net.py` で宣言どおりに揃えます。ポリシーとタグの正本は `platform/tailscale/policy.yaml` で、管理画面で直接編集せず、差分があればこのツールで戻します。**`HOSTNAME` は subnet router の端末名（既定 `router-01`）です。** 管理画面で名前を変えた場合は合わせてください。
 
 ```bash
-TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
-  .venv/bin/python tools/tailscale-net.py status
+sops exec-env platform/sops/tailscale.sops.yaml \
+  '.venv/bin/python tools/tailscale-net.py status'
 ```
 
-API トークンは管理画面 → Settings → Keys → API access tokens で発行し、`platform/sops/tailscale.sops.yaml` へ入れます（期限は最大90日。切れたら再発行）。`status` は読むだけで、ルート承認と DNS の差分を出します。`apply` で適用します（2026-10-01 に適用済み）。
+API トークンは管理画面 → Settings → Keys → API access tokens で発行し、`platform/sops/tailscale.sops.yaml` へ入れます（期限は最大90日。切れたら再発行）。`status` は読むだけで、ルート承認・DNS・ポリシー・タグの差分を出します。`apply` はポリシーを丸ごと置き換え（Tailscale 側の `tests` を通してから）、端末にタグを付け、ルート承認と DNS の差分を適用します（ルート承認と DNS は 2026-10-01、ポリシーとタグは 2026-10-09 に適用済み）。
+
+## ポリシー（誰が誰へ届くか）
+
+**ポリシーとタグの正本は `platform/tailscale/policy.yaml`。** 考え方は、人の端末（タグなし）はどこへでも届き、サーバーにはタグを付けて、サーバーから出る通信を必要な宛先だけに絞ることです。タグを付けた端末は利用者の権限を引き継がないので、1台が破られても tailnet と LAN へ広がりません。
+
+| タグ | 端末 | 行ける先 |
+| --- | --- | --- |
+| （なし） | 利用者のPC・スマホ | tailnet の全端末と subnet router の先の LAN |
+| `tag:relay` | negitoroserver | web-01 の 80/443 だけ（LAN のルートも SSH も無い） |
+| `tag:outpost` | tarakoserver | negitoroserver の 80・9100 と shakeserver の 9100・9101・8090 だけ |
+| `tag:web` | web-01 | 外へ出る許可なし（受けるだけ） |
+| `tag:home` | shakeserver | 外へ出る許可なし |
+| `tag:router` | router-01 | 外へ出る許可なし（subnet router） |
+
+- **ポリシーが絞るのは tailnet の中だけです。** shakeserver と tarakoserver は宅内LANに直接つながっているので、LAN へ出る通信は各機の nftables（`platform/ansible/home-egress.yml`）で止めています。
+- ポリシーの `tests` が壊れたルールを適用前に弾きます（`tag:relay` から管理レンジや他のサーバーの SSH へ届かないこと、など）。`apply` は先に Tailscale 側の検査（`acl/validate`）へ通します。
+- **タグ付けは端末側で再ログインするまで戻せません。** 付け外しは `policy.yaml` の `devices` を直して `apply` します。
+- `status` は `policy.yaml` に無いのにタグが付いた端末も報告します。誰が付けたか分からないタグはここで見つけます。
 
 ## tailnet DNS
 
@@ -81,7 +100,7 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 - MagicDNS 名が引ける
 - ルート `192.168.10.0/24` が承認されている
 
-**未了:** ルータへ移したあとの宅外（モバイル回線）のスマホ実機で、通常・core-01 停止・K11 停止の各条件を確認する。許可外利用者が管理レンジへ到達できないこと（ACL）は、ポリシーに制限を入れるときに確認する。
+**未了:** ルータへ移したあとの宅外（モバイル回線）のスマホ実機で、通常・core-01 停止・K11 停止の各条件を確認する。**ACL は 2026-10-09 に適用済み**（管理レンジへ届くのは人の端末だけで、`tag:relay` は web-01 の 80/443 だけ。`tools/tailscale-net.py status` が差分なしを返すことを確認）。
 
 ## 経緯（net-01）
 
@@ -94,8 +113,8 @@ ssh root@192.168.10.1 'tailscale status'
 ssh root@192.168.10.1 'tailscale ip -4'
 ssh root@192.168.10.1 'tailscale debug prefs'
 ssh root@192.168.10.1 'uci show tailscale'
-TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
-  .venv/bin/python tools/tailscale-net.py status
+sops exec-env platform/sops/tailscale.sops.yaml \
+  '.venv/bin/python tools/tailscale-net.py status'
 host example.com 100.100.100.100
 host pve.apextox.dpdns.org 100.100.100.100
 ```

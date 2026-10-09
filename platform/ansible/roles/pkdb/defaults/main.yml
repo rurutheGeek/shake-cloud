@@ -3,8 +3,9 @@
 pkdb_project_dir: /opt/pkdb
 pkdb_storage_root: /srv/pkdb
 pkdb_source_dir: '{{ playbook_dir }}/../../stacks/pkdb'
-# 旧ホストに残るBotなどが LAN 越しにつなぐので全アドレスで待ち受ける。送信元は
-# セキュリティグループ（platform/terraform/services/apps）が LAN に絞る。
+# web-01 の公開サイトが LAN 越しにつなぐので全アドレスで待ち受ける。送信元は
+# セキュリティグループ（platform/terraform/services/apps）が web-01 の /32 に絞り、
+# pg_hba.conf が外からの postgres を拒否する。
 pkdb_bind_address: 0.0.0.0
 pkdb_port: 5432
 # Adminer。入口は同じホストの Caddy（tls_proxy ロール）が https://adminer.<ゾーン> で受ける。

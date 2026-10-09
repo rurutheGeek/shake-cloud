@@ -1,6 +1,6 @@
 ---
 title: 信頼境界とセキュリティ方針
-updated: 2026-10-03
+updated: 2026-10-09
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 信頼境界とセキュリティ方針
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-09 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **何を信頼していて、何を信頼していないか**を1枚にまとめます。個々の決定の理由は[決定ログ](decisions.md)、手順は[秘密値の管理](../operations/secrets.md)と[認証基盤](../operations/identity.md)にあります。
 
@@ -18,12 +18,13 @@ tags:
 
 ## 1. 公開範囲
 
-**インターネットには何も公開していません。** グローバルIPも使いません。
+**2026-10-05 から、公開サイトだけをインターネットへ出しています。** 自宅のグローバルIPとポート転送は使いません（[公開サイト](../operations/web.md)）。
 
 | 外から見えるもの | 中身 |
 | --- | --- |
+| `*.ruruthegeek.dpdns.org`（公開サイト） | Cloudflare → 外部の中継ホスト `negitoroserver`（大学ネットワーク、80/443のみ）→ Tailscale → クラウドVM `web-01` の 80/443。自宅回線は通らない |
 | `apextox.dpdns.org` のDNS応答 | Cloudflareの公開DNSに**内部IPをそのまま**書いている。名前は誰でも引けるが、応答は `192.168.10.x` なので外からは届かない |
-| それ以外 | 無い。ポート転送もリバースプロキシも置いていない |
+| それ以外 | 無い。自宅回線にポート転送は置いていない |
 
 **2026-09-20 から、インターネットとの境界は自作です。** 家庭内ルータを市販機（Aterm）から K11 上の OpenWrt VM `router-01` へ移しました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。WANは `vmbr1`、LANは `vmbr0` で、**`vmbr1` にホストのIPを与えていません**。ファイアウォール・DHCP・DNSの設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消えます。
 
@@ -43,10 +44,17 @@ flowchart TB
   api["クラウドAPI cloud-01"]
   pve["Proxmox VE apextox"]
   git["Git リポジトリ（公開）"]
+  cf["Cloudflare"]
+  relay["negitoroserver（外部の中継ホスト）<br/>tailnet ACL: web-01:80,443 のみ"]
+  web["web-01（クラウドVM）<br/>SGとnftablesで既定拒否"]
 
   net -->|"WAN。着信は遮断"| router
   router --> lan
   net -. "公開DNSの応答だけ" .-> lan
+  net -->|"公開サイト"| cf
+  cf --> relay
+  relay -->|"Tailscale。80/443のみ"| web
+  web -. "LAN宛80/443とPVE等へは届かない" .-> lan
   lan -->|"名前 + TLS"| edge
   edge -->|"OIDC / Forward Auth を通した後だけ"| app
   lan -->|"アクセスキー or OIDC"| api
@@ -57,6 +65,8 @@ flowchart TB
 | 境界 | 通すもの | 止めるもの |
 | --- | --- | --- |
 | インターネット → LAN | DNSの応答のみ | 通信そのもの。`router-01` のファイアウォールが遮断し、ポート転送も置いていない |
+| 中継ホスト → web-01 | tailnet ACL が許す `tag:relay` から `web-01` の 80/443 | それ以外のtailnet端末・ポート。中継ホストは LAN のサブネットルートを使えず、LAN から見た web-01 は 22 だけ開いている |
+| web-01 → LAN | DNS・NTP・pkdb（5432）・インターネット80/443 | SGの外向きは既定拒否。ゲストの nftables が LAN 宛 80/443 を drop し、PVE・Garage・NetBox・他VMへ届かない（[公開サイト](../operations/web.md)） |
 | 端末 → 名前解決 | `router-01` の AdGuard Home が応答（広告・トラッカーのブロックリスト付き） | ブロックリストに載った名前。**DNSは全端末の単一経路**（[AdGuard Home](../operations/adguard.md)） |
 | LAN → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。core-01のCaddyはcatch-allでAuthentikへ渡す |
 | HTTPS入口 → アプリ | 認証を通したリクエスト | アプリ本体は `127.0.0.1` に閉じており、入口を経由しないと触れない |
@@ -106,6 +116,7 @@ flowchart TB
 | ネットワーク絞り | セキュリティグループ（VM単位のFW）。効かせるには VM の有効化・NICの `firewall=1`・ルール本体の3つが揃う必要がある |
 | 中継コンテナ | `eufy-security-ws` は `172.31.254.1:3000` にだけbindし、LANへは出さない |
 | 監査ログ | APIの操作を記録する。削除保護は作らない |
+| 宅内の物理サーバ → LAN | 返信と、ゲートウェイの DNS・DHCP・NTP。tarakoserver だけ監視の入口（core-01 の 443） | shakeserver・tarakoserver から LAN 内の他の機器への通信。各機の nftables で落とす（`platform/ansible/home-egress.yml`）。コンテナからの通信も同じ |
 
 ## 5. 守らないと決めたこと
 
@@ -115,6 +126,8 @@ flowchart TB
 | --- | --- |
 | LAN内の端末 | LANに入れた時点で、名前解決とHTTPS入口には届く。アプリの認証が最後の壁。**LANに知らない端末を入れないことが前提** |
 | 物理ホストのroot | 取られたら全部が終わる。Proxmoxホストの鍵は人が管理し、コードで配らない |
+| 中継ホスト `negitoroserver` | 大学ネットワーク上の外部機。侵害されても届くのは tailnet ACL が許す web-01:80/443 まで。ホスト自体は守らない。Cloudflare 以外からの直接 443 も受ける |
+| 公開サイトのアプリ | web-01 のアプリが突破された場合は web-01 内で止める設計（SG・nftables）。アプリの脆弱性そのものは防がない |
 | 内部構成の秘匿 | 名前と内部IPは公開DNSから引ける。証明書をDNS-01で取る代償として受け入れている |
 | 内部犯行 | 2人とも `admins` に入りうる運用。操作は監査ログに残るが、権限で止めていない |
 | VLANによる分離 | 宣言と手順は用意済みだが、**実機は未切替**。いまは管理面と利用者VMが同じL2にいる（[VLAN 分離への切替](../operations/vlan.md)） |

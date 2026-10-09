@@ -94,3 +94,17 @@ func TestAnInstallVmBootsTheISOWithAnEmptyDisk(t *testing.T) {
 		t.Fatalf("windows hardware missing: %v", values)
 	}
 }
+
+func TestAnISOCanBeDeletedOnlyWhereTheCallerIsAllowed(t *testing.T) {
+	s, _, _ := testService(t)
+	alice := newAccount(t, s, "alice")
+	iso := uploadISO(t, s, alice, "Win11", seed.OSWindows, "Win11.iso", "windows-install")
+	notAlice := func(i db.ISO) bool { return i.AccountID != alice }
+	if err := s.DeleteISO(context.Background(), iso.ID, notAlice, nil); code(err) != "UnauthorizedOperation" {
+		t.Fatalf("a refused caller deleted the ISO: %v", err)
+	}
+	mine := func(i db.ISO) bool { return i.AccountID == alice }
+	if err := s.DeleteISO(context.Background(), iso.ID, mine, nil); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -693,3 +693,23 @@ func TestEveryPageCarriesTheFavicon(t *testing.T) {
 		}
 	}
 }
+
+func TestDatabaseCredentialsNeedAReadWriteKey(t *testing.T) {
+	s := testServer(t, nil)
+	_, cookie := session(t, s, "alice", false)
+	recorder := do(t, s, req{method: "POST", path: "/v1/access-keys",
+		body: map[string]any{"description": "agent", "scope": "ReadOnly"}, cookies: []*http.Cookie{cookie}})
+	expectStatus(t, recorder, http.StatusCreated)
+	key := decode[createdKey](t, recorder)
+
+	// パスワードを返すので、ReadOnly キーは読み取りでも拒否され、監査に残る。
+	denied := do(t, s, req{method: "GET", path: "/v1/databases/db-000000000000000000/credentials", bearer: key.Secret})
+	expectStatus(t, denied, http.StatusForbidden)
+	if code := decode[errorBody](t, denied).Error.Code; code != "AccessDenied" {
+		t.Fatalf("code %q", code)
+	}
+	logged := events(t, s, req{path: "/v1/audit-events?event_name=GetDatabaseCredentials", cookies: []*http.Cookie{cookie}})
+	if len(logged.Events) != 1 || logged.Events[0].ErrorCode != "AccessDenied" {
+		t.Fatalf("audit: %+v", logged.Events)
+	}
+}

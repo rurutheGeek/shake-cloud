@@ -70,8 +70,22 @@ class StackTests(unittest.TestCase):
                          ['${PKDB_BIND_ADDRESS:-127.0.0.1}:${PKDB_PORT:-5432}:5432'])
 
     def test_the_state_lives_outside_the_deployment_directory(self):
-        self.assertEqual(self.service()['volumes'],
-                         ['${STORAGE_ROOT:-/srv/pkdb}/data:/var/lib/postgresql/data'])
+        self.assertEqual(self.service()['volumes'][0],
+                         '${STORAGE_ROOT:-/srv/pkdb}/data:/var/lib/postgresql/data')
+
+    def test_the_superuser_cannot_connect_from_outside(self):
+        # hba_file はデータディレクトリの外。初期化時に空でなくなるのを避ける。
+        self.assertEqual(self.service()['command'],
+                         ['postgres', '-c', 'hba_file=/etc/pkdb/pg_hba.conf'])
+        self.assertIn('./pg_hba.conf:/etc/pkdb/pg_hba.conf:ro', self.service()['volumes'])
+        hba = (STACK / 'pg_hba.conf').read_text(encoding='utf-8')
+        self.assertIn('host    all             postgres        0.0.0.0/0               reject', hba)
+        self.assertIn('host    all             postgres        172.16.0.0/12           scram-sha-256', hba)
+        # 一般ロールはこれまでどおりパスワード認証で入れる。
+        self.assertIn('host    all             all             0.0.0.0/0               scram-sha-256', hba)
+        # 拒否の行が許可の行より先に来ていること（pg_hba は先頭一致）。
+        self.assertLess(hba.index('0.0.0.0/0               reject'),
+                        hba.index('all             0.0.0.0/0               scram-sha-256'))
 
     def test_the_superuser_password_is_a_file_secret(self):
         environment = self.service()['environment']
@@ -111,12 +125,12 @@ class DeploymentTests(unittest.TestCase):
         env = (ROLE / 'templates/env.j2').read_text(encoding='utf-8')
         self.assertNotIn('PASSWORD', env)
 
-    def test_the_security_group_opens_the_port_to_the_lan_only(self):
+    def test_the_security_group_opens_the_port_to_web01_only(self):
         text = (ROOT / 'platform/terraform/services/apps/main.tf').read_text(encoding='utf-8')
         rule = text.split('resource "shakecloud_security_group_rule" "pkdb"')[1].split('}')[0]
         self.assertIn('from_port   = 5432', rule)
         self.assertIn('to_port     = 5432', rule)
-        self.assertIn('cidr        = local.lan_cidr', rule)
+        self.assertIn('cidr        = "192.168.10.102/32"', rule)
 
     def test_the_name_resolves_to_the_host_not_the_http_entry(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))

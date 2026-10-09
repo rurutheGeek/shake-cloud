@@ -14,6 +14,7 @@
     - compose.yaml
     - compose.lock.yaml
     - manage.py
+    - pg_hba.conf
     - .env.example
 
 # 登録画面はイメージをこのソースから組む（Dockerfile・requirements・app）。

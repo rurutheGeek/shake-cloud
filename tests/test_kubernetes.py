@@ -88,5 +88,47 @@ class KubernetesTests(unittest.TestCase):
         self.assertIn('k8s-worker', helper)
 
 
+class NetworkPolicyTests(unittest.TestCase):
+    """The namespaces the cloud API fills must not accept random pod traffic."""
+
+    def load(self, path):
+        return list(yaml.safe_load_all((ROOT / path).read_text()))
+
+    def test_both_namespaces_deny_ingress_by_default(self):
+        functions = self.load('platform/flux/apps/functions-network-policy.yaml')[0]
+        databases = self.load('platform/flux/apps/databases/network-policy.yaml')[0]
+        for policy, namespace in ((functions, 'functions'), (databases, 'databases')):
+            self.assertEqual(policy['metadata']['namespace'], namespace)
+            self.assertEqual(policy['spec']['podSelector'], {})
+            self.assertEqual(policy['spec']['policyTypes'], ['Ingress'])
+
+    def test_functions_accept_only_the_data_plane(self):
+        policy = self.load('platform/flux/apps/functions-network-policy.yaml')[0]
+        sources = policy['spec']['ingress'][0]['from']
+        self.assertIn({'podSelector': {}}, sources)
+        self.assertIn({'namespaceSelector': {'matchLabels': {
+            'kubernetes.io/metadata.name': 'knative-serving'}}}, sources)
+
+    def test_databases_accept_only_cluster_clients(self):
+        policy = self.load('platform/flux/apps/databases/network-policy.yaml')[0]
+        rule = policy['spec']['ingress'][0]
+        self.assertIn({'podSelector': {}}, rule['from'])
+        self.assertIn({'namespaceSelector': {'matchLabels': {
+            'kubernetes.io/metadata.name': 'functions'}}}, rule['from'])
+        self.assertEqual(rule['ports'], [{'protocol': 'TCP', 'port': 5432}])
+
+    def test_the_cnpg_operator_can_read_instance_status(self):
+        # Without this the operator cannot reconcile the clusters it created.
+        policy = self.load('platform/flux/apps/databases/network-policy.yaml')[0]
+        rule = policy['spec']['ingress'][1]
+        self.assertEqual(rule['from'], [{'namespaceSelector': {'matchLabels': {
+            'kubernetes.io/metadata.name': 'cnpg-system'}}}])
+        self.assertEqual(rule['ports'], [{'protocol': 'TCP', 'port': 8000}])
+
+    def test_flux_applies_the_functions_policy(self):
+        root = yaml.safe_load((ROOT / 'platform/flux/kustomization.yaml').read_text())
+        self.assertIn('apps/functions-network-policy.yaml', root['resources'])
+
+
 if __name__ == '__main__':
     unittest.main()

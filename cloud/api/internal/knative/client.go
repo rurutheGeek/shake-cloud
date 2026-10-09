@@ -113,6 +113,16 @@ type ServiceSpec struct {
 	Labels    map[string]string
 }
 
+// A function runs code the caller brought, so it gets a ceiling (one function
+// must not starve the node) and no mounted service account token (it has no
+// reason to talk to the Kubernetes API).
+const (
+	functionCPURequest    = "50m"
+	functionMemoryRequest = "64Mi"
+	functionCPULimit      = "500m"
+	functionMemoryLimit   = "256Mi"
+)
+
 // CreateService creates a Knative Service with one container.
 func (c *Client) CreateService(ctx context.Context, spec ServiceSpec) (Service, error) {
 	body := map[string]any{
@@ -126,7 +136,14 @@ func (c *Client) CreateService(ctx context.Context, spec ServiceSpec) (Service, 
 		"spec": map[string]any{
 			"template": map[string]any{
 				"spec": map[string]any{
-					"containers": []any{map[string]any{"image": spec.Image}},
+					"automountServiceAccountToken": false,
+					"containers": []any{map[string]any{
+						"image": spec.Image,
+						"resources": map[string]any{
+							"requests": map[string]any{"cpu": functionCPURequest, "memory": functionMemoryRequest},
+							"limits":   map[string]any{"cpu": functionCPULimit, "memory": functionMemoryLimit},
+						},
+					}},
 				},
 			},
 		},

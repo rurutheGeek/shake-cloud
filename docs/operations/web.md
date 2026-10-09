@@ -1,6 +1,6 @@
 ---
 title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
-updated: 2026-10-05
+updated: 2026-10-09
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
+**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残したが、**2026-10-09 のセキュリティ対応で Minecraft の2コンテナ（`shake_minecraft-pixelmon1.21.1`・`-backup`）を停止し `restart=no` にした**（旧DBは稼働中。公開方法は未決定）。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
 
 ## 構成
 
@@ -55,7 +55,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 1. `shake-infra#26` で `negitoroserver` の `stream_proxy.conf`（443）と `sslh`（80）の向き先を web-01 の tailnet IP へ変更した。
 2. GitHub Actions「アプリからの自動デプロイ」→ `target=proxy` で適用し、HSTS ヘッダで切替を確認した。
 3. 旧ホストの Web コンテナを停止し、`restart=no` にした（ボリュームは残す）。
-4. **残り**: shake-infra の CD（repository_dispatch → `deploy_shakeweb` など）は旧ホスト向けのまま。旧ホストの Web コンテナは停止しているため実害は無いが、`deploy_shakeweb` を流すと停止中のコンテナへ配備を試みる。整理するまで shake-web / pkhack の `main` へ push した際の自動デプロイは止めておくのが安全。
+4. **2026-10-09 追記**: shake-infra のセルフホストランナーを廃止したため、CD（repository_dispatch → `deploy_shakeweb` など）はもう動かない（ワークフローは残置）。公開サイトの更新は web-01 の `shake-web-update.timer`（5分ごと）だけ。中継ノードの配備は `public-relay.yml` が引き継いだ。
 
 ## 既知の不具合
 
@@ -86,11 +86,22 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+**Tailscale の ACL は `platform/tailscale/policy.yaml` が正本で、2026-10-09 に適用した**（[Tailscale](net.md)）。`negitoroserver` には `tag:relay` を付け、届く先は `web-01`（`tag:web`）の 80/443 だけ。`tag:relay` には LAN のサブネットルートも SSH も無い。管理コンソールで直接編集せず、差分があれば `tools/tailscale-net.py apply` で戻す。
 
-### プロキシ（negitoroserver）の侵害に備えて（提案）
+**中継ノードの配備は `platform/ansible/public-relay.yml`（ロール `public_relay`、`outpost.ini` の `relay`）が正本。** 2026-10-09 に shake-infra の `proxy` ロールから移した（shake-infra のセルフホストランナー廃止のため）。
 
-- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
+```bash
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+     -i platform/ansible/outpost.ini platform/ansible/public-relay.yml'
+```
+
+- sshd はパスワード認証を閉じる（cloud-init の `50-cloud-init.conf` より先に読ませる drop-in で上書き）。
+- ufw は **SSH は `tailscale0` だけ、80 は全体、443 は Cloudflare の公開IPレンジだけ**。443 を直結されると PROXY protocol のクライアントIPを偽装できるため、許可しない。レンジは配備時に Cloudflare の公開リストと比べ、違えば失敗する（`public_relay_cloudflare_ipv4` / `_ipv6` を更新して再実行）。
+- `tailscale --accept-routes` は無効（LAN のルートを持たない）。Minecraft（25565）への中継は無い。
+
+### プロキシ（negitoroserver）の侵害に備えて
+
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
 ## 外からの監視（たらこサーバ）
@@ -99,6 +110,8 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 - 公開サイト: `shake`・`pkhack`・`ayahuya`・ルート
 - 監視の入口: `grafana.apextox.dpdns.org`（monitor-01）
+
+たらこサーバから LAN へ出る通信は `home-egress.yml` で止めてあり、通すのはこの監視が見る入口（core-01 の 443）だけ。
 
 コードとユーザーは [配備台帳](handover.md) を参照。状態はたらこサーバの `/var/lib/public-monitor/` に残る。
 

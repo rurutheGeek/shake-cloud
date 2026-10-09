@@ -1,0 +1,3 @@
+RUN=yes
+DAEMON=/usr/sbin/sslh
+DAEMON_OPTS="--user sslh --listen 0.0.0.0:{{ public_relay_http_port }} --http {{ public_relay_web_upstream }}:{{ public_relay_http_port }} --pidfile /var/run/sslh/sslh.pid"

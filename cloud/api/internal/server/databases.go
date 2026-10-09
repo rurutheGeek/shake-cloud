@@ -187,6 +187,13 @@ func (s *Server) getDatabaseCredentials(w http.ResponseWriter, r *http.Request, 
 			Message: "database does not exist"})
 		return
 	}
+	// The event names the database, never the password it hands out.
+	event := c.event("", map[string]any{"owner_account_id": record.AccountID, "database_name": record.Name})
+	event.ResourceID = record.ID
+	if err := db.RecordAudit(r.Context(), s.pool, event); err != nil {
+		s.computeError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"credentials": databaseCredentialsBody{
 		Username: credentials.Username, Password: credentials.Password,
 		Host: credentials.Host, Port: credentials.Port, Database: credentials.Database,

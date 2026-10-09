@@ -1,0 +1,78 @@
+---
+# tailnet のアクセス制御。**このファイルが正本**で、tools/tailscale-net.py が
+# 管理画面のポリシーと端末のタグをここへ寄せる（管理画面で直接編集しない）。
+#
+#   sops exec-env platform/sops/tailscale.sops.yaml \
+#     '.venv/bin/python tools/tailscale-net.py status'
+#
+# 考え方: 人の端末（タグなし）はどこへでも届く。サーバーにはタグを付け、
+# サーバーから出る通信は下に書いた宛先だけにする。タグを付けた端末は
+# 利用者の権限を引き継がないので、1台が破られても tailnet と LAN へ広がらない。
+
+# 端末名 → 付けるタグ。ポリシーの一部ではなく、ツールが端末へ適用する。
+# ここに無い端末（PC・スマホ・dev-02）は人の端末として扱う。
+devices:
+  negitoroserver: ['tag:relay']
+  web-01: ['tag:web']
+  router-01: ['tag:router']
+  tarakoserver: ['tag:outpost']
+  shakeserver: ['tag:home']
+
+policy:
+  tagOwners:
+    # 公開の中継（大学ネットにあり、80/443 をインターネットへ開けている）
+    'tag:relay': ['autogroup:admin']
+    # 公開サイトの本体（クラウドVM）
+    'tag:web': ['autogroup:admin']
+    # LAN の subnet router（router-01）
+    'tag:router': ['autogroup:admin']
+    # ミニPCの外にある見張り役（たらこサーバ）
+    'tag:outpost': ['autogroup:admin']
+    # 宅内の物理サーバ（シャケサーバ）
+    'tag:home': ['autogroup:admin']
+
+  acls:
+    # 人の端末は tailnet の全端末と、subnet router の先の LAN へ届く。
+    - action: accept
+      src: ['autogroup:member']
+      dst: ['*:*']
+    # 中継から届くのは公開サイトの 80/443 だけ。LAN のルートも SSH も無い。
+    - action: accept
+      src: ['tag:relay']
+      dst: ['tag:web:80,443']
+    # たらこサーバの旧監視（Prometheus・blackbox）が中継と宅内サーバを見る。
+    # ProxyDown が誤発火するとメンテ表示へ切り替わるので、中継の 80 は必須。
+    - action: accept
+      src: ['tag:outpost']
+      dst: ['tag:relay:80,9100', 'tag:home:9100,9101,8090']
+
+  # LAN のルートは router-01 が広告したら承認する。タグを付け直しても、
+  # ルータを作り直しても、管理画面での承認が要らない。
+  autoApprovers:
+    routes:
+      '192.168.10.0/24': ['tag:router']
+
+  ssh: []
+
+  # 適用の前に Tailscale が検査する。破ると適用そのものが拒否される。
+  tests:
+    - src: 'tag:relay'
+      accept: ['tag:web:443', 'tag:web:80']
+      deny:
+        - 'tag:web:22'
+        - 'tag:home:22'
+        - 'tag:home:25565'
+        - 'tag:router:22'
+        - 'tag:outpost:22'
+        - '192.168.10.1:443'
+        - '192.168.10.10:8006'
+        - '192.168.10.200:443'
+    - src: 'tag:web'
+      deny: ['tag:relay:22', 'tag:home:22', '192.168.10.10:8006', '192.168.10.200:443']
+    - src: 'tag:home'
+      deny: ['tag:relay:22', 'tag:web:443', 'tag:outpost:22']
+    - src: 'tag:outpost'
+      accept: ['tag:relay:80', 'tag:home:9100']
+      deny: ['tag:relay:22', 'tag:home:22', 'tag:web:443']
+    - src: 'tag:router'
+      deny: ['tag:relay:22', 'tag:web:443', 'tag:home:22']

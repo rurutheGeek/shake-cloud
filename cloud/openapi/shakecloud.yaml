@@ -1646,9 +1646,10 @@ paths:
   /v1/databases/{database_id}/credentials:
     get:
       operationId: GetDatabaseCredentials
-      x-shakecloud-scope: read
+      x-shakecloud-scope: write
       tags: [database]
       summary: Read the database's connection credentials.
+      description: Returns the plaintext password, so a read-only access key is refused and each read is recorded in the audit log (without the password).
       parameters:
         - $ref: '#/components/parameters/DatabaseID'
       responses:

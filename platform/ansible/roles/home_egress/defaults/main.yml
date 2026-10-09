@@ -1,0 +1,11 @@
+---
+# 宅内LANの物理サーバ（シャケサーバ・たらこサーバ）の外向きガード。LAN から
+# 入るのは自由だが、サーバから LAN へは出ない（1台が破られても横へ広がらない）。
+# 返信・ゲートウェイの DNS/DHCP/NTP・tailnet・インターネットは通る。
+home_egress_interface: eth0
+home_egress_lan: 192.168.10.0/24
+home_egress_gateway: 192.168.10.1
+# 例外として届かせる LAN 内の宛先（TCP）。{address: ..., port: ...} の並び。
+home_egress_allow: []
+# 止めて無効にする systemd ユニット。
+home_egress_disable_units: []

@@ -1,0 +1,52 @@
+---
+- name: Require Debian
+  ansible.builtin.assert:
+    that: ansible_facts['distribution'] == 'Debian'
+    fail_msg: This role targets the Debian home servers.
+
+# 使わない入口を閉じる（シャケサーバの xrdp。画面は VNC で見る）。
+- name: Stop and disable the units this host does not need
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: false
+    state: stopped
+  loop: '{{ home_egress_disable_units }}'
+
+- name: Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+    cache_valid_time: 3600
+
+# LAN の IPv6 プレフィックスはルータ広告で決まる。現在の /64 を読んで、
+# IPv4 と同じく LAN 宛だけを落とす（変更されたら次回の配備で追従する）。
+# 経路の付け方は OS で違う（proto ra が付かない機種がある）ので、インター
+# フェースの経路からグローバルな /64 を拾う。
+- name: Find the on-link IPv6 prefix
+  ansible.builtin.command: ip -6 route show dev {{ home_egress_interface }}
+  register: home_egress_routes
+  changed_when: false
+  check_mode: false
+
+- name: Parse the IPv6 prefix
+  ansible.builtin.set_fact:
+    home_egress_ipv6_prefix: >-
+      {{ home_egress_routes.stdout_lines
+         | map('regex_replace', '^([0-9a-fA-F:]+/\d+).*$', '\1')
+         | select('search', '^[23][0-9a-fA-F:]+/\d+$')
+         | list | first | default('') }}
+
+- name: Install the egress guard
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    mode: '0644'
+    # 文法を誤ったまま置くと、ハンドラが古い表を消したあとで読み込みに失敗する
+    validate: nft -c -f %s
+  notify: Reload nftables
+
+- name: Enable the egress guard
+  ansible.builtin.systemd:
+    name: nftables
+    enabled: true
+    state: started

@@ -140,7 +140,7 @@ func routes() []route {
 		{"POST", "/v1/databases", "CreateDatabase", anyCredential, writeOp, (*Server).createDatabase},
 		{"GET", "/v1/databases/{database_id}", "DescribeDatabase", anyCredential, readOp, (*Server).describeDatabase},
 		{"DELETE", "/v1/databases/{database_id}", "DeleteDatabase", anyCredential, writeOp, (*Server).deleteDatabase},
-		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, readOp, (*Server).getDatabaseCredentials},
+		{"GET", "/v1/databases/{database_id}/credentials", "GetDatabaseCredentials", anyCredential, writeOp, (*Server).getDatabaseCredentials},
 		{"GET", "/v1/functions", "DescribeFunctions", anyCredential, readOp, (*Server).describeFunctions},
 		{"POST", "/v1/functions", "CreateFunction", anyCredential, writeOp, (*Server).createFunction},
 		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, readOp, (*Server).describeFunction},

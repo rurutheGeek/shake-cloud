@@ -141,3 +141,30 @@ func TestDeletingAnImageRespectsOwnershipAndLaunchesInFlight(t *testing.T) {
 		t.Fatalf("launch from a deleted image: %v", err)
 	}
 }
+
+func TestAnotherAccountsUploadedImageCannotBeLaunched(t *testing.T) {
+	s, _, _ := testService(t)
+	alice := newAccount(t, s, "alice")
+	bob := newAccount(t, s, "bob")
+	admin, _, err := db.RecordLogin(context.Background(), s.Pool, "sub-root", "root", "root@example.test", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	image := upload(t, s, alice, "private", "private.qcow2", "0123456789")
+	r := RunRequest{ImageID: image.ID, VCPUs: ptr(1), MemoryMiB: ptr(512)}
+
+	// 存在を確かめさせないため、持ち主以外には無いイメージと同じ拒否を返す。
+	if _, _, err := s.Run(context.Background(), bob, r, nil); code(err) != "InvalidImageID.NotFound" {
+		t.Fatalf("bob launched alice's image: %v", err)
+	}
+	if _, _, err := s.Run(context.Background(), alice, r, nil); err != nil {
+		t.Fatalf("owner launch: %v", err)
+	}
+	if _, _, err := s.Run(context.Background(), admin.ID, r, nil); err != nil {
+		t.Fatalf("admin launch: %v", err)
+	}
+	// 共有イメージは誰でも使える。
+	if _, err := s.ResolveImageFor(context.Background(), s.Pool, "img-debian13", bob); err != nil {
+		t.Fatalf("shared image: %v", err)
+	}
+}

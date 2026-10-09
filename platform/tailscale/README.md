@@ -1,15 +1,23 @@
-# Tailscale の ACL（ポリシー）
+# Tailscale のポリシーとタグ
 
-`acl.json` が tailnet のポリシーの正本です（2026-10-05 に適用）。管理画面でも入れられますが、変更はこのファイルへ戻してください。
+`policy.yaml` が tailnet のポリシー（誰が誰へ届くか）と端末タグの正本です
+（2026-10-09 に Git 管理へ移して適用。それ以前は `acl.json`）。
 
-- `tag:relay`（negitoroserver）が行けるのは `tag:web`（web-01）の 80/443 と、Minecraft の `shakeserver:25565` だけ。
-- `tag:web` は tailnet へ発信できません（受けるだけ）。
-- タグの無い端末（利用者の端末）はこれまでどおり相互と LAN へ届きます。
+`tools/tailscale-net.py` が管理画面のポリシーと端末のタグをここへ寄せます。
+管理画面で直接編集せず、差分があればこのツールで戻してください。
 
 ```bash
-TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml)
-curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  --data-binary @platform/tailscale/acl.json https://api.tailscale.com/api/v2/tailnet/-/acl
+sops exec-env platform/sops/tailscale.sops.yaml \
+  '.venv/bin/python tools/tailscale-net.py status'
+sops exec-env platform/sops/tailscale.sops.yaml \
+  '.venv/bin/python tools/tailscale-net.py apply'
 ```
 
-端末へのタグ付けは管理画面（または `POST /api/v2/device/<id>/tags`）。`hosts` の IP は tailnet アドレスなので、端末を作り直したら直します。
+- `status` はルート承認・DNS・ポリシー・タグの差分を表示するだけです。
+- `apply` はポリシーを丸ごと置き換え（先に Tailscale 側の `tests` を通す）、
+  差分のある端末へタグを付け、ルート承認と DNS の差分も適用します。
+- **タグ付けは端末側で再ログインするまで戻せません。** 付け外しは
+  `policy.yaml` の `devices` を直して `apply` します。
+- `status` は `policy.yaml` に無いのにタグが付いた端末も報告します。
+
+ポリシーの中身と考え方は [Tailscale（router-01 上の subnet router）](../../docs/operations/net.md) を参照してください。

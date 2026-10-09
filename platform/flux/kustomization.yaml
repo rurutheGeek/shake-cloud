@@ -12,6 +12,7 @@ resources:
   - apps/cnpg.yaml
   - apps/databases.yaml
   - apps/knative-namespaces.yaml
+  - apps/functions-network-policy.yaml
   - apps/knative.yaml
   - apps/knative-serving.yaml
   - apps/functions-rbac.yaml

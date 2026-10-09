@@ -1,0 +1,189 @@
+---
+- name: Require Debian
+  ansible.builtin.assert:
+    that: ansible_facts['distribution'] == 'Debian'
+    fail_msg: This role targets the Debian relay host.
+
+- name: Use the university NTP servers
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/timesyncd.conf
+    regexp: '^#?NTP='
+    line: "NTP={{ public_relay_ntp_servers }}"
+  notify: Restart timesyncd
+
+- name: Inspect /etc/resolv.conf
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: public_relay_resolv
+
+- name: Drop a resolv.conf symlink (the resolvers are written below)
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    state: absent
+  when: public_relay_resolv.stat.islnk | default(false)
+
+- name: Pin the university resolvers
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      {% for server in public_relay_dns_servers %}
+      nameserver {{ server }}
+      {% endfor %}
+    mode: '0644'
+
+# cloud-init の 50-cloud-init.conf は PasswordAuthentication yes を置く。
+# sshd は先に読んだ値を採るので、10- の drop-in で上書きする。
+- name: Harden sshd with a drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-managed.conf
+    content: |
+      # Managed by platform/ansible/roles/public_relay. Do not edit on the host.
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+    mode: '0644'
+  notify: Reload sshd
+
+- name: Read the Tailscale preferences
+  ansible.builtin.command: tailscale debug prefs
+  register: public_relay_tailscale_prefs
+  changed_when: false
+  check_mode: false
+
+# 中継は tailnet の外へ出ない。LAN のルートも tailnet DNS も要らない。
+- name: Do not accept routes
+  ansible.builtin.command: tailscale set --accept-routes=false
+  when: (public_relay_tailscale_prefs.stdout | from_json).RouteAll
+  changed_when: true
+
+- name: Use the university DNS instead of the tailnet's
+  ansible.builtin.command: tailscale set --accept-dns=false
+  when: (public_relay_tailscale_prefs.stdout | from_json).CorpDNS
+  changed_when: true
+
+- name: Pre-select the sslh standalone mode
+  ansible.builtin.debconf:
+    name: sslh
+    question: sslh/inetd_or_standalone
+    value: standalone
+    vtype: select
+
+- name: Install nginx, sslh and ufw
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - libnginx-mod-stream
+      - sslh
+      - ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+# Cloudflare が公開しているレンジと突き合わせる。変わっていたら止め、
+# defaults を直してから流し直す（黙って古いリストで運用しない）。
+- name: Read Cloudflare's published ranges
+  ansible.builtin.uri:
+    url: 'https://www.cloudflare.com/{{ item }}'
+    return_content: true
+  register: public_relay_cloudflare
+  loop: ['ips-v4', 'ips-v6']
+  changed_when: false
+  check_mode: false
+
+- name: Refuse to run when Cloudflare's ranges moved
+  ansible.builtin.assert:
+    that:
+      - >-
+        public_relay_cloudflare.results[0].content.splitlines() | map('trim') | select | list
+        == public_relay_cloudflare_ipv4
+      - >-
+        public_relay_cloudflare.results[1].content.splitlines() | map('trim') | select | list
+        == public_relay_cloudflare_ipv6
+    fail_msg: >-
+      Cloudflare のIPレンジが宣言と違います。defaults/main.yml の
+      public_relay_cloudflare_ipv4 / public_relay_cloudflare_ipv6 を
+      実リストへ更新してから流し直してください:
+      {{ public_relay_cloudflare.results | map(attribute='content') | list }}
+
+- name: Read the firewall status
+  ansible.builtin.command: ufw status
+  register: public_relay_ufw
+  changed_when: false
+  check_mode: false
+
+# 宣言は「SSH は tailscale0 からだけ、80 は誰からでも、443 は Cloudflare からだけ」
+# の1通りだけ。差分があれば作り直すので、手で足した古い許可（LAN 全体の SSH や
+# 443 の全許可）も消える。
+- name: Rebuild the firewall when it differs from this declaration
+  when: >-
+    'Status: active' not in public_relay_ufw.stdout
+    or '22/tcp on tailscale0' not in public_relay_ufw.stdout
+    or '80/tcp' not in public_relay_ufw.stdout
+    or (public_relay_ufw.stdout_lines | select('search', '^22/tcp(?!.*on tailscale0)') | list | length > 0)
+    or (public_relay_ufw.stdout_lines | select('search', '^443/tcp\s+ALLOW IN\s+Anywhere') | list | length > 0)
+    or (public_relay_cloudflare_ranges | reject('in', public_relay_ufw.stdout) | list | length > 0)
+  block:
+    - name: Reset the firewall to the declared rules
+      ansible.builtin.command: ufw --force reset
+      changed_when: true
+
+    - name: Allow SSH only on the tailnet interface
+      ansible.builtin.command: ufw allow in on {{ public_relay_ssh_interface }} to any port 22 proto tcp
+      changed_when: true
+
+    - name: Allow HTTP from anywhere (offered as a fallback for the old URL)
+      ansible.builtin.command: ufw allow {{ public_relay_http_port }}/tcp
+      changed_when: true
+
+    - name: Allow HTTPS only from Cloudflare
+      ansible.builtin.command: ufw allow from {{ item }} to any port {{ public_relay_https_port }} proto tcp
+      loop: '{{ public_relay_cloudflare_ranges }}'
+      changed_when: true
+
+    - name: Enable the firewall
+      ansible.builtin.command: ufw --force enable
+      changed_when: true
+
+- name: Remove the default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Create the nginx stream directory
+  ansible.builtin.file:
+    path: /etc/nginx/stream.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Include the stream snippets from nginx.conf
+  ansible.builtin.blockinfile:
+    path: /etc/nginx/nginx.conf
+    marker: '# {mark} ANSIBLE MANAGED BLOCK: stream configuration'
+    insertafter: EOF
+    content: |
+      stream {
+          include /etc/nginx/stream.conf.d/*.conf;
+      }
+
+- name: Point 443 at web-01 (PROXY protocol carries the client address)
+  ansible.builtin.template:
+    src: stream_proxy.conf.j2
+    dest: /etc/nginx/stream.conf.d/stream_proxy.conf
+    mode: '0644'
+  notify: Restart nginx
+
+# 止めた Minecraft への中継（--anyprot …:25565）は戻さない。
+- name: Point 80 at web-01 with sslh
+  ansible.builtin.template:
+    src: sslh.default.j2
+    dest: /etc/default/sslh
+    mode: '0644'
+  notify: Restart sslh
+
+- name: Keep the relay services running
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: ['nginx', 'sslh']

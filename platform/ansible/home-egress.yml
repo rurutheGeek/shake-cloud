@@ -1,0 +1,25 @@
+---
+# 宅内LANの物理サーバの外向きガード。LAN からは入れるが、サーバから LAN へは
+# 出さない。LAN の監視は tailnet 経由のまま。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#        -i platform/ansible/outpost.ini platform/ansible/home-egress.yml'
+- name: Keep the home server from reaching the rest of the LAN
+  hosts: home
+  become: true
+  roles:
+    - role: home_egress
+      vars:
+        home_egress_disable_units: ['xrdp', 'xrdp-sesman']
+
+# たらこサーバは外からの監視役（public-monitor.yml）。監視の入口
+# grafana.<zone> は入口 core-01 を指すので、その 443 だけ通す。
+- name: Keep the outpost from reaching the rest of the LAN
+  hosts: outpost
+  become: true
+  roles:
+    - role: home_egress
+      vars:
+        home_egress_allow:
+          - {address: 192.168.10.200, port: 443}
