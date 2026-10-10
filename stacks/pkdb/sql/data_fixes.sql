@@ -46,6 +46,34 @@ BEGIN
   GET DIAGNOSTICS affected = ROW_COUNT;
   changed := changed + affected;
 
+  -- 進化の表（pokemon_evolution）のフォームの誤り・抜け（2026-10-10）。
+  -- 進化段階はフォームごとに、この表の行の有無で決まる（mv_quiz_status）。進化する
+  -- フォームが「無進化」になり、UBSLEEPY の種族値クイズ（既定は最終進化・無進化だけ）に
+  -- 出ていた。
+  -- とくべつなイワンコ（0744-01）: たそがれのすがた（0745-02）へ進化するのはこのフォーム
+  -- だけ。ふつうのイワンコ（00）からの行になっていた。
+  UPDATE pokemon_evolution SET before_form_id = '01'
+  WHERE before_ndex_number = '0744' AND before_form_id = '00'
+    AND after_ndex_number = '0745' AND after_form_id = '02';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  changed := changed + affected;
+
+  -- ウパー（パルデアのすがた）は 0194-02。ドオー（0980）への行が 01 からになっていた。
+  UPDATE pokemon_evolution SET before_form_id = '02'
+  WHERE before_ndex_number = '0194' AND before_form_id = '01'
+    AND after_ndex_number = '0980' AND after_form_id = '00';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  changed := changed + affected;
+
+  -- ヌメイル（ヒスイのすがた、0705-01）: ヌメラからの行が無く、「進化前」になっていた。
+  INSERT INTO pokemon_evolution
+    (method_id, before_ndex_number, before_form_id, after_ndex_number, after_form_id,
+     title_group_id)
+  VALUES ('level-up-level-40', '0704', '00', '0705', '01', '084')
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  changed := changed + affected;
+
   IF changed > 0 THEN
     REFRESH MATERIALIZED VIEW mv_latest_pokemon_status;
     REFRESH MATERIALIZED VIEW mv_quiz_status;
