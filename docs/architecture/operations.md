@@ -25,15 +25,15 @@ tags:
 | --- | --- | --- | --- |
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
 | router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
-| core-01（150。旧services-01） | 2 / 6GiB（2026-10-03 に Authentik の統合で 4→6GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
+| core-01（150。旧services-01） | 2 / 4.5GiB（固定。2026-10-11 に実測（最大約3.8GiB）へ合わせて 6→4.5GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
 | apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
-| cloud-01（140） | 2 / 2GiB（下限1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |
+| cloud-01（140） | 2 / 1GiB（固定。2026-10-11 に実測（最大約0.67GiB）へ合わせて 2→1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |
 | k8s-cp-01（200） | 2 / 3GiB（固定） | 32GiB | control plane。既存構成維持 |
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
 | media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
-| monitor-01（基盤VM、120、192.168.10.210） | 2 / 2GiB（宣言値） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
+| monitor-01（基盤VM、120、192.168.10.210） | 2 / 3GiB（下限2GiB。2026-10-11 に 2→3GiB） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
 | dev-01 / dev-02（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |

@@ -26,7 +26,9 @@ hosts:
     vm_id: 140
     pool: platform
     flavor: small
-    # 常時起動のAPIと管理DB。下限0.5GiBでは足りないので1GiBにする。
+    # 常時起動のAPIと管理DB。2026-10-11: 14日間の実使用は最大約0.67GiBなので
+    # 上限を 2GiB → 1GiB へ下げた。下限と同じ値＝固定割り当て（バルーニング無効）。
+    memory_mib: 1024
     memory_min_mib: 1024
     disk_gib: 40
     # Garage（S3 の実体）もここに置く（2026-10-03。storage-s3 から合流）。
@@ -41,6 +43,9 @@ hosts:
     vm_id: 120
     pool: platform
     flavor: small
+    # 2026-10-11: 2GiB では実使用が最大約1.6GiB・スワップ約0.3GiBと余裕が無いので
+    # 上限を 3GiB へ広げた。
+    memory_mib: 3072
     # balloon 下限。1GiB まで縮められて Grafana が OOM 死した（2026-10-06）。
     memory_min_mib: 2048
     # Prometheus の時系列と Grafana の状態も同じディスクに置く（2026-10-03 時点で約1.3GiB）。
