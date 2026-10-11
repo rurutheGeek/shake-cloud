@@ -35,14 +35,15 @@ variable "vcpus" {
 }
 
 variable "memory_mib" {
-  type    = number
-  default = 4096
+  description = "2026-10-11: 14日間の実使用は最大約1.8GiB（コンテナ合計は約0.25GiB）なので 4096 → 2048 へ下げた。"
+  type        = number
+  default     = 2048
 }
 
 variable "memory_min_mib" {
   description = "バルーニングでホストが回収できる下限。"
   type        = number
-  default     = 2048
+  default     = 1536
 }
 
 variable "ballooning" {

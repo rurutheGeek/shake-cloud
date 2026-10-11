@@ -12,7 +12,7 @@
 # 旧 shakeserver の実使用（コンテナ6個で約1.4GiB）に合わせた開始値。
 # ビルドをこのVMで回す場合は実測して広げる（vCPU・メモリは停止中のみ変更可）。
 # vcpus          = 2
-# memory_mib     = 4096
-# memory_min_mib = 2048
+# memory_mib     = 2048
+# memory_min_mib = 1536
 # root_disk_gib  = 32
 # data_disk_gib  = 32
