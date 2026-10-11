@@ -30,14 +30,26 @@ URBACKUP_PASSWORD_FILE = os.environ.get(
 URBACKUP_WEB_URL = os.environ.get('URBACKUP_WEB_URL', 'https://urbackup.apextox.dpdns.org/')
 SMART_SWITCH_URL = os.environ.get(
     'SMART_SWITCH_URL', 'https://www.samsung.com/jp/apps/smart-switch/')
+# 管理画面の言語一覧に日本語が無い（upstream の g.languages 漏れ）。ポータルを
+# 一度開いたら管理画面も日本語になるよう、共通ドメインへ Cookie を置く。
+LANG_COOKIE = os.environ.get(
+    'URBACKUP_LANG_COOKIE',
+    'urbackup_lang=ja; Domain=apextox.dpdns.org; Path=/; Max-Age=31536000; Secure; SameSite=Lax')
 ANDROID_BACKUP_ROOT = Path(os.environ.get('ANDROID_BACKUP_ROOT', '/data/android-backups'))
 STATIC_FILE = Path(__file__).resolve().parent / 'portal-backup.js'
 CACHE_SECONDS = int(os.environ.get('CACHE_SECONDS', '30'))
+PROGRESS_SECONDS = int(os.environ.get('PROGRESS_SECONDS', '5'))
 HTTP_TIMEOUT = 10
 MAX_CHUNK = 32 * 1024 * 1024
 
 DEVICE_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
 REL_COMPONENT_RE = re.compile(r'^[^/\\]{1,255}$')
+BACKUP_KINDS = ('incr_file', 'full_file', 'incr_image', 'full_image')
+PROGRESS_ACTIONS = {
+    1: 'ファイル（増分）', 2: 'ファイル（フル）', 3: 'イメージ（増分）', 4: 'イメージ（フル）',
+    5: 'ファイル（再開）', 6: 'ファイル（再開）', 8: '復元（ファイル）', 9: '復元（イメージ）',
+    10: '開始中', 11: '初期化中',
+}
 LOCK = threading.Lock()
 
 # 端末ごとの手順。保存先やアプリの名前が変わったらここを直す。
@@ -46,11 +58,14 @@ DEVICES = [
         'name': 'Windows PC',
         'method': 'UrBackup（LAN・自動）',
         'steps': [
-            '初回だけ: UrBackup 管理画面の「Status」からクライアント（MSI）を入れる',
-            '入れればファイルは毎時、システムイメージは定期で自動バックアップ',
+            '初回だけ: 下の「Windowsクライアントをダウンロード」からインストーラーを実行',
+            '自動バックアップはオフ。上の表の「ファイル」「イメージ」を押した時だけ走る',
             '復元は UrBackup 管理画面の「Backups」から（イメージ復元は復元メディア）',
         ],
-        'links': [('UrBackup 管理画面', URBACKUP_WEB_URL)],
+        'links': [
+            ('Windowsクライアントをダウンロード', '/download/urbackup-client-windows'),
+            ('UrBackup 管理画面', URBACKUP_WEB_URL),
+        ],
     },
     {
         'name': 'Galaxy（家族の全端末）',
@@ -65,6 +80,7 @@ DEVICES = [
 ]
 
 _cache = {'at': 0.0, 'value': None}
+_progress_cache = {'at': 0.0, 'value': None}
 
 
 class Api:
@@ -125,9 +141,63 @@ def fetch_status():
     return status
 
 
+def fetch_progress():
+    """Return the UrBackup running-backup dict, or None when unreachable."""
+    now = time.monotonic()
+    if _progress_cache['value'] is not None and now - _progress_cache['at'] < PROGRESS_SECONDS:
+        return _progress_cache['value']
+    try:
+        api = Api(URBACKUP_API, URBACKUP_USER, read_password())
+        progress = api.call('progress') if api.login() else None
+    except (OSError, ValueError, urllib.error.URLError):
+        progress = None
+    _progress_cache['value'] = progress
+    _progress_cache['at'] = now
+    return progress
+
+
+def client_download_params(session):
+    """Parameters for the server's Windows client installer download."""
+    return {'a': 'download_client', 'clientid': '-1', 'os': 'windows', 'ses': session}
+
+
+def open_client_download():
+    """Log in and open the UrBackup Windows client installer stream."""
+    api = Api(URBACKUP_API, URBACKUP_USER, read_password())
+    if not api.login():
+        raise RuntimeError('the UrBackup login failed')
+    url = URBACKUP_API + '?' + urllib.parse.urlencode(client_download_params(api.session))
+    return urllib.request.urlopen(
+        urllib.request.Request(url, method='GET'), timeout=HTTP_TIMEOUT)
+
+
+def start_backup_params(client, kind):
+    """Parameters for the server's manual backup action."""
+    if kind not in BACKUP_KINDS:
+        raise ValueError('invalid backup type')
+    return {'start_type': kind, 'start_client': str(client)}
+
+
+def start_backup(client, kind):
+    """Ask the UrBackup server to start one manual backup for a client."""
+    api = Api(URBACKUP_API, URBACKUP_USER, read_password())
+    if not api.login():
+        raise RuntimeError('the UrBackup login failed')
+    return api.call('start_backup', start_backup_params(client, kind))
+
+
 def cell(value):
     value = '' if value in (None, '-', 0) else value
     return html.escape(str(value)) if value else '未取得'
+
+
+def backup_buttons(client_id):
+    if not isinstance(client_id, int):
+        return '未取得'
+    return ''.join(
+        f'<button type="button" class="backup" data-client="{client_id}" '
+        f'data-kind="{kind}">{label}</button>'
+        for kind, label in (('incr_file', 'ファイル'), ('incr_image', 'イメージ')))
 
 
 def render_status(status):
@@ -137,8 +207,7 @@ def render_status(status):
     if not clients:
         return (
             '<p class="muted">UrBackup にクライアントがまだ登録されていません。'
-            f'<a href="{html.escape(URBACKUP_WEB_URL)}">管理画面</a>の「Status」から'
-            ' Windows クライアントを入れてください。</p>')
+            '下の「Windows PC」からクライアントを入れてください。</p>')
     rows = []
     for client in clients:
         online = 'オンライン' if client.get('online') else 'オフライン'
@@ -148,10 +217,54 @@ def render_status(status):
             f'<td>{online}</td>'
             f'<td>{cell(client.get("lastbackup"))}</td>'
             f'<td>{cell(client.get("lastbackup_image"))}</td>'
+            f'<td>{backup_buttons(client.get("id"))}</td>'
             '</tr>')
     return (
         '<table><thead><tr><th>端末</th><th>状態</th><th>最終ファイル</th>'
-        '<th>最終イメージ</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table>')
+        '<th>最終イメージ</th><th>手動バックアップ（自動はオフ）</th></tr></thead>'
+        '<tbody>' + ''.join(rows) + '</tbody></table>'
+        '<p id="backup-message" class="muted"></p>')
+
+
+def render_progress(progress):
+    entries = (progress or {}).get('progress') or []
+    if not entries:
+        return '<p class="muted">いま走っているバックアップはありません。</p>'
+    blocks = []
+    for entry in entries:
+        done = entry.get('done_bytes') or 0
+        total = entry.get('total_bytes') or 0
+        pcdone = entry.get('pcdone') or 0
+        queue = entry.get('queue') or 0
+        speed = (entry.get('speed_bpms') or 0) * 1000 / 1024 ** 2
+        action = PROGRESS_ACTIONS.get(entry.get('action'), 'バックアップ')
+        name = html.escape(str(entry.get('name', '?')))
+        if total <= 0:
+            # ファイル一覧の作成中。転送量がまだ分からない。
+            detail = f'{action}・準備中（ファイル一覧を作成中）'
+            bar = '<div class="bar"><div class="bar-fill processing"></div></div>'
+        elif pcdone >= 100 and queue > 0:
+            # 転送は終わり、サーバーが索引とハッシュを確定している段階。
+            detail = (f'{action} {done / 1024 ** 3:.1f} GiB・転送完了、'
+                      f'後処理中（残り約{queue:,}件）')
+            bar = '<div class="bar"><div class="bar-fill processing"></div></div>'
+        else:
+            percent = min(100.0, done / total * 100) if total else 0.0
+            eta = entry.get('eta_ms') or -1
+            if eta and eta > 0:
+                minutes = eta / 60000
+                eta_text = f'残り約{minutes / 60:.1f}時間' if minutes >= 60 else f'残り約{minutes:.0f}分'
+            else:
+                eta_text = '残り時間は計算中'
+            detail = (f'{action} {done / 1024 ** 3:.1f} / {total / 1024 ** 3:.1f} GiB'
+                      f'（{percent:.1f}%）・{speed:.1f} MiB/s・{eta_text}')
+            bar = f'<div class="bar"><div class="bar-fill" style="width:{percent:.1f}%"></div></div>'
+        blocks.append(
+            '<div class="progress">'
+            f'<div class="progress-head"><strong>{name}</strong> {detail}</div>'
+            f'{bar}'
+            '</div>')
+    return ''.join(blocks)
 
 
 def android_manifests():
@@ -192,7 +305,7 @@ def render_android_status():
         '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table>')
 
 
-def render_page(status):
+def render_page(status, progress=None):
     cards = []
     for device in DEVICES:
         steps = ''.join(f'<li>{html.escape(step)}</li>' for step in device['steps'])
@@ -231,7 +344,17 @@ def render_page(status):
   .button, button {{ display: inline-block; border: 1px solid #8884; border-radius: 6px;
              padding: 0.4rem 0.9rem; text-decoration: none; font-size: 1rem;
              background: #2563eb; color: #fff; cursor: pointer; }}
+  button.backup {{ padding: 0.2rem 0.6rem; font-size: 0.9rem; margin-right: 0.3rem; }}
   button:disabled {{ opacity: 0.5; cursor: default; }}
+  .progress {{ margin: 0.6rem 0; }}
+  .progress-head {{ font-size: 0.9rem; margin-bottom: 0.2rem; }}
+  .bar {{ background: #8883; border-radius: 999px; height: 0.9rem; overflow: hidden; }}
+  .bar-fill {{ background: #2563eb; height: 100%; }}
+  .bar-fill.processing {{ width: 100%;
+    background: repeating-linear-gradient(45deg, #2563eb 0 8px, #60a5fa 8px 16px);
+    animation: stripes 0.8s linear infinite; }}
+  @keyframes stripes {{ from {{ background-position: 0 0; }}
+    to {{ background-position: 32px 0; }} }}
   .targets label {{ margin-right: 1rem; }}
   pre.log {{ background: #0002; border-radius: 6px; padding: 0.6rem; max-height: 14rem;
              overflow: auto; font-size: 0.8rem; white-space: pre-wrap; }}
@@ -242,6 +365,8 @@ def render_page(status):
 <p class="muted">media-01 の UrBackup と各端末のバックアップ入口です。SSO の内側にあります。</p>
 <h2>いまの状態（UrBackup）</h2>
 {render_status(status)}
+<h3>走っているバックアップ</h3>
+{render_progress(progress)}
 <h2>Android をバックアップ（USB）</h2>
 <section class="card">
   <p>スマホをこのPCにUSBでつないでボタンを押すだけです（Vivaldi・Chrome・Edge などのChromium系）。ファイルは
@@ -262,6 +387,48 @@ def render_page(status):
 {render_android_status()}
 <h2>端末ごとのやり方</h2>
 {''.join(cards)}
+<h2>復元のやり方</h2>
+<section class="card">
+  <h3>ファイル（書類・写真など）</h3>
+  <ol>
+    <li>「UrBackup 管理画面」を開く</li>
+    <li>「Backups」で端末と世代（日時）を選び、必要なファイルをダウンロードする</li>
+  </ol>
+</section>
+<section class="card">
+  <h3>システムイメージ（Windowsが起動しないとき）</h3>
+  <ol>
+    <li>UrBackup の復元メディア（USB/CD）でPCを起動する</li>
+    <li>サーバー 192.168.10.101 に接続し、戻す世代を選ぶ</li>
+  </ol>
+</section>
+<section class="card">
+  <h3>マルウェア感染が疑われるとき</h3>
+  <ol>
+    <li>戻すのは<strong>感染前の世代</strong>。感染後に取った世代は戻さない</li>
+    <li>データだけ戻した場合も、戻した後にウイルススキャンしてから使う</li>
+  </ol>
+</section>
+<script>
+document.addEventListener('click', function (event) {{
+  var button = event.target.closest('button.backup');
+  if (!button) return;
+  var message = document.getElementById('backup-message');
+  button.disabled = true;
+  fetch('/api/backup/start', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{client: Number(button.dataset.client),
+                           kind: button.dataset.kind}})
+  }}).then(function (response) {{ return response.json(); }}).then(function (data) {{
+    message.textContent = data.ok
+      ? 'バックアップを開始しました。上の「走っているバックアップ」に進捗が出ます（再読み込みで更新）。'
+      : '開始できませんでした（' + (data.error || '不明なエラー') + '）';
+  }}).catch(function (error) {{
+    message.textContent = '開始できませんでした（' + error + '）';
+  }}).finally(function () {{ button.disabled = false; }});
+}});
+</script>
 <script type="module" src="/static/portal-backup.js"></script>
 </body>
 </html>
@@ -386,8 +553,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({'error': str(error)}, status=400)
                 return
             self.json(android_index(device))
+        elif path == '/download/urbackup-client-windows':
+            self.download_client_windows()
         elif path in ('/', '/index.html'):
-            self.respond(render_page(fetch_status()).encode('utf-8'), 'text/html; charset=utf-8')
+            page = render_page(fetch_status(), fetch_progress()).encode('utf-8')
+            self.respond(page, 'text/html; charset=utf-8',
+                         extra_headers=[('Set-Cookie', LANG_COOKIE)])
         else:
             self.respond(b'not found\n', 'text/plain; charset=utf-8', status=404)
 
@@ -405,6 +576,8 @@ class Handler(BaseHTTPRequestHandler):
                 payload = self.read_json_body()
                 device = safe_device(str(payload.get('device', '')))
                 self.json(android_manifest(device, payload))
+            elif path == '/api/backup/start':
+                self.handle_backup_start()
             else:
                 self.respond(b'not found\n', 'text/plain; charset=utf-8', status=404)
         except (KeyError, ValueError) as error:
@@ -428,11 +601,64 @@ class Handler(BaseHTTPRequestHandler):
         size = android_chunk(device, relative, offset, body)
         self.json({'size': size})
 
+    def handle_backup_start(self):
+        payload = self.read_json_body()
+        client = int(payload['client'])
+        if client < 0:
+            raise ValueError('invalid client')
+        try:
+            result = start_backup(client, str(payload['kind']))
+        except (OSError, urllib.error.URLError, RuntimeError) as error:
+            self.json({'ok': False, 'error': str(error)}, status=502)
+            return
+        entries = result.get('result', []) if isinstance(result, dict) else []
+        started = [entry for entry in entries
+                   if isinstance(entry, dict) and entry.get('start_ok')]
+        if not started:
+            self.json({'ok': False, 'error': 'UrBackup が開始を受け付けませんでした',
+                       'result': entries}, status=502)
+            return
+        self.json({'ok': True, 'result': entries})
+
     def read_json_body(self):
         length = int(self.headers.get('Content-Length', '0'))
         if length <= 0 or length > 1024 * 1024:
             raise ValueError('invalid body size')
         return json.loads(self.rfile.read(length).decode('utf-8'))
+
+    def download_client_windows(self):
+        """Stream the server's Windows client installer (needs the admin session)."""
+        try:
+            upstream = open_client_download()
+        except (OSError, ValueError, urllib.error.URLError, RuntimeError):
+            self.json({'error': 'UrBackup からクライアントを取得できませんでした'}, status=502)
+            return
+        with upstream:
+            first = upstream.read(64 * 1024)
+            # ログインに失敗すると本文が ERROR テキストになる。実行ファイルだけ通す。
+            if not first.startswith(b'MZ'):
+                message = (first + upstream.read(4096)).decode('utf-8', 'ignore')[:200]
+                self.json({'error': f'UrBackup did not return an installer: {message}'},
+                          status=502)
+                return
+            length = upstream.headers.get('Content-Length')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Disposition',
+                             'attachment; filename="UrBackupClientSetup.exe"')
+            if length:
+                self.send_header('Content-Length', str(length))
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            try:
+                self.wfile.write(first)
+                while True:
+                    chunk = upstream.read(256 * 1024)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
     def do_HEAD(self):
         self.respond(b'', 'text/plain; charset=utf-8', head=True)
@@ -441,11 +667,13 @@ class Handler(BaseHTTPRequestHandler):
         self.respond(json.dumps(payload, ensure_ascii=False).encode('utf-8'),
                      'application/json; charset=utf-8', status=status)
 
-    def respond(self, body, content_type, status=200, head=False):
+    def respond(self, body, content_type, status=200, head=False, extra_headers=()):
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
+        for name, value in extra_headers:
+            self.send_header(name, value)
         self.end_headers()
         if not head:
             self.wfile.write(body)

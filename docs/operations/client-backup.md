@@ -1,6 +1,6 @@
 ---
 title: クライアント端末のバックアップ（Windows・Android）
-updated: 2026-10-02
+updated: 2026-10-05
 section: 運用手順
 audience: 全員
 tags:
@@ -12,9 +12,9 @@ tags:
 
 # クライアント端末のバックアップ（Windows・Android）
 
-> **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 全員
+> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 全員
 
-**状態**: **配備済み（2026-10-02）。** 入口は **<https://backup.apextox.dpdns.org>**（バックアップポータル。Forward Auth）で、端末の状態と操作をここに集めています。Windows は media-01 の UrBackup が**ファイルとシステムイメージの世代バックアップ**を取ります。Android は家族全員 Galaxy のため、**ポータルの「スマホをバックアップ」ボタン（USB・WebUSB）**で写真・書類・APKを media-01 のHDDへ保存します（アプリ内部データはAndroidの制限で対象外。機種変更の引き継ぎは Smart Switch）。保存先は6TB HDD の `/srv/bulk/client-backups` で、この HDD が単一障害点である点は[共有バルクストレージ](bulk-storage.md)の注意のままです。
+**状態**: **配備済み（2026-10-02）。** 入口は **<https://backup.apextox.dpdns.org>**（バックアップポータル。Forward Auth）で、端末の状態と操作をここに集めています。Windows は media-01 の UrBackup が**ファイルとシステムイメージの世代バックアップ**を取ります。Android は家族全員 Galaxy のため、**ポータルの「スマホをバックアップ」ボタン（USB・WebUSB）**で写真・書類・APKを media-01 のHDDへ保存します（アプリ内部データはAndroidの制限で対象外。機種変更の引き継ぎは Smart Switch）。保存先は media-01 の HDD ボリューム `media-01-bulk` 上の `/srv/media-stack/client-backups` で、この HDD が単一障害点である点は[共有バルクストレージ](bulk-storage.md)の注意のままです。
 
 ## 1. 全体像
 
@@ -29,16 +29,25 @@ tags:
 ### 2.1 クライアントの導入
 
 1. ブラウザーで <https://backup.apextox.dpdns.org> を開き、共通ログイン（SSO）で入る。ここが全体の入口（バックアップポータル）。
-2. ポータルの「UrBackup 管理画面」（<https://urbackup.apextox.dpdns.org>）を開き、「Status」から Windows 用クライアント（`UrBackup Client … .msi`）をダウンロードしてインストールする。ダウンロードが使えない場合は [urbackup.org](https://www.urbackup.org/download.html) の同系（2.5.x）を使う。
+2. ポータルの「Windows PC」にある **「Windowsクライアントをダウンロード」** を押し、保存した `UrBackupClientSetup.exe` を実行してインストールする。ポータルが管理パスワードで UrBackup にログインして代わりに取ってくるので、管理画面へのログインは要らない。うまくいかない場合は管理画面の「Status」か [urbackup.org](https://www.urbackup.org/download.html) の同系（2.5.x）を使う。
 3. インストール後、**同じ LAN にいれば自動発見**される。数分待っても「Status」に現れない場合は、Web UI の **「Add new client」（クライアント追加）** へ PC の IP かホスト名を入れる（サーバーからその端末へ直接問い合わせる）。Windows 側のファイアウォールで UrBackup Client が**プライベートネットワーク**で許可されていることも確認する。
+
+> **管理画面の日本語**: UrBackup の言語一覧に日本語が無い（本家の漏れ）。ポータルを一度開くと共通ドメインへ `urbackup_lang=ja` の Cookie が付き、管理画面も日本語表示になる。ならないときは管理画面で `F12` → Console に `document.cookie="urbackup_lang=ja; path=/"` を貼って再読み込みする。
 
 ### 2.2 動き
 
-- ファイルバックアップは既定で毎時、イメージバックアップは定期（既定の保持はファイル増分100・フル10、イメージ増分30・フル5。最低世代はそれぞれ `min_*` で確保）。
+- **自動バックアップはオフ。** `settings.json` が4つの間隔を負値（UrBackup では「自動なし」の意味）に設定する。バックアップは**ポータルの「ファイル」「イメージ」ボタンを押した時だけ**走る（管理画面の「Start backup」でも同じ）。
 - 初回のファイル＋イメージは容量と回線に時間がかかる。Web UI の「Activities」で進行を見る。
 - 設定はサーバー側が正（クライアント側の変更は上書きされる）。対象は `settings.json` の `default_dirs`（`C:\Users`）と `image_letters`（`C:`）。D: なども取るなら `image_letters` を `ALL` にする（容量に注意）。
+- 保持はファイル増分100・フル10、イメージ増分30・フル5（最低世代は `min_*`）。**世代は上書きされず追加される**ので、感染前に取った世代は残る。
 
-### 2.3 復元
+### 2.3 マルウェア感染が疑われるとき
+
+- **バックアップの前に確認する。** 手動運用にしているのはこのため。Windows Defender のオフラインスキャンなどで感染が無いと確かめてから「ファイル」「イメージ」を押す。
+- **感染後に取ったバックアップは復元しない。** 感染前に取った世代が残っているので、復元メディアでイメージを戻すときは感染前の日時の世代を選ぶ。ファイルだけ戻す場合も感染前の世代からユーザーデータを戻し、戻した端末をスキャンしてから使う。
+- 判断に迷ったら、セットアップ直後のクリーンなフルイメージを基準にする。残す世代数は管理画面の `max_*`・`min_*` で調整できる。
+
+### 2.4 復元
 
 - **ファイル**: Web UI の「Backups」から該当世代を開き、必要なファイルをダウンロード／復元する。クライアントのトレイアイコン →「Access/restore backups」からも同じ Web UI を開ける（`server_url` を HTTPS にしてあるため SSO を通る）。
 - **システムイメージ（ベアメタル）**: [UrBackup の復元メディア](https://www.urbackup.org/restore.html)で USB/CD を作り、対象 PC を起動してサーバー `192.168.10.101` へ接続し、戻す世代を選ぶ。**この演習は未実施**。実施したら[配備台帳](handover.md)へ記録する。

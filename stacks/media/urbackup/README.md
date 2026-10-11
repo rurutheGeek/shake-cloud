@@ -17,9 +17,11 @@
 
 ## バックアップポータル（portal）
 
-`portal.py` が同じ Compose プロジェクトの `portal` サービス（`python:3.13-alpine`、読み取り専用）として動きます。UrBackup の `/x` API からクライアントの状態（オンライン・最終ファイル・最終イメージ）を読み、Windows の手順と、**USBでつないだ Galaxy をブラウザーから直接バックアップするボタン**（WebUSB）を1ページで出します。
+`portal.py` が同じ Compose プロジェクトの `portal` サービス（`python:3.13-alpine`、読み取り専用）として動きます。UrBackup の `/x` API からクライアントの状態（オンライン・最終ファイル・最終イメージ）と**走っているバックアップの進捗**（`progress` API、5秒キャッシュ）を読み、Windows の手順・手動開始ボタン・**復元の手順**と、**USBでつないだ Galaxy をブラウザーから直接バックアップするボタン**（WebUSB）を1ページで出します。
 
 - Android のバックアップは `portal-backup.js`（`portal-web/` を esbuild でバンドルした成果物）がブラウザー側で ADB over WebUSB を話し、ファイルを `/api/android/chunk`・`/api/android/finish`・`/api/android/manifest` へストリームします。保存先は `${CLIENT_BACKUP_ROOT}/android/<端末>/files/...` と `apk/`、インデックスは `index.json`。
+- Windows クライアントの配布は `/download/urbackup-client-windows` が担います。管理パスワードで `/x` にログインし、`a=download_client&clientid=-1&os=windows` のインストーラー（exe）をそのままストリームします（本文が `MZ` でなければエラー）。管理画面へのログインなしで入れられます。
+- 管理画面の言語一覧に日本語が無い（本家の `g.languages` 漏れ。`translations.ja` 自体は同梱）ため、ポータルの HTML 応答に `urbackup_lang=ja`（`Domain=apextox.dpdns.org`）の Cookie を付けます。ポータルを一度開けば管理画面も日本語になります。
 - 管理パスワードは `secrets/urbackup_admin_password` を読み取り専用でマウントして API のログインにだけ使い、HTML には出しません。手順の文言は `portal.py` の `DEVICES` が正本です。
 - **再ビルド**（`portal-web/src/main.js` を変えたとき。Node.js が要る）:
 
@@ -39,6 +41,7 @@ npm run build        # ../portal-backup.js を更新する
 - `default_dirs`: `C:\Users|Users`（ファイルバックアップの既定）
 - `image_letters`: `C`（システムイメージの対象。全ドライブに広げるなら `ALL`）
 - `internet_mode_enabled`: `false`（LAN 内は 55413 直結。宅外バックアップは未設定）
+- `update_freq_incr`・`update_freq_full`・`update_freq_image_incr`・`update_freq_image_full`: **負値**（例 `-18000`）で自動バックアップを無効化する（UrBackup は負の間隔＝自動なし）。手動はポータルの「ファイル」「イメージ」ボタンが `/api/backup/start` → `start_backup` API で開始する。
 
 管理者パスワードは `manage.py init` が `secrets/urbackup_admin_password`（0700 ディレクトリ・0400 ファイル）へ生成し、初回の `configure` が `urbackupsrv reset-admin-pw` で設定します。既存の値は上書きしません。
 
