@@ -362,13 +362,29 @@ def config_ocr():
     config_app('ocr_search', (('ocr_url', OCR_URL), ('ocr_token', token)))
 
 
-def ocr_index(max_runtime):
+def available_mib(meminfo='/proc/meminfo'):
+    """Memory the host can still hand out, in MiB."""
+    for line in Path(meminfo).read_text().splitlines():
+        if line.startswith('MemAvailable:'):
+            return int(line.split()[1]) // 1024
+    raise RuntimeError('MemAvailable is missing from /proc/meminfo')
+
+
+def ocr_index(max_runtime, min_available_mib):
     """Queue the images that are not indexed yet and work through the queue.
 
     Run at night by the media-stack-ocr-index timer. Uploads are indexed by
     Nextcloud's own background job; this picks up existing images and files
     that reached the library without passing through Nextcloud.
+
+    The VM is ballooned down when the Proxmox host is busy. Recognition needs
+    a few hundred MiB, so on such a night the run is left for the next one
+    rather than pushing the other services out of memory.
     """
+    available = available_mib()
+    if available < min_available_mib:
+        print(f'OK: OCR index skipped, {available} MiB available (needs {min_available_mib})')
+        return
     occ('ocr_search:index')
     occ('ocr_search:process', '--max-runtime', str(max_runtime))
 
@@ -769,6 +785,8 @@ def main():
                         help='Comma-separated release versions for custom-apps')
     parser.add_argument('--max-runtime', dest='max_runtime', type=int, default=3600,
                         help='Seconds ocr-index may spend on recognition')
+    parser.add_argument('--min-available-mib', dest='min_available_mib', type=int, default=1024,
+                        help='ocr-index does nothing when less memory than this is available')
     parser.add_argument('--user', dest='calendar_user',
                         help='Nextcloud user id for import-calendar')
     parser.add_argument('--file', dest='calendar_file',
@@ -826,7 +844,7 @@ def main():
             raise ValueError('Use --repos owner/name and --versions x.y.z with the ocr-service action')
         ocr_service(args.app_repos, args.app_versions)
     elif args.action == 'ocr-index':
-        ocr_index(args.max_runtime)
+        ocr_index(args.max_runtime, args.min_available_mib)
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

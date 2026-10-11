@@ -9,4 +9,4 @@ Type=oneshot
 # cpus: 2・mem_limit: 1g のocrコンテナが行う）。
 Nice=10
 IOSchedulingClass=idle
-ExecStart=/usr/bin/python3 {{ project_dir }}/media/nextcloud/manage.py ocr-index --max-runtime {{ nextcloud_ocr_index_max_runtime }}
+ExecStart=/usr/bin/python3 {{ project_dir }}/media/nextcloud/manage.py ocr-index --max-runtime {{ nextcloud_ocr_index_max_runtime }} --min-available-mib {{ nextcloud_ocr_index_min_available_mib }}

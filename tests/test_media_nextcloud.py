@@ -177,7 +177,7 @@ class OcrServiceTests(unittest.TestCase):
 
     def test_the_image_is_a_local_build_tagged_with_the_release(self):
         self.assertEqual(self.ocr['build'], './ocr-service')
-        self.assertEqual(self.ocr['image'], 'ocr-search-service:${OCR_SERVICE_VERSION:-0.1.1}')
+        self.assertEqual(self.ocr['image'], 'ocr-search-service:${OCR_SERVICE_VERSION:-1.0.1}')
         self.assertIn('archive/refs/tags/v{version}.tar.gz', self.manage)
         self.assertIn("marker.read_text().strip() == version", self.manage)
 
@@ -236,11 +236,27 @@ class OcrServiceTests(unittest.TestCase):
         names = [task['name'] for task in play['tasks']]
         self.assertIn('Enable the nightly OCR index', names)
 
+    def test_the_nightly_index_is_skipped_when_memory_is_short(self):
+        calls = []
+        with patch.object(manage, 'occ', lambda *args, **kwargs: calls.append(args)):
+            with patch.object(manage, 'available_mib', lambda: 300):
+                manage.ocr_index(7200, 1024)
+            self.assertEqual(calls, [])
+            with patch.object(manage, 'available_mib', lambda: 3000):
+                manage.ocr_index(7200, 1024)
+        self.assertEqual(calls, [('ocr_search:index',),
+                                 ('ocr_search:process', '--max-runtime', '7200')])
+        with tempfile.NamedTemporaryFile('w', suffix='.meminfo') as handle:
+            handle.write('MemTotal:  1880000 kB\nMemAvailable:   342016 kB\n')
+            handle.flush()
+            self.assertEqual(manage.available_mib(handle.name), 334)
+        self.assertGreaterEqual(self.group['nextcloud_ocr_index_min_available_mib'], 512)
+
     def test_the_nightly_index_is_time_boxed(self):
         service = (UNIT / 'media-stack-ocr-index.service.j2').read_text(encoding='utf-8')
         timer = (UNIT / 'media-stack-ocr-index.timer.j2').read_text(encoding='utf-8')
-        self.assertIn('manage.py ocr-index --max-runtime {{ nextcloud_ocr_index_max_runtime }}',
-                      service)
+        self.assertIn('manage.py ocr-index --max-runtime {{ nextcloud_ocr_index_max_runtime }}'
+                      ' --min-available-mib {{ nextcloud_ocr_index_min_available_mib }}', service)
         self.assertIn('OnCalendar={{ nextcloud_ocr_index_calendar }}', timer)
         self.assertGreater(self.group['nextcloud_ocr_index_max_runtime'], 0)
         self.assertIn("occ('ocr_search:index')", self.manage)
