@@ -138,6 +138,22 @@
     "pingUrl": "https://play.apextox.dpdns.org/"
   },
   {
+    "name": "ダウンロード（qBittorrent）",
+    "href": "https://torrent.play.apextox.dpdns.org",
+    "description": "隔離環境のtorrentクライアント（SSO・シード停止）。取得物の検査と保存は「ダウンロード（検疫）」から",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/qbittorrent.svg",
+    "pingUrl": "https://torrent.play.apextox.dpdns.org/"
+  },
+  {
+    "name": "ダウンロード（検疫）",
+    "href": "https://play.apextox.dpdns.org/download",
+    "description": "取得物をウイルス検査してライブラリ／個人フォルダへ（ポータルとは別アプリ・SSO共用）",
+    "iconText": "DL",
+    "iconColor": "#0ea5e9",
+    "pingUrl": "https://play.apextox.dpdns.org/download/healthz"
+  },
+
+  {
     "name": "AWX",
     "href": "https://awx.apextox.dpdns.org",
     "description": "Ansibleの実行基盤",
@@ -148,7 +164,7 @@
     "name": "バックアップ",
     "href": "https://backup.apextox.dpdns.org",
     "description": "端末バックアップの入口（UrBackupの状態と手順）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/urbackup.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/urbackup.png"
   },
   {
     "name": "Proxmox",
