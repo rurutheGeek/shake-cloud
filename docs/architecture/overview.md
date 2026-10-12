@@ -1,6 +1,6 @@
 ---
 title: ホームラボの全体像（詳細）
-updated: 2026-10-03
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ホームラボの全体像（詳細）
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -42,12 +42,15 @@ flowchart TB
     end
     subgraph svcpool["サービスVM cloud プール"]
       media["media-01<br/>メディア"]
-      apps["apps-01<br/>docs・パスワード・家電"]
-      game["game1<br/>ゲーム・AI（GPU）"]
+      apps["apps-01<br/>アプリ・Bot・pkdb"]
+      web01["web-01<br/>公開サイト（LANから隔離）"]
+      game["game-01<br/>ゲーム・AI（GPU）"]
     end
   end
   switch["TL-SG605"]
   aterm["Aterm（APモード）"]
+  relay["negitoroserver<br/>宅外の中継機"]
+  outpost["たらこサーバ<br/>外から見張る"]
 
   internet --> router
   router --> switch
@@ -57,6 +60,9 @@ flowchart TB
   switch --> media
   switch --> monitor
   switch --> game
+  internet --> relay
+  relay -. "tailnet" .-> web01
+  outpost -. "tailnet で応答を見る" .-> web01
   remote -. Tailscale .-> router
   devices -- "HTTPS名（core-01のCaddyがTLS終端）" --> core01
   core01 --> apps
@@ -74,19 +80,20 @@ flowchart TB
 | --- | --- | --- | --- |
 | 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
 | ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
-| 共通ログイン・台帳・HTTPSの入口 | core-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | Authentik（SSO・招待・復旧）・NetBox・Caddy（AdGuardとルータ管理画面の中継も） |
-| 自作クラウド・S3 | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル・Garage（S3互換） |
-| docs・パスワード・家電 | apps-01（cloud） | 2 / 4GiB / OS32GiB＋データ16GiB | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳 |
+| 共通ログイン・台帳・HTTPSの入口 | core-01（platform） | 2 / 4.5GiB（固定） / 48GiB | Authentik（SSO・招待・復旧）・NetBox・Caddy（AdGuardとルータ管理画面の中継も） |
+| 自作クラウド・S3 | cloud-01（platform） | 2 / 1GiB（固定） / 40GiB＋データ32GiB | shakecloud API・管理DB・ポータル・Garage（S3互換） |
+| docs・パスワード・家電・Bot | apps-01（cloud） | 2 / 4GiB（下限3GiB） / OS32GiB＋データ16GiB | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳・pkdb（PostgreSQL）・UBSLEEPY・CIRCLEAUTH・Botポータル |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（platform） | 2 / 2GiB / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
-| ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
+| 監視 | monitor-01（platform） | 2 / 3GiB（下限2GiB） / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
+| **公開サイト** | **web-01（cloud）** | **2 / 2GiB（下限1.5GiB） / OS32GiB＋データ32GiB** | **nginx（4サイトのTLS終端）・Shake-Web・pkhack・Alexaスキル。自宅LANからは隔離（§13）** |
+| ゲーム・AI | game-01（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
 | 復旧経路 | router-01（platform） | （router-01と共用） | Tailscale subnet router（OpenWrt上）。宅外から管理LANへ（N02） |
 | 開発 | dev-01・dev-02（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
-| 利用者VM（例） | win-01（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
+| 利用者VM（例） | win-01・android-01（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（Windows 11・Android） |
 
-VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVM（media-01・apps-01・game1・win-01・android-01）は自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
+VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`。core-01 だけは `05-seed`）**、**cloudプールのVM（media-01・apps-01・web-01・game-01・dev-01・dev-02・win-01・android-01）は自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
 
 **ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](network-auth.md)、設定は[router-01の設定まとめ](../operations/router-config.md)。**
 
@@ -106,6 +113,10 @@ VMの管理方法はプールで揃えています。**基盤VMは Terraform（`
 | Home AssistantのSSO・配備 | `stacks/home-assistant/` | OIDC統合の版固定導入、逆プロキシ設定、バックアップ、Eufy統合の導入（§6・§8） |
 | Eufy中継の運用 | `stacks/eufy-security-ws/` | 中継コンテナの構成、資格情報のSOPS受け渡し、セッション・CAPTCHA時の復旧手順 |
 | 監視の設定 | `stacks/monitoring/` | Prometheusのスクレイプ・アラート、blackboxのHTTPS監視、UPS・PeaNUT連携（§9） |
+| 外からの監視 | `platform/ansible/roles/public_monitor/` | K11の外（たらこサーバ）から公開サイトと Grafana の応答を1分ごとに見て、変化だけ通知する（[監視](../operations/monitoring.md#public-monitor)） |
+| 公開サイトの配備 | `stacks/shake-web/` | 4サイトのnginx設定・TLS・ビルドと、`main` を見て自分で更新するタイマー（§13） |
+| Discord Bot と運用画面 | `stacks/ubsleepy/`・`stacks/circleauth/`・`stacks/bot-portal/` | クイズBot（UBSLEEPY）・サークル認証Bot（CIRCLEAUTH）と、ログ・状態・定型操作をまとめた運用画面（[Botポータル](../operations/bot-portal.md)） |
+| ポケモン系データベース | `stacks/pkdb/` | 種族・技・クイズ用の表を持つPostgreSQLと、登録画面（[pkdb](../operations/pkdb.md)・[データ辞典](../reference/pokemondb.md)） |
 | デプロイ・検証ツール | `tools/`・`tests/`・`.github/workflows/` | Terraform/k8s/devvmラッパー、実機プローブ、公開前検査、ユニットテスト（§14） |
 
 ```mermaid
@@ -500,8 +511,12 @@ flowchart TB
   metallb["MetalLB<br/>KubernetesのLB"]
   tailscale["router-01<br/>Tailscale subnet router（N02）"]
   vpn["セルフホストVPN<br/>未構築"]
+  relay["negitoroserver<br/>宅外の中継機"]
+  web01["web-01<br/>公開サイト"]
 
   net -->|"80/443は使えない"| router
+  net -->|"公開サイトはここで受ける"| relay
+  relay -. "tailnet" .-> web01
   router --> lan
   lan --> caddy
   dns --> caddy
@@ -514,12 +529,28 @@ flowchart TB
 ```
 
 - **入口も自作**: 家庭内ルータは K11 上の OpenWrt VM `router-01`（`192.168.10.1`）です。ファイアウォール・DHCP・DNS（AdGuard Home）を担い、設定の正本は `platform/openwrt/`。2026-09-20 に市販ルータから切り替えました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。**K11が落ちると家中のネットも落ちます**（[障害モード](failure-modes.md)）。ネットワーク単体の図は[ネットワーク・公開範囲・SSO](network-auth.md)にあります。
-- **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
-- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
-- **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・**ルート承認と tailnet DNS は 2026-10-01 に適用済み**。宅外端末での実機検証が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
+- **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。そのため公開サイトは家庭回線ではなく、**宅外の中継機から tailnet 越しに `web-01` へ**流しています（下の「公開範囲」）。
+- **名前とTLS（ホームラボ側）**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
+- **公開範囲**: **ゾーンが2つあり、公開しているのは片方だけです。** `apextox.dpdns.org`（ホームラボ）は公開DNSに内部IPを書いているだけで、外から名前は引けても届きません。`ruruthegeek.dpdns.org`（公開サイト4つとAlexaスキル）は 2026-10-05 から `web-01` で公開しています。経路は Cloudflare → 宅外の中継機 `negitoroserver` → tailnet → `web-01` で、**家庭回線には着信を1つも開けていません**。`web-01` は自宅LANへ戻れないように絞ってあります（[公開サイト](../operations/web.md)・[信頼境界](security.md)）。NetBoxとdocsの直ポートは残作業で閉じます。
+- **LANの外**: 内部サービス向けのセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・**ルート承認と tailnet DNS は 2026-10-01 に適用済み**。宅外端末での実機検証が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
 - **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
+
+<a id="public-site"></a>
+### 公開サイト（web-01）
+
+**唯一インターネットへ出しているものです。** `ruruthegeek.dpdns.org` ゾーンの4サイト（`shake`・`pkhack`・`ayahuya`・ルート）と Alexa スキルが `web-01` で動いています。2026-10-05 に、それまで別機（Raspberry Pi 5）で動かしていたものをクラウドVMへ移しました。
+
+| 項目 | 内容 |
+| --- | --- |
+| 受け口 | Cloudflare → **宅外の中継機** → tailnet → `web-01:443`。家庭回線には着信を開けない（MAP-Eで80/443が使えないため） |
+| TLS | `web-01` の nginx が終端（Cloudflare Origin 証明書）。**core-01 の入口は通らない** |
+| 更新 | `web-01` が5分ごとに `main` を見て自分で更新する（4リポジトリ。Ansibleを流し直すのと同じ結果になる） |
+| 依存 | クイズは `apps-01` の `pkdb` を読む。**`apps-01` が止まると公開サイトも壊れる** |
+| LANとの分離 | セキュリティグループが入り・出とも既定拒否。さらにゲスト内の nftables が LAN 宛の 80/443 を落とす |
+| 外からの監視 | たらこサーバが1分ごとに4サイトを見る（[監視](../operations/monitoring.md#public-monitor)） |
+
+手順と実測は[公開サイト](../operations/web.md)、信頼境界の扱いは[信頼境界とセキュリティ方針](security.md)が正本です。
 
 ## 14. 開発・運用の進め方（dev-01・dev-02）
 
@@ -563,11 +594,11 @@ flowchart LR
 | メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |
 | CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](../development/O02-cnpg-backup.md)） |
 | 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](../development/O03-restore.md)） |
-| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・低電池停止・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了 | 外部監視の冗長化（別電源のラズパイ）（[M01](../development/M01-monitoring.md)） |
+| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了。**K11の外から見る系統も稼働**（たらこサーバ。2026-10-05） | 低電池での自動シャットダウン（[M01](../development/M01-monitoring.md)・[監視](../operations/monitoring.md)） |
 | メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](../development/W06-music-tools.md)） |
 | Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](../development/H01-home-assistant.md)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](../operations/kubernetes.md)） |
-| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](../development/N04-public-edge.md)） |
+| 公開Web入口 | **稼働（2026-10-05）。** `web-01` が4サイトを公開し、家庭回線ではなく宅外の中継機から tailnet 越しに受ける。LANからは隔離済み | 入口を core-01 の Caddy へ寄せる。Tailscale ACL で中継機の宛先を絞る（[公開サイト](../operations/web.md)・[N04](../development/N04-public-edge.md)） |
 | タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-02は未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ

@@ -1,6 +1,6 @@
 ---
 title: 確認と、はまりどころ
-updated: 2026-10-03
+updated: 2026-10-12
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,45 +10,73 @@ tags:
 
 # 確認と、はまりどころ
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-12 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 変更したあとに流す検査と、実際に踏んだ落とし穴です。**確認して落ちたら、下の「はまりどころ」を先に見てください。**
 
 クラウドAPIだけを対象にした実機プローブは[クラウドの実機プローブと切り戻し](cloud-verify.md)にあります。
 
 
+<a id="local-checks"></a>
 ## 手元で流す検査
 
-変更したら、CI と同じ検査を手元で流します。**テストを足す・直すときの規約**（1対象1ファイル、命名、不変条件を1つ、`tests/support.py` のヘルパ、`/tmp` に残さない書き方）は `tests/README.md` が正本です。
+変更したら、CI と同じ検査を手元で流します。**この表が CI（`.github/workflows/validate.yml`）の全項目**で、順番も同じです。CI が落ちたときは、該当行をそのまま手元で打てば再現します。**テストを足す・直すときの規約**（1対象1ファイル、命名、不変条件を1つ、`tests/support.py` のヘルパ、`/tmp` に残さない書き方）は `tests/README.md` が正本です。
+
+準備は1本にまとまっています。
 
 ```bash
-.venv/bin/python -m unittest discover -s tests
+python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt
 ```
 
+Playbook の構文検査は `ansible-playbook` が無いと **skip されて黙って通る**ので、CI と同じにするなら Ansible も入れます。
+
 ```bash
-terraform fmt -check -recursive platform/terraform
+.venv/bin/pip install -r platform/ansible/requirements.txt
 ```
 
+| 検査 | コマンド | 何を見るか |
+| --- | --- | --- |
+| ユニットテスト | `.venv/bin/python -m unittest discover -s tests` | 宣言とテンプレートの整合。実機には触らない |
+| Python のコンパイルと YAML の解析 | 下の「追跡ファイル全体の検査」 | 構文。Flux の複数ドキュメントYAMLを含む |
+| Terraform の整形 | `terraform fmt -check -recursive platform/terraform` | 整形。版は `.terraform-version`（現在 1.15.8） |
+| Terraform の検証 | 各ルートモジュールで `terraform init -backend=false` ＋ `validate` | 宣言の妥当性。対象は `providers.tf` があるディレクトリ |
+| Go の整形 | `gofmt -l cloud` | **何か出力されたら失敗**（コメントを入れて整列が崩れると落ちる） |
+| Go の検査とテスト | `cd cloud/api && go vet ./... && go test ./...` ほか4モジュール | 版は `cloud/api/go.mod`（現在 1.27.2）。対象は `cloud/api`・`client`・`cli`・`mcp`・`provider` |
+| Go の脆弱性 | `go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...` を5モジュールで | **実際に呼んでいる脆弱な関数だけ**を落とす（依存に入っているだけでは落ちない） |
+| YAML | `.venv/bin/yamllint -c .yamllint .` | 書式 |
+| Python のlint | `.venv/bin/ruff check .` | **整形ではなく壊れたコード**だけ（`ruff.toml` で `E9`・`F` のみ。行長やインデントでは落とさない） |
+| シェル | `git ls-files -z '*.sh' \| xargs -0 shellcheck --severity=warning` | warning 以上だけ。好みの指摘（info・style）では落とさない。**`shellcheck` は Python のパッケージではないので `tools/requirements.txt` に入っていません**（CIのランナーにはプリインストール済み。手元で流すなら `apt install shellcheck`） |
+| 公開してよいか | `python3 tools/check-publication.py` | 秘密値と禁止パス |
+| ドキュメント | `.venv/bin/mkdocs build --strict` | 未解決リンクがあれば失敗 |
+
+DB を使う Go のテストは、データベースを作れる PostgreSQL を `SHAKECLOUD_TEST_DATABASE_URL` で渡したときだけ走ります。**渡さなければ skip されるので、手元で通っても CI では落ちることがあります。**
+
 ```bash
-.venv/bin/yamllint -c .yamllint .
+cd cloud/api && SHAKECLOUD_TEST_DATABASE_URL='postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable' go test ./...
 ```
 
+### 追跡ファイル全体の検査
+
+CI は追跡している Python を全部コンパイルし、YAML を全部解析します。**`yaml.safe_load` ではなく `safe_load_all`** を使うのは、Flux のマニフェストが `---` 区切りの複数ドキュメントだからです（単一前提で読むと落ちます）。
+
 ```bash
-.venv/bin/mkdocs build --strict
+python3 - <<'EOF'
+import pathlib, py_compile, subprocess, yaml
+for name in subprocess.check_output(['git', 'ls-files', '-z'], text=True).split('\0'):
+    if name.endswith('.py'):
+        py_compile.compile(name, doraise=True)
+    if name.endswith(('.yaml', '.yml')):
+        list(yaml.safe_load_all(pathlib.Path(name).read_text()))
+EOF
 ```
 
-```bash
-python3 tools/check-publication.py
-```
+### 生成物が古くないか
+
+`docs/map.md` のページ表と、サービス図のデータ（`docs/assets/js/service-map-data.js`）は生成物です。**古いままだとユニットテストが落ちます**（CI も同じ）。直し方は生成し直すことです。
 
 ```bash
-gofmt -l cloud
-```
-
-DB を使う Go のテストは、データベースを作れる PostgreSQL を `SHAKECLOUD_TEST_DATABASE_URL` で渡したときだけ走ります。渡さなければ skip されます。
-
-```bash
-cd cloud/api && go vet ./... && go test ./...
+python3 tools/docs-map.py              # docs/map.md を書き直す（--check で判定だけ）
+python3 tools/render-service-map.py    # サービス図のデータを書き直す（--check で判定だけ）
 ```
 
 実機で「API から VM が1台できて、片付けまで済む」ことは次で確かめます。作成→SSH→削除まで行い、残骸があれば失敗します。

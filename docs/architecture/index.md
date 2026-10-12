@@ -1,6 +1,6 @@
 ---
 title: 設計と決定の入口
-updated: 2026-10-03
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -9,13 +9,13 @@ tags:
 
 # 設計と決定の入口
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **この節は「なぜそう作ったか」を残す場所です。** 手順は[運用手順](../operations/index.md)、実機の状態は[配備台帳](../operations/handover.md)、これからの作業は[開発計画](../development/index.md)が正本で、食い違ったらそちらが正しいと考えてください。
 
 いま何がどのVMで動いているかを1枚で知りたいときは[ホームラボの全体像](overview.md)を先に読んでください。このページは、その形になるまでに決めた前提と選択の記録です。
 
-**状態**: Proxmox・Kubernetes・クラウドAPI・認証（Authentik）・メディア・家電・監視は構築済み。ゲーム（Wolf・Azahar）とVLANの実機切替、VPN、既存環境からのメディアデータ移行は未完了。
+**状態**: Proxmox・Kubernetes・クラウドAPI・認証（Authentik）・メディア・家電・監視・**公開サイト（web-01）**・**Discord Bot と pkdb（apps-01）** は構築済み。ゲーム（Wolf・Azahar）とVLANの実機切替、VPN、既存環境からのメディアデータ移行は未完了。
 
 ## この節のページ
 
@@ -25,7 +25,7 @@ tags:
 | [決定ログ](decisions.md) | **すでに決まっていること**と、その理由。蒸し返す前にここを読む |
 | [信頼境界とセキュリティ方針](security.md) | 何を信頼し、何を信頼しないか。守らないと決めたことも書く |
 | [障害モードと単一障害点](failure-modes.md) | 何が止まると何が使えなくなるか。復旧の順番 |
-| [配置と命名の再編](placement-naming.md) | どのVMをクラウドAPIで作るかの基準と命名規則。方針は合意済み、移行は未着手 |
+| [配置と命名の再編](placement-naming.md) | どのVMをクラウドAPIで作るかの基準と命名規則。**新しいVM・スタックが従う規則はここ**（移行は2026-10-04に完了） |
 | [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプール、ロールとACL |
 | [最小クラウドとProvider](cloud.md) | 4機能、SSOとアクセスキー、Proxmox側の制約、実装境界 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマートフォン、認証の使い分け |
@@ -39,8 +39,8 @@ tags:
 
 - 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
 - 新しいルータ・スイッチは購入しない。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**（[N06](../development/N06-router.md)・[router-config](../operations/router-config.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路はラズパイではなく router-01（OpenWrt）上のTailscale subnet routerに置く。
-- サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
-- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantなどのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
+- 宅内のサービスは原則LAN（と将来のVPN）からアクセスし、インターネットへは出さない。**インターネットへ出すのは公開サイト（web-01）だけ**で、家庭回線に着信を開けず宅外の中継機を経由する（[決定ログ](decisions.md)の「公開サイトの出し方」）。
+- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistant・Discord Bot・pkdb などのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はmonitor-01、公開サイトはweb-01、ゲーム・AI一式はgame-01へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
 - 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。**4機能とも実装済み・実機確認済み**（後者2つは Kubernetes 構築後に追加した）。
@@ -58,7 +58,7 @@ tags:
 | --- | --- | --- |
 | 仮想化・VM提供 | Proxmox VE | K11 |
 | 常用Kubernetes基盤 | kubeadm + containerd + Cilium（構築済み） | control plane×1、worker-01。worker-02は必要量から起動判断（2026-09-12時点でcp・worker-01は停止中） |
-| アプリの配備 | VMはCompose・Ansible、クラスタはFlux | core-01・apps-01・media-01・monitor-01・game1・常用Kubernetes |
+| アプリの配備 | VMはCompose・Ansible（共通ロール `compose_stack`、イメージは digest 固定）、クラスタはFlux | core-01・apps-01・media-01・monitor-01・web-01・game-01・常用Kubernetes |
 | サーバレスHTTP実行 | Knative Serving + Kourier | Kubernetes |
 | S3互換ストレージ | Garage（当初は単一ノード） | cloud-01 |
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
@@ -66,11 +66,12 @@ tags:
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外のcore-01 |
 | VPN・宅外からの監視 | Tailscale（復旧経路は router-01 上の subnet router）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、対象VMへagent |
 | DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **router-01（K11 上の OpenWrt VM）**。2026-09-20 に dnsmasq から移行 |
-| 公開入口 | Caddy（core-01の1台でTLS終端し、monitor-01・media-01・apps-01・cloud-01へ中継） | core-01。公開用VMはN04 |
+| 宅内の入口 | Caddy（core-01の1台でTLS終端し、monitor-01・media-01・apps-01・cloud-01・web-01へ中継） | core-01 |
+| インターネットへの公開 | nginx（web-01が自分でTLS終端）＋**宅外の中継機を経由**。家庭回線に着信は開けない | web-01（[公開サイト](../operations/web.md)） |
 | 家電・自動化 | Home Assistant Container（配備済み） | apps-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
-| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（基盤VM）。UPS・証明書・資源を監視。DNSは router-01 の AdGuard Home、復旧経路は router-01 のTailscale |
+| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | monitor-01（基盤VM）。UPS・証明書・資源を監視。**K11ごと落ちたときのために、外部のdead man's switch とたらこサーバ（別筐体）の2系統を外に置く** |
 | 印刷 | CUPS（apps-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
-| ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
+| ポケモンRDB（pkdb） | PostgreSQL（`stacks/pkdb/`。登録画面つき） | **apps-01**（2026-10-04の決定。常時つなぐBotがあり、game-01 は構成管理・バックアップの外にあるため）。図鑑VDB・推論・RAGは game-01 |
 | 音楽タグの編集 | Nextcloudの自作アプリ `shake_tags` とタグAPI | media-01。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える（専用GUIコンテナは2026-09-13に撤去） |
 | LocalSend | 各端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認） |
 | OpenHome | 製品・リポジトリ確認待ち | ゲームVMへの同居候補 |
@@ -80,7 +81,7 @@ KnativeのKourierは、クラスタ内の通常HTTP入口であるCilium Ingress
 
 ## 論理構成図
 
-実線は主な通信、点線は設定・管理・認証・バックアップです。線の存在は任意のポートへのアクセス許可を意味しません。**2026-09-20 時点の実機に合わせて更新しています。**
+実線は主な通信、点線は設定・管理・認証・バックアップです。線の存在は任意のポートへのアクセス許可を意味しません。**2026-10-12 時点の実機に合わせて更新しています。**
 
 [![ホームラボ全体の論理構成](diagrams/overview.svg)](diagrams/overview.svg)
 
@@ -100,11 +101,11 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 ## 現在の実装との差
 
-| 項目 | 現状（2026-09-20） |
+| 項目 | 現状 |
 | --- | --- |
 | ネットワーク（ルータ・DNS・DHCP） | **router-01（K11 上の OpenWrt VM）へ切替済み（2026-09-20）。** Aterm は AP モードの Wi-Fi 専用。DNS は AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）、IPv6 は odhcpd の relay ＋ ndppd。予約・リースは NetBox と同期する。手順は[router-01](../operations/router.md)・[設定まとめ](../operations/router-config.md) |
 | メディア・認証 | Homarr・Vaultwarden・Home Assistantはapps-01（旧services-01）、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
-| ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
+| ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは apps-01 の `http://192.168.10.105:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する。**2026-10-03 に core-01 から apps-01 へ移設** |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |
 | ホストの読み取り | Ansible `survey-pve.yml` として実装済み。読み取りのみ |
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
@@ -112,9 +113,9 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 | 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。2026-09-12時点でcp・worker-01・worker-02は停止中（起動は[配備台帳](../operations/handover.md)）。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
 | 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは Authentik（core-01）で実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
 | Home Assistantと家電連携 | **配備済み（2026-09-12）**: apps-01（当時はservices-01）のContainerを `https://ha.apextox.dpdns.org` でHTTPS化（LAN内。本体は `127.0.0.1:8123`）。Authentik OIDCと緊急用ローカルオーナー。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り。手順は[利用者向けHA](../services/home-assistant.md)・[H01](../development/H01-home-assistant.md) |
-| 監視・印刷・転送 | **監視はmonitor-01へ配備（2026-09-13、M01）**: Prometheus・Alertmanager・Grafana・exporter。**印刷**はCUPS（apps-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
+| 監視・印刷・転送 | **監視はmonitor-01へ配備（2026-09-13、M01。2026-10-03に基盤VMへ作り直し）**: Prometheus・Alertmanager・Grafana・exporter。**K11の外から見る系統もある**（たらこサーバ。[監視](../operations/monitoring.md#public-monitor)）。**印刷**はCUPS（apps-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |
-| 公開Web統合 | N04の独立計画。公開条件成立後にVM追加 |
+| 公開Web統合 | **完了（2026-10-05）。** 当初案の入口VM（public-edge）は作らず、サイト本体を載せる `web-01` を作り、宅外の中継機から tailnet 経由で受ける形にした（[公開サイト](../operations/web.md)・[N04](../development/N04-public-edge.md)） |
 
 ## 残っている確認項目（2026-09-20）
 

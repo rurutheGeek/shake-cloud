@@ -1,6 +1,6 @@
 ---
 title: 接続先一覧（URL・アドレス）
-updated: 2026-10-05
+updated: 2026-10-12
 section: リファレンス
 audience: 全員
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # 接続先一覧（URL・アドレス）
 
-> **更新日** 2026-10-05 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-12 ・ **区分** リファレンス ・ **読む人** 全員
 
 **サービスを探すときはまずこのページを見てください。** 名前の正本は `platform/terraform/dns.yaml`、実機のVMとIPは[配備台帳](../operations/handover.md)です。
 
 ## サービス入口（`*.apextox.dpdns.org`・家庭内LANから）
 
-`apextox.dpdns.org` は Cloudflare の公開 DNS に**内部IPをそのまま**書いています。名前は外からも引けますが、**インターネットには公開していません**（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。
+`apextox.dpdns.org` は Cloudflare の公開 DNS に**内部IPをそのまま**書いています。名前は外からも引けますが、**インターネットには公開していません**（[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)）。**外から届くサイトは別ゾーンの `ruruthegeek.dpdns.org` だけ**です（[下の節](#public-sites)）。
 
 | サービス | URL | 中身 | 誰が使う |
 | --- | --- | --- | --- |
@@ -90,6 +90,21 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | 着地先 | `/srv/media-stack/library/inbox`（Nextcloudの `inbox`） |
 | 確認 | `https://localsend.apextox.dpdns.org:53317/api/localsend/v2/info` が `{"alias":"media-01",...}` を返す。**`/` は404で正常**（受信機はAPIだけで、画面は無い） |
 | 管理UI | `ssh -N -L 53318:127.0.0.1:53318 debian@192.168.10.101` → `http://127.0.0.1:53318`（LANからは開けていない） |
+
+<a id="public-sites"></a>
+## インターネットへ公開しているサイト（`*.ruruthegeek.dpdns.org`）
+
+**上の `apextox.dpdns.org` とは別のゾーンで、ここだけが外から届きます。** 実体は `web-01`（`192.168.10.102`）で、経路は Cloudflare → 宅外の中継機 → tailnet → `web-01` です。家庭回線には着信を開けていません（[公開サイト](../operations/web.md)）。
+
+| サイト | URL | 中身 |
+| --- | --- | --- |
+| Shake | <https://shake.ruruthegeek.dpdns.org> | Issues・Shaketter・ToBa・ikura と Wiki |
+| pkhack | <https://pkhack.ruruthegeek.dpdns.org> | ポケモンクイズ。問題は `pkdb`（apps-01）を読む |
+| アヤフヤハッカーズ | <https://ayahuya.ruruthegeek.dpdns.org> | 純静的 |
+| ランディング | <https://ruruthegeek.dpdns.org> | 入口と旧URLのリダイレクト |
+| Alexa スキル | `https://<上記>/alexa/` | `web-01` の `127.0.0.1:8010`。公開は nginx 経由 |
+
+**宅内の管理画面はここから見えません。** 公開サイトから自宅LANの 80/443 へは届かないように塞いであります（[信頼境界](../architecture/security.md)）。
 
 ## ストレージ（Garage / S3）
 

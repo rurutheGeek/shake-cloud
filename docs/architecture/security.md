@@ -1,6 +1,6 @@
 ---
 title: 信頼境界とセキュリティ方針
-updated: 2026-10-03
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 信頼境界とセキュリティ方針
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **何を信頼していて、何を信頼していないか**を1枚にまとめます。個々の決定の理由は[決定ログ](decisions.md)、手順は[秘密値の管理](../operations/secrets.md)と[認証基盤](../operations/identity.md)にあります。
 
@@ -18,16 +18,27 @@ tags:
 
 ## 1. 公開範囲
 
-**インターネットには何も公開していません。** グローバルIPも使いません。
+**ゾーンが2つあり、公開しているのは片方だけです。** ホームラボ本体（`apextox.dpdns.org`）はインターネットから届きません。公開サイト（`ruruthegeek.dpdns.org`）は 2026-10-05 から `web-01` で動いており、**家庭回線ではなく外部の中継機を通って**公開されています。
 
-| 外から見えるもの | 中身 |
-| --- | --- |
-| `apextox.dpdns.org` のDNS応答 | Cloudflareの公開DNSに**内部IPをそのまま**書いている。名前は誰でも引けるが、応答は `192.168.10.x` なので外からは届かない |
-| それ以外 | 無い。ポート転送もリバースプロキシも置いていない |
+| ゾーン | 公開 | 中身 |
+| --- | --- | --- |
+| `apextox.dpdns.org` | **していない** | ホームラボのサービス全部。Cloudflareの公開DNSに**内部IPをそのまま**書いている。名前は誰でも引けるが、応答は `192.168.10.x` なので外からは届かない |
+| `ruruthegeek.dpdns.org` | **している** | 公開サイト4つ（`shake`・`pkhack`・`ayahuya`・ルート）と Alexa スキル。実体は `web-01`（[公開サイト](../operations/web.md)） |
 
-**2026-09-20 から、インターネットとの境界は自作です。** 家庭内ルータを市販機（Aterm）から K11 上の OpenWrt VM `router-01` へ移しました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。WANは `vmbr1`、LANは `vmbr0` で、**`vmbr1` にホストのIPを与えていません**。ファイアウォール・DHCP・DNSの設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消えます。
+**家庭回線には1つも着信を開けていません。** 回線は MAP-E（v6プラス）で、開けられるポートは割り当ての240個に限られ 80/443 を含みません（[N06](../development/N06-router.md)の実測）。そのため公開は**宅外の中継機 `negitoroserver` 経由**で成立させています。
+
+```
+インターネット → Cloudflare → negitoroserver（宅外。443/80 を受ける）
+  → tailnet → web-01:443（tailnet IP 宛て。家庭回線の着信は使わない）
+```
+
+**この形を選んだ理由**は、公開のために家庭回線へ穴を開けずに済むことと、突破されたときに届く範囲を tailnet 上の `web-01` に限れることです。中継機は LAN のサブネットルートを受け取りません（`accept-routes` を付けない）。代償は §5 に書きます。
+
+`web-01` は K11 上のクラウドVMですが、**自宅LANから意図的に切り離してあります**。セキュリティグループは入り・出ともに既定拒否で、さらにゲスト内の nftables（`inet homeguard`）が **LAN 宛の 80/443 を落とします**。許可は DNS（ルータ）・NTP・`pkdb`（apps-01 の 5432）・インターネットの 80/443 だけです（正本は `platform/terraform/services/web/main.tf`）。
 
 内部IPを公開DNSに書いているのは、**証明書をDNS-01で取るためだけ**です。`home.arpa` と自前CAにしなかったのは、全端末へCAを登録する手間と、スマートフォンのアプリが自前CAを信用しない問題を避けるためです。代償として、名前の一覧と内部IPの割り当ては外から推測できます（[決定ログ](decisions.md)）。
+
+**2026-09-20 から、インターネットとの境界は自作です。** 家庭内ルータを市販機（Aterm）から K11 上の OpenWrt VM `router-01` へ移しました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。WANは `vmbr1`、LANは `vmbr0` で、**`vmbr1` にホストのIPを与えていません**。ファイアウォール・DHCP・DNSの設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消えます。
 
 LANの外から使うにはVPNが要ります。未構築です（[VPNの比較と併用](vpn.md)）。復旧経路として router-01（OpenWrt）上の Tailscale subnet router だけがあります（[Tailscale subnet router](../operations/net.md)）。
 
@@ -36,8 +47,10 @@ LANの外から使うにはVPNが要ります。未構築です（[VPNの比較�
 ```mermaid
 flowchart TB
   net["インターネット"]
+  relay["negitoroserver（宅外の中継機）<br/>公開サイトの 80/443 を受ける"]
   router["router-01（OpenWrt）<br/>ファイアウォール・DHCP・AdGuard Home<br/>K11上のVM"]
   lan["家庭内LAN 192.168.10.0/24<br/>ここにいる端末は信頼する"]
+  web["web-01（公開サイト）<br/>LANへは戻さない"]
   edge["core-01のCaddy（HTTPS入口）<br/>TLS終端"]
   app["アプリ本体<br/>入口を経由しないと触れない"]
   api["クラウドAPI cloud-01"]
@@ -45,18 +58,23 @@ flowchart TB
   git["Git リポジトリ（公開）"]
 
   net -->|"WAN。着信は遮断"| router
+  net -->|"公開サイトだけ"| relay
+  relay -. "tailnet。80/443 のみ" .-> web
   router --> lan
   net -. "公開DNSの応答だけ" .-> lan
   lan -->|"名前 + TLS"| edge
   edge -->|"OIDC / Forward Auth を通した後だけ"| app
   lan -->|"アクセスキー or OIDC"| api
   api -->|"cloudapi@pve の絞ったトークン"| pve
+  web -. "DNS と pkdb だけ" .-> lan
   git -. "SOPSで暗号化した値だけ" .-> lan
 ```
 
 | 境界 | 通すもの | 止めるもの |
 | --- | --- | --- |
 | インターネット → LAN | DNSの応答のみ | 通信そのもの。`router-01` のファイアウォールが遮断し、ポート転送も置いていない |
+| インターネット → 公開サイト | 公開4サイトの 80/443 と `/alexa/`。経路は Cloudflare → 宅外の中継機 → tailnet → `web-01` | 家庭回線への着信（1つも開けていない）。`web-01` のそれ以外のポート（アプリは `127.0.0.1`、8443 もホスト内のみ） |
+| `web-01` → 自宅LAN | DNS（ルータの53）と `pkdb`（apps-01 の5432）だけ | ほか全部。SGの外向き既定拒否に加え、ゲスト内 nftables が **LAN 宛の 80/443**（LuCI・入口のCaddy・APの管理画面）を落とす。IPv6 の外向きは開けない |
 | 端末 → 名前解決 | `router-01` の AdGuard Home が応答（広告・トラッカーのブロックリスト付き） | ブロックリストに載った名前。**DNSは全端末の単一経路**（[AdGuard Home](../operations/adguard.md)） |
 | LAN → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。core-01のCaddyはcatch-allでAuthentikへ渡す |
 | HTTPS入口 → アプリ | 認証を通したリクエスト | アプリ本体は `127.0.0.1` に閉じており、入口を経由しないと触れない |
@@ -67,6 +85,8 @@ flowchart TB
 **ルータの管理画面（LuCI）にだけSSOを付けていません。** `https://router.apextox.dpdns.org` は LuCI 自身の root パスワードで守り、Authentik を通しません。**ルータは復旧経路だから**で、Authentik（core-01）が止まっているときに開けなくなると詰みます。AdGuard の管理画面（`https://adguard.apextox.dpdns.org`）は復旧に必須ではないので Forward Auth を通します。
 
 **HTTPSの入口は core-01 の1台です。** Caddy が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。Cloudflare の DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。代償として、core-01 が止まるとHTTPS名ではどのサービスにも入れません。
+
+**これは `apextox.dpdns.org` の話です。** 公開サイト（`ruruthegeek.dpdns.org`）は core-01 を通らず、`web-01` の nginx が自分で TLS を終端します（証明書は Cloudflare Origin。Let's Encrypt ではない）。入口を core-01 の Caddy へ寄せるのは今後の課題です（[公開サイト](../operations/web.md)）。
 
 ## 3. 認証と資格情報
 
@@ -119,6 +139,9 @@ flowchart TB
 | 内部犯行 | 2人とも `admins` に入りうる運用。操作は監査ログに残るが、権限で止めていない |
 | VLANによる分離 | 宣言と手順は用意済みだが、**実機は未切替**。いまは管理面と利用者VMが同じL2にいる（[VLAN 分離への切替](../operations/vlan.md)） |
 | ルータと被保護資産の分離 | `router-01` は守る対象と同じ物理ホストに載っている。ルータVMを破られるとホスト内部へ近い。分離するには別筐体が要る |
+| 公開サイトと家庭内資産の筐体分離 | `web-01` はインターネットから来たリクエストを処理するが、**守る対象と同じ K11 上にいる**。ネットワークは切ってある（§1）が、ハイパーバイザを跨ぐ攻撃は想定していない |
+| 宅外の中継機（negitoroserver）の侵害 | 中継機は tailnet に参加しているが、**Tailscale の ACL で宛先を `web-01` の 80/443（と旧ホストの Minecraft）だけに絞ってある**（2026-10-05）。LAN のサブネットルートも受け取らない。残る弱点は、**この ACL が管理コンソール側の設定で Git から差分を追えない**こと（[公開サイト](../operations/web.md)） |
+| 公開トラフィックの中身 | Cloudflare が TLS を終端するので、公開サイトの通信は Cloudflare から見える。公開情報しか置かない前提で受け入れている |
 | 外部依存の停止 | Cloudflare（DNS）・DigitalPlat（ドメイン）・外部SMTPが止まると、証明書更新と招待・復旧メールが止まる（[障害モード](failure-modes.md)） |
 | S3の冗長性 | Garageは単一ノード。**stateやバックアップの唯一の保管先にしない** |
 

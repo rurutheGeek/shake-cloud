@@ -1,6 +1,6 @@
 ---
 title: ネットワーク・公開範囲・SSO
-updated: 2026-10-03
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ネットワーク・公開範囲・SSO
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
 
@@ -58,20 +58,24 @@ tags:
 | 管理 | Proxmox、SSH、Kubernetes API、バックエンド管理API | 管理端末／必要な管理サービスのみ |
 | 内部サービス | Webアプリ、関数、S3、DB、ゲーム | VPNから必要な通信だけ |
 | 開発・動的VM | 開発VM×2、APIで作成するVM | インターネットと許可した内部サービス。管理基盤への任意アクセスを許可しない |
-| 公開入口 | 公開Caddy | 公開対象のWebバックエンドだけ |
+| 公開サイト | `web-01`（nginx） | **インターネットから来る唯一の面。** 自宅LANへは戻らせない（SGの既定拒否＋ゲスト内 nftables で LAN 宛 80/443 を落とす） |
 
 具体的なVLAN ID・サブネットは既存構成を確認して決めます。Proxmoxの内部bridge/VNetだけで完結するネットワークは、物理スイッチへすべて延ばす必要はありません。複数ホストやラズパイから到達する経路では、タグ、ルート、ファイアウォールを揃えます。
 
 VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境界です。同一VLAN内はルータを通らないことがあるため、Proxmox／ゲストFWやCilium NetworkPolicyも使用します。
 
-## VPN内と公開Webの入口
+## 公開Webの入口（2026-10-05 に成立）
 
-- 内部API・個人用サービスはVPN内のHTTPS名を使用する。
-- 公開443番は公開Caddy VMだけへ転送する。HTTP-01を使わないなら証明書のための80番公開は不要。
-- 公開Caddyからは明示的に許可したバックエンドだけへ接続する。現行クラスタはCilium Ingressで、Gateway APIへの変更は前提にしない。
-- 公開IPへ内部ホスト名を指定しても内部アプリに届かないことを確認する。
+**計画していた「公開Caddy VM へ 443 を転送する」形は採れませんでした。** 回線が MAP-E で 80/443 を開けないためです（[N06](../development/N06-router.md)）。代わりに、サイト本体を載せる `web-01` を作り、**宅外の中継機から tailnet 越しに受ける**形にしました（[公開サイト](../operations/web.md)・[N04](../development/N04-public-edge.md)）。
+
+いま守っている決まりは次のとおりです。
+
+- 内部API・個人用サービスはLAN（と将来のVPN）のHTTPS名を使い、**インターネットへは出さない**。
+- **家庭回線には 80/443 の着信を開けない。** 公開は宅外の中継機を経由する。
+- 公開するのは `web-01` の4サイトとAlexaスキルだけ。**`web-01` から内部サービスへ届く経路は DNS と `pkdb`（5432）だけ**に絞る。
+- 公開の名前に内部ホスト名を混ぜない（ゾーンを分ける。[接続先一覧](../reference/urls.md#public-sites)）。
 - 管理API、DBの管理ポート、S3管理APIは公開しない。
-- IPv6がある場合もIPv4と同じ公開範囲に制限する。
+- IPv6の外向きは `web-01` から開けない（LAN 側の IPv6 へ届かせないため）。
 
 クラスタのCilium Ingressとは別にKnativeのKourierを構築済みです。関数は初期状態で内部向けとし、公開する関数だけを公開経路へ追加します。Gatewayの存在だけで関数の認証が実装されるわけではありません。
 
@@ -107,7 +111,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
 - **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
-- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
+- **名前の引き方（外）:** `apextox.dpdns.org` は Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、ホームラボのサービスはインターネットに公開していません。**公開サイトは別ゾーン `ruruthegeek.dpdns.org`** で、こちらは Cloudflare を通って外から届きます。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
 - **入口と証明書:** HTTPSの入口は core-01 の Caddy 1台です。上の表の名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書は Caddy が Let's Encrypt から DNS-01 で取ります。AdGuard とルータの管理画面も同じ Caddy が受けて、ルータの `192.168.10.1` へ中継します（ルータのファイアウォールで core-01 だけに許可）。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。core-01 が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 

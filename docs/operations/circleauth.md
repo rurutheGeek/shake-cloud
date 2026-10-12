@@ -1,6 +1,6 @@
 ---
 title: サークル認証Bot（CIRCLEAUTH）
-updated: 2026-10-04
+updated: 2026-10-12
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # サークル認証Bot（CIRCLEAUTH）
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-12 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **apps-01 へ配備する準備まで完了。** トークンは新規Discordアプリ（CIRCLEAUTH）で、SOPSに格納済み。名簿・認証ログ・通話データをUBSLEEPYのstateから取り込んで起動する。
+**状態**: **Botポータルは本番サービスとして登録済み**（`stacks/bot-portal/services.yaml` の `circleauth`。コンテナ `circleauth-bot-1`、DBは `/srv/circleauth/state/save/auth.sqlite3`）。トークンは新規Discordアプリ（CIRCLEAUTH）で、SOPSに格納済み。**初回配備とUBSLEEPYからのデータ移行を実機で行った記録は[配備台帳](handover.md)に無く、下の「残り」はポータル登録より前の記述です。** 実機の状態を台帳へ書き足すまでは、ここを配備済みの根拠にしないこと。
 
 UBSLEEPY（公開・ポケモン機能）とは別のDiscordアプリ・別トークンで動かし、UBSLEEPYが落ちても入室と認証は止まらないようにする。
 
@@ -86,9 +86,11 @@ sudo python3 /opt/circleauth/manage.py up        # 起動（セーブデータ�
 
 ## 残り
 
+**この一覧はBotポータルへ本番登録する前のものです。** 実機で済んだものから消し、結果を[配備台帳](handover.md)へ記録してください。
+
 - Server Members Intent の有効化と、サーバーへの招待
 - 初回配備と、UBSLEEPYからのデータ移行（上記）
-- UBSLEEPY側の認証・通話の停止（UBSLEEPY-next の配備）と同時に行う
+- UBSLEEPY側の認証・通話の停止と同時に行う（UBSLEEPY-next の配備は[切替の記録](ubsleepy-next-switch.md)のとおり 2026-10-05 に実施済み）
 
 ## 動作確認（テストサーバー）
 

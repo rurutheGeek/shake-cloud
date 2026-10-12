@@ -1,6 +1,6 @@
 ---
 title: 監視（monitor-01）
-updated: 2026-10-03
+updated: 2026-10-12
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 監視（monitor-01）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-12 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 稼働中。`https://grafana.apextox.dpdns.org`（core-01 の Authentik の OIDC）。
 
@@ -57,9 +57,10 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 | `ServiceProbeFailed` | HTTPS名が5分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
 | `CertificateExpiringSoon` | 証明書の期限が14日以内 | 該当ホストのCaddyログ。Cloudflareトークンの権限（ゾーン読み取り＋DNS編集の両方が要る） |
 
-### ノード（node_exporter を入れた4台）
+<a id="node-alerts"></a>
+### ノード（node_exporter を入れたホスト）
 
-対象は core-01・cloud-01・monitor-01・apps-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
+対象は core-01・cloud-01・monitor-01・apps-01・web-01 と Proxmox ホストです（正本は `stacks/monitoring/prometheus/node-targets.yml`。ここへ足すと監視対象になります）。media-01・game-01 は入れておらず、Proxmox 側の資源で見ます。
 
 | アラート | 意味 |
 | --- | --- |
@@ -106,9 +107,18 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 
 ゲストの `pve_memory_usage_bytes` はゲスト内のキャッシュを含むため上限比では張り付きが常態になり、**規則にはしていません**。ゲスト内の実圧迫は `NodeMemoryLow` が受け持ちます。
 
-## 4. 鳴らないことを検知する（dead man's switch）
+## 4. K11の外から見る（2系統）
 
-monitor-01 は K11 の上にあるので、**K11ごと落ちると監視も沈黙します。** 「静かなこと」と「正常なこと」を区別するため、外部の受信点（healthchecks.io）へ常時POSTしています。
+monitor-01 は K11 の上にあるので、**K11ごと落ちると監視も沈黙します。** 「静かなこと」と「正常なこと」を区別する仕組みを、外に2つ置いています。
+
+| 系統 | どこから | 何を見る | 通知 |
+| --- | --- | --- | --- |
+| dead man's switch | 外部の受信点（healthchecks.io） | monitor-01 からのPOSTが**途切れないこと** | 届かなくなったら受信点から来る |
+| たらこサーバ（Pi 4） | K11とは別筐体・別電源。tailnet 経由 | 公開サイト4つと `grafana` の**応答** | Discord（状態が変わったときだけ） |
+
+### dead man's switch（沈黙を検知する）
+
+外部の受信点（healthchecks.io）へ常時POSTしています。
 
 - `Watchdog`（`severity: none`。`vector(1)` で常時firing）→ Alertmanager の `deadman` 宛先 → 1時間ごとにPOST
 - 受信側は Period 12時間 / Grace 1時間。**届かなくなったら向こうから通知が来ます**
@@ -118,7 +128,33 @@ monitor-01 は K11 の上にあるので、**K11ごと落ちると監視も沈�
 sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'
 ```
 
-**いまルータも K11 上のVMなので、K11が落ちると通知経路ごと失われます**（[障害モード](../architecture/failure-modes.md)）。外部の受信点だけが残ります。
+**いまルータも K11 上のVMなので、K11が落ちると通知経路ごと失われます**（[障害モード](../architecture/failure-modes.md)）。外に出した2系統だけが残ります。
+
+<a id="public-monitor"></a>
+### たらこサーバ（外から応答を見る）
+
+ミニPC（K11）の外から、公開サイトと監視の入口を見ます。配備は `platform/ansible/public-monitor.yml`（ロール `public_monitor`、インベントリは `platform/ansible/outpost.ini`）。
+
+| 項目 | 値 |
+| --- | --- |
+| 動かす場所 | たらこサーバ（Raspberry Pi 4、tailnet 上）。systemd timer で**1分ごと** |
+| 見る先 | `shake`・`pkhack`・`ayahuya`・ルート（`ruruthegeek.dpdns.org` ゾーン）と `grafana.apextox.dpdns.org` |
+| 合格とみなす応答 | 公開サイトは 200/301/302、Grafana は 200/301/302/401/403 |
+| 通知 | Discord Webhook。**状態が変わったときだけ**（`platform/sops/public-monitor.sops.yaml`） |
+| 状態 | たらこサーバの `/var/lib/public-monitor/<名前>` |
+
+**誤報を抑える仕掛けが2つあります。** どちらも 2026-10-06 の誤報を受けて入れました。
+
+- 名前引きは **DoH（`https://1.1.1.1/dns-query`）** で行います。tailnet の DNS（`100.100.100.100`）が詰まると、サイトは無事なのに監視だけNGになりました。
+- 状態の確定には **2回連続**の一致が要ります（1分間隔なので、確定までおよそ2分）。加えて1回の判定の中で5秒あけて3回まで取り直します。
+
+テスト通知は `--test` です。
+
+```bash
+ssh <たらこサーバ> 'sudo /usr/local/bin/public-monitor.sh --test'
+```
+
+**`grafana` の確認は経路のテストも兼ねています。** `grafana.apextox.dpdns.org` は内部IPを返すので、たらこサーバから届くには tailnet → router-01 の subnet router → core-01 の Caddy → monitor-01 が全部生きている必要があります。ここがNGなら、Grafana だけでなくその経路のどこかが落ちています。
 
 ## 5. 直す・入れ替える
 
@@ -151,13 +187,15 @@ Proxmox ホスト側の exporter は別Playbookです。
 
 ## 6. 限界
 
-- **monitor-01 が止まると、監視の停止そのものは誰も検知しません。** 外部のdead man's switchだけが気づきます
-- 監視対象と監視基盤が同じ物理ホストにあります。K11障害は両方を同時に失います
-- media-01・game1 には node_exporter を入れていないので、ゲスト内の空きメモリ・fs は見えません（Proxmox側の割当と使用量だけ）
+- 監視対象と監視基盤が同じ物理ホストにあります。K11障害は両方を同時に失うので、気づけるのは**外に出した2系統だけ**です（§4）
+- **たらこサーバ自身の沈黙は誰も検知しません。** 落ちても通知は来ず、「静かで平常」と区別できません。dead man's switch と二重にしてあるのはこのためです
+- たらこサーバが見ているのは**応答コードだけ**です。中身が壊れていても 200 なら通ります
+- media-01・game-01 には node_exporter を入れていないので、ゲスト内の空きメモリ・fs は見えません（Proxmox側の割当と使用量だけ）
 - 保持は15日です。それより古い傾向は残りません
 
 ## 関連
 
+- [公開サイト](web.md) — たらこサーバが見ている対象と、公開の経路
 - [M01 監視](../development/M01-monitoring.md) — 設計の経緯と実測記録（正本）
 - [電源とUPS](power.md) — UPSと停電時の停止順
 - [障害モードと単一障害点](../architecture/failure-modes.md) — 何が止まると何が見えなくなるか

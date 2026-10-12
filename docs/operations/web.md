@@ -1,6 +1,6 @@
 ---
 title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
-updated: 2026-10-05
+updated: 2026-10-12
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-12 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
 
@@ -86,21 +86,17 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+**Tailscale の ACL は適用済み**（2026-10-05。[配備台帳](handover.md)）。`tag:relay` から届くのは **web-01 の 80/443 と、旧ホスト（Pi）の Minecraft 25565 だけ**で、中継機が突破されても tailnet 全体へは広がらない。
 
-### プロキシ（negitoroserver）の侵害に備えて（提案）
+### プロキシ（negitoroserver）の侵害に備えて
 
-- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
+- **適用済み**: Tailscale の ACL で `tag:relay` の宛先を web-01 の 80/443（と Pi の 25565）だけに絞った（2026-10-05、管理コンソール）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
+- 残るリスク: ACL は管理コンソール側の設定で、**このリポジトリからは宣言していない**（Git で差分が追えない）。
 
 ## 外からの監視（たらこサーバ）
 
-ミニPC（K11）が落ちても気づけるよう、**たらこサーバ（Pi 4）** が外から見張る。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに次を確認し、**状態が変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`）。
-
-- 公開サイト: `shake`・`pkhack`・`ayahuya`・ルート
-- 監視の入口: `grafana.apextox.dpdns.org`（monitor-01）
-
-コードとユーザーは [配備台帳](handover.md) を参照。状態はたらこサーバの `/var/lib/public-monitor/` に残る。
+ミニPC（K11）が落ちても気づけるよう、**たらこサーバ（Pi 4）** が4サイトを外から見張り、落ちたときだけ Discord へ通知する。**手順と仕掛けの正本は[監視 §4](monitoring.md#public-monitor)**。ここには書かない。
 
 ## 検証
 

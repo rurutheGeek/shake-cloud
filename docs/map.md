@@ -85,7 +85,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
+| [ドキュメントの書き方](contributing-docs.md) | 2026-10-12 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 | [サービス図](service-map.md) | 2026-10-04 | `hub` |
@@ -100,7 +100,7 @@ flowchart TB
 | [Homarrの使い方](services/homarr.md) | 2026-10-03 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
 | [共通ログインの使い方](services/identity.md) | 2026-09-27 | `guide` `identity` |
-| [利用ガイドの入口](services/index.md) | 2026-09-23 | `guide` `usage` |
+| [利用ガイドの入口](services/index.md) | 2026-10-12 | `guide` `usage` |
 | [日本語に切り替える](services/language.md) | 2026-09-08 | `guide` `usage` |
 | [通信速度テスト（LibreSpeed）](services/librespeed.md) | 2026-10-03 | `guide` `network` |
 | [AIエージェントからクラウドを見る（MCP）](services/mcp.md) | 2026-09-23 | `guide` `cloud` `ai` |
@@ -111,7 +111,7 @@ flowchart TB
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
 | [共通RSSタイムライン（FreshRSS）](services/rss.md) | 2026-09-16 | `guide` `rss` |
 | [タグ管理（MP3）](services/tags.md) | 2026-09-16 | `guide` `music` |
-| [利用者向け：全サービスの使い方](services/usage.md) | 2026-09-23 | `guide` `usage` |
+| [利用者向け：全サービスの使い方](services/usage.md) | 2026-10-12 | `guide` `usage` |
 
 ### 開発計画
 
@@ -151,7 +151,7 @@ flowchart TB
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
 | [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
-| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
+| [N04 公開Web入口](development/N04-public-edge.md) | 2026-10-12 | `plan` |
 | [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-10-03 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
 | [O01 管理DBの外部バックアップ](development/O01-cloud-backup.md) | 2026-09-16 | `plan` `cloud` `backup` |
@@ -180,7 +180,7 @@ flowchart TB
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
 | [Botポータル](operations/bot-portal.md) | 2026-10-09 | `ops` `discord` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-03 | `ops` `storage` `nfs` |
-| [サークル認証Bot（CIRCLEAUTH）](operations/circleauth.md) | 2026-10-04 | `ops` `discord` |
+| [サークル認証Bot（CIRCLEAUTH）](operations/circleauth.md) | 2026-10-12 | `ops` `discord` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
 | [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-05 | `ops` `backup` `urbackup` `android` |
 | [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-10-03 | `ops` `cloud` |
@@ -191,12 +191,12 @@ flowchart TB
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-05 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-12 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
+| [監視（monitor-01）](operations/monitoring.md) | 2026-10-12 | `ops` `monitoring` |
 | [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-03 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
@@ -215,9 +215,9 @@ flowchart TB
 | [UBSLEEPY 本番切替の手順（実施済み）](operations/ubsleepy-next-switch.md) | 2026-10-05 | `ops` `discord` |
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-05 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
-| [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
+| [確認と、はまりどころ](operations/verify.md) | 2026-10-12 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-10-03 | `ops` `network` |
-| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-05 | `ops` `web` |
+| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-12 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
 ### 設計
@@ -225,16 +225,16 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-10-03 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-10-04 | `design` `decisions` |
-| [障害モードと単一障害点](architecture/failure-modes.md) | 2026-10-03 | `design` `failure` |
+| [決定ログ](architecture/decisions.md) | 2026-10-12 | `design` `decisions` |
+| [障害モードと単一障害点](architecture/failure-modes.md) | 2026-10-12 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-10-03 | `design` `game` |
-| [IaCの所有境界](architecture/iac.md) | 2026-10-03 | `design` `iac` |
-| [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
-| [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
-| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-04 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-03 | `design` `overview` |
-| [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
-| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-03 | `design` `security` |
+| [IaCの所有境界](architecture/iac.md) | 2026-10-12 | `design` `iac` |
+| [設計と決定の入口](architecture/index.md) | 2026-10-12 | `design` |
+| [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-12 | `design` `network` |
+| [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-12 | `design` `placement` |
+| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-12 | `design` `overview` |
+| [配置と命名の再編](architecture/placement-naming.md) | 2026-10-12 | `design` `iac` |
+| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-12 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-03 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-10-03 | `design` `bootstrap` |
 
@@ -242,10 +242,10 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [用語集](reference/glossary.md) | 2026-10-03 | `reference` `glossary` |
+| [用語集](reference/glossary.md) | 2026-10-12 | `reference` `glossary` |
 | [リファレンスの入口](reference/index.md) | 2026-09-18 | `reference` |
 | [ポケモンDBの取扱説明書](reference/pokemondb.md) | 2026-10-05 | `reference` `database` `pokemon` |
-| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-05 | `reference` `network` |
+| [接続先一覧（URL・アドレス）](reference/urls.md) | 2026-10-12 | `reference` `network` |
 
 ### 記録
 

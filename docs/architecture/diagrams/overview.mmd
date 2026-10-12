@@ -15,18 +15,24 @@ flowchart TB
     end
     subgraph svcpool["サービスVM（cloud）"]
       media["media-01<br/>Nextcloud・Kavita・Navidrome・FreshRSS"]
-      apps["apps-01<br/>docs・Homarr・Vaultwarden<br/>家電・CUPS・LibreSpeed"]
-      game["game1<br/>Wolf・RomM・AI（GPU）"]
+      apps["apps-01<br/>docs・Homarr・Vaultwarden・家電<br/>CUPS・LibreSpeed・pkdb・Bot"]
+      web01["web-01<br/>公開サイト（LANから隔離）"]
+      game["game-01<br/>Wolf・RomM・AI（GPU）"]
     end
-    subgraph devpool["開発・検証VM（dev / lab）"]
-      dev["dev-a / dev-b<br/>Terraform・Docker・Go"]
-      probe["probe-01<br/>復元ドリル（停止中）"]
+    subgraph devpool["開発・検証VM（cloud）"]
+      dev["dev-01 / dev-02<br/>Terraform・Docker・Go"]
+      probe["probe-01<br/>復元ドリル（lab・停止中）"]
     end
   end
   switch["TL-SG605"]
   aterm["Aterm（APモード・Wi-Fi）"]
+  relay["negitoroserver<br/>宅外の中継機（公開サイト）"]
+  outpost["たらこサーバ<br/>外から見張る"]
 
   internet --> onu --> router
+  internet --> relay
+  relay -. "tailnet" .-> web01
+  outpost -. "tailnet" .-> web01
   router --> switch
   switch --> aterm
   switch --> core01
@@ -34,7 +40,9 @@ flowchart TB
   switch --> media
   switch --> monitor
   switch --> game
+  switch --> web01
   switch --> dev
+  web01 -. "pkdb のみ" .-> apps
   remote -. Tailscale .-> router
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
   core01 --> apps

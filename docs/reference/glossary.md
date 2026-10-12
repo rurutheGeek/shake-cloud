@@ -1,6 +1,6 @@
 ---
 title: 用語集
-updated: 2026-10-03
+updated: 2026-10-12
 section: リファレンス
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 用語集
 
-> **更新日** 2026-10-03 ・ **区分** リファレンス ・ **読む人** 全員
+> **更新日** 2026-10-12 ・ **区分** リファレンス ・ **読む人** 全員
 
 このドキュメントに出てくる固有名と略語です。**詳しい説明はリンク先が正本**で、ここは「読み進めるために最低限いる説明」だけを置きます。
 
@@ -22,11 +22,14 @@ tags:
 | `router-01` | **家庭内ルータ（OpenWrt）。** K11上のVM（`192.168.10.1`）で、ファイアウォール・DHCP・DNSを担う（[router-01](../operations/router.md)） |
 | `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの構築](../operations/cloud.md)・[Garage](../operations/garage.md)） |
 | `core-01` | 共通ログイン（Authentik・[認証基盤](../operations/identity.md)）・台帳（NetBox）・HTTPSの入口（Caddy）。旧 `services-01` |
-| `apps-01` | アプリ置き場（クラウドVM）。Homarr・パスワード・家電・印刷・速度テスト・手順書サイトなど |
+| `apps-01` | アプリ置き場（クラウドVM）。Homarr・パスワード・家電・印刷・速度テスト・手順書サイト、**ポケモン系DB（pkdb）とDiscord Bot** など |
 | `media-01` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend受信機 |
 | `monitor-01` | Prometheus・Alertmanager・Grafana（基盤VM） |
-| `game1` | ゲームとローカルAI。GPUをパススルーしている |
+| `web-01` | **インターネットへ公開しているサイト**（`ruruthegeek.dpdns.org` の4サイトとAlexaスキル）。自宅LANからは切り離してある（[公開サイト](../operations/web.md)） |
+| `game-01` | ゲームとローカルAI。GPUをパススルーしている。旧 `game1` |
 | subnet router | 宅外から管理LANへ戻るための Tailscale の中継。`router-01` の上で動く（[詳細](../operations/net.md)） |
+| negitoroserver | **宅外の中継機。** 公開サイトの 80/443 を受けて tailnet 越しに `web-01` へ流す。家庭回線に着信を開けないため必要（このリポジトリの管理外） |
+| たらこサーバ | K11とは別筐体の Raspberry Pi 4。**外から公開サイトと Grafana の応答を見張る**（[監視](../operations/monitoring.md#public-monitor)） |
 | `k8s-cp-01` / `k8s-worker-*` | Kubernetes。AWX・DB提供・関数提供が載る（[Kubernetes](../operations/kubernetes.md)） |
 | `dev-01` / `dev-02` | 開発VM（[開発VMの使い方](../services/devvm.md)） |
 
@@ -43,6 +46,9 @@ tags:
 | **正本** | その事実を書いてよい唯一の場所。ほかのページはリンクするだけにする |
 | **機器帯 / DHCP帯** | アドレスの切り分け。機器帯 `.2`–`.19`（ルータ・AP・プリンタ・ホスト）、DHCP `.20`–`.99`（router-01 が配る）、クラウド `.100`–`.180`、管理 `.201`–`.239`、MetalLB `.240`–`.249`。正本は `platform/terraform/network.yaml` |
 | **バルク領域** | Proxmoxホスト直結の6TB USB HDD（`/srv/bulk`）。メディア原本と週次バックアップの置き場（[共有バルクストレージ](../operations/bulk-storage.md)） |
+| **ゾーン** | DNSの名前空間。`apextox.dpdns.org`（ホームラボ。**公開していない**）と `ruruthegeek.dpdns.org`（**公開サイト**）の2つを使い分ける |
+| **digest固定（lock）** | コンテナのイメージを `@sha256:...` で固定すること。各スタックの `compose.lock.yaml` がリポジトリ側の正本で、何が動いているかをGitから追えるようにする |
+| **dead man's switch** | 「鳴らないこと」を検知する仕組み。monitor-01 が外部の受信点へ定期POSTし、**途切れたら向こうから通知が来る**（[監視](../operations/monitoring.md)） |
 
 ## 使っているソフト
 
@@ -68,6 +74,9 @@ tags:
 | **Nextcloud / Kavita / Navidrome / FreshRSS** | ファイル／本／音楽／RSS |
 | **Vaultwarden** | パスワード保管庫 |
 | **Home Assistant** | 家電の操作・自動化 |
+| **nginx** | `web-01` の公開サイトの入口。4サイトのTLSを終端する（Caddy とは別で、こちらは公開用） |
+| **UBSLEEPY / CIRCLEAUTH** | 自作のDiscord Bot。ポケモンの図鑑・クイズと、サークルの入室認証・通話通知（[使い方](../services/usage.md#discord-bots)） |
+| **pkdb** | ポケモン系のPostgreSQL。Bot と公開サイトのクイズが読む（[pkdb](../operations/pkdb.md)・[データ辞典](pokemondb.md)） |
 | **CUPS** | 印刷サーバ |
 
 ## 略語

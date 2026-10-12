@@ -1,6 +1,6 @@
 ---
 title: ドキュメントの書き方
-updated: 2026-10-03
+updated: 2026-10-12
 section: 入口
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ドキュメントの書き方
 
-> **更新日** 2026-10-03 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-10-12 ・ **区分** 入口 ・ **読む人** 全員
 
 このハンドブックを書き足す・直すときの決まりです。**ルールの半分は `tests/test_docs_structure.py` が機械で検査します**ので、迷ったらテストを流してください。
 
@@ -149,6 +149,8 @@ python3 tools/check-publication.py
 ```
 
 `tools/docs-map.py --check` は地図が古いと失敗します。ページを足したら**先に `python3 tools/docs-map.py` を流してください。**
+
+上はドキュメントだけを触ったときの最小の組です。**コードも触ったなら CI の全項目**（Terraform・Go・ruff・shellcheck・govulncheck を含む）を流します。一覧は[確認と、はまりどころ](operations/verify.md#local-checks)が正本で、ここでは重複させません。
 
 サイトへの配備は別操作です。GitHubへの push はサイトを更新しません。
 

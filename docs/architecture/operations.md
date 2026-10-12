@@ -1,6 +1,6 @@
 ---
 title: 配備・Git管理・ストレージ・復旧
-updated: 2026-10-04
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 配備・Git管理・ストレージ・復旧
 
-> **更新日** 2026-10-04 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
@@ -19,27 +19,29 @@ tags:
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
 
-**増設は現有ホストへのVM追加です。ハードウェアの増設提案は今回の範囲に含めません。** 認証・台帳・HTTPSの入口はcore-01、常時使う軽いアプリはapps-01、ゲーム・AIはgame1、メディアはmedia-01へまとめます。専用AI VM・HAOS VM・VPN VMは追加しません。
+**増設は現有ホストへのVM追加です。ハードウェアの増設提案は今回の範囲に含めません。** 認証・台帳・HTTPSの入口はcore-01、常時使う軽いアプリとBotとDBはapps-01、ゲーム・AIはgame-01、メディアはmedia-01、インターネットへ出す公開サイトはweb-01へまとめます。専用AI VM・HAOS VM・VPN VMは追加しません。
 
 | 配置 | vCPU / RAMの計画値 | ディスク | 機能・起動方針 |
 | --- | --- | --- | --- |
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
 | router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
 | core-01（150。旧services-01） | 2 / 4.5GiB（固定。2026-10-11 に実測（最大約3.8GiB）へ合わせて 6→4.5GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
-| apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
+| apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。加えて **pkdb（ポケモン系PostgreSQL）・Discord Bot（UBSLEEPY・CIRCLEAUTH）・Botポータル**。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
 | cloud-01（140） | 2 / 1GiB（固定。2026-10-11 に実測（最大約0.67GiB）へ合わせて 2→1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |
 | k8s-cp-01（200） | 2 / 3GiB（固定） | 32GiB | control plane。既存構成維持 |
 | k8s-worker-01（210） | 4 / 8GiB（固定） | OS32＋データ64GiB | AWX・CNPG・Knative。既存構成維持 |
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
-| game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
+| game-01（100、cloudプール。旧 game1） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG。VM停止中は一式停止 |
 | media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
 | monitor-01（基盤VM、120、192.168.10.210） | 2 / 3GiB（下限2GiB。2026-10-11 に 2→3GiB） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
 | dev-01 / dev-02（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
-| public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
+| web-01（cloud VM、192.168.10.102、VMID 5002） | 2 / 2GiB（下限1.5GiB。2026-10-11 に 4→2GiB） | OS32GiB＋データ32GiB（`/srv`） | **公開サイト4つとAlexaスキル。** nginx が TLS を終端し、宅外の中継機から tailnet 経由で受ける。自宅LANへは戻さない。常時（[公開サイト](../operations/web.md)） |
 | （net-01は2026-10-03に削除） | — | — | Tailscale subnet router（宅外からの復旧経路）は router-01（OpenWrt）の上で動く。**K11上のVMなので、K11そのものの停止はカバーしない** |
 
-上表は同時稼働を保証する合計ではありません。常用基盤（旧構成のservices-01、identity、cloud-01、storage-s3、cp、worker-01。現在はcore-01・cloud-01に統合）だけでも計画値で22GiBでした。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
+上表は同時稼働を保証する合計ではありません。**常時起動のVM**（router-01・core-01・cloud-01・apps-01・media-01・monitor-01・web-01）の宣言値を足すと約21GiBです。ここに game-01 の12GiBと開発VM2台の12GiBが乗ると約45GiBで、ホスト用の枠6GiBを引いた残りに Kubernetes（cp 3 + worker-01 8）を同時に入れる余裕はありません。**だからKubernetesは必要なときだけ起動します**（[決定ログ](decisions.md)）。
+
+2026-10-11 に、14日間の実測へ合わせて4台（core-01・cloud-01・monitor-01・web-01）の割り当てを見直しました。**宣言を実測に寄せると、ホストの空きがそのまま増えます**（このときは約14.9→18.8GiB。記録は[配備台帳](../operations/handover.md)）。測り方と余力の判断は[I01 容量測定・軽量化](../development/I01-resources.md)にあります。
 
 <a id="measured-budget"></a>
 ### 実機の実測

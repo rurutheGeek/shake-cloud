@@ -1,6 +1,6 @@
 ---
 title: IaCの所有境界
-updated: 2026-10-03
+updated: 2026-10-12
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # IaCの所有境界
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-12 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 **状態**: 00-bootstrap・10-platform・20-dns は実機へ適用済み。クラウドAPI は4機能（VM・S3・database・function）まで実装済み・実機検証済み
 
@@ -74,20 +74,38 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 
 `tests/test_platform_inventory.py` が整合を検査します。VMIDが範囲外・重複、未宣言のタグやflavor、`cloud` プールの使用、`automation_pools` への `cloud` の混入、`media` グループ式の変更は、実機へ触る前にここで落ちます。
 
+<a id="guest-ownership"></a>
+## ゲストの中（Composeスタック）の所有境界
+
+VMの外側は Terraform とクラウドAPI、**中で動くコンテナは Ansible** が所有します。ここでも「同じ事実を2か所に持たない」を形で守ります。
+
+| 事実 | 正本 | 配備先では |
+| --- | --- | --- |
+| どのコンテナを動かすか | `stacks/<アプリ名>/compose.yaml` | コピーされたものを読むだけ。手で編集しない |
+| **どのイメージか（digest）** | `stacks/<アプリ名>/compose.lock.yaml` | 配備先で `pull` し直さない。更新はリポジトリの lock を書き換えて配り直す |
+| 設定値 | Playbook が書く `.env`（秘密値は SOPS から） | 手で書き換えると次の配備で戻る |
+| 配備の手順 | 共通ロール `compose_stack` ＋ 各スタックの `manage.py` | — |
+
+**イメージを digest で固定するのは、「いま何が動いているか」をGitから読めるようにするためです。** `:latest` のままだと、再配備のたびに中身が変わり、壊れたときに「前は何だったか」を調べる手段が残りません。`tests/test_image_locks.py` が、追跡している全スタックの lock が compose のサービスを漏れなく覆っていることを検査します。**まだ固定できていないスタックは同テストの `UNPINNED` に理由付きで列挙**されており、ここを増やさない運用です。
+
+自作のアプリ（Discord Bot・公開サイト）は少し違います。**GitHub Actions が `main` のマージでイメージを出し、配備先ではビルドしません**（公開サイトの静的物とNext.jsだけは web-01 上でビルドします）。加えて `web-01` とBotは**5分ごとに自分で `main` を見て更新**します。外部のCDへ配備先の鍵を渡さずに済むためで、**設定・秘密値の変更はこのタイマーでは入りません**（そのときは Ansible を流す）。
+
+共通ロール `compose_stack` は「ファイルを置く → `.env` を書く → `manage.py init` → `manage.py up`」だけを持ちます。スタックごとに同じタスクを書き写さないので、配備の作法（`init` は秘密値と保存先を作る、`up` は起動して healthcheck を待つ）が1か所で決まります。`--check` で事前確認できます。
+
 ## VMIDとプールの分割
 
 `platform/terraform/pools.yaml` が正本です。
 
 | VMID | プール | 所有者 | 用途 |
 | --- | --- | --- | --- |
-| 100–399 | `platform` | 管理者Terraform | router-01、core-01、cloud-01、monitor-01、k8s、dev-01/b、probe-01の基盤VM。100は既存game1として予約 |
-| 400–499 | `dev` | 管理者Terraform | 開発VM。利用者は電源とコンソールのみ |
+| 100–399 | `platform` | 管理者Terraform | router-01（101）、cloud-01（140）、monitor-01（120）、core-01（150。`05-seed`）、k8s（200番台）。**100 は game-01 のために予約**（引き取り済みで、実体は `cloud` プール） |
+| 400–499 | `dev` | 管理者Terraform | 開発VM（dev-01=400・dev-02=401）。**2026-10-03 にクラウドVMへ引き取ったのでVMIDはそのままで所属は `cloud` プール**。`/vms/<VMID>` のACLで利用者に電源とコンソールだけを渡す形は変えていない |
 | 900–999 | `lab` | 管理者Terraform | 検証・復元ドリル。使い捨て |
 | 5000–5999 | `cloud` | 自作クラウドAPI | 利用者がAPI・Providerで作るVM |
 
-現在の配置方針は[並列開発計画](../development/index.md)にあります。apps-01の家電・印刷API・Homarr・Vaultwarden（配備済み。当時はservices-01）とVPN（追加予定）は、既存VMに対するゲスト構成追加です。新しいstateでVMを再宣言しません。game1はVMID 100のままcloud APIへ引き取り済みです。新規media-01・apps-01・必要時のpublic-edgeはサービス別stateでcloud API経由で作ります。
+現在の配置方針は[配置と命名の再編](placement-naming.md)が正本です。apps-01 のアプリ群（家電・印刷API・Homarr・Vaultwarden ほか）は、既存VMに対するゲスト構成追加で、新しいstateでVMを再宣言しません。game-01 は VMID 100 のまま cloud API へ引き取り済みです。**VMそのものを宣言するサービス（media-01・apps-01・web-01）はサービス別stateで cloud API 経由で作ります**（`platform/terraform/services/<name>/`）。
 
-`cloud` プールは**枠だけ先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。現在はgame1（引き取り）・media-01・apps-01・win-01・android-01・利用者VM・ボリュームホルダーが所属します。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
+`cloud` プールは**枠だけ先に作りました**。枠を予約しておいたので、APIを載せるときにVMIDの再採番や既存VMの移動が要りません。現在は game-01（引き取り）・media-01・apps-01・web-01・dev-01・dev-02（引き取り）・win-01・android-01・利用者VM・ボリュームホルダーが所属します。VMIDの採番はAPI自身が管理DBで行い、`GET /cluster/nextid` は使いません。あれは競合するうえ、APIの予約を見ていないためです。
 
 ## ロールとトークン
 
