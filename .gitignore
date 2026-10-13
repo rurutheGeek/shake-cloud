@@ -12,6 +12,10 @@ runtime/
 # 構成管理者の手元にだけ置く平文。VMのログインパスワードなど。
 .local/
 
+# 作業日誌。手元にだけ残す。2026-10-02（87ccacb）に追跡をやめ、残すべき設計・決定・
+# 監査結果は docs/ へ畳む運用にした。日誌そのものは経過の記録なので追跡しない。
+agentlogs/
+
 platform/ansible/pve.ini
 platform/ansible/seed.ini
 platform/ansible/netbox.env
