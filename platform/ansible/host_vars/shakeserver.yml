@@ -10,3 +10,6 @@ pi_base_retired_containers:
   - shake_postgres-backup
   - shake_adminer
 pi_base_prune_docker: true
+# Minecraft のワールドの持ち主（旧配備のまま）。
+minecraft_uid: 999
+minecraft_gid: 991
