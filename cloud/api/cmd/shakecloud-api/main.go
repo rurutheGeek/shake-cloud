@@ -107,6 +107,7 @@ func run(log *slog.Logger) error {
 			log.Warn("databases and functions disabled: no Kubernetes settings")
 		}
 		srv.Compute = service
+		srv.Inventory = ledger
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)
 		go service.RunLedger(ctx, 15*time.Minute)

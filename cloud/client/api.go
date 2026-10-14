@@ -147,6 +147,15 @@ func (c *Client) DescribeSubnets(ctx context.Context) ([]Subnet, error) {
 	return out.Subnets, err
 }
 
+// DescribeNetworkMap reads every subnet with its machines from the ledger.
+func (c *Client) DescribeNetworkMap(ctx context.Context) ([]NetworkSubnet, error) {
+	var out struct {
+		Subnets []NetworkSubnet `json:"subnets"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/network-map", nil, nil, &out)
+	return out.Subnets, err
+}
+
 func (c *Client) DescribeSubnet(ctx context.Context, id string) (Subnet, error) {
 	var out Subnet
 	err := c.do(ctx, http.MethodGet, "/v1/subnets/"+url.PathEscape(id), nil, nil, &out)

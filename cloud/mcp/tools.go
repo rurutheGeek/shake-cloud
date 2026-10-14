@@ -109,6 +109,13 @@ func addTools(s *mcp.Server, c *client.Client) {
 			return nil, subnets, err
 		})
 
+	readTool(s, "shakecloud_describe_network_map",
+		"Every subnet with the machines (devices and VMs) the ledger places in it, read live from NetBox.",
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, []client.NetworkSubnet, error) {
+			subnets, err := c.DescribeNetworkMap(ctx)
+			return nil, subnets, err
+		})
+
 	readTool(s, "shakecloud_describe_subnet",
 		"One subnet by id (subnet-<name>).",
 		func(ctx context.Context, _ *mcp.CallToolRequest, args subnetArgs) (*mcp.CallToolResult, client.Subnet, error) {
