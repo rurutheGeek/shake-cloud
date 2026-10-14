@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480" role="img" aria-label="概要（異常なし）" font-family="IPAexGothic, Noto Sans CJK JP, sans-serif">
+<rect width="800" height="480" fill="#1c1f24"/>
+<rect x="0" y="0" width="800" height="72" rx="0" fill="#2a2e35" />
+<text x="24" y="48" font-size="32" fill="#e6e6e6" text-anchor="start" font-weight="normal">異常なし</text>
+<text x="776" y="48" font-size="32" fill="#e6e6e6" text-anchor="end" font-weight="normal">23:42</text>
+<rect x="8" y="80" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="24" y="116" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">回線</text>
+<text x="24" y="184" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">18 ms</text>
+<rect x="272" y="80" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="288" y="116" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">サービス</text>
+<text x="288" y="184" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">32/32</text>
+<rect x="536" y="80" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="552" y="116" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">ホスト</text>
+<text x="552" y="184" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">6/6</text>
+<rect x="8" y="232" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="24" y="268" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">VM</text>
+<text x="24" y="336" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">12/12</text>
+<rect x="272" y="232" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="288" y="268" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">電源</text>
+<text x="288" y="336" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">100 %</text>
+<text x="288" y="372" font-size="22" fill="#8a9099" text-anchor="start" font-weight="normal">商用・負荷 19 %</text>
+<rect x="536" y="232" width="256" height="148" rx="8" fill="#2a2e35" />
+<text x="552" y="268" font-size="24" fill="#8a9099" text-anchor="start" font-weight="normal">ディスク</text>
+<text x="552" y="336" font-size="56" fill="#e6e6e6" text-anchor="start" font-weight="bold">正常</text>
+<rect x="0" y="384" width="800" height="96" rx="0" fill="#1c1f24" />
+<rect x="4" y="388" width="125" height="88" rx="8" fill="#3a404a" />
+<rect x="4" y="388" width="125" height="6" rx="3" fill="#e6e6e6" />
+<text x="66" y="445" font-size="28" fill="#e6e6e6" text-anchor="middle" font-weight="bold">概要</text>
+<rect x="137" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="199" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">警告</text>
+<rect x="271" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="333" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">死活</text>
+<rect x="404" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="466" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">電源</text>
+<rect x="537" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="599" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">ホスト</text>
+<rect x="671" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="733" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">設定</text>
+</svg>

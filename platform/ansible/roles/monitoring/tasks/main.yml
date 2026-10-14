@@ -163,6 +163,9 @@
     name: prometheus-node-exporter
     state: present
 
+- name: Disable openipmi
+  ansible.builtin.import_tasks: "{{ playbook_dir }}/tasks/disable-openipmi.yml"
+
 - name: Initialize storage and generated secrets
   ansible.builtin.command:
     argv: [python3, manage.py, init]

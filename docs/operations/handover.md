@@ -229,6 +229,7 @@ sops --decrypt platform/sops/pve-users.sops.yaml
 
 | 項目 | 現状 | 決めるときの材料 |
 | --- | --- | --- |
+| 出たままの警告（2026-10-15） | 止めている VM・k8s・`openipmi` の警告は式と Ansible で直して配備済み。UpsOnBattery はラベル名の誤りで鳴らなかったので直した。**残り**：apps-01 の `eufy-camera-watch`（`camera_watch.py` が HTTP 404）、tarakoserver の `smartmontools`（USB の HDD を smartd が見つけない） | [M02 監視のタッチパネル](../development/M02-touch-panel.md) の「警告の整理」 |
 | パスキー | **復旧を実装（2026-09-12）**: `configure.py` が **メール確認コード**（`default-authenticator-email-setup`）と**パスワード再設定フロー**（`default-recovery-flow`）を作る。`akadmin` の復旧先は `SMTP_FROM`＝`shake.notify@gmail.com`。復旧メールの送信を実機確認済み。ログインの検証段階は `email` ほかを受け付けるので、パスキーを失ってもメールコードで通過できる。パスキーと併せて登録するのは運用。手順は [identity.md](identity.md)。**パスキーだけのパスワードレスも有効化済み（2026-09-12）。2026-09-27にWebAuthn setupステージを `resident_key_requirement: required` へ変更し、新規登録はdiscoverable（resident key）に限定した（登録済みは再登録が必要）** | 名前（`auth.apextox.dpdns.org`）を変えると登録し直しになる。Firefoxはユーザー名欄のパスキー自動入力に非対応（Chrome/Edge/Safari）。[認証基盤（identity・Authentik）](identity.md)・[ネットワーク・SSO](../architecture/network-auth.md) |
 | 無料ドメインの継続性 | DigitalPlat の更新・取り消しの規則は確認できていない | 取り上げられたら名前の付け替えになる。困るようなら有料ドメイン（候補 `ruruthegeek.org`）へ移す |
 | メディア系の認証 | **media-01 は identity の OIDC / Forward Auth に統合済み（2026-09-12）** | 既存環境からのデータ移行の完了後に扱いを決める |

@@ -3,11 +3,15 @@ groups:
   - name: availability
     rules:
       - alert: ServiceProbeFailed
-        expr: probe_success == 0
+        # k8s（AWX など）は必要なときだけ動かす。k8s-cp-01（qemu/200）が動いているときだけ見る。
+        expr: >-
+          probe_success{group!="k8s"} == 0
+          or (probe_success{group="k8s"} == 0 and on() max(pve_up{id="qemu/200"}) == 1)
         for: 5m
         labels:
           severity: warning
         annotations:
+          panel: "サービス応答なし"
           summary: "{{ $labels.instance }} が応答しない"
           description: "blackbox probe が5分間失敗しています。"
 
@@ -17,6 +21,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "証明書の期限が近い"
           summary: "{{ $labels.instance }} の証明書が14日以内に期限切れ"
           description: "Let's Encrypt の更新経路（Caddy）を確認してください。"
 
@@ -29,6 +34,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ホスト応答なし"
           summary: "{{ $labels.instance }} の node_exporter が応答しない"
           description: "VM の停止か node_exporter の異常です。pve_up と合わせて確認してください。"
 
@@ -42,6 +48,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ディスク残り少"
           summary: "{{ $labels.instance }} の {{ $labels.mountpoint }} の空きが15%未満"
           description: "イメージ・ログ・世代を確認してください（読み取り専用マウントは除外）。"
 
@@ -51,6 +58,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "メモリ不足"
           summary: "{{ $labels.instance }} の空きメモリが10%未満"
           description: "プロセスを絞るか、配分（flavor・memory_mib）を見直してください。"
 
@@ -59,6 +67,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "メモリ不足で強制終了"
           summary: "{{ $labels.instance }} でOOM killが発生"
           description: "30分以内にカーネルがプロセスを強制終了しました。dmesg を確認してください。"
 
@@ -68,6 +77,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "サービスの失敗"
           summary: "{{ $labels.instance }} の {{ $labels.name }} が failed"
           description: "systemctl status {{ $labels.name }} で原因を確認してください。"
 
@@ -77,6 +87,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "再起動した"
           summary: "{{ $labels.instance }} が再起動した"
           description: "1時間以内にカーネルの起動時刻が変わりました。計画外なら原因を確認してください。"
 
@@ -89,6 +100,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "バックアップ記録なし"
           summary: "管理DBバックアップのメトリクスが無い"
           description: "cloud-01 の textfile collector に cloud_backup.prom がありません。"
 
@@ -98,6 +110,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "バックアップが古い"
           summary: "管理DBバックアップが36時間以上成功していない"
           description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
 
@@ -111,6 +124,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "大容量ディスク外れ"
           summary: "6TB HDD（/srv/bulk）が見えない"
           description: "USBの切断かマウント失敗です。dmesg・lsblk・findmntを確認し、mount /srv/bulk と exportfs -ra で戻してください（docs/operations/bulk-storage.md）。"
 
@@ -123,6 +137,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "大容量ディスク残り少"
           summary: "6TB HDDの空きが10%未満"
           description: "vzdumpの世代（keep-last=4）とライブラリの増加を確認してください。"
 
@@ -134,6 +149,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "利用枠残り少"
           summary: "HDDの{{ $labels.area }}領域が上限の85%を超えた"
           description: "repquota -P /srv/bulk で確認し、不要なものを消すか、上限（pve_bulk_storage_quotas）を見直してください（docs/operations/bulk-storage.md）。"
 
@@ -143,6 +159,7 @@ groups:
         labels:
           severity: critical
         annotations:
+          panel: "ディスク故障"
           summary: "{{ $labels.disk }} のSMART自己診断がFAILED"
           description: "ディスク交換を検討してください。先にバックアップの状態を確認してください。"
 
@@ -153,6 +170,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ディスク停止"
           summary: "{{ $labels.disk }} のSMARTが読めない"
           description: "dmesg と smartctl -a -d sat を確認してください。USBの挿し直しで戻ることがあります。"
 
@@ -165,6 +183,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ディスク不良セクタ"
           summary: "{{ $labels.disk }} に不良・代替処理待ちセクター"
           description: "増加が続くなら交換時期です。バックアップを確認してください。"
 
@@ -175,6 +194,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ディスク配線エラー"
           summary: "{{ $labels.disk }} のCRCエラーが増加"
           description: "USBケーブル・ポート・enclosureを確認してください（UAS無効化の判断材料）。"
 
@@ -184,6 +204,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "ディスク高温"
           summary: "{{ $labels.disk }} が50℃超"
           description: "風通しと連続アクセスを確認してください。"
 
@@ -194,6 +215,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "SMART 記録が古い"
           summary: "SMART収集が1時間以上止まっている"
           description: "prometheus-node-exporter-smartmon.timer を確認してください。"
 
@@ -203,6 +225,7 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "NVMe 摩耗"
           summary: "NVMeの寿命消費が80%超"
           description: "書き込みの多い処理とバックアップ世代数を見直してください。"
 
@@ -215,17 +238,22 @@ groups:
         labels:
           severity: none
         annotations:
+          panel: "監視の生存確認"
           summary: "監視経路は生きている"
           description: "この通知が外部で途切れたら、Prometheus か Alertmanager を疑ってください。"
 
   - name: resources
     rules:
       - alert: ProxmoxGuestDown
-        expr: pve_up == 0
+        # わざと止めている VM で鳴らないよう、自動起動（onboot）の VM とノードだけを見る。
+        expr: >-
+          (pve_up == 0 and on(id) pve_onboot_status == 1)
+          or pve_up{id=~"node/.+"} == 0
         for: 5m
         labels:
           severity: warning
         annotations:
+          panel: "VM 停止"
           summary: "{{ $labels.id }} が停止または応答なし"
           description: "Proxmox API から見てゲストが up ではありません。"
 
@@ -240,15 +268,17 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "K11 メモリ逼迫"
           summary: "Proxmox ノード {{ $labels.id }} のメモリ使用率が90%超"
           description: "ゲストの配分か常駐プロセスを見直してください。Grafanaの「Shake Lab VM memory」で内訳を確認できます。"
 
       - alert: UpsOnBattery
-        expr: network_ups_tools_ups_status{value="OB"} == 1
+        expr: network_ups_tools_ups_status{flag="OB"} == 1
         for: 1m
         labels:
           severity: warning
         annotations:
+          panel: "停電（電池で稼働）"
           summary: "UPSがバッテリー動作中"
           description: "停電か入力異常です。残り時間を確認してください。"
 
@@ -258,5 +288,6 @@ groups:
         labels:
           severity: warning
         annotations:
+          panel: "K11 ディスク残り少"
           summary: "{{ $labels.id }} のディスク使用率が85%超"
           description: "不要なイメージ・バックアップ・キャッシュを確認してください。"

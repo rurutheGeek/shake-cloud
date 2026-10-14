@@ -1,0 +1,21 @@
+---
+# prometheus-node-exporter の推奨（collectors → ipmitool → openipmi）で入る openipmi は、
+# IPMI の無い機械では起動に失敗し、NodeSystemdUnitFailed を鳴らし続ける。
+# どのホストにも IPMI は無いので止める。IPMI のある機械を足すときはこの読み込みを外す。
+- name: Check whether openipmi is installed
+  ansible.builtin.stat:
+    path: /etc/init.d/openipmi
+  register: disable_openipmi_script
+
+- name: Mask openipmi
+  ansible.builtin.systemd:
+    name: openipmi
+    enabled: false
+    masked: true
+  register: disable_openipmi_masked
+  when: disable_openipmi_script.stat.exists
+
+- name: Clear the failed state of openipmi
+  ansible.builtin.command: systemctl reset-failed openipmi.service
+  changed_when: true
+  when: disable_openipmi_masked is changed

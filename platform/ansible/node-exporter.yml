@@ -19,3 +19,6 @@
         name: prometheus-node-exporter
         enabled: true
         state: started
+
+    - name: Disable openipmi
+      ansible.builtin.import_tasks: tasks/disable-openipmi.yml
