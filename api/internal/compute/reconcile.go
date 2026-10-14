@@ -85,6 +85,17 @@ func (s *Service) Reconcile(ctx context.Context) error {
 				return err
 			}
 		}
+		// Instances created before the API managed onboot get it once. A VM
+		// that stopped outside the API keeps onboot, so monitoring still
+		// reports it until its owner starts or stops it.
+		if observed == instance.State {
+			on := instance.State == db.StateRunning
+			if !s.onbootKnown(instance.ID, on) {
+				if err := s.setOnboot(ctx, instance.ID, *instance.VMID, on); err != nil {
+					s.Log.Warn("setting onboot failed", "instance_id", instance.ID, "err", err)
+				}
+			}
+		}
 	}
 	return nil
 }

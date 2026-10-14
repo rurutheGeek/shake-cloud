@@ -138,6 +138,10 @@ type Service struct {
 	// rangeIDs caches the NetBox range of each subnet, keyed by its start address.
 	rangeIDs map[string]int
 	now      func() time.Time
+	onbootMu sync.Mutex
+	// onboot remembers the autostart flag last written per instance, so the
+	// reconciler writes it once per process instead of on every tick.
+	onboot map[string]bool
 }
 
 func New(pool *pgxpool.Pool, pve Hypervisor, ipam IPAM, s site.Site, log *slog.Logger, workDir string) *Service {

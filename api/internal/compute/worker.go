@@ -355,6 +355,7 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":        {"order=virtio0"},
 		"serial0":     {"socket"},
+		"onboot":      {"1"},
 		"tags":        {"shakecloud"},
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s). Managed by cloud/api; do not edit.", instance.ID, instance.AccountID)},
 	}
@@ -401,6 +402,7 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":    {"order=ide2;virtio0"},
 		"serial0": {"socket"},
+		"onboot":  {"1"},
 		"tags":    {"shakecloud"},
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s, ISO install). Managed by cloud/api; do not edit.",
 			instance.ID, instance.AccountID)},
@@ -552,11 +554,49 @@ func (s *Service) power(ctx context.Context, instance db.Instance, action string
 	if owned, err := s.owns(ctx, vmid, instance); err != nil || !owned {
 		return errors.Join(err, fmt.Errorf("VM %d does not belong to %s", vmid, instance.ID))
 	}
+	// Proxmox starts onboot VMs when the host boots, and monitoring alerts on
+	// an onboot VM that is down. Both should follow what the owner asked for.
+	switch action {
+	case "start":
+		if err := s.setOnboot(ctx, instance.ID, vmid, true); err != nil {
+			return fmt.Errorf("onboot: %w", err)
+		}
+	case "shutdown":
+		if err := s.setOnboot(ctx, instance.ID, vmid, false); err != nil {
+			return fmt.Errorf("onboot: %w", err)
+		}
+	}
 	switch {
 	case action == "start" && vm.Status == "running", action == "shutdown" && vm.Status == "stopped":
 		return nil
 	}
 	return s.task(ctx, func() (string, error) { return s.PVE.Power(ctx, vmid, action, params) })
+}
+
+// setOnboot writes the VM's autostart flag and remembers it.
+func (s *Service) setOnboot(ctx context.Context, instanceID string, vmid int, on bool) error {
+	value := "0"
+	if on {
+		value = "1"
+	}
+	if err := s.PVE.UpdateVMConfig(ctx, vmid, url.Values{"onboot": {value}}); err != nil {
+		return err
+	}
+	s.onbootMu.Lock()
+	defer s.onbootMu.Unlock()
+	if s.onboot == nil {
+		s.onboot = map[string]bool{}
+	}
+	s.onboot[instanceID] = on
+	return nil
+}
+
+// onbootKnown reports whether this process already wrote the flag as on.
+func (s *Service) onbootKnown(instanceID string, on bool) bool {
+	s.onbootMu.Lock()
+	defer s.onbootMu.Unlock()
+	written, ok := s.onboot[instanceID]
+	return ok && written == on
 }
 
 // terminate removes the VM, the seed ISO and the address. A VM on the
