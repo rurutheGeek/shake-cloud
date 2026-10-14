@@ -30,7 +30,7 @@ zone: apextox.dpdns.org
 # 従来どおり自分で証明書を取る。
 edge:
   host: core-01
-  backends: [tarakoserver, monitor-01, media-01, apps-01, cloud-01]
+  backends: [tarakoserver, media-01, apps-01, cloud-01]
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
@@ -151,9 +151,9 @@ records:
     upstream: 127.0.0.1:8096
     description: ネットワーク図（区画・VLAN・ファイアウォール。Forward Auth）
     auth: true
-  # PeaNUT は Pi 4 のカーネル（VA 39 ビット）では起動直後に落ちるため、移し先が決まるまで monitor-01。
   peanut:
-    host: monitor-01
+    host: tarakoserver
+    address: 192.168.10.11
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:

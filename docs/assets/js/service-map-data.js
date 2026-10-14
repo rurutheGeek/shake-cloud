@@ -249,21 +249,7 @@ window.SERVICE_MAP = {
      "sso": true,
      "upstream": "127.0.0.1:8096",
      "url": "https://netmap.apextox.dpdns.org/"
-    }
-   ]
-  },
-  {
-   "address": "192.168.10.210",
-   "docs": [
-    {
-     "path": "operations/power/",
-     "title": "電源と UPS"
-    }
-   ],
-   "kind": "base",
-   "name": "monitor-01",
-   "role": "PeaNUT（廃止予定。移し先が決まるまで）",
-   "services": [
+    },
     {
      "description": "UPSのREST。HomarrのUPSウィジェット用",
      "docs": [
@@ -275,7 +261,7 @@ window.SERVICE_MAP = {
      "name": "PeaNUT",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": false,
      "upstream": "127.0.0.1:8080",

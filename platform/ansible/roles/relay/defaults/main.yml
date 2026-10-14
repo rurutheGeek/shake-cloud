@@ -1,0 +1,7 @@
+---
+# 家の外の入口（negitoroserver）。Cloudflare から来た 80・443 を tailnet 越しに家の中へ流す。
+# 宛先は tailnet のアドレス。Tailscale のポリシー（tag:relay）で届く先を絞っている。
+relay_https_upstream: 100.75.249.112:443
+relay_http_upstream: 100.75.249.112:80
+# 80 番に来た HTTP 以外の通信（Minecraft など）の行き先。空なら受けない。
+relay_other_upstream: ''

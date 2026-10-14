@@ -12,10 +12,10 @@
     "tag:outpost": [
       "autogroup:admin"
     ],
-    "tag:home": [
+    "tag:game": [
       "autogroup:admin"
     ],
-    "tag:game": [
+    "tag:dmz": [
       "autogroup:admin"
     ]
   },
@@ -44,8 +44,7 @@
         "tag:outpost"
       ],
       "dst": [
-        "tag:relay:80,9100",
-        "tag:home:9100,9101,8090"
+        "tag:relay:80,9100"
       ]
     }
   ],
@@ -69,8 +68,8 @@
       ],
       "deny": [
         "tag:web:22",
-        "tag:home:22",
-        "tag:home:25565",
+        "tag:dmz:22",
+        "tag:dmz:25565",
         "tag:router:22",
         "tag:outpost:22",
         "192.168.10.1:443",
@@ -82,13 +81,13 @@
       "src": "tag:web",
       "deny": [
         "tag:relay:22",
-        "tag:home:22",
+        "tag:dmz:22",
         "192.168.10.10:8006",
         "192.168.10.200:443"
       ]
     },
     {
-      "src": "tag:home",
+      "src": "tag:dmz",
       "deny": [
         "tag:relay:22",
         "tag:web:443",
@@ -98,12 +97,11 @@
     {
       "src": "tag:outpost",
       "accept": [
-        "tag:relay:80",
-        "tag:home:9100"
+        "tag:relay:80"
       ],
       "deny": [
         "tag:relay:22",
-        "tag:home:22",
+        "tag:dmz:22",
         "tag:web:443"
       ]
     },
@@ -112,7 +110,7 @@
       "deny": [
         "tag:relay:22",
         "tag:web:443",
-        "tag:home:22"
+        "tag:dmz:22"
       ]
     },
     {
@@ -134,9 +132,16 @@
         "192.168.10.1:443",
         "192.168.10.200:443",
         "192.168.40.97:3389",
-        "tag:home:22",
+        "tag:dmz:22",
         "tag:web:443",
         "100.64.122.9:22"
+      ]
+    },
+    {
+      "src": "tag:relay",
+      "deny": [
+        "tag:dmz:25565",
+        "tag:dmz:22"
       ]
     }
   ]

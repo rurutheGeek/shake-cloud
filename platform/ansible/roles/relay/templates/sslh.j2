@@ -1,0 +1,4 @@
+# Ansible（relay）が置く。80 番の HTTP を中継する。
+RUN=yes
+DAEMON=/usr/sbin/sslh
+DAEMON_OPTS="--user sslh --listen 0.0.0.0:80 --http {{ relay_http_upstream }}{% if relay_other_upstream %} --anyprot {{ relay_other_upstream }}{% endif %} --pidfile /var/run/sslh/sslh.pid"
