@@ -78,3 +78,49 @@
   register: pi_base_prune
   changed_when: "'Total reclaimed space: 0B' not in pi_base_prune.stdout"
   when: pi_base_prune_docker
+
+- name: Stop retired services
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+  loop: '{{ pi_base_retired_services }}'
+  failed_when: false
+
+- name: Remove retired service definitions
+  ansible.builtin.file:
+    path: '/etc/systemd/system/{{ item }}.service'
+    state: absent
+  loop: '{{ pi_base_retired_services }}'
+  register: pi_base_units
+
+- name: Reload systemd after removing units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: pi_base_units is changed
+
+- name: Remove retired cron lines
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      current=$(crontab -l -u {{ item.user | quote }} 2>/dev/null || true)
+      kept=$(printf '%s\n' "$current" | grep -vF -- {{ item.match | quote }} || true)
+      if [ "$current" = "$kept" ]; then echo same; exit 0; fi
+      printf '%s\n' "$kept" | crontab -u {{ item.user | quote }} -
+      echo changed
+  loop: '{{ pi_base_retired_cron }}'
+  register: pi_base_cron
+  changed_when: "'changed' in pi_base_cron.stdout"
+
+- name: Remove retired files
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop: '{{ pi_base_retired_paths }}'
+
+- name: Prune volumes no container uses
+  ansible.builtin.command:
+    argv: [docker, volume, prune, --all, --force]
+  register: pi_base_volumes
+  changed_when: "'Total reclaimed space: 0B' not in pi_base_volumes.stdout"
+  when: pi_base_prune_volumes

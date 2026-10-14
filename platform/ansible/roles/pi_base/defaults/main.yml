@@ -25,3 +25,10 @@ pi_base_data_mount: /srv
 # systemd が定期的に叩き、止まると部品の側が再起動をかける。
 pi_base_watchdog_sec: 15s
 pi_base_reboot_watchdog_sec: 2min
+# 引退させたもの。サービスは止めて定義ごと消し、ファイルとディレクトリは消す。
+pi_base_retired_services: []
+pi_base_retired_paths: []
+# 消す cron の行。{user: 誰の crontab, match: 行に含まれる文字列}
+pi_base_retired_cron: []
+# どのコンテナも使っていない Docker のボリュームを消す（データのボリュームが残っていないことを確かめてから）。
+pi_base_prune_volumes: false
