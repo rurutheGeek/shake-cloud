@@ -79,6 +79,7 @@ nav:
           - I07 クラウドポータルのUI改善: development/I07-portal-ui.md
       - M：監視:
           - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
+          - M02 監視のタッチパネル: development/M02-touch-panel.md
       - O：復旧・運用:
           - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
           - O02 CNPGバックアップ: development/O02-cnpg-backup.md
