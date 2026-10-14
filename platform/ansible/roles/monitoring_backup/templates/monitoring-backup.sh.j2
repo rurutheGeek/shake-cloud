@@ -1,0 +1,6 @@
+#!/bin/sh
+# Ansible（monitoring_backup）が置く。監視を 1 分ほど止めて記録を固め、古い写しを消す。
+set -eu
+cd {{ monitoring_backup_project_dir }}
+nice -n 10 python3 manage.py backup --destination {{ monitoring_backup_local_dir }}
+ls -1d {{ monitoring_backup_local_dir }}/*Z 2>/dev/null | sort | head -n -{{ monitoring_backup_local_keep }} | xargs -r rm -rf

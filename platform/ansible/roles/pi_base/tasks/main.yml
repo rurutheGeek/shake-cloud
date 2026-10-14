@@ -45,6 +45,45 @@
     state: mounted
   when: pi_base_data_label | length > 0
 
+- name: Look for rpi-swap
+  ansible.builtin.stat:
+    path: /etc/rpi/swap.conf
+  register: pi_base_rpi_swap
+
+- name: Create the rpi-swap drop-in directory
+  ansible.builtin.file:
+    path: /etc/rpi/swap.conf.d
+    state: directory
+    mode: '0755'
+  when: pi_base_rpi_swap.stat.exists
+
+- name: Keep swap in memory only
+  ansible.builtin.copy:
+    content: |
+      # Ansible（pi_base）が置く。SD カードの上にスワップのファイルを作らない。
+      [Main]
+      Mechanism={{ pi_base_swap_mechanism }}
+    dest: /etc/rpi/swap.conf.d/50-pi-base.conf
+    mode: '0644'
+  register: pi_base_swap
+  when: pi_base_rpi_swap.stat.exists
+
+- name: Read the active swaps
+  ansible.builtin.slurp:
+    src: /proc/swaps
+  register: pi_base_swaps
+  when: pi_base_rpi_swap.stat.exists
+
+# 使われているスワップは消さない（次の起動で zram だけになってから消える）。
+- name: Remove the swap file from the SD card
+  ansible.builtin.file:
+    path: /var/swap
+    state: absent
+  when:
+    - pi_base_rpi_swap.stat.exists
+    - pi_base_swap_mechanism == 'zram'
+    - "'/var/swap' not in (pi_base_swaps.content | b64decode)"
+
 - name: Boot without the desktop
   ansible.builtin.command:
     argv: [systemctl, set-default, multi-user.target]

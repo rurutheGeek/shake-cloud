@@ -32,3 +32,5 @@ pi_base_retired_paths: []
 pi_base_retired_cron: []
 # どのコンテナも使っていない Docker のボリュームを消す（データのボリュームが残っていないことを確かめてから）。
 pi_base_prune_volumes: false
+# スワップはメモリの上（zram）だけ。rpi-swap の既定は SD カードの上にファイルも作る。
+pi_base_swap_mechanism: zram

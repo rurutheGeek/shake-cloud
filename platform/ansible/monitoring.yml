@@ -12,3 +12,5 @@
     # configure は公開名（OIDC）で入る。証明書を先に取る。
     - tls_proxy
     - monitoring
+    # 記録を毎日 K11 の 6TB HDD へ写す（tarakoserver の HDD だけに置かない）。
+    - monitoring_backup
