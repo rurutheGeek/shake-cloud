@@ -64,6 +64,15 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 - `apply-segments` は何度流してもよい。ネットワークと Wi-Fi を読み込み直すので、有線・無線とも数十秒切れる。
 - `apply-router` は router-01 からの切替用。**稼働中の Flint 3 へ流し直さない**（切替前のバックアップを上書きする）。
 
+## 設定のバックアップ
+
+| 項目 | 内容 |
+| --- | --- |
+| 入れ方 | `tools/flint3-backup-install.sh`（何度流してもよい） |
+| 取得 | K11 の `flint3-backup.timer`（毎日 4:30）。K11 の専用鍵は Flint 3 で `sysupgrade -b -` しか実行できない |
+| 置き場所 | K11 の `/root/flint3-backups`（tar、60 日分）と `/root/flint3-config`（展開して git。差分は `git log -p`） |
+| 復元 | tar を Flint 3 へ送って `sysupgrade -r <tar>` のあと再起動 |
+
 ## ファームウェアを更新したら
 
 1. `opkg update && opkg install map ndppd conntrack`
