@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Monitoring stack lifecycle on monitor-01. Run with sudo.
+"""Monitoring stack lifecycle on tarakoserver (Raspberry Pi 4). Run with sudo.
 
 Prometheus keeps its time series on the data disk, Grafana its database. The
 secret values (Grafana admin, NUT password, Proxmox token) are generated or

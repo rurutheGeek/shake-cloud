@@ -8,7 +8,7 @@
 | game-01 | `tag:game` | なし（受けるだけ） |
 | negitoroserver | `tag:relay` | web-01 の 80/443 |
 | web-01 | `tag:web` | なし |
-| tarakoserver | `tag:outpost` | negitoroserver の 80・9100 |
+| tarakoserver | `tag:monitoring` | negitoroserver の 80・9100（監視） |
 | shakeserver | `tag:dmz` | なし（受けるだけ）。入口から DMZ へは、公開するポートだけを足す（今は無し） |
 | Flint 3 | `tag:router` | なし。`192.168.10.0/24`・`192.168.40.0/24` の経路は自動承認 |
 

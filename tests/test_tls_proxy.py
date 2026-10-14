@@ -295,7 +295,7 @@ class EdgeRenderingTests(unittest.TestCase):
     def test_without_backends_nothing_about_the_edge_is_rendered(self):
         # Until a host is moved, every host keeps requesting its own
         # certificates exactly as before.
-        for host in ('cloud-01', CLOUD_NAME, 'monitor-01', SEED_HOST):
+        for host in ('cloud-01', CLOUD_NAME, 'tarakoserver', SEED_HOST):
             rendered = caddyfile(sites_of(host))
             self.assertIn('dns cloudflare {file./run/secrets/cloudflare_dns_api_token}', rendered, host)
             for marker in ('tls internal', 'trusted_proxies', 'tls_trust_pool', 'X-Forwarded-For', '@outpost'):

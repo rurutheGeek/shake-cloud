@@ -9,7 +9,7 @@
     "tag:router": [
       "autogroup:admin"
     ],
-    "tag:outpost": [
+    "tag:monitoring": [
       "autogroup:admin"
     ],
     "tag:game": [
@@ -41,7 +41,7 @@
     {
       "action": "accept",
       "src": [
-        "tag:outpost"
+        "tag:monitoring"
       ],
       "dst": [
         "tag:relay:80,9100"
@@ -71,7 +71,7 @@
         "tag:dmz:22",
         "tag:dmz:25565",
         "tag:router:22",
-        "tag:outpost:22",
+        "tag:monitoring:22",
         "192.168.10.1:443",
         "192.168.10.10:8006",
         "192.168.10.200:443"
@@ -91,11 +91,11 @@
       "deny": [
         "tag:relay:22",
         "tag:web:443",
-        "tag:outpost:22"
+        "tag:monitoring:22"
       ]
     },
     {
-      "src": "tag:outpost",
+      "src": "tag:monitoring",
       "accept": [
         "tag:relay:80"
       ],
