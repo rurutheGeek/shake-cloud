@@ -1,0 +1,14 @@
+---
+# 監視のタッチパネル（stacks/touch-panel）。設計は docs/development/M02-touch-panel.md。
+touch_panel_source_dir: "{{ playbook_dir }}/../../stacks/touch-panel"
+# ビルドと画面の設定は HDD（/srv）に置き、SD カードへの書き込みを減らす。
+touch_panel_state_dir: /srv/touch-panel
+touch_panel_lvgl_version: 9.5.0
+touch_panel_lvgl_sha256: 34a955cdf3a2d005507b704e87357af669a114523b6d3f77b5344fdc68717bc6
+touch_panel_packages:
+  - build-essential
+  - pkg-config
+  - libdrm-dev
+  - libcurl4-openssl-dev
+  - libcjson-dev
+  - fonts-ipaexfont-gothic

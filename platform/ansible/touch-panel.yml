@@ -1,0 +1,10 @@
+---
+# 監視のタッチパネル（stacks/touch-panel）を tarakoserver の画面へ配備する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/touch-panel.yml'
+# データは同じ機械の Prometheus・Alertmanager から読むので、monitoring.yml の後に流す。
+- name: Deploy the touch panel
+  hosts: monitoring
+  become: true
+  roles:
+    - touch_panel

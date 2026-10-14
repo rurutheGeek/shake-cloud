@@ -216,6 +216,19 @@ Prometheus の収集対象（`stacks/monitoring/prometheus/prometheus.yml`）:
 | --- |
 | ![読めない](diagrams/m02-stale.svg) |
 
+## 実装（2026-10-15）
+
+| 項目 | 内容 |
+| --- | --- |
+| コード | `stacks/touch-panel/`（C、LVGL 9.5.0）。`src/data.c` が別スレッドで 15 秒ごとに読み、`src/ui.c` が描く。設定は `panel.json` |
+| 配備 | `platform/ansible/touch-panel.yml`（ロール `touch_panel`）。Pi の上で `/srv/touch-panel` にビルドし、`/usr/local/bin/touch-panel` と `touch-panel.service` を入れる |
+| 入れたパッケージ | `build-essential`・`pkg-config`・`libdrm-dev`・`libcurl4-openssl-dev`・`libcjson-dev`・`fonts-ipaexfont-gothic` |
+| LVGL | GitHub の v9.5.0 の tarball を sha256 で固定して取る |
+| 描画・入力 | DRM（`/dev/dri/by-path/platform-gpu-card`）、evdev（名前に `ft5x06` を含むもの） |
+| 実測 | 常駐 14MB、待機中の CPU 0% |
+| 確認用 | `SIGUSR1` で画面の写しを `/run/touch-panel/screen.ppm` に書く。`SIGUSR2` で次のページへ進む |
+| 未実装 | Grafana のダッシュボードからの詳細のページ、焼き付き対策の 2px ずらしの実機確認、24 時間の連続運転の確認 |
+
 ## 配備の決まり
 
 - コードは `stacks/` または Ansible のロールに置き、`platform/ansible/` から tarakoserver へ配備する（`monitoring` グループ、鍵は `~/.ssh/id_ed25519_shake`）。手で入れない。

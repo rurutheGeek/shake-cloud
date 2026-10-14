@@ -1,0 +1,20 @@
+# Ansible（touch_panel）が置く。監視のタッチパネル。
+[Unit]
+Description=監視のタッチパネル
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/usr/local/bin/touch-panel /etc/touch-panel/panel.json
+Restart=always
+RestartSec=2
+WatchdogSec=30
+NotifyAccess=main
+RuntimeDirectory=touch-panel
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=-{{ touch_panel_state_dir }}
+
+[Install]
+WantedBy=multi-user.target

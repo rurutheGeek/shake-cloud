@@ -1,0 +1,6 @@
+---
+- name: Restart the touch panel
+  ansible.builtin.systemd:
+    name: touch-panel
+    state: restarted
+    daemon_reload: true

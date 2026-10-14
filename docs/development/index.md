@@ -83,7 +83,7 @@ apps-01のVM再起動では家電も停止します。宅外からの復旧経�
 | [I06 AWXのジョブ整備](I06-awx.md) | 既存基盤への設定追加 | 既存Kubernetes | 一部完了（ジョブ未適用） |
 | [I07 クラウドポータルのUI改善](I07-portal-ui.md) | 既存機構の改善 | cloud-01 | 一部実装（ファビコン・タグ表示。未配備。作成後のタグ変更は未） |
 | [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了。ダッシュボード拡充が残り） |
-| [M02 監視のタッチパネル](M02-touch-panel.md) | 新規 | tarakoserver | 未着手（フルスクラッチの表示アプリ。別の開発者に任せる） |
+| [M02 監視のタッチパネル](M02-touch-panel.md) | 新規 | tarakoserver | 試作を配備（2026-10-15。LVGL。概要・警告・死活・電源・ホスト・設定。Grafana からの詳細は未実装） |
 | [O01 管理DBの外部バックアップ](O01-cloud-backup.md) | 既存ローカルバックアップの拡張 | cloud-01・既存外部保存先 | 一部完了（外部保全未） |
 | [O02 CNPGバックアップ](O02-cnpg-backup.md) | 新規 | 既存Kubernetes・Garage・外部保存先 | 一部完了（バックアップ未） |
 | [O03 VM・アプリ状態の復元](O03-restore.md) | 既存手順の拡張・検証 | 対象VM・隔離復元先 | 一部完了（復元合格未） |

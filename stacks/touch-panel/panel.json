@@ -1,0 +1,30 @@
+{
+  "prometheus": "http://127.0.0.1:9090",
+  "alertmanager": "http://127.0.0.1:9093",
+  "settings_file": "/srv/touch-panel/settings.json",
+  "font": "/usr/share/fonts/opentype/ipaexfont-gothic/ipaexg.ttf",
+  "backlight": "/sys/class/backlight/10-0045",
+  "drm": "/dev/dri/by-path/platform-gpu-card",
+  "touch_name": "ft5x06",
+  "disk_alerts": "^(Smart|Bulk|Nvme|NodeFilesystem|ProxmoxNodeDisk)",
+  "aliases": {
+    "apextox": "K11"
+  },
+  "queries": {
+    "services": "probe_success{group!=\"k8s\"}",
+    "hosts": "up{job=\"node\"}",
+    "host_names": "node_uname_info",
+    "vms": "(pve_up and on(id) pve_onboot_status == 1) * on(id) group_left(name) pve_guest_info",
+    "latency": "avg(probe_duration_seconds{group!=\"k8s\"}) * 1000",
+    "ups_charge": "network_ups_tools_battery_charge",
+    "ups_load": "network_ups_tools_ups_load",
+    "ups_runtime": "network_ups_tools_battery_runtime",
+    "ups_input": "network_ups_tools_input_voltage",
+    "ups_onbattery": "network_ups_tools_ups_status{flag=\"OB\"}",
+    "ups_lowbattery": "network_ups_tools_ups_status{flag=\"LB\"}",
+    "host_cpu": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+    "host_mem": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+    "host_disk": "1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}",
+    "host_temp": "max by (instance) (node_thermal_zone_temp or node_hwmon_temp_celsius{chip!~\"nvme.*|i2c.*|ieee80211.*\"})"
+  }
+}
