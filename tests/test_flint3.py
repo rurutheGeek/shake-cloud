@@ -101,8 +101,9 @@ class DmzTests(unittest.TestCase):
         self.assertIn(f"network.vlan_dmz.vlan='{self.dmz['vlan_id']}'", self.script)
         self.assertIn(f"network.dmz.ipaddr='{self.dmz['gateway']}'", self.script)
 
-    def test_only_tagged_on_the_k11_port(self):
-        self.assertIn("network.vlan_dmz.ports='6t 3t'", self.script)
+    def test_lan4_is_dmz_only_and_k11_gets_it_tagged(self):
+        self.assertIn("network.vlan_dmz.ports='4 6t 3t'", self.script)
+        self.assertIn("network.vlan_lan.ports='6 7 3t'", self.script)
 
     def test_the_only_way_into_the_server_segment_is_pkdb(self):
         to_lan = [line for line in self.script.splitlines() if line.startswith(('rule', '\trule')) and 'dest=lan' in line]

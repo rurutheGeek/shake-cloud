@@ -2,7 +2,7 @@
 # DMZ の区画を作る。正本は platform/terraform/network.yaml の segments.dmz、
 # 方針は docs/operations/vlan.md。何度実行してもよい。
 #
-#   dmz（公開用、192.168.30.0/24）  VLAN 30。K11 とつながる LAN2 にタグ付きで通す
+#   dmz（公開用、192.168.30.0/24）  VLAN 30。LAN4 はタグ無しで DMZ 専用、K11 の LAN2 にはタグ付きで通す
 #
 # K11 の vmbr0 が VLAN 対応になっていないと、DMZ の VM は作れない（手順は
 # docs/operations/flint3.md の「DMZ」）。この設定だけ先に入れても害は無い。
@@ -21,11 +21,13 @@ delete_named() {
 }
 
 # --- network ---------------------------------------------------------------
-# LAN2（ポート 6）はサーバーの区画をタグ無しで流したまま、VLAN 30 をタグ付きで足す。
+# LAN4（ポート 4）は DMZ 専用（shakeserver をつなぐ）。サーバーの区画から外す。
+# LAN2（ポート 6、K11）はサーバーの区画をタグ無しで流したまま、VLAN 30 をタグ付きで足す（DMZ の VM 用）。
+uci set network.vlan_lan.ports='6 7 3t'
 uci set network.vlan_dmz=switch_vlan
 uci set network.vlan_dmz.device='switch1'
 uci set network.vlan_dmz.vlan='30'
-uci set network.vlan_dmz.ports='6t 3t'
+uci set network.vlan_dmz.ports='4 6t 3t'
 uci set network.dmz=interface
 uci set network.dmz.device='eth1.30'
 uci set network.dmz.proto='static'

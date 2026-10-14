@@ -383,7 +383,7 @@ devices:
     comments: |
       （アクティブクーラー付き）
     interface: {name: eth0, type: 1000base-t, mac: '2c:cf:67:2c:e3:4d'}
-    address: 192.168.10.12/24
+    address: 192.168.30.12/24
     dns_name: shakeserver
 
   - name: printer
@@ -922,10 +922,10 @@ cables:
     type: cat6a
     description: Flint 3 LAN3 → デスクトップ（2.5G、個人端末の区画）
 
-  - a: {device: tl-sg605, interface: port4}
+  - a: {device: flint3, interface: lan4}
     b: {device: shakeserver, interface: eth0}
     type: cat6a
-    description: スイッチ → Raspberry Pi 5
+    description: Flint 3 LAN4 → Raspberry Pi 5（DMZ）
 
 # 電源系統（UPS1 のバッテリー口。UPS2 は予備）。
   - a: {device: ups-1, power_outlet: battery1}

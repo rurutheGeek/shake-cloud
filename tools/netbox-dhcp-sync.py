@@ -111,14 +111,14 @@ def in_range(address, section):
 
 
 def segment_sections(network):
-    """個人端末・ネット専用の区画を、機器帯と同じ形（range_start / range_end）にする。
+    """個人端末・ネット専用・DMZ の区画を、機器帯と同じ形（range_start / range_end）にする。
 
     これらの区画の機器も予約で固定する。server の区画は infrastructure と dhcp が
     受け持つので含めない。dnsmasq は、要求を受けたインターフェースの区画に合う
     予約だけを使う。
     """
     sections = []
-    for name in ('personal', 'iot'):
+    for name in ('personal', 'iot', 'dmz'):
         segment = (network.get('segments') or {}).get(name)
         if not segment:
             continue

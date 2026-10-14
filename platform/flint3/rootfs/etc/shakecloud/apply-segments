@@ -27,7 +27,12 @@ uci set network.br_personal.type='bridge'
 uci set network.br_personal.bridge_empty='1'
 # 有線は LAN3 だけ個人端末（デスクトップ）。内蔵スイッチの番号は LAN1=7、LAN2=6、
 # LAN3=5、LAN4=4、CPU 側=3（2026-10-14 に実機のリンクで確認）。
-uci set network.vlan_lan.ports='4 6 7 3t'
+# LAN4 は apply-dmz が DMZ 専用にする。DMZ があるときは戻さない。
+if uci -q get network.dmz >/dev/null; then
+	uci set network.vlan_lan.ports='6 7 3t'
+else
+	uci set network.vlan_lan.ports='4 6 7 3t'
+fi
 uci set network.vlan_personal=switch_vlan
 uci set network.vlan_personal.device='switch1'
 uci set network.vlan_personal.vlan='40'
