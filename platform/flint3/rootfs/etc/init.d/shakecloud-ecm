@@ -1,0 +1,14 @@
+#!/bin/sh /etc/rc.common
+# 新しい IPv4 の接続をハードウェアオフロード（ECM）へ載せない。
+# 2026-10-14、ECM がネット専用の区画（br-iot、2.4GHz の jumpluff）の通信を
+# 載せたあと、TCP の 3 回目以降のパケットが外へ出なくなり、Alexa・カメラ・
+# jumpluff につないだスマホがインターネットに出られなかった。止めると直った。
+# 回線は MAP-E の 1Gbps なので、CPU だけで足りる。
+START=99
+
+start() {
+	for knob in front_end_ipv4_stop gl_front_end_ipv4_stop; do
+		[ -w "/sys/kernel/debug/ecm/$knob" ] && echo 1 > "/sys/kernel/debug/ecm/$knob"
+	done
+	logger -t shakecloud "ECM IPv4 acceleration stopped"
+}

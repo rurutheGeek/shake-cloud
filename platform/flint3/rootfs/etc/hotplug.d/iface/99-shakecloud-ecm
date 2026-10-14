@@ -1,0 +1,5 @@
+#!/bin/sh
+# qca-nss-ecm はネットワークの読み込み直しで ECM を戻すことがある。
+# インターフェースが上がるたびに、/etc/init.d/shakecloud-ecm と同じく止め直す。
+[ "$ACTION" = ifup ] || exit 0
+/etc/init.d/shakecloud-ecm start

@@ -252,6 +252,12 @@ grep -qxF "$conf" /etc/sysupgrade.conf || echo "$conf" >> /etc/sysupgrade.conf
 /etc/init.d/avahi-daemon enable
 /etc/init.d/avahi-daemon restart
 
+# ECM はネット専用の区画の通信を壊す（/etc/init.d/shakecloud-ecm）。
+/etc/init.d/shakecloud-ecm enable
+for path in /etc/init.d/shakecloud-ecm /etc/hotplug.d/iface/99-shakecloud-ecm; do
+	grep -qxF "$path" /etc/sysupgrade.conf || echo "$path" >> /etc/sysupgrade.conf
+done
+
 /etc/init.d/network reload
 /etc/init.d/dnsmasq restart
 /etc/init.d/firewall reload >/dev/null 2>&1
