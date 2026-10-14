@@ -192,7 +192,7 @@ Prometheus の収集対象（`stacks/monitoring/prometheus/prometheus.yml`）:
 
 | 警告 | 原因 | 対応 |
 | --- | --- | --- |
-| ProxmoxGuestDown（5 件） | わざと止めている VM（k8s の 3 台・win-01・router-01・probe-01） | 自動起動の VM とノードだけを見る（済） |
+| ProxmoxGuestDown（5 件） | わざと止めている VM（k8s の 3 台・win-01・router-01・probe-01） | 自動起動（onboot）の VM とノードだけを見る。クラウド API が onboot を利用者の起動・停止に合わせる（済） |
 | ServiceProbeFailed（awx） | k8s を必要なときだけ動かしている | k8s-cp-01 が動いているときだけ見る（済） |
 | NodeSystemdUnitFailed（`openipmi.service`、6 台） | node_exporter の推奨パッケージで入った openipmi が、IPMI の無い機械で失敗する | `platform/ansible/tasks/disable-openipmi.yml` で止める（済） |
 | NodeSystemdUnitFailed（K11 の `iperf3-measure`） | 一時的な計測の残り（transient unit） | 失敗の記録を消した（済） |
