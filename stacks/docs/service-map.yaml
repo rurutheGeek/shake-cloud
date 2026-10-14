@@ -36,6 +36,12 @@ vms:
     services:
       - {name: Prometheus, description: メトリクスの収集とアラート, docs: [operations/monitoring.md]}
       - {name: Alertmanager, description: アラートの通知, docs: [operations/monitoring.md]}
+  - name: monitor-01
+    kind: base
+    role: PeaNUT（廃止予定。移し先が決まるまで）
+    address: 192.168.10.210
+    docs: [operations/power.md]
+    services: []
   - name: apps-01
     kind: cloud
     role: 入口のハブ・パスワード・家電

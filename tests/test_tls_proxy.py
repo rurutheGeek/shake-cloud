@@ -143,7 +143,9 @@ class TlsProxyTests(unittest.TestCase):
                      'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml',
                                  'vaultwarden.yml', 'cups.yml', 'poke-translate.yml', 'pkdb.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
-                     'tarakoserver': ['monitoring.yml', 'netmap.yml']}
+                     'tarakoserver': ['monitoring.yml', 'netmap.yml'],
+                     # PeaNUT だけが残っている（移し先が決まるまで）。
+                     'monitor-01': ['monitoring.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
         self.assertEqual(served, set(playbooks))
         for host, files in playbooks.items():
