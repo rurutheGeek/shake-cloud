@@ -91,6 +91,7 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 | `92-lan-prefix-route-on-lan` | 内蔵スイッチの設定を変えると `br-lan` が作り直され、IPv6 を LAN へ流す経路が消える |
 | `90-mld-personal` | Wi-Fi を読み込み直した直後、MLO の親デバイスがブリッジへ入らないことがあり、MLO でつながった端末にアドレスが配られない |
 | `apply-segments` の Tailscale の転送 | `tailscale` → `lan` の転送が設定から消えていて、宅外からサービスへ届かなかった（DNS だけ通る）。毎回入れ直す |
+| Tailscale の経路を流し直す（`hotplug.d/iface/95-shakecloud-tailscale-routes`） | GL の `gl_tailscale` はインターフェースが変わるたびに `tailscale up --reset` し、GL の画面で選んだ経路しか流さない。2026-10-15、ネットワークの読み込み直しで `192.168.10.0/24`・`192.168.40.0/24` が消え、外のスマホが Tailscale 越しの DNS を引けずネットに出られなかった |
 | ECM（ハードウェアオフロード）の IPv4 を止める（`init.d/shakecloud-ecm`・`hotplug.d/iface/99-shakecloud-ecm`） | 2026-10-14、ECM がネット専用の区画の通信を載せると TCP の 3 回目以降が外へ出ず、jumpluff の家電・スマホがインターネットに出られなかった。`gl_front_end_ipv4_stop` を 1 にすると直った |
 | `apply-segments` の IPsec の削除 | 初期ルールが外から LAN へ ESP・UDP 500 を通す。IPv6 では LAN の機器が外から見える |
 | `apply-segments` の `Block-LAN-mgmt-iot` の修正 | 初期値は `192.168.10.1` 宛てを塞ぐルールで、サーバーの区画から管理画面へ入れなくなる |
