@@ -1,7 +1,8 @@
 # Minecraft（Pixelmon Reforged 1.21.1・NeoForge）を shakeserver（Raspberry Pi 5）に置く。
 # 外からは negitoroserver（家の外の入口）が tailnet 越しに 25565 を中継する。
 # 秘密値（RCON・R2・CurseForge）は .env ではなく manage.py が環境変数で渡す。
-# イメージは compose.lock.yaml でダイジェスト固定する。
+# イメージは compose.lock.yaml でダイジェスト固定する。Minecraft の版は VERSION、
+# NeoForge と Mod（CURSEFORGE_FILES）は起動のたびに最新へ上がる（わざとそうしている）。
 name: minecraft
 
 services:
