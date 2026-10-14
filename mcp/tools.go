@@ -33,6 +33,9 @@ type (
 	volumeArgs struct {
 		VolumeID string `json:"volume_id" jsonschema:"the volume id, e.g. vol-0123456789abcdef0"`
 	}
+	subnetArgs struct {
+		SubnetID string `json:"subnet_id" jsonschema:"the subnet id, e.g. subnet-server"`
+	}
 
 	securityGroupArgs struct {
 		GroupID string `json:"group_id" jsonschema:"the security group id, e.g. sg-0123456789abcdef0"`
@@ -97,6 +100,20 @@ func addTools(s *mcp.Server, c *client.Client) {
 		func(ctx context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, []client.InstanceType, error) {
 			types, err := c.DescribeInstanceTypes(ctx)
 			return nil, types, err
+		})
+
+	readTool(s, "shakecloud_describe_subnets",
+		"The segments of the home network (CIDR, gateway, VLAN) and whether the cloud can place instances in each.",
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, []client.Subnet, error) {
+			subnets, err := c.DescribeSubnets(ctx)
+			return nil, subnets, err
+		})
+
+	readTool(s, "shakecloud_describe_subnet",
+		"One subnet by id (subnet-<name>).",
+		func(ctx context.Context, _ *mcp.CallToolRequest, args subnetArgs) (*mcp.CallToolResult, client.Subnet, error) {
+			subnet, err := c.DescribeSubnet(ctx, args.SubnetID)
+			return nil, subnet, err
 		})
 
 	readTool(s, "shakecloud_describe_capacity",

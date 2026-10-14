@@ -67,6 +67,8 @@ func run(args []string) error {
 		return g.events(rest[1:])
 	case "instance", "instances":
 		return g.instances(rest[1:])
+	case "subnet", "subnets":
+		return g.subnets(rest[1:])
 	case "volume", "volumes":
 		return g.volumes(rest[1:])
 	case "sg", "security-group", "security-groups":
@@ -100,6 +102,7 @@ Commands:
   identity                       Who the access key belongs to
   capacity                       Node, storage and account usage
   limits                         Effective limits and the administrator's overrides
+  subnet ls | subnet show ID     Subnets (segments of the home network)
   events [--account ID] [--name OP] [--max N]
                                  Read the audit log
   instance ls [--account ID]     List instances

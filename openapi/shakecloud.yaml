@@ -533,6 +533,52 @@ paths:
                           description: The floor the host may balloon down to.
         '401': {$ref: '#/components/responses/Error'}
 
+  /v1/subnets:
+    get:
+      operationId: DescribeSubnets
+      x-shakecloud-scope: read
+      tags: [compute]
+      summary: List the subnets of the home network.
+      description: |
+        A subnet is one segment of the network: an address range behind its own
+        gateway, separated from the others by the router's firewall. Subnets
+        come from the deployment's declaration (platform/terraform/network.yaml);
+        the router and the hypervisor's bridge define a segment, so there is no
+        call that creates or removes one.
+      responses:
+        '200':
+          description: Subnets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subnets]
+                properties:
+                  subnets:
+                    type: array
+                    items: {$ref: '#/components/schemas/Subnet'}
+        '401': {$ref: '#/components/responses/Error'}
+
+  /v1/subnets/{subnet_id}:
+    get:
+      operationId: DescribeSubnet
+      x-shakecloud-scope: read
+      tags: [compute]
+      summary: Describe one subnet.
+      parameters:
+        - name: subnet_id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: The subnet.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Subnet'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+
   /v1/capacity:
     get:
       operationId: DescribeCapacity
@@ -669,6 +715,12 @@ paths:
                 root_disk_gib:
                   type: integer
                   description: Omit for the deployment's default. Never smaller than the image.
+                subnet_id:
+                  type: string
+                  description: |
+                    The subnet to place the instance in (see DescribeSubnets).
+                    Omit for the default subnet. A subnet that is not launchable
+                    is refused with InvalidSubnet.NotLaunchable.
                 disk_tier:
                   type: string
                   enum: [ssd, hdd]
@@ -1851,9 +1903,31 @@ components:
       required: [instance]
       properties:
         instance: {$ref: '#/components/schemas/Instance'}
+    Subnet:
+      type: object
+      required: [subnet_id, name, cidr_block, gateway, vlan_id, default, launchable]
+      properties:
+        subnet_id: {type: string, example: subnet-server}
+        name: {type: string}
+        cidr_block: {type: string, example: 192.168.10.0/24}
+        gateway: {type: string}
+        vlan_id:
+          type: integer
+          description: The segment's VLAN number on the router.
+        default:
+          type: boolean
+          description: Where an instance lands when a launch names no subnet.
+        launchable:
+          type: boolean
+          description: Whether RunInstances accepts this subnet. False for segments the cloud does not place instances in, and for a tagged segment while the hypervisor's bridge cannot carry the tag.
+        state_reason:
+          type: string
+          description: Why the subnet is not launchable.
+        description: {type: string}
+
     Instance:
       type: object
-      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, disk_tier, ballooning, launch_time, security_groups, firewall_state]
+      required: [instance_id, account_id, image_id, state, mac_address, vcpus, memory_mib, root_disk_gib, disk_tier, subnet_id, ballooning, launch_time, security_groups, firewall_state]
       properties:
         instance_id: {type: string, pattern: '^i-[0-9a-f]{17}$'}
         account_id: {type: string}
@@ -1899,6 +1973,9 @@ components:
           type: string
           enum: [ssd, hdd]
           description: The pool the instance's disks live on. Chosen at launch and never changed.
+        subnet_id:
+          type: string
+          description: The subnet the instance's network interface is in. Chosen at launch and never changed.
         tags:
           type: object
           additionalProperties: {type: string}

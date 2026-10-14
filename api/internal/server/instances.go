@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
 )
 
 type instanceBody struct {
@@ -40,6 +41,7 @@ type instanceBody struct {
 	Ballooning       bool              `json:"ballooning"`
 	RootDiskGiB      int               `json:"root_disk_gib"`
 	DiskTier         string            `json:"disk_tier"`
+	SubnetID         string            `json:"subnet_id"`
 	KeyName          string            `json:"key_name,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
 	ClientToken      string            `json:"client_token,omitempty"`
@@ -60,6 +62,16 @@ type instanceGroupBody struct {
 	GroupName string `json:"group_name"`
 }
 
+// instanceSubnetID names the subnet an instance is in. An instance stored
+// without one (every instance from before subnets) is in the default subnet.
+func instanceSubnetID(service *compute.Service, i db.Instance) string {
+	subnet, ok := service.Site.Network.Subnet(i.Subnet)
+	if !ok {
+		subnet, _ = service.Site.Network.Subnet("")
+	}
+	return site.SubnetID(subnet.Name)
+}
+
 // instanceJSON renders an instance. Everyone may see that an instance exists
 // and what it holds, so that the cloud's use is visible to the people sharing
 // it; owned decides only whether the caller's own client_token comes back.
@@ -74,7 +86,8 @@ func instanceJSON(service *compute.Service, i db.Instance, owned bool, groups []
 		MACAddress:       i.MACAddress, VCPUs: i.CPUCores, MemoryMiB: i.MemoryMiB, MemoryMinMiB: i.MemoryMinMiB,
 		Ballooning:  i.Ballooning,
 		RootDiskGiB: i.RootDiskGiB, DiskTier: i.DiskTier, KeyName: i.KeyName,
-		Tags: i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
+		SubnetID: instanceSubnetID(service, i),
+		Tags:     i.Tags, LaunchTime: i.LaunchTime.UTC(), TerminatedAt: timeOrNil(i.TerminatedAt),
 		Adopted: i.Adopted,
 	}
 	if owned {
@@ -159,7 +172,7 @@ func (s *Server) runInstances(w http.ResponseWriter, r *http.Request, c *call) {
 		return
 	}
 	instance, created, err := service.Run(r.Context(), c.principal.account.ID, request, func(tx pgx.Tx, i db.Instance) error {
-		event := c.event("", map[string]any{"image_id": i.ImageID, "instance_type": i.InstanceType, "disk_tier": i.DiskTier, "vmid": i.VMID})
+		event := c.event("", map[string]any{"image_id": i.ImageID, "instance_type": i.InstanceType, "disk_tier": i.DiskTier, "subnet_id": instanceSubnetID(service, i), "vmid": i.VMID})
 		event.ResourceID = i.ID
 		return db.RecordAudit(r.Context(), tx, event)
 	})

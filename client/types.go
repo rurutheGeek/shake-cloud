@@ -38,6 +38,7 @@ type Instance struct {
 	Ballooning       bool                    `json:"ballooning"`
 	RootDiskGiB      int                     `json:"root_disk_gib"`
 	DiskTier         string                  `json:"disk_tier,omitempty"`
+	SubnetID         string                  `json:"subnet_id,omitempty"`
 	KeyName          string                  `json:"key_name,omitempty"`
 	Tags             map[string]string       `json:"tags,omitempty"`
 	ClientToken      string                  `json:"client_token,omitempty"`
@@ -57,15 +58,17 @@ type InstanceSecurityGroup struct {
 }
 
 type RunRequest struct {
-	ImageID          string            `json:"image_id"`
-	InstanceType     string            `json:"instance_type,omitempty"`
-	KeyName          string            `json:"key_name,omitempty"`
-	VCPUs            *int              `json:"vcpus,omitempty"`
-	MemoryMiB        *int              `json:"memory_mib,omitempty"`
-	MemoryMinMiB     *int              `json:"memory_min_mib,omitempty"`
-	Ballooning       *bool             `json:"ballooning,omitempty"`
-	RootDiskGiB      int               `json:"root_disk_gib,omitempty"`
-	DiskTier         string            `json:"disk_tier,omitempty"`
+	ImageID      string `json:"image_id"`
+	InstanceType string `json:"instance_type,omitempty"`
+	KeyName      string `json:"key_name,omitempty"`
+	VCPUs        *int   `json:"vcpus,omitempty"`
+	MemoryMiB    *int   `json:"memory_mib,omitempty"`
+	MemoryMinMiB *int   `json:"memory_min_mib,omitempty"`
+	Ballooning   *bool  `json:"ballooning,omitempty"`
+	RootDiskGiB  int    `json:"root_disk_gib,omitempty"`
+	DiskTier     string `json:"disk_tier,omitempty"`
+	// SubnetID places the instance in a subnet; empty means the default one.
+	SubnetID         string            `json:"subnet_id,omitempty"`
 	UserData         string            `json:"user_data,omitempty"`
 	ClientToken      string            `json:"client_token,omitempty"`
 	Tags             map[string]string `json:"tags,omitempty"`
@@ -222,6 +225,20 @@ type AuditEvent struct {
 	ResourceID      string         `json:"resource_id,omitempty"`
 	ErrorCode       string         `json:"error_code,omitempty"`
 	Detail          map[string]any `json:"detail,omitempty"`
+}
+
+// Subnet is one segment of the home network. Subnets are declared by the
+// deployment; the API lists them and never creates or removes one.
+type Subnet struct {
+	SubnetID    string `json:"subnet_id"`
+	Name        string `json:"name"`
+	CIDRBlock   string `json:"cidr_block"`
+	Gateway     string `json:"gateway"`
+	VLANID      int    `json:"vlan_id"`
+	Default     bool   `json:"default"`
+	Launchable  bool   `json:"launchable"`
+	StateReason string `json:"state_reason,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type InstanceType struct {

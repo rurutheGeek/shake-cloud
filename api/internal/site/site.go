@@ -117,6 +117,76 @@ type Network struct {
 	// A tagged cloud network on a bridge that cannot carry the tag would make
 	// every instance unreachable, so Load refuses it.
 	BridgeVLANAware bool `json:"bridge_vlan_aware"`
+	// Subnets are the segments the home network is cut into (network.yaml's
+	// segments). The first one marked Default is where an instance lands when
+	// a launch names none. A site.json from before subnets existed has none;
+	// Subnet and SubnetList then describe the flat network above as one.
+	Subnets []Subnet `json:"subnets,omitempty"`
+}
+
+// DefaultSubnet is the name of the subnet a deployment without a subnet list
+// has: the one flat network.
+const DefaultSubnet = "server"
+
+// Subnet is one segment: an address range behind its own gateway. The router
+// and the bridge define it; the API only reads the declaration and never
+// creates or removes a segment.
+type Subnet struct {
+	Name    string `json:"name"`
+	Prefix  string `json:"prefix"`
+	Gateway string `json:"gateway"`
+	// VLANID is the segment's number on the router. BridgeTag is what a NIC on
+	// the hypervisor's bridge must carry to be in it: 0 when the bridge's
+	// untagged side already is this segment.
+	VLANID    int `json:"vlan_id"`
+	BridgeTag int `json:"bridge_tag"`
+	// IPRangeStart identifies the NetBox range instances draw from. Empty
+	// means the API does not place instances here (the segment is for devices
+	// the cloud does not create), and it is listed for reference only.
+	IPRangeStart string `json:"ip_range_start,omitempty"`
+	Default      bool   `json:"default,omitempty"`
+	Description  string `json:"description,omitempty"`
+}
+
+// SubnetID is the identifier the API shows for a subnet. Subnets come from the
+// declaration, so the name is already stable and unique.
+func SubnetID(name string) string { return "subnet-" + name }
+
+// SubnetList returns the declared subnets, or the flat network as a single
+// default subnet when the deployment declares none.
+func (n Network) SubnetList() []Subnet {
+	if len(n.Subnets) > 0 {
+		return n.Subnets
+	}
+	prefix := ""
+	if p, err := netip.ParsePrefix(n.IPRangeStart); err == nil {
+		prefix = p.Masked().String()
+	}
+	return []Subnet{{Name: DefaultSubnet, Prefix: prefix, Gateway: n.Gateway, BridgeTag: n.VLANID,
+		VLANID: n.VLANID, IPRangeStart: n.IPRangeStart, Default: true}}
+}
+
+// Subnet resolves a name; the empty name is the default subnet.
+func (n Network) Subnet(name string) (Subnet, bool) {
+	for _, subnet := range n.SubnetList() {
+		if (name == "" && subnet.Default) || (name != "" && subnet.Name == name) {
+			return subnet, true
+		}
+	}
+	return Subnet{}, false
+}
+
+// Launchable reports whether the API may place an instance in the subnet, and
+// why not. A tagged subnet needs a bridge that passes tags; without it every
+// instance there would be unreachable.
+func (n Network) Launchable(subnet Subnet) (bool, string) {
+	if subnet.IPRangeStart == "" {
+		return false, "the cloud does not place instances in this subnet"
+	}
+	if subnet.BridgeTag != 0 && !n.BridgeVLANAware {
+		return false, fmt.Sprintf("bridge %s is not VLAN-aware yet", n.Bridge)
+	}
+	return true, ""
 }
 
 // Image is a shared image. Volume is the Proxmox volume ID in Storage.Images.
@@ -212,6 +282,30 @@ func (s Site) Validate() error {
 	check(s.Network.VLANID == 0 || s.Network.BridgeVLANAware,
 		"site: vlan_id %d is set but bridge %s is not VLAN-aware; make it vlan-aware first (docs/operations/vlan.md)",
 		s.Network.VLANID, s.Network.Bridge)
+	defaults, seen := 0, map[string]bool{}
+	for _, subnet := range s.Network.Subnets {
+		check(subnet.Name != "" && !seen[subnet.Name], "site: subnet name %q is empty or repeated", subnet.Name)
+		seen[subnet.Name] = true
+		prefix, err := netip.ParsePrefix(subnet.Prefix)
+		check(err == nil, "site: subnet %s prefix %q is not a prefix", subnet.Name, subnet.Prefix)
+		gateway, gwErr := netip.ParseAddr(subnet.Gateway)
+		check(gwErr == nil && (err != nil || prefix.Contains(gateway)),
+			"site: subnet %s gateway %q is not an address inside %s", subnet.Name, subnet.Gateway, subnet.Prefix)
+		check(subnet.BridgeTag >= 0 && subnet.BridgeTag <= 4094, "site: subnet %s bridge_tag %d is not a VLAN id", subnet.Name, subnet.BridgeTag)
+		if subnet.IPRangeStart != "" {
+			start, rangeErr := netip.ParsePrefix(subnet.IPRangeStart)
+			check(rangeErr == nil && (err != nil || prefix.Contains(start.Addr())),
+				"site: subnet %s ip_range_start %q is not inside %s", subnet.Name, subnet.IPRangeStart, subnet.Prefix)
+		}
+		if subnet.Default {
+			defaults++
+			// The default subnet is where every existing instance lives. If it
+			// could not be launched into, the API would be up and useless.
+			ok, reason := s.Network.Launchable(subnet)
+			check(ok, "site: default subnet %s cannot take instances: %s", subnet.Name, reason)
+		}
+	}
+	check(len(s.Network.Subnets) == 0 || defaults == 1, "site: exactly one subnet must be the default, found %d", defaults)
 	check(len(s.Images) > 0, "site: no images")
 	for id, image := range s.Images {
 		check(imageID.MatchString(id), "site: image ID %q does not look like img-<name>", id)
