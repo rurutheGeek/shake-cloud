@@ -103,7 +103,6 @@ Commands:
   capacity                       Node, storage and account usage
   limits                         Effective limits and the administrator's overrides
   subnet ls | subnet show ID     Subnets (segments of the home network)
-  subnet map                     Every subnet with the machines in it (from the ledger)
   events [--account ID] [--name OP] [--max N]
                                  Read the audit log
   instance ls [--account ID]     List instances

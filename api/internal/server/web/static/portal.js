@@ -342,48 +342,6 @@
     }
   }
 
-  // ネットワーク図。開くたびに台帳（NetBox）から読み直す。
-  const segmentNames = { server: 'サーバー', management: '管理', dmz: 'DMZ', personal: '個人端末', iot: 'ネット専用' };
-  async function loadNetworkMap() {
-    const container = $('network-map');
-    try {
-      const { subnets } = await api('GET', '/v1/network-map');
-      container.replaceChildren(...subnets.map((subnet) => {
-        const card = document.createElement('article');
-        card.className = 'segment' + (subnet.hosts.length ? '' : ' segment-empty');
-        const heading = document.createElement('h3');
-        heading.textContent = `${segmentNames[subnet.name] || subnet.name}　VLAN ${subnet.vlan_id}`;
-        const range = document.createElement('p');
-        range.className = 'muted';
-        range.textContent = `${subnet.cidr_block}（${subnet.hosts.length}台）`;
-        const list = document.createElement('ul');
-        for (const host of subnet.hosts) {
-          const item = document.createElement('li');
-          item.className = `host host-${host.kind}` + (host.status && host.status !== 'active' ? ' host-stopped' : '');
-          const name = document.createElement('span');
-          name.className = 'host-name';
-          name.textContent = host.label;
-          const meta = document.createElement('span');
-          meta.className = 'muted';
-          meta.textContent = [host.address, host.kind === 'vm' ? 'VM' : '機器',
-            host.status && host.status !== 'active' ? '停止中' : ''].filter(Boolean).join(' · ');
-          item.replaceChildren(name, meta);
-          list.append(item);
-        }
-        card.replaceChildren(heading, range, list);
-        return card;
-      }));
-    } catch (error) {
-      const message = document.createElement('p');
-      message.className = 'muted';
-      message.textContent = error.message;
-      container.replaceChildren(message);
-    }
-  }
-  window.addEventListener('hashchange', () => {
-    if (location.hash === '#network-view') loadNetworkMap();
-  });
-
   async function loadCapacity() {
     try {
       const capacity = await api('GET', '/v1/capacity');
@@ -2669,7 +2627,7 @@
 
   const refresh = () => Promise.all([
     loadKeys(), loadEvents(), loadCapacity(), loadSubnets(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
-    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(), loadNetworkMap(),
+    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(),
   ]);
 
   onAction($('refresh-all'), 'click', async () => {
