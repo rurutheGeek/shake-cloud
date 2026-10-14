@@ -1,0 +1,25 @@
+# ネットワーク図。開くたびに Flint 3・Proxmox・NetBox・Tailscale の設定を読み、図と表にする。
+# 入口は tls-proxy の Caddy（dns.yaml の netmap レコード + Authentik forward auth）。
+# どの読み手も読み取り専用の鍵だけを持つ（Flint 3 は netmap-dump しか実行できない鍵）。
+name: netmap
+
+services:
+  netmap:
+    build: .
+    image: shakecloud-netmap:local
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    ports:
+      - '127.0.0.1:${NETMAP_PORT:-8096}:8096'
+    environment:
+      NETMAP_SECRETS: /run/netmap
+      FLINT_HOST: ${FLINT_HOST:-192.168.10.1}
+      PVE_URL: ${PVE_URL:-https://192.168.10.10:8006}
+      PVE_NODE: ${PVE_NODE:-apextox}
+      PVE_TOKEN_ID: ${PVE_TOKEN_ID:-monitoring@pve!monitoring}
+      NETBOX_URL: ${NETBOX_URL:?NETBOX_URL is required}
+    volumes:
+      - ./secrets:/run/netmap:ro

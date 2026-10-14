@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ネットワーク図</title>
+<link rel="stylesheet" href="static/netmap.css">
+</head>
+<body>
+<header>
+  <h1>ネットワーク図</h1>
+  <p class="muted">{{ now }} 時点の実機の設定</p>
+  <nav>
+    <a href="#segments">区画</a>
+    <a href="#matrix">区画間の通信</a>
+    <a href="#physical">物理の接続</a>
+    <a href="#vms">VM のファイアウォール</a>
+    <a href="#tailscale">Tailscale</a>
+  </nav>
+</header>
+<main>
+{% for source, error in errors.items() %}
+  <p class="error">{{ source }} を読めませんでした: {{ error }}</p>
+{% endfor %}
+
+{% if state %}
+<section id="segments">
+  <h2>区画</h2>
+  <pre class="mermaid">{{ segments }}</pre>
+  <div class="cards">
+  {% for zone in state.zones %}
+    <article class="card">
+      <h3>{{ zone.label }} <span class="muted">{{ zone.name }}</span></h3>
+      <dl>
+        {% if zone.subnets %}<dt>範囲</dt><dd>{{ zone.subnets | join('、') }}</dd>{% endif %}
+        {% if zone.dhcp %}<dt>DHCP</dt><dd>{{ zone.dhcp }}</dd>{% endif %}
+        {% if zone.ports %}<dt>有線</dt><dd>{{ zone.ports | join('、') }}</dd>{% endif %}
+        {% for ssid in zone.ssids %}<dt>Wi-Fi</dt><dd>{{ ssid.ssid }} <span class="muted">{{ ssid.bands | join('・') }}{% if ssid.isolate %}・端末間分離{% endif %}</span></dd>{% endfor %}
+        <dt>Flint 3 へ</dt><dd>{{ zone.input }}</dd>
+        <dt>他区画へ（既定）</dt><dd>{{ zone.forward }}</dd>
+      </dl>
+      {% set members = hosts.get(zone.name, []) %}
+      {% if members %}
+      <details>
+        <summary>{{ members | length }} 台</summary>
+        <ul class="hosts">
+        {% for host in members %}<li class="host-{{ host.kind }}"><span>{{ host.name }}</span><span class="muted">{{ host.address }}</span></li>{% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section id="matrix">
+  <h2>区画間の通信</h2>
+  <div class="scroll">
+  <table class="matrix">
+    <thead><tr><th>送信元 ＼ 宛先</th>{% for column in matrix.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in matrix.rows %}
+      <tr>
+        <th>{{ row.zone.label }}</th>
+        {% for cell in row.cells %}
+        <td class="cell-{{ cell.kind }}">
+          {% if cell.rules %}
+          <details><summary>{{ cell.text }}</summary>
+            <ul>{% for rule in cell.rules %}<li><b>{{ rule.target }}</b> {{ rule.name }}<br><span class="muted">{{ rule.what }}</span></li>{% endfor %}</ul>
+          </details>
+          {% else %}{{ cell.text }}{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if state.redirects %}
+  <h3>宛先の書き換え</h3>
+  <table>
+    <thead><tr><th>名前</th><th>受ける区画</th><th>受けるポート</th><th>書き換え先</th></tr></thead>
+    <tbody>{% for r in state.redirects %}<tr><td>{{ r.name }}</td><td>{{ r.src }}</td><td>{{ r.proto }} {{ r.src_dport }}</td><td>{{ r.dest_ip or 'Flint 3' }}:{{ r.dest_port }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section id="physical">
+  <h2>物理の接続</h2>
+  <pre class="mermaid">{{ physical }}</pre>
+  <table>
+    <thead><tr><th>VLAN</th><th>区画</th><th>ポート</th></tr></thead>
+    <tbody>{% for vlan in state.vlans %}<tr><td>{{ vlan.vlan }}</td><td>{{ vlan.zone }}</td><td>{% for p in vlan.ports %}{{ p.port }}{% if p.tagged %}（タグ付き）{% endif %}{% if 'link:up' in p.link %} <span class="muted">{{ p.link.split('speed:')[1].split('base')[0] if 'speed:' in p.link else '' }}</span>{% else %} <span class="muted">未接続</span>{% endif %}{% if not loop.last %}、{% endif %}{% endfor %}</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endif %}
+
+{% if pve.vms %}
+<section id="vms">
+  <h2>VM のファイアウォール</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>VM</th><th>ブリッジ</th><th>VLAN</th><th>受信の既定</th><th>送信の既定</th><th>受信を許可</th><th>送信を許可</th></tr></thead>
+    <tbody>
+    {% for vm in pve.vms %}
+      <tr class="{{ '' if vm.running else 'stopped' }}">
+        <td>{{ vm.name }} <span class="muted">{{ vm.vmid }}</span></td>
+        <td>{{ vm.bridge }}</td>
+        <td>{{ vm.tag or 'なし' }}</td>
+        {% if vm.firewall %}
+        <td>{{ vm.policy_in }}</td><td>{{ vm.policy_out }}</td>
+        {% for direction in ['in', 'out'] %}
+        <td><ul class="rules">{% for r in vm.rules if r.enable and r.type == direction %}<li>{{ r.action }} {{ r.proto or 'all' }}{% if r.dport %}:{{ r.dport }}{% endif %} <span class="muted">{{ (r.source if direction == 'in' else r.dest) or 'どこでも' }}</span></li>{% endfor %}</ul></td>
+        {% endfor %}
+        {% else %}
+        <td colspan="4" class="cell-deny">ファイアウォールなし</td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+
+{% if tailscale %}
+<section id="tailscale">
+  <h2>Tailscale</h2>
+  <h3>アクセス制限</h3>
+  <table>
+    <thead><tr><th>送信元</th><th>宛先</th></tr></thead>
+    <tbody>{% for acl in tailscale.acls %}<tr><td>{{ acl.src | join('、') }}</td><td>{{ acl.dst | join('、') }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <h3>端末</h3>
+  <table>
+    <thead><tr><th>名前</th><th>アドレス</th><th>タグ・持ち主</th><th>流している経路</th><th>最終接続</th></tr></thead>
+    <tbody>{% for d in tailscale.devices %}<tr><td>{{ d.name }}</td><td>{{ d.address }}</td><td>{{ (d.tags | join('、')) or d.user }}</td><td>{{ d.routes | join('、') }}</td><td class="muted">{{ d.last_seen[:16] | replace('T', ' ') }}</td></tr>{% endfor %}</tbody>
+  </table>
+</section>
+{% endif %}
+</main>
+<script src="static/mermaid.min.js"></script>
+<script src="static/netmap.js"></script>
+</body>
+</html>

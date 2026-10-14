@@ -1,0 +1,39 @@
+:root { --fg: #1d2127; --bg: #f7f7f5; --panel: #fff; --line: #d9dadc; --muted: #666b73; --accent: #2458c6;
+  --allow: #e6f4ea; --partial: #fff4d6; --deny: #fbe9e7; }
+@media (prefers-color-scheme: dark) {
+  :root { --fg: #e6e7e9; --bg: #16181c; --panel: #1f2228; --line: #343840; --muted: #9aa0a8; --accent: #7ea6ff;
+    --allow: #1c3324; --partial: #3a3018; --deny: #3a1f1c; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.5; }
+header, main { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 1rem; }
+h1 { font-size: 1.4rem; margin: 0; }
+h2 { font-size: 1.15rem; margin: 2rem 0 0.75rem; }
+h3 { font-size: 1rem; margin: 1rem 0 0.5rem; }
+nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0.5rem 0; }
+a { color: var(--accent); }
+.muted { color: var(--muted); font-weight: normal; }
+.error { padding: 0.5rem 0.75rem; border: 1px solid #b3261e; border-radius: 6px; }
+.mermaid { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; overflow-x: auto; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1rem; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 1rem; }
+.card h3 { margin: 0 0 0.5rem; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; }
+.hosts { list-style: none; padding: 0; margin: 0.5rem 0 0; }
+.hosts li { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.15rem 0; border-bottom: 1px solid var(--line); }
+.hosts .host-vm span:first-child::after { content: ' VM'; color: var(--muted); font-size: 0.8em; }
+.hosts .host-lease span:first-child { color: var(--muted); }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; background: var(--panel); width: 100%; }
+th, td { border: 1px solid var(--line); padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
+.matrix td { min-width: 7rem; }
+.cell-allow { background: var(--allow); }
+.cell-partial { background: var(--partial); }
+.cell-deny { background: var(--deny); }
+.cell-self { color: var(--muted); text-align: center; }
+details summary { cursor: pointer; }
+details ul, .rules { margin: 0.25rem 0 0; padding-left: 1rem; }
+tr.stopped td { color: var(--muted); }

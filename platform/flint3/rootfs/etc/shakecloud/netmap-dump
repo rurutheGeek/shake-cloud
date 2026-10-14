@@ -1,0 +1,20 @@
+#!/bin/sh
+# ネットワーク図（monitor-01 の netmap）が読む設定を出す。設定は変えない。
+# netmap 専用の鍵は、authorized_keys の command= でこれしか実行できない。
+# 名前に key・password・secret・psk を含む値（Wi-Fi のパスワードなど）は出さない。
+set -eu
+section() { echo "### $1"; }
+section uci
+for config in network firewall dhcp wireless; do
+	uci show "$config" | grep -v -i -E "^[^=]*\.[a-z0-9_]*(key|password|secret|psk)[a-z0-9_]*="
+done
+section leases
+cat /tmp/dhcp.leases 2>/dev/null || true
+section links
+for port in 1 2 3 4 5 6 7; do
+	link="$(swconfig dev switch1 port "$port" get link 2>/dev/null || true)"
+	[ -n "$link" ] && echo "$port $link"
+done
+for dev in eth0 eth1; do
+	echo "$dev $(cat "/sys/class/net/$dev/speed" 2>/dev/null || echo -)"
+done

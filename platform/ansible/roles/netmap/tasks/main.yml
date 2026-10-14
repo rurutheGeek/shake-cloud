@@ -1,0 +1,133 @@
+---
+- name: Create the netmap directories
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    owner: '{{ item.owner | default(omit) }}'
+    mode: '{{ item.mode }}'
+  loop:
+    - {path: '{{ netmap_project_dir }}', mode: '0750'}
+    - {path: '{{ netmap_project_dir }}/secrets', owner: '{{ netmap_uid }}', mode: '0700'}
+
+- name: Copy the netmap stack
+  ansible.builtin.copy:
+    src: '{{ netmap_source_dir }}/'
+    dest: '{{ netmap_project_dir }}/'
+    mode: preserve
+  register: netmap_stack
+
+- name: Copy Mermaid
+  ansible.builtin.copy:
+    src: '{{ netmap_mermaid_file }}'
+    dest: '{{ netmap_project_dir }}/app/static/mermaid.min.js'
+    mode: '0644'
+  register: netmap_mermaid
+
+- name: Read the read-only tokens
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ item }}']
+  loop:
+    - '{{ netmap_monitoring_sops_file }}'
+    - '{{ netmap_netbox_sops_file }}'
+    - '{{ netmap_tailscale_sops_file }}'
+  delegate_to: localhost
+  become: false
+  register: netmap_sops
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Install the tokens
+  ansible.builtin.copy:
+    content: '{{ item.value }}'
+    dest: '{{ netmap_project_dir }}/secrets/{{ item.name }}'
+    owner: '{{ netmap_uid }}'
+    mode: '0400'
+  loop:
+    - {name: pve_token, value: "{{ (netmap_sops.results[0].stdout | from_json).PVE_TOKEN_VALUE }}"}
+    - {name: netbox_token, value: "{{ (netmap_sops.results[1].stdout | from_json).NETBOX_API_TOKEN }}"}
+    - {name: tailscale_token, value: "{{ (netmap_sops.results[2].stdout | from_json).TAILSCALE_API_TOKEN }}"}
+  loop_control:
+    label: '{{ item.name }}'
+  register: netmap_tokens
+  no_log: true
+
+- name: Remember the NetBox URL
+  ansible.builtin.set_fact:
+    netmap_netbox_url: '{{ (netmap_sops.results[1].stdout | from_json).NETBOX_SERVER_URL }}'
+  no_log: true
+
+# Flint 3 の設定を読む鍵。Flint 3 では command= で netmap-dump しか実行できない。
+- name: Create the Flint 3 read-only key
+  ansible.builtin.command:
+    argv: [ssh-keygen, -q, -t, ed25519, -N, '', -C, netmap, -f, '{{ netmap_project_dir }}/secrets/flint_ssh_key']
+    creates: '{{ netmap_project_dir }}/secrets/flint_ssh_key'
+
+- name: Hand the key to the container user
+  ansible.builtin.file:
+    path: '{{ netmap_project_dir }}/secrets/{{ item }}'
+    owner: '{{ netmap_uid }}'
+    mode: '0400'
+  loop: [flint_ssh_key, flint_ssh_key.pub]
+
+- name: Read the public key
+  ansible.builtin.slurp:
+    src: '{{ netmap_project_dir }}/secrets/flint_ssh_key.pub'
+  register: netmap_pubkey
+
+- name: Install netmap-dump on Flint 3 and allow only it for the key
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      ssh -o BatchMode=yes -i {{ netmap_flint_admin_key }} root@{{ netmap_flint_host }} '
+        cat >/etc/shakecloud/netmap-dump.new && chmod 755 /etc/shakecloud/netmap-dump.new &&
+        if cmp -s /etc/shakecloud/netmap-dump.new /etc/shakecloud/netmap-dump; then rm /etc/shakecloud/netmap-dump.new; echo same;
+        else mv /etc/shakecloud/netmap-dump.new /etc/shakecloud/netmap-dump; echo changed; fi' \
+        < {{ playbook_dir }}/../flint3/rootfs/etc/shakecloud/netmap-dump
+      line='command="/etc/shakecloud/netmap-dump",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding {{ (netmap_pubkey.content | b64decode) | trim }}'
+      printf '%s\n' "$line" | ssh -o BatchMode=yes -i {{ netmap_flint_admin_key }} root@{{ netmap_flint_host }} '
+        read -r line; keys=/etc/dropbear/authorized_keys
+        if grep -qxF "$line" "$keys"; then echo same; else
+          grep -v " netmap$" "$keys" >/tmp/ak || true
+          printf "%s\n" "$line" >>/tmp/ak && cat /tmp/ak >"$keys" && rm /tmp/ak && echo changed; fi'
+  delegate_to: localhost
+  become: false
+  register: netmap_flint
+  changed_when: "'changed' in netmap_flint.stdout"
+
+- name: Pin Flint 3's host key for the container
+  ansible.builtin.shell:
+    cmd: >-
+      ssh-keyscan -t ed25519 {{ netmap_flint_host }} 2>/dev/null >{{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts.new
+      && test -s {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts.new
+      && if cmp -s {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts.new {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts;
+      then rm {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts.new; echo same;
+      else mv {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts.new {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts; echo changed; fi
+      && chown {{ netmap_uid }} {{ netmap_project_dir }}/secrets/flint_ssh_key.known_hosts
+  register: netmap_known_hosts
+  changed_when: "'changed' in netmap_known_hosts.stdout"
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ netmap_project_dir }}/.env'
+    mode: '0600'
+  register: netmap_env
+
+- name: Build and start netmap
+  ansible.builtin.command:
+    argv: [docker, compose, --env-file, .env, up, -d, --build]
+    chdir: '{{ netmap_project_dir }}'
+  register: netmap_up
+  changed_when: >-
+    'Started' in (netmap_up.stderr + netmap_up.stdout)
+    or 'Recreated' in (netmap_up.stderr + netmap_up.stdout)
+    or 'Created' in (netmap_up.stderr + netmap_up.stdout)
+
+- name: Wait for netmap
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ netmap_port }}/healthz'
+  register: netmap_health
+  until: netmap_health.status == 200
+  retries: 20
+  delay: 3

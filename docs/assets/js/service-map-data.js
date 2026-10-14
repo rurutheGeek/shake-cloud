@@ -234,6 +234,23 @@ window.SERVICE_MAP = {
      "url": "https://grafana.apextox.dpdns.org/"
     },
     {
+     "description": "区画・VLAN・ファイアウォール。Forward Auth",
+     "docs": [
+      {
+       "path": "network-map/",
+       "title": "ネットワーク図"
+      }
+     ],
+     "name": "ネットワーク図",
+     "route": [
+      "core-01",
+      "monitor-01"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8096",
+     "url": "https://netmap.apextox.dpdns.org/"
+    },
+    {
      "description": "UPSのREST。HomarrのUPSウィジェット用",
      "docs": [
       {

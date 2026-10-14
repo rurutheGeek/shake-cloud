@@ -144,6 +144,11 @@ records:
     host: monitor-01
     upstream: 127.0.0.1:3000
     description: Grafana（監視ポータル。OIDC）
+  netmap:
+    host: monitor-01
+    upstream: 127.0.0.1:8096
+    description: ネットワーク図（区画・VLAN・ファイアウォール。Forward Auth）
+    auth: true
   peanut:
     host: monitor-01
     upstream: 127.0.0.1:8080

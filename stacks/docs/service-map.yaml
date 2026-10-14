@@ -113,6 +113,7 @@ record_docs:
   router: [operations/router.md]
   grafana: [operations/monitoring.md]
   peanut: [operations/power.md]
+  netmap: [network-map.md]
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]
