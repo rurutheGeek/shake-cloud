@@ -145,6 +145,7 @@ func printInstanceDetail(i client.Instance) {
 	fmt.Fprintf(w, "spec\t%d vCPU / %d MiB%s\n", i.VCPUs, i.MemoryMiB, balloonNote(i))
 	fmt.Fprintf(w, "root_disk\t%d GiB\n", i.RootDiskGiB)
 	fmt.Fprintf(w, "disk_tier\t%s\n", dash(i.DiskTier))
+	fmt.Fprintf(w, "subnet_id\t%s\n", dash(i.SubnetID))
 	fmt.Fprintf(w, "adopted\t%t\n", i.Adopted)
 	fmt.Fprintf(w, "firewall\t%s\n", i.FirewallState)
 	fmt.Fprintf(w, "launched\t%s\n", i.LaunchTime.Format(time.RFC3339))
@@ -170,6 +171,7 @@ func (g globals) instanceRun(args []string) error {
 	flags.Var(balloon, "balloon", "use ballooning (true|false)")
 	disk := flags.Int("disk", 0, "root disk GiB")
 	diskTier := flags.String("disk-tier", "", "disk tier: ssd or hdd (default ssd)")
+	subnet := flags.String("subnet", "", "subnet id, e.g. subnet-dmz (default: the default subnet; see `subnet ls`)")
 	keyName := flags.String("key", "", "SSH key pair name")
 	groups := &stringsFlag{}
 	flags.Var(groups, "sg", "security group id (repeatable)")
@@ -192,7 +194,7 @@ func (g globals) instanceRun(args []string) error {
 	request := client.RunRequest{
 		ImageID: *image, InstanceType: *instanceType, KeyName: *keyName,
 		VCPUs: vcpus.pointer(), MemoryMiB: memory.pointer(), MemoryMinMiB: minMemory.pointer(),
-		Ballooning: balloon.pointer(), RootDiskGiB: *disk, DiskTier: *diskTier, ClientToken: *clientToken,
+		Ballooning: balloon.pointer(), RootDiskGiB: *disk, DiskTier: *diskTier, SubnetID: *subnet, ClientToken: *clientToken,
 		Tags: tags, SecurityGroupIDs: *groups,
 	}
 	if *userData != "" {

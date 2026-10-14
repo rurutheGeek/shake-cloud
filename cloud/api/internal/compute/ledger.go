@@ -130,9 +130,10 @@ func (s *Service) adoptedAddress(ctx context.Context, instance db.Instance) (net
 	if !strings.Contains(address, "/") {
 		// Adoption accepts a bare address; NetBox wants the prefix length,
 		// which is the cloud network's.
-		_, length, found := strings.Cut(s.Site.Network.IPRangeStart, "/")
+		rangeStart := s.instanceSubnet(instance).IPRangeStart
+		_, length, found := strings.Cut(rangeStart, "/")
 		if !found {
-			return netbox.IPAddress{}, fmt.Errorf("the site's ip_range_start %q has no prefix length", s.Site.Network.IPRangeStart)
+			return netbox.IPAddress{}, fmt.Errorf("the subnet's ip_range_start %q has no prefix length", rangeStart)
 		}
 		address += "/" + length
 	}

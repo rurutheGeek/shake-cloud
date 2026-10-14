@@ -43,6 +43,7 @@ type instanceResourceModel struct {
 	Ballooning       types.Bool   `tfsdk:"ballooning"`
 	RootDiskGiB      types.Int64  `tfsdk:"root_disk_gib"`
 	DiskTier         types.String `tfsdk:"disk_tier"`
+	SubnetID         types.String `tfsdk:"subnet_id"`
 	KeyName          types.String `tfsdk:"key_name"`
 	SecurityGroupIDs types.Set    `tfsdk:"security_group_ids"`
 	UserData         types.String `tfsdk:"user_data"`
@@ -121,6 +122,14 @@ func (r *instanceResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Computed: true,
 				Description: "Disk tier: `ssd` (default) or `hdd` (the bulk disk). " +
 					"Changing it replaces the instance; a disk cannot move between pools in place.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
+			},
+			"subnet_id": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Subnet to place the instance in, e.g. `subnet-dmz`. Omit for the default subnet. " +
+					"Changing it replaces the instance; its address belongs to the subnet.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
 			},
@@ -210,6 +219,7 @@ func (r *instanceResource) Create(ctx context.Context, req resource.CreateReques
 		Ballooning:       optionalBool(plan.Ballooning),
 		RootDiskGiB:      int(plan.RootDiskGiB.ValueInt64()),
 		DiskTier:         plan.DiskTier.ValueString(),
+		SubnetID:         plan.SubnetID.ValueString(),
 		UserData:         plan.UserData.ValueString(),
 		ClientToken:      plan.ClientToken.ValueString(),
 		Tags:             tags,
@@ -375,6 +385,7 @@ func (r *instanceResource) fill(ctx context.Context, model *instanceResourceMode
 	model.Ballooning = types.BoolValue(instance.Ballooning)
 	model.RootDiskGiB = types.Int64Value(int64(instance.RootDiskGiB))
 	model.DiskTier = stringOrNull(instance.DiskTier)
+	model.SubnetID = stringOrNull(instance.SubnetID)
 	if instance.InstanceType != "" {
 		model.InstanceType = types.StringValue(instance.InstanceType)
 	}

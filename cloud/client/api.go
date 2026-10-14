@@ -139,6 +139,20 @@ func (c *Client) DescribeInstanceTypes(ctx context.Context) ([]InstanceType, err
 	return out.InstanceTypes, err
 }
 
+func (c *Client) DescribeSubnets(ctx context.Context) ([]Subnet, error) {
+	var out struct {
+		Subnets []Subnet `json:"subnets"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/subnets", nil, nil, &out)
+	return out.Subnets, err
+}
+
+func (c *Client) DescribeSubnet(ctx context.Context, id string) (Subnet, error) {
+	var out Subnet
+	err := c.do(ctx, http.MethodGet, "/v1/subnets/"+url.PathEscape(id), nil, nil, &out)
+	return out, err
+}
+
 // WaitInstance polls until the instance reaches one of the wanted states, or
 // the context ends. It returns the last instance seen with a timeout error.
 func (c *Client) WaitInstance(ctx context.Context, id string, timeout time.Duration, wanted ...string) (Instance, error) {

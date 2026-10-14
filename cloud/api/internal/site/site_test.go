@@ -131,3 +131,46 @@ func TestALedgerWithGroupsNeedsAClusterAndRealNames(t *testing.T) {
 		}
 	}
 }
+
+func TestSubnetsFallBackToTheFlatNetwork(t *testing.T) {
+	s := sample()
+	subnets := s.Network.SubnetList()
+	if len(subnets) != 1 || !subnets[0].Default || subnets[0].Name != DefaultSubnet {
+		t.Fatalf("a site without subnets = %+v, want the flat network as the default subnet", subnets)
+	}
+	if subnets[0].IPRangeStart != s.Network.IPRangeStart || subnets[0].Gateway != s.Network.Gateway {
+		t.Fatalf("flat subnet = %+v", subnets[0])
+	}
+	if _, ok := s.Network.Subnet(""); !ok {
+		t.Fatal("the empty name must resolve to the default subnet")
+	}
+}
+
+func TestSubnetDeclarationsAreChecked(t *testing.T) {
+	good := func() Site {
+		s := sample()
+		s.Network.Subnets = []Subnet{
+			{Name: "server", Prefix: "192.168.10.0/24", Gateway: "192.168.10.1", IPRangeStart: "192.168.10.100/24", Default: true},
+			{Name: "dmz", Prefix: "192.168.30.0/24", Gateway: "192.168.30.1", VLANID: 30, BridgeTag: 30, IPRangeStart: "192.168.30.100/24"},
+		}
+		return s
+	}
+	if err := good().Validate(); err != nil {
+		t.Fatalf("a tagged, not-yet-usable subnet must not stop the API: %v", err)
+	}
+	for name, breakIt := range map[string]func(*Site){
+		"no default":           func(s *Site) { s.Network.Subnets[0].Default = false },
+		"two defaults":         func(s *Site) { s.Network.Subnets[1].Default = true },
+		"gateway outside":      func(s *Site) { s.Network.Subnets[1].Gateway = "192.168.10.1" },
+		"range outside":        func(s *Site) { s.Network.Subnets[1].IPRangeStart = "192.168.10.100/24" },
+		"repeated name":        func(s *Site) { s.Network.Subnets[1].Name = "server" },
+		"default not usable":   func(s *Site) { s.Network.Subnets[0].BridgeTag = 10 },
+		"default without pool": func(s *Site) { s.Network.Subnets[0].IPRangeStart = "" },
+	} {
+		s := good()
+		breakIt(&s)
+		if err := s.Validate(); err == nil {
+			t.Errorf("%s: Validate accepted it", name)
+		}
+	}
+}

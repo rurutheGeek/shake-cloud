@@ -98,6 +98,8 @@ func routes() []route {
 		{"POST", "/v1/isos", "ImportISO", anyCredential, writeOp, (*Server).importISO},
 		{"DELETE", "/v1/isos/{iso_id}", "DeleteISO", anyCredential, writeOp, (*Server).deleteISO},
 		{"GET", "/v1/instance-types", "DescribeInstanceTypes", anyCredential, readOp, (*Server).describeInstanceTypes},
+		{"GET", "/v1/subnets", "DescribeSubnets", anyCredential, readOp, (*Server).describeSubnets},
+		{"GET", "/v1/subnets/{subnet_id}", "DescribeSubnet", anyCredential, readOp, (*Server).describeSubnet},
 		{"GET", "/v1/capacity", "DescribeCapacity", anyCredential, readOp, (*Server).describeCapacity},
 		{"GET", "/v1/limits", "DescribeLimits", anyCredential, readOp, (*Server).describeLimits},
 		{"PUT", "/v1/limits", "UpdateLimits", anyCredential, writeOp, (*Server).updateLimits},

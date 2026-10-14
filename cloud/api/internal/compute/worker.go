@@ -17,6 +17,7 @@ import (
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
 )
 
 // RunWorker carries out pending actions until ctx ends.
@@ -216,7 +217,7 @@ func (s *Service) address(ctx context.Context, instance db.Instance) (netbox.IPA
 	if len(existing) > 0 {
 		return existing[0], nil
 	}
-	rangeID, err := s.ipRange(ctx)
+	rangeID, err := s.ipRange(ctx, s.instanceSubnet(instance))
 	if err != nil {
 		return netbox.IPAddress{}, err
 	}
@@ -225,17 +226,21 @@ func (s *Service) address(ctx context.Context, instance db.Instance) (netbox.IPA
 	})
 }
 
-func (s *Service) ipRange(ctx context.Context) (int, error) {
+func (s *Service) ipRange(ctx context.Context, subnet site.Subnet) (int, error) {
 	s.rangeMu.Lock()
 	defer s.rangeMu.Unlock()
-	if s.rangeID == 0 {
-		id, err := s.IPAM.IPRangeID(ctx, s.Site.Network.IPRangeStart)
-		if err != nil {
-			return 0, err
-		}
-		s.rangeID = id
+	if id, ok := s.rangeIDs[subnet.IPRangeStart]; ok {
+		return id, nil
 	}
-	return s.rangeID, nil
+	id, err := s.IPAM.IPRangeID(ctx, subnet.IPRangeStart)
+	if err != nil {
+		return 0, err
+	}
+	if s.rangeIDs == nil {
+		s.rangeIDs = map[string]int{}
+	}
+	s.rangeIDs[subnet.IPRangeStart] = id
+	return id, nil
 }
 
 func seedFileName(instanceID string) string { return "shakecloud-" + instanceID + ".iso" }
@@ -257,7 +262,7 @@ func (s *Service) uploadSeed(ctx context.Context, instance db.Instance, ipAddres
 	}
 	config := seed.Config{
 		InstanceID: instance.ID, Hostname: seed.Hostname(instance.Name, instance.ID), MACAddress: instance.MACAddress,
-		Address: address, Gateway: netip.MustParseAddr(s.Site.Network.Gateway), UserData: instance.UserData,
+		Address: address, Gateway: netip.MustParseAddr(s.instanceSubnet(instance).Gateway), UserData: instance.UserData,
 		GuestOS: guestOS,
 	}
 	if instance.KeyPublicKey != "" {
@@ -347,7 +352,7 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"scsihw":      {"virtio-scsi-single"},
 		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", diskStorage, imageVolume)},
 		"ide2":        {resources.SeedVolume + ",media=cdrom"},
-		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
+		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":        {"order=virtio0"},
 		"serial0":     {"socket"},
 		"tags":        {"shakecloud"},
@@ -393,7 +398,7 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 		"virtio0": {fmt.Sprintf("%s:%d,discard=on", diskStorage, instance.RootDiskGiB)},
 		"ide0":    {resources.SeedVolume + ",media=cdrom"},
 		"ide2":    {installVolume + ",media=cdrom"},
-		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
+		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":    {"order=ide2;virtio0"},
 		"serial0": {"socket"},
 		"tags":    {"shakecloud"},
