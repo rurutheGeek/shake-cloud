@@ -143,7 +143,8 @@ def init():
         shutil.copyfile(ROOT / '.env.example', ROOT / '.env')
         changed = True
     (ROOT / '.env').chmod(0o600)
-    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter', 'peanut'):
+    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter', 'peanut',
+                 'loki', 'alloy'):
         path = storage() / name
         if not path.exists():
             path.mkdir(parents=True, mode=0o750)
@@ -151,6 +152,10 @@ def init():
     if (storage() / 'grafana').stat().st_uid != 472:
         # Grafana runs as UID 472 in the official image.
         os.chown(storage() / 'grafana', 472, 472)
+        changed = True
+    if (storage() / 'loki').stat().st_uid != 10001:
+        # Loki runs as UID 10001 in the official image.
+        os.chown(storage() / 'loki', 10001, 10001)
         changed = True
     for name in ('prometheus', 'alertmanager', 'alertmanager-config'):
         # The Prometheus and Alertmanager images run as nobody (65534).
@@ -211,7 +216,7 @@ def backup(destination):
         run(['tar', '--numeric-owner', '-cpf', str(target / 'state.tar'), '-C', str(source), '.'])
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
              'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'secrets',
-             'manage.py', 'prometheus', 'grafana', 'blackbox'])
+             'manage.py', 'prometheus', 'grafana', 'blackbox', 'loki', 'alloy'])
     finally:
         if running:
             compose('start', *running)

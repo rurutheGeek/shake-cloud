@@ -257,6 +257,13 @@ grep -qxF "$conf" /etc/sysupgrade.conf || echo "$conf" >> /etc/sysupgrade.conf
 /etc/init.d/avahi-daemon enable
 /etc/init.d/avahi-daemon restart
 
+# ログを監視（tarakoserver の Alloy、UDP 1514）へも送る。Flint 3 自身のログはメモリの上だけで、再起動で消える。
+uci set system.@system[0].log_ip='192.168.10.11'
+uci set system.@system[0].log_port='1514'
+uci set system.@system[0].log_proto='udp'
+uci commit system
+/etc/init.d/log restart
+
 # ECM はネット専用の区画の通信を壊す（/etc/init.d/shakecloud-ecm）。
 /etc/init.d/shakecloud-ecm enable
 for path in /etc/init.d/shakecloud-ecm /etc/hotplug.d/iface/99-shakecloud-ecm; do

@@ -7,3 +7,5 @@ ansible_ssh_private_key_file: ~/.ssh/id_ed25519_shake
 # 起動は USB メモリ／SD カード。書き込みの多いものは HDD（LABEL=tarako-data、/srv）へ置く。
 docker_data_root: /srv/docker
 pi_base_data_label: tarako-data
+# ログはメモリの上だけ。残したいものは Alloy が Loki（HDD）へ送る。
+pi_base_journal_storage: volatile

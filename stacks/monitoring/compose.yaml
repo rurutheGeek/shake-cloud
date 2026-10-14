@@ -1,4 +1,4 @@
-# 監視スタック（Prometheus・Alertmanager・Grafana・exporter）を monitor-01 に単独で置く。
+# 監視スタック（Prometheus・Alertmanager・Grafana・Loki・Alloy・exporter）を tarakoserver（Raspberry Pi 4）に置く。
 #
 # サービス自身のポートは 127.0.0.1 に閉じ、入口は Caddy（tls_proxy）の
 # https://grafana.<zone> だけにする。イメージは compose.lock.yaml で固定する。
@@ -128,3 +128,33 @@ services:
       - ${STORAGE_ROOT:-./storage}/peanut:/config
     ports:
       - '${BIND_ADDRESS:-127.0.0.1}:8080:8080'
+
+  # ログの保存と検索。Grafana から見る。
+  loki:
+    image: ${LOKI_IMAGE:-grafana/loki}:${LOKI_TAG:-3.7.8}
+    restart: unless-stopped
+    command: [-config.file=/etc/loki/config.yaml]
+    volumes:
+      - ./loki:/etc/loki:ro
+      - ${STORAGE_ROOT:-./storage}/loki:/loki
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:3100:3100'
+
+  # ログを集めて Loki へ送る（promtail の後継）。syslog の 1514/udp だけは LAN に開ける
+  # （Flint 3 が送る。DMZ からサーバーの区画へは Flint 3 が通さない）。
+  alloy:
+    image: ${ALLOY_IMAGE:-grafana/alloy}:${ALLOY_TAG:-v1.20.1}
+    restart: unless-stopped
+    command: [run, --server.http.listen-addr=0.0.0.0:12345, --storage.path=/var/lib/alloy, /etc/alloy/config.alloy]
+    environment:
+      HOST_NAME: ${HOST_NAME:-tarakoserver}
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - ${STORAGE_ROOT:-./storage}/alloy:/var/lib/alloy
+      - /run/log/journal:/var/log/journal-runtime:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - '${BIND_ADDRESS:-127.0.0.1}:12345:12345'
+      - '${SYSLOG_BIND_ADDRESS:-0.0.0.0}:1514:1514/udp'
+    depends_on: [loki]

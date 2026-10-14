@@ -31,12 +31,23 @@ class ComposeTests(unittest.TestCase):
     def test_the_expected_services_are_present(self):
         services = set(self.compose()['services'])
         self.assertEqual(services, {'prometheus', 'alertmanager', 'grafana',
-                                    'blackbox', 'pve-exporter', 'nut-exporter', 'peanut'})
+                                    'blackbox', 'pve-exporter', 'nut-exporter', 'peanut',
+                                    'loki', 'alloy'})
 
     def test_every_published_port_stays_on_loopback(self):
+        # 例外は Alloy の syslog（1514/udp）だけ。Flint 3 からログを受けるため LAN に開ける。
         for name, service in self.compose()['services'].items():
             for mapping in service.get('ports', []):
+                if name == 'alloy' and mapping.endswith(':1514:1514/udp'):
+                    continue
                 self.assertTrue(mapping.startswith('${BIND_ADDRESS:-127.0.0.1}:'), f'{name}: {mapping}')
+
+    def test_every_service_is_pinned(self):
+        import json
+        lock = json.loads((STACK / 'compose.lock.yaml').read_text(encoding='utf-8'))['services']
+        self.assertEqual(set(lock), set(self.compose()['services']))
+        for name, entry in lock.items():
+            self.assertIn('@sha256:', entry['image'], name)
 
     def test_the_secret_encryption_values_are_not_in_env_example(self):
         text = (STACK / '.env.example').read_text(encoding='utf-8')
