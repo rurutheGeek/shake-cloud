@@ -6,7 +6,7 @@
 set -eu
 
 case "${1:-}" in
-ditto) ifaces='wifi2g wifi5g wifi6g' ;;
+ditto) ifaces='wifi2g wifi5g wifi6g wlanmld2g wlanmld5g wlanmld6g' ;;
 jumpluff) ifaces='iot2g' ;;
 *) echo "usage: $0 ditto|jumpluff"; exit 2 ;;
 esac

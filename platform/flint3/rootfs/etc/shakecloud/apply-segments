@@ -67,6 +67,11 @@ uci add_list dhcp.iot.dhcp_option='6,192.168.50.1'
 uci commit dhcp
 
 # --- firewall --------------------------------------------------------------
+# GL.iNet の初期ルールのうち、外から LAN へ IPsec（ESP・UDP 500）を通すもの。
+# IPsec は使っておらず、IPv6 では LAN の機器が外から直接見えるので消す。
+for name in Allow-IPSec-ESP Allow-ISAKMP; do
+	delete_named "$name"
+done
 # GL.iNet の初期ルールは iot の初期アドレス（192.168.10.1）を宛先にしていて、
 # そのままだとサーバーの区画から Flint 3 の管理画面を塞ぐ。
 for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='Block-LAN-mgmt-iot'$/\1/p"); do
@@ -125,6 +130,20 @@ uci commit firewall
 # 宅外の Tailscale 端末から、個人端末の区画へも家のアドレスで入れるようにする。
 # Tailscale 側は `tailscale set --advertise-routes=192.168.10.0/24,192.168.40.0/24`
 # と、管理画面（API）での経路の承認が要る。ネット専用（iot）は入れない。
+# Tailscale のゾーンと、サーバーの区画への転送。**ここで毎回入れ直す。**
+# 2026-10-14、tailscale → lan の転送が設定から消えていて、宅外のスマホから
+# サービス（Vaultwarden など）へ届かなかった。DNS だけは通るので気づきにくい。
+uci set firewall.tailscale=zone
+uci set firewall.tailscale.name='tailscale'
+uci set firewall.tailscale.input='ACCEPT'
+uci set firewall.tailscale.output='ACCEPT'
+uci set firewall.tailscale.forward='REJECT'
+uci -q delete firewall.tailscale.device || true
+uci add_list firewall.tailscale.device='tailscale0'
+uci -q delete firewall.tailscale_lan || true
+uci set firewall.tailscale_lan=forwarding
+uci set firewall.tailscale_lan.src='tailscale'
+uci set firewall.tailscale_lan.dest='lan'
 uci -q delete firewall.tailscale_personal || true
 uci set firewall.tailscale_personal=forwarding
 uci set firewall.tailscale_personal.src='tailscale'
@@ -156,6 +175,26 @@ for iface in wifi2g wifi5g wifi6g; do
 done
 uci set wireless.wifi2g.sae='1'
 uci set wireless.wifi5g.sae='1'
+
+# ditto の MLO（6GHz・5GHz・2.4GHz を束ねる）。GL.iNet は通常の電波とは別の
+# MLO 用の電波（wlanmld*）を持つ。同じ名前・同じパスワードで出し、WPA3 のみ。
+# パスワードは通常の ditto（set-wifi-key が入れる）から写す。
+uci set mlo.mld0.disabled='0'
+uci commit mlo
+for band in 2g 5g 6g; do
+	iface="wlanmld$band"
+	uci set wireless.$iface.ssid="$DITTO"
+	uci set wireless.$iface.network='personal'
+	uci set wireless.$iface.isolate='0'
+	uci set wireless.$iface.wps_pbc='0'
+	uci set wireless.$iface.wps_pbc_enable='0'
+	if key=$(uci -q get wireless.wifi5g.key); then
+		uci set wireless.$iface.key="$key"
+		uci set wireless.$iface.disabled='0'
+	else
+		uci set wireless.$iface.disabled='1'
+	fi
+done
 
 # jumpluff: ネット専用。2.4GHz のみ、WPA2、端末間は分離。
 if [ -z "$(uci -q get wireless.iot2g)" ]; then

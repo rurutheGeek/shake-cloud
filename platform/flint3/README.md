@@ -13,6 +13,7 @@ GL.iNet の初期設定に独自の項目が多いので、**必要な項目だ�
 | `rootfs/etc/shakecloud/apply-router` | 区画なしのルーターにする。MAP-E・DHCP・IPv6 中継。10分以内に `confirm` しなければ巻き戻る |
 | `rootfs/etc/shakecloud/apply-segments` | 区画（個人端末・ネット専用）、SSID、LAN3 の割当、区画間のファイアウォール、mDNS の中継。何度流してもよい |
 | `rootfs/etc/shakecloud/set-wifi-key` | SSID のパスワードを対話で入れる（値を Git に置かないため） |
+| `rootfs/etc/hotplug.d/net/90-mld-personal` | MLO の親デバイスを個人端末のブリッジへ入れる |
 | `rootfs/etc/hotplug.d/iface/92-lan-prefix-route-on-lan` | LAN が作り直されたときに IPv6 の経路を張り直す |
 | `rootfs/etc/shakecloud/rollback-router` | `apply-router` の前の状態へ戻して再起動する |
 | `trial.sh` | 配線を変えない切替試験。K11 経由の VLAN 100 で ONU を Flint 3 へ届け、時間を区切って必ず router-01 へ戻す |

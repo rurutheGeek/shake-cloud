@@ -42,13 +42,15 @@ K11 の WAN（`nic0`）は空き。内蔵スイッチの番号は LAN1=7、LAN2=
 
 | SSID | 区画 | 帯域 | 暗号化 |
 | --- | --- | --- | --- |
-| `ditto-2hc355ek` | 個人端末（`192.168.40.0/24`） | 2.4／5／6GHz | 2.4／5GHz は WPA2/WPA3、6GHz は WPA3 |
+| `ditto-2hc355ek` | 個人端末（`192.168.40.0/24`） | 2.4／5／6GHz と MLO | 通常の電波は 2.4／5GHz が WPA2/WPA3、6GHz は WPA3。MLO の電波は WPA3 |
 | `jumpluff-p7y45x7r` | ネット専用（`192.168.50.0/24`） | 2.4GHz | WPA2、端末間は分離 |
 | `porygon-…` | サーバー（`192.168.10.0/24`） | 5GHz | WPA2/WPA3 |
 
 - `ditto` と `jumpluff` のパスワードは Git に無い。`ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto`（または `jumpluff`）で入れる。
 - `porygon` のパスワードは Flint 3 が生成した。`ssh root@192.168.10.1 cat /etc/shakecloud/porygon.key`。
-- 管理用の VLAN は作っていない。`porygon` はサーバーの区画へつながる。
+- 管理用の VLAN は作っていない。`porygon` はサーバーの区画へつながり、Proxmox の画面（`https://192.168.10.10:8006`）へも入れる。
+- MLO は GL.iNet の MLO 用の電波（`wlanmld2g`／`5g`／`6g`）を `ditto` と同じ名前で出している。MLO の親デバイス `mld0` は `hotplug.d/net/90-mld-personal` が個人端末のブリッジへ入れる。
+- WPS は無効。
 - 区画間の通信の方針は [VLAN 分離への切替](vlan.md)。
 
 ## 設定の入れ方
@@ -78,6 +80,9 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 | `apply-router` の IPv6 有効化 | 初期状態は全インターフェースで IPv6 を止めている。MAP-E は IPv6 の上で動く |
 | `89-mape-ce-address` | 純正の `map.sh` は CE アドレスをトンネルにしか付けない。上流の近隣要請に誰も応えず、IPv4 の戻りが全滅する |
 | `92-lan-prefix-route-on-lan` | 内蔵スイッチの設定を変えると `br-lan` が作り直され、IPv6 を LAN へ流す経路が消える |
+| `90-mld-personal` | Wi-Fi を読み込み直した直後、MLO の親デバイスがブリッジへ入らないことがあり、MLO でつながった端末にアドレスが配られない |
+| `apply-segments` の Tailscale の転送 | `tailscale` → `lan` の転送が設定から消えていて、宅外からサービスへ届かなかった（DNS だけ通る）。毎回入れ直す |
+| `apply-segments` の IPsec の削除 | 初期ルールが外から LAN へ ESP・UDP 500 を通す。IPv6 では LAN の機器が外から見える |
 | `apply-segments` の `Block-LAN-mgmt-iot` の修正 | 初期値は `192.168.10.1` 宛てを塞ぐルールで、サーバーの区画から管理画面へ入れなくなる |
 | AdGuard Home の起動後のフィルタ取得 | 回線が無い状態で起動するとフィルタが空のままになる。`/etc/init.d/adguardhome restart` |
 
@@ -106,8 +111,8 @@ Tailscale を入れた Windows・スマホは、家の中にいても、家の�
 - 同じ宛先へ短時間に何度もつなぐと、一部の接続が途中で止まる（ニチバンのサイトへ30回で12回）。MAP-E の 240 ポートを使い回すため。router-01 では起きなかった。
 - AdGuard Home の管理画面（`:3000`）は GL.iNet の管理画面のログインを要求する。`adguard.apextox.dpdns.org`（SSO 経由）からは入れない。
 - ルーターを入れ替えた直後は、上流が CE アドレスの持ち主を覚え直すまで約5分 IPv4 が止まる。
-- 6GHz と 5GHz・2.4GHz を束ねる MLO は未設定。WPS の無効化は設定済みで、次の Wi-Fi 再読込から効く。
 - DMZ（`192.168.30.0/24`）は未作成。
+- 開発用の VM（dev-01・dev-02）からは個人端末へ接続を始められる（実機のスマホへの adb など）。ほかのサーバーからは始められない。
 
 ## router-01 へ戻す
 
@@ -123,3 +128,4 @@ router-01 の Tailscale の端末情報は Flint 3 が使っている。router-0
 - 2026-10-13〜14: K11 経由の VLAN 100 で ONU を届ける切替試験を3回。1回目で CE アドレスの不具合、2回目で復帰時の5分待ちを確認。
 - 2026-10-14 00:10: router-01 から切替。00:56 に ONU を WAN へ直結。
 - 2026-10-14: AdGuard Home、Tailscale（端末情報の引き継ぎ）、区画と SSID、LAN3 の個人端末化、mDNS の中継。Aterm は撤去。router-01 は停止、自動起動なし。
+- 2026-10-14: 宅外から Tailscale でサービスへ届かない不具合を修正。MLO、WPS 無効化、IPsec の初期ルール削除、開発用 VM → 個人端末の許可。
