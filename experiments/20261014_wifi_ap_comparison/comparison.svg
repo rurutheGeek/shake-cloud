@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 570" font-family="system-ui, sans-serif" role="img" aria-label="Aterm と Flint 3 の無線スループット比較（Mbps）">
+<style>
+.bg{fill:#fcfcfb}.title{font-size:13px;font-weight:600;fill:#0b0b0b}.head{font-size:15px;font-weight:600;fill:#0b0b0b}.axis,.legend{font-size:11px;fill:#52514e}.value{font-size:10px;fill:#0b0b0b}.grid{stroke:#e4e3df;stroke-width:1}.base{stroke:#8a897f;stroke-width:1}.s1{fill:#2a78d6}.s2{fill:#eb6834}.s3{fill:#1baf7a}
+@media (prefers-color-scheme: dark){.bg{fill:#1a1a19}.title,.head,.value{fill:#fff}.axis,.legend{fill:#c3c2b7}.grid{stroke:#383835}.base{stroke:#8a897f}.s1{fill:#3987e5}.s2{fill:#d95926}.s3{fill:#199e70}}
+</style>
+<rect class="bg" width="960" height="570"/>
+<text class="head" x="16" y="24">無線スループットの比較（Mbps、iperf3 4並列30秒の中央値）</text>
+<rect class="s1" x="16" y="36" width="12" height="12" rx="2"/>
+<text class="legend" x="33" y="46">Aterm 5GHz</text>
+<rect class="s2" x="136" y="36" width="12" height="12" rx="2"/>
+<text class="legend" x="153" y="46">Flint 3 5GHz</text>
+<rect class="s3" x="256" y="36" width="12" height="12" rx="2"/>
+<text class="legend" x="273" y="46">Flint 3 6GHz</text>
+<g transform="translate(10,60)">
+<text class="title" x="0" y="14">同じ部屋・下り</text>
+<line class="grid" x1="46" x2="462" y1="184.0" y2="184.0"/>
+<text class="axis" x="40" y="188.0" text-anchor="end">0</text>
+<line class="grid" x1="46" x2="462" y1="146.5" y2="146.5"/>
+<text class="axis" x="40" y="150.5" text-anchor="end">500</text>
+<line class="grid" x1="46" x2="462" y1="109.0" y2="109.0"/>
+<text class="axis" x="40" y="113.0" text-anchor="end">1000</text>
+<line class="grid" x1="46" x2="462" y1="71.5" y2="71.5"/>
+<text class="axis" x="40" y="75.5" text-anchor="end">1500</text>
+<line class="grid" x1="46" x2="462" y1="34.0" y2="34.0"/>
+<text class="axis" x="40" y="38.0" text-anchor="end">2000</text>
+<path class="s1" d="M56,184 V164.2 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>レノボ / Aterm 5GHz / 同じ部屋・下り: 317 Mbps</title></path>
+<text class="value" x="67.0" y="156.2" text-anchor="middle">317</text>
+<path class="s2" d="M80,184 V144.8 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>レノボ / Flint 3 5GHz / 同じ部屋・下り: 576 Mbps</title></path>
+<text class="value" x="91.0" y="136.8" text-anchor="middle">576</text>
+<text class="axis" x="79.0" y="200" text-anchor="middle">レノボ</text>
+<path class="s1" d="M130,184 V162.3 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Aterm 5GHz / 同じ部屋・下り: 343 Mbps</title></path>
+<text class="value" x="141.0" y="154.3" text-anchor="middle">343</text>
+<path class="s2" d="M154,184 V93.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Flint 3 5GHz / 同じ部屋・下り: 1260 Mbps</title></path>
+<text class="value" x="165.0" y="85.5" text-anchor="middle">1260</text>
+<path class="s3" d="M178,184 V66.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Flint 3 6GHz / 同じ部屋・下り: 1620 Mbps</title></path>
+<text class="value" x="189.0" y="58.5" text-anchor="middle">1620</text>
+<text class="axis" x="165.0" y="200" text-anchor="middle">NEC</text>
+<path class="s1" d="M228,184 V152.1 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Aterm 5GHz / 同じ部屋・下り: 479 Mbps</title></path>
+<text class="value" x="239.0" y="144.1" text-anchor="middle">479</text>
+<path class="s2" d="M252,184 V100.2 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 5GHz / 同じ部屋・下り: 1170 Mbps</title></path>
+<text class="value" x="263.0" y="92.2" text-anchor="middle">1170</text>
+<path class="s3" d="M276,184 V93.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 6GHz / 同じ部屋・下り: 1260 Mbps</title></path>
+<text class="value" x="287.0" y="85.5" text-anchor="middle">1260</text>
+<text class="axis" x="263.0" y="200" text-anchor="middle">S23 Ultra</text>
+<path class="s1" d="M326,184 V163.4 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Aterm 5GHz / 同じ部屋・下り: 328 Mbps</title></path>
+<text class="value" x="337.0" y="155.4" text-anchor="middle">328</text>
+<path class="s2" d="M350,184 V110.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 5GHz / 同じ部屋・下り: 1040 Mbps</title></path>
+<text class="value" x="361.0" y="102.0" text-anchor="middle">1040</text>
+<path class="s3" d="M374,184 V41.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 6GHz / 同じ部屋・下り: 1960 Mbps</title></path>
+<text class="value" x="385.0" y="33.0" text-anchor="middle">1960</text>
+<text class="axis" x="361.0" y="200" text-anchor="middle">Z Flip8</text>
+<line class="base" x1="46" x2="462" y1="184" y2="184"/>
+</g>
+<g transform="translate(490,60)">
+<text class="title" x="0" y="14">同じ部屋・上り</text>
+<line class="grid" x1="46" x2="462" y1="184.0" y2="184.0"/>
+<text class="axis" x="40" y="188.0" text-anchor="end">0</text>
+<line class="grid" x1="46" x2="462" y1="146.5" y2="146.5"/>
+<text class="axis" x="40" y="150.5" text-anchor="end">500</text>
+<line class="grid" x1="46" x2="462" y1="109.0" y2="109.0"/>
+<text class="axis" x="40" y="113.0" text-anchor="end">1000</text>
+<line class="grid" x1="46" x2="462" y1="71.5" y2="71.5"/>
+<text class="axis" x="40" y="75.5" text-anchor="end">1500</text>
+<line class="grid" x1="46" x2="462" y1="34.0" y2="34.0"/>
+<text class="axis" x="40" y="38.0" text-anchor="end">2000</text>
+<path class="s1" d="M56,184 V170.4 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>レノボ / Aterm 5GHz / 同じ部屋・上り: 235 Mbps</title></path>
+<text class="value" x="67.0" y="162.4" text-anchor="middle">235</text>
+<path class="s2" d="M80,184 V148.3 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>レノボ / Flint 3 5GHz / 同じ部屋・上り: 529 Mbps</title></path>
+<text class="value" x="91.0" y="140.3" text-anchor="middle">529</text>
+<text class="axis" x="79.0" y="200" text-anchor="middle">レノボ</text>
+<path class="s1" d="M130,184 V170.8 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Aterm 5GHz / 同じ部屋・上り: 229 Mbps</title></path>
+<text class="value" x="141.0" y="162.8" text-anchor="middle">229</text>
+<path class="s2" d="M154,184 V107.8 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Flint 3 5GHz / 同じ部屋・上り: 1070 Mbps</title></path>
+<text class="value" x="165.0" y="99.8" text-anchor="middle">1070</text>
+<path class="s3" d="M178,184 V83.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>NEC / Flint 3 6GHz / 同じ部屋・上り: 1400 Mbps</title></path>
+<text class="value" x="189.0" y="75.0" text-anchor="middle">1400</text>
+<text class="axis" x="165.0" y="200" text-anchor="middle">NEC</text>
+<path class="s1" d="M228,184 V170.7 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Aterm 5GHz / 同じ部屋・上り: 231 Mbps</title></path>
+<text class="value" x="239.0" y="162.7" text-anchor="middle">231</text>
+<path class="s2" d="M252,184 V108.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 5GHz / 同じ部屋・上り: 1060 Mbps</title></path>
+<text class="value" x="263.0" y="100.5" text-anchor="middle">1060</text>
+<path class="s3" d="M276,184 V95.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 6GHz / 同じ部屋・上り: 1240 Mbps</title></path>
+<text class="value" x="287.0" y="87.0" text-anchor="middle">1240</text>
+<text class="axis" x="263.0" y="200" text-anchor="middle">S23 Ultra</text>
+<path class="s1" d="M326,184 V170.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Aterm 5GHz / 同じ部屋・上り: 233 Mbps</title></path>
+<text class="value" x="337.0" y="162.5" text-anchor="middle">233</text>
+<path class="s2" d="M350,184 V126.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 5GHz / 同じ部屋・上り: 826 Mbps</title></path>
+<text class="value" x="361.0" y="118.0" text-anchor="middle">826</text>
+<path class="s3" d="M374,184 V80.8 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 6GHz / 同じ部屋・上り: 1430 Mbps</title></path>
+<text class="value" x="385.0" y="72.8" text-anchor="middle">1430</text>
+<text class="axis" x="361.0" y="200" text-anchor="middle">Z Flip8</text>
+<line class="base" x1="46" x2="462" y1="184" y2="184"/>
+</g>
+<g transform="translate(10,310)">
+<text class="title" x="0" y="14">トイレ・下り</text>
+<line class="grid" x1="46" x2="462" y1="184.0" y2="184.0"/>
+<text class="axis" x="40" y="188.0" text-anchor="end">0</text>
+<line class="grid" x1="46" x2="462" y1="146.5" y2="146.5"/>
+<text class="axis" x="40" y="150.5" text-anchor="end">200</text>
+<line class="grid" x1="46" x2="462" y1="109.0" y2="109.0"/>
+<text class="axis" x="40" y="113.0" text-anchor="end">400</text>
+<line class="grid" x1="46" x2="462" y1="71.5" y2="71.5"/>
+<text class="axis" x="40" y="75.5" text-anchor="end">600</text>
+<line class="grid" x1="46" x2="462" y1="34.0" y2="34.0"/>
+<text class="axis" x="40" y="38.0" text-anchor="end">800</text>
+<path class="s1" d="M56,184 V151.2 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Aterm 5GHz / トイレ・下り: 196 Mbps</title></path>
+<text class="value" x="67.0" y="143.2" text-anchor="middle">196</text>
+<path class="s2" d="M80,184 V150.1 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 5GHz / トイレ・下り: 202 Mbps</title></path>
+<text class="value" x="91.0" y="142.1" text-anchor="middle">202</text>
+<path class="s3" d="M104,184 V121.8 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 6GHz / トイレ・下り: 353 Mbps</title></path>
+<text class="value" x="115.0" y="113.8" text-anchor="middle">353</text>
+<text class="axis" x="91.0" y="200" text-anchor="middle">S23 Ultra</text>
+<path class="s1" d="M154,184 V144.5 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Aterm 5GHz / トイレ・下り: 232 Mbps</title></path>
+<text class="value" x="165.0" y="136.5" text-anchor="middle">232</text>
+<path class="s2" d="M178,184 V131.6 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 5GHz / トイレ・下り: 301 Mbps</title></path>
+<text class="value" x="189.0" y="123.6" text-anchor="middle">301</text>
+<path class="s3" d="M202,184 V45.7 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 6GHz / トイレ・下り: 759 Mbps</title></path>
+<text class="value" x="213.0" y="37.7" text-anchor="middle">759</text>
+<text class="axis" x="189.0" y="200" text-anchor="middle">Z Flip8</text>
+<line class="base" x1="46" x2="462" y1="184" y2="184"/>
+</g>
+<g transform="translate(490,310)">
+<text class="title" x="0" y="14">トイレ・上り</text>
+<line class="grid" x1="46" x2="462" y1="184.0" y2="184.0"/>
+<text class="axis" x="40" y="188.0" text-anchor="end">0</text>
+<line class="grid" x1="46" x2="462" y1="146.5" y2="146.5"/>
+<text class="axis" x="40" y="150.5" text-anchor="end">200</text>
+<line class="grid" x1="46" x2="462" y1="109.0" y2="109.0"/>
+<text class="axis" x="40" y="113.0" text-anchor="end">400</text>
+<line class="grid" x1="46" x2="462" y1="71.5" y2="71.5"/>
+<text class="axis" x="40" y="75.5" text-anchor="end">600</text>
+<line class="grid" x1="46" x2="462" y1="34.0" y2="34.0"/>
+<text class="axis" x="40" y="38.0" text-anchor="end">800</text>
+<path class="s1" d="M56,184 V165.1 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Aterm 5GHz / トイレ・上り: 122 Mbps</title></path>
+<text class="value" x="67.0" y="157.1" text-anchor="middle">122</text>
+<path class="s2" d="M80,184 V156.9 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 5GHz / トイレ・上り: 166 Mbps</title></path>
+<text class="value" x="91.0" y="148.9" text-anchor="middle">166</text>
+<path class="s3" d="M104,184 V152.6 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>S23 Ultra / Flint 3 6GHz / トイレ・上り: 189 Mbps</title></path>
+<text class="value" x="115.0" y="144.6" text-anchor="middle">189</text>
+<text class="axis" x="91.0" y="200" text-anchor="middle">S23 Ultra</text>
+<path class="s1" d="M154,184 V172.3 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Aterm 5GHz / トイレ・上り: 83.9 Mbps</title></path>
+<text class="value" x="165.0" y="164.3" text-anchor="middle">84</text>
+<path class="s2" d="M178,184 V170.4 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 5GHz / トイレ・上り: 93.6 Mbps</title></path>
+<text class="value" x="189.0" y="162.4" text-anchor="middle">94</text>
+<path class="s3" d="M202,184 V125.0 q0,-4 4,-4 h14 q4,0 4,4 V184 Z"><title>Z Flip8 / Flint 3 6GHz / トイレ・上り: 336 Mbps</title></path>
+<text class="value" x="213.0" y="117.0" text-anchor="middle">336</text>
+<text class="axis" x="189.0" y="200" text-anchor="middle">Z Flip8</text>
+<line class="base" x1="46" x2="462" y1="184" y2="184"/>
+</g>
+</svg>

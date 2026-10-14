@@ -86,9 +86,11 @@ manufacturers:
   - {name: SanDisk, slug: sandisk}
   - {name: KIOXIA, slug: kioxia}
   - {name: Transcend, slug: transcend}
+  - {name: GL.iNet, slug: gl-inet}
   - {name: Generic, slug: generic}
 
 device_types:
+  - {manufacturer: GL.iNet, model: GL-BE9300, slug: gl-be9300, part_number: GL-BE9300}
   - {manufacturer: NEC Platforms, model: Aterm PA-WG1200HP, slug: aterm-pa-wg1200hp}
   - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 4, slug: raspberry-pi-4}
   - {manufacturer: Raspberry Pi Foundation, model: Raspberry Pi 5, slug: raspberry-pi-5}
@@ -315,7 +317,8 @@ devices:
   - name: aterm
     device_type: Aterm PA-WG1200HP
     role: Access Point
-    description: Aterm PA-WG1200HP（AP モード・Wi-Fi 専用）
+    status: offline
+    description: Aterm PA-WG1200HP。2026-10-14 に撤去（Wi-Fi は Flint 3 へ移した）
     purchase_date: 2026-02-20
     purchase_from: 中古
     power_ports: [ac]
@@ -324,6 +327,29 @@ devices:
       - {name: wan, type: 1000base-t}
     address: 192.168.10.2/24
     dns_name: aterm
+
+  - name: flint3
+    device_type: GL-BE9300
+    role: Access Point
+    description: GL.iNet Flint 3（GL-BE9300）。家庭内ルーター（MAP-E・DHCP・AdGuard Home・Tailscale）。2026-10-14 に router-01 から切替
+    serial: 78f4af9b07904e21
+    purchase_date: 2026-10-13
+    purchase_from: Amazon
+    price_jpy: 27439
+    power_ports: [ac]
+    comments: |
+      技適 018-250098（W52・W53・6GHz は屋内のみ）
+    interfaces:
+      - {name: br-lan, type: bridge, mac: '94:83:c4:c6:06:9c'}
+      - {name: wan, type: 2.5gbase-t, mac: '94:83:c4:c6:06:9a'}
+      - {name: lan1, type: 2.5gbase-t}
+      - {name: lan2, type: 2.5gbase-t}
+      - {name: lan3, type: 2.5gbase-t}
+      - {name: lan4, type: 2.5gbase-t}
+    # ゲートウェイ自身。DHCP の予約にはしない。
+    address: 192.168.10.1/24
+    dns_name: flint3
+    dhcp: false
 
   - name: apextox
     device_type: NucBox K11
@@ -363,7 +389,7 @@ devices:
     role: Printer
     description: Canon TS8430（Wi-Fi 接続）
     interface: {name: wlan0, type: ieee802.11ac, mac: 'f8:a2:6d:a5:e9:fb'}
-    address: 192.168.10.3/24
+    address: 192.168.50.3/24
     dns_name: printer
 
 # ネット接続の無い機器・IP 未記入の機器。dcim にだけ載る（DHCP 予約は作られない）。
@@ -453,14 +479,14 @@ devices:
     purchase_date: 2025-08-13
     purchase_from: 中古
     interface: {name: wlan0, type: ieee802.11ac, mac: 'ee:42:3b:45:5e:9d'}
-    address: 192.168.10.33/24
+    address: 192.168.40.33/24
     dns_name: redmi-pad-se-8-7
   - name: unknown-43
     device_type: Client Device
     role: Client
     description: 未識別（Hon Hai 製。分かったら名前を直す）
     interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:af:f0:33'}
-    address: 192.168.10.43/24
+    address: 192.168.50.43/24
     dns_name: unknown-43
   - name: su3
     device_type: Client Device
@@ -472,7 +498,7 @@ devices:
     interfaces:
       - {name: eth0, type: 1000base-t, mac: '10:a5:1d:32:5e:ec'}
       - {name: wlan0, type: ieee802.11ac, mac: '9c:69:d3:40:ab:60'}
-    address: 192.168.10.45/24
+    address: 192.168.40.45/24
     dns_name: su3
   - name: alexa
     device_type: Echo 第2世代
@@ -481,14 +507,14 @@ devices:
     purchase_date: 2019-10-24
     purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: '4c:ef:c0:58:ea:66'}
-    address: 192.168.10.46/24
+    address: 192.168.50.46/24
     dns_name: alexa
   - name: unknown-84
     device_type: Client Device
     role: Client
     description: 未識別（Hon Hai 製。分かったら名前を直す）
     interface: {name: eth0, type: 1000base-t, mac: 'bc:c7:46:fa:6c:7d'}
-    address: 192.168.10.84/24
+    address: 192.168.50.84/24
     dns_name: unknown-84
   - name: persothegeek
     device_type: Client Device
@@ -498,7 +524,7 @@ devices:
       Core i7-1165G7 / RAM 16GB / Iris Xe / 512GB SSD（使用377GB）
       メーカ・型番は未取得（msinfo32 のシステムモデルか筐体ラベル）
     interface: {name: eth0, type: 1000base-t, mac: '98:43:fa:9b:fa:1e'}
-    address: 192.168.10.85/24
+    address: 192.168.40.85/24
     dns_name: persothegeek
   - name: ouchithegeek
     device_type: Client Device
@@ -509,9 +535,10 @@ devices:
       Ryzen 7 5700X / RAM 48GB / GeForce RTX 4060 8GB / ストレージ 6.37TB（使用1.97TB）
       メーカ・型番は未取得（自作ならその旨をここに書く）
     interfaces:
-      - {name: eth0, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
-      - {name: wlan0, type: ieee802.11ac, mac: '9c:6b:00:3f:92:99'}
-    address: 192.168.10.97/24
+      # eth0 は Flint 3 の LAN3 につながる 2.5G の口（2026-10-14 に実機のリンクで確認）。
+      - {name: eth0, type: 2.5gbase-t, mac: '9c:6b:00:3f:92:99'}
+      - {name: eth1, type: 1000base-t, mac: '00:e0:4c:f6:31:9c'}
+    address: 192.168.40.97/24
     dns_name: ouchithegeek
   - name: eufycam-s4
     device_type: eufyCam S4
@@ -520,7 +547,7 @@ devices:
     purchase_date: 2026-03-03
     purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: '2c:8d:48:2c:5a:33'}
-    address: 192.168.10.98/24
+    address: 192.168.50.98/24
     dns_name: eufycam-s4
   - name: switchbot-hubmini-ca2a09
     device_type: Hub Mini
@@ -529,7 +556,7 @@ devices:
     purchase_date: 2022-07-12
     purchase_from: Amazon
     interface: {name: wlan0, type: ieee802.11ac, mac: 'a8:48:fa:ca:2a:09'}
-    address: 192.168.10.99/24
+    address: 192.168.50.99/24
     dns_name: switchbot-hubmini-ca2a09
 
 # 家族の端末。MAC は discover の実測（端末側のランダム化で変わりうる）。
@@ -864,34 +891,29 @@ clients: []
 # ラベルは端点から自動で作る。ケーブルを差し替えたらここを直して `ensure`。
 cables:
   - a: {device: onu-1, interface: lan}
-    b: {device: apextox, interface: nic0}
+    b: {device: flint3, interface: wan}
     type: cat6a
-    description: ONU → Proxmox ホスト nic0（WAN）
+    description: ONU → Flint 3 WAN
 
   - a: {device: apextox, interface: nic1}
+    b: {device: flint3, interface: lan2}
+    type: cat6a
+    description: Proxmox ホスト nic1 → Flint 3 LAN2（2.5G、サーバーの区画）
+
+  - a: {device: flint3, interface: lan1}
     b: {device: tl-sg605, interface: port1}
     type: cat6a
-    description: Proxmox ホスト nic1 → スイッチ（LAN 幹線）
+    description: Flint 3 LAN1 → スイッチ（サーバーの区画）
 
-  - a: {device: tl-sg605, interface: port2}
-    b: {device: aterm, interface: wan}
-    type: cat6a
-    description: スイッチ → Aterm WAN（AP モード）
-
-  - a: {device: tl-sg605, interface: port3}
+  - a: {device: flint3, interface: lan3}
     b: {device: ouchithegeek, interface: eth0}
     type: cat6a
-    description: スイッチ → デスクトップ（有線）
+    description: Flint 3 LAN3 → デスクトップ（2.5G、個人端末の区画）
 
   - a: {device: tl-sg605, interface: port4}
     b: {device: shakeserver, interface: eth0}
     type: cat6a
     description: スイッチ → Raspberry Pi 5
-
-  - a: {device: aterm, interface: lan}
-    b: {device: tarakoserver, interface: eth0}
-    type: cat6a
-    description: Aterm LAN → Raspberry Pi 4
 
 # 電源系統（UPS1 のバッテリー口。UPS2 は予備）。
   - a: {device: ups-1, power_outlet: battery1}

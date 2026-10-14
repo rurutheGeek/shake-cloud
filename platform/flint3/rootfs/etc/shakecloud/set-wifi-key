@@ -1,0 +1,32 @@
+#!/bin/sh
+# SSID のパスワードを入れて、その SSID を有効にする。値は画面に出さず、Git にも置かない。
+#
+#   ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto
+#   ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key jumpluff
+set -eu
+
+case "${1:-}" in
+ditto) ifaces='wifi2g wifi5g wifi6g' ;;
+jumpluff) ifaces='iot2g' ;;
+*) echo "usage: $0 ditto|jumpluff"; exit 2 ;;
+esac
+
+printf 'password for %s: ' "$1"
+stty -echo 2>/dev/null || true
+read -r key
+stty echo 2>/dev/null || true
+echo
+
+length=${#key}
+if [ "$length" -lt 8 ] || [ "$length" -gt 63 ]; then
+	echo "8〜63 文字で入れてください（$length 文字でした）"
+	exit 1
+fi
+
+for iface in $ifaces; do
+	uci set "wireless.$iface.key=$key"
+	uci set "wireless.$iface.disabled=0"
+done
+uci commit wireless
+wifi reload 2>/dev/null || wifi
+echo "$1 を有効にしました（$length 文字）"

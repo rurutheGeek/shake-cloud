@@ -110,6 +110,24 @@ def in_range(address, section):
     return first <= value <= last
 
 
+def segment_sections(network):
+    """個人端末・ネット専用の区画を、機器帯と同じ形（range_start / range_end）にする。
+
+    これらの区画の機器も予約で固定する。server の区画は infrastructure と dhcp が
+    受け持つので含めない。dnsmasq は、要求を受けたインターフェースの区画に合う
+    予約だけを使う。
+    """
+    sections = []
+    for name in ('personal', 'iot'):
+        segment = (network.get('segments') or {}).get(name)
+        if not segment:
+            continue
+        net = ipaddress.ip_network(segment['prefix'])
+        sections.append({'range_start': f'{net[1]}/{net.prefixlen}',
+                         'range_end': f'{net[-2]}/{net.prefixlen}'})
+    return sections
+
+
 def parse_leases(text):
     """dnsmasq のリース行を (mac, ip, hostname) にする。
 
@@ -694,7 +712,8 @@ def reserved_records(api, sections):
 
 def pull(api, args):
     network = load_yaml(NETWORK)
-    records = reserved_records(api, [network['infrastructure'], network['dhcp']])
+    records = reserved_records(
+        api, [network['infrastructure'], network['dhcp'], *segment_sections(network)])
     clients = declared_clients(load_yaml(DEVICES))
     desired = render_file(records, clients)
     current, error = ssh_run(args.router, args.key,
