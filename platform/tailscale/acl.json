@@ -5,11 +5,19 @@
     ],
     "tag:web": [
       "autogroup:admin"
+    ],
+    "tag:router": [
+      "autogroup:admin"
+    ],
+    "tag:outpost": [
+      "autogroup:admin"
+    ],
+    "tag:home": [
+      "autogroup:admin"
+    ],
+    "tag:game": [
+      "autogroup:admin"
     ]
-  },
-  "hosts": {
-    "shakeserver": "100.116.167.59",
-    "web01": "100.75.249.112"
   },
   "acls": [
     {
@@ -27,11 +35,109 @@
         "tag:relay"
       ],
       "dst": [
-        "web01:80",
-        "web01:443",
-        "shakeserver:25565"
+        "tag:web:80,443"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": [
+        "tag:outpost"
+      ],
+      "dst": [
+        "tag:relay:80,9100",
+        "tag:home:9100,9101,8090"
       ]
     }
   ],
-  "ssh": []
+  "autoApprovers": {
+    "routes": {
+      "192.168.10.0/24": [
+        "tag:router"
+      ],
+      "192.168.40.0/24": [
+        "tag:router"
+      ]
+    }
+  },
+  "ssh": [],
+  "tests": [
+    {
+      "src": "tag:relay",
+      "accept": [
+        "tag:web:443",
+        "tag:web:80"
+      ],
+      "deny": [
+        "tag:web:22",
+        "tag:home:22",
+        "tag:home:25565",
+        "tag:router:22",
+        "tag:outpost:22",
+        "192.168.10.1:443",
+        "192.168.10.10:8006",
+        "192.168.10.200:443"
+      ]
+    },
+    {
+      "src": "tag:web",
+      "deny": [
+        "tag:relay:22",
+        "tag:home:22",
+        "192.168.10.10:8006",
+        "192.168.10.200:443"
+      ]
+    },
+    {
+      "src": "tag:home",
+      "deny": [
+        "tag:relay:22",
+        "tag:web:443",
+        "tag:outpost:22"
+      ]
+    },
+    {
+      "src": "tag:outpost",
+      "accept": [
+        "tag:relay:80",
+        "tag:home:9100"
+      ],
+      "deny": [
+        "tag:relay:22",
+        "tag:home:22",
+        "tag:web:443"
+      ]
+    },
+    {
+      "src": "tag:router",
+      "deny": [
+        "tag:relay:22",
+        "tag:web:443",
+        "tag:home:22"
+      ]
+    },
+    {
+      "src": "rurutheGeek@github",
+      "accept": [
+        "192.168.10.10:8006",
+        "192.168.10.1:443",
+        "192.168.10.200:443",
+        "192.168.40.97:3389",
+        "tag:game:47989",
+        "tag:game:22"
+      ]
+    },
+    {
+      "src": "tag:game",
+      "deny": [
+        "192.168.10.10:8006",
+        "192.168.10.10:22",
+        "192.168.10.1:443",
+        "192.168.10.200:443",
+        "192.168.40.97:3389",
+        "tag:home:22",
+        "tag:web:443",
+        "100.64.122.9:22"
+      ]
+    }
+  ]
 }
