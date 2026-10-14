@@ -1,4 +1,27 @@
 ---
+- name: Create the systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system.conf.d
+    state: directory
+    mode: '0755'
+
+# 固まったときに抜き差しに行かなくて済むように、最初に入れる。
+- name: Reboot automatically when the system hangs
+  ansible.builtin.copy:
+    content: |
+      # Ansible（pi_base）が置く。応答が無くなったらハードウェアのウォッチドッグが再起動する。
+      [Manager]
+      RuntimeWatchdogSec={{ pi_base_watchdog_sec }}
+      RebootWatchdogSec={{ pi_base_reboot_watchdog_sec }}
+    dest: /etc/systemd/system.conf.d/50-watchdog.conf
+    mode: '0644'
+  register: pi_base_watchdog
+
+- name: Let systemd pick up the watchdog
+  ansible.builtin.systemd:
+    daemon_reexec: true
+  when: pi_base_watchdog is changed
+
 - name: Create the journald drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/journald.conf.d

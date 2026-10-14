@@ -21,3 +21,7 @@ pi_base_prune_docker: false
 # nofail なので、HDD が無くても起動は止まらない。
 pi_base_data_label: ''
 pi_base_data_mount: /srv
+# 固まったら自動で再起動する（Raspberry Pi の bcm2835 ウォッチドッグ。上限は 15 秒）。
+# systemd が定期的に叩き、止まると部品の側が再起動をかける。
+pi_base_watchdog_sec: 15s
+pi_base_reboot_watchdog_sec: 2min
