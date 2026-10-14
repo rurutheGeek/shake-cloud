@@ -241,21 +241,6 @@ type Subnet struct {
 	Description string `json:"description,omitempty"`
 }
 
-// NetworkHost is one addressed machine in the ledger.
-type NetworkHost struct {
-	Name    string `json:"name"`
-	Label   string `json:"label"`
-	Address string `json:"address"`
-	Kind    string `json:"kind"`
-	Status  string `json:"status,omitempty"`
-}
-
-// NetworkSubnet is a subnet with the machines the ledger places in it.
-type NetworkSubnet struct {
-	Subnet
-	Hosts []NetworkHost `json:"hosts"`
-}
-
 type InstanceType struct {
 	InstanceType string `json:"instance_type"`
 	VCPUs        int    `json:"vcpus"`

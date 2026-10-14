@@ -34,8 +34,6 @@ type Server struct {
 	// Compute serves the instance endpoints. It is nil when the deployment has
 	// no Proxmox or NetBox settings, and those endpoints then answer 503.
 	Compute *compute.Service
-	// Inventory reads the ledger for the network map. Nil without NetBox.
-	Inventory Inventory
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, log *slog.Logger) *Server {
@@ -102,7 +100,6 @@ func routes() []route {
 		{"GET", "/v1/instance-types", "DescribeInstanceTypes", anyCredential, readOp, (*Server).describeInstanceTypes},
 		{"GET", "/v1/subnets", "DescribeSubnets", anyCredential, readOp, (*Server).describeSubnets},
 		{"GET", "/v1/subnets/{subnet_id}", "DescribeSubnet", anyCredential, readOp, (*Server).describeSubnet},
-		{"GET", "/v1/network-map", "DescribeNetworkMap", anyCredential, readOp, (*Server).describeNetworkMap},
 		{"GET", "/v1/capacity", "DescribeCapacity", anyCredential, readOp, (*Server).describeCapacity},
 		{"GET", "/v1/limits", "DescribeLimits", anyCredential, readOp, (*Server).describeLimits},
 		{"PUT", "/v1/limits", "UpdateLimits", anyCredential, writeOp, (*Server).updateLimits},

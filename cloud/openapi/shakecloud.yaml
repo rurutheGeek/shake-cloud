@@ -559,40 +559,6 @@ paths:
                     items: {$ref: '#/components/schemas/Subnet'}
         '401': {$ref: '#/components/responses/Error'}
 
-  /v1/network-map:
-    get:
-      operationId: DescribeNetworkMap
-      x-shakecloud-scope: read
-      tags: [compute]
-      summary: List every subnet with the machines in it.
-      description: |
-        Read from the ledger (NetBox) on each call: physical devices and VMs,
-        each placed in the subnet that holds its address. A machine with
-        several addresses appears once, at its lowest.
-      responses:
-        '200':
-          description: Subnets with their machines.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [subnets]
-                properties:
-                  subnets:
-                    type: array
-                    items:
-                      allOf:
-                        - {$ref: '#/components/schemas/Subnet'}
-                        - type: object
-                          required: [hosts]
-                          properties:
-                            hosts:
-                              type: array
-                              items: {$ref: '#/components/schemas/NetworkHost'}
-        '401': {$ref: '#/components/responses/Error'}
-        '502': {$ref: '#/components/responses/Error'}
-        '503': {$ref: '#/components/responses/Error'}
-
   /v1/subnets/{subnet_id}:
     get:
       operationId: DescribeSubnet
@@ -1937,15 +1903,6 @@ components:
       required: [instance]
       properties:
         instance: {$ref: '#/components/schemas/Instance'}
-    NetworkHost:
-      type: object
-      required: [name, label, address, kind]
-      properties:
-        name: {type: string, description: 'Ledger name. A cloud VM''s is its instance ID.'}
-        label: {type: string, description: The DNS name when there is one, else the name.}
-        address: {type: string}
-        kind: {type: string, enum: [device, vm]}
-        status: {type: string, description: 'NetBox status: active, offline, planned, ...'}
     Subnet:
       type: object
       required: [subnet_id, name, cidr_block, gateway, vlan_id, default, launchable]
