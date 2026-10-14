@@ -64,6 +64,9 @@ PKDB_ENTRY = 'pkdb-entry'
 # The bot portal runs on apps-01. It controls the bots' containers and runs
 # manage.py, so its browser UI goes through Forward Auth too.
 BOT_PORTAL = 'portal'
+# The network map runs on monitor-01. It shows the router's and the hypervisor's
+# firewall in full, so only admins may open it.
+NETMAP = 'netmap'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -814,6 +817,27 @@ def configure_adminer(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'Adminer forward-auth provider')
 
 
+def configure_netmap(api, groups, flows, portal_url):
+    """Reconcile the network map: Forward Auth provider, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, NETMAP, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{NETMAP}.{zone}',
+    })
+    application = ensure_application(api, NETMAP, {
+        'name': 'ネットワーク図', 'slug': NETMAP, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{NETMAP}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {NETMAP}')
+    else:
+        print(f'OK: admins may use {NETMAP}')
+    ensure_outpost(api, [provider['pk']], zone, 'network map forward-auth provider')
+
+
 def configure_bot_portal(api, groups, flows, portal_url):
     """Reconcile the bot portal: Forward Auth provider and access."""
     zone = media_zone(portal_url)
@@ -930,6 +954,7 @@ def main():
     configure_adminer(api, groups, flows, portal_url)
     configure_pkdb_entry(api, groups, flows, portal_url)
     configure_bot_portal(api, groups, flows, portal_url)
+    configure_netmap(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':
