@@ -91,4 +91,6 @@ check shake   'https://shake.ruruthegeek.dpdns.org/'   '200 302 301'
 check pkhack  'https://pkhack.ruruthegeek.dpdns.org/'  '200 302 301'
 check ayahuya 'https://ayahuya.ruruthegeek.dpdns.org/' '200 302 301'
 check apex    'https://ruruthegeek.dpdns.org/'         '200 302 301'
+{% if public_monitor_check_internal %}
 check grafana 'https://grafana.apextox.dpdns.org/'     '200 302 401 403'
+{% endif %}

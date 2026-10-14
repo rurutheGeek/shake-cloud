@@ -1,0 +1,47 @@
+---
+- name: Create the journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Limit the journal
+  ansible.builtin.template:
+    src: journald.conf.j2
+    dest: /etc/systemd/journald.conf.d/50-pi-base.conf
+    mode: '0644'
+  notify: Restart journald
+
+- name: Boot without the desktop
+  ansible.builtin.command:
+    argv: [systemctl, set-default, multi-user.target]
+  register: pi_base_target
+  changed_when: "'Created symlink' in pi_base_target.stderr or 'Removed' in pi_base_target.stderr"
+  when: pi_base_headless
+
+- name: Stop services that are not used
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+  loop: '{{ pi_base_disabled_services }}'
+  failed_when: false
+
+- name: Remove retired containers (their volumes stay)
+  ansible.builtin.command:
+    argv: [docker, rm, '{{ item }}']
+  loop: '{{ pi_base_retired_containers }}'
+  register: pi_base_rm
+  changed_when: pi_base_rm.rc == 0
+  failed_when: pi_base_rm.rc != 0 and 'No such container' not in pi_base_rm.stderr
+
+# system prune は停止中のコンテナ（Minecraft など）まで消すので使わない。
+- name: Prune images no container uses, and the build cache
+  ansible.builtin.command:
+    argv: '{{ item }}'
+  loop:
+    - [docker, image, prune, --all, --force]
+    - [docker, builder, prune, --all, --force]
+  register: pi_base_prune
+  changed_when: "'Total reclaimed space: 0B' not in pi_base_prune.stdout"
+  when: pi_base_prune_docker

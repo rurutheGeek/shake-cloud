@@ -3,3 +3,5 @@
 public_monitor_state_dir: /var/lib/public-monitor
 public_monitor_config_dir: /etc/public-monitor
 public_monitor_sops_file: '{{ playbook_dir }}/../sops/public-monitor.sops.yaml'
+# 家の中の名前（grafana）も見るか。negitoroserver は Tailscale の制限で家の中へ入れない。
+public_monitor_check_internal: true

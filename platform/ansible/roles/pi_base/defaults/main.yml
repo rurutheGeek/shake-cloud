@@ -1,0 +1,19 @@
+---
+# Raspberry Pi（shakeserver・tarakoserver・negitoroserver）の土台。
+# SD カード・フラッシュへの書き込みを減らし、使っていない画面と古いコンテナを片付ける。
+
+# journald の置き場所。volatile はメモリだけ（SD カードに書かない）。
+pi_base_journal_storage: persistent
+pi_base_journal_max_use: 200M
+pi_base_journal_runtime_max_use: 32M
+# 画面を出さない（graphical.target をやめる）。タッチパネルで表示するホストは false。
+pi_base_headless: true
+# 止めるサービス。VNC は LAN 全体に開いていたので止める。
+pi_base_disabled_services:
+  - vncserver-x11-serviced
+  - cups
+  - cups-browsed
+# 片付ける停止済みのコンテナ（データのボリュームは消さない）。
+pi_base_retired_containers: []
+# 使っていないイメージとビルドキャッシュを消す。
+pi_base_prune_docker: false

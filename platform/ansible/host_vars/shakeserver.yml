@@ -1,0 +1,12 @@
+---
+# Pi 5。公開サイトは web-01・apps-01 へ移行済み（2026-10-05）。データのボリュームは残す。
+# 写しは K11 の /srv/bulk/backups/pi-migration/2026-10-14/。
+pi_base_retired_containers:
+  - pkhack_app
+  - alexa_skill
+  - shake_web
+  - bsquiz
+  - shake_postgres
+  - shake_postgres-backup
+  - shake_adminer
+pi_base_prune_docker: true
