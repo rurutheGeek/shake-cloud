@@ -34,11 +34,12 @@
     mode: '0644'
   when: docker_data_root | length > 0
 
-- name: Create the Docker drop-in directory
+- name: Create the drop-in directories
   ansible.builtin.file:
-    path: /etc/systemd/system/docker.service.d
+    path: '/etc/systemd/system/{{ item }}.service.d'
     state: directory
     mode: '0755'
+  loop: [docker, containerd]
   when: docker_data_root | length > 0
 
 # ディスクがつながっていないときは Docker を起動しない（起動ディスクへ書き始めない）。
@@ -52,6 +53,26 @@
   when: docker_data_root | length > 0
   register: docker_dropin
 
+- name: Put containerd's images on the same disk
+  ansible.builtin.lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^root\s*='
+    line: 'root = "{{ docker_containerd_root }}"'
+    insertbefore: BOF
+    create: true
+    mode: '0644'
+  when: docker_containerd_root | length > 0
+  register: docker_containerd_config
+
+- name: Start containerd only when its disk is mounted
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      RequiresMountsFor={{ docker_containerd_root }}
+    dest: /etc/systemd/system/containerd.service.d/50-root.conf
+    mode: '0644'
+  when: docker_containerd_root | length > 0
+
 - name: Install container runtime
   ansible.builtin.apt:
     name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
@@ -62,3 +83,12 @@
     name: docker
     enabled: true
     state: started
+
+# 置き場所を変えたときだけ。中身は移さない（変える前のイメージは取り直す）。
+- name: Restart containerd and Docker after moving containerd
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: restarted
+    daemon_reload: true
+  loop: [containerd, docker]
+  when: docker_containerd_config is changed
