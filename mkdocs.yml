@@ -8,6 +8,7 @@ theme:
 nav:
   - ホーム: index.md
   - サービス図: service-map.md
+  - ネットワーク図: network-map.md
   - ドキュメント地図: map.md
   - ドキュメントの書き方: contributing-docs.md
   - 利用者向け:
