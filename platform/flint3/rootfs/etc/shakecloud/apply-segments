@@ -161,8 +161,12 @@ uci set firewall.tailscale_dns.dest_port='3053'
 uci set firewall.tailscale_dns.target='DNAT'
 uci commit firewall
 
-# 新しい区画の DNS も AdGuard Home（:3053）へ回す。
-uci set route_policy.global.append_source_if='personal iot'
+# 新しい区画の DNS も AdGuard Home（:3053）へ回す。dmz は apply-dmz が作る。
+if uci -q get network.dmz >/dev/null; then
+	uci set route_policy.global.append_source_if='personal iot dmz'
+else
+	uci set route_policy.global.append_source_if='personal iot'
+fi
 uci commit route_policy
 
 # --- wireless --------------------------------------------------------------

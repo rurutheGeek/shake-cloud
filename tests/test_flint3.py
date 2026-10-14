@@ -90,3 +90,22 @@ class SafetyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DmzTests(unittest.TestCase):
+    def setUp(self):
+        self.script = (FLINT / 'shakecloud/apply-dmz').read_text(encoding='utf-8')
+        self.dmz = yaml.safe_load((ROOT / 'platform/terraform/network.yaml').read_text(encoding='utf-8'))['segments']['dmz']
+
+    def test_matches_the_declared_segment(self):
+        self.assertIn(f"network.vlan_dmz.vlan='{self.dmz['vlan_id']}'", self.script)
+        self.assertIn(f"network.dmz.ipaddr='{self.dmz['gateway']}'", self.script)
+
+    def test_only_tagged_on_the_k11_port(self):
+        self.assertIn("network.vlan_dmz.ports='6t 3t'", self.script)
+
+    def test_the_only_way_into_the_server_segment_is_pkdb(self):
+        to_lan = [line for line in self.script.splitlines() if line.startswith(('rule', '\trule')) and 'dest=lan' in line]
+        self.assertEqual(len(to_lan), 1)
+        self.assertIn('dest_port=5432', to_lan[0])
+        self.assertNotIn('dmz_lan', self.script)

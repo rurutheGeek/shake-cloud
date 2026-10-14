@@ -1,0 +1,98 @@
+#!/bin/sh
+# DMZ の区画を作る。正本は platform/terraform/network.yaml の segments.dmz、
+# 方針は docs/operations/vlan.md。何度実行してもよい。
+#
+#   dmz（公開用、192.168.30.0/24）  VLAN 30。K11 とつながる LAN2 にタグ付きで通す
+#
+# K11 の vmbr0 が VLAN 対応になっていないと、DMZ の VM は作れない（手順は
+# docs/operations/flint3.md の「DMZ」）。この設定だけ先に入れても害は無い。
+#
+# DMZ からサーバーの区画へは、/etc/shakecloud/dmz-db-clients に書いたアドレス
+# （1 行 1 つ）から pkdb（apps-01:5432）へだけ通す。ファイルが無ければ何も通さない。
+set -eu
+
+PKDB='192.168.10.105'
+CLIENTS_FILE='/etc/shakecloud/dmz-db-clients'
+
+delete_named() {
+	for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='$1'$/\1/p"); do
+		uci delete "firewall.$section"
+	done
+}
+
+# --- network ---------------------------------------------------------------
+# LAN2（ポート 6）はサーバーの区画をタグ無しで流したまま、VLAN 30 をタグ付きで足す。
+uci set network.vlan_dmz=switch_vlan
+uci set network.vlan_dmz.device='switch1'
+uci set network.vlan_dmz.vlan='30'
+uci set network.vlan_dmz.ports='6t 3t'
+uci set network.dmz=interface
+uci set network.dmz.device='eth1.30'
+uci set network.dmz.proto='static'
+uci set network.dmz.ipaddr='192.168.30.1'
+uci set network.dmz.netmask='255.255.255.0'
+uci set network.dmz.force_link='1'
+uci commit network
+
+# --- dhcp ------------------------------------------------------------------
+# クラウドの VM は台帳から .100〜.180 を固定で割り当てる。DHCP は .20〜.99。
+uci set dhcp.dmz=dhcp
+uci set dhcp.dmz.interface='dmz'
+uci set dhcp.dmz.start='20'
+uci set dhcp.dmz.limit='80'
+uci set dhcp.dmz.leasetime='12h'
+uci set dhcp.dmz.dhcpv4='server'
+uci set dhcp.dmz.dhcpv6='disabled'
+uci set dhcp.dmz.ra='disabled'
+uci set dhcp.dmz.force='1'
+uci -q delete dhcp.dmz.dhcp_option || true
+uci add_list dhcp.dmz.dhcp_option='6,192.168.30.1'
+uci commit dhcp
+
+# --- firewall --------------------------------------------------------------
+uci -q delete firewall.dmz || true
+uci -q delete firewall.dmz_wan || true
+uci -q delete firewall.lan_dmz || true
+uci set firewall.dmz=zone
+uci set firewall.dmz.name='dmz'
+uci set firewall.dmz.network='dmz'
+uci set firewall.dmz.input='REJECT'
+uci set firewall.dmz.output='ACCEPT'
+uci set firewall.dmz.forward='REJECT'
+uci set firewall.dmz_wan=forwarding
+uci set firewall.dmz_wan.src='dmz'
+uci set firewall.dmz_wan.dest='wan'
+# サーバー → DMZ は許可（配備の SSH・監視）。逆向きは下の DB だけ。
+uci set firewall.lan_dmz=forwarding
+uci set firewall.lan_dmz.src='lan'
+uci set firewall.lan_dmz.dest='dmz'
+
+for name in DMZ-DHCP DMZ-DNS DMZ-Ping DMZ-to-pkdb; do
+	delete_named "$name"
+done
+rule() {
+	uci add firewall rule >/dev/null
+	uci set "firewall.@rule[-1].name=$1"
+	shift
+	for option in "$@"; do
+		uci set "firewall.@rule[-1].$option"
+	done
+}
+rule DMZ-DHCP src=dmz proto=udp dest_port=67-68 target=ACCEPT
+rule DMZ-DNS src=dmz 'proto=tcp udp' dest_port=53 target=ACCEPT
+rule DMZ-Ping src=dmz proto=icmp icmp_type=echo-request family=ipv4 target=ACCEPT
+clients="$(grep -Eo '^192\.168\.30\.[0-9]+' "$CLIENTS_FILE" 2>/dev/null | tr '\n' ' ' || true)"
+if [ -n "$clients" ]; then
+	rule DMZ-to-pkdb src=dmz "src_ip=$clients" dest=lan "dest_ip=$PKDB" proto=tcp dest_port=5432 target=ACCEPT
+fi
+uci commit firewall
+
+# DNS は AdGuard Home（:3053）へ回す。apply-segments も dmz があれば同じ値にする。
+uci set route_policy.global.append_source_if='personal iot dmz'
+uci commit route_policy
+
+/etc/init.d/network reload
+/etc/init.d/dnsmasq restart
+/etc/init.d/firewall reload >/dev/null 2>&1
+logger -t shakecloud "apply-dmz applied (pkdb clients: ${clients:-none})"
+echo "applied: pkdb clients: ${clients:-none}"

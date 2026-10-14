@@ -588,6 +588,16 @@ devices:
     interface: {name: wlan0, type: ieee802.11ac, mac: 'de:78:35:35:ac:8c'}
     dns_name: pixel-8a
 
+  - name: iphone
+    device_type: Client Device
+    role: Client
+    description: iPhone（実機の開発・検証に使う）
+    comments: |
+      MAC は iOS のプライベート Wi-Fi アドレス（ditto で固定）。ローテーションにすると予約が外れる
+    interface: {name: wlan0, type: ieee802.11ac, mac: 'ae:48:e1:1e:9f:92'}
+    address: 192.168.40.90/24
+    dns_name: iphone
+
 # 周辺機器・ストレージ・工具などの資産。ネット接続の有無を問わず dcim に載せる。
 # 購入日・購入元は comments へ（保証・買い替えの判断材料）。ケーブル・電源タップ・
 # 充電器・SDカード・電子部品は消耗品なので載せない（方針は docs/operations/netbox.md）。
