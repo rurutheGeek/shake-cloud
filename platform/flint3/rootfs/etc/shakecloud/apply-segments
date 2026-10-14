@@ -113,9 +113,9 @@ rule Personal-Ping src=personal proto=icmp icmp_type=echo-request family=ipv4 ta
 rule Personal-Desktop-Admin src=personal src_mac=9C:6B:00:3F:92:99 proto=tcp 'dest_port=22 80 443 3000' target=ACCEPT
 # 個人端末 → ネット専用は、印刷と機器の画面だけ。
 rule Personal-to-IoT src=personal dest=iot proto=tcp 'dest_port=80 443 631 9100' target=ACCEPT
-# サーバー → ネット専用は、家電を制御する apps-01 と、監視の monitor-01 だけ。
+# サーバー → ネット専用は、家電を制御する apps-01 と、監視の 監視（tarakoserver）だけ。
 rule Server-to-IoT-apps src=lan src_ip=192.168.10.105 dest=iot target=ACCEPT
-rule Server-to-IoT-monitor src=lan src_ip=192.168.10.210 dest=iot target=ACCEPT
+rule Server-to-IoT-monitor src=lan src_ip=192.168.10.11 dest=iot target=ACCEPT
 # mDNS の中継（avahi）が各区画の問い合わせを受けられるようにする。
 rule Personal-mDNS src=personal proto=udp dest_port=5353 target=ACCEPT
 rule IoT-mDNS src=iot proto=udp dest_port=5353 target=ACCEPT

@@ -1,0 +1,4 @@
+---
+# Docker のデータの置き場所。空なら既定（/var/lib/docker）。
+# SD カード・USB メモリから起動する Raspberry Pi は、HDD の上へ置く。
+docker_data_root: ''

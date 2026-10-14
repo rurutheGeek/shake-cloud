@@ -19,6 +19,39 @@
     repo: "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] }} stable"
     filename: docker
     state: present
+- name: Create the Docker configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+  when: docker_data_root | length > 0
+
+# 起動前に置く。後から変えると、それまでのイメージとコンテナが見えなくなる。
+- name: Put Docker's data on the declared disk
+  ansible.builtin.copy:
+    content: '{{ {"data-root": docker_data_root} | to_nice_json }}'
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  when: docker_data_root | length > 0
+
+- name: Create the Docker drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+    mode: '0755'
+  when: docker_data_root | length > 0
+
+# ディスクがつながっていないときは Docker を起動しない（起動ディスクへ書き始めない）。
+- name: Start Docker only when its disk is mounted
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      RequiresMountsFor={{ docker_data_root }}
+    dest: /etc/systemd/system/docker.service.d/50-data-root.conf
+    mode: '0644'
+  when: docker_data_root | length > 0
+  register: docker_dropin
+
 - name: Install container runtime
   ansible.builtin.apt:
     name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]

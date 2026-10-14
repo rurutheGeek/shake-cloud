@@ -570,3 +570,23 @@ class SegmentTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DeviceTagTests(unittest.TestCase):
+    """Tags on a device become Ansible groups (inventory.netbox.yml)."""
+
+    def payload(self, device):
+        return sync.device_payload(device, {'Pi': {'id': 1}}, {'Server': {'id': 2}}, {'id': 3})
+
+    def test_tags_are_sent_only_when_declared(self):
+        base = {'name': 'pi', 'device_type': 'Pi', 'role': 'Server'}
+        self.assertNotIn('tags', self.payload(base))
+        self.assertEqual(self.payload(dict(base, tags=['monitoring']))['tags'], [{'slug': 'monitoring'}])
+
+    def test_a_changed_tag_set_is_patched_and_an_equal_one_is_not(self):
+        desired = self.payload({'name': 'pi', 'device_type': 'Pi', 'role': 'Server', 'tags': ['monitoring']})
+        existing = {'device_type': {'id': 1}, 'role': {'id': 2}, 'site': {'id': 3},
+                    'status': {'value': 'active'}, 'description': '', 'tags': []}
+        self.assertEqual(sync.device_updates(existing, desired)['tags'], [{'slug': 'monitoring'}])
+        existing['tags'] = [{'slug': 'monitoring', 'name': 'monitoring'}]
+        self.assertNotIn('tags', sync.device_updates(existing, desired))

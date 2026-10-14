@@ -1,3 +1,9 @@
 ---
 # Pi 4。タッチパネルに監視を表示するので、画面は残す（キオスクは別に入れる）。
 pi_base_headless: false
+# NetBox のインベントリでは機器の名前で入る。鍵は Raspberry Pi 用。
+ansible_user: ansible_admin
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519_shake
+# 起動は USB メモリ／SD カード。書き込みの多いものは HDD（LABEL=tarako-data、/srv）へ置く。
+docker_data_root: /srv/docker
+pi_base_data_label: tarako-data

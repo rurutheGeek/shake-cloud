@@ -108,8 +108,8 @@ resource "shakecloud_security_group_rule" "node_exporter" {
   protocol    = "tcp"
   from_port   = 9100
   to_port     = 9100
-  cidr        = "192.168.10.210/32"
-  description = "node_exporter from monitor-01"
+  cidr        = "192.168.10.11/32"
+  description = "node_exporter from tarakoserver (monitoring)"
 }
 
 # Eufy のカメラ（eufyCam S4）は P2P で、カメラ側から UDP を送ってくる。

@@ -12,6 +12,16 @@
     mode: '0644'
   notify: Restart journald
 
+- name: Mount the data disk
+  ansible.posix.mount:
+    path: '{{ pi_base_data_mount }}'
+    src: 'LABEL={{ pi_base_data_label }}'
+    fstype: ext4
+    opts: defaults,noatime,nofail,x-systemd.device-timeout=10s
+    passno: '2'
+    state: mounted
+  when: pi_base_data_label | length > 0
+
 - name: Boot without the desktop
   ansible.builtin.command:
     argv: [systemctl, set-default, multi-user.target]

@@ -17,3 +17,7 @@ pi_base_disabled_services:
 pi_base_retired_containers: []
 # 使っていないイメージとビルドキャッシュを消す。
 pi_base_prune_docker: false
+# 書き込みの多いものを置く HDD（ファイルシステムのラベル）と取り付け先。空なら何もしない。
+# nofail なので、HDD が無くても起動は止まらない。
+pi_base_data_label: ''
+pi_base_data_mount: /srv

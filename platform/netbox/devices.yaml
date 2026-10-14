@@ -367,7 +367,9 @@ devices:
   - name: tarakoserver
     device_type: Raspberry Pi 4
     role: Server
-    description: Raspberry Pi 4
+    description: Raspberry Pi 4（4GB）。監視（Prometheus・Grafana・Alertmanager）とネットワーク図、タッチパネルの表示
+    # Ansible の monitoring グループ。2026-10-14 に monitor-01 から移した。
+    tags: [monitoring]
     interface: {name: eth0, type: 1000base-t, mac: 'e4:5f:01:f2:b8:dc'}
     address: 192.168.10.11/24
     dns_name: tarakoserver

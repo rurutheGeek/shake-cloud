@@ -185,7 +185,7 @@ window.SERVICE_MAP = {
    ]
   },
   {
-   "address": "192.168.10.210",
+   "address": "192.168.10.11",
    "docs": [
     {
      "path": "operations/monitoring/",
@@ -193,8 +193,8 @@ window.SERVICE_MAP = {
     }
    ],
    "kind": "base",
-   "name": "monitor-01",
-   "role": "監視",
+   "name": "tarakoserver",
+   "role": "監視（Raspberry Pi 4）",
    "services": [
     {
      "description": "メトリクスの収集とアラート",
@@ -227,7 +227,7 @@ window.SERVICE_MAP = {
      "name": "Grafana",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": false,
      "upstream": "127.0.0.1:3000",
@@ -244,7 +244,7 @@ window.SERVICE_MAP = {
      "name": "ネットワーク図",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": true,
      "upstream": "127.0.0.1:8096",
@@ -261,7 +261,7 @@ window.SERVICE_MAP = {
      "name": "PeaNUT",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": false,
      "upstream": "127.0.0.1:8080",

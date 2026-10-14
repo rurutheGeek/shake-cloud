@@ -28,10 +28,10 @@ vms:
     docs: [operations/cloud.md]
     services:
       - {name: Garage, description: S3互換オブジェクトストア, docs: [operations/garage.md]}
-  - name: monitor-01
+  - name: tarakoserver
     kind: base
-    role: 監視
-    address: 192.168.10.210
+    role: 監視（Raspberry Pi 4）
+    address: 192.168.10.11
     docs: [operations/monitoring.md]
     services:
       - {name: Prometheus, description: メトリクスの収集とアラート, docs: [operations/monitoring.md]}

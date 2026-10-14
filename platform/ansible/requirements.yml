@@ -4,3 +4,6 @@ collections:
     version: '3.21.0'
   - name: awx.awx
     version: '24.6.1'
+  # Linux 共通の操作（mount・sysctl・authorized_key など）。組み込みの命令で自前に書かないため。
+  - name: ansible.posix
+    version: '2.2.2'
