@@ -1,0 +1,13 @@
+---
+# UPS（CyberPower）を USB で持つホスト（tarakoserver）。状態を LAN へ出し、
+# K11 の upsmon（secondary）と監視（nut-exporter・PeaNUT）が読む。
+ups_server_ups_name: cyberpower
+ups_server_vendorid: '0764'
+ups_server_productid: '0601'
+ups_server_listen_address: 192.168.10.11
+ups_server_monitor_user: monitor
+# このホストの upsmon（primary）。localhost からだけ使う。
+ups_server_upsmon_user: upsmon
+# K11 の upsmon（secondary）。LAN から入る。
+ups_server_secondary_user: upsmon-k11
+ups_server_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'

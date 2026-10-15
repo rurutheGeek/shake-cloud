@@ -205,6 +205,11 @@ device_types:
     model: M575S
     slug: logitech-m575s
   - manufacturer: Elecom
+    model: 電源タップ 4口
+    slug: elecom-power-strip-4
+    comments: |
+      UPS1 のバッテリー口から 4 台へ分ける（あだ名はヒュドラ）
+  - manufacturer: Elecom
     model: TK-FCM107KBK
     slug: elecom-tk-fcm107kbk
   - manufacturer: Makita
@@ -370,6 +375,7 @@ devices:
     description: Raspberry Pi 4（4GB）。監視（Prometheus・Grafana・Alertmanager）とネットワーク図、タッチパネルの表示
     # Ansible の monitoring グループ。2026-10-14 に monitor-01 から移した。
     tags: [monitoring]
+    power_ports: [ac]
     interface: {name: eth0, type: 1000base-t, mac: 'e4:5f:01:f2:b8:dc'}
     address: 192.168.10.11/24
     dns_name: tarakoserver
@@ -624,6 +630,14 @@ devices:
       - surge4
       - surge5
       - surge6
+  # タップは消耗品として載せない方針の例外。UPS の 1 口から ONU・Pi 4・Pi 5・スイッチの
+  # 4 台へ分かれ、停電のときどれが動き続けるかを追う分かれ目なので載せる。
+  - name: hydra
+    device_type: 電源タップ 4口
+    role: Power
+    description: エレコムの 4 口タップ（あだ名はヒュドラ）。UPS1 のバッテリー口から ONU・Pi 4・Pi 5・スイッチへ
+    power_ports: [ac]
+    power_outlets: [outlet1, outlet2, outlet3, outlet4]
   - name: ups-2
     device_type: CP1200PFCLCDJP
     role: Power
@@ -927,28 +941,43 @@ cables:
     type: cat6a
     description: Flint 3 LAN4 → Raspberry Pi 5（DMZ）
 
-# 電源系統（UPS1 のバッテリー口。UPS2 は予備）。
+# 電源系統（UPS1 のバッテリー口。UPS2 は予備）。2026-10-15 に組み替えた。
   - a: {device: ups-1, power_outlet: battery1}
     b: {device: apextox, power_port: ac}
     type: power
     description: UPS1 バッテリー1 → ミニPC（K11）
 
   - a: {device: ups-1, power_outlet: battery2}
-    b: {device: onu-1, power_port: ac}
-    type: power
-    description: UPS1 バッテリー2 → ONU
-
-  - a: {device: ups-1, power_outlet: battery3}
-    b: {device: aterm, power_port: ac}
-    type: power
-    description: UPS1 バッテリー3 → Aterm（AP モード）
-
-  - a: {device: ups-1, power_outlet: battery4}
     b: {device: ouchithegeek, power_port: ac}
     type: power
-    description: UPS1 バッテリー4 → デスクトップ
+    description: UPS1 バッテリー2 → デスクトップ
 
-  - a: {device: ups-1, power_outlet: battery5}
+  - a: {device: ups-1, power_outlet: battery3}
+    b: {device: hydra, power_port: ac}
+    type: power
+    description: UPS1 バッテリー3 → タップ（ヒュドラ）
+
+  - a: {device: ups-1, power_outlet: battery4}
+    b: {device: flint3, power_port: ac}
+    type: power
+    description: UPS1 バッテリー4 → Flint 3
+
+  - a: {device: hydra, power_outlet: outlet1}
+    b: {device: onu-1, power_port: ac}
+    type: power
+    description: ヒュドラ → ONU
+
+  - a: {device: hydra, power_outlet: outlet2}
+    b: {device: tarakoserver, power_port: ac}
+    type: power
+    description: ヒュドラ → Raspberry Pi 4（UPS の USB もここ）
+
+  - a: {device: hydra, power_outlet: outlet3}
     b: {device: shakeserver, power_port: ac}
     type: power
-    description: UPS1 バッテリー5 → Raspberry Pi 5
+    description: ヒュドラ → Raspberry Pi 5
+
+  - a: {device: hydra, power_outlet: outlet4}
+    b: {device: tl-sg605, power_port: ac}
+    type: power
+    description: ヒュドラ → スイッチ

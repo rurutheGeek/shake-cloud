@@ -1,6 +1,6 @@
 ---
 title: 電源と UPS
-updated: 2026-10-03
+updated: 2026-10-15
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # 電源と UPS
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-15 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **手順書。UPS（CyberPower CP1200PFCLCDJP）の監視（NUT）と低電池の自動シャットダウン（upsmon）は配備済み（M01。`pve_nut` ロール＋`platform/ansible/pve-nut.yml`）。K11 の電源プラグを UPS のバッテリー側へ入れる物理作業は未実施。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
+**状態**: **手順書。UPS（CyberPower CP1200PFCLCDJP）の USB は 2026-10-15 から tarakoserver（Pi 4）。Pi 4 の NUT（`ups_server` ロール、`monitoring.yml`）が状態を LAN へ出し、K11 の upsmon（`pve_nut` ロール、`pve-nut.yml`）が secondary として低電池で止まる。K11 のハング自動復旧（SP5100 TCO watchdog）は 2026-09-20 に適用済み。**
 
 家庭内の電源工事や停電のとき、**いきなりコンセントやブレーカーを切らない**ための手順です。K11（Proxmox ホスト）とその上のゲストを安全に止めます。
 
@@ -21,8 +21,18 @@ tags:
 - K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・Kubernetes の各ノード・dev-01／dev-02）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
 - **ルータは Flint 3（GL-BE9300、K11 とは別の機械）です**（2026-10-14 に K11 上の router-01 から切替）。K11 が落ちても家のインターネット・DNS・DHCP は残ります（[Flint 3](flint3.md)・[障害モード](../architecture/failure-modes.md)）。
 - 監視は tarakoserver（Raspberry Pi 4）で、K11 の外です。
-- UPS（UPS1）の電池側の口は、K11・ONU・空き（元 Aterm）。**Flint 3・tarakoserver・スイッチは電池側につないでいない**ので、停電すると家のネットと監視は止まります（K11 は UPS の電池で動き、NUT で自分で止まります）。
-- **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
+- UPS（UPS1）の電池側の口（2026-10-15〜）。台帳は `platform/netbox/devices.yaml` の cables。
+
+| 口 | つないでいるもの |
+| --- | --- |
+| 電池 1 | ミニPC（K11） |
+| 電池 2 | デスクトップ |
+| 電池 3 | タップ（ヒュドラ）→ ONU・Pi 4（tarakoserver）・Pi 5（shakeserver）・スイッチ |
+| 電池 4 | Flint 3 |
+| 電池 5 | 空き |
+
+- 停電しても、ネット（ONU・Flint 3・スイッチ）・監視（Pi 4）・K11 は電池で動き続けます。
+- UPS の USB は Pi 4。Pi 4 の upsmon が primary、K11 が secondary です。低電池になると K11 が先に止まり、Pi 4 は K11 の切断を待ってから止まります。UPS の出力は切りません（`POWERDOWNFLAG` を置かない）。K11 がまだ止まり切っていないうちに電源が落ちないようにするためです。
 
 ## K11 が固まったときの自動復旧（watchdog）
 

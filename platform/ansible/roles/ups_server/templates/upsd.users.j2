@@ -1,0 +1,14 @@
+# Ansible（ups_server）が置く。
+# 読み取り専用の監視ユーザー。upsmon 権限（主系・FSD）は与えない。
+[{{ ups_server_monitor_user }}]
+    password = {{ (ups_server_secrets.stdout | from_json).NUT_MONITOR_PASSWORD }}
+
+# このホストの upsmon（primary）。
+[{{ ups_server_upsmon_user }}]
+    password = {{ (ups_server_secrets.stdout | from_json).NUT_UPSMON_PASSWORD }}
+    upsmon primary
+
+# K11 の upsmon（secondary）。低電池か、primary の FSD で K11 が止まる。
+[{{ ups_server_secondary_user }}]
+    password = {{ (ups_server_secrets.stdout | from_json).NUT_UPSMON_PASSWORD }}
+    upsmon secondary

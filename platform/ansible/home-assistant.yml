@@ -28,6 +28,9 @@
     home_assistant_camera_stream: rtsp://172.31.254.1:8554/eufy_av
     # カードのスナップショット（leo_rtc 側の MJPEG。空なら HA は映像から生成）。
     home_assistant_camera_still: http://172.31.254.1:8888/snapshot.jpg
+    # カメラの見張り（eufy-camera-watch.timer）。2026-10-15 から一時停止。
+    # 2026-10-12 から HA の API が 404 を返して失敗していた（見張る相手の確認が未了）。
+    home_assistant_camera_watch: false
   tasks:
     - name: Install Docker Engine and Compose
       ansible.builtin.include_role:
@@ -135,11 +138,11 @@
           WantedBy=timers.target
       register: home_assistant_watch_timer
 
-    - name: Enable the camera watchdog
+    - name: Enable or pause the camera watchdog
       ansible.builtin.systemd:
         name: eufy-camera-watch.timer
-        enabled: true
-        state: started
+        enabled: '{{ home_assistant_camera_watch | bool }}'
+        state: "{{ 'started' if home_assistant_camera_watch | bool else 'stopped' }}"
         daemon_reload: "{{ home_assistant_watch_service.changed or home_assistant_watch_timer.changed }}"
 
     - name: Install the pinned OIDC integration

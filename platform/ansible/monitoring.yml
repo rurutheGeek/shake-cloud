@@ -11,6 +11,8 @@
     - docker
     # configure は公開名（OIDC）で入る。証明書を先に取る。
     - tls_proxy
+    # UPS の USB は tarakoserver。K11（pve-nut.yml）と監視がここの upsd を読む。
+    - ups_server
     - monitoring
     # 記録を毎日 K11 の 6TB HDD へ写す（tarakoserver の HDD だけに置かない）。
     - monitoring_backup

@@ -34,3 +34,6 @@ pi_base_retired_cron: []
 pi_base_prune_volumes: false
 # スワップはメモリの上（zram）だけ。rpi-swap の既定は SD カードの上にファイルも作る。
 pi_base_swap_mechanism: zram
+# smartmontools の表に無い USB ケース。{usb: "0xVID:0xPID", name: 名前, type: sat}
+# 表に無いと smartd・smartmon（node_exporter）が開けず、HDD が無いことにされる。
+pi_base_smart_usb_bridges: []
