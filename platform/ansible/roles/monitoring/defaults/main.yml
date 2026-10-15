@@ -15,3 +15,6 @@ monitoring_smtp_sops_file: '{{ playbook_dir }}/../sops/smtp.sops.yaml'
 monitoring_smtp_keys: [SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM]
 # UPS の upsd（ups_server ロール）。UPS の USB は tarakoserver。
 monitoring_nut_server: 192.168.10.11
+# Prometheus の記録を残す期間。記録は HDD（/srv/monitoring）にあり、1 日あたり約 55MB。
+# 1 年分あれば月ごとの電気代や前の年との比較が出せる。
+monitoring_prometheus_retention: 400d

@@ -11,7 +11,7 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-400d}
     volumes:
       - ./prometheus:/etc/prometheus:ro
       - ./secrets/game_metrics_token:/etc/prometheus-secrets/game_metrics_token:ro

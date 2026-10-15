@@ -51,6 +51,7 @@
     - {key: PVE_TOKEN_NAME, value: 'monitoring'}
     - {key: NUT_SERVER, value: '{{ monitoring_nut_server }}'}
     - {key: NUT_USERNAME, value: 'monitor'}
+    - {key: PROMETHEUS_RETENTION, value: '{{ monitoring_prometheus_retention }}'}
 
 # SMTP は identity と同じ smtp.sops.yaml。無ければ通知だけが無効になる。
 - name: Read the SMTP credentials
