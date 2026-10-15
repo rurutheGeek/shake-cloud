@@ -686,6 +686,23 @@ window.SERVICE_MAP = {
      "url": "https://freshrss.apextox.dpdns.org/"
     },
     {
+     "description": "リポジトリの保管庫。OIDC",
+     "docs": [
+      {
+       "path": "services/forgejo/",
+       "title": "リポジトリの保管庫（Forgejo）"
+      }
+     ],
+     "name": "Forgejo",
+     "route": [
+      "core-01",
+      "media-01"
+     ],
+     "sso": false,
+     "upstream": "127.0.0.1:8083",
+     "url": "https://forgejo.apextox.dpdns.org/"
+    },
+    {
      "description": "media-01・53317",
      "docs": [
       {

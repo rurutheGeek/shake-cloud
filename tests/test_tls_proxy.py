@@ -205,7 +205,7 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 10)
+        self.assertEqual(len(sites), 11)
         # navidrome は通常の認証に加え、/review/ の全曲レビューと
         # /review-static/ の生成HTMLにも forward_auth を付ける。
         self.assertEqual(rendered.count('forward_auth https://'), 7)
@@ -228,7 +228,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertIn('uri strip_prefix /review-static', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
-        for name in ('nextcloud', 'kavita', 'freshrss', 'nextcloud-mcp'):
+        for name in ('nextcloud', 'kavita', 'freshrss', 'forgejo', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)
 

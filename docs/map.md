@@ -98,6 +98,7 @@ flowchart TB
 | [Android VMの画面を使う（RDP）](services/android.md) | 2026-10-02 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
+| [リポジトリの保管庫（Forgejo）](services/forgejo.md) | 2026-10-15 | `guide` `git` |
 | [Homarrの使い方](services/homarr.md) | 2026-10-03 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
 | [共通ログインの使い方](services/identity.md) | 2026-09-27 | `guide` `identity` |
@@ -258,6 +259,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 142 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 143 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

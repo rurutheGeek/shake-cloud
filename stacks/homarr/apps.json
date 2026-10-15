@@ -91,6 +91,13 @@
     "pingUrl": "https://freshrss.apextox.dpdns.org/api/"
   },
   {
+    "name": "Forgejo",
+    "href": "https://forgejo.apextox.dpdns.org",
+    "description": "消えそうなリポジトリの保管庫",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/forgejo.svg",
+    "pingUrl": "https://forgejo.apextox.dpdns.org/api/healthz"
+  },
+  {
     "name": "MeTube",
     "href": "https://metube.apextox.dpdns.org",
     "description": "URLから音声を取り込む",

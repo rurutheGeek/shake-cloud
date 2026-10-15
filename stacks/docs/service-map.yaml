@@ -107,6 +107,7 @@ record_docs:
   metube: [services/usage.md]
   khinsider: [services/music.md]
   freshrss: [services/rss.md]
+  forgejo: [services/forgejo.md]
   netbox: [operations/netbox.md]
   homarr: [services/homarr.md]
   adguard: [operations/adguard.md]

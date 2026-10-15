@@ -116,6 +116,11 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:8082
     description: FreshRSS（共通RSSタイムライン。OIDC）
+  forgejo:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:8083
+    description: Forgejo（リポジトリの保管庫。OIDC）
   netbox:
     host: core-01
     upstream: 127.0.0.1:8000

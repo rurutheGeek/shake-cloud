@@ -17,15 +17,16 @@ ROOT = Path(__file__).resolve().parent
 BASE = os.environ.get('AUTHENTIK_URL', 'http://localhost:9000') + '/api/v3/'
 GROUPS = ('users', 'admins')
 CLIENT = 'cloud'
-# Media SSO. Nextcloud, Kavita and FreshRSS accept OIDC natively; Navidrome,
+# Media SSO. Nextcloud, Kavita, FreshRSS and Forgejo accept OIDC natively; Navidrome,
 # MeTube and KHInsider get Forward Auth through the embedded outpost and keep
 # their own authentication on the API paths.
 MEDIA_OIDC_CLIENTS = {'nextcloud': '/apps/user_oidc/code', 'kavita': '/signin-oidc',
-                      'freshrss': '/i/oidc/'}
+                      'freshrss': '/i/oidc/',
+                      'forgejo': '/user/oauth2/authentik/callback'}
 # UrBackup も Forward Auth の内側（ポータルと管理画面。クライアント通信は LAN 直結）。
 MEDIA_PROXY_PROVIDERS = ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup')
 MEDIA_APPLICATIONS = {'nextcloud': 'Nextcloud', 'kavita': 'Kavita',
-                      'freshrss': 'FreshRSS',
+                      'freshrss': 'FreshRSS', 'forgejo': 'Forgejo',
                       'navidrome': 'Navidrome', 'metube': 'MeTube',
                       'khinsider': 'KHInsider', 'backup': 'バックアップポータル',
                       'urbackup': 'UrBackup管理画面'}

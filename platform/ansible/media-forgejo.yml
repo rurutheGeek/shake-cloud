@@ -1,0 +1,39 @@
+---
+# Forgejo（リポジトリの保管庫）を media-01 の独立 Compose プロジェクトとして配備する。
+#   ansible-playbook -i <inventory> platform/ansible/media-forgejo.yml
+#
+# 公開は 127.0.0.1 のみ。データは HDD ボリュームの bind（media-base.yml）なので、
+# media-base.yml を先に通す。認証は Authentik へのネイティブ OIDC で、クライアント
+# 秘密値は media-forgejo-sso.yml が配る。この playbook だけではログイン手段が無いまま
+# 起動し、SSO playbook の再実行で入れるようになる。ミラーの一覧は
+# stacks/media/forgejo/mirrors.json。
+- name: Deploy Forgejo
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    media_forgejo_zone: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml).zone }}"
+  tasks:
+    - name: Require the bulk volume under the Forgejo data directory
+      ansible.builtin.command:
+        argv: [mountpoint, -q, '{{ storage_root }}/forgejo']
+      changed_when: false
+    - name: Deploy the Forgejo stack
+      ansible.builtin.include_role:
+        name: compose_stack
+      vars:
+        compose_stack_source_dir: '{{ source_dir }}/media/forgejo'
+        compose_stack_project_dir: '{{ project_dir }}/media/forgejo'
+        compose_stack_files: [compose.yaml, compose.lock.yaml, manage.py, .env.example, README.md, mirrors.json]
+        compose_stack_env: |
+          STORAGE_ROOT={{ storage_root }}
+          TZ={{ tz | default('Asia/Tokyo') }}
+          FORGEJO_PORT={{ forgejo_port | default(8083) }}
+          FORGEJO_IMAGE={{ forgejo_image | default('codeberg.org/forgejo/forgejo:15') }}
+          FORGEJO_MEMORY_LIMIT={{ forgejo_memory_limit | default('512m') }}
+          FORGEJO_MIRROR_INTERVAL={{ forgejo_mirror_interval | default('8h') }}
+          FORGEJO_ROOT_URL=https://forgejo.{{ media_forgejo_zone }}/
+          FORGEJO_OIDC_DISCOVERY_URL=https://auth.{{ media_forgejo_zone }}/application/o/forgejo/.well-known/openid-configuration
+          FORGEJO_ARCHIVE_ORG={{ forgejo_archive_org | default('archive') }}
+          FORGEJO_UID=1000
+          FORGEJO_GID=1000

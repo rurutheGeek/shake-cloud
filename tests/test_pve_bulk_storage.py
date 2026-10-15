@@ -230,7 +230,7 @@ class MediaBaseTests(unittest.TestCase):
         self.assertEqual(values['client_backup_root'], '/srv/media-stack/client-backups')
         self.assertIn('nofail', values['media_bulk_mount_opts'])
         binds = {item['source']: item for item in values['media_bulk_binds']}
-        self.assertEqual(set(binds), {'library', 'nextcloud-data', 'client-backups'})
+        self.assertEqual(set(binds), {'library', 'nextcloud-data', 'client-backups', 'forgejo'})
         self.assertEqual(binds['library']['target'], '{{ library_root }}')
         # コンテナ内 urbackup ユーザー（entrypoint の既定）と同じ値にする。
         self.assertEqual(binds['client-backups']['uid'], 101)
