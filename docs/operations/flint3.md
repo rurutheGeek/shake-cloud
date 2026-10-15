@@ -90,7 +90,7 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 | `89-mape-ce-address` | 純正の `map.sh` は CE アドレスをトンネルにしか付けない。上流の近隣要請に誰も応えず、IPv4 の戻りが全滅する |
 | `92-lan-prefix-route-on-lan` | 内蔵スイッチの設定を変えると `br-lan` が作り直され、IPv6 を LAN へ流す経路が消える |
 | `90-mld-personal` | Wi-Fi を読み込み直した直後、MLO の親デバイスがブリッジへ入らないことがあり、MLO でつながった端末にアドレスが配られない |
-| `apply-segments` の Tailscale の転送 | `tailscale` → `lan` の転送が設定から消えていて、宅外からサービスへ届かなかった（DNS だけ通る）。毎回入れ直す |
+| `apply-segments` の Tailscale の転送（`shakecloud_ts_lan`） | GL の `/etc/firewall.tailscale.sh` は Tailscale が動き直すたびに、画面の「LAN へのアクセス」が切れていると `tailscale_lan` という名前の転送を消す。同じ名前を使っていたので消され、宅外からサーバーの区画へ届かなかった（2026-10-14・15）。名前を変え、「LAN へのアクセス」（`tailscale.settings.lan_enabled`）も入れる |
 | Tailscale の経路を流し直す（`hotplug.d/iface/95-shakecloud-tailscale-routes`） | GL の `gl_tailscale` はインターフェースが変わるたびに `tailscale up --reset` し、GL の画面で選んだ経路しか流さない。2026-10-15、ネットワークの読み込み直しで `192.168.10.0/24`・`192.168.40.0/24` が消え、外のスマホが Tailscale 越しの DNS を引けずネットに出られなかった |
 | ECM（ハードウェアオフロード）の IPv4 を止める（`init.d/shakecloud-ecm`・`hotplug.d/iface/99-shakecloud-ecm`） | 2026-10-14、ECM がネット専用の区画の通信を載せると TCP の 3 回目以降が外へ出ず、jumpluff の家電・スマホがインターネットに出られなかった。`gl_front_end_ipv4_stop` を 1 にすると直った |
 | `apply-segments` の IPsec の削除 | 初期ルールが外から LAN へ ESP・UDP 500 を通す。IPv6 では LAN の機器が外から見える |
@@ -123,6 +123,7 @@ Tailscale を入れた Windows・スマホは、家の中にいても、家の�
 - AdGuard Home の管理画面（`:3000`）は GL.iNet の管理画面のログインを要求する。`adguard.apextox.dpdns.org`（SSO 経由）からは入れない。
 - ルーターを入れ替えた直後は、上流が CE アドレスの持ち主を覚え直すまで約5分 IPv4 が止まる。
 - DMZ（`192.168.30.0/24`）からサーバーの区画へは `dmz-db-clients` に書いたアドレスから pkdb（5432）だけ。今は誰も書いていない。
+- GL.iNet の付属スクリプトとファームウェア更新が書き換える設定は、tarakoserver の `netmap-router-check.timer` が 5 分ごとに `apply-segments` と見比べる。崩れると `RouterConfigDrift`、点検が止まると `RouterCheckStale`。
 - GL.iNet の `gl_tailscale` はネットワークが変わるたびに Tailscale を起動し直して経路を消すので、`95-shakecloud-tailscale-routes` が流し直す（約20秒、そのあいだ宅外から家の中へ届かない）。
 - 開発用の VM（dev-01・dev-02）からは個人端末へ接続を始められる（実機のスマホへの adb など）。ほかのサーバーからは始められない。
 
@@ -143,3 +144,4 @@ router-01 の Tailscale の端末情報は Flint 3 が使っている。router-0
 - 2026-10-14: 宅外から Tailscale でサービスへ届かない不具合を修正。MLO、WPS 無効化、IPsec の初期ルール削除、開発用 VM → 個人端末の許可。
 - 2026-10-14: ECM（ハードウェアオフロード）の IPv4 を止めた（jumpluff の家電がインターネットへ出られなかった）。設定を毎日 K11 へ取る `flint3-backup.timer`。
 - 2026-10-15: DMZ（VLAN 30、LAN4 専用・LAN2 にタグ付き）を作成。そのときの読み込み直しで Tailscale の経路が消え、`95-shakecloud-tailscale-routes` を足した。syslog を tarakoserver の Loki へ送る。
+- 2026-10-15: Tailscale → サーバーの区画の転送が GL の付属スクリプトに消されていたのを、名前を変えて直した。「LAN へのアクセス」を入れ、設定崩れの点検と警告を足した。
