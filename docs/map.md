@@ -149,7 +149,7 @@ flowchart TB
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
 | [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-03 | `plan` `cloud` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-10-03 | `plan` `monitoring` |
-| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-14 | `plan` `monitoring` |
+| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
 | [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
@@ -199,8 +199,8 @@ flowchart TB
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
-| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
+| [監視（tarakoserver）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
+| [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |

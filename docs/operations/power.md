@@ -18,8 +18,10 @@ tags:
 
 ## いまの電源構成
 
-- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・monitor-01・Kubernetes の各ノード・dev-01／dev-02）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
-- **ルータ（`router-01`）は K11 上の OpenWrt VM です**（2026-09-20 に切替）。K11 が落ちると家中のインターネットも落ちます。K11 と別電源で残るのは ONU・スイッチ（TL-SG605）・Aterm（APモード）だけで、**そこに DNS も DHCP も居ません**（[router-01](router.md)・[障害モード](../architecture/failure-modes.md)）。
+- K11（Proxmox ホスト、`192.168.10.10`）が1台。その上に基盤VM（core-01・cloud-01・Kubernetes の各ノード・dev-01／dev-02）とクラウドVM（media-01・apps-01・game1 など）と利用者VMが載っています。
+- **ルータは Flint 3（GL-BE9300、K11 とは別の機械）です**（2026-10-14 に K11 上の router-01 から切替）。K11 が落ちても家のインターネット・DNS・DHCP は残ります（[Flint 3](flint3.md)・[障害モード](../architecture/failure-modes.md)）。
+- 監視は tarakoserver（Raspberry Pi 4）で、K11 の外です。
+- UPS（UPS1）の電池側の口は、K11・ONU・空き（元 Aterm）。**Flint 3・tarakoserver・スイッチは電池側につないでいない**ので、停電すると家のネットと監視は止まります（K11 は UPS の電池で動き、NUT で自分で止まります）。
 - **目標:** K11 を UPS の**バッテリー側**コンセントへ入れ、停電でも安全に停止できるようにする。
 
 ## K11 が固まったときの自動復旧（watchdog）
@@ -30,8 +32,8 @@ K11 がハングするとルータ VM も止まり、家中のネットが落ち
 
 - PVE の `watchdog-mux` が `/etc/default/pve-ha-manager` の
   `WATCHDOG_MODULE=sp5100_tco` で TCO を開き、**10秒タイムアウトで毎秒 KEEPALIVE**
-- ホストが固まると約10秒でハードウェアリセット → 起動 → `on_boot`＋起動順1 で
-  `router-01` が自動起動し、**ネットは約1〜2分で戻る**
+- ホストが固まると約10秒でハードウェアリセット → 起動 → `on_boot` の基盤VMが自動起動する
+  （ルータは Flint 3 なので、K11 が固まっても家のネットは止まらない）
 - クリーン停止時は MAGICCLOSE（`options=0x8180`）で解除されるので、
   シャットダウンを妨げない
 - panic でも自動再起動するように `kernel.panic=10` / `kernel.panic_on_oops=1`
@@ -155,7 +157,7 @@ game1 や利用者VMは**ポータル／CLI で所有者が停止**します（�
 
 1. 壁 → UPS の順で通電する。
 2. K11 を起動する（電源ボタン）。
-3. **常時動く基盤**（core-01・cloud-01・monitor-01）は `onboot` で自動起動します。**それ以外（Kubernetes・開発VM・game1）は「切れる前に動いていた組」だけを `shakecloud-guests` が戻します**（[停電時に動いていたVMを戻す](#停電時に動いていたvmを戻す実装済み)）。Kubernetes が戻った場合は Flux が Git と同期し直します。worker-02（予備）は手動です。
+3. **常時動く基盤**（core-01・cloud-01）は `onboot` で自動起動します。**それ以外（Kubernetes・開発VM・game1）は「切れる前に動いていた組」だけを `shakecloud-guests` が戻します**（[停電時に動いていたVMを戻す](#停電時に動いていたvmを戻す実装済み)）。Kubernetes が戻った場合は Flux が Git と同期し直します。worker-02（予備）は手動です。
 4. 動作確認:
    - `https://cloud.apextox.dpdns.org/healthz` → 200
    - `https://auth.apextox.dpdns.org`（ログイン）
@@ -182,13 +184,13 @@ cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。
 - 確認: `cat /var/lib/shakecloud/guests-running` と `systemctl status shakecloud-guests`。
 - **ホスト自体が復電後に起動するには、BIOS の "Restore on AC Power Loss" を `Power On`（または `Last State`）に**してください。OSからは設定できません。
 - 手動で停止したVMは次の記録から外れるので、次回の起動では戻りません（意図どおり）。
-- **`onboot` を付けるのは常時動く基盤（core-01・cloud-01・monitor-01）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
+- **`onboot` を付けるのは常時動く基盤（core-01・cloud-01）だけ**にしています。Kubernetes・開発VM・game1 は `onboot=0` で、保存された組から戻します（`tools/k8s down` で止めていた Kubernetes が電源再投入で勝手に戻る、を防ぐため。2026-09-12 に実際に起きました）。
 - game1 は起動時に **CD が移動前の `local:iso` を指していて起動できませんでした**。`cloud-images:iso/bazzite-stable-live-amd64.iso` へ直してあります（ISO を `cloud-images` へ移したときの取り残し）。
 
 <a id="停電で自動停止させる実装済み"></a>
 ## 停電で自動停止させる（実装済み）
 
-**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、monitor-01 の nut_exporter が `192.168.10.10:3493` を読んで Grafana に出します（M01）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
+**NUT の監視（`upsd` と読み取り専用ユーザー）と `upsmon` は配備済みです。** Proxmox ホストの `platform/ansible/pve-nut.yml`（ロール `pve_nut`）が入れ、tarakoserver の nut_exporter が `192.168.10.10:3493` を読んで Grafana に出します（M01）。UPS の USB は K11 につないだままにします（K11 が停電を直接知って自分で止まれるように。tarakoserver・Flint 3 は電池側の口に居ない）。低電池では `upsmon`（primary）が `/usr/local/sbin/pve-ups-shutdown` を root で実行し、次の順で止めます。
 
 1. **猶予 60 秒**（`pve_nut_shutdown_grace_seconds`）。実行中ジョブの確認は自動ではできないため、短いジョブの完了を待つ。
 2. **k8s worker**（tags `k8s-worker` のVM）を ACPI で停止し、最大 180 秒待つ（`pve_nut_k8s_stop_timeout`）。
@@ -212,7 +214,7 @@ ssh root@192.168.10.10 'systemctl status nut-monitor; upsc cyberpower@localhost 
 - **K11 と周辺の消費電力を実測**してから VA/W を選ぶ（アイドルは数十W、ゲームやビルドで上がる）。UPS の**実効W**（VA×力率）で見る。
 - **バッテリー側コンセント**を使う。レーザープリンタ・掃除機・ドライヤーなどはつながない。
 - 電源アダプタが敏感なら**正弦波**の UPS を選ぶ（疑似正弦波で異音・再起動する機器がある）。
-- **ONU・スイッチ・Aterm を別の小さな UPS に載せても、ルータ本体（`router-01`）は K11 上なので通信は復旧しません。** K11 を UPS に載せるのが先です。K11 の外に独立した管理経路を持ちたい場合は、ルータ内蔵VPNか別筐体の小型機器が要ります（[復旧経路](../architecture/network-auth.md)）。
+- **停電中も家のネットと監視を残すなら、Flint 3・tarakoserver（と、使うならスイッチ）を UPS の電池側の口へつなぐ。** UPS1 の電池側は元 Aterm の口が空いている。
 
 ## 関連
 

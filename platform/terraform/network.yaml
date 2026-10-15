@@ -70,7 +70,7 @@ vlan:
     vlan_id: null
 
 # 区画（Flint 3 が境界になる L3 の分け方）。2026-10-13 に決めた設計で、
-# **実機へはまだ入れていない**（手順と状態は docs/operations/vlan.md）。
+# server・personal・iot は 2026-10-14、dmz は 2026-10-15 に Flint 3 へ入れた（手順と状態は docs/operations/vlan.md）。
 #
 # VLAN 番号は第3オクテットに揃える。server は今の LAN をそのまま使い、
 # K11 のトランクでは**タグなし**で通す（ホストと既存VMの設定を変えないため）。

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **2026-10-14 に router-01 から切替済み。** ONU 直結で MAP-E・DHCP・DNS（AdGuard Home）・IPv6 中継・Tailscale を担当。router-01 は停止（削除していない）。
+**状態**: **2026-10-14 に router-01 から切替済み。** ONU 直結で MAP-E・DHCP・DNS（AdGuard Home）・IPv6 中継・Tailscale を担当。router-01 は停止（削除していない）。DMZ（VLAN 30）は 2026-10-15 に作成（LAN4 は DMZ 専用。shakeserver のつなぎ替えは未）。ログは tarakoserver の Loki へ送る（UDP 1514）。
 
 ## 構成
 
@@ -31,10 +31,10 @@ tags:
 | Flint 3 のポート | 区画 | 接続先 |
 | --- | --- | --- |
 | WAN | — | ONU |
-| LAN1 | サーバー | TL-SG605（1G） |
-| LAN2 | サーバー | K11 の LAN（`nic1`、2.5G） |
+| LAN1 | サーバー | TL-SG605（1G）。tarakoserver・shakeserver（DMZ へ移す前） |
+| LAN2 | サーバー（タグ無し）・DMZ（タグ付き VLAN 30） | K11 の LAN（`nic1`、2.5G）。K11 の `vmbr0` はまだ VLAN 非対応 |
 | LAN3 | 個人端末 | デスクトップ（2.5G） |
-| LAN4 | サーバー | 空き |
+| LAN4 | DMZ（タグ無し） | shakeserver（Raspberry Pi 5）を挿す予定 |
 
 K11 の WAN（`nic0`）は空き。内蔵スイッチの番号は LAN1=7、LAN2=6、LAN3=5、LAN4=4、CPU 側=3。
 
@@ -122,7 +122,8 @@ Tailscale を入れた Windows・スマホは、家の中にいても、家の�
 - 同じ宛先へ短時間に何度もつなぐと、一部の接続が途中で止まる（ニチバンのサイトへ30回で12回）。MAP-E の 240 ポートを使い回すため。router-01 では起きなかった。
 - AdGuard Home の管理画面（`:3000`）は GL.iNet の管理画面のログインを要求する。`adguard.apextox.dpdns.org`（SSO 経由）からは入れない。
 - ルーターを入れ替えた直後は、上流が CE アドレスの持ち主を覚え直すまで約5分 IPv4 が止まる。
-- DMZ（`192.168.30.0/24`）は未作成。
+- DMZ（`192.168.30.0/24`）からサーバーの区画へは `dmz-db-clients` に書いたアドレスから pkdb（5432）だけ。今は誰も書いていない。
+- GL.iNet の `gl_tailscale` はネットワークが変わるたびに Tailscale を起動し直して経路を消すので、`95-shakecloud-tailscale-routes` が流し直す（約20秒、そのあいだ宅外から家の中へ届かない）。
 - 開発用の VM（dev-01・dev-02）からは個人端末へ接続を始められる（実機のスマホへの adb など）。ほかのサーバーからは始められない。
 
 ## router-01 へ戻す
@@ -140,3 +141,5 @@ router-01 の Tailscale の端末情報は Flint 3 が使っている。router-0
 - 2026-10-14 00:10: router-01 から切替。00:56 に ONU を WAN へ直結。
 - 2026-10-14: AdGuard Home、Tailscale（端末情報の引き継ぎ）、区画と SSID、LAN3 の個人端末化、mDNS の中継。Aterm は撤去。router-01 は停止、自動起動なし。
 - 2026-10-14: 宅外から Tailscale でサービスへ届かない不具合を修正。MLO、WPS 無効化、IPsec の初期ルール削除、開発用 VM → 個人端末の許可。
+- 2026-10-14: ECM（ハードウェアオフロード）の IPv4 を止めた（jumpluff の家電がインターネットへ出られなかった）。設定を毎日 K11 へ取る `flint3-backup.timer`。
+- 2026-10-15: DMZ（VLAN 30、LAN4 専用・LAN2 にタグ付き）を作成。そのときの読み込み直しで Tailscale の経路が消え、`95-shakecloud-tailscale-routes` を足した。syslog を tarakoserver の Loki へ送る。

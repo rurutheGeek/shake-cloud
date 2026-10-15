@@ -14,7 +14,7 @@ tags:
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
-**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（apps-01。2026-10-03にservices-01から移設）と、Nextcloud・Kavita・Navidrome（media-01）、監視（monitor-01）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
+**状態**: 配置方針とI01・I02の実施記録を併記した資料。Homarr・Vaultwarden・Home Assistant（apps-01。2026-10-03にservices-01から移設）と、Nextcloud・Kavita・Navidrome（media-01）、監視（tarakoserver、Raspberry Pi 4）、CUPS印刷・LocalSend受信機は配備済みで、既存環境からのメディアデータ移行とVPNは未完了。実機の状態は[配備台帳](../operations/handover.md)、個別作業の仕様と進捗は[並列開発計画](../development/index.md)を正とします。
 
 <a id="resource-budget"></a>
 ## VMと初期リソース配分
@@ -24,7 +24,7 @@ tags:
 | 配置 | vCPU / RAMの計画値 | ディスク | 機能・起動方針 |
 | --- | --- | --- | --- |
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
-| router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **家庭内ルータ（OpenWrt）。** WAN=vmbr1 / LAN=vmbr0、AdGuard Home（DNS）と dnsmasq（DHCP）。起動順1・常時（[router-01](../operations/router.md)） |
+| router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **旧家庭内ルータ（OpenWrt）。停止中・自動起動なし**（2026-10-14 に Flint 3 へ切替。2026-10-28 以降に削除） |
 | core-01（150。旧services-01） | 2 / 4.5GiB（固定。2026-10-11 に実測（最大約3.8GiB）へ合わせて 6→4.5GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
 | apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
 | cloud-01（140） | 2 / 1GiB（固定。2026-10-11 に実測（最大約0.67GiB）へ合わせて 2→1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |
@@ -33,11 +33,11 @@ tags:
 | k8s-worker-02（211） | 4 / 8GiB（固定） | OS32＋データ48GiB | 停止中。起動・joinは必要量から判断 |
 | game1（100、cloudプール） | 8 / 現行12GiB、同居負荷を測って16GiB候補 | 現行維持。AIデータ・モデル・ROM容量を実測 | ゲーム・RomM・Ollama・ポケモンAI・汎用RAG・Bot。VM停止中は一式停止 |
 | media-01（cloud VM、作成済み） | 4 / 6GiB | OS32＋データ64GiB | Nextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend受信機と各依存DB。機能群をVM単位で停止 |
-| monitor-01（基盤VM、120、192.168.10.210） | 2 / 3GiB（下限2GiB。2026-10-11 に 2→3GiB） | 48GiB | Prometheus・Alertmanager・Grafana・exporter（M01）。時系列は `/srv/monitoring`（OSと同じディスク）。常時 |
+| （monitor-01 は 2026-10-15 に廃止） | — | — | 監視は K11 の外の tarakoserver（Raspberry Pi 4）へ移した |
 | dev-01 / dev-02（400 / 401） | 各2 / 各6GiB（下限2GiB、2026-09-12の実測に同期） | 各40GiB（宣言値） | 既存の作業VM。利用者と調整して停止 |
 | probe-01（900） | 2 / 2GiB（宣言値） | 32GiB | 既存の検証VM。未使用時は停止対象 |
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
-| （net-01は2026-10-03に削除） | — | — | Tailscale subnet router（宅外からの復旧経路）は router-01（OpenWrt）の上で動く。**K11上のVMなので、K11そのものの停止はカバーしない** |
+| （net-01は2026-10-03に削除） | — | — | Tailscale subnet router は Flint 3 の上で動く（K11 の停止もカバーする） |
 
 上表は同時稼働を保証する合計ではありません。常用基盤（旧構成のservices-01、identity、cloud-01、storage-s3、cp、worker-01。現在はcore-01・cloud-01に統合）だけでも計画値で22GiBでした。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
 
@@ -132,7 +132,7 @@ Docker・ゲーム・開発の停止単位にはVMを使います。GPUはgame1�
 - FluxでHelm/Kustomizeを反映し、SOPSでSecretを暗号化する。
 - requests、必要なlimits、readiness/startup/liveness probe、NetworkPolicyを設定する。
 - AWXはAnsibleの実行基盤として使うが、クラスタ自身の復旧は管理PCから実行できるようにする。
-- 監視はmonitor-01（基盤VM）へPrometheus・Alertmanager・Grafana・exporterを配備済み（M01）。外部公開せず、保持期間と容量を抑える。DNSはrouter-01のAdGuard Home、宅外からの復旧経路はrouter-01上のTailscale subnet routerが担う。
+- 監視は tarakoserver（Raspberry Pi 4）で Prometheus・Alertmanager・Grafana・Loki・exporter を動かす（M01）。外部公開せず、保持期間と容量を抑える。DNSは Flint 3 の AdGuard Home、宅外からの経路は Flint 3 上の Tailscale subnet router が担う。
 
 control plane 1台は、その停止中に新規配置・再配置・設定変更ができなくなる設計です。既存Podは動き続ける場合がありますが、正常性はアプリと障害内容に依存します。VMが3台でも物理ホスト・SSDは1つです。今回のVM追加で物理障害への冗長性が増えるとは扱いません。[kubeadm HA](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/high-availability/)
 
@@ -157,12 +157,12 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | Authentikと専用DB | core-01 | 現行構成を維持。アプリごとの認証統合は各計画で確認 |
 | Garage | cloud-01 | メタデータとオブジェクト。O03 |
 | Home Assistant、SwitchBot Cloud、Eufy中継 | apps-01 | 配備済み（2026-09-12）。HAはAuthentik OIDCと緊急用ローカルオーナーを併用。構成・履歴・鍵を独立保存。H01・H02・H04（H03 Echoは見送り） |
-| Prometheus・Alertmanager・Grafana・exporter | monitor-01 | 配備済み（2026-09-13、M01）。時系列は専用データディスク。Homarr連携・低電池シャットダウンはM01の残作業 |
+| Prometheus・Alertmanager・Grafana・Loki・exporter | tarakoserver（Raspberry Pi 4） | 2026-10-15 に monitor-01 から移設。時系列とログは HDD、毎日 K11 へ写す |
 | CUPS・印刷API | apps-01 | 配備済み（D08）。キュー `ts8430`、印刷先は `192.168.10.105:631`。Nextcloud印刷アプリはmedia-01。ブラウザー操作は未確認 |
 | セルフホストVPN | core-01 | 別ComposeでDB・設定・鍵を保存。N01 |
 | 公開Caddy | public-edge（条件成立後） | 設定・証明書状態。N04 |
-| AdGuard Home・dnsmasq（DNS・DHCP） | router-01（OpenWrt VM） | 配備済み（2026-09-20、N06）。設定の正本は `platform/openwrt/`。[AdGuard Home](../operations/adguard.md)・[router-01](../operations/router.md) |
-| 復旧用Tailscale | router-01（OpenWrt VM上） | 配備済み（2026-09-14にnet-01へ、2026-10-03にrouter-01上へ移設。N02）。宅外検証が未了。[Tailscale subnet router](../operations/net.md) |
+| AdGuard Home・dnsmasq（DNS・DHCP） | Flint 3 | 2026-10-14 に router-01 から移行。設定の正本は `platform/flint3/`。[AdGuard Home](../operations/adguard.md)・[Flint 3](../operations/flint3.md) |
+| 復旧用Tailscale | Flint 3 | 2026-10-14 に router-01 から移設。[Tailscale subnet router](../operations/net.md) |
 | LibreSpeed（速度テスト） | apps-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
 | ポケモン翻訳 | apps-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
 | 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
@@ -232,7 +232,7 @@ RAGはOpen WebUI + pgvectorから開始します。Nextcloudの文書権限がRA
 - Nextcloud: DB・設定・ファイルの整合性を揃える。
 - SQLite・ゲームセーブ: 書き込みを止めるか、アプリ／DBの整合性を保つ方法を使う。
 - Garage: メタデータとオブジェクトを含む復旧可能なバックアップ。格納先のS3自身を唯一のバックアップにしない。
-- monitor-01: Prometheusの時系列とGrafanaの宣言・秘密値。時系列は復旧の必須条件にしない。
+- tarakoserver: Prometheusの時系列・Loki のログとGrafanaの宣言・秘密値。時系列は復旧の必須条件にしない。
 - etcd: スナップショットと復旧手順。Gitからの再構築ではSecret・PVCデータを別途戻す。
 - Secret: SOPS復号鍵、API資格情報、認証基盤の鍵は管理PCと外部コピーへ保持する。
 

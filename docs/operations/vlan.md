@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 個人端末（Wi-Fi `ditto` と Flint 3 の LAN3）とネット専用（Wi-Fi `jumpluff`）を実機で分離済み（2026-10-14）。DMZ は未作成、管理は予約のみ。実機の設定は [Flint 3](flint3.md)。
+**状態**: 個人端末（Wi-Fi `ditto` と Flint 3 の LAN3）とネット専用（Wi-Fi `jumpluff`）を実機で分離済み（2026-10-14）。DMZ は Flint 3 側を作成済み（2026-10-15、LAN4 は DMZ 専用）。shakeserver の LAN4 へのつなぎ替えと、K11 の VLAN 対応（DMZ の VM 用）は未。管理は予約のみ。実機の設定は [Flint 3](flint3.md)。
 
 ## 区画
 
@@ -22,7 +22,7 @@ tags:
 | --- | --- | --- | --- | --- |
 | 10 | サーバー | `192.168.10.0/24`（現行のまま） | apextox、基盤VM、利用者VM、Raspberry Pi 2台 | タグなし |
 | 20 | 管理（予約） | `192.168.20.0/24` | 当面は作らない | — |
-| 30 | DMZ | `192.168.30.0/24` | 外部公開VM（web-01） | タグ付き |
+| 30 | DMZ | `192.168.30.0/24` | shakeserver（Raspberry Pi 5、LAN4。Minecraft など）、DMZ の VM（K11 の VLAN 対応のあと） | タグ付き |
 | 40 | 個人端末 | `192.168.40.0/24` | デスクトップ（Flint 3 の LAN3）、ノートPC、スマホ（SSID `ditto-…`） | 通さない |
 | 50 | ネット専用 | `192.168.50.0/24` | 家電、プリンター（SSID `jumpluff-…`）。TL-SG605 の先はまだサーバーの区画 | 通さない |
 
@@ -58,14 +58,14 @@ IPv6 は `/64` が1つしか来ないため、サーバー区画だけへ中継�
 
 | 順 | 作業 | 切れるもの |
 | --- | --- | --- |
-| 1 | `platform/flint3/deploy.sh 192.168.10.1` のあと `ssh root@192.168.10.1 /etc/shakecloud/apply-dmz` | 有線・無線が数十秒 |
+| 1 | `ssh root@192.168.10.1 /etc/shakecloud/apply-dmz`（2026-10-15 に実施済み） | 有線・無線が数十秒。Tailscale の経路も約20秒消える |
 | 2 | K11 で `sh pve-vlan-aware.sh apply`（`tools/pve-vlan-aware.sh` を置いて実行）。SSH と VM の通信を確かめて `confirm`。しなければ 10 分で元に戻る | 失敗すると K11 上の全 VM |
 | 3 | `python3 tools/site-yaml.py --api` で `bridge_vlan_aware: true` にし、`platform/ansible/cloud.yml` で API を配備し直す | API が数秒 |
 | 4 | `tools/tf services/pentest apply`（`subnet_id = subnet-dmz`） | なし |
 | 5 | pentest-01 で `sudo sh check-segments.sh` | なし |
 | 6 | Flint 3 の `/etc/shakecloud/dmz-db-clients` に pentest-01 のアドレスを書いて `apply-dmz`、`sudo sh check-segments.sh --db`。終わったら消して `apply-dmz` | なし |
 
-- `apply-dmz` は LAN2（K11）へ VLAN 30 をタグ付きで足す。サーバーの区画はタグ無しのまま。
+- `apply-dmz` は LAN4 を DMZ 専用（タグ無し）にし、LAN2（K11）へ VLAN 30 をタグ付きで足す。サーバーの区画はタグ無しのまま。shakeserver は LAN4 につなげば DMZ（`192.168.30.12`）に入る（K11 の VLAN 対応は要らない）。
 - DMZ → サーバーは `dmz-db-clients` に書いたアドレスから pkdb（`192.168.10.105:5432`）だけ。ファイルが無ければ何も通さない。web 公開用の VM を DMZ に置いたら、そのアドレスを書く。
 - サーバー → DMZ は許可（配備の SSH・監視）。
 - pentest-01 は 1 vCPU・512MiB。外向きの SG は全許可のまま（侵害された VM の立場）。

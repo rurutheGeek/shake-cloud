@@ -64,7 +64,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ## 守り（外部公開の前提・2026-10-05 に強化）
 
-- セキュリティグループは既定で拒否。許可は LAN から 22、入口（core-01）と公開中継（negitoroserver）から 80/443、monitor-01 から 9100 だけ。LAN の dev-02 から 80/443/8443/3000/8010/9100 が閉じていることを実測した。
+- セキュリティグループは既定で拒否。許可は LAN から 22、入口（core-01）と公開中継（negitoroserver）から 80/443、tarakoserver（監視）から 9100 だけ。LAN の dev-02 から 80/443/8443/3000/8010/9100 が閉じていることを実測した。
 - SSH は鍵のみ（`PasswordAuthentication no`・`KbdInteractiveAuthentication no`・root は `without-password`）。`unattended-upgrades` は有効。
 - nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
 - Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
@@ -93,14 +93,13 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 - Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
-## 外からの監視（たらこサーバ）
+## 外からの監視（negitoroserver）
 
-ミニPC（K11）が落ちても気づけるよう、**たらこサーバ（Pi 4）** が外から見張る。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに次を確認し、**状態が変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`）。
+家の回線や K11 が落ちても気づけるよう、**家の外にある negitoroserver（zero2w、公開の入口）** が外から見張る（2026-10-14 に tarakoserver から移した）。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに公開サイト（`shake`・`pkhack`・`ayahuya`・ルート）を確認し、**状態が変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`）。
 
-- 公開サイト: `shake`・`pkhack`・`ayahuya`・ルート
-- 監視の入口: `grafana.apextox.dpdns.org`（monitor-01）
+家の中の名前（`grafana` など）は見ない（`public_monitor_check_internal: false`。入口は Tailscale の制限で家の中へ入れない）。状態は SD カードではなくメモリの `/run/public-monitor/` に置く。
 
-コードとユーザーは [配備台帳](handover.md) を参照。状態はたらこサーバの `/var/lib/public-monitor/` に残る。
+入口の nginx（443 を TLS のまま中継、PROXY protocol）と sslh（80）は `platform/ansible/relay.yml`（ロール `relay`）で配る（2026-10-14 に shake-infra から取り込んだ）。
 
 ## 検証
 

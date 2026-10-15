@@ -1,44 +1,40 @@
 flowchart TB
   internet["インターネット<br/>IPv6（v6プラス・MAP-E）・IPv4"]
   onu["ONU"]
-  remote["宅外の端末<br/>（Tailscale・router-01 経由）"]
+  remote["宅外の端末<br/>（Tailscale・Flint 3 経由）"]
+  relay["negitoroserver（Pi Zero 2 W・家の外）<br/>公開の入口・外からの監視"]
+  router["Flint 3（GL-BE9300）<br/>ルータ・DHCP・DNS・区画・Wi-Fi・Tailscale"]
 
   subgraph host["物理ホスト apextox（K11 / Proxmox VE）"]
-    subgraph netvm["ネットワークVM（platform）"]
-      router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS・NDP代理"]
-    end
     subgraph infra["基盤VM（platform）"]
       core01["core-01<br/>Authentik・NetBox・Caddy（HTTPSの入口）"]
       cloud01["cloud-01<br/>自作クラウド API・管理DB<br/>Garage（S3）"]
-      monitor["monitor-01<br/>Prometheus・Grafana・監視"]
       k8s["k8s-cp / worker<br/>AWX・CloudNativePG・Knative"]
     end
     subgraph svcpool["サービスVM（cloud）"]
       media["media-01<br/>Nextcloud・Kavita・Navidrome・FreshRSS"]
       apps["apps-01<br/>docs・Homarr・Vaultwarden<br/>家電・CUPS・LibreSpeed"]
-      game["game1<br/>Wolf・RomM・AI（GPU）"]
+      web["web-01<br/>公開サイト"]
+      game["game-01<br/>ゲーム（GPU）"]
     end
     subgraph devpool["開発・検証VM（dev / lab）"]
-      dev["dev-a / dev-b<br/>Terraform・Docker・Go"]
+      dev["dev-01 / dev-02<br/>Terraform・Docker・Go"]
       probe["probe-01<br/>復元ドリル（停止中）"]
     end
   end
-  switch["TL-SG605"]
-  aterm["Aterm（APモード・Wi-Fi）"]
+  taraco["tarakoserver（Pi 4）<br/>Prometheus・Grafana・Loki・ネットワーク図"]
+  shake["shakeserver（Pi 5・DMZ）<br/>Minecraft"]
 
   internet --> onu --> router
-  router --> switch
-  switch --> aterm
-  switch --> core01
-  switch --> apps
-  switch --> media
-  switch --> monitor
-  switch --> game
-  switch --> dev
+  router --> host
+  router --> taraco
+  router --> shake
   remote -. Tailscale .-> router
+  internet --> relay
+  relay -. "Tailscale（80/443）" .-> web
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
   core01 --> apps
   core01 --> media
-  media --> cloud01
-  monitor --> k8s
-  router -. "IP台帳（予約・リース）" .-> core01
+  core01 --> taraco
+  taraco -. "監視" .-> host
+  router -. "IP台帳（予約）" .-> core01

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-[構成案トップ](index.md)へ戻る。**2026-09-20 にルータを自作（`router-01`・K11 上の OpenWrt VM）へ切り替え、DNS は AdGuard Home ＋ dnsmasq になりました。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
+[構成案トップ](index.md)へ戻る。**2026-10-14 にルータを Flint 3（GL-BE9300）へ切り替えました（2026-09-20〜10-14 は K11 上の OpenWrt VM `router-01`）。DNS は Flint 3 上の AdGuard Home ＋ dnsmasq です。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[Flint 3](../operations/flint3.md)（旧ルータは[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
 
 ## 全体図
 
@@ -22,8 +22,8 @@ tags:
 
 | 帯 | 用途 |
 | --- | --- |
-| `192.168.10.1` | router-01（ゲートウェイ・DNS・DHCP） |
-| `.2`〜`.19` | 機器帯（Aterm `.2`・プリンタ `.3`・Proxmox `.10`・Pi `.11`/`.12`。NetBox の予約） |
+| `192.168.10.1` | Flint 3（ゲートウェイ・DNS・DHCP）。ほかの区画のゲートウェイは `192.168.30.1`（DMZ）・`.40.1`（個人端末）・`.50.1`（ネット専用） |
+| `.2`〜`.19` | 機器帯（Proxmox `.10`・tarakoserver `.11`。NetBox の予約。プリンタ・家電はネット専用の区画、shakeserver は DMZ `192.168.30.12`） |
 | `.20`〜`.99` | DHCP プール（dnsmasq。静的端末も reserved で予約して衝突を防ぐ） |
 | `.100`〜`.180` | cloud プールのVM（クラウドAPIが採番） |
 | `.201`〜`.239` | 管理（Terraform・NetBox） |
@@ -33,23 +33,23 @@ tags:
 
 ## 既存機器の使い方
 
-新規ネットワーク機器の購入は前提にしません。**ルータは K11 上の OpenWrt VM `router-01` として自作し、2026-09-20 に切替済み**です（[N06](../development/N06-router.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605、宅外の復旧経路は router-01（OpenWrt）上の Tailscale subnet router です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
+新規ネットワーク機器の購入は前提にしません。**ルータは Flint 3（2026-10-14 に K11 上の OpenWrt VM `router-01` から切替）**です。Wi-Fi も Flint 3（Aterm は撤去）、スイッチは既存の TL-SG605、宅外の経路は Flint 3 上の Tailscale subnet router です。製品比較・併用・スマホの制約は[VPN選定](vpn.md)を参照してください。
 
 ### VPNの置き場所と選択肢
 
-**宅外から戻る経路は router-01（OpenWrt）上の Tailscale subnet router** に置いています（[Tailscale subnet router](../operations/net.md)）。K11 の外に出られないため、K11 が止まると使えません（当初はラズパイを想定していましたが導入せず、まず cloud VM `net-01` に置き、2026-10-03 に net-01 を廃止して router-01 の上へ移しました）。
+**宅外から戻る経路は Flint 3 上の Tailscale subnet router** に置いています（[Tailscale subnet router](../operations/net.md)）。K11 の外なので、K11 が止まっても使えます（経緯: cloud VM `net-01` → 2026-10-03 に router-01 → 2026-10-14 に Flint 3）。
 
 | 配置 | 向いている用途 | 制約 |
 | --- | --- | --- |
-| router-01（Tailscale subnet router） | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | OpenWrt上で動く。K11 停止時は Tailscale の別経路（スマホ等）が必要 |
+| Flint 3（Tailscale subnet router） | Proxmox GUIなど、VPNクライアントを持たないLAN機器への管理経路 | サーバーと個人端末の区画を流す。K11 が止まっても使える |
 | 各VMにTailscaleを直接導入 | game1の映像通信、開発VMへのSSH | 対象VM停止中は接続できない。台数ごとの管理が必要 |
 | セルフホストVPN（N01で継続検討） | 常用アクセス | 認証基盤と同じVMに置くと、その停止で両方止まる |
 
-宅内で遊ぶときはLAN直結を優先し、全インターネット通信を router-01 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
+宅内で遊ぶときはLAN直結を優先し、全インターネット通信を Flint 3 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
 
-**DNS（AdGuard Home）は router-01 に置いています。** ルータが落ちると名前解決も止まるため、Aterm をコールドスペアとして残し、復旧手順を[router-01](../operations/router.md)に用意しています。K11 停止中に DNS を残す案（別VM）は今後の検討です。
+**DNS（AdGuard Home）は Flint 3 に置いています。** ルータが落ちると名前解決も止まります。切り戻し先として router-01（K11 上、停止中）を 2026-10-28 まで残しています。
 
-**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](../development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
+（経緯）**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](../development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
 
 ## 分離するネットワーク
 
@@ -90,8 +90,8 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `docs.apextox.dpdns.org` | ドキュメントサイト（apps-01） |
 | `cups.apextox.dpdns.org` | CUPSの印刷状況（apps-01。`/admin` は入口で403） |
 | `mail-view.apextox.dpdns.org` | メールビューア（apps-01。通知メールを読み取り専用表示。Forward Auth） |
-| `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（router-01。SSO。ルータの `:3000` は core-01 だけに許可） |
-| `router.apextox.dpdns.org` | router-01 の管理画面（LuCI）。**SSO なし**（復旧経路。Authentik が止まっていても開ける。認証は LuCI 自身の root パスワード） |
+| `adguard.apextox.dpdns.org` | AdGuard Home の管理画面（Flint 3。SSO。ただし GL.iNet のログインも要る） |
+| `router.apextox.dpdns.org` | Flint 3 の管理画面（GL.iNet）。**SSO なし**（復旧経路。Authentik が止まっていても開ける。認証は GL.iNet の管理者パスワード） |
 | `nextcloud.apextox.dpdns.org` | Nextcloud（media-01） |
 | `kavita.apextox.dpdns.org` | Kavita（media-01） |
 | `navidrome.apextox.dpdns.org` | Navidrome（media-01。Forward Auth） |
@@ -99,7 +99,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `metube.apextox.dpdns.org` | MeTube（media-01。Forward Auth） |
 | `khinsider.apextox.dpdns.org` | KHInsiderのアルバム一括ダウンロード（media-01。Forward Auth） |
 | `freshrss.apextox.dpdns.org` | FreshRSS（media-01。OIDC） |
-| `grafana.apextox.dpdns.org` | Grafana（monitor-01） |
+| `grafana.apextox.dpdns.org` | Grafana（tarakoserver） |
 | `peanut.apextox.dpdns.org` | PeaNUT（UPSのREST。Homarrのウィジェット用） |
 | `localsend.apextox.dpdns.org` | LocalSend受信機（media-01。Caddyを通さず53317/tcp） |
 | `pve.apextox.dpdns.org` | Proxmox（ポート 8006。Let's Encrypt） |
@@ -108,7 +108,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 
 - **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
 - **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
-- **入口と証明書:** HTTPSの入口は core-01 の Caddy 1台です。上の表の名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書は Caddy が Let's Encrypt から DNS-01 で取ります。AdGuard とルータの管理画面も同じ Caddy が受けて、ルータの `192.168.10.1` へ中継します（ルータのファイアウォールで core-01 だけに許可）。
+- **入口と証明書:** HTTPSの入口は core-01 の Caddy 1台です。上の表の名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。証明書は Caddy が Let's Encrypt から DNS-01 で取ります。AdGuard とルータの管理画面も同じ Caddy が受けて、ルータの `192.168.10.1` へ中継します（ルータのファイアウォールで core-01 だけに許可）。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。core-01 が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
 `home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるためです。

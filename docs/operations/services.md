@@ -18,14 +18,14 @@ tags:
 
 **これからのホームラボのサービスは、原則としてクラウドVM（`cloud` プール、VMID 5000–5999）に作ります。** サービスのコードは Git に置き、VM はクラウドAPI（Terraform Provider）で作り、中身は Compose か Kubernetes へ配ります。
 
-例外は**基盤そのもの**です。core-01（Authentik・NetBox・入口の Caddy）、cloud-01（クラウドAPI・管理DB・Garage）、monitor-01（監視。クラウドが壊れたときに原因を見る道具なので基盤側）、router-01、Kubernetes の各ノードは `platform` プールの基盤VMで、Terraform `10-platform`（core-01 は `05-seed` + 台帳）が作ります。**基盤をクラウドAPIで作ると、「APIを載せる前にAPIが要る」循環になります。** 所有境界は[IaCの所有境界](../architecture/iac.md)を正とします。
+例外は**基盤そのもの**です。core-01（Authentik・NetBox・入口の Caddy）、cloud-01（クラウドAPI・管理DB・Garage）、Kubernetes の各ノードは `platform` プールの基盤VMで、Terraform `10-platform`（core-01 は `05-seed` + 台帳）が作ります。監視は K11 の外の物理機 tarakoserver（Raspberry Pi 4）、ルータは Flint 3 で、どちらも VM ではありません（Ansible の `monitoring` グループは台帳の機器のタグで決まる）。**基盤をクラウドAPIで作ると、「APIを載せる前にAPIが要る」循環になります。** 所有境界は[IaCの所有境界](../architecture/iac.md)を正とします。
 
 **配置は停止単位と運用上の利点で決めます。** 既存KubernetesのAWX・DB提供（CloudNativePG）・関数提供（Knative）は維持します。Homarr・Vaultwardenを単に小さいWebアプリだからKubernetesへ移すことはしません。
 
 - core-01 には NetBox・入口の Caddy・Authentik を残し、その他の常用サービスは apps-01（クラウドVM）へ置きます。apps-01 には Home Assistant Container・eufy-security-ws（HAとは別Compose）・eufy-leo-rtc・Homarr・Vaultwarden・CUPS・メールビューア・ドキュメントサイト・LibreSpeed・ポケモン翻訳・ポケモン系のPostgreSQL（[pkdb](pkdb.md)）・Discord Bot（[UBSLEEPY](ubsleepy.md)）を別Composeで置きます。**2026-10-03 に services-01 から移設済みで、配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>` です**（VPNは未配備）。
 - game1にはゲームとAI一式（ポケモン・汎用RAG・Discord Bot）をまとめます。ポケモン系のPostgreSQLだけは常時つなぐため apps-01 に置きます。既存VMはcloud APIの所有を維持し、停止中は全機能が停止します。
 - media-01は新規cloud VMにNextcloud・Calendar・Tasks・Kavita・Navidrome・FreshRSS・MeTube・タグAPI・LocalSend・Nextcloud印刷を載せます。機能群の停止・再開をVM単位で行います。**2026-09-12に配備済みで、既存環境からのデータ移行が未完です。**FreshRSSは全員で1つの購読リストを共有する共通RSSタイムラインです。RomMはゲームVM（game1）へ載せ、メディアの機能群とは分けます。
-- monitor-01は基盤VM（VMID 120、`192.168.10.210`）で、Prometheus・Alertmanager・Grafana・各exporter（監視一式、M01）を載せます。**2026-10-03 にクラウドVMから基盤VMへ移し、Grafanaは `https://grafana.apextox.dpdns.org`（core-01 の Authentik OIDC）。**残りはHomarrの Proxmox/PeaNUT 連携、低電池シャットダウン、ダッシュボード拡充です。
+- 監視（Prometheus・Alertmanager・Grafana・Loki・Alloy・PeaNUT・exporter、M01）は tarakoserver（Raspberry Pi 4、`192.168.10.11`）に置きます。K11 が落ちても原因を見られるよう、K11 の外にしています。2026-10-14〜15 に monitor-01（基盤VM）から移し、monitor-01 は廃止しました。Grafana は `https://grafana.apextox.dpdns.org`（core-01 の Authentik OIDC）。詳しくは[監視](monitoring.md)。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
 スペック案・独立した作業ID・依存関係は[並列開発計画](../development/index.md)を参照してください。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
@@ -229,7 +229,7 @@ terraform -chdir=platform/terraform/services/<name> apply
 
 | 対象 | NetBoxへ載せるもの | グループの決まり方 |
 | --- | --- | --- |
-| 基盤VM（cloud-01・monitor-01・k8s・dev など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
+| 基盤VM（cloud-01・k8s・dev など） | `10-platform`（`hosts.yaml`） | `hosts.yaml` の `tags` |
 | core-01 | `10-platform`（VM本体は `05-seed`。台帳の器だけ足す） | タグ `core` と `identity`（`identity_provider` グループ） |
 | クラウドAPIが作ったVM（media-01・apps-01 など） | **クラウドAPI自身**（VMの状態が変わったらすぐ同期。取りこぼし対策に15分ごとにも見比べる） | `cloud.yaml` の `ledger.tags_by_name`（VM名→タグ） |
 

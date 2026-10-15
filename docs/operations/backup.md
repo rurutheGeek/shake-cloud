@@ -24,10 +24,10 @@ tags:
 | 1 | 140 cloud-01 | ~7G（Garage統合前の実測値） | 管理DB（VM・ボリューム・SG・鍵の台帳）、GarageのS3データ |
 | 1 | 150 core-01 | ~15G（identity統合前の実測値） | Authentikのユーザー・パスキー設定、NetBox台帳 |
 | 1 | 5005 apps-01 | 未計測 | Home Assistant設定・履歴、Vaultwarden、各アプリのデータ、ポケモン系のPostgreSQL（[pkdb](pkdb.md)。日次ダンプも同じディスク）、Discord Bot のセーブデータ（[UBSLEEPY](ubsleepy.md)） |
-| 1 | 101 router-01 | ~0.2G | ルータ設定 |
+| — | 101 router-01 | ~0.2G | 停止中（ルータは Flint 3 へ移行。2026-10-28 以降に削除）。Flint 3 の設定は K11 の `flint3-backup.timer` が毎日 `/root/flint3-backups` と git（`/root/flint3-config`）へ取る |
 | 1 | 5001 media-01 | ~40G | Nextcloud DB・設定（ライブラリ原本はHDD側） |
 | 1 | 401 dev-02 | ~18G | SSH鍵・SOPS age鍵・未コミットの作業 |
-| 1 | 120 monitor-01 | 未計測（旧クラウドVM時代は ~11G） | 監視履歴（再生成不可。必須度は中） |
+| 1 | 監視（tarakoserver） | ~0.6G（圧縮後） | 監視履歴とGrafana。VMではないので vzdump の外。`monitoring_backup` が毎日 `/srv/bulk/backups/monitoring` へ14日分（monitor-01 は 2026-10-15 に廃止。最後の vzdump は 2026-10-11） |
 | 1 | game1 のセーブ | 数G | `/home` 全体（~237G）は取らず、セーブだけ別途 |
 | 2 | k8s 200/210/211 | ほぼ0 | Fluxで再構築可。PVCの中身は別途確認 |
 | 2 | 100 game1 全体 | ~237G | ゲーム・モデルが大半。丸ごとは取らない |
