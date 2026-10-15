@@ -114,6 +114,30 @@ groups:
           summary: "管理DBバックアップが36時間以上成功していない"
           description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
 
+      # K11 の shakecloud-backup-status.timer が、週次の VM・監視の履歴・Flint 3 の設定の
+      # 最後の成功時刻と、許す古さを出す（roles/pve_node_exporter/files/backup-status.py）。
+      - alert: BackupLate
+        expr: >-
+          time() - shakecloud_backup_last_success_timestamp_seconds
+          > on(kind, target) shakecloud_backup_max_age_seconds
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          panel: "バックアップの遅れ"
+          summary: "{{ $labels.target }}（{{ $labels.kind }}）のバックアップが遅れている"
+          description: "K11 の /srv/bulk/backups と、ジョブ・timer の失敗を確認してください。"
+
+      - alert: BackupStatusMissing
+        expr: absent(shakecloud_backup_last_success_timestamp_seconds)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          panel: "バックアップ状況が読めない"
+          summary: "K11 からバックアップの状況が届かない"
+          description: "K11 の shakecloud-backup-status.timer と node_exporter を確認してください。"
+
   - name: router
     rules:
       # tarakoserver の netmap-router-check.timer が、Flint 3 を apply-segments と見比べる。

@@ -1,0 +1,27 @@
+#!/bin/sh
+# 区画ごとの機器の数（近隣表）と、SSID ごとの接続台数を node_exporter の textfile へ書く。
+# cron が 1 分ごとに流す（install-node-exporter が入れる）。
+set -eu
+
+out=/var/prometheus/shakecloud.prom
+mkdir -p /var/prometheus
+tmp="$out.tmp"
+
+{
+	echo '# TYPE shakecloud_segment_devices gauge'
+	for pair in server:br-lan dmz:eth1.30 personal:br-personal iot:br-iot guest:br-guest; do
+		segment="${pair%%:*}"
+		dev="${pair#*:}"
+		ip link show "$dev" >/dev/null 2>&1 || continue
+		# IPv4 の近隣だけ数える（IPv6 は 1 台が複数のアドレスを持つ）。
+		n=$(ip -4 neigh show dev "$dev" | grep -c -E 'REACHABLE|STALE|DELAY|PROBE' || true)
+		echo "shakecloud_segment_devices{segment=\"$segment\"} $n"
+	done
+	echo '# TYPE shakecloud_wifi_stations gauge'
+	for w in $(iwinfo | awk '/ESSID: "/ {print $1}'); do
+		ssid=$(iwinfo "$w" info | sed -n 's/.*ESSID: "\(.*\)".*/\1/p')
+		n=$(iwinfo "$w" assoclist | grep -c dBm || true)
+		echo "shakecloud_wifi_stations{ssid=\"${ssid%%-*}\",ifname=\"$w\"} $n"
+	done
+} >"$tmp"
+mv "$tmp" "$out"

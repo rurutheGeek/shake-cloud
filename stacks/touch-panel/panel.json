@@ -9,7 +9,22 @@
   "disk_alerts": "^(Smart|Bulk|Nvme|NodeFilesystem|ProxmoxNodeDisk)",
   "aliases": {
     "apextox": "K11",
-    "GL-BE9300": "Flint 3"
+    "GL-BE9300": "Flint 3",
+    "cloud-db": "管理DB",
+    "server": "サーバー",
+    "dmz": "DMZ",
+    "personal": "個人",
+    "iot": "IoT",
+    "guest": "ゲスト",
+    "ditto": "ditto",
+    "jumpluff": "jumpluff",
+    "porygon": "porygon",
+    "K11:/": "NVMe システム",
+    "K11:local-lvm": "NVMe VM ディスク",
+    "K11:/srv/bulk": "6TB HDD",
+    "tarakoserver:/": "SD カード",
+    "tarakoserver:/srv": "1TB HDD",
+    "shakeserver:/": "NVMe"
   },
   "queries": {
     "services": "probe_success{group!=\"k8s\"}",
@@ -28,6 +43,27 @@
     "host_disk": "1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}",
     "vm_cpu": "pve_cpu_usage_ratio{id=~\"qemu/.+\"} * on(id) group_left(name) pve_guest_info",
     "vm_mem": "pve_memory_usage_bytes{id=~\"qemu/.+\"} / pve_memory_size_bytes * on(id) group_left(name) pve_guest_info",
-    "host_temp": "max by (instance) (node_thermal_zone_temp or node_hwmon_temp_celsius{chip!~\"nvme.*|i2c.*|ieee80211.*\"})"
-  }
+    "host_temp": "max by (instance) (node_thermal_zone_temp or node_hwmon_temp_celsius{chip!~\"nvme.*|i2c.*|ieee80211.*\"})",
+    "backup_age": "time() - shakecloud_backup_last_success_timestamp_seconds",
+    "backup_max": "shakecloud_backup_max_age_seconds",
+    "cloud_backup_age": "time() - backup_last_success_timestamp_seconds",
+    "fs_size": "node_filesystem_size_bytes{fstype=~\"ext4|xfs|btrfs\"}",
+    "fs_avail": "node_filesystem_avail_bytes{fstype=~\"ext4|xfs|btrfs\"}",
+    "smart_healthy": "smartmon_device_smart_healthy",
+    "smart_temp": "smartmon_temperature_celsius_raw_value",
+    "pve_storage_size": "pve_disk_size_bytes{id=\"storage/apextox/local-lvm\"}",
+    "pve_storage_used": "pve_disk_usage_bytes{id=\"storage/apextox/local-lvm\"}",
+    "ups_load_today": "avg_over_time(network_ups_tools_ups_load[{since}])",
+    "ups_load_week": "avg_over_time(network_ups_tools_ups_load[7d])",
+    "wan_rx": "rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m]) * 8",
+    "wan_tx": "rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m]) * 8",
+    "wan_rx_max": "max_over_time(rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m])[24h:1m]) * 8",
+    "wan_tx_max": "max_over_time(rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m])[24h:1m]) * 8",
+    "wan_rx_today": "increase(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[{since}])",
+    "wan_tx_today": "increase(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[{since}])",
+    "wifi": "sum by (ssid) (shakecloud_wifi_stations)",
+    "segments": "shakecloud_segment_devices"
+  },
+  "ups_watts": 780,
+  "yen_per_kwh": 29.8
 }

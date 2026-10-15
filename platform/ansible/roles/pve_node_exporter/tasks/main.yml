@@ -46,3 +46,53 @@
     name: prometheus-node-exporter-nvme.service
     state: started
   when: not pve_node_exporter_nvme.stat.exists
+
+# バックアップの最後の成功時刻を出す（タッチパネルと BackupLate 警告が読む）。
+- name: Install the backup status collector
+  ansible.builtin.copy:
+    src: backup-status.py
+    dest: /usr/local/lib/shakecloud-backup-status.py
+    mode: '0755'
+
+- name: Install the backup status units
+  ansible.builtin.copy:
+    content: '{{ item.content }}'
+    dest: /etc/systemd/system/{{ item.name }}
+    mode: '0644'
+  loop:
+    - name: shakecloud-backup-status.service
+      content: |
+        # Ansible（pve_node_exporter）が置く。
+        [Unit]
+        Description=Publish the newest backup times for node_exporter
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/lib/shakecloud-backup-status.py {{ pve_node_exporter_textfile_dir }}
+    - name: shakecloud-backup-status.timer
+      content: |
+        # Ansible（pve_node_exporter）が置く。
+        [Unit]
+        Description=Publish the newest backup times every 15 minutes
+
+        [Timer]
+        OnBootSec=2min
+        OnUnitActiveSec=15min
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Enable the backup status timer
+  ansible.builtin.systemd:
+    name: shakecloud-backup-status.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Publish the backup status now
+  ansible.builtin.systemd:
+    name: shakecloud-backup-status.service
+    state: started
+  changed_when: false

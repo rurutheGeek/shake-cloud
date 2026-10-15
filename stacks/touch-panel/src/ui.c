@@ -29,11 +29,14 @@
 #define BLINK_MS 10000
 #define SHIFT_MS (10 * 60 * 1000)
 
-enum page { P_OVERVIEW, P_ALERTS, P_STATUS, P_POWER, P_HOSTS, P_SETTINGS, P_COUNT };
+/* 下の切り替えは P_MORE まで。それより後は「その他」から入るページ。 */
+enum page { P_OVERVIEW, P_ALERTS, P_STATUS, P_POWER, P_HOSTS, P_MORE,
+            P_BACKUP, P_STORAGE, P_NET, P_WIFI, P_SETTINGS, P_COUNT };
+#define NAV_COUNT (P_MORE + 1)
 enum kind { K_SERVICE, K_HOST, K_VM };
 enum state { S_OK, S_WARN, S_CRIT, S_STALE };
 
-static const char *PAGE_NAMES[P_COUNT] = {"概要", "警告", "死活", "電源", "ホスト", "設定"};
+static const char *PAGE_NAMES[NAV_COUNT] = {"概要", "警告", "死活", "電源", "ホスト", "その他"};
 
 static const config_t *cfg;
 static settings_t *settings;
@@ -43,7 +46,7 @@ static bool have_snap;
 
 static lv_font_t *f20, *f24, *f28, *f36, *f56, *f96;
 static lv_obj_t *root, *band, *band_icon, *band_state, *band_alert, *band_ack, *clock_label, *body, *wake;
-static lv_obj_t *nav_btn[P_COUNT], *nav_badge[P_COUNT];
+static lv_obj_t *nav_btn[NAV_COUNT], *nav_badge[NAV_COUNT];
 
 static enum page page = P_OVERVIEW;
 static int page_offset;
@@ -169,6 +172,60 @@ static void pager(lv_obj_t *parent, int pages)
     lv_obj_set_pos(l, x, GAP + h + 4);
 }
 
+/* ---------- 共通の計算と書式 ---------- */
+
+static bool backup_late(const backup_t *b)
+{
+    return b->age < 0 || (b->max_age > 0 && b->age > b->max_age);
+}
+
+static int backups_late(void)
+{
+    int n = 0;
+    for (int i = 0; i < snap.n_backups; i++) n += backup_late(&snap.backups[i]);
+    return n;
+}
+
+static double fs_used(const fs_t *f)
+{
+    return f->size > 0 && f->avail >= 0 ? 1 - f->avail / f->size : -1;
+}
+
+static enum state fs_state(const fs_t *f)
+{
+    if (f->health == 0) return S_CRIT;
+    return fs_used(f) >= 0.85 ? S_WARN : S_OK;
+}
+
+static int storage_bad(void)
+{
+    int n = 0;
+    for (int i = 0; i < snap.n_fs; i++) n += fs_state(&snap.fs[i]) != S_OK;
+    return n;
+}
+
+static void format_bytes(double b, char *out, size_t len)
+{
+    static const char *unit[] = {"B", "KB", "MB", "GB", "TB"};
+    int u = 0;
+    while (b >= 1000 && u < 4) b /= 1000, u++;
+    snprintf(out, len, b < 10 && u ? "%.1f %s" : "%.0f %s", b, unit[u]);
+}
+
+static void format_bps(double bps, char *out, size_t len)
+{
+    if (bps < 0) snprintf(out, len, "—");
+    else if (bps >= 1e9) snprintf(out, len, "%.2f Gbps", bps / 1e9);
+    else snprintf(out, len, "%.0f Mbps", bps / 1e6);
+}
+
+static void format_yen(double yen, char *out, size_t len)
+{
+    long y = (long)(yen + 0.5);
+    if (y >= 1000) snprintf(out, len, "%ld,%03ld 円", y / 1000, y % 1000);
+    else snprintf(out, len, "%ld 円", y);
+}
+
 /* ---------- 概要 ---------- */
 
 static int count_ok(const item_t *items, int n)
@@ -243,10 +300,10 @@ static void build_overview(void)
     snprintf(sub, sizeof sub, "%s・負荷 %.0f %%", snap.ups_onbattery ? "停電中" : "商用", snap.ups_load);
     tile(4, "電源", v, snap.ups_ok ? sub : "", ups, P_POWER);
 
-    enum state disk = snap.am_stale ? S_STALE : snap.n_disk ? S_WARN : S_OK;
-    if (snap.n_disk) snprintf(v, sizeof v, "異常 %d", snap.n_disk);
-    else snprintf(v, sizeof v, "正常");
-    tile(5, "ディスク", v, "", disk, P_ALERTS);
+    int late = backups_late();
+    if (snap.n_backups) snprintf(v, sizeof v, late ? "遅れ %d" : "%d/%d", late ? late : snap.n_backups, snap.n_backups);
+    else snprintf(v, sizeof v, "—");
+    tile(5, "バックアップ", v, "", st ? S_STALE : late ? S_WARN : S_OK, P_BACKUP);
 }
 
 /* ---------- 警告 ---------- */
@@ -366,14 +423,16 @@ static void build_status(void)
 
 /* ---------- 電源 ---------- */
 
-static void stat_line(int y, const char *label, const char *value, uint32_t color)
+static void stat_line(int row, const char *label, const char *value, uint32_t color)
 {
+    int y = 10 + row * 50;
     lv_obj_t *l = text(body, label, f24, C_MUTED);
-    lv_obj_set_pos(l, 440, y + 10);
-    lv_obj_t *v = text(body, value, f36, color);
-    lv_obj_set_pos(v, 560, y);
+    lv_obj_set_pos(l, 436, y + 4);
+    lv_obj_t *v = text(body, value, f28, color);
+    lv_obj_set_pos(v, 590, y);
 }
 
+/* 消費電力は UPS の負荷（%）× 定格（W）。UPS につないだ機器だけの値になる。 */
 static void build_power(void)
 {
     if (!snap.ups_ok || snap.prom_stale) {
@@ -381,11 +440,11 @@ static void build_power(void)
         return;
     }
     enum state s = snap.ups_onbattery || snap.ups_lowbattery ? S_CRIT : S_OK;
-    lv_obj_t *panel = box(body, GAP, GAP, 416, BODY_H - 2 * GAP, C_SURF);
+    lv_obj_t *panel = box(body, GAP, GAP, 412, BODY_H - 2 * GAP, C_SURF);
     outline(panel, s);
     lv_obj_t *l = text(panel, "電池", f24, C_MUTED);
     lv_obj_set_pos(l, 20, 16);
-    char v[32];
+    char v[48], y[32];
     snprintf(v, sizeof v, "%.0f %%", snap.ups_charge);
     lv_obj_t *big = text(panel, v, f96, state_color(s));
     lv_obj_set_pos(big, 20, 64);
@@ -393,12 +452,31 @@ static void build_power(void)
     lv_obj_t *sl = text(panel, st, f36, s == S_CRIT ? C_CRIT : C_TEXT);
     lv_obj_set_pos(sl, 20, BODY_H - 2 * GAP - 64);
 
-    snprintf(v, sizeof v, "%.0f %%", snap.ups_load);
-    stat_line(32, "負荷", v, C_TEXT);
+    double w = cfg->ups_watts;
+    snprintf(v, sizeof v, "%.0f W", snap.ups_load / 100 * w);
+    stat_line(0, "消費電力", v, C_TEXT);
+    if (snap.load_today >= 0) {
+        double kwh = snap.load_today / 100 * w * snap.today_seconds / 3600 / 1000;
+        format_yen(kwh * cfg->yen_per_kwh, y, sizeof y);
+        snprintf(v, sizeof v, "%.1f kWh %s", kwh, y);
+    } else {
+        snprintf(v, sizeof v, "—");
+    }
+    stat_line(1, "今日", v, C_TEXT);
+    if (snap.load_week >= 0) {
+        double kwh = snap.load_week / 100 * w * 24 * 30 / 1000;
+        snprintf(v, sizeof v, "%.0f kWh", kwh);
+        stat_line(2, "1か月", v, C_TEXT);
+        format_yen(kwh * cfg->yen_per_kwh, v, sizeof v);
+        stat_line(3, "電気代/月", v, C_TEXT);
+    } else {
+        stat_line(2, "1か月", "—", C_TEXT);
+        stat_line(3, "電気代/月", "—", C_TEXT);
+    }
     snprintf(v, sizeof v, "%.0f 分", snap.ups_runtime / 60);
-    stat_line(128, "残り", v, C_TEXT);
+    stat_line(4, "残り", v, C_TEXT);
     snprintf(v, sizeof v, "%.0f V", snap.ups_input);
-    stat_line(224, "入力", v, C_TEXT);
+    stat_line(5, "入力", v, C_TEXT);
 }
 
 /* ---------- ホスト ---------- */
@@ -460,6 +538,216 @@ static void build_hosts(void)
         metric_row(card, &row, "温度", hst->temp, 80, false);
     }
     if (pages > 1) pager(body, pages);
+}
+
+/* ---------- その他（入口） ---------- */
+
+static void build_more(void)
+{
+    char v[32];
+    int late = backups_late();
+    if (snap.n_backups) snprintf(v, sizeof v, late ? "遅れ %d" : "%d/%d", late ? late : snap.n_backups, snap.n_backups);
+    else snprintf(v, sizeof v, "—");
+    tile(0, "バックアップ", v, "", late ? S_WARN : S_OK, P_BACKUP);
+
+    int bad = storage_bad();
+    double top = 0;
+    for (int i = 0; i < snap.n_fs; i++)
+        if (fs_used(&snap.fs[i]) > top) top = fs_used(&snap.fs[i]);
+    if (bad) snprintf(v, sizeof v, "▲ %d", bad);
+    else snprintf(v, sizeof v, "%.0f %%", top * 100);
+    tile(1, "ストレージ", v, bad ? "" : "最大", bad ? S_WARN : S_OK, P_STORAGE);
+
+    format_bps(snap.wan_rx, v, sizeof v);
+    tile(2, "回線（下り）", v, "", S_OK, P_NET);
+
+    double total = 0;
+    for (int i = 0; i < snap.n_ssids; i++) total += snap.ssids[i].n;
+    if (snap.n_ssids) snprintf(v, sizeof v, "%.0f 台", total);
+    else snprintf(v, sizeof v, "—");
+    tile(3, "Wi-Fi", v, "", S_OK, P_WIFI);
+
+    snprintf(v, sizeof v, "%d %%", settings->brightness);
+    tile(4, "設定", v, "明るさ", S_OK, P_SETTINGS);
+}
+
+/* ---------- バックアップ ---------- */
+
+#define LIST_ROWS 5
+
+static void list_row_box(int r, lv_obj_t **row, int *row_h, int *w)
+{
+    *row_h = (BODY_H - GAP * (LIST_ROWS + 1)) / LIST_ROWS;
+    *w = W - 3 * GAP - 96;
+    *row = box(body, GAP, GAP + r * (*row_h + GAP), *w, *row_h, C_SURF);
+}
+
+static void format_ago(double age, char *out, size_t len)
+{
+    if (age < 0) snprintf(out, len, "なし");
+    else if (age < 3600) snprintf(out, len, "%.0f分前", age / 60);
+    else if (age < 2 * 86400) snprintf(out, len, "%.0f時間前", age / 3600);
+    else snprintf(out, len, "%.0f日前", age / 86400);
+}
+
+static void build_backup(void)
+{
+    if (!snap.n_backups) {
+        lv_obj_center(text(body, "？ 読めない", f36, C_STALE));
+        return;
+    }
+    static backup_t sorted[MAX_BACKUPS];
+    int m = 0;
+    for (int pass = 0; pass < 2; pass++)
+        for (int i = 0; i < snap.n_backups; i++)
+            if (backup_late(&snap.backups[i]) == (pass == 0)) sorted[m++] = snap.backups[i];
+    int pages = (m + LIST_ROWS - 1) / LIST_ROWS;
+    if (page_offset >= pages) page_offset = pages - 1;
+    for (int r = 0; r < LIST_ROWS; r++) {
+        int i = page_offset * LIST_ROWS + r;
+        if (i >= m) break;
+        lv_obj_t *row;
+        int rh, w;
+        list_row_box(r, &row, &rh, &w);
+        bool late = backup_late(&sorted[i]);
+        outline(row, late ? S_WARN : S_OK);
+        lv_obj_t *n = text(row, sorted[i].name, f24, C_TEXT);
+        lv_obj_align(n, LV_ALIGN_LEFT_MID, 16, 0);
+        char a[32];
+        format_ago(sorted[i].age, a, sizeof a);
+        lv_obj_t *al = text(row, a, f24, late ? C_WARN : C_TEXT);
+        lv_obj_align(al, LV_ALIGN_RIGHT_MID, -16, 0);
+        if (late) {
+            lv_obj_t *ml = text(row, "▲ 遅れ", f24, C_WARN);
+            lv_obj_align(ml, LV_ALIGN_RIGHT_MID, -160, 0);
+        }
+    }
+    pager(body, pages);
+}
+
+/* ---------- ストレージ ---------- */
+
+static void build_storage(void)
+{
+    if (!snap.n_fs) {
+        lv_obj_center(text(body, "？ 読めない", f36, C_STALE));
+        return;
+    }
+    static fs_t sorted[MAX_FS];
+    int m = 0;
+    for (int pass = 0; pass < 2; pass++)
+        for (int i = 0; i < snap.n_fs; i++)
+            if ((fs_state(&snap.fs[i]) != S_OK) == (pass == 0)) sorted[m++] = snap.fs[i];
+    int pages = (m + LIST_ROWS - 1) / LIST_ROWS;
+    if (page_offset >= pages) page_offset = pages - 1;
+    for (int r = 0; r < LIST_ROWS; r++) {
+        int i = page_offset * LIST_ROWS + r;
+        if (i >= m) break;
+        fs_t *f = &sorted[i];
+        lv_obj_t *row;
+        int rh, w;
+        list_row_box(r, &row, &rh, &w);
+        enum state st = fs_state(f);
+        outline(row, st);
+        char key[NAME_LEN * 2 + 2], name[NAME_LEN * 3];
+        snprintf(key, sizeof key, "%s:%s", f->host, f->mount);
+        const char *label = config_alias(cfg, key);
+        snprintf(name, sizeof name, "%s %s", f->host, label == key ? f->mount : label);
+        lv_obj_t *nl = text(row, name, f24, C_TEXT);
+        lv_label_set_long_mode(nl, LV_LABEL_LONG_MODE_DOTS);
+        lv_obj_set_width(nl, 250);
+        lv_obj_align(nl, LV_ALIGN_LEFT_MID, 14, 0);
+
+        double used = fs_used(f);
+        uint32_t c = st == S_OK ? C_TEXT : state_color(st);
+        if (used >= 0) {
+            lv_obj_t *track = box(row, 274, rh / 2 - 5, 110, 10, C_BG);
+            lv_obj_set_style_radius(track, 2, 0);
+            int bw = (int)(110 * (used > 1 ? 1 : used));
+            if (bw > 0) {
+                lv_obj_t *bar = box(track, 0, 0, bw, 10, st == S_OK ? C_MUTED : c);
+                lv_obj_set_style_radius(bar, 2, 0);
+            }
+            char v[48], fr[24];
+            snprintf(v, sizeof v, "%.0f %%", used * 100);
+            lv_obj_t *vl = text(row, v, f24, c);
+            lv_obj_set_pos(vl, 394, rh / 2 - 14);
+            format_bytes(f->avail, fr, sizeof fr);
+            snprintf(v, sizeof v, "空き %s", fr);
+            lv_obj_t *fl = text(row, v, f20, C_MUTED);
+            lv_obj_set_pos(fl, 460, rh / 2 - 12);
+        }
+        if (f->health >= 0) {
+            char h[32];
+            if (f->health == 0) snprintf(h, sizeof h, "◆ SMART");
+            else if (f->temp >= 0) snprintf(h, sizeof h, "%.0f ℃", f->temp);
+            else snprintf(h, sizeof h, "正常");
+            lv_obj_t *hl = text(row, h, f20, f->health == 0 ? C_CRIT : C_MUTED);
+            lv_obj_align(hl, LV_ALIGN_RIGHT_MID, -12, 0);
+        }
+    }
+    pager(body, pages);
+}
+
+/* ---------- 回線 ---------- */
+
+static void net_panel(int i, const char *label, double now, double max, double today)
+{
+    int w = (W - 3 * GAP) / 2;
+    lv_obj_t *p = box(body, GAP + i * (w + GAP), GAP, w, BODY_H - 2 * GAP, C_SURF);
+    lv_obj_t *l = text(p, label, f24, C_MUTED);
+    lv_obj_set_pos(l, 18, 14);
+    char v[32];
+    format_bps(now, v, sizeof v);
+    lv_obj_t *big = text(p, v, f56, C_TEXT);
+    lv_obj_set_pos(big, 18, 52);
+    format_bps(max, v, sizeof v);
+    lv_obj_t *ml = text(p, "24時間の最大", f20, C_MUTED);
+    lv_obj_set_pos(ml, 18, 160);
+    lv_obj_t *mv = text(p, v, f28, C_TEXT);
+    lv_obj_align(mv, LV_ALIGN_TOP_RIGHT, -18, 154);
+    if (today >= 0) format_bytes(today, v, sizeof v);
+    else snprintf(v, sizeof v, "—");
+    lv_obj_t *tl = text(p, "今日の量", f20, C_MUTED);
+    lv_obj_set_pos(tl, 18, 220);
+    lv_obj_t *tv = text(p, v, f28, C_TEXT);
+    lv_obj_align(tv, LV_ALIGN_TOP_RIGHT, -18, 214);
+}
+
+static void build_net(void)
+{
+    net_panel(0, "下り", snap.wan_rx, snap.wan_rx_max, snap.wan_rx_today);
+    net_panel(1, "上り", snap.wan_tx, snap.wan_tx_max, snap.wan_tx_today);
+}
+
+/* ---------- Wi-Fi と区画 ---------- */
+
+static void count_row(int row, const char *title, const count_t *items, int n)
+{
+    int h = (BODY_H - 3 * GAP) / 2, y = GAP + row * (h + GAP);
+    lv_obj_t *t = text(body, title, f24, C_MUTED);
+    lv_obj_set_pos(t, 16, y + h / 2 - 14);
+    if (!n) {
+        lv_obj_t *q = text(body, "？ 読めない", f28, C_STALE);
+        lv_obj_set_pos(q, 140, y + h / 2 - 16);
+        return;
+    }
+    int x0 = 128, w = (W - x0 - GAP * n) / n;
+    for (int i = 0; i < n; i++) {
+        lv_obj_t *c = box(body, x0 + i * (w + GAP), y, w, h, C_SURF);
+        lv_obj_t *l = text(c, items[i].name, f24, C_MUTED);
+        lv_obj_set_pos(l, 14, 10);
+        char v[16];
+        snprintf(v, sizeof v, "%.0f", items[i].n);
+        lv_obj_t *vl = text(c, v, f56, C_TEXT);
+        lv_obj_set_pos(vl, 14, 56);
+    }
+}
+
+static void build_wifi(void)
+{
+    count_row(0, "Wi-Fi", snap.ssids, snap.n_ssids);
+    count_row(1, "区画", snap.segments, snap.n_segments);
 }
 
 /* ---------- 設定 ---------- */
@@ -626,7 +914,7 @@ static void update_band(void)
     if (unacked) lv_obj_remove_flag(band_ack, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(band_ack, LV_OBJ_FLAG_HIDDEN);
 
-    for (int p = 0; p < P_COUNT; p++) {
+    for (int p = 0; p < NAV_COUNT; p++) {
         int n = 0;
         uint32_t c = C_WARN;
         if (p == P_ALERTS) {
@@ -638,6 +926,8 @@ static void update_band(void)
         } else if (p == P_POWER && (snap.ups_onbattery || snap.ups_lowbattery)) {
             n = 1;
             c = C_CRIT;
+        } else if (p == P_MORE) {
+            n = backups_late() + storage_bad();
         }
         if (!have_snap || n == 0) {
             lv_obj_add_flag(nav_badge[p], LV_OBJ_FLAG_HIDDEN);
@@ -655,8 +945,8 @@ static void update_band(void)
 
 static void update_nav(void)
 {
-    for (int p = 0; p < P_COUNT; p++) {
-        bool on = p == (int)page;
+    for (int p = 0; p < NAV_COUNT; p++) {
+        bool on = p == (int)page || (p == P_MORE && page > P_MORE);
         lv_obj_set_style_bg_color(nav_btn[p], col(on ? C_SURF_ON : C_SURF), 0);
         lv_obj_set_style_border_width(nav_btn[p], on ? 6 : 0, 0);
         lv_obj_t *l = lv_obj_get_child(nav_btn[p], 0);
@@ -676,6 +966,11 @@ static void build_body(void)
         case P_STATUS: build_status(); break;
         case P_POWER: build_power(); break;
         case P_HOSTS: build_hosts(); break;
+        case P_MORE: build_more(); break;
+        case P_BACKUP: build_backup(); break;
+        case P_STORAGE: build_storage(); break;
+        case P_NET: build_net(); break;
+        case P_WIFI: build_wifi(); break;
         case P_SETTINGS: build_settings(); break;
         default: break;
         }
@@ -771,9 +1066,9 @@ void ui_init(const config_t *c, settings_t *s)
     body = box(root, 0, BODY_Y, W, BODY_H, C_BG);
     lv_obj_set_style_radius(body, 0, 0);
 
-    int bw = W / P_COUNT;
-    for (int p = 0; p < P_COUNT; p++) {
-        int x = p * W / P_COUNT;
+    int bw = W / NAV_COUNT;
+    for (int p = 0; p < NAV_COUNT; p++) {
+        int x = p * W / NAV_COUNT;
         nav_btn[p] = button(root, x + 4, H - NAV_H + 4, bw - 8, NAV_H - 8, C_SURF, on_nav, (void *)(intptr_t)p);
         lv_obj_set_style_border_side(nav_btn[p], LV_BORDER_SIDE_TOP, 0);
         lv_obj_set_style_border_color(nav_btn[p], col(C_TEXT), 0);

@@ -60,10 +60,32 @@ static cJSON *get_json(CURL *curl, const char *url)
 }
 
 /* 問い合わせの結果（vector）を返す。失敗は NULL。呼び出し側が root を消す。 */
-static cJSON *query(CURL *curl, const char *expr, cJSON **root)
+/* 今日の 0 時からの秒数（最低 60）。問い合わせの {since} をこれに置き換える。 */
+static long seconds_since_midnight(void)
+{
+    time_t now = time(NULL);
+    struct tm tm;
+    localtime_r(&now, &tm);
+    long s = tm.tm_hour * 3600L + tm.tm_min * 60L + tm.tm_sec;
+    return s < 60 ? 60 : s;
+}
+
+static void expand(const char *expr, char *out, size_t len)
+{
+    const char *p = strstr(expr, "{since}");
+    if (!p) {
+        snprintf(out, len, "%s", expr);
+        return;
+    }
+    snprintf(out, len, "%.*s%lds%s", (int)(p - expr), expr, seconds_since_midnight(), p + 7);
+}
+
+static cJSON *query(CURL *curl, const char *raw, cJSON **root)
 {
     *root = NULL;
-    if (!expr[0]) return NULL;
+    if (!raw[0]) return NULL;
+    char expr[1024];
+    expand(raw, expr, sizeof expr);
     char *esc = curl_easy_escape(curl, expr, 0);
     char url[2048];
     snprintf(url, sizeof url, "%s/api/v1/query?query=%s", cfg->prometheus, esc);
@@ -193,6 +215,166 @@ static void fetch_vm_metric(CURL *curl, snapshot_t *snap, const char *expr, size
     cJSON_Delete(root);
 }
 
+/* ---------- その他のページ ---------- */
+
+static double scalar_or(CURL *curl, const char *expr, double fallback)
+{
+    double v = fallback;
+    bool empty = true;
+    if (!scalar(curl, expr, &v, &empty) || empty) return fallback;
+    return v;
+}
+
+static void fetch_backups(CURL *curl, snapshot_t *snap)
+{
+    snap->n_backups = 0;
+    cJSON *root;
+    cJSON *res = query(curl, cfg->q_backup_age, &root);
+    cJSON *s;
+    cJSON_ArrayForEach(s, res) {
+        if (snap->n_backups >= MAX_BACKUPS) break;
+        backup_t *b = &snap->backups[snap->n_backups++];
+        snprintf(b->name, NAME_LEN, "%s", config_alias(cfg, label(s, "target")));
+        double age = sample_value(s);
+        /* 一度も成功していない（時刻 0）は、とても古い値になる。 */
+        b->age = age > 50.0 * 365 * 86400 ? -1 : age;
+        b->max_age = 0;
+    }
+    cJSON_Delete(root);
+    res = query(curl, cfg->q_backup_max, &root);
+    cJSON_ArrayForEach(s, res) {
+        const char *name = config_alias(cfg, label(s, "target"));
+        for (int i = 0; i < snap->n_backups; i++)
+            if (strcmp(snap->backups[i].name, name) == 0) snap->backups[i].max_age = sample_value(s);
+    }
+    cJSON_Delete(root);
+    double cloud = scalar_or(curl, cfg->q_cloud_backup_age, -2);
+    if (cloud > -2 && snap->n_backups < MAX_BACKUPS) {
+        backup_t *b = &snap->backups[snap->n_backups++];
+        snprintf(b->name, NAME_LEN, "%s", config_alias(cfg, "cloud-db"));
+        b->age = cloud;
+        b->max_age = 36 * 3600;
+    }
+}
+
+/* /dev/sdb1 → /dev/sdb、/dev/nvme0n1p2 → /dev/nvme0n1 */
+static void whole_disk(const char *dev, char *out, size_t len)
+{
+    snprintf(out, len, "%s", dev);
+    size_t n = strlen(out);
+    while (n && out[n - 1] >= '0' && out[n - 1] <= '9') n--;
+    if (strstr(out, "nvme") && n && out[n - 1] == 'p') n--;
+    else if (strstr(out, "mmcblk") && n && out[n - 1] == 'p') n--;
+    out[n] = '\0';
+}
+
+static fs_t *find_fs(snapshot_t *snap, const char *host, const char *mount)
+{
+    for (int i = 0; i < snap->n_fs; i++)
+        if (strcmp(snap->fs[i].host, host) == 0 && strcmp(snap->fs[i].mount, mount) == 0) return &snap->fs[i];
+    return NULL;
+}
+
+static void fetch_storage(CURL *curl, snapshot_t *snap)
+{
+    snap->n_fs = 0;
+    static char devices[MAX_FS][NAME_LEN], instances[MAX_FS][NAME_LEN];
+    cJSON *root;
+    cJSON *res = query(curl, cfg->q_fs_size, &root);
+    cJSON *s;
+    cJSON_ArrayForEach(s, res) {
+        if (snap->n_fs >= MAX_FS) break;
+        int i = snap->n_fs++;
+        fs_t *f = &snap->fs[i];
+        snprintf(f->host, NAME_LEN, "%s", host_name(label(s, "instance")));
+        snprintf(f->mount, NAME_LEN, "%s", label(s, "mountpoint"));
+        f->size = sample_value(s);
+        f->avail = -1;
+        f->health = -1;
+        f->temp = -1;
+        snprintf(devices[i], NAME_LEN, "%s", label(s, "device"));
+        snprintf(instances[i], NAME_LEN, "%s", label(s, "instance"));
+    }
+    cJSON_Delete(root);
+    res = query(curl, cfg->q_fs_avail, &root);
+    cJSON_ArrayForEach(s, res) {
+        fs_t *f = find_fs(snap, host_name(label(s, "instance")), label(s, "mountpoint"));
+        if (f) f->avail = sample_value(s);
+    }
+    cJSON_Delete(root);
+
+    /* SMART は disk ラベル（/dev/sdb）で、同じ instance のファイルシステムへ付ける。 */
+    for (int pass = 0; pass < 2; pass++) {
+        res = query(curl, pass ? cfg->q_smart_temp : cfg->q_smart_healthy, &root);
+        cJSON_ArrayForEach(s, res) {
+            for (int i = 0; i < snap->n_fs; i++) {
+                char disk[NAME_LEN];
+                whole_disk(devices[i], disk, sizeof disk);
+                if (strcmp(instances[i], label(s, "instance")) != 0 || strcmp(disk, label(s, "disk")) != 0) continue;
+                if (pass) snap->fs[i].temp = sample_value(s);
+                else snap->fs[i].health = sample_value(s) >= 1;
+            }
+        }
+        cJSON_Delete(root);
+    }
+
+    /* Proxmox の置き場（VM のディスクが乗る local-lvm など）。 */
+    res = query(curl, cfg->q_pve_storage_size, &root);
+    cJSON_ArrayForEach(s, res) {
+        if (snap->n_fs >= MAX_FS) break;
+        const char *id = label(s, "id");
+        const char *store = strrchr(id, '/');
+        fs_t *f = &snap->fs[snap->n_fs++];
+        snprintf(f->host, NAME_LEN, "%s", config_alias(cfg, label(s, "node")[0] ? label(s, "node") : "apextox"));
+        snprintf(f->mount, NAME_LEN, "%s", store ? store + 1 : id);
+        f->size = sample_value(s);
+        f->avail = -1;
+        f->health = -1;
+        f->temp = -1;
+    }
+    cJSON_Delete(root);
+    res = query(curl, cfg->q_pve_storage_used, &root);
+    cJSON_ArrayForEach(s, res) {
+        const char *id = label(s, "id");
+        const char *store = strrchr(id, '/');
+        for (int i = 0; i < snap->n_fs; i++)
+            if (store && strcmp(snap->fs[i].mount, store + 1) == 0) snap->fs[i].avail = snap->fs[i].size - sample_value(s);
+    }
+    cJSON_Delete(root);
+}
+
+static void fetch_counts(CURL *curl, const char *expr, const char *key, count_t *out, int *n)
+{
+    *n = 0;
+    cJSON *root;
+    cJSON *res = query(curl, expr, &root);
+    cJSON *s;
+    cJSON_ArrayForEach(s, res) {
+        if (*n >= MAX_COUNTS) break;
+        count_t *c = &out[(*n)++];
+        snprintf(c->name, NAME_LEN, "%s", config_alias(cfg, label(s, key)));
+        c->n = sample_value(s);
+    }
+    cJSON_Delete(root);
+}
+
+static void fetch_more(CURL *curl, snapshot_t *snap)
+{
+    fetch_backups(curl, snap);
+    fetch_storage(curl, snap);
+    snap->today_seconds = (double)seconds_since_midnight();
+    snap->load_today = scalar_or(curl, cfg->q_ups_load_today, -1);
+    snap->load_week = scalar_or(curl, cfg->q_ups_load_week, -1);
+    snap->wan_rx = scalar_or(curl, cfg->q_wan_rx, -1);
+    snap->wan_tx = scalar_or(curl, cfg->q_wan_tx, -1);
+    snap->wan_rx_max = scalar_or(curl, cfg->q_wan_rx_max, -1);
+    snap->wan_tx_max = scalar_or(curl, cfg->q_wan_tx_max, -1);
+    snap->wan_rx_today = scalar_or(curl, cfg->q_wan_rx_today, -1);
+    snap->wan_tx_today = scalar_or(curl, cfg->q_wan_tx_today, -1);
+    fetch_counts(curl, cfg->q_wifi, "ssid", snap->ssids, &snap->n_ssids);
+    fetch_counts(curl, cfg->q_segments, "segment", snap->segments, &snap->n_segments);
+}
+
 static bool fetch_prometheus(CURL *curl, snapshot_t *snap)
 {
     cJSON *root;
@@ -247,6 +429,7 @@ static bool fetch_prometheus(CURL *curl, snapshot_t *snap)
     snap->ups_onbattery = scalar(curl, cfg->q_ups_onbattery, &v, &empty) && !empty && v >= 1;
     v = 0;
     snap->ups_lowbattery = scalar(curl, cfg->q_ups_lowbattery, &v, &empty) && !empty && v >= 1;
+    fetch_more(curl, snap);
     return true;
 }
 

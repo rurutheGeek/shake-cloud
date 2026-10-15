@@ -228,6 +228,8 @@ Prometheus の収集対象（`stacks/monitoring/prometheus/prometheus.yml`）:
 | 実測 | 常駐 14MB、待機中の CPU 0% |
 | 確認用 | `SIGUSR1` で画面の写しを `/run/touch-panel/screen.ppm` に書く。`SIGUSR2` で次のページへ進む |
 | ホスト | node_exporter のあるホスト（ディスク・温度まで）と、無い VM（Proxmox の値で CPU・メモリだけ）。値の無い行は出さない |
+| その他 | 下の切り替えの「その他」から、バックアップ・ストレージ（SMART の正常・温度つき）・回線（Flint 3 の WAN の通信量）・Wi-Fi と区画の台数（Flint 3 の `network-counts`）・設定へ入る |
+| 電力 | UPS の負荷 × 定格 780W。今日の量は 0 時からの平均、1 か月の見込みは直近 7 日の平均から出す。単価は `panel.json` の `yen_per_kwh`（東京電力 従量電灯B の第 1 段階 29.80 円）。Prometheus の保持が 15 日なので「今月これまで」は出さない |
 | 未実装 | Grafana のダッシュボードからの詳細のページ、焼き付き対策の 2px ずらしの実機確認、24 時間の連続運転の確認 |
 
 ## 配備の決まり

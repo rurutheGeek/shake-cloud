@@ -70,7 +70,7 @@ ssh root@192.168.10.10 'pvesm status | grep bulk; ls -lh /srv/bulk/backups/dump 
 ssh root@192.168.10.10 'vzdump 140 --storage bulk-backup --mode snapshot --compress zstd'
 ```
 
-週次の結果は Proxmox の通知（UIの通知履歴）で確認します。**失敗通知の監視スタック連携は未了**です。
+週次の結果は Proxmox の通知（UIの通知履歴）でも確認できます。K11 の `shakecloud-backup-status.timer`（`roles/pve_node_exporter/files/backup-status.py`）が、週次の VM・監視の履歴・Flint 3 の設定の最後の成功時刻を 15 分ごとに出し、遅れると `BackupLate` が鳴ります。タッチパネルの「バックアップ」にも出ます。
 
 ## 5. 復元
 

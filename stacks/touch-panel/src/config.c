@@ -58,11 +58,15 @@ int config_load(config_t *cfg, const char *path)
     cJSON *aliases = cJSON_GetObjectItemCaseSensitive(root, "aliases");
     cJSON *a;
     cJSON_ArrayForEach(a, aliases) {
-        if (cfg->n_aliases >= 16 || !cJSON_IsString(a)) continue;
+        if (cfg->n_aliases >= MAX_ALIASES || !cJSON_IsString(a)) continue;
         snprintf(cfg->alias_from[cfg->n_aliases], NAME_LEN, "%s", a->string);
         snprintf(cfg->alias_to[cfg->n_aliases], NAME_LEN, "%s", a->valuestring);
         cfg->n_aliases++;
     }
+
+    cJSON *num;
+    cfg->ups_watts = cJSON_IsNumber(num = cJSON_GetObjectItemCaseSensitive(root, "ups_watts")) ? num->valuedouble : 0;
+    cfg->yen_per_kwh = cJSON_IsNumber(num = cJSON_GetObjectItemCaseSensitive(root, "yen_per_kwh")) ? num->valuedouble : 0;
 
     cJSON *q = cJSON_GetObjectItemCaseSensitive(root, "queries");
     Q(q_services, "services");
@@ -82,6 +86,25 @@ int config_load(config_t *cfg, const char *path)
     Q(q_host_temp, "host_temp");
     Q(q_vm_cpu, "vm_cpu");
     Q(q_vm_mem, "vm_mem");
+    Q(q_backup_age, "backup_age");
+    Q(q_backup_max, "backup_max");
+    Q(q_cloud_backup_age, "cloud_backup_age");
+    Q(q_fs_size, "fs_size");
+    Q(q_fs_avail, "fs_avail");
+    Q(q_smart_healthy, "smart_healthy");
+    Q(q_smart_temp, "smart_temp");
+    Q(q_pve_storage_size, "pve_storage_size");
+    Q(q_pve_storage_used, "pve_storage_used");
+    Q(q_ups_load_today, "ups_load_today");
+    Q(q_ups_load_week, "ups_load_week");
+    Q(q_wan_rx, "wan_rx");
+    Q(q_wan_tx, "wan_tx");
+    Q(q_wan_rx_max, "wan_rx_max");
+    Q(q_wan_tx_max, "wan_tx_max");
+    Q(q_wan_rx_today, "wan_rx_today");
+    Q(q_wan_tx_today, "wan_tx_today");
+    Q(q_wifi, "wifi");
+    Q(q_segments, "segments");
     cJSON_Delete(root);
     return 0;
 }
