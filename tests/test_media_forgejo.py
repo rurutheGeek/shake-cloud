@@ -108,7 +108,7 @@ class ManageTests(unittest.TestCase):
     def setUp(self):
         self.manage = load_module(UNIT / 'manage.py', 'forgejo_manage')
         self.root = scratch_dir('forgejo-')
-        (self.root / '.env').write_text('FORGEJO_MIRROR_INTERVAL=8h\nFORGEJO_ARCHIVE_ORG=archive\n')
+        (self.root / '.env').write_text('FORGEJO_MIRROR_INTERVAL=24h\nFORGEJO_ARCHIVE_ORG=archive\n')
         self.patch = mock.patch.object(self.manage, 'ROOT', self.root)
         self.patch.start()
         self.addCleanup(self.patch.stop)
@@ -148,7 +148,7 @@ class ManageTests(unittest.TestCase):
         self.assertTrue(body['private'])
         self.assertFalse(body['wiki'])
         self.assertEqual((body['repo_owner'], body['repo_name'], body['mirror_interval']),
-                         ('archive', 'new', '8h'))
+                         ('archive', 'new', '24h'))
 
     def test_the_reconciler_never_deletes(self):
         source = (UNIT / 'manage.py').read_text(encoding='utf-8')

@@ -237,7 +237,7 @@ def mirrors():
             continue
         api('POST', '/repos/migrate', {
             'clone_addr': entry['url'], 'repo_owner': organization, 'repo_name': name,
-            'mirror': True, 'mirror_interval': entry.get('interval', settings().get('FORGEJO_MIRROR_INTERVAL', '8h')),
+            'mirror': True, 'mirror_interval': entry.get('interval', settings().get('FORGEJO_MIRROR_INTERVAL', '24h')),
             'private': True, 'wiki': bool(entry.get('wiki', True)), 'lfs': bool(entry.get('lfs', False)),
             'service': 'git',
         })

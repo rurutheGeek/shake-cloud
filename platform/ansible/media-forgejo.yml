@@ -31,7 +31,7 @@
           FORGEJO_PORT={{ forgejo_port | default(8083) }}
           FORGEJO_IMAGE={{ forgejo_image | default('codeberg.org/forgejo/forgejo:15') }}
           FORGEJO_MEMORY_LIMIT={{ forgejo_memory_limit | default('512m') }}
-          FORGEJO_MIRROR_INTERVAL={{ forgejo_mirror_interval | default('8h') }}
+          FORGEJO_MIRROR_INTERVAL={{ forgejo_mirror_interval | default('24h') }}
           FORGEJO_ROOT_URL=https://forgejo.{{ media_forgejo_zone }}/
           FORGEJO_OIDC_DISCOVERY_URL=https://auth.{{ media_forgejo_zone }}/application/o/forgejo/.well-known/openid-configuration
           FORGEJO_ARCHIVE_ORG={{ forgejo_archive_org | default('archive') }}

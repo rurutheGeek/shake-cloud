@@ -18,18 +18,26 @@ tags:
 
 - **ログイン**: [共通ログイン](identity.md)（Authentik）。初めて入ったときにアカウントが作られる。`admins` グループの人は Forgejo の管理者になる。
 - **ログインしないと何も見えない。** 外へは出していない。
-- **ミラー**: 組織 `archive` の下に、元のリポジトリを 8 時間ごとに取り込む（`git` の履歴とWiki）。元が消えても手元の写しは残る。
+- **ミラー**: 元のリポジトリを 24 時間ごとに取り込む（`git` の履歴とWiki）。元が消えても手元の写しは残る。
 - **force-push には弱い。** 元で履歴が書き換えられると、次の同期で写しも書き換わる。残したい時点があるなら、その時点でバックアップを取る（[運用](#運用)）。
 - Issue・Pull Request・Release はミラーされない。
 
 ## ミラーを足す
 
-`stacks/media/forgejo/mirrors.json` に足して配備する。
+1. 右上の「＋」→「新しいマイグレーション」→ 取得元（GitHub など。どれでもなければ「Git」）
+2. URL を入れ、「このリポジトリはミラーになります」にチェック
+3. 所有者を `archive`（または自分）にして作成
+
+非公開のリポジトリは、取得元のアクセストークンを同じ画面で入れる。同期の間隔はリポジトリの「設定」で変えられる。
+
+## 必ず持っておくもの（`mirrors.json`）
+
+作り直したときにも自動で戻したいものだけ、`stacks/media/forgejo/mirrors.json` に書いて配備する。画面で足したものはデータごとバックアップから戻す。
 
 ```json
 [
   {"url": "https://github.com/owner/repo"},
-  {"url": "https://example.org/owner/other.git", "name": "other-renamed", "interval": "24h", "wiki": false, "lfs": true}
+  {"url": "https://example.org/owner/other.git", "name": "other-renamed", "interval": "8h", "wiki": false, "lfs": true}
 ]
 ```
 
@@ -37,17 +45,15 @@ tags:
 |---|---|---|
 | `url` | 必須 | `https://` の取得元 |
 | `name` | URL の最後 | `archive/` の下の名前 |
-| `interval` | `8h` | 同期の間隔（1h 以上） |
+| `interval` | `24h` | 同期の間隔（1h 以上） |
 | `wiki` | `true` | Wiki も取り込む |
 | `lfs` | `false` | Git LFS の中身も取り込む |
 
-一覧から外しても写しは消えない。消すのは画面から手で行う。
+一覧から外しても写しは消えない。
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-forgejo.yml'
 ```
-
-画面の「新しいマイグレーション」から足した分も同じように同期されるが、`mirrors.json` に無いので作り直したときに戻らない。
 
 ## 運用
 

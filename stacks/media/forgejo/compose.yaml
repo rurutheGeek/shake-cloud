@@ -1,7 +1,8 @@
 # Forgejo（消えそうなリポジトリの保管庫）を media-01 に単独で置く。
 #
-# 認証は identity（Authentik）へのネイティブ OIDC。ミラーの一覧は mirrors.json が
-# 正本で、manage.py up が足りないものを作る（一覧から外しても消さない）。
+# 認証は identity（Authentik）へのネイティブ OIDC。ミラーは普段は画面から足し、
+# 作り直しても必ず戻すものだけ mirrors.json に書く（manage.py up が足りないものを
+# 作る。一覧から外しても消さない）。
 # 秘密値は .env ではなく secrets/ から manage.py が環境変数で渡す。
 # データ（リポジトリと SQLite）は HDD ボリュームへ bind した STORAGE_ROOT/forgejo。
 # イメージは compose.lock.yaml でダイジェスト固定する。
@@ -38,7 +39,7 @@ services:
       FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION: 'true'
       FORGEJO__oauth2_client__USERNAME: nickname
       FORGEJO__oauth2_client__ACCOUNT_LINKING: auto
-      FORGEJO__mirror__DEFAULT_INTERVAL: ${FORGEJO_MIRROR_INTERVAL:-8h}
+      FORGEJO__mirror__DEFAULT_INTERVAL: ${FORGEJO_MIRROR_INTERVAL:-24h}
       FORGEJO__mirror__MIN_INTERVAL: 1h
       FORGEJO__log__LEVEL: Warn
     volumes:
