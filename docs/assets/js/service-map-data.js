@@ -34,7 +34,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/net/",
-       "title": "Tailscale（router-01 上の subnet router）"
+       "title": "Tailscale（Flint 3 上の subnet router）"
       }
      ],
      "name": "Tailscale"
@@ -57,14 +57,14 @@ window.SERVICE_MAP = {
      "url": "https://adguard.apextox.dpdns.org/"
     },
     {
-     "description": "LuCI。SSOなし・復旧経路",
+     "description": "GL.iNet。SSOなし・復旧経路",
      "docs": [
       {
        "path": "operations/router/",
        "title": "router-01（OpenWrt・自作ルータ）"
       }
      ],
-     "name": "router-01 の管理画面",
+     "name": "Flint 3 の管理画面",
      "route": [
       "core-01",
       "router-01"
@@ -189,7 +189,7 @@ window.SERVICE_MAP = {
    "docs": [
     {
      "path": "operations/monitoring/",
-     "title": "監視（monitor-01）"
+     "title": "監視（tarakoserver）"
     }
    ],
    "kind": "base",
@@ -201,7 +201,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Prometheus"
@@ -211,7 +211,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Alertmanager"
@@ -221,7 +221,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Grafana",

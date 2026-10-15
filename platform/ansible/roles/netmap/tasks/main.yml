@@ -131,3 +131,39 @@
   until: netmap_health.status == 200
   retries: 20
   delay: 3
+
+# GL.iNet の付属スクリプトは Tailscale が動き直すたびに設定を書き換え、ファームウェアの
+# 更新でも入れ替わる。崩れたら RouterConfigDrift、点検が止まったら RouterCheckStale。
+- name: Install the router check units
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item.name }}'
+    mode: '0644'
+    content: '{{ item.content }}'
+  loop:
+    - name: netmap-router-check.service
+      content: |
+        [Unit]
+        Description=Compare the Flint 3 config with apply-segments
+        After=docker.service
+        [Service]
+        Type=oneshot
+        ExecStart=/bin/sh -c 'curl -fsS --max-time 30 http://127.0.0.1:{{ netmap_port }}/checks >{{ netmap_textfile_dir }}/router-check.prom.tmp && mv {{ netmap_textfile_dir }}/router-check.prom.tmp {{ netmap_textfile_dir }}/router-check.prom'
+    - name: netmap-router-check.timer
+      content: |
+        [Unit]
+        Description=Check the Flint 3 config every 5 minutes
+        [Timer]
+        OnBootSec=3min
+        OnUnitActiveSec=5min
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+  register: netmap_check_units
+
+- name: Enable the router check
+  ansible.builtin.systemd_service:
+    name: netmap-router-check.timer
+    enabled: true
+    state: started
+    daemon_reload: '{{ netmap_check_units.changed }}'

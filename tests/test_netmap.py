@@ -12,7 +12,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'stacks/netmap'))
 
-from app import model, uci  # noqa: E402
+from app import checks, model, uci  # noqa: E402
 
 DUMP = """### uci
 network.lan=interface
@@ -132,11 +132,46 @@ class RouterModelTests(unittest.TestCase):
         self.assertIn('n_lan -.->|一部 1件| n_personal', diagram)
 
 
+CHECKED = """### uci
+firewall.shakecloud_ts_lan=forwarding
+firewall.shakecloud_ts_lan.src='tailscale'
+firewall.shakecloud_ts_lan.dest='lan'
+firewall.tailscale_personal=forwarding
+firewall.tailscale_personal.src='tailscale'
+firewall.tailscale_personal.dest='personal'
+tailscale.settings=settings
+tailscale.settings.lan_enabled='1'
+### tailscale-routes
+[ "192.168.10.0\\/24", "192.168.40.0\\/24" ]
+"""
+
+
+class RouterCheckTests(unittest.TestCase):
+    def test_the_applied_config_passes_every_check(self):
+        results = checks.run(CHECKED)
+        self.assertTrue(all(results.values()), results)
+
+    def test_what_gl_inet_removes_is_reported(self):
+        dump = CHECKED.replace('192.168.40.0\\/24', '').replace("dest='lan'", "dest='wan'")
+        results = checks.run(dump)
+        self.assertFalse(results['tailscale_to_lan'])
+        self.assertFalse(results['advertise_192.168.40.0/24'])
+        self.assertIn('shakecloud_router_check{check="tailscale_to_lan"} 0', checks.metrics(results))
+
+    def test_the_forwarding_does_not_use_the_name_gl_inet_deletes(self):
+        script = (ROOT / 'platform/flint3/rootfs/etc/shakecloud/apply-segments').read_text()
+        self.assertNotIn('set firewall.tailscale_lan', script)
+        self.assertIn("uci set tailscale.settings.lan_enabled='1'", script)
+
+
 class DeploymentTests(unittest.TestCase):
     def test_the_dump_never_prints_secret_options(self):
         dump = (ROOT / 'platform/flint3/rootfs/etc/shakecloud/netmap-dump').read_text()
         self.assertIn('(key|password|secret|psk)', dump)
-        self.assertNotIn('tailscale', dump.split('set -eu', 1)[1])
+        # prefs のほかの項目には鍵が入る。経路の一覧だけを抜き出す。
+        prefs = [line for line in dump.splitlines() if 'debug prefs' in line]
+        self.assertEqual(len(prefs), 1)
+        self.assertIn("jsonfilter -e '@.AdvertiseRoutes'", prefs[0])
 
     def test_the_service_listens_on_loopback_only(self):
         compose = yaml.safe_load((ROOT / 'stacks/netmap/compose.yaml').read_text())

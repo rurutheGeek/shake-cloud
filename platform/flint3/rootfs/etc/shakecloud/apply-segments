@@ -157,6 +157,12 @@ uci set firewall.tailscale_personal=forwarding
 uci set firewall.tailscale_personal.src='tailscale'
 uci set firewall.tailscale_personal.dest='personal'
 
+# 管理画面の「LAN へのアクセス」。付属スクリプトはこれを見て、サーバーの区画の経路と
+# lan → tailscale0 の転送を自分で入れ直す。個人端末の区画は付属スクリプトが知らないので、
+# 経路は hotplug（95-shakecloud-tailscale-routes）、転送は上の shakecloud_ts_lan 等で補う。
+uci set tailscale.settings.lan_enabled='1'
+uci commit tailscale
+
 # 宅外の Tailscale 端末の DNS（tailnet の DNS は 192.168.10.1）も AdGuard Home へ回す。
 # tailscale0 は GL.iNet の転送の対象外なので、ここで明示する。
 uci -q delete firewall.tailscale_dns || true

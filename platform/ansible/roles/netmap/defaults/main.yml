@@ -1,5 +1,5 @@
 ---
-# ネットワーク図（stacks/netmap）を monitor-01 に置く。
+# ネットワーク図（stacks/netmap）を tarakoserver に置く。
 netmap_project_dir: /opt/netmap
 netmap_source_dir: '{{ playbook_dir }}/../../stacks/netmap'
 # Mermaid はドキュメントサイトと同じ同梱版を使う（オフラインで描画する）。
@@ -13,3 +13,5 @@ netmap_netbox_sops_file: '{{ playbook_dir }}/../sops/netbox.sops.yaml'
 netmap_tailscale_sops_file: '{{ playbook_dir }}/../sops/tailscale.sops.yaml'
 # Flint 3 へ鍵を登録するときに手元から使う鍵（Flint 3 の root）。
 netmap_flint_admin_key: '~/.ssh/id_ed25519_pve'
+# Flint 3 の設定の点検（/checks）を node_exporter の textfile へ書く。
+netmap_textfile_dir: /var/lib/prometheus/node-exporter

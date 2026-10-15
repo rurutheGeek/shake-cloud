@@ -114,6 +114,29 @@ groups:
           summary: "管理DBバックアップが36時間以上成功していない"
           description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
 
+  - name: router
+    rules:
+      # tarakoserver の netmap-router-check.timer が、Flint 3 を apply-segments と見比べる。
+      - alert: RouterConfigDrift
+        expr: shakecloud_router_check == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          panel: "ルータの設定崩れ"
+          summary: "Flint 3 の {{ $labels.check }} が決めた設定と違う"
+          description: "GL.iNet の付属スクリプトかファームウェア更新が書き換えた可能性。Flint 3 で /etc/shakecloud/apply-segments を流し直してください。"
+
+      - alert: RouterCheckStale
+        expr: absent(shakecloud_router_check) or time() - node_textfile_mtime_seconds{file=~".*router-check.prom"} > 1800
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          panel: "ルータの点検停止"
+          summary: "Flint 3 の設定の点検が30分以上更新されていない"
+          description: "tarakoserver の netmap-router-check.timer と netmap、Flint 3 への SSH を確認してください。"
+
   - name: storage
     rules:
       # 6TB HDD（/srv/bulk）はUSB接続。落ちると node_* のfsが消える。

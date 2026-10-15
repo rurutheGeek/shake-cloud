@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import urllib3
 
-from . import model, sources
+from . import checks, model, sources
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -70,3 +70,13 @@ def index(request: Request):
             'describe_rule': model.describe_rule,
         })
     return templates.TemplateResponse(request, 'index.html', context)
+
+
+@app.get('/checks', response_class=PlainTextResponse)
+def router_checks():
+    """Prometheus text for the textfile collector. No answer from the router: no metrics."""
+    try:
+        dump = sources.flint()
+    except Exception as error:  # noqa: BLE001 — the timer leaves the old file and the alert fires on age
+        return PlainTextResponse(f'# flint: {type(error).__name__}: {error}'[:300] + '\n', status_code=503)
+    return checks.metrics(checks.run(dump))

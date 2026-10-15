@@ -1,11 +1,11 @@
 #!/bin/sh
-# ネットワーク図（monitor-01 の netmap）が読む設定を出す。設定は変えない。
+# ネットワーク図（tarakoserver の netmap）が読む設定を出す。設定は変えない。
 # netmap 専用の鍵は、authorized_keys の command= でこれしか実行できない。
 # 名前に key・password・secret・psk を含む値（Wi-Fi のパスワードなど）は出さない。
 set -eu
 section() { echo "### $1"; }
 section uci
-for config in network firewall dhcp wireless; do
+for config in network firewall dhcp wireless tailscale; do
 	uci show "$config" | grep -v -i -E "^[^=]*\.[a-z0-9_]*(key|password|secret|psk)[a-z0-9_]*="
 done
 section leases
@@ -18,3 +18,6 @@ done
 for dev in eth0 eth1; do
 	echo "$dev $(cat "/sys/class/net/$dev/speed" 2>/dev/null || echo -)"
 done
+# Tailscale が流している経路だけ（prefs のほかの項目には鍵が入る）。
+section tailscale-routes
+tailscale debug prefs 2>/dev/null | jsonfilter -e '@.AdvertiseRoutes' 2>/dev/null || true
