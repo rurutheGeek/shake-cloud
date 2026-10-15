@@ -40,7 +40,7 @@ inhibit_rules:
   # Flint 3 が応答しなければ、ルータの向こう（DMZ・名前引き）の警告は止める。
   - source_matchers:
       - alertname = NodeExporterDown
-      - host = Flint 3
+      - host = "Flint 3"
     target_matchers:
       - alertname =~ "ServiceProbeFailed|NodeExporterDown|Router.*"
   # HDD が見えなければ、HDD の容量・SMART と、HDD に置いたサービス（Nextcloud など）は止める。
