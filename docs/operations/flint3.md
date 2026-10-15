@@ -78,7 +78,8 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 1. `opkg update && opkg install map ndppd conntrack`
 2. `/etc/init.d/gl_ipv6 disable`（有効へ戻っていると、起動のたびに IPv6 の設定を書き換える）
 3. `platform/flint3/deploy.sh 192.168.10.1` と `apply-segments`
-4. IPv4・IPv6・DNS を確認する
+4. `/etc/shakecloud/install-node-exporter`（監視の node_exporter。追加パッケージは更新で消える）
+5. IPv4・IPv6・DNS を確認する
 
 `iperf3` は opkg で入れない。ファーム内蔵の版とライブラリが食い違って動かなくなる。
 

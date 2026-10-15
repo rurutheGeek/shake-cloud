@@ -5,6 +5,9 @@
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/node-exporter.yml'
 # クラウドVM（media-01・apps-01）へ入れるときは -e '{"node_exporter_hosts": "media"}' のように
 # グループを指定する（ホスト名はインスタンスIDなので --limit はグループ名で使う）。
+# 家の Pi（shakeserver）は outpost.ini から入れる：
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook -i platform/ansible/outpost.ini platform/ansible/node-exporter.yml \
+#     -e '{"node_exporter_hosts": "shakeserver"}'
 - name: Install node_exporter on the service VMs
   hosts: "{{ node_exporter_hosts | default('terraform_managed') }}"
   become: true

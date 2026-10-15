@@ -11,3 +11,14 @@
     - 192.168.10.102:9100
   labels:
     group: platform
+# 家の Raspberry Pi（tarakoserver は上の platform に居る）。shakeserver は DMZ（VLAN 30）。
+- targets:
+    - 192.168.30.12:9100
+  labels:
+    group: raspberry_pi
+# Flint 3（GL-BE9300、OpenWrt）。prometheus-node-exporter-lua を
+# platform/flint3/rootfs/etc/shakecloud/install-node-exporter で入れる。
+- targets:
+    - 192.168.10.1:9100
+  labels:
+    group: network

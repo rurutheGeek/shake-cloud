@@ -8,7 +8,8 @@
   "touch_name": "ft5x06",
   "disk_alerts": "^(Smart|Bulk|Nvme|NodeFilesystem|ProxmoxNodeDisk)",
   "aliases": {
-    "apextox": "K11"
+    "apextox": "K11",
+    "GL-BE9300": "Flint 3"
   },
   "queries": {
     "services": "probe_success{group!=\"k8s\"}",
