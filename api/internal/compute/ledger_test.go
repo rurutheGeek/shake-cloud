@@ -20,12 +20,13 @@ type fakeLedger struct {
 	vms      map[int]netbox.VM
 	clusters map[int]int
 	assigned map[int]int // address ID -> interface ID
+	dnsNames map[int]string
 	writes   int
 	fail     error
 }
 
 func newFakeLedger() *fakeLedger {
-	return &fakeLedger{next: 100, vms: map[int]netbox.VM{}, clusters: map[int]int{}, assigned: map[int]int{}}
+	return &fakeLedger{next: 100, vms: map[int]netbox.VM{}, clusters: map[int]int{}, assigned: map[int]int{}, dnsNames: map[int]string{}}
 }
 
 func (f *fakeLedger) ClusterID(ctx context.Context, name string) (int, error) {
@@ -84,6 +85,20 @@ func (f *fakeLedger) EnsureVMInterface(ctx context.Context, vmID int, name strin
 func (f *fakeLedger) AssignIP(ctx context.Context, ipID, interfaceID int) error {
 	f.writes++
 	f.assigned[ipID] = interfaceID
+	return nil
+}
+
+func (f *fakeLedger) IPAddressesByTag(ctx context.Context, tag string) ([]netbox.IPAddress, error) {
+	var out []netbox.IPAddress
+	for id, name := range f.dnsNames {
+		out = append(out, netbox.IPAddress{ID: id, DNSName: name})
+	}
+	return out, nil
+}
+
+func (f *fakeLedger) SetDNSName(ctx context.Context, ipID int, name string) error {
+	f.writes++
+	f.dnsNames[ipID] = name
 	return nil
 }
 
@@ -270,4 +285,21 @@ func TestAWakeUpSyncsWithoutWaitingForTheTimer(t *testing.T) {
 	}
 	// A service built without the channel (no ledger) ignores the request.
 	(&Service{}).wakeLedger()
+}
+
+func TestARenameReachesTheAddressDNSName(t *testing.T) {
+	ledger := newFakeLedger()
+	ledger.dnsNames[41] = "win11pro"
+	s := ledgerService(ledger)
+	instances := []db.Instance{ledgerInstance(mediaID, trustedAccount, "win-01", db.StateRunning, 41)}
+	if err := s.syncLedger(context.Background(), instances); err != nil {
+		t.Fatal(err)
+	}
+	if ledger.dnsNames[41] != "win-01" {
+		t.Fatalf("dns name = %q", ledger.dnsNames[41])
+	}
+	before := ledger.writes
+	if err := s.syncLedger(context.Background(), instances); err != nil || ledger.writes != before {
+		t.Fatalf("second pass: err %v, writes %d -> %d", err, before, ledger.writes)
+	}
 }

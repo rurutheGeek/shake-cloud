@@ -24,6 +24,8 @@ type Ledger interface {
 	EnsureVMInterface(ctx context.Context, vmID int, name string) (int, error)
 	AssignIP(ctx context.Context, ipID, interfaceID int) error
 	SetPrimaryIP(ctx context.Context, vmID, ipID int) error
+	IPAddressesByTag(ctx context.Context, tag string) ([]netbox.IPAddress, error)
+	SetDNSName(ctx context.Context, ipID int, name string) error
 }
 
 // ledgerInterface is the one interface an instance's address hangs from. The
@@ -178,6 +180,9 @@ func (s *Service) syncLedger(ctx context.Context, instances []db.Instance) error
 			}
 		}
 	}
+	if err := s.syncDNSNames(ctx, instances); err != nil && failed == nil {
+		failed = err
+	}
 	for name, vm := range registered {
 		if live[name] || !ledgerName.MatchString(name) {
 			continue
@@ -186,6 +191,40 @@ func (s *Service) syncLedger(ctx context.Context, instances []db.Instance) error
 			return err
 		}
 		s.Log.Info("ledger entry removed", "instance_id", name)
+	}
+	return failed
+}
+
+// syncDNSNames keeps each address's DNS name on the instance's display name.
+// The name is written once at launch or adoption; without this a rename
+// (shakecloud instance tag --name) leaves the old one in the ledger.
+func (s *Service) syncDNSNames(ctx context.Context, instances []db.Instance) error {
+	addresses, err := s.Ledger.IPAddressesByTag(ctx, NetBoxTag)
+	if err != nil {
+		return err
+	}
+	byID := make(map[int]netbox.IPAddress, len(addresses))
+	for _, address := range addresses {
+		byID[address.ID] = address
+	}
+	var failed error
+	for _, instance := range instances {
+		if instance.NetBoxIPID == nil {
+			continue
+		}
+		address, found := byID[*instance.NetBoxIPID]
+		want := seed.Hostname(instance.Name, instance.ID)
+		if !found || address.DNSName == want {
+			continue
+		}
+		if err := s.Ledger.SetDNSName(ctx, address.ID, want); err != nil {
+			s.Log.Warn("ledger dns name failed", "instance_id", instance.ID, "err", err)
+			if failed == nil {
+				failed = err
+			}
+			continue
+		}
+		s.Log.Info("ledger dns name updated", "instance_id", instance.ID, "from", address.DNSName, "to", want)
 	}
 	return failed
 }
