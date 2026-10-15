@@ -177,6 +177,8 @@ static void pager(lv_obj_t *parent, int pages)
 
 /* ---------- 共通の計算と書式 ---------- */
 
+static void format_ago(double age, char *out, size_t len);
+
 static bool backup_late(const backup_t *b)
 {
     return b->age < 0 || (b->max_age > 0 && b->age > b->max_age);
@@ -700,33 +702,76 @@ static void build_storage(void)
 
 /* ---------- 回線 ---------- */
 
-static void net_panel(int i, const char *label, double now, double max, double today)
+static void net_now(int i, const char *label, double now, double max, double today)
 {
     int w = (W - 3 * GAP) / 2;
-    lv_obj_t *p = box(body, GAP + i * (w + GAP), GAP, w, BODY_H - 2 * GAP, C_SURF);
+    lv_obj_t *p = box(body, GAP + i * (w + GAP), GAP, w, 132, C_SURF);
     lv_obj_t *l = text(p, label, f24, C_MUTED);
-    lv_obj_set_pos(l, 18, 14);
-    char v[32];
+    lv_obj_set_pos(l, 16, 10);
+    char v[32], m[32], t[32], line[96];
     format_bps(now, v, sizeof v);
-    lv_obj_t *big = text(p, v, f56, C_TEXT);
-    lv_obj_set_pos(big, 18, 52);
-    format_bps(max, v, sizeof v);
-    lv_obj_t *ml = text(p, "24時間の最大", f20, C_MUTED);
-    lv_obj_set_pos(ml, 18, 160);
-    lv_obj_t *mv = text(p, v, f28, C_TEXT);
-    lv_obj_align(mv, LV_ALIGN_TOP_RIGHT, -18, 154);
-    if (today >= 0) format_bytes(today, v, sizeof v);
-    else snprintf(v, sizeof v, "—");
-    lv_obj_t *tl = text(p, "今日の量", f20, C_MUTED);
-    lv_obj_set_pos(tl, 18, 220);
-    lv_obj_t *tv = text(p, v, f28, C_TEXT);
-    lv_obj_align(tv, LV_ALIGN_TOP_RIGHT, -18, 214);
+    lv_obj_t *big = text(p, v, f36, C_TEXT);
+    lv_obj_align(big, LV_ALIGN_TOP_RIGHT, -16, 6);
+    format_bps(max, m, sizeof m);
+    if (today >= 0) format_bytes(today, t, sizeof t);
+    else snprintf(t, sizeof t, "—");
+    snprintf(line, sizeof line, "24時間の最大 %s", m);
+    lv_obj_t *ml = text(p, line, f20, C_MUTED);
+    lv_obj_set_pos(ml, 16, 62);
+    snprintf(line, sizeof line, "今日の量 %s", t);
+    lv_obj_t *tl = text(p, line, f20, C_MUTED);
+    lv_obj_set_pos(tl, 16, 94);
+}
+
+/* 実測（1 日 1 回、時刻を 1 時間ずつずらして測る）と、時間帯ごとの平均の下り。 */
+static void net_measured(void)
+{
+    int y = GAP + 132 + GAP, h = BODY_H - y - GAP;
+    lv_obj_t *p = box(body, GAP, y, W - 2 * GAP, h, C_SURF);
+    lv_obj_t *l = text(p, "実測", f24, C_MUTED);
+    lv_obj_set_pos(l, 16, 10);
+    char v[48], a[32];
+    format_bps(snap.speed_down, a, sizeof a);
+    snprintf(v, sizeof v, "下り %s", a);
+    lv_obj_t *dl = text(p, v, f28, C_TEXT);
+    lv_obj_set_pos(dl, 16, 44);
+    format_bps(snap.speed_up, a, sizeof a);
+    snprintf(v, sizeof v, "上り %s", a);
+    lv_obj_t *ul = text(p, v, f28, C_TEXT);
+    lv_obj_set_pos(ul, 16, 80);
+    format_ago(snap.speed_age, a, sizeof a);
+    lv_obj_t *al = text(p, a, f20, C_MUTED);
+    lv_obj_set_pos(al, 80, 14);
+
+    double top = 0;
+    for (int hr = 0; hr < 24; hr++)
+        if (snap.speed_by_hour[hr] > top) top = snap.speed_by_hour[hr];
+    int x0 = 290, bw = 16, gap = 4, base = h - 34, maxh = base - 18;
+    for (int hr = 0; hr < 24; hr++) {
+        double v_h = snap.speed_by_hour[hr];
+        int bh = v_h > 0 && top > 0 ? (int)(maxh * v_h / top) : 3;
+        if (bh < 3) bh = 3;
+        lv_obj_t *bar = box(p, x0 + hr * (bw + gap), base - bh, bw, bh, v_h > 0 ? C_MUTED : C_SURF_ON);
+        lv_obj_set_style_radius(bar, 2, 0);
+        if (hr % 6 == 0) {
+            char hs[8];
+            snprintf(hs, sizeof hs, "%d", hr);
+            lv_obj_t *hl = text(p, hs, f20, C_MUTED);
+            lv_obj_set_pos(hl, x0 + hr * (bw + gap), base + 4);
+        }
+    }
+    if (top > 0) {
+        format_bps(top, a, sizeof a);
+        lv_obj_t *tl = text(p, a, f20, C_MUTED);
+        lv_obj_align(tl, LV_ALIGN_TOP_RIGHT, -12, 8);
+    }
 }
 
 static void build_net(void)
 {
-    net_panel(0, "下り", snap.wan_rx, snap.wan_rx_max, snap.wan_rx_today);
-    net_panel(1, "上り", snap.wan_tx, snap.wan_tx_max, snap.wan_tx_today);
+    net_now(0, "今の下り", snap.wan_rx, snap.wan_rx_max, snap.wan_rx_today);
+    net_now(1, "今の上り", snap.wan_tx, snap.wan_tx_max, snap.wan_tx_today);
+    net_measured();
 }
 
 /* ---------- Wi-Fi と区画 ---------- */
@@ -1221,6 +1266,7 @@ void ui_init(const config_t *c, settings_t *s)
 /* 確認用：次のページへ進める（SIGUSR2）。 */
 void ui_next_page(void)
 {
+    lv_display_trigger_activity(NULL); /* 放置で概要へ戻らないように */
     go((enum page)((page + 1) % P_COUNT));
 }
 

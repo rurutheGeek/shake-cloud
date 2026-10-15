@@ -96,3 +96,48 @@
     name: shakecloud-backup-status.service
     state: started
   changed_when: false
+
+# 回線の速さを 1 日 1 回、測る時刻を毎日 1 時間ずつずらして測る（files/speedtest.py）。
+- name: Install the line speed test
+  ansible.builtin.copy:
+    src: speedtest.py
+    dest: /usr/local/lib/shakecloud-speedtest.py
+    mode: '0755'
+
+- name: Install the line speed test units
+  ansible.builtin.copy:
+    content: '{{ item.content }}'
+    dest: /etc/systemd/system/{{ item.name }}
+    mode: '0644'
+  loop:
+    - name: shakecloud-speedtest.service
+      content: |
+        # Ansible（pve_node_exporter）が置く。
+        [Unit]
+        Description=Measure the line speed once a day, one hour later each day
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/lib/shakecloud-speedtest.py {{ pve_node_exporter_textfile_dir }}
+    - name: shakecloud-speedtest.timer
+      content: |
+        # Ansible（pve_node_exporter）が置く。毎時起動し、測るかどうかはスクリプトが決める。
+        [Unit]
+        Description=Check every hour whether the line speed test is due
+
+        [Timer]
+        OnCalendar=*-*-* *:17:00
+
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Enable the line speed test timer
+  ansible.builtin.systemd:
+    name: shakecloud-speedtest.timer
+    enabled: true
+    state: started
+    daemon_reload: true

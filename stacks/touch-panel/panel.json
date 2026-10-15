@@ -55,14 +55,18 @@
     "pve_storage_used": "pve_disk_usage_bytes{id=\"storage/apextox/local-lvm\"}",
     "ups_load_today": "avg_over_time(network_ups_tools_ups_load[{since}])",
     "ups_load_week": "avg_over_time(network_ups_tools_ups_load[7d])",
-    "wan_rx": "rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m]) * 8",
-    "wan_tx": "rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m]) * 8",
-    "wan_rx_max": "max_over_time(rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m])[24h:1m]) * 8",
-    "wan_tx_max": "max_over_time(rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[1m])[24h:1m]) * 8",
+    "wan_rx": "rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[2m]) * 8",
+    "wan_tx": "rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[2m]) * 8",
+    "wan_rx_max": "max_over_time(rate(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[2m])[24h:1m]) * 8",
+    "wan_tx_max": "max_over_time(rate(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[2m])[24h:1m]) * 8",
     "wan_rx_today": "increase(node_network_receive_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[{since}])",
     "wan_tx_today": "increase(node_network_transmit_bytes_total{instance=\"192.168.10.1:9100\",device=\"eth0\"}[{since}])",
     "wifi": "sum by (ssid) (shakecloud_wifi_stations)",
-    "segments": "shakecloud_segment_devices"
+    "segments": "shakecloud_segment_devices",
+    "speed_down": "shakecloud_speedtest_bps{direction=\"down\"}",
+    "speed_up": "shakecloud_speedtest_bps{direction=\"up\"}",
+    "speed_age": "time() - shakecloud_speedtest_timestamp_seconds",
+    "speed_by_hour": "avg_over_time(shakecloud_speedtest_by_hour_bps{direction=\"down\"}[400d])"
   },
   "ups_watts": 780,
   "yen_per_kwh": 29.8

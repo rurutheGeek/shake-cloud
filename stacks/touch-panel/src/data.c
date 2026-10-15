@@ -374,6 +374,18 @@ static void fetch_more(CURL *curl, snapshot_t *snap)
     snap->wan_tx_max = scalar_or(curl, cfg->q_wan_tx_max, -1);
     snap->wan_rx_today = scalar_or(curl, cfg->q_wan_rx_today, -1);
     snap->wan_tx_today = scalar_or(curl, cfg->q_wan_tx_today, -1);
+    snap->speed_down = scalar_or(curl, cfg->q_speed_down, -1);
+    snap->speed_up = scalar_or(curl, cfg->q_speed_up, -1);
+    snap->speed_age = scalar_or(curl, cfg->q_speed_age, -1);
+    for (int h = 0; h < 24; h++) snap->speed_by_hour[h] = -1;
+    cJSON *root;
+    cJSON *res = query(curl, cfg->q_speed_by_hour, &root);
+    cJSON *s;
+    cJSON_ArrayForEach(s, res) {
+        int h = atoi(label(s, "hour"));
+        if (h >= 0 && h < 24) snap->speed_by_hour[h] = sample_value(s);
+    }
+    cJSON_Delete(root);
     fetch_counts(curl, cfg->q_wifi, "ssid", snap->ssids, &snap->n_ssids);
     fetch_counts(curl, cfg->q_segments, "segment", snap->segments, &snap->n_segments);
 }

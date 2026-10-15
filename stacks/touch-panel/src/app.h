@@ -42,6 +42,7 @@ typedef struct {
     char q_ups_load_today[256], q_ups_load_week[256];
     char q_wan_rx[256], q_wan_tx[256], q_wan_rx_max[256], q_wan_tx_max[256], q_wan_rx_today[256], q_wan_tx_today[256];
     char q_wifi[256], q_segments[256];
+    char q_speed_down[256], q_speed_up[256], q_speed_age[256], q_speed_by_hour[256];
 } config_t;
 
 /* 画面の設定（利用者が選び、保存する）。 */
@@ -114,6 +115,8 @@ typedef struct {
     double load_today, load_week; /* UPS の負荷 % の平均。不明は負 */
     double today_seconds;
     double wan_rx, wan_tx, wan_rx_max, wan_tx_max, wan_rx_today, wan_tx_today; /* bit/s と byte。不明は負 */
+    double speed_down, speed_up, speed_age; /* 実測（bit/s・秒）。不明は負 */
+    double speed_by_hour[24];               /* 時間帯ごとの平均（下り）。不明は負 */
     count_t ssids[MAX_COUNTS], segments[MAX_COUNTS];
     int n_ssids, n_segments;
     bool maint_active;        /* 作業中（このパネルの消音が効いている） */

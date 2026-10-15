@@ -105,6 +105,10 @@ int config_load(config_t *cfg, const char *path)
     Q(q_wan_tx_today, "wan_tx_today");
     Q(q_wifi, "wifi");
     Q(q_segments, "segments");
+    Q(q_speed_down, "speed_down");
+    Q(q_speed_up, "speed_up");
+    Q(q_speed_age, "speed_age");
+    Q(q_speed_by_hour, "speed_by_hour");
     cJSON_Delete(root);
     return 0;
 }
