@@ -178,6 +178,21 @@ static void fetch_host_metric(CURL *curl, snapshot_t *snap, const char *expr, si
     cJSON_Delete(root);
 }
 
+/* node_exporter の無い VM は、Proxmox の値（name ラベル）で CPU とメモリだけ埋める。 */
+static void fetch_vm_metric(CURL *curl, snapshot_t *snap, const char *expr, size_t offset)
+{
+    cJSON *root;
+    cJSON *res = query(curl, expr, &root);
+    cJSON *s;
+    cJSON_ArrayForEach(s, res) {
+        const char *name = label(s, "name");
+        for (int i = 0; i < snap->n_hostinfo; i++)
+            if (snap->hostinfo[i].vm && strcmp(snap->hostinfo[i].name, name) == 0)
+                *(double *)((char *)&snap->hostinfo[i] + offset) = sample_value(s);
+    }
+    cJSON_Delete(root);
+}
+
 static bool fetch_prometheus(CURL *curl, snapshot_t *snap)
 {
     cJSON *root;
@@ -199,8 +214,21 @@ static bool fetch_prometheus(CURL *curl, snapshot_t *snap)
         host_t *h = &snap->hostinfo[i];
         snprintf(h->name, NAME_LEN, "%s", snap->hosts[i].name);
         h->up = snap->hosts[i].ok;
+        h->vm = false;
         h->cpu = h->mem = h->disk = h->temp = -1;
     }
+    for (int i = 0; i < snap->n_vms && snap->n_hostinfo < MAX_ITEMS; i++) {
+        bool known = false;
+        for (int j = 0; j < snap->n_hosts; j++) known |= strcmp(snap->hostinfo[j].name, snap->vms[i].name) == 0;
+        if (known) continue;
+        host_t *h = &snap->hostinfo[snap->n_hostinfo++];
+        snprintf(h->name, NAME_LEN, "%s", snap->vms[i].name);
+        h->up = snap->vms[i].ok;
+        h->vm = true;
+        h->cpu = h->mem = h->disk = h->temp = -1;
+    }
+    fetch_vm_metric(curl, snap, cfg->q_vm_cpu, offsetof(host_t, cpu));
+    fetch_vm_metric(curl, snap, cfg->q_vm_mem, offsetof(host_t, mem));
     fetch_host_metric(curl, snap, cfg->q_host_cpu, offsetof(host_t, cpu));
     fetch_host_metric(curl, snap, cfg->q_host_mem, offsetof(host_t, mem));
     fetch_host_metric(curl, snap, cfg->q_host_disk, offsetof(host_t, disk));

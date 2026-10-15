@@ -29,6 +29,7 @@ typedef struct {
     char q_ups_charge[256], q_ups_load[256], q_ups_runtime[256], q_ups_input[256];
     char q_ups_onbattery[256], q_ups_lowbattery[256];
     char q_host_cpu[256], q_host_mem[256], q_host_disk[256], q_host_temp[256];
+    char q_vm_cpu[512], q_vm_mem[512];
 } config_t;
 
 /* 画面の設定（利用者が選び、保存する）。 */
@@ -46,6 +47,7 @@ typedef struct {
 typedef struct {
     char name[NAME_LEN];
     bool up;
+    bool vm;          /* node_exporter が無く、Proxmox の値だけで見る VM */
     double cpu, mem, disk, temp; /* 読めないときは負の値 */
 } host_t;
 
@@ -68,7 +70,7 @@ typedef struct {
     int n_hosts;
     item_t vms[MAX_ITEMS];
     int n_vms;
-    host_t hostinfo[MAX_HOSTS];
+    host_t hostinfo[MAX_ITEMS];
     int n_hostinfo;
     double latency_ms;
     bool ups_ok;

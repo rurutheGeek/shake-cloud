@@ -80,6 +80,8 @@ int config_load(config_t *cfg, const char *path)
     Q(q_host_mem, "host_mem");
     Q(q_host_disk, "host_disk");
     Q(q_host_temp, "host_temp");
+    Q(q_vm_cpu, "vm_cpu");
+    Q(q_vm_mem, "vm_mem");
     cJSON_Delete(root);
     return 0;
 }

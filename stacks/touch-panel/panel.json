@@ -25,6 +25,8 @@
     "host_cpu": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
     "host_mem": "1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
     "host_disk": "1 - node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}",
+    "vm_cpu": "pve_cpu_usage_ratio{id=~\"qemu/.+\"} * on(id) group_left(name) pve_guest_info",
+    "vm_mem": "pve_memory_usage_bytes{id=~\"qemu/.+\"} / pve_memory_size_bytes * on(id) group_left(name) pve_guest_info",
     "host_temp": "max by (instance) (node_thermal_zone_temp or node_hwmon_temp_celsius{chip!~\"nvme.*|i2c.*|ieee80211.*\"})"
   }
 }

@@ -227,6 +227,7 @@ Prometheus の収集対象（`stacks/monitoring/prometheus/prometheus.yml`）:
 | 描画・入力 | DRM（`/dev/dri/by-path/platform-gpu-card`）、evdev（名前に `ft5x06` を含むもの） |
 | 実測 | 常駐 14MB、待機中の CPU 0% |
 | 確認用 | `SIGUSR1` で画面の写しを `/run/touch-panel/screen.ppm` に書く。`SIGUSR2` で次のページへ進む |
+| ホスト | node_exporter のあるホスト（ディスク・温度まで）と、無い VM（Proxmox の値で CPU・メモリだけ）。値の無い行は出さない |
 | 未実装 | Grafana のダッシュボードからの詳細のページ、焼き付き対策の 2px ずらしの実機確認、24 時間の連続運転の確認 |
 
 ## 配備の決まり

@@ -403,8 +403,11 @@ static void build_power(void)
 
 /* ---------- ホスト ---------- */
 
-static void metric_row(lv_obj_t *card, int y, const char *name, double v, double warn, bool percent)
+/* 値の無い行は出さず、次の行を詰める。 */
+static void metric_row(lv_obj_t *card, int *row, const char *name, double v, double warn, bool percent)
 {
+    if (v < 0) return;
+    int y = 40 + 26 * (*row)++;
     lv_obj_t *l = text(card, name, f20, C_MUTED);
     lv_obj_set_pos(l, 14, y);
     char s[16];
@@ -415,9 +418,11 @@ static void metric_row(lv_obj_t *card, int y, const char *name, double v, double
     lv_obj_t *vl = text(card, s, f20, c);
     lv_obj_align(vl, LV_ALIGN_TOP_RIGHT, -14, y);
     if (percent && v >= 0) {
-        lv_obj_t *track = box(card, 100, y + 8, 80, 8, C_BG);
+        /* 値（右寄せ、最大「100 %」）と重ならない長さにする。 */
+        int bar = lv_obj_get_style_width(card, 0) - 100 - 76;
+        lv_obj_t *track = box(card, 100, y + 8, bar, 8, C_BG);
         lv_obj_set_style_radius(track, 2, 0);
-        int w = (int)(80 * (v > 1 ? 1 : v));
+        int w = (int)(bar * (v > 1 ? 1 : v));
         if (w > 0) {
             lv_obj_t *bar = box(track, 0, 0, w, 8, c == C_TEXT ? C_MUTED : c);
             lv_obj_set_style_radius(bar, 2, 0);
@@ -427,10 +432,12 @@ static void metric_row(lv_obj_t *card, int y, const char *name, double v, double
 
 static void build_hosts(void)
 {
-    int w = (W - 4 * GAP) / 3, h = (BODY_H - 3 * GAP) / 2;
     int per = 6;
     int pages = snap.n_hostinfo ? (snap.n_hostinfo + per - 1) / per : 1;
     if (page_offset >= pages) page_offset = pages - 1;
+    /* 2 ページ以上なら、右にページ送りの列を空ける。 */
+    int area = pages > 1 ? W - GAP - 96 : W;
+    int w = (area - 4 * GAP) / 3, h = (BODY_H - 3 * GAP) / 2;
     for (int c = 0; c < per; c++) {
         int i = page_offset * per + c;
         if (i >= snap.n_hostinfo) break;
@@ -446,10 +453,11 @@ static void build_hosts(void)
             lv_obj_align(dl, LV_ALIGN_LEFT_MID, 14, 12);
             continue;
         }
-        metric_row(card, 40, "CPU", hst->cpu, 0.9, true);
-        metric_row(card, 66, "メモリ", hst->mem, 0.9, true);
-        metric_row(card, 92, "ディスク", hst->disk, 0.85, true);
-        metric_row(card, 118, "温度", hst->temp, 80, false);
+        int row = 0;
+        metric_row(card, &row, "CPU", hst->cpu, 0.9, true);
+        metric_row(card, &row, "メモリ", hst->mem, 0.9, true);
+        metric_row(card, &row, "ディスク", hst->disk, 0.85, true);
+        metric_row(card, &row, "温度", hst->temp, 80, false);
     }
     if (pages > 1) pager(body, pages);
 }
