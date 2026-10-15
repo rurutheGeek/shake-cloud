@@ -145,10 +145,13 @@ uci set firewall.tailscale.output='ACCEPT'
 uci set firewall.tailscale.forward='REJECT'
 uci -q delete firewall.tailscale.device || true
 uci add_list firewall.tailscale.device='tailscale0'
+# 名前を tailscale_lan にしない。GL.iNet の /etc/firewall.tailscale.sh は Tailscale が
+# 動き直すたびに、管理画面の「LAN へのアクセス」が切れていると同じ名前の転送を消す。
 uci -q delete firewall.tailscale_lan || true
-uci set firewall.tailscale_lan=forwarding
-uci set firewall.tailscale_lan.src='tailscale'
-uci set firewall.tailscale_lan.dest='lan'
+uci -q delete firewall.shakecloud_ts_lan || true
+uci set firewall.shakecloud_ts_lan=forwarding
+uci set firewall.shakecloud_ts_lan.src='tailscale'
+uci set firewall.shakecloud_ts_lan.dest='lan'
 uci -q delete firewall.tailscale_personal || true
 uci set firewall.tailscale_personal=forwarding
 uci set firewall.tailscale_personal.src='tailscale'
