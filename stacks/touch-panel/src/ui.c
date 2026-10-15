@@ -33,7 +33,7 @@
 
 /* 下の切り替えは P_MORE まで。それより後は「その他」から入るページ。 */
 enum page { P_OVERVIEW, P_ALERTS, P_STATUS, P_POWER, P_HOSTS, P_MORE,
-            P_BACKUP, P_STORAGE, P_NET, P_WIFI, P_SETTINGS, P_MAINT, P_MAINT_END, P_COUNT };
+            P_BACKUP, P_STORAGE, P_NET, P_WIFI, P_SETTINGS, P_MAINT_END, P_COUNT };
 #define NAV_COUNT (P_MORE + 1)
 enum kind { K_SERVICE, K_HOST, K_VM };
 enum state { S_OK, S_WARN, S_CRIT, S_STALE };
@@ -867,11 +867,36 @@ static int maint_minutes_left(void)
     return left <= 0 ? 0 : (int)((left + 59) / 60);
 }
 
-static void on_maint_extend(lv_event_t *e)
+static int maint_minutes_elapsed(void)
+{
+    double d = difftime(time(NULL), snap.maint_start);
+    return d <= 0 ? 0 : (int)(d / 60);
+}
+
+static void on_maint_start(lv_event_t *e)
 {
     if (debounced()) return;
     maint_requested = lv_tick_get();
-    data_request_maintenance(MAINT_EXTEND, 60);
+    data_request_maintenance(MAINT_START, 0);
+    last_switch = lv_tick_get();
+}
+
+/* 終わる時刻を 30 分ずつ動かす。選んでいないときの「＋」は、次の 30 分の区切りの 30 分後から。 */
+static void on_maint_shift(lv_event_t *e)
+{
+    if (debounced()) return;
+    int step = (int)(intptr_t)lv_event_get_user_data(e) * 1800;
+    time_t now = time(NULL), target;
+    if (snap.maint_chosen) {
+        target = snap.maint_ends + step;
+        if (target <= now + 300) target = 0; /* 過ぎる時刻は「選ばない」に戻す */
+    } else {
+        if (step < 0) return;
+        target = (now / 1800 + 1) * 1800 + 1800;
+    }
+    if (target > now + 24 * 3600) return;
+    maint_requested = lv_tick_get();
+    data_request_maintenance(MAINT_SET_END, target);
     last_switch = lv_tick_get();
 }
 
@@ -881,15 +906,33 @@ static void maint_row(int row)
     setting_label(row, "作業中", &y, &rh);
     int w = setting_width();
     if (!snap.maint_active) {
-        lv_obj_t *b = button(body, SETTING_X, y, w, rh, C_SURF, on_tile, (void *)(intptr_t)P_MAINT);
+        lv_obj_t *b = button(body, SETTING_X, y, w, rh, C_SURF, on_maint_start, NULL);
         lv_obj_center(text(b, "作業中にする", f28, C_TEXT));
         return;
     }
-    int bw = (w - GAP) / 2;
-    lv_obj_t *b = button(body, SETTING_X, y, bw, rh, C_SURF, on_maint_extend, NULL);
-    lv_obj_center(text(b, "1時間延ばす", f28, C_TEXT));
-    b = button(body, SETTING_X + bw + GAP, y, bw, rh, C_SURF, on_tile, (void *)(intptr_t)P_MAINT_END);
-    lv_obj_center(text(b, "終える", f28, C_TEXT));
+    int ew = 124, sw = 100, lw = w - ew - 2 * sw - 3 * GAP, x = SETTING_X;
+    lv_obj_t *b = button(body, x, y, ew, rh, C_MAINT, on_tile, (void *)(intptr_t)P_MAINT_END);
+    lv_obj_center(text(b, "終える", f28, 0xffffff));
+    x += ew + GAP;
+    b = button(body, x, y, sw, rh, C_SURF, snap.maint_chosen ? on_maint_shift : NULL, (void *)(intptr_t)-1);
+    if (!snap.maint_chosen) lv_obj_remove_flag(b, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(text(b, "−30分", f24, snap.maint_chosen ? C_TEXT : C_STALE));
+    x += sw + GAP;
+    char t[24];
+    if (snap.maint_chosen) {
+        struct tm tm;
+        localtime_r(&snap.maint_ends, &tm);
+        strftime(t, sizeof t, "%H:%M まで", &tm);
+    } else {
+        snprintf(t, sizeof t, "終わり なし");
+    }
+    lv_obj_t *tl = text(body, t, f24, C_TEXT);
+    lv_obj_set_width(tl, lw);
+    lv_obj_set_style_text_align(tl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_pos(tl, x, y + rh / 2 - 14);
+    x += lw + GAP;
+    b = button(body, x, y, sw, rh, C_SURF, on_maint_shift, (void *)(intptr_t)1);
+    lv_obj_center(text(b, "＋30分", f24, C_TEXT));
 }
 
 static void build_settings(void)
@@ -913,14 +956,6 @@ static void build_settings(void)
 
 /* ---------- 作業中の時間・終える ---------- */
 
-static void on_maint_start(lv_event_t *e)
-{
-    if (debounced()) return;
-    maint_requested = lv_tick_get();
-    data_request_maintenance(MAINT_START, (int)(intptr_t)lv_event_get_user_data(e));
-    go(P_SETTINGS);
-}
-
 static void on_maint_end(lv_event_t *e)
 {
     if (debounced()) return;
@@ -933,18 +968,6 @@ static void back_button(int x, int y, int w, int h)
 {
     lv_obj_t *b = button(body, x, y, w, h, C_SURF, on_tile, (void *)(intptr_t)P_SETTINGS);
     lv_obj_center(text(b, "戻る", f28, C_TEXT));
-}
-
-static void build_maint(void)
-{
-    static const int minutes[] = {30, 60, 180};
-    static const char *const names[] = {"30分", "1時間", "3時間"};
-    int w = (W - 4 * GAP) / 3, h = 196;
-    for (int i = 0; i < 3; i++) {
-        lv_obj_t *b = button(body, GAP + i * (w + GAP), GAP, w, h, C_SURF, on_maint_start, (void *)(intptr_t)minutes[i]);
-        lv_obj_center(text(b, names[i], f56, C_TEXT));
-    }
-    back_button(GAP, GAP + h + GAP, w, BODY_H - h - 3 * GAP);
 }
 
 static void build_maint_end(void)
@@ -1045,11 +1068,21 @@ static void update_band(void)
     uint32_t fg = s == S_WARN ? 0x000000 : s == S_CRIT ? 0xffffff : C_TEXT;
     /* 作業中は帯を青にする。警告の判定は続けるので、件数は右に添える。 */
     if (have_snap && snap.maint_active && !snap.am_stale) {
-        if (s == S_WARN || s == S_CRIT)
+        int left = maint_minutes_left();
+        if (left <= 30) {
+            snprintf(alert, sizeof alert, "あと %d 分で戻る", left);
+        } else if (s == S_WARN || s == S_CRIT) {
             snprintf(alert, sizeof alert, "%s %d", s == S_CRIT ? "危険" : "注意", s == S_CRIT ? snap.n_crit : snap.n_warn);
-        else
+        } else if (snap.maint_chosen) {
+            struct tm tm;
+            localtime_r(&snap.maint_ends, &tm);
+            strftime(alert, sizeof alert, "%H:%M まで", &tm);
+        } else {
             alert[0] = '\0';
-        snprintf(state, sizeof state, "作業中 あと %d 分", maint_minutes_left());
+        }
+        int el = maint_minutes_elapsed();
+        if (el < 60) snprintf(state, sizeof state, "作業中 %d分", el);
+        else snprintf(state, sizeof state, "作業中 %d時間%d分", el / 60, el % 60);
         s = S_OK;
         bg = C_MAINT;
         fg = 0xffffff;
@@ -1136,7 +1169,6 @@ static void build_body(void)
         case P_NET: build_net(); break;
         case P_WIFI: build_wifi(); break;
         case P_SETTINGS: build_settings(); break;
-        case P_MAINT: build_maint(); break;
         case P_MAINT_END: build_maint_end(); break;
         default: break;
         }

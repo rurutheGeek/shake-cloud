@@ -115,6 +115,7 @@ record_docs:
   grafana: [operations/monitoring.md]
   peanut: [operations/power.md]
   netmap: [network-map.md]
+  panel: [development/M02-touch-panel.md]
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]

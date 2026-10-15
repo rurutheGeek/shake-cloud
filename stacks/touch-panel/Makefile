@@ -5,8 +5,8 @@ BUILD ?= build
 CC ?= cc
 CFLAGS ?= -O2 -g0
 CFLAGS += -Wall -Wextra -Wno-unused-parameter -std=gnu11 -DLV_CONF_INCLUDE_SIMPLE -I. -I$(LVGL_DIR) -Isrc \
-          $(shell pkg-config --cflags libdrm libcurl libcjson)
-LDLIBS += $(shell pkg-config --libs libdrm libcurl libcjson) -lpthread -lm
+          $(shell pkg-config --cflags libdrm libcurl libcjson zlib)
+LDLIBS += $(shell pkg-config --libs libdrm libcurl libcjson zlib) -lpthread -lm
 
 LVGL_SRC := $(shell find $(LVGL_DIR)/src -name '*.c' \
               -not -path '*/thorvg/*' -not -path '*/libs/ffmpeg/*' -not -path '*/drivers/sdl/*' \

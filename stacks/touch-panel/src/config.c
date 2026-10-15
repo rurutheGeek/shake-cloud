@@ -67,6 +67,7 @@ int config_load(config_t *cfg, const char *path)
     cJSON *num;
     cfg->ups_watts = cJSON_IsNumber(num = cJSON_GetObjectItemCaseSensitive(root, "ups_watts")) ? num->valuedouble : 0;
     cfg->yen_per_kwh = cJSON_IsNumber(num = cJSON_GetObjectItemCaseSensitive(root, "yen_per_kwh")) ? num->valuedouble : 0;
+    cfg->remote_port = cJSON_IsNumber(num = cJSON_GetObjectItemCaseSensitive(root, "remote_port")) ? num->valueint : 0;
 
     cJSON *q = cJSON_GetObjectItemCaseSensitive(root, "queries");
     Q(q_services, "services");

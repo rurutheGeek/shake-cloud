@@ -18,7 +18,7 @@ static const config_t *cfg;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t wake = PTHREAD_COND_INITIALIZER;
 static enum maint_action req_action;
-static int req_minutes;
+static time_t req_value;
 static snapshot_t shared;
 static unsigned version;
 
@@ -560,6 +560,8 @@ static void fetch_silences(CURL *curl, snapshot_t *snap)
     snap->maint_active = false;
     snap->maint_id[0] = '\0';
     snap->maint_ends = 0;
+    snap->maint_start = 0;
+    snap->maint_chosen = false;
     cJSON *si;
     cJSON_ArrayForEach(si, root) {
         cJSON *by = cJSON_GetObjectItemCaseSensitive(si, "createdBy");
@@ -573,6 +575,14 @@ static void fetch_silences(CURL *curl, snapshot_t *snap)
         snap->maint_active = true;
         snap->maint_ends = e;
         snprintf(snap->maint_id, sizeof snap->maint_id, "%s", id->valuestring);
+        /* 作業中にした時刻と、終わる時刻を選んだかは comment に残す（消音を作り直しても保つ）。 */
+        cJSON *comment = cJSON_GetObjectItemCaseSensitive(si, "comment");
+        cJSON *starts = cJSON_GetObjectItemCaseSensitive(si, "startsAt");
+        const char *c = cJSON_IsString(comment) ? comment->valuestring : "";
+        const char *sp = strstr(c, "start=");
+        long start = sp ? atol(sp + 6) : 0;
+        snap->maint_start = start > 0 ? (time_t)start : cJSON_IsString(starts) ? parse_time(starts->valuestring) : 0;
+        snap->maint_chosen = strstr(c, "end=set") != NULL;
     }
     cJSON_Delete(root);
 }
@@ -608,9 +618,9 @@ static void rfc3339(time_t t, char *out, size_t len)
 }
 
 /* Watchdog だけは止めない（止めると外の見張りが「監視が死んだ」と判断する）。 */
-static bool create_silence(time_t ends)
+static bool create_silence(time_t began, time_t ends, bool chosen)
 {
-    char start[32], end[32], url[256];
+    char start[32], end[32], url[256], comment[128];
     rfc3339(time(NULL), start, sizeof start);
     rfc3339(ends, end, sizeof end);
     cJSON *body = cJSON_CreateObject();
@@ -624,7 +634,8 @@ static bool create_silence(time_t ends)
     cJSON_AddStringToObject(body, "startsAt", start);
     cJSON_AddStringToObject(body, "endsAt", end);
     cJSON_AddStringToObject(body, "createdBy", MAINT_CREATOR);
-    cJSON_AddStringToObject(body, "comment", "作業中（タッチパネル）");
+    snprintf(comment, sizeof comment, "作業中（タッチパネル） start=%ld end=%s", (long)began, chosen ? "set" : "auto");
+    cJSON_AddStringToObject(body, "comment", comment);
     char *json = cJSON_PrintUnformatted(body);
     snprintf(url, sizeof url, "%s/api/v2/silences", cfg->alertmanager);
     bool ok = http_send("POST", url, json);
@@ -640,20 +651,25 @@ static bool expire_silence(const char *id)
     return http_send("DELETE", url, NULL);
 }
 
-static void carry_out(CURL *curl, snapshot_t *snap, enum maint_action action, int minutes)
+static void carry_out(CURL *curl, snapshot_t *snap, enum maint_action action, time_t value)
 {
     fetch_silences(curl, snap);
     bool ok = true;
     char old[48];
     snprintf(old, sizeof old, "%s", snap->maint_id);
+    time_t now = time(NULL);
     switch (action) {
     case MAINT_START:
-        ok = create_silence(time(NULL) + minutes * 60);
+        ok = snap->maint_active || create_silence(now, now + MAINT_LIMIT_SECONDS, false);
         break;
-    case MAINT_EXTEND:
-        /* 延ばした消音を作ってから、古い方を消す（間で通知が漏れない）。 */
-        ok = snap->maint_active && create_silence(snap->maint_ends + minutes * 60) && expire_silence(old);
+    case MAINT_SET_END: {
+        /* 新しい消音を作ってから古い方を消す（間で通知が漏れない）。 */
+        bool chosen = value > 0;
+        time_t ends = chosen ? value : snap->maint_start + MAINT_LIMIT_SECONDS;
+        if (ends < now + 60) ends = now + 60;
+        ok = snap->maint_active && create_silence(snap->maint_start, ends, chosen) && expire_silence(old);
         break;
+    }
     case MAINT_END:
         ok = !snap->maint_active || expire_silence(old);
         break;
@@ -664,11 +680,11 @@ static void carry_out(CURL *curl, snapshot_t *snap, enum maint_action action, in
     fetch_silences(curl, snap);
 }
 
-void data_request_maintenance(enum maint_action action, int minutes)
+void data_request_maintenance(enum maint_action action, time_t value)
 {
     pthread_mutex_lock(&lock);
     req_action = action;
-    req_minutes = minutes;
+    req_value = value;
     pthread_cond_signal(&wake);
     pthread_mutex_unlock(&lock);
 }
@@ -713,11 +729,11 @@ static void *worker(void *arg)
                    pthread_cond_timedwait(&wake, &lock, &until) == 0) {
             }
             enum maint_action action = req_action;
-            int minutes = req_minutes;
+            time_t value = req_value;
             req_action = MAINT_NONE;
             pthread_mutex_unlock(&lock);
             if (action == MAINT_NONE) break; /* 時間切れ */
-            carry_out(curl, snap, action, minutes);
+            carry_out(curl, snap, action, value);
             publish(snap);
         }
     }

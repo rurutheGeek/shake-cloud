@@ -68,6 +68,7 @@ BOT_PORTAL = 'portal'
 # The network map runs on monitor-01. It shows the router's and the hypervisor's
 # firewall in full, so only admins may open it.
 NETMAP = 'netmap'
+TOUCH_PANEL = 'panel'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -839,6 +840,28 @@ def configure_netmap(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'network map forward-auth provider')
 
 
+def configure_touch_panel(api, groups, flows, portal_url):
+    """Reconcile the touch panel seen from a phone: Forward Auth provider, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, TOUCH_PANEL, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{TOUCH_PANEL}.{zone}',
+    })
+    application = ensure_application(api, TOUCH_PANEL, {
+        'name': '監視パネル', 'slug': TOUCH_PANEL, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{TOUCH_PANEL}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    # 作業中（通知の消音）を切り替えられる画面なので、管理者だけにする。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {TOUCH_PANEL}')
+    else:
+        print(f'OK: admins may use {TOUCH_PANEL}')
+    ensure_outpost(api, [provider['pk']], zone, 'touch panel forward-auth provider')
+
+
 def configure_bot_portal(api, groups, flows, portal_url):
     """Reconcile the bot portal: Forward Auth provider and access."""
     zone = media_zone(portal_url)
@@ -956,6 +979,7 @@ def main():
     configure_pkdb_entry(api, groups, flows, portal_url)
     configure_bot_portal(api, groups, flows, portal_url)
     configure_netmap(api, groups, flows, portal_url)
+    configure_touch_panel(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

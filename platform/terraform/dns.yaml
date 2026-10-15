@@ -156,6 +156,12 @@ records:
     upstream: 127.0.0.1:8096
     description: ネットワーク図（区画・VLAN・ファイアウォール。Forward Auth）
     auth: true
+  panel:
+    host: tarakoserver
+    address: 192.168.10.11
+    upstream: 127.0.0.1:8097
+    description: 監視のタッチパネルをスマホで見る・触る（Forward Auth）
+    auth: true
   peanut:
     host: tarakoserver
     address: 192.168.10.11

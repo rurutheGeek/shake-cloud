@@ -11,4 +11,5 @@ touch_panel_packages:
   - libdrm-dev
   - libcurl4-openssl-dev
   - libcjson-dev
+  - zlib1g-dev
   - fonts-ipaexfont-gothic

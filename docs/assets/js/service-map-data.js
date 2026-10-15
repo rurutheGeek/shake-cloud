@@ -251,6 +251,23 @@ window.SERVICE_MAP = {
      "url": "https://netmap.apextox.dpdns.org/"
     },
     {
+     "description": "Forward Auth",
+     "docs": [
+      {
+       "path": "development/M02-touch-panel/",
+       "title": "M02 監視のタッチパネル"
+      }
+     ],
+     "name": "監視のタッチパネルをスマホで見る・触る",
+     "route": [
+      "core-01",
+      "tarakoserver"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8097",
+     "url": "https://panel.apextox.dpdns.org/"
+    },
+    {
      "description": "UPSのREST。HomarrのUPSウィジェット用",
      "docs": [
       {

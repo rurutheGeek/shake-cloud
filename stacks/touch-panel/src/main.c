@@ -125,10 +125,12 @@ int main(int argc, char **argv)
     backlight_init(cfg.backlight);
     data_start(&cfg);
     ui_init(&cfg, &settings);
+    remote_start(cfg.remote_port);
 
     uint32_t last_notify = 0;
     for (;;) {
         ui_tick();
+        remote_poll();
         if (lv_tick_elaps(last_notify) >= 5000) {
             last_notify = lv_tick_get();
             notify_watchdog();

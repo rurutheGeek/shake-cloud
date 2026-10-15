@@ -31,6 +31,7 @@ typedef struct {
     char alias_to[MAX_ALIASES][NAME_LEN];
     double ups_watts;        /* UPS の定格（W）。負荷 % から消費電力を出す */
     double yen_per_kwh;      /* 電力量単価 */
+    int remote_port;         /* スマホ用の口（127.0.0.1）。0 なら開かない */
     char q_services[256], q_hosts[256], q_host_names[256], q_vms[512], q_latency[256];
     char q_ups_charge[256], q_ups_load[256], q_ups_runtime[256], q_ups_input[256];
     char q_ups_onbattery[256], q_ups_lowbattery[256];
@@ -121,7 +122,9 @@ typedef struct {
     int n_ssids, n_segments;
     bool maint_active;        /* 作業中（このパネルの消音が効いている） */
     char maint_id[48];
-    time_t maint_ends;
+    time_t maint_start;       /* 作業中にした時刻 */
+    time_t maint_ends;        /* 戻る時刻。終わる時刻を選ばなければ 12 時間後 */
+    bool maint_chosen;        /* 終わる時刻を選んだ */
     bool maint_failed;        /* 直前の切り替えが Alertmanager に書けなかった */
     alert_group_t groups[MAX_GROUPS];
     int n_groups;
@@ -140,10 +143,16 @@ const char *config_alias(const config_t *cfg, const char *name);
 /* data.c：別スレッドで定期的に読み、最新の写しを渡す。 */
 void data_start(const config_t *cfg);
 /* 作業中の切り替え。別スレッドが Alertmanager に書き、すぐ読み直す。 */
-enum maint_action { MAINT_NONE, MAINT_START, MAINT_EXTEND, MAINT_END };
-void data_request_maintenance(enum maint_action action, int minutes);
+#define MAINT_LIMIT_SECONDS (12 * 3600) /* 終わる時刻を選ばなかったときの上限 */
+enum maint_action { MAINT_NONE, MAINT_START, MAINT_SET_END, MAINT_END };
+/* MAINT_SET_END の value は新しい終わる時刻（0 なら選ばない＝上限まで）。 */
+void data_request_maintenance(enum maint_action action, time_t value);
 /* 新しい写しがあれば out へ写して true を返す。 */
 bool data_take(snapshot_t *out, unsigned *seen_version);
+
+/* remote.c */
+void remote_start(int port);
+void remote_poll(void);
 
 /* backlight.c */
 void backlight_init(const char *dir);

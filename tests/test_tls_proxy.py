@@ -143,7 +143,7 @@ class TlsProxyTests(unittest.TestCase):
                      'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml',
                                  'vaultwarden.yml', 'cups.yml', 'poke-translate.yml', 'pkdb.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
-                     'tarakoserver': ['monitoring.yml', 'netmap.yml']}
+                     'tarakoserver': ['monitoring.yml', 'netmap.yml', 'touch-panel.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
         self.assertEqual(served, set(playbooks))
         for host, files in playbooks.items():
@@ -158,7 +158,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertEqual(behind_auth,
                          {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
                           'mail-view', 'backup', 'urbackup', 'adminer', 'portal',
-                          'pkdb-entry', 'netmap'})
+                          'pkdb-entry', 'netmap', 'panel'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):

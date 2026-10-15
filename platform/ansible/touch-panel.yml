@@ -3,8 +3,10 @@
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/touch-panel.yml'
 # データは同じ機械の Prometheus・Alertmanager から読むので、monitoring.yml の後に流す。
+# スマホ用の入口（dns.yaml の panel、Forward Auth）も tls_proxy が同じ Caddy に足す。
 - name: Deploy the touch panel
   hosts: monitoring
   become: true
   roles:
     - touch_panel
+    - tls_proxy

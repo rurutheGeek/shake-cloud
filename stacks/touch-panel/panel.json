@@ -69,5 +69,6 @@
     "speed_by_hour": "avg_over_time(shakecloud_speedtest_by_hour_bps{direction=\"down\"}[400d])"
   },
   "ups_watts": 780,
-  "yen_per_kwh": 29.8
+  "yen_per_kwh": 29.8,
+  "remote_port": 8097
 }
