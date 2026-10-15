@@ -116,6 +116,10 @@ typedef struct {
     double wan_rx, wan_tx, wan_rx_max, wan_tx_max, wan_rx_today, wan_tx_today; /* bit/s と byte。不明は負 */
     count_t ssids[MAX_COUNTS], segments[MAX_COUNTS];
     int n_ssids, n_segments;
+    bool maint_active;        /* 作業中（このパネルの消音が効いている） */
+    char maint_id[48];
+    time_t maint_ends;
+    bool maint_failed;        /* 直前の切り替えが Alertmanager に書けなかった */
     alert_group_t groups[MAX_GROUPS];
     int n_groups;
     int n_warn, n_crit, n_disk;
@@ -132,6 +136,9 @@ const char *config_alias(const config_t *cfg, const char *name);
 
 /* data.c：別スレッドで定期的に読み、最新の写しを渡す。 */
 void data_start(const config_t *cfg);
+/* 作業中の切り替え。別スレッドが Alertmanager に書き、すぐ読み直す。 */
+enum maint_action { MAINT_NONE, MAINT_START, MAINT_EXTEND, MAINT_END };
+void data_request_maintenance(enum maint_action action, int minutes);
 /* 新しい写しがあれば out へ写して true を返す。 */
 bool data_take(snapshot_t *out, unsigned *seen_version);
 

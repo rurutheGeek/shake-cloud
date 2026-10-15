@@ -16,6 +16,9 @@
 
 static const config_t *cfg;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t wake = PTHREAD_COND_INITIALIZER;
+static enum maint_action req_action;
+static int req_minutes;
 static snapshot_t shared;
 static unsigned version;
 
@@ -466,10 +469,11 @@ static const char *alert_target(cJSON *labels)
     return out;
 }
 
+/* 作業中（消音）でも表示は続けるので、消音された警告も読む。 */
 static bool fetch_alerts(CURL *curl, snapshot_t *snap, regex_t *disk_re)
 {
     char url[256];
-    snprintf(url, sizeof url, "%s/api/v2/alerts?active=true&silenced=false&inhibited=false", cfg->alertmanager);
+    snprintf(url, sizeof url, "%s/api/v2/alerts?active=true&silenced=true&inhibited=false", cfg->alertmanager);
     cJSON *root = get_json(curl, url);
     if (!cJSON_IsArray(root)) {
         cJSON_Delete(root);
@@ -528,6 +532,143 @@ static bool fetch_alerts(CURL *curl, snapshot_t *snap, regex_t *disk_re)
     return true;
 }
 
+/* ---------- 作業中（Alertmanager の消音） ---------- */
+
+#define MAINT_CREATOR "touch-panel"
+
+static void fetch_silences(CURL *curl, snapshot_t *snap)
+{
+    char url[256];
+    snprintf(url, sizeof url, "%s/api/v2/silences", cfg->alertmanager);
+    cJSON *root = get_json(curl, url);
+    if (!cJSON_IsArray(root)) {
+        cJSON_Delete(root);
+        return; /* 読めないときは前の状態のまま */
+    }
+    snap->maint_active = false;
+    snap->maint_id[0] = '\0';
+    snap->maint_ends = 0;
+    cJSON *si;
+    cJSON_ArrayForEach(si, root) {
+        cJSON *by = cJSON_GetObjectItemCaseSensitive(si, "createdBy");
+        cJSON *st = cJSON_GetObjectItemCaseSensitive(cJSON_GetObjectItemCaseSensitive(si, "status"), "state");
+        cJSON *id = cJSON_GetObjectItemCaseSensitive(si, "id");
+        cJSON *ends = cJSON_GetObjectItemCaseSensitive(si, "endsAt");
+        if (!cJSON_IsString(by) || strcmp(by->valuestring, MAINT_CREATOR) != 0) continue;
+        if (!cJSON_IsString(st) || strcmp(st->valuestring, "active") != 0) continue;
+        time_t e = cJSON_IsString(ends) ? parse_time(ends->valuestring) : 0;
+        if (e <= snap->maint_ends || !cJSON_IsString(id)) continue;
+        snap->maint_active = true;
+        snap->maint_ends = e;
+        snprintf(snap->maint_id, sizeof snap->maint_id, "%s", id->valuestring);
+    }
+    cJSON_Delete(root);
+}
+
+static bool http_send(const char *method, const char *url, const char *body)
+{
+    CURL *c = curl_easy_init();
+    if (!c) return false;
+    struct curl_slist *hdr = curl_slist_append(NULL, "Content-Type: application/json");
+    buf_t b = {0};
+    curl_easy_setopt(c, CURLOPT_URL, url);
+    curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, method);
+    curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdr);
+    if (body) curl_easy_setopt(c, CURLOPT_POSTFIELDS, body);
+    curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, on_body);
+    curl_easy_setopt(c, CURLOPT_WRITEDATA, &b);
+    curl_easy_setopt(c, CURLOPT_TIMEOUT, (long)TIMEOUT_SECONDS);
+    curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L);
+    CURLcode rc = curl_easy_perform(c);
+    long status = 0;
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);
+    free(b.data);
+    curl_slist_free_all(hdr);
+    curl_easy_cleanup(c);
+    return rc == CURLE_OK && status == 200;
+}
+
+static void rfc3339(time_t t, char *out, size_t len)
+{
+    struct tm tm;
+    gmtime_r(&t, &tm);
+    strftime(out, len, "%Y-%m-%dT%H:%M:%SZ", &tm);
+}
+
+/* Watchdog だけは止めない（止めると外の見張りが「監視が死んだ」と判断する）。 */
+static bool create_silence(time_t ends)
+{
+    char start[32], end[32], url[256];
+    rfc3339(time(NULL), start, sizeof start);
+    rfc3339(ends, end, sizeof end);
+    cJSON *body = cJSON_CreateObject();
+    cJSON *matchers = cJSON_AddArrayToObject(body, "matchers");
+    cJSON *m = cJSON_CreateObject();
+    cJSON_AddStringToObject(m, "name", "alertname");
+    cJSON_AddStringToObject(m, "value", "Watchdog");
+    cJSON_AddBoolToObject(m, "isRegex", false);
+    cJSON_AddBoolToObject(m, "isEqual", false);
+    cJSON_AddItemToArray(matchers, m);
+    cJSON_AddStringToObject(body, "startsAt", start);
+    cJSON_AddStringToObject(body, "endsAt", end);
+    cJSON_AddStringToObject(body, "createdBy", MAINT_CREATOR);
+    cJSON_AddStringToObject(body, "comment", "作業中（タッチパネル）");
+    char *json = cJSON_PrintUnformatted(body);
+    snprintf(url, sizeof url, "%s/api/v2/silences", cfg->alertmanager);
+    bool ok = http_send("POST", url, json);
+    cJSON_free(json);
+    cJSON_Delete(body);
+    return ok;
+}
+
+static bool expire_silence(const char *id)
+{
+    char url[256];
+    snprintf(url, sizeof url, "%s/api/v2/silence/%s", cfg->alertmanager, id);
+    return http_send("DELETE", url, NULL);
+}
+
+static void carry_out(CURL *curl, snapshot_t *snap, enum maint_action action, int minutes)
+{
+    fetch_silences(curl, snap);
+    bool ok = true;
+    char old[48];
+    snprintf(old, sizeof old, "%s", snap->maint_id);
+    switch (action) {
+    case MAINT_START:
+        ok = create_silence(time(NULL) + minutes * 60);
+        break;
+    case MAINT_EXTEND:
+        /* 延ばした消音を作ってから、古い方を消す（間で通知が漏れない）。 */
+        ok = snap->maint_active && create_silence(snap->maint_ends + minutes * 60) && expire_silence(old);
+        break;
+    case MAINT_END:
+        ok = !snap->maint_active || expire_silence(old);
+        break;
+    default:
+        break;
+    }
+    snap->maint_failed = !ok;
+    fetch_silences(curl, snap);
+}
+
+void data_request_maintenance(enum maint_action action, int minutes)
+{
+    pthread_mutex_lock(&lock);
+    req_action = action;
+    req_minutes = minutes;
+    pthread_cond_signal(&wake);
+    pthread_mutex_unlock(&lock);
+}
+
+static void publish(snapshot_t *snap)
+{
+    pthread_mutex_lock(&lock);
+    shared = *snap;
+    version++;
+    pthread_mutex_unlock(&lock);
+}
+
 static void *worker(void *arg)
 {
     CURL *curl = curl_easy_init();
@@ -542,16 +683,31 @@ static void *worker(void *arg)
         if (fetch_alerts(curl, snap, have_re ? &disk_re : NULL)) {
             am_fail = 0;
             snap->am_seen = true;
+            fetch_silences(curl, snap);
         } else {
             am_fail++;
         }
         snap->prom_stale = prom_fail >= 2;
         snap->am_stale = am_fail >= 2;
-        pthread_mutex_lock(&lock);
-        shared = *snap;
-        version++;
-        pthread_mutex_unlock(&lock);
-        sleep(POLL_SECONDS);
+        publish(snap);
+
+        /* 次の読み取りまで待つ。作業中の切り替えを頼まれたら、すぐ行う。 */
+        struct timespec until;
+        clock_gettime(CLOCK_REALTIME, &until);
+        until.tv_sec += POLL_SECONDS;
+        for (;;) {
+            pthread_mutex_lock(&lock);
+            while (req_action == MAINT_NONE &&
+                   pthread_cond_timedwait(&wake, &lock, &until) == 0) {
+            }
+            enum maint_action action = req_action;
+            int minutes = req_minutes;
+            req_action = MAINT_NONE;
+            pthread_mutex_unlock(&lock);
+            if (action == MAINT_NONE) break; /* 時間切れ */
+            carry_out(curl, snap, action, minutes);
+            publish(snap);
+        }
     }
     return NULL;
 }
