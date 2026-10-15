@@ -200,7 +200,7 @@ flowchart TB
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（tarakoserver）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
+| [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
 | [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |

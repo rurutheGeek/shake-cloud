@@ -354,7 +354,7 @@ flowchart LR
   https["HTTPS名 20件<br/>blackbox"]
   prom["Prometheus<br/>tarakoserver（Pi 4）"]
   loki["Loki・Alloy<br/>journal・Docker・Flint 3 の syslog"]
-  alert["Alertmanager<br/>メール通知"]
+  alert["Alertmanager<br/>Discord 通知"]
   grafana["Grafana<br/>OIDC"]
   peanut["PeaNUT<br/>HomarrのUPS表示"]
   deadman["healthchecks.io<br/>dead man's switch"]
@@ -381,7 +381,7 @@ flowchart LR
 | HTTPS名 | blackboxが疎通と証明書を確認。ログイン用のリダイレクト（302）や401/403は「生きている」とみなす |
 | ノード資源 | ディスク空き15%未満・空きメモリ10%未満・OOM kill・systemd unit failed・計画外再起動 |
 | バックアップ | 管理DBの最終成功時刻をメトリクス化（`backup_last_success_timestamp_seconds`）。36時間の停滞と欠測そのものを通知 |
-| 通知 | AlertmanagerがGmailでメール。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
+| 通知 | Alertmanager が Discord（webhook）へ。重さは緊急・注意・記録の 3 段で、記録は送らない。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
 | Homarr連携 | 実装済み。Proxmox連携のSystem HealthとPeaNUT経由のUPSウィジェット |
 
 ## 10. ゲームとAI（game1・GPUパススルー）

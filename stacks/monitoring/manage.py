@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parent
 # （空URLは設定エラーになるため）。
 WATCHDOG_BLOCK = re.compile(r'^[ \t]*# deadman:start.*?^[ \t]*# deadman:end[ \t]*\n',
                             re.MULTILINE | re.DOTALL)
+# Discord の送り先。webhook が無いときは丸ごと外し、すべて silent（送らない）へ回す。
+DISCORD_BLOCK = re.compile(r'^[ \t]*# discord:start.*?^[ \t]*# discord:end[ \t]*\n',
+                           re.MULTILINE | re.DOTALL)
+# Ansible が public-monitor.sops.yaml から入れる（negitoroserver の外からの見張りと同じ送り先）。
+DISCORD_WEBHOOK = 'discord_webhook_url'
 GENERATED_SECRETS = ('grafana_admin_password', 'nut_password', 'peanut_web_password')
 # The Proxmox read-only token is copied from SOPS by the Ansible role.
 PVE_TOKEN = 'pve_token'
@@ -114,26 +119,39 @@ def without_watchdog(text):
     return WATCHDOG_BLOCK.sub('', text)
 
 
+def without_discord(text):
+    """Send everything to the silent receiver when no Discord webhook is installed."""
+    return DISCORD_BLOCK.sub('', text).replace('receiver: discord', 'receiver: silent')
+
+
 def render_alertmanager_config():
-    """Write Alertmanager's config with the SMTP values from .env.
+    """Write Alertmanager's config, its message template and the webhook file.
 
     Alertmanager 0.34 does not expand environment variables in its config,
-    so the template is filled here. The file contains the SMTP password and
-    is owned by the container user (nobody).
+    so the template is filled here. The webhook URL is a secret: it is handed
+    over as a file (webhook_url_file) owned by the container user (nobody).
     """
     values = settings()
     template = string.Template((ROOT / 'alertmanager/alertmanager.yml.template').read_text())
-    rendered = template.substitute({key: values.get(key, '') for key in (
-        'SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USERNAME', 'SMTP_PASSWORD',
-        'SMTP_REQUIRE_TLS', 'ALERT_EMAIL', 'WATCHDOG_PING_URL')})
+    rendered = template.substitute(WATCHDOG_PING_URL=values.get('WATCHDOG_PING_URL', ''))
     if not values.get('WATCHDOG_PING_URL'):
         rendered = without_watchdog(rendered)
+    webhook = secret(DISCORD_WEBHOOK)
+    if not webhook:
+        rendered = without_discord(rendered)
     target = storage() / 'alertmanager-config'
     target.mkdir(parents=True, exist_ok=True)
-    path = target / 'alertmanager.yml'
-    path.write_text(rendered)
-    os.chown(path, 65534, 65534)
-    path.chmod(0o600)
+    files = {'alertmanager.yml': rendered,
+             'notify.tmpl': (ROOT / 'alertmanager/notify.tmpl').read_text()}
+    if webhook:
+        files[DISCORD_WEBHOOK] = webhook + '\n'
+    for name, content in files.items():
+        path = target / name
+        path.write_text(content)
+        os.chown(path, 65534, 65534)
+        path.chmod(0o600)
+    if not webhook:
+        (target / DISCORD_WEBHOOK).unlink(missing_ok=True)
 
 
 def init():

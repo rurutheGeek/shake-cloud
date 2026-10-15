@@ -95,7 +95,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ## 外からの監視（negitoroserver）
 
-家の回線や K11 が落ちても気づけるよう、**家の外にある negitoroserver（zero2w、公開の入口）** が外から見張る（2026-10-14 に tarakoserver から移した）。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに公開サイト（`shake`・`pkhack`・`ayahuya`・ルート）を確認し、**状態が変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`）。
+家の回線や K11 が落ちても気づけるよう、**家の外にある negitoroserver（zero2w、公開の入口）** が外から見張る（2026-10-14 に tarakoserver から移した）。`platform/ansible/public-monitor.yml` とロール `public_monitor`（`outpost.ini`、`ansible_admin`）で、1分ごとに公開サイト（`shake`・`pkhack`・`ayahuya`・ルート）を確認し、**状態が 10 分続けて変わったときだけ** Discord へ通知する（通知先は `platform/sops/public-monitor.sops.yaml`。文の形は家の中の監視と同じ「🔴 緊急｜…」「✅ 直った｜…」）。
 
 家の中の名前（`grafana` など）は見ない（`public_monitor_check_internal: false`。入口は Tailscale の制限で家の中へ入れない）。状態は SD カードではなくメモリの `/run/public-monitor/` に置く。
 

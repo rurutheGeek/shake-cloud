@@ -174,24 +174,68 @@ class PrometheusTests(unittest.TestCase):
 
 
 class AlertmanagerTests(unittest.TestCase):
-    def test_the_deadman_switch_is_rendered_only_with_a_ping_url(self):
+    def manage(self):
         spec = importlib.util.spec_from_file_location('monitoring_manage', STACK / 'manage.py')
         monitoring = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(monitoring)
+        return monitoring
+
+    def rendered(self):
         template = (STACK / 'alertmanager/alertmanager.yml.template').read_text(encoding='utf-8')
-        self.assertIn('${WATCHDOG_PING_URL}', template)
-        self.assertIn('alertname = Watchdog', template)
-        configured = string.Template(template).substitute(
-            {'WATCHDOG_PING_URL': 'https://hc-ping.com/example', 'ALERT_EMAIL': 'a@example.com',
-             'SMTP_HOST': 'smtp', 'SMTP_PORT': '587', 'SMTP_FROM': 'f@example.com',
-             'SMTP_USERNAME': 'u', 'SMTP_PASSWORD': 'p', 'SMTP_REQUIRE_TLS': 'true'})
+        return string.Template(template).substitute(WATCHDOG_PING_URL='https://hc-ping.com/example')
+
+    def test_the_deadman_switch_is_rendered_only_with_a_ping_url(self):
+        configured = self.rendered()
         self.assertIn('hc-ping.com', configured)
-        disabled = monitoring.without_watchdog(configured)
+        disabled = self.manage().without_watchdog(configured)
         self.assertNotIn('hc-ping.com', disabled)
-        # 宛先は残す。Watchdog がメールへ流れると12時間ごとに誤通知になる。
+        # 宛先は残す。Watchdog が Discord へ流れると 1 時間ごとに誤通知になる。
         self.assertIn('name: deadman', disabled)
         self.assertIn('alertname = Watchdog', disabled)
-        self.assertIn('name: email', disabled)
+
+    def test_alerts_go_to_discord_and_info_goes_nowhere(self):
+        config = yaml.safe_load(self.rendered())
+        route = config['route']
+        self.assertEqual(route['receiver'], 'discord')
+        by_matcher = {tuple(r['matchers']): r for r in route['routes']}
+        self.assertEqual(by_matcher[('severity = info',)]['receiver'], 'silent')
+        self.assertEqual(by_matcher[('severity = critical',)]['repeat_interval'], '4h')
+        self.assertEqual(route['repeat_interval'], '24h')
+        discord = next(r for r in config['receivers'] if r['name'] == 'discord')['discord_configs'][0]
+        # URL は秘密値。設定に直接書かず、ファイルで渡す。
+        self.assertEqual(discord['webhook_url_file'], '/etc/alertmanager/discord_webhook_url')
+        self.assertTrue(discord['send_resolved'])
+        self.assertNotIn('email', self.rendered())
+
+    def test_without_a_webhook_nothing_is_sent(self):
+        config = yaml.safe_load(self.manage().without_discord(self.rendered()))
+        self.assertNotIn('discord', [r['name'] for r in config['receivers']])
+        self.assertEqual(config['route']['receiver'], 'silent')
+
+    def test_every_alert_has_a_known_severity_and_the_texts_the_message_uses(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        for group in rules['groups']:
+            for rule in group['rules']:
+                if rule['alert'] == 'Watchdog':
+                    continue
+                self.assertIn(rule['labels']['severity'], ('critical', 'warning', 'info'), rule['alert'])
+                for key in ('panel', 'summary', 'description'):
+                    self.assertTrue(rule['annotations'].get(key), f"{rule['alert']}: {key}")
+                # 「どこ」は通知の文が付ける。IP アドレスを summary に入れない。
+                self.assertNotIn('$labels.instance', rule['annotations']['summary'], rule['alert'])
+
+    def test_a_short_outage_does_not_notify(self):
+        rules = load(STACK / 'prometheus/alerts.yml')
+        alerts = {rule['alert']: rule for group in rules['groups'] for rule in group['rules']}
+        for name in ('ServiceProbeFailed', 'NodeExporterDown', 'ProxmoxGuestDown'):
+            self.assertEqual(alerts[name]['for'], '10m', name)
+        self.assertEqual(alerts['UpsOnBattery']['for'], '5m')
+
+    def test_the_message_template_is_installed_next_to_the_config(self):
+        self.assertIn('/etc/alertmanager/notify.tmpl', self.rendered())
+        template = (STACK / 'alertmanager/notify.tmpl').read_text(encoding='utf-8')
+        for name in ('shake.title', 'shake.message', 'shake.where'):
+            self.assertIn(f'define "{name}"', template)
 
 
 class GrafanaTests(unittest.TestCase):

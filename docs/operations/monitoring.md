@@ -1,6 +1,6 @@
 ---
 title: 監視（tarakoserver）
-updated: 2026-10-03
+updated: 2026-10-16
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 監視（tarakoserver）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-16 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 稼働中。`https://grafana.apextox.dpdns.org`（core-01 の Authentik の OIDC）。
 
@@ -53,13 +53,27 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 
 ## 3. アラートが鳴ったら
 
-通知はメール（`smtp.sops.yaml` の Gmail）です。定義は `stacks/monitoring/prometheus/alerts.yml`。**`severity: critical` は `SmartDeviceUnhealthy` の1つだけ**で、残りは `warning` です。
+通知は Discord（webhook）へ届きます。送り先は negitoroserver の外からの見張りと同じチャンネル（`platform/sops/public-monitor.sops.yaml` の `DISCORD_WEBHOOK_URL`）。2026-10-16 にメールから切り替えました。定義は `stacks/monitoring/prometheus/alerts.yml`、送り方は `stacks/monitoring/alertmanager/alertmanager.yml.template`、文の形は `stacks/monitoring/alertmanager/notify.tmpl` です。
+
+| 重さ（`severity`） | Discord | 念押し | 例 |
+| --- | --- | --- | --- |
+| 🔴 `critical`（緊急） | 送る。直ったら「✅ 直った」 | 4 時間ごと | サービス・機械・VM の応答なし、HDD 外れ、SMART の FAILED・不良セクター、停電 |
+| 🟡 `warning`（注意） | 送る。直ったら「✅ 直った」 | 1 日 1 回 | 空き容量・メモリ、サービスの失敗、バックアップの遅れ、ルータの設定崩れ、証明書 |
+| ⚪ `info`（記録） | 送らない（Grafana とタッチパネルだけ） | — | 再起動した、収集・点検が止まった（原因はほかの警告で出る） |
+
+- **短い途切れでは送らない。** 応答なし系は 10 分、停電は 5 分続いたら送ります（配線替えの抜き差しで鳴らさない）。
+- **同じ種類は 1 通にまとめます**（`group_by: [alertname]`）。
+- **親が落ちたら子は送りません**（`inhibit_rules`）：K11 が応答しないときの VM・サービス・HDD、Flint 3 が応答しないときのルータの向こう、HDD が見えないときの HDD 上のサービス、停電中の応答なし。
+- **作業中は止められます。** Alertmanager のサイレンス（`alertname != Watchdog`）。タッチパネルの「作業中」（[M02](../development/M02-touch-panel.md)）からも入れられます。外からの見張りには効きません。
+- **「どこ」は名前で出します。** node_exporter の機械は Prometheus の `host` ラベル（`prometheus.yml` の node の relabel）、VM は Proxmox の名前、サービスは URL の先頭です。
+- webhook が無いと、`manage.py` が送り先を `silent` にします（何も送らない）。送り先を Discord 以外にするときは `discord_configs` を `slack_configs`・`webhook_configs` などに替えます。
+
 
 ### 疎通（availability）
 
 | アラート | 意味 | 最初に見るところ |
 | --- | --- | --- |
-| `ServiceProbeFailed` | HTTPS名が5分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
+| `ServiceProbeFailed` | HTTPS名が10分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
 | `CertificateExpiringSoon` | 証明書の期限が14日以内 | 該当ホストのCaddyログ。Cloudflareトークンの権限（ゾーン読み取り＋DNS編集の両方が要る） |
 
 ### ノード（node_exporter を入れた4台）
@@ -93,7 +107,7 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 | `BulkDiskUnmounted` | `/srv/bulk` が見えない。**HDD上のクラウドVMのディスク（media-01 のデータなど）と、NFS越しの game1 も巻き込む** |
 | `BulkDiskAlmostFull` | 空きが10%未満 |
 | `BulkAreaAlmostFull` | HDDのバックアップ領域・クラウド領域のどちらかが上限の85%を超えた |
-| `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。唯一の critical。** ディスク交換の検討 |
+| `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。** ディスク交換の検討 |
 | `SmartSectorErrors` | 不良・代替処理待ちセクター |
 | `SmartCableErrors` | CRCエラーの増加。**多くはケーブル側** |
 | `SmartTemperatureHigh` | 50℃超 |
@@ -117,7 +131,7 @@ tarakoserver は K11 の外にあるので、K11 が落ちても監視は残り�
 
 - `Watchdog`（`severity: none`。`vector(1)` で常時firing）→ Alertmanager の `deadman` 宛先 → 1時間ごとにPOST
 - 受信側は Period 12時間 / Grace 1時間。**届かなくなったら向こうから通知が来ます**
-- ping URL は `platform/sops/monitoring.sops.yaml` の `WATCHDOG_PING_URL`。**空なら `deadman` は何もせず、`Watchdog` がメールに流れることもありません**
+- ping URL は `platform/sops/monitoring.sops.yaml` の `WATCHDOG_PING_URL`。**空なら `deadman` は何もせず、`Watchdog` が Discord に流れることもありません**
 
 ```bash
 sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'
@@ -145,7 +159,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
 ```
 
-**`.env` の SMTP・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。
+**Discord の webhook・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。
 
 Proxmox ホスト側の exporter は別Playbookです。
 

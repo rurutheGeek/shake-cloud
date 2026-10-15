@@ -11,8 +11,7 @@ monitoring_identity_host: "{{ (groups.get('identity_provider') or ['identity'])[
 monitoring_oidc_credentials_path: /opt/identity-stack/secrets/oidc-grafana.json
 # Proxmox の読み取り専用トークンと NUT のパスワード。
 monitoring_sops_file: '{{ playbook_dir }}/../sops/monitoring.sops.yaml'
-monitoring_smtp_sops_file: '{{ playbook_dir }}/../sops/smtp.sops.yaml'
-monitoring_smtp_keys: [SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM]
+monitoring_discord_sops_file: '{{ playbook_dir }}/../sops/public-monitor.sops.yaml'
 # UPS の upsd（ups_server ロール）。UPS の USB は tarakoserver。
 monitoring_nut_server: 192.168.10.11
 # Prometheus の記録を残す期間。記録は HDD（/srv/monitoring）にあり、1 日あたり約 55MB。

@@ -31,16 +31,8 @@ services:
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
-    environment:
-      SMTP_HOST: ${SMTP_HOST:-localhost}
-      SMTP_PORT: ${SMTP_PORT:-25}
-      SMTP_FROM: ${SMTP_FROM:-}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-true}
-      ALERT_EMAIL: ${ALERT_EMAIL:-}
     volumes:
-      # alertmanager.yml は manage.py が secrets/ と .env から描画する。
+      # alertmanager.yml・notify.tmpl・discord_webhook_url は manage.py が描画する。
       - ${STORAGE_ROOT:-./storage}/alertmanager-config:/etc/alertmanager:ro
       - ${STORAGE_ROOT:-./storage}/alertmanager:/alertmanager
     ports:

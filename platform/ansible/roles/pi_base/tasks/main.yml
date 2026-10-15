@@ -128,7 +128,7 @@
 
 - name: Remove retired service definitions
   ansible.builtin.file:
-    path: '/etc/systemd/system/{{ item }}.service'
+    path: "/etc/systemd/system/{{ item if '.' in item else item + '.service' }}"
     state: absent
   loop: '{{ pi_base_retired_services }}'
   register: pi_base_units
@@ -137,6 +137,14 @@
   ansible.builtin.systemd:
     daemon_reload: true
   when: pi_base_units is changed
+
+# 消したり止めたりしたサービスの「失敗」の記録を消す。残ると監視の警告が出続ける。
+- name: Forget the failures of retired and disabled services
+  ansible.builtin.command:
+    argv: "{{ ['systemctl', 'reset-failed'] + (pi_base_retired_services + pi_base_disabled_services) }}"
+  when: (pi_base_retired_services + pi_base_disabled_services) | length > 0
+  changed_when: false
+  failed_when: false
 
 - name: Remove retired cron lines
   ansible.builtin.shell:

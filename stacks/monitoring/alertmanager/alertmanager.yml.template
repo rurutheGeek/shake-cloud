@@ -1,32 +1,70 @@
-# Alertmanager。Prometheus のアラートを既存の Gmail SMTP でメール通知する。
-# プレースホルダは manage.py が .env の値で描画する。
-global:
-  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
-  smtp_from: '${SMTP_FROM}'
-  smtp_auth_username: '${SMTP_USERNAME}'
-  smtp_auth_password: '${SMTP_PASSWORD}'
-  smtp_require_tls: ${SMTP_REQUIRE_TLS}
+# Alertmanager。Prometheus の警告を Discord（webhook）へ送る。
+# プレースホルダは manage.py が .env の値で描画する。文の形は notify.tmpl。
+# 送り先を Discord 以外にするときは discord_configs を slack_configs・webhook_configs
+# などへ替える（title・message のテンプレートはそのまま使える）。
+templates:
+  - /etc/alertmanager/notify.tmpl
 
 route:
-  receiver: email
+  receiver: discord
+  # 同じ種類はまとめて 1 通。短い途切れは警告の for（多くは 10 分）が吸う。
   group_by: [alertname]
-  group_wait: 30s
+  group_wait: 1m
   group_interval: 5m
-  repeat_interval: 12h
-  # Watchdog は常時 firing。外部の dead man's switch だけへ送る（メールには流さない）。
+  repeat_interval: 24h
   routes:
+    # Watchdog は常時 firing。外部の dead man's switch だけへ送る。
     - matchers:
         - alertname = Watchdog
       receiver: deadman
       group_wait: 0s
       group_interval: 1m
       repeat_interval: 1h
+    # 記録（info）は送らない。Grafana とタッチパネルにだけ出る。
+    - matchers:
+        - severity = info
+      receiver: silent
+    - matchers:
+        - severity = critical
+      receiver: discord
+      repeat_interval: 4h
+
+# 親が落ちたら、それが原因で出る子の警告は送らない。
+inhibit_rules:
+  # K11 が応答しなければ、上の VM・サービス・HDD の警告は K11 の 1 通にまとめる。
+  - source_matchers:
+      - alertname = NodeExporterDown
+      - host = K11
+    target_matchers:
+      - alertname =~ "ProxmoxGuestDown|ServiceProbeFailed|NodeExporterDown|Bulk.*|Smart.*|CloudBackup.*"
+  # Flint 3 が応答しなければ、ルータの向こう（DMZ・名前引き）の警告は止める。
+  - source_matchers:
+      - alertname = NodeExporterDown
+      - host = Flint 3
+    target_matchers:
+      - alertname =~ "ServiceProbeFailed|NodeExporterDown|Router.*"
+  # HDD が見えなければ、HDD の容量・SMART と、HDD に置いたサービス（Nextcloud など）は止める。
+  - source_matchers:
+      - alertname = BulkDiskUnmounted
+    target_matchers:
+      - alertname =~ "Bulk.*|Smart.*|ServiceProbeFailed"
+  # 停電中は、電池切れの前に止めた機械・サービスの警告を送らない。
+  - source_matchers:
+      - alertname = UpsOnBattery
+    target_matchers:
+      - alertname =~ "NodeExporterDown|ProxmoxGuestDown|ServiceProbeFailed"
 
 receivers:
-  - name: email
-    email_configs:
-      - to: '${ALERT_EMAIL}'
+  # discord:start
+  - name: discord
+    discord_configs:
+      - webhook_url_file: /etc/alertmanager/discord_webhook_url
         send_resolved: true
+        title: '{{ template "shake.title" . }}'
+        message: '{{ template "shake.message" . }}'
+  # discord:end
+  # DISCORD の webhook が無いときは manage.py が上を外し、ここが既定の送り先になる。
+  - name: silent
   # WATCHDOG_PING_URL が空なら manage.py が webhook_configs を外す（no-opの宛先として残す）。
   - name: deadman
     # deadman:start
