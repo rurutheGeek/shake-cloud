@@ -35,18 +35,11 @@ static const char PAGE[] =
     "<title>監視パネル</title>"
     "<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231c1f24%27/%3E%3Cpath d=%27M7 20a9 9 0 0 1 18 0%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Cpath d=%27M16 20l5-6%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Ccircle cx=%2716%27 cy=%2720%27 r=%271.8%27 fill=%27%2322c55e%27/%3E%3C/svg%3E\">"
     "<style>"
-    "html,body{margin:0;background:#1c1f24;height:100%}"
-    "img{display:block;width:100%;max-width:800px;margin:0 auto;touch-action:manipulation;user-select:none}"
-    "</style></head><body><img id=\"s\" src=\"screen.png\" alt=\"監視パネル\">"
+    "html,body{margin:0;background:#1c1f24;height:100%;overflow:hidden}#w{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}img{display:block;width:100%;max-width:800px;touch-action:manipulation;user-select:none;-webkit-user-select:none}body.big img{max-width:none;width:min(100vw,calc(100vh*800/480))}@media (orientation:portrait){body.big img{width:min(100vh,calc(100vw*800/480));transform:rotate(90deg)}}#b{position:fixed;right:8px;bottom:8px;width:44px;height:44px;border:0;border-radius:10px;background:#2a2e35;color:#e6e6e6;font-size:22px;opacity:.85}body.big #b{opacity:.35}"
+    "</style></head><body><div id=\"w\"><img id=\"s\" src=\"screen.png\" alt=\"監視パネル\"></div>"
+    "<button id=\"b\" aria-label=\"大きく表示\"></button>"
     "<script>"
-    "const s=document.getElementById('s');let t;"
-    "function load(){clearTimeout(t);if(document.hidden)return;"
-    "const n=new Image();n.onload=()=>{s.src=n.src;t=setTimeout(load,1500)};"
-    "n.onerror=()=>{t=setTimeout(load,5000)};n.src='screen.png?'+Date.now()}"
-    "s.addEventListener('click',e=>{const r=s.getBoundingClientRect();"
-    "const x=Math.round((e.clientX-r.left)*800/r.width),y=Math.round((e.clientY-r.top)*480/r.height);"
-    "fetch('tap?x='+x+'&y='+y,{method:'POST',headers:{'X-Panel':'1'}}).then(()=>{clearTimeout(t);t=setTimeout(load,300)})});"
-    "document.addEventListener('visibilitychange',load);s.onload=()=>{s.onload=null;t=setTimeout(load,1500)};"
+    "const s=document.getElementById('s'),b=document.getElementById('b');let t;function load(){clearTimeout(t);if(document.hidden)return;const n=new Image();n.onload=()=>{s.src=n.src;t=setTimeout(load,1500)};n.onerror=()=>{t=setTimeout(load,5000)};n.src='screen.png?'+Date.now()}s.addEventListener('click',e=>{const r=s.getBoundingClientRect(),w=s.offsetWidth,h=s.offsetHeight;let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);if(getComputedStyle(s).transform!=='none'){const q=dx;dx=dy;dy=-q}const x=Math.round((dx+w/2)*800/w),y=Math.round((dy+h/2)*480/h);if(x<0||y<0||x>=800||y>=480)return;fetch('tap?x='+x+'&y='+y,{method:'POST',headers:{'X-Panel':'1'}}).then(()=>{clearTimeout(t);t=setTimeout(load,300)})});function big(on){document.body.classList.toggle('big',on);b.textContent=on?'\u2921':'\u2922';try{localStorage.setItem('big',on?'1':'')}catch(e){}}b.addEventListener('click',async()=>{const on=!document.body.classList.contains('big');big(on);try{if(on){await document.documentElement.requestFullscreen();await screen.orientation.lock('landscape')}else if(document.fullscreenElement){await document.exitFullscreen()}}catch(e){}});try{big(localStorage.getItem('big')==='1')}catch(e){big(false)}document.addEventListener('visibilitychange',load);s.onload=()=>{s.onload=null;t=setTimeout(load,1500)};"
     "</script></body></html>";
 
 /* ---------- PNG（無圧縮のフィルタ＋zlib） ---------- */
