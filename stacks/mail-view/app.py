@@ -381,6 +381,7 @@ def page(title, body):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
 <title>{html.escape(title)}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ea4335%27/%3E%3Crect x=%276.5%27 y=%279%27 width=%2719%27 height=%2714%27 rx=%272%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Cpath d=%27M7 10l9 7 9-7%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
 <style>{STYLE}</style>
 </head>
 <body>

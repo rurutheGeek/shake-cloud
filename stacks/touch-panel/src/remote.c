@@ -32,7 +32,9 @@ static int tap_x[TAP_QUEUE], tap_y[TAP_QUEUE], tap_head, tap_tail;
 static const char PAGE[] =
     "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\">"
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-    "<title>監視パネル</title><style>"
+    "<title>監視パネル</title>"
+    "<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231c1f24%27/%3E%3Cpath d=%27M7 20a9 9 0 0 1 18 0%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Cpath d=%27M16 20l5-6%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Ccircle cx=%2716%27 cy=%2720%27 r=%271.8%27 fill=%27%2322c55e%27/%3E%3C/svg%3E\">"
+    "<style>"
     "html,body{margin:0;background:#1c1f24;height:100%}"
     "img{display:block;width:100%;max-width:800px;margin:0 auto;touch-action:manipulation;user-select:none}"
     "</style></head><body><img id=\"s\" src=\"screen.png\" alt=\"監視パネル\">"
