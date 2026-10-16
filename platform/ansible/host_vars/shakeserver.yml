@@ -41,3 +41,21 @@ pi_base_retired_cron:
   - {user: root, match: acme.sh}
   - {user: 39ix, match: ups_to_json.py}
 pi_base_prune_volumes: true
+# 家の中の区画へは出さない（2026-10-09 に手で入れた homeguard を取り込んだ）。
+# 通すのは DMZ のゲートウェイ（DNS・DHCP・NTP・ping）、AdGuard Home の DNS、公開サイトが読む pkdb だけ。
+# Flint 3 の DMZ-to-pkdb（dmz-db-clients）・apps-01 のセキュリティグループと対。
+pi_base_lan_guard:
+  allow:
+    - {comment: DMZ のゲートウェイの DNS, address: 192.168.30.1, match: 'meta l4proto { tcp, udp } th dport 53'}
+    - {comment: DMZ のゲートウェイの DHCP・NTP, address: 192.168.30.1, match: 'udp dport { 67, 123 }'}
+    - {comment: DMZ のゲートウェイへの ping, address: 192.168.30.1, match: 'icmp type echo-request'}
+    # 名前引きは Tailscale の DNS（100.100.100.100）経由で AdGuard Home（Flint 3）へ行く。
+    - {comment: AdGuard Home（Flint 3）の DNS, address: 192.168.10.1, match: 'meta l4proto { tcp, udp } th dport 53'}
+    - {comment: ポケモン系の PostgreSQL（apps-01）, address: 192.168.10.105, match: 'tcp dport 5432'}
+  block:
+    - 192.168.10.0/24
+    - 192.168.30.0/24
+    - 192.168.40.0/24
+    - 192.168.50.0/24
+  block6:
+    - 240b:10:b280:2400::/64
