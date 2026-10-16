@@ -49,6 +49,16 @@ gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O - | grep linux
 AIHIST_TOKEN=<トークン> aihist push -server https://aihist.apextox.dpdns.org
 ```
 
+OpenCode は DB そのものを送らない（操作ログで数 GB あり、ログイン情報も入っている）。会話ごとに `session`・`message`・`part`・`project` の行をそのまま書き出したものを原本として送る。
+
+## 元の AI へ戻す
+
+```bash
+AIHIST_TOKEN=<トークン> aihist restore -server https://aihist.apextox.dpdns.org <会話IDの先頭>
+```
+
+画面の下の「〜で続ける」で同じコマンドをコピーできる。原本を元のツールの置き場所へ戻し、続けるコマンド（`claude --resume`・`codex resume`・`opencode --session`）を表示する。Codex と OpenCode は、消した会話を戻して続きを話せることを確かめた。Claude Code は戻したファイルが原本と同じことまで、Antigravity は未確認。
+
 トークンは `sops -d --extract '["AIHIST_TOKEN"]' platform/sops/aihist.sops.yaml` で読む。Windows 用の `aihist-windows-amd64.exe` も同じリリースにある。
 
 ## バックアップ
