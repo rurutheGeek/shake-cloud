@@ -1,5 +1,9 @@
 ---
-# Shake-Web の公開サイト（旧 shakeserver から 2026-10-05 に web-01 へ移行）。
+# Shake-Web の公開サイト。2026-10-05 に shakeserver から web-01 へ移し、2026-10-16 に
+# DMZ の shakeserver（Pi 5）へ戻す。
+# クラウドの VM か。false（Raspberry Pi）ではセキュリティグループ・Tailscale の参加・
+# LAN の 80/443 の守りを飛ばす（Pi は pi_base の homeguard と Flint 3 の DMZ が守る）。
+shake_web_cloud_vm: true
 shake_web_project_dir: /opt/shake-web
 shake_web_storage_root: /srv/shake-web
 shake_web_source_dir: '{{ playbook_dir }}/../../stacks/shake-web'

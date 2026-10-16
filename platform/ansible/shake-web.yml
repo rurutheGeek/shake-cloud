@@ -1,9 +1,11 @@
 ---
-# web-01 へ Shake-Web の公開サイトを配る。
+# Shake-Web の公開サイトを配る。配り先は DMZ の shakeserver（Pi 5、outpost.ini の web）。
 #
-#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
-#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-#        -i platform/ansible/inventory.netbox.yml platform/ansible/shake-web.yml'
+#   .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
+#     --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
+#
+# 2026-10-05〜16 は web-01（NetBox の web グループ）だった。web-01 に流すときは
+# inventory.netbox.yml で（shake_web_cloud_vm は既定の true）。
 #
 # 秘密値（Deploy key 3本・CloudFlare Origin 証明鍵・DB のパスワード）は
 # platform/sops/shake-web.sops.yaml から role が読む。

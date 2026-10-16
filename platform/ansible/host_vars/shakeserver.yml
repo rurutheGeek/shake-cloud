@@ -59,3 +59,6 @@ pi_base_lan_guard:
     - 192.168.50.0/24
   block6:
     - 240b:10:b280:2400::/64
+# 公開サイト（shake-web.yml）。クラウドの VM ではないので、セキュリティグループ・
+# Tailscale の参加・LAN の 80/443 の守りは飛ばす（守りは上の homeguard）。
+shake_web_cloud_vm: false

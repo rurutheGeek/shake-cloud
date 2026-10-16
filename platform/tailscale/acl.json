@@ -41,6 +41,15 @@
     {
       "action": "accept",
       "src": [
+        "tag:relay"
+      ],
+      "dst": [
+        "tag:dmz:80,443"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": [
         "tag:monitoring"
       ],
       "dst": [
@@ -64,7 +73,9 @@
       "src": "tag:relay",
       "accept": [
         "tag:web:443",
-        "tag:web:80"
+        "tag:web:80",
+        "tag:dmz:443",
+        "tag:dmz:80"
       ],
       "deny": [
         "tag:web:22",
