@@ -158,7 +158,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertEqual(behind_auth,
                          {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
                           'mail-view', 'backup', 'urbackup', 'adminer', 'portal',
-                          'pkdb-entry', 'netmap', 'panel'})
+                          'pkdb-entry', 'netmap', 'panel', 'aihist'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):
@@ -205,10 +205,10 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 11)
+        self.assertEqual(len(sites), 12)
         # navidrome は通常の認証に加え、/review/ の全曲レビューと
         # /review-static/ の生成HTMLにも forward_auth を付ける。
-        self.assertEqual(rendered.count('forward_auth https://'), 7)
+        self.assertEqual(rendered.count('forward_auth https://'), 8)
         for name in ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
@@ -228,6 +228,10 @@ class TlsProxyTests(unittest.TestCase):
         self.assertIn('uri strip_prefix /review-static', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
+        # aihist の /api は各マシンの push が使う。SSO の外で aihist 自身のトークンが守る。
+        aihist = site_block(rendered, 'aihist')
+        self.assertIn('handle /api/* {', aihist)
+        self.assertLess(aihist.index('handle /api/*'), aihist.index('forward_auth https://'))
         for name in ('nextcloud', 'kavita', 'freshrss', 'forgejo', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)

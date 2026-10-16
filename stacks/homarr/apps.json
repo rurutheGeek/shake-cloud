@@ -131,6 +131,13 @@
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/musicbrainz.svg"
   },
   {
+    "name": "AIの会話履歴",
+    "href": "https://aihist.apextox.dpdns.org",
+    "description": "AIツールの会話を検索・閲覧し、別のAIへ渡す（SSO・管理者）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openai.svg",
+    "pingUrl": "https://aihist.apextox.dpdns.org/"
+  },
+  {
     "name": "メールビューア",
     "href": "https://mail-view.apextox.dpdns.org",
     "description": "通知メール（Gmail）を読み取り専用で読む（SSO）",

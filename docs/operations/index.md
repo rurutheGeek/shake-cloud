@@ -47,6 +47,7 @@ tags:
 | [Nextcloudと追加アプリ](nextcloud.md) | アプリの追加・配備 |
 | [Nextcloudのアクセス権限](nextcloud-permissions.md) | 共有ライブラリの見え方 |
 | [Nextcloud MCPサーバ](nextcloud-mcp.md) | AIエージェント用のファイル操作サーバ |
+| [AIの会話履歴（aihist）](aihist.md) | AIツールの会話の収集・検索・書き出し |
 | [Vaultwardenの管理](vaultwarden.md) | 保管庫・SSO・招待 |
 | [ポケモン系のPostgreSQL（pkdb）](pkdb.md) | 接続先・バックアップ・旧ホストからの移行 |
 | [Discord Bot（UBSLEEPY）](ubsleepy.md) | 本番/テストの構成・停止と起動・設定・バックアップ |

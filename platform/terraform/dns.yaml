@@ -83,6 +83,15 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:5811
     description: NextcloudのAIエージェント用MCP（読み書き・タグ・圧縮解凍。SSOなし・自前認証）
+  # AI の会話履歴。画面は管理者だけ（Forward Auth）。各マシンの push が使う
+  # /api はブラウザを持たないので SSO の外に出し、aihist 自身のトークンで守る。
+  aihist:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:5840
+    description: aihist（AIの会話履歴の検索・閲覧。Forward Auth、/api はトークン）
+    auth: true
+    auth_except: ['/api/*']
   # クライアント端末のバックアップの入口（ポータル）。Web UI だけを SSO の
   # 内側に置く。Windows クライアントは Forward Auth を通せないので、Caddy
   # ではなく media-01 の LAN アドレス:55413 へ直接つなぐ。

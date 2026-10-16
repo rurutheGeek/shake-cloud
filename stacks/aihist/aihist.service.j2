@@ -1,0 +1,21 @@
+[Unit]
+Description=aihist (AI conversation history)
+After=network-online.target {{ aihist_data_mount_unit }}
+Wants=network-online.target
+RequiresMountsFor={{ aihist_data_dir }}
+
+[Service]
+Type=simple
+ExecStart={{ aihist_dir }}/aihist -db {{ aihist_data_dir }}/aihist.db serve -addr 127.0.0.1:{{ aihist_port }} -raw {{ aihist_data_dir }}/raw
+EnvironmentFile={{ aihist_dir }}/aihist.env
+User=aihist
+Group=aihist
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths={{ aihist_data_dir }}
+
+[Install]
+WantedBy=multi-user.target
