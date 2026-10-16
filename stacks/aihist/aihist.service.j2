@@ -6,7 +6,7 @@ RequiresMountsFor={{ aihist_data_dir }}
 
 [Service]
 Type=simple
-ExecStart={{ aihist_dir }}/aihist -db {{ aihist_data_dir }}/aihist.db serve -addr 127.0.0.1:{{ aihist_port }} -raw {{ aihist_data_dir }}/raw
+ExecStart={{ aihist_dir }}/aihist -db {{ aihist_data_dir }}/aihist.db serve -addr 127.0.0.1:{{ aihist_port }} -raw {{ aihist_data_dir }}/raw -bin {{ aihist_dir }}/bin
 EnvironmentFile={{ aihist_dir }}/aihist.env
 User=aihist
 Group=aihist

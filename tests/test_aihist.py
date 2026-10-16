@@ -25,14 +25,18 @@ class ReleaseTests(unittest.TestCase):
     def test_the_release_is_pinned_in_group_vars(self):
         group = yaml.safe_load(read(GROUP_VARS))
         self.assertRegex(group['aihist_version'], r'^\d+\.\d+\.\d+$')
-        self.assertRegex(group['aihist_sha256'], r'^[0-9a-f]{64}$')
+        self.assertIn('aihist-linux-amd64', group['aihist_sha256s'])
+        for name, digest in group['aihist_sha256s'].items():
+            self.assertRegex(name, r'^aihist-(linux|darwin|windows)-(amd64|arm64)(\.exe)?$')
+            self.assertRegex(digest, r'^[0-9a-f]{64}$')
 
     def test_the_binary_is_checked_against_the_pin_before_install(self):
         names = [task['name'] for task in self.tasks]
         self.assertLess(names.index('Refuse an aihist binary that does not match the pin'),
                         names.index('Install aihist'))
-        stat = role_task(self.tasks, 'Check the downloaded aihist')['ansible.builtin.stat']
-        self.assertEqual(stat['checksum_algorithm'], 'sha256')
+        task = role_task(self.tasks, 'Check the downloaded aihist')
+        self.assertEqual(task['ansible.builtin.stat']['checksum_algorithm'], 'sha256')
+        self.assertIn('aihist_sha256s', task['loop'])
 
 
 class DeploymentTests(unittest.TestCase):
@@ -67,6 +71,7 @@ class SystemdUnitTests(unittest.TestCase):
         self.assertIn('ReadWritePaths={{ aihist_data_dir }}', unit)
         self.assertIn('RequiresMountsFor={{ aihist_data_dir }}', unit)
         self.assertIn('User=aihist', unit)
+        self.assertIn('-bin {{ aihist_dir }}/bin', unit)
 
 
 class SyntaxTests(unittest.TestCase):

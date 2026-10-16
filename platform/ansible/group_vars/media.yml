@@ -49,9 +49,14 @@ nextcloud_custom_apps:
 # Nextcloud MCPサーバ（公開リポジトリのGitHub Releaseが正本。bumpで更新）。
 nextcloud_mcp_version: 1.1.0
 nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6
-# aihist（非公開リポジトリの GitHub Release が正本。sha256 は aihist-linux-amd64）。
-aihist_version: 0.4.2
-aihist_sha256: ba53698304120f90301bc8fbc337f005162415b2bb25555e825a68987a2136ad
+# aihist（非公開リポジトリの GitHub Release が正本）。
+aihist_version: 0.5.0
+# ファイルごとの sha256（リリースの SHA256SUMS の写し）。linux-amd64 が本体、ほかは各マシンへ配る。
+aihist_sha256s:
+  aihist-darwin-arm64: 8452273a3196ec2ca5386b93f2fe4d1704b5a4e8c074a6b9f64451a2fa55650b
+  aihist-linux-amd64: 625bf02f678f7c6dc281d3bbdc399efaeda4ce13465a0109aa6ffebbc4d6450e
+  aihist-linux-arm64: a98aef9eaf9cd1ad5b8f9775ebde458811baf8e2abd3f1d9b232170e07e99209
+  aihist-windows-amd64.exe: 7909f77d05870b54494acb0edd2494fdc7291ecea88cffa508c5a8893fda80a1
 # 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
 # 片付けが済んだら空リストにしてよい。
 nextcloud_retired_apps:

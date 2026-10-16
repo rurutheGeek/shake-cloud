@@ -32,14 +32,15 @@
         - {path: '{{ aihist_dir }}', owner: root, group: aihist}
         - {path: '{{ aihist_data_dir }}', owner: aihist, group: aihist}
     # 本体は非公開リポジトリのリリース。media-01 は GitHub の資格情報を持たないので、
-    # 作業機の gh で落としてから sha256 を確かめて送る。
+    # 作業機の gh で落としてから確かめて送る。SHA256SUMS は group_vars の
+    # aihist_sha256s（ファイルごとの sha256）と照らし、各ファイルを SHA256SUMS と照らす。
     - name: Download the aihist release on the controller
       delegate_to: localhost
       become: false
       run_once: true
       ansible.builtin.command:
         argv: [gh, release, download, 'v{{ aihist_version }}', -R, rurutheGeek/aihist,
-               -p, aihist-linux-amd64, -D, '{{ aihist_cache }}', --skip-existing]
+               -p, 'aihist-*', -p, SHA256SUMS, -D, '{{ aihist_cache }}', --skip-existing]
       changed_when: false
       check_mode: false
     - name: Check the downloaded aihist
@@ -47,20 +48,42 @@
       become: false
       run_once: true
       ansible.builtin.stat:
-        path: '{{ aihist_cache }}/aihist-linux-amd64'
+        path: '{{ aihist_cache }}/{{ item.key }}'
         checksum_algorithm: sha256
+      loop: '{{ aihist_sha256s | dict2items }}'
       register: aihist_download
     - name: Refuse an aihist binary that does not match the pin
       ansible.builtin.assert:
-        that: aihist_download.stat.checksum | default('') == aihist_sha256
-        fail_msg: aihist-linux-amd64 の sha256 が group_vars/media.yml の aihist_sha256 と違う
+        that: item.stat.checksum | default('') == item.item.value
+        fail_msg: '{{ item.item.key }} の sha256 が group_vars/media.yml の aihist_sha256s と違う'
         quiet: true
+      loop: '{{ aihist_download.results }}'
+      loop_control:
+        label: '{{ item.item.key }}'
+    - name: Create the directory of binaries handed to other machines
+      ansible.builtin.file:
+        path: '{{ aihist_dir }}/bin'
+        state: directory
+        owner: root
+        group: aihist
+        mode: '0750'
+    # aihist-linux-amd64 はこのホストで動かす本体。ほかは /api/install.sh などで各マシンへ配る。
     - name: Install aihist
       ansible.builtin.copy:
         src: '{{ aihist_cache }}/aihist-linux-amd64'
         dest: '{{ aihist_dir }}/aihist'
         mode: '0755'
       notify: Restart aihist
+    - name: Install the binaries handed to other machines
+      ansible.builtin.copy:
+        src: '{{ aihist_cache }}/{{ item.key }}'
+        dest: '{{ aihist_dir }}/bin/{{ item.key }}'
+        owner: root
+        group: aihist
+        mode: '0644'
+      loop: '{{ aihist_sha256s | dict2items }}'
+      loop_control:
+        label: '{{ item.key }}'
     - name: Read the aihist token
       delegate_to: localhost
       become: false

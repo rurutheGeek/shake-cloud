@@ -32,10 +32,10 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 名前を足したときは、`tools/tf 20-dns apply`、`identity.yml`（Authentik のアプリ）、`media-tls.yml`（media-01 の Caddy）、`edge.yml`（入口の Caddy）を流す。
 
-版を上げるときは、aihist でタグ `v*` を push してリリースを作り、`aihist-linux-amd64` の sha256 を `aihist_sha256` に書いてから配備する。
+版を上げるときは、aihist でタグ `v*` を push してリリースを作り、そのリリースの `SHA256SUMS` を `aihist_sha256s` に写してから配備する。
 
 ```bash
-gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O - | grep linux-amd64
+gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O -
 ```
 
 ## 会話の入れ方
@@ -43,11 +43,14 @@ gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O - | grep linux
 | 入れ方 | やること |
 | --- | --- |
 | 画面の `↑` | ファイルを選んで上げる。Claude Code の `.jsonl`、Codex の `rollout-*.jsonl`、Antigravity の `.db` を中身から見分ける |
-| `aihist push` | 各マシンで実行する。前回から変わったファイルだけを送る。`-every 10m` で送り続ける |
+| `curl` の1行 | 各マシンで実行する。aihist を入れて、前回から変わったファイルだけを送る。`AIHIST_EVERY=10m` で送り続ける |
 
 ```bash
-AIHIST_TOKEN=<トークン> aihist push -server https://aihist.apextox.dpdns.org
+curl -fsSL https://aihist.apextox.dpdns.org/api/install.sh | AIHIST_TOKEN=<トークン> sh          # Linux・WSL・Mac
+$env:AIHIST_TOKEN="<トークン>"; irm https://aihist.apextox.dpdns.org/api/install.ps1 | iex      # Windows
 ```
+
+スクリプトに秘密は入っていない。実行ファイルは `/api/bin/` からトークン付きで配る（media-01 の `/opt/aihist/bin`。プレイが `aihist_sha256s` と照らして置く）。WSL ではホスト名に `-wsl` が付く。
 
 OpenCode は DB そのものを送らない（操作ログで数 GB あり、ログイン情報も入っている）。会話ごとに `session`・`message`・`part`・`project` の行をそのまま書き出したものを原本として送る。
 
@@ -59,8 +62,7 @@ AIHIST_TOKEN=<トークン> aihist restore -server https://aihist.apextox.dpdns.
 
 画面の下の「〜で続ける」で同じコマンドをコピーできる。原本を元のツールの置き場所へ戻し、続けるコマンド（`claude --resume`・`codex resume`・`opencode --session`）を表示する。Codex と OpenCode は、消した会話を戻して続きを話せることを確かめた。Claude Code は戻したファイルが原本と同じことまで、Antigravity は未確認。
 
-トークンは `sops -d --extract '["AIHIST_TOKEN"]' platform/sops/aihist.sops.yaml` で読む。Windows 用の `aihist-windows-amd64.exe` も同じリリースにある。
-
+トークンは `sops -d --extract '["AIHIST_TOKEN"]' platform/sops/aihist.sops.yaml` で読む。
 ## バックアップ
 
 `raw/` が原本で、`aihist.db` は原本から作り直せる。消えたときは各マシンから `push` し直せば戻る（各マシンに記録が残っている間だけ）。
