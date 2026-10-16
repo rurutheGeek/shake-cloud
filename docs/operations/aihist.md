@@ -50,7 +50,7 @@ curl -fsSL https://aihist.apextox.dpdns.org/api/install.sh | AIHIST_TOKEN=<ト�
 $env:AIHIST_TOKEN="<トークン>"; irm https://aihist.apextox.dpdns.org/api/install.ps1 | iex      # Windows
 ```
 
-画面左下の「設定」（`/settings`）でマシン名を入れて「マシンを追加」を押すと、そのマシン用のトークン（その場でしか表示されない）と入れるコマンドが出る。使わなくなったトークンは同じ画面で削除する。`aihist.sops.yaml` の `AIHIST_TOKEN` も引き続き使える。同じ画面に容量（DB と原本、マシン・AI ごと）と言語（日本語・英語）がある。消すときは `curl -fsSL https://aihist.apextox.dpdns.org/api/uninstall.sh | sh`（Windows は `irm …/api/uninstall.ps1 | iex`）で、実行ファイル・設定（`~/.config/aihist`）・タイマーをすべて消す。
+画面左下の「設定」（`/settings`）でマシン名を入れて「マシンを追加」を押すと、そのマシン用のトークン（その場でしか表示されない）と入れるコマンドが出る。使わなくなったトークンは同じ画面で削除する。`aihist.sops.yaml` の `AIHIST_TOKEN` も引き続き使える。同じ画面に容量（DB と原本、マシン・AI ごと）と言語（日本語・英語）がある。「手元の片付け」は 7 日にしてある（2026-10-16）。各マシンは送ったあと、最終更新が 7 日より前でサーバーに同じものがある会話を手元から消す（索引と OpenCode の DB は消さない）。消した会話は `aihist restore` で戻す。消すときは `curl -fsSL https://aihist.apextox.dpdns.org/api/uninstall.sh | sh`（Windows は `irm …/api/uninstall.ps1 | iex`）で、実行ファイル・設定（`~/.config/aihist`）・タイマーをすべて消す。
 
 送る前に、サーバーが配る実行ファイルと自分の sha256 を比べ、違えば入れ替える（`AIHIST_AUTO_UPDATE=0` で止める）。`aihist_version` を上げてプレイを流せば、各マシンは次に送るときに新しくなる。
 
