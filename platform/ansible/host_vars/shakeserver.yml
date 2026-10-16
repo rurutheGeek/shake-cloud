@@ -9,6 +9,8 @@ pi_base_retired_containers:
   - shake_postgres
   - shake_postgres-backup
   - shake_adminer
+  # コンテナの監視。Prometheus は読んでいない（2026-10-16 に片付け）。
+  - cadvisor
 pi_base_prune_docker: true
 # Minecraft のワールドの持ち主（旧配備のまま）。
 minecraft_uid: 999
@@ -16,9 +18,16 @@ minecraft_gid: 991
 # 2026-10-14 に片付けた旧配備（公開サイト・DB・Bot は web-01・apps-01 へ移行済み）。
 # ssl-cert-check は旧公開サイトの証明書の点検（証明書は消した。期限は家の監視が見る）。
 pi_base_retired_services: [ups-exporter, ssl-cert-check.timer, ssl-cert-check]
-# 止めるサービス。既定（VNC・CUPS）に、使わない NVMe-oF（ネットワーク越しの NVMe）を足す。
+# 止めるサービス。既定（VNC・CUPS）に、使わない NVMe-oF（ネットワーク越しの NVMe）と、
+# Wayland の画面共有（wayvnc。5900 番を全部の口で開いていた）を足す。
 # nvme-cli そのものは NVMe の健康状態の収集に要るので残す。
-pi_base_disabled_services: [vncserver-x11-serviced, cups, cups-browsed, nvmf-autoconnect]
+pi_base_disabled_services:
+  - vncserver-x11-serviced
+  - cups
+  - cups-browsed
+  - nvmf-autoconnect
+  - wayvnc
+  - wayvnc-control
 pi_base_retired_paths:
   - /opt/ups-exporter
   - /opt/ubsleepy

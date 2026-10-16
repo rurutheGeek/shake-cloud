@@ -99,9 +99,10 @@
   loop: '{{ pi_base_disabled_services }}'
   failed_when: false
 
+# 一覧に書いたものは引退が決まっている。動いていても止めて消す。
 - name: Remove retired containers (their volumes stay)
   ansible.builtin.command:
-    argv: [docker, rm, '{{ item }}']
+    argv: [docker, rm, --force, '{{ item }}']
   loop: '{{ pi_base_retired_containers }}'
   register: pi_base_rm
   changed_when: pi_base_rm.rc == 0
