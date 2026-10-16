@@ -1,6 +1,6 @@
 ---
 title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
-updated: 2026-10-05
+updated: 2026-10-16
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,26 +10,26 @@ tags:
 
 # 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-16 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
+**状態**: **2026-10-16 に DMZ の shakeserver（Raspberry Pi 5、`192.168.30.12`）へ戻し、中継の向き先も Pi 5 の tailnet IP（`100.116.167.59`）へ切り替えた。** web-01 は切り戻し用に動かしたまま（中継からは来ない）。以下、2026-10-05 の記録：**web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
 
 ## 構成
 
 | サイト | ホスト | 中身 |
 | --- | --- | --- |
-| `shake.ruruthegeek.dpdns.org` | `web-01` | Shake ブランド（Issues・Shaketter・ToBa・ikura）＋ Wiki。Next.js（`quiz_app`＝コンテナ名 `bsquiz`）と静的 HTML |
-| `pkhack.ruruthegeek.dpdns.org` | `web-01` | ポケモンクイズ（Next.js。コンテナ名 `pkhack_app`）と静的ハブ |
-| `ayahuya.ruruthegeek.dpdns.org` | `web-01` | アヤフヤハッカーズ（純静的） |
-| `ruruthegeek.dpdns.org` | `web-01` | ランディング（静的）と旧URLのリダイレクト |
-| Alexa スキル | `web-01` | `alexa_skill`（`127.0.0.1:8010`。公開は nginx 経由の `/alexa/`） |
+| `shake.ruruthegeek.dpdns.org` | `shakeserver`（Pi 5、DMZ） | Shake ブランド（Issues・Shaketter・ToBa・ikura）＋ Wiki。Next.js（`quiz_app`＝コンテナ名 `bsquiz`）と静的 HTML |
+| `pkhack.ruruthegeek.dpdns.org` | `shakeserver` | ポケモンクイズ（Next.js。コンテナ名 `pkhack_app`）と静的ハブ |
+| `ayahuya.ruruthegeek.dpdns.org` | `shakeserver` | アヤフヤハッカーズ（純静的） |
+| `ruruthegeek.dpdns.org` | `shakeserver` | ランディング（静的）と旧URLのリダイレクト |
+| Alexa スキル | `shakeserver` | `alexa_skill`（`127.0.0.1:8010`。公開は nginx 経由の `/alexa/`） |
 
 | 項目 | 値 |
 | --- | --- |
-| 配備先 | web-01（`192.168.10.102`）。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（データディスク） |
+| 配備先 | shakeserver（Pi 5、DMZ `192.168.30.12`、`outpost.ini` の `web`）。`.venv/bin/ansible-playbook -i platform/ansible/outpost.ini --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml`。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（NVMe）。web-01 に流すときは `inventory.netbox.yml`（`shake_web_cloud_vm` が true） |
 | イメージ | nginx・`shake-web-quiz:local`・`shake-web-pkhack:local`・`shake-web-alexa:local`（アプリはホストでビルドするため digest 固定は無い） |
-| DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
-| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **web-01 の tailnet IP `100.75.249.112`**。web-01 は tailnet 端末（`--accept-dns=false`、ルートは受けない）。プロキシには LAN のサブネットルートを持たせない |
+| DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
+| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
 | 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 3本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵） |
 | コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、`platform/terraform/services/web/` |
@@ -47,7 +47,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 - 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
 - アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
-- **web-01 が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh debian@192.168.10.102 'sudo systemctl start shake-web-update'`。
+- **配備先が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh debian@192.168.10.102 'sudo systemctl start shake-web-update'`。
 - ビルドに失敗したら `ssh debian@192.168.10.102 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
 
 ## 公開の切り替え（2026-10-05 実施済み）
@@ -73,7 +73,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ### 外向き（egress）と自宅LANの分離
 
-公開サイトが突破されても自宅LANへ横展開できないように、SG の外向きも既定拒否にしている。許可はコード（`platform/terraform/services/web/main.tf`）が正本。
+**Pi 5（DMZ）での守り：** Flint 3 の DMZ が家の中への転送を止め（pkdb だけ通す）、Pi 5 の `inet homeguard`（`pi_base` の `pi_base_lan_guard`）が家の中の区画（`192.168.10/30/40/50.0/24`）への送信を落とす。通すのは DNS（DMZ のゲートウェイと AdGuard Home）と pkdb だけ。以下は web-01（クラウドの VM）での守り：公開サイトが突破されても自宅LANへ横展開できないように、SG の外向きも既定拒否にしている。許可はコード（`platform/terraform/services/web/main.tf`）が正本。
 
 - 許可: DNS（53 tcp/udp → `192.168.10.1`）、NTP（123/udp → 全）、pkdb（5432/tcp → `192.168.10.105`）、HTTP/HTTPS（80/443 → 全）。
 - 実測（2026-10-05）: PVE の `8006`・SSH `22`、Garage `3900`、NetBox `8000`、他VMへ届かない。pkdb とインターネット 443 は OK。
@@ -86,11 +86,10 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+Tailscale の ACL（`platform/tailscale/acl.json`）で、negitoroserver（`tag:relay`）から届く先は `tag:dmz`（Pi 5）と `tag:web`（web-01）の 80/443 だけ。
 
 ### プロキシ（negitoroserver）の侵害に備えて（提案）
 
-- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
 ## 外からの監視（negitoroserver）

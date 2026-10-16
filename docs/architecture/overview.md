@@ -43,7 +43,7 @@ flowchart TB
       subgraph svcpool["サービスVM cloud プール"]
         media["media-01<br/>メディア"]
         apps["apps-01<br/>docs・パスワード・家電"]
-        web["web-01<br/>公開サイト"]
+        web["web-01<br/>公開サイトの切り戻し用"]
         game["game-01<br/>ゲーム（GPU）"]
       end
     end
@@ -51,7 +51,7 @@ flowchart TB
   end
   personal["個人端末の区画 192.168.40.0/24<br/>Wi-Fi ditto・デスクトップ"]
   iot["ネット専用の区画 192.168.50.0/24<br/>Wi-Fi jumpluff・家電"]
-  dmz["DMZ 192.168.30.0/24<br/>shakeserver（Pi 5）"]
+  dmz["DMZ 192.168.30.0/24<br/>shakeserver（Pi 5）・公開サイト"]
 
   internet --> router
   router --> server
@@ -60,7 +60,7 @@ flowchart TB
   router --> dmz
   remote -. Tailscale .-> router
   internet --> relay
-  relay -. "Tailscale（80/443）" .-> web
+  relay -. "Tailscale（80/443）" .-> dmz
   personal -- "HTTPS名（core-01のCaddyがTLS終端）" --> core01
   core01 --> apps
   core01 --> media
@@ -82,7 +82,7 @@ flowchart TB
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
 | 監視 | tarakoserver（Raspberry Pi 4、物理機） | 4コア / 4GiB / SD 119GB＋HDD 1TB | Prometheus・Alertmanager・Grafana・Loki・Alloy・PeaNUT・exporter・ネットワーク図。K11 の外（2026-10-15 に monitor-01 から移設） |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
-| 公開の入口 | negitoroserver（Raspberry Pi Zero 2 W、家の外） | 4コア / 416MiB | nginx（443 の中継）・sslh（80）・外からの監視。Tailscale で web-01 へ |
+| 公開の入口 | negitoroserver（Raspberry Pi Zero 2 W、家の外） | 4コア / 416MiB | nginx（443 の中継）・sslh（80）・外からの監視。Tailscale で shakeserver（Pi 5・DMZ）へ |
 | DMZ | shakeserver（Raspberry Pi 5、物理機） | 4コア / 8GiB / NVMe 238GB | Minecraft（停止中）。Flint 3 の LAN4 につないで DMZ に置く予定 |
 | 開発 | dev-01・dev-02（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
@@ -521,7 +521,7 @@ flowchart TB
 - **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
 - **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: Flint 3 上の Tailscale subnet router がサーバー（`192.168.10.0/24`）と個人端末（`192.168.40.0/24`）の区画を流します。公開サイトは家の外の negitoroserver（zero2w）が受け、Tailscale で web-01 へ中継します。アクセス制限は `platform/tailscale/acl.json`。[Tailscale subnet router](../operations/net.md)。
+- **LANの外**: Flint 3 上の Tailscale subnet router がサーバー（`192.168.10.0/24`）と個人端末（`192.168.40.0/24`）の区画を流します。公開サイトは家の外の negitoroserver（zero2w）が受け、Tailscale で DMZ の shakeserver（Pi 5）へ中継します。アクセス制限は `platform/tailscale/acl.json`。[Tailscale subnet router](../operations/net.md)。
 - **VLAN（区画）**: Flint 3 の内蔵スイッチと Wi-Fi で、サーバー（10）・DMZ（30）・個人端末（40）・ネット専用（50）に分けています。DMZ の VM には K11 の `vmbr0` の VLAN 対応がまだ要ります（[VLAN 分離](../operations/vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 
