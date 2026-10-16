@@ -16,7 +16,7 @@ BASE="${FORGEJO_URL:-https://forgejo.apextox.dpdns.org}"
 ORG="${FORGEJO_ORG:-archive}"
 TOKEN_FILE="${FORGEJO_TOKEN_FILE:-$HOME/.config/forgejo/token}"
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { printf 'forgejo-put mirror <URL> | push <dir> | list\n'; exit "${1:-0}"; }
 die() { printf 'forgejo-put: %s\n' "$*" >&2; exit 1; }
 
 [ -r "$TOKEN_FILE" ] || die "鍵が無い: $TOKEN_FILE"
