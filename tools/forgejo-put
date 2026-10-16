@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Forgejo（https://forgejo.apextox.dpdns.org）の組織 archive にリポジトリを置く。
+# 人でも AI でも、これ1つで済むようにする。探索はいらない。
+#
+#   forgejo-put mirror <URL> [名前]   外のリポジトリをミラーする（24時間ごとに同期）
+#   forgejo-put push [ディレクトリ] [名前]
+#                                     手元の git リポジトリの全ブランチ・タグを置く
+#   forgejo-put list                  archive にあるリポジトリを出す
+#
+# 名前を省くと URL・ディレクトリの最後の部分。同じ名前が既にあるときは
+# 作り直さない（mirror は何もせず終わる。push は既存へ追加で push する）。
+# 鍵は ~/.config/forgejo/token（FORGEJO_TOKEN_FILE で変更可）。Git には入れない。
+set -euo pipefail
+
+BASE="${FORGEJO_URL:-https://forgejo.apextox.dpdns.org}"
+ORG="${FORGEJO_ORG:-archive}"
+TOKEN_FILE="${FORGEJO_TOKEN_FILE:-$HOME/.config/forgejo/token}"
+
+usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+die() { printf 'forgejo-put: %s\n' "$*" >&2; exit 1; }
+
+[ -r "$TOKEN_FILE" ] || die "鍵が無い: $TOKEN_FILE"
+TOKEN="$(tr -d '[:space:]' < "$TOKEN_FILE")"
+
+# api METHOD PATH [JSON] -> 本文を stdout、HTTP コードを最後の行に出す
+api() {
+  curl -sS -X "$1" "$BASE/api/v1$2" \
+    -H "Authorization: token $TOKEN" -H 'Content-Type: application/json' \
+    ${3:+-d "$3"} -w '\n%{http_code}'
+}
+code() { tail -n1 <<<"$1"; }
+body() { sed '$d' <<<"$1"; }
+json() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"; }
+exists() { [ "$(code "$(api GET "/repos/$ORG/$1")")" = 200 ]; }
+
+name_of() { local n="${1%/}"; n="${n##*/}"; printf '%s' "${n%.git}"; }
+
+mirror() {
+  local url="${1:-}" name
+  [ -n "$url" ] || usage 1
+  name="${2:-$(name_of "$url")}"
+  if exists "$name"; then
+    echo "既にある: $BASE/$ORG/$name"
+    return
+  fi
+  local out
+  out="$(api POST /repos/migrate "{\"clone_addr\":$(json "$url"),\"repo_owner\":$(json "$ORG"),\"repo_name\":$(json "$name"),\"mirror\":true,\"mirror_interval\":\"24h\",\"private\":true,\"wiki\":true,\"service\":\"git\"}")"
+  [ "$(code "$out")" = 201 ] || die "ミラーに失敗（HTTP $(code "$out")）: $(body "$out")"
+  echo "ミラーした: $BASE/$ORG/$name"
+}
+
+push() {
+  local dir="${1:-.}" name
+  git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || die "git リポジトリではない: $dir"
+  name="${2:-$(name_of "$(cd "$dir" && pwd)")}"
+  if ! exists "$name"; then
+    local out
+    out="$(api POST "/orgs/$ORG/repos" "{\"name\":$(json "$name"),\"private\":true}")"
+    [ "$(code "$out")" = 201 ] || die "作成に失敗（HTTP $(code "$out")）: $(body "$out")"
+  fi
+  # 鍵を remote に保存しない（URL に入れて1回だけ使う）。
+  local remote="https://x-token:$TOKEN@${BASE#https://}/$ORG/$name.git"
+  git -C "$dir" push --quiet "$remote" --all
+  git -C "$dir" push --quiet "$remote" --tags
+  echo "置いた: $BASE/$ORG/$name"
+}
+
+list() {
+  local out
+  out="$(api GET "/orgs/$ORG/repos?limit=50")"
+  [ "$(code "$out")" = 200 ] || die "一覧に失敗（HTTP $(code "$out")）"
+  body "$out" | python3 -c 'import json,sys
+for r in json.load(sys.stdin):
+    print(r["name"], "mirror" if r["mirror"] else "push", r["html_url"])'
+}
+
+case "${1:-}" in
+  mirror) shift; mirror "$@" ;;
+  push) shift; push "$@" ;;
+  list) list ;;
+  -h|--help|help|'') usage 0 ;;
+  *) usage 1 ;;
+esac

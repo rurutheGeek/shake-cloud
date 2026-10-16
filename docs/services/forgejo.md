@@ -30,6 +30,30 @@ tags:
 
 非公開のリポジトリは、取得元のアクセストークンを同じ画面で入れる。同期の間隔はリポジトリの「設定」で変えられる。
 
+## コマンドで置く（`tools/forgejo-put`）
+
+dev-02 では PATH に入っている（`~/.local/bin/forgejo-put` → `tools/forgejo-put`）。AI にも「`forgejo-put` で置いて」と言えば足りる。
+
+```bash
+forgejo-put mirror https://github.com/owner/repo
+```
+
+```bash
+forgejo-put push ~/project/foo
+```
+
+```bash
+forgejo-put list
+```
+
+| 項目 | 値 |
+|---|---|
+| 鍵 | `~/.config/forgejo/token`（ruruthegeek のアクセストークン `dev-02-agents`、repository・organization の読み書き。Git に入れない） |
+| 置き先 | 組織 `archive`、非公開 |
+| 同じ名前があるとき | mirror は何もしない。push は既存へ追加で push |
+
+鍵を作り直すときは画面の「設定」→「アプリケーション」で `dev-02-agents` を消して作り、`~/.config/forgejo/token` を置き換える。
+
 ## 必ず持っておくもの（`mirrors.json`）
 
 作り直したときにも自動で戻したいものだけ、`stacks/media/forgejo/mirrors.json` に書いて配備する。画面で足したものはデータごとバックアップから戻す。
