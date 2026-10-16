@@ -1,6 +1,6 @@
-# shake-web（web-01 のサイト配備）
+# shake-web（公開サイトの配備）
 
-旧 `shakeserver`（Raspberry Pi 5）の公開サイトを web-01 で動かすためのスタック。
+DMZ の `shakeserver`（Raspberry Pi 5）で公開サイトを動かすスタック（2026-10-05〜16 は web-01。消した）。
 配備と秘密値の流れは [docs/operations/web.md](../../docs/operations/web.md) を参照。
 
 | サービス | 内容 | ビルド元 |

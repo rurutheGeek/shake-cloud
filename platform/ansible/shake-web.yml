@@ -4,16 +4,11 @@
 #   .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
 #     --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 #
-# 2026-10-05〜16 は web-01（NetBox の web グループ）だった。web-01 に流すときは
-# inventory.netbox.yml で（shake_web_cloud_vm は既定の true）。
-#
 # 秘密値（Deploy key 3本・CloudFlare Origin 証明鍵・DB のパスワード）は
 # platform/sops/shake-web.sops.yaml から role が読む。
 - name: Deploy the Shake-Web sites
   hosts: web
   become: true
   roles:
-    # cloud VM の基本は cloud-init が入れる（common は qemu-guest-agent の
-    # virtio ポート前提で、クラウドVMには無い）。他のクラウドVMの playbook と揃える。
     - docker
     - shake_web

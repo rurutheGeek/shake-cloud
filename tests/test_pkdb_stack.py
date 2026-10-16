@@ -112,9 +112,10 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('PASSWORD', env)
 
     def test_the_security_group_opens_the_port_to_named_hosts_only(self):
-        # 公開サイトの機械（web-01 と DMZ の Pi 5）だけ。サーバーの区画全体には開けない。
+        # 公開サイトの機械（DMZ の Pi 5）だけ。サーバーの区画全体には開けない。
         text = (ROOT / 'platform/terraform/services/apps/main.tf').read_text(encoding='utf-8')
-        for name, cidr in (('pkdb', '192.168.10.102/32'), ('pkdb_dmz', '192.168.30.12/32')):
+        self.assertNotIn('"shakecloud_security_group_rule" "pkdb"', text)
+        for name, cidr in (('pkdb_dmz', '192.168.30.12/32'),):
             rule = text.split(f'resource "shakecloud_security_group_rule" "{name}"')[1].split('}')[0]
             self.assertIn('from_port   = 5432', rule)
             self.assertIn('to_port     = 5432', rule)

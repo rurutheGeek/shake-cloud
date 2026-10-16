@@ -89,19 +89,8 @@ resource "shakecloud_security_group_rule" "print_api" {
   description = "Print API from media-01"
 }
 
-# ポケモン系のPostgreSQL（stacks/pkdb）。公開サイトの web-01 だけ（実機は 2026-10 に
-# LAN 全体から web-01 へ絞ってあった。コードを実機に合わせた）。Pi 5 へ移し終えたら消す。
-resource "shakecloud_security_group_rule" "pkdb" {
-  group_id    = shakecloud_security_group.apps.id
-  direction   = "ingress"
-  protocol    = "tcp"
-  from_port   = 5432
-  to_port     = 5432
-  cidr        = "192.168.10.102/32"
-  description = "PostgreSQL (pkdb) from web-01"
-}
-
-# 公開サイト（stacks/shake-web）は DMZ の shakeserver（Pi 5）から読む。Flint 3 の
+# ポケモン系のPostgreSQL（stacks/pkdb）。公開サイト（stacks/shake-web）を置いた DMZ の
+# shakeserver（Pi 5）だけが読む（web-01 は 2026-10-16 に消した）。Flint 3 の
 # DMZ-to-pkdb（platform/flint3/rootfs/etc/shakecloud/dmz-db-clients）と対。
 resource "shakecloud_security_group_rule" "pkdb_dmz" {
   group_id    = shakecloud_security_group.apps.id

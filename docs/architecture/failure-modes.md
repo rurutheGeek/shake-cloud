@@ -22,7 +22,7 @@ tags:
 
 | 単一点 | 落ちると | いまの受け止め方 |
 | --- | --- | --- |
-| **物理ホスト `apextox`** | VM・クラウド・認証（Authentik）・家電（Home Assistant）・公開サイト（web-01） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。**2026-10-14 からルータ（Flint 3）と監視（tarakoserver）は K11 の外**なので、K11 が落ちても家のインターネット・DNS・Tailscale と監視は残る |
+| **物理ホスト `apextox`** | VM・クラウド・認証（Authentik）・家電（Home Assistant） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。**2026-10-14 からルータ（Flint 3）と監視（tarakoserver）は K11 の外**なので、K11 が落ちても家のインターネット・DNS・Tailscale と監視は残る |
 | **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](../development/O01-cloud-backup.md)） |
 | **Flint 3（家庭内ルータ）** | **家中のインターネット・DNS・DHCP・Wi-Fi・Tailscale。** 全端末 | 物理機1台。UPS の電池側にはつないでいない（停電で止まる）。切り戻しとして停止中の router-01（K11 上、2026-10-28 以降に削除）。設定は毎日 K11 へ取る（[Flint 3](../operations/flint3.md)） |
 | **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | Flint 3 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
@@ -79,7 +79,7 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 3. **`core-01`** — NetBox（台帳）が要る。これが無いとAnsibleの動的インベントリが引けず、他の配備が進まない。Authentik（ブラウザのログイン）とHTTPSの入口もここ
 4. **`cloud-01`** — VMの操作とS3（Garage）が戻る。**アクセスキーは Authentik に依存しないので、3を待たずにTerraformは動かせる**
 5. **Kubernetes** — database・function
-6. **各サービスVM**（`apps-01`・`media-01`・`web-01`・`game-01`） — 利用者向けの機能。監視（tarakoserver）は K11 と独立に動く
+6. **各サービスVM**（`apps-01`・`media-01`・`game-01`） — 利用者向けの機能。監視（tarakoserver）は K11 と独立に動く
 
 **Terraform state は外部に置いてあります。** ホストが丸ごと失われても宣言と state は残るので、作り直しは宣言から始められます。ただし**原本・アプリのDB・秘密値は state に入っていません**。復元手順は[O03](../development/O03-restore.md)で整備中です。
 

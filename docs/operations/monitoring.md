@@ -78,7 +78,7 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 
 ### ノード（node_exporter を入れた4台）
 
-対象は core-01・cloud-01・tarakoserver・apps-01・web-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
+対象は core-01・cloud-01・tarakoserver・apps-01・shakeserver・Flint 3 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
 
 | アラート | 意味 |
 | --- | --- |

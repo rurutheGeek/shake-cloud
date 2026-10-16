@@ -58,7 +58,7 @@ tags:
 | --- | --- | --- |
 | 仮想化・VM提供 | Proxmox VE | K11 |
 | 常用Kubernetes基盤 | kubeadm + containerd + Cilium（構築済み） | control plane×1、worker-01。worker-02は必要量から起動判断（2026-09-12時点でcp・worker-01は停止中） |
-| アプリの配備 | VMはCompose・Ansible、クラスタはFlux | core-01・apps-01・media-01・web-01・game-01・常用Kubernetes・tarakoserver・shakeserver・negitoroserver |
+| アプリの配備 | VMはCompose・Ansible、クラスタはFlux | core-01・apps-01・media-01・game-01・常用Kubernetes・tarakoserver・shakeserver・negitoroserver |
 | サーバレスHTTP実行 | Knative Serving + Kourier | Kubernetes |
 | S3互換ストレージ | Garage（当初は単一ノード） | cloud-01 |
 | DBアプライアンス | CloudNativePG + PostgreSQL、必要時pgvector | Kubernetes |
@@ -66,7 +66,7 @@ tags:
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外のcore-01 |
 | VPN・宅外からの監視 | Tailscale（subnet router は Flint 3 上。アクセス制限は `platform/tailscale/acl.json`）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、対象VMへagent |
 | DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **Flint 3**（2026-10-14 に router-01 から移行） |
-| 公開入口 | Caddy（core-01の1台でTLS終端し、tarakoserver・media-01・apps-01・cloud-01へ中継）。公開サイトは家の外の negitoroserver が受けて web-01 へ | core-01。公開用VMはN04 |
+| 公開入口 | Caddy（core-01の1台でTLS終端し、tarakoserver・media-01・apps-01・cloud-01へ中継）。公開サイトは家の外の negitoroserver が受けて DMZ の shakeserver（Pi 5）へ | core-01。公開用VMはN04 |
 | 家電・自動化 | Home Assistant Container（配備済み） | apps-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
 | 監視 | Prometheus + Grafana + Alertmanager（配備済み） | tarakoserver（Raspberry Pi 4、K11 の外）。UPS・証明書・資源を監視。DNSは Flint 3 の AdGuard Home、復旧経路は router-01 のTailscale |
 | 印刷 | CUPS（apps-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |

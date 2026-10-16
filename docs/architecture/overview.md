@@ -43,7 +43,6 @@ flowchart TB
       subgraph svcpool["サービスVM cloud プール"]
         media["media-01<br/>メディア"]
         apps["apps-01<br/>docs・パスワード・家電"]
-        web["web-01<br/>公開サイトの切り戻し用"]
         game["game-01<br/>ゲーム（GPU）"]
       end
     end
