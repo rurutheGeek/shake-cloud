@@ -1,45 +1,22 @@
 #!/usr/bin/env python3
 """Shake-Web（公開サイト）の配備。shakeserver（Pi 5）で sudo で動かす。
 
-旧 shakeserver（Raspberry Pi 5）では Ansible が git clone と rsync を行っていた。
-ここでは同じ流れを ``fetch``（4リポジトリを固定した ref へ更新）と
-``sync``（nginx が配る静的物を写す）に分け、``up`` が起動する。
-アプリは各リポジトリの CI がビルドしたイメージで、``pull`` が取ってくる。
-ソースの取得（``fetch``）は、nginx が配る静的物（html/）のためだけに残す。
-秘密値（Deploy key・DB のパスワード）は role が SOPS から置く。
+アプリと静的物は、すべて各リポジトリの CI がビルドしたイメージ（GHCR）で、
+``pull`` が取ってきて ``up`` が起動する。ホストではソースを取らず、ビルドもしない。
+秘密値（DB のパスワードなど）は role が SOPS から置く。
 """
 import argparse
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_STORAGE = '/srv/shake-web'
 
-# リポジトリ → (URL, 鍵ファイル, .env で ref を上書きする変数, 既定の ref)
-REPOS = {
-    'shake-web': (
-        'git@github.com:rurutheGeek/shake-web.git',
-        ROOT / 'secrets/id_shake_web',
-        'SHAKE_WEB_REF', 'main',
-    ),
-    'pkhack': (
-        'git@github.com:rurutheGeek/pkhack.git',
-        ROOT / 'secrets/id_pkhack',
-        'PKHACK_REF', 'main',
-    ),
-}
-
-# nginx が配る静的物（src 内のパス → STORAGE_ROOT 内のパス）。
-STATIC = {
-    'shake-web/html': 'html',
-    'pkhack/html': 'pkhack/html',
-}
-
-# アプリ側の CI がビルドしたイメージ（GHCR）を使うサービス。タグ（main）を追う。
-PULLED_SERVICES = ['quiz_app', 'pkhack_app', 'alexa_skill', 'ayahuya']
+# 各リポジトリの CI がビルドしたイメージ（GHCR）を使うサービス。タグ（main）を追う。
+PULLED_SERVICES = ['quiz_app', 'pkhack_app', 'alexa_skill', 'ayahuya',
+                   'shake_static', 'pkhack_static']
 
 
 def run(args, **kwargs):
@@ -88,17 +65,6 @@ def lock():
     print('CHANGED: image digests pinned in compose.lock.yaml')
 
 
-def git(repo, args, key=None):
-    env = dict(os.environ)
-    if key is not None:
-        # 外向きは 443 だけに絞る（SG の egress）。GitHub の SSH は 22 では
-        # なく ssh.github.com:443 を使う。
-        env['GIT_SSH_COMMAND'] = (
-            f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new '
-            f'-p 443 -o HostName=ssh.github.com')
-    return run(['git', '-C', str(repo)] + list(args), env=env, capture_output=True)
-
-
 def init():
     """保存先と、マウント済みデータディスクの確認。秘密値は role が置く。"""
     path = storage()
@@ -110,73 +76,12 @@ def init():
     if not os.path.ismount(probe):
         sys.exit(f'{probe} is not a mount point; refusing to deploy (data disk?)')
     changed = False
-    for directory in ('src', 'html', 'pkhack/html',
-                      'alexa/logs', 'log', 'certs', 'templates'):
+    for directory in ('alexa/logs', 'log', 'certs', 'templates'):
         target = path / directory
         if not target.exists():
             target.mkdir(parents=True)
             changed = True
     print('CHANGED: shake-web initialized' if changed else 'OK: shake-web already initialized')
-
-
-def is_repo(path):
-    """git として使えるか。rsync で .git を除いた置き場は作り直す。"""
-    if not (path / '.git').is_dir():
-        return False
-    probe = subprocess.run(['git', '-C', str(path), 'rev-parse', '--git-dir'],
-                           capture_output=True, text=True)
-    return probe.returncode == 0
-
-
-def fetch():
-    """2リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
-    path = storage()
-    conf = settings()
-    changed = []
-    for name, (url, key, ref_var, default_ref) in REPOS.items():
-        ref = conf.get(ref_var, default_ref) or default_ref
-        target = path / 'src' / name
-        if not is_repo(target):
-            if target.exists():
-                shutil.rmtree(target)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            run(['git', 'clone', '--branch', ref, url, str(target)],
-                env={**os.environ, **({'GIT_SSH_COMMAND':
-                     f'ssh -i {key} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new '
-                     f'-p 443 -o HostName=ssh.github.com'}
-                     if key else {})})
-            changed.append(name)
-            continue
-        before = git(target, ['rev-parse', 'HEAD']).stdout.strip()
-        git(target, ['fetch', '--prune', 'origin'], key=key)
-        git(target, ['checkout', '--force', ref], key=key)
-        git(target, ['reset', '--hard', f'origin/{ref}'], key=key)
-        after = git(target, ['rev-parse', 'HEAD']).stdout.strip()
-        if before != after:
-            changed.append(name)
-    print(f'CHANGED: updated {", ".join(changed)}' if changed else 'OK: every repository is current')
-
-
-def sync():
-    """ビルド元と nginx の静的物を用意する。rsync が無ければ cp で写す。"""
-    path = storage()
-    changed = []
-    for source, destination in STATIC.items():
-        src = path / 'src' / source
-        dest = path / destination
-        if not src.is_dir():
-            sys.exit(f'{src} is missing; run fetch first')
-        dest.mkdir(parents=True, exist_ok=True)
-        if shutil.which('rsync'):
-            result = run(['rsync', '-a', '--delete', '--exclude=.git', f'{src}/', f'{dest}/'],
-                         capture_output=True)
-            if result.stdout or result.stderr:
-                pass
-        else:
-            shutil.copytree(src, dest, dirs_exist_ok=True)
-        changed.append(source)
-    # 変化の検知は rsync の出力では当てにできない。常に写して OK を出す。
-    print(f'OK: synced {", ".join(changed)}')
 
 
 def image_ids():
@@ -216,7 +121,7 @@ def status():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'fetch', 'sync', 'pull', 'lock', 'up', 'status'])
+    parser.add_argument('action', choices=['init', 'pull', 'lock', 'up', 'status'])
     args = parser.parse_args()
     globals()[args.action]()
 
