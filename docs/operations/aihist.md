@@ -43,7 +43,7 @@ gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O -
 | 入れ方 | やること |
 | --- | --- |
 | 画面の `↑` | ファイルを選んで上げる。Claude Code の `.jsonl`、Codex の `rollout-*.jsonl`、Antigravity の `.db` を中身から見分ける |
-| `curl` の1行 | 各マシンで実行する。aihist を入れ、OS のタイマー（systemd のユーザータイマー・cron・launchd・タスク スケジューラ）が 10 分ごとに変わったファイルだけを送る。間隔は `AIHIST_EVERY`（`0` で1回だけ） |
+| `curl` の1行 | 各マシンで実行する。aihist を入れ、OS のタイマー（systemd のユーザータイマー・cron・launchd・タスク スケジューラ）が1分ごとに起き、画面左下の「設定 → 送信」で決めた時刻のときだけ、変わったファイルを送る。送る AI・添付ファイル・手元の片付けは「設定 → マシン」でマシンごとに変える |
 
 ```bash
 curl -fsSL https://aihist.apextox.dpdns.org/api/install.sh | AIHIST_TOKEN=<トークン> sh          # Linux・WSL・Mac
