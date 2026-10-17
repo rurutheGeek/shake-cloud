@@ -126,8 +126,8 @@ segments:
     dhcp_end: 192.168.50.199
   wynaut:
     # AdGuard Home を通さない無線（SSID ソーナノWiFi）。インターネット接続のみ、DNS は外へ直接。
-    vlan_id: 70
-    prefix: 192.168.70.0/24
-    gateway: 192.168.70.1
-    dhcp_start: 192.168.70.20
-    dhcp_end: 192.168.70.199
+    vlan_id: 41
+    prefix: 192.168.41.0/24
+    gateway: 192.168.41.1
+    dhcp_start: 192.168.41.20
+    dhcp_end: 192.168.41.199
