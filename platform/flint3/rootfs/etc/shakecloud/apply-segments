@@ -5,7 +5,7 @@
 #   lan（サーバー、192.168.10.0/24）   有線と、管理用 SSID（porygon-…）
 #   personal（個人端末、192.168.40.0/24）  SSID ditto-… と、有線の LAN3（デスクトップ）
 #   iot（ネット専用、192.168.50.0/24）     SSID jumpluff-…（2.4GHz のみ、端末間は分離）
-#   wynaut（AdGuard を通さない、192.168.41.0/24）  SSID ソーナノWiFi（5GHz、ネットだけ）
+#   wynaut（AdGuard を通さない、192.168.51.0/24）  SSID ソーナノWiFi（5GHz、ネットだけ）
 #
 # ditto・jumpluff・ソーナノWiFi のパスワードはここでは入れない。/etc/shakecloud/set-wifi-key が
 # 入れるまで、その SSID は止めておく。
@@ -60,7 +60,7 @@ uci set network.br_wynaut.bridge_empty='1'
 uci set network.wynaut=interface
 uci set network.wynaut.device='br-wynaut'
 uci set network.wynaut.proto='static'
-uci set network.wynaut.ipaddr='192.168.41.1'
+uci set network.wynaut.ipaddr='192.168.51.1'
 uci set network.wynaut.netmask='255.255.255.0'
 uci set network.wynaut.force_link='1'
 uci commit network

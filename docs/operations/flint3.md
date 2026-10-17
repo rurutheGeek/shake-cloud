@@ -44,7 +44,7 @@ K11 の WAN（`nic0`）は空き。内蔵スイッチの番号は LAN1=7、LAN2=
 | --- | --- | --- | --- |
 | `ditto-2hc355ek` | 個人端末（`192.168.40.0/24`） | 2.4／5／6GHz と MLO | 通常の電波は 2.4／5GHz が WPA2/WPA3、6GHz は WPA3。MLO の電波は WPA3 |
 | `jumpluff-p7y45x7r` | ネット専用（`192.168.50.0/24`） | 2.4GHz | WPA2、端末間は分離 |
-| `ソーナノWiFi` | AdGuard なし（`192.168.41.0/24`）。DNS は 1.1.1.1 へ直接、サーバーへは届かない | 5GHz | WPA2/WPA3 混在、端末間は分離 |
+| `ソーナノWiFi` | AdGuard なし（`192.168.51.0/24`）。DNS は 1.1.1.1 へ直接、サーバーへは届かない | 5GHz | WPA2/WPA3 混在、端末間は分離 |
 | `porygon-…` | サーバー（`192.168.10.0/24`） | 5GHz | WPA2/WPA3 |
 
 - `ditto`・`jumpluff`・`ソーナノWiFi` のパスワードは Git に無い。`ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto`（または `jumpluff`・`wynaut`）で入れる。要らなくなったら止めてよい。
