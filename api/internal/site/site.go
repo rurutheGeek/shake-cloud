@@ -32,6 +32,13 @@ type Site struct {
 	InstanceTypes map[string]InstanceType `json:"instance_types"`
 	Limits        Limits                  `json:"limits"`
 	Ledger        Ledger                  `json:"ledger"`
+	// RoutedPrefixes are networks that live behind one instance, keyed by its
+	// instance ID: the router sends the prefix to that instance, which forwards
+	// it to its containers (network.yaml's routed). The instance's ipfilter
+	// lets it send from the prefix as well as from its own address. It is a
+	// checked-in declaration, keyed by an ID nobody can choose, because an
+	// instance allowed to send from a prefix can impersonate anything in it.
+	RoutedPrefixes map[string]string `json:"routed_prefixes"`
 }
 
 // Ledger says how instances are registered in NetBox as virtual machines,
@@ -240,6 +247,7 @@ var imageID = regexp.MustCompile(`^img-[a-z0-9-]+$`)
 var ledgerAccountID = regexp.MustCompile(`^[0-9]{12}$`)
 var ledgerTag = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 var sharedISOID = regexp.MustCompile(`^iso-[a-z0-9-]+$`)
+var instanceID = regexp.MustCompile(`^i-[0-9a-f]{17}$`)
 
 // Load reads and checks the rendered file. A half-rendered site is refused at
 // startup rather than discovered when the first instance fails.
@@ -333,6 +341,26 @@ func (s Site) Validate() error {
 		for _, tag := range tags {
 			check(ledgerTag.MatchString(tag), "site: ledger tag %q for %s is not a NetBox tag slug", tag, name)
 		}
+	}
+	routed := map[string]string{}
+	for id, prefix := range s.RoutedPrefixes {
+		check(instanceID.MatchString(id), "site: routed prefix owner %q is not an instance ID", id)
+		p, err := netip.ParsePrefix(prefix)
+		check(err == nil && p.Addr().Is4() && p == p.Masked(),
+			"site: routed prefix %q of %s is not an IPv4 network", prefix, id)
+		if err != nil {
+			continue
+		}
+		for _, subnet := range s.Network.Subnets {
+			if segment, err := netip.ParsePrefix(subnet.Prefix); err == nil {
+				check(!p.Overlaps(segment), "site: routed prefix %s of %s overlaps segment %s", prefix, id, subnet.Name)
+			}
+		}
+		for other, otherID := range routed {
+			o := netip.MustParsePrefix(other)
+			check(!p.Overlaps(o), "site: routed prefixes of %s and %s overlap", id, otherID)
+		}
+		routed[prefix] = id
 	}
 	q, r, c := s.Limits.AccountQuota, s.Limits.RootDiskGiB, s.Limits.Capacity
 	check(q.Instances > 0 && q.VCPUs > 0 && q.MemoryMiB > 0 && q.RootDiskGiB > 0, "site: account quota must be positive")

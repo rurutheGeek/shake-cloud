@@ -137,7 +137,7 @@ func (s *Service) applyFirewall(ctx context.Context, instance db.Instance) error
 	if err := s.replaceRules(ctx, vmid, current, renderFirewall(rules)); err != nil {
 		return err
 	}
-	if err := s.pinAddress(ctx, vmid, instance.IPAddress); err != nil {
+	if err := s.pinAddress(ctx, vmid, instance.IPAddress, s.Site.RoutedPrefixes[instance.ID]); err != nil {
 		return err
 	}
 	if err := s.setFilteredOptions(ctx, vmid); err != nil {
@@ -206,9 +206,10 @@ func (s *Service) replaceRules(ctx context.Context, vmid int, current, desired [
 // instance's MAC; only the IPv4 address is pinned exactly.
 const globalIPv6 = "2000::/3"
 
-// pinAddress makes ipfilterSet hold exactly the instance's IPv4 address and
-// globalIPv6.
-func (s *Service) pinAddress(ctx context.Context, vmid int, prefix string) error {
+// pinAddress makes ipfilterSet hold exactly the instance's IPv4 address,
+// globalIPv6 and, for an instance the site routes a network to, that network
+// (site.RoutedPrefixes): its containers send from their own addresses.
+func (s *Service) pinAddress(ctx context.Context, vmid int, prefix, routed string) error {
 	address := strings.SplitN(prefix, "/", 2)[0]
 	if address == "" {
 		return errors.New("the instance has no address yet")
@@ -227,6 +228,9 @@ func (s *Service) pinAddress(ctx context.Context, vmid int, prefix string) error
 		return err
 	}
 	missing := []string{address, globalIPv6}
+	if routed != "" {
+		missing = append(missing, routed)
+	}
 	for _, entry := range entries {
 		if i := slices.Index(missing, strings.TrimSuffix(entry, "/32")); i >= 0 {
 			missing = slices.Delete(missing, i, i+1)
