@@ -50,13 +50,13 @@ nextcloud_custom_apps:
 nextcloud_mcp_version: 1.1.0
 nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6
 # aihist（非公開リポジトリの GitHub Release が正本）。
-aihist_version: 0.16.1
+aihist_version: 0.17.0
 # ファイルごとの sha256（リリースの SHA256SUMS の写し）。linux-amd64 が本体、ほかは各マシンへ配る。
 aihist_sha256s:
-  aihist-darwin-arm64: ac5148c1d9b86182a4c21d6a1a204f9095391ed88e0730487dbb35c4b7a8fefe
-  aihist-linux-amd64: 64e4d81d590dd4c77c55b11b5cb296e5cd6fb8fe912461f8ec411c8c0794b450
-  aihist-linux-arm64: aa6ce5f6833debee02df9489b957e9d5d98945978c94afdaf7f5d4a719bc768f
-  aihist-windows-amd64.exe: 609c15860b662bede06c556ceac70deee82017ffb14be2eb6c88c20f13512a32
+  aihist-darwin-arm64: 2c9ccb5db667d251db1b1399adb333844ceea6850296c6e63eb3659ddd3ced04
+  aihist-linux-amd64: 5a5d99c7b2f67a703dacf4ca0991f737ef613cb4c25c846f5837035db2b5ce42
+  aihist-linux-arm64: aa6b6ea22fa761d897b3e226d524e977d1b572c0dddf6e6a684e497949cee488
+  aihist-windows-amd64.exe: 47704e798440fa4e3154aafd3ea678381abd4f3866e29e62a5e3eef9e4d7e959
 # 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
 # 片付けが済んだら空リストにしてよい。
 nextcloud_retired_apps:
