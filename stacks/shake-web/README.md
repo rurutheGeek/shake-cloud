@@ -9,10 +9,12 @@ DMZ の `shakeserver`（Raspberry Pi 5）で公開サイトを動かすスタッ
 | `quiz_app` | Shake-Web の Next.js（bsquiz / Issues / Shaketter / ToBa / ikura / Wiki のAPI） | `src/shake-web/quiz` |
 | `pkhack_app` | pkhack の Next.js（ポケモンクイズ） | `src/pkhack/quiz` |
 | `alexa_skill` | Alexa スキル（pokebs_alexaskill） | `src/pokebs_alexaskill` |
+| `ayahuya` | アヤフヤハッカーズ（純静的。root 以外で動く nginx、8080） | GHCR の `ghcr.io/ruruthegeek/ayahuya:main`（ayahuya の CI がビルド） |
 
 - ソースは `STORAGE_ROOT/src/` に git clone し、`manage.py fetch` が `.env` の
-  ref へ合わせる。静的物は `manage.py sync` が `STORAGE_ROOT/{html,pkhack/html,ayahuya/html}` へ写す。
-- `manage.py` の動作: `init`（保存先とマウント確認）→ `fetch` → `sync` → `up`。
+  ref へ合わせる。静的物は `manage.py sync` が `STORAGE_ROOT/{html,pkhack/html}` へ写す。
+  ayahuya はイメージなので、`manage.py pull` が新しいイメージを取ってくる。
+- `manage.py` の動作: `init`（保存先とマウント確認）→ `fetch` → `sync` → `pull` → `up`。
 - イメージはホストでビルドするため `compose.lock.yaml` は無い。土台のイメージは
   タグで固定する。
 - DB は apps-01 の pkdb（`pkdb.apextox.dpdns.org`）。旧ホストの postgres は切替後に停止する。

@@ -56,7 +56,6 @@
   loop:
     - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
     - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
-    - {key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya}
   loop_control:
     label: '{{ item.path }}'
   no_log: true
@@ -102,6 +101,13 @@
     argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
     chdir: '{{ shake_web_project_dir }}'
   changed_when: false
+
+- name: Pull the images built by the application CI
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', pull]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_pull
+  changed_when: "'CHANGED' in shake_web_pull.stdout"
 
 - name: Start the stack
   ansible.builtin.command:

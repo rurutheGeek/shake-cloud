@@ -42,11 +42,12 @@ tags:
   --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 ```
 
-`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（4リポジトリを `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `up`（`docker compose up -d --build`）。
+`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（3リポジトリを `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `pull`（CI がビルドしたイメージを取ってくる）→ `up`（`docker compose up -d --build`）。
 
 - 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
+- **ayahuya はソースではなく、ayahuya の CI（`.github/workflows/image.yml`）がビルドしたイメージ `ghcr.io/ruruthegeek/ayahuya:main` を動かす**（web 構成をイメージの pull に移す作業の最初の一歩）。入口の nginx は TLS だけを受け持ち、`ayahuya:8080` へ転送する。記事ページの書き出しと旧 URL の 301 はイメージ側にある。GHCR のパッケージは公開にしてある（中身は公開サイトの静的物だけなので、配備先に GHCR の認証情報を置かない）。戻すときは `shake_web_ayahuya_image` をコミット SHA のタグにする。
 - アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
-- **配備先が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo systemctl start shake-web-update'`。
+- **配備先が5分ごとに `main` と ayahuya のイメージを見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo systemctl start shake-web-update'`。
 - ビルドに失敗したら `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
 
 ## 公開の切り替え（2026-10-05 実施済み）

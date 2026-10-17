@@ -6,7 +6,11 @@
 # は無い。土台のイメージはタグで固定し、更新は明示的に行う。
 #
 # ソースは STORAGE_ROOT/src/<リポジトリ>（manage.py fetch）に置き、nginx が配る
-# 静的物だけ STORAGE_ROOT/{html,pkhack/html,ayahuya/html} へ写す（manage.py sync）。
+# 静的物だけ STORAGE_ROOT/{html,pkhack/html} へ写す（manage.py sync）。
+#
+# ayahuya だけは、アプリ側の CI がビルドしたイメージ（GHCR）を使う（web 構成の
+# リファクタリングのフェーズ 0）。タグ main を追い、manage.py pull が新しいイメージを
+# 取ってくる。自前の CI の成果物なので、nginx のような digest 固定はしない。
 name: shake-web
 
 services:
@@ -31,13 +35,23 @@ services:
     volumes:
       - ${STORAGE_ROOT}/html:/usr/share/nginx/html
       - ${STORAGE_ROOT}/pkhack/html:/usr/share/nginx/pkhack:ro   # pkhack サブドメイン（静的ハブ＋assets）
-      - ${STORAGE_ROOT}/ayahuya/html:/usr/share/nginx/ayahuya:ro   # ayahuya サブドメイン（純静的）
       - ${STORAGE_ROOT}/log:/var/log/nginx
       - ${STORAGE_ROOT}/certs:/etc/nginx/certs:ro
       - ${STORAGE_ROOT}/templates:/etc/nginx/templates:ro
     depends_on:
       - quiz_app
       - pkhack_app
+      - ayahuya
+
+  # ayahuya サブドメイン（純静的）。nginx から ayahuya:8080 で参照する。
+  # イメージは root 以外で動く nginx（nginx-unprivileged）。
+  ayahuya:
+    image: ${AYAHUYA_IMAGE:-ghcr.io/ruruthegeek/ayahuya:main}
+    container_name: ayahuya
+    restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
 
   quiz_app:
     build:
