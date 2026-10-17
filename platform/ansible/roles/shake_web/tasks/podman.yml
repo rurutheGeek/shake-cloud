@@ -3,9 +3,8 @@
 # （stacks/shake-web/kube/）で、Quadlet の .kube ユニットが `podman kube play` する。
 # 更新は podman auto-update（GHCR の新しいイメージを取って入れ替え、起動に失敗したら戻す）。
 #
-# 入口の nginx（front）は shake_web_podman_front が true のときだけ動かす。
-# それまでは Docker の入口が 80/443 を受け、ここではアプリと静的物だけを
-# 127.0.0.1 の固定ポートで並べて動かす（切り替え前の確認用）。
+# 入口の nginx（front）だけがホストのネットワークで 80/443 を受け、アプリと静的物へ
+# 127.0.0.1 の固定ポートで転送する。
 
 - name: Install Podman
   ansible.builtin.apt:
@@ -16,7 +15,6 @@
       - netavark
       - uidmap
       - dbus-user-session
-      - acl
     state: present
 
 - name: Create the Podman user
@@ -85,18 +83,6 @@
   loop:
     - {path: '{{ shake_web_storage_root }}/log', owner: '{{ shake_web_podman_account.uid }}'}
     - {path: '{{ shake_web_storage_root }}/alexa/logs', owner: '{{ shake_web_podman_subid_start + 10000 }}'}
-
-# Docker の Alexa（uid 10001 のまま）も、切り替えまで同じ場所に書く
-- name: Let the Docker Alexa keep writing its logs until the switch
-  ansible.posix.acl:
-    path: '{{ shake_web_storage_root }}/alexa/logs'
-    entity: '10001'
-    etype: user
-    permissions: rwx
-    default: '{{ item }}'
-    recursive: true
-    state: present
-  loop: [false, true]
 
 - name: Render the Kubernetes manifests
   ansible.builtin.template:
@@ -170,7 +156,7 @@
   loop: '{{ shake_web_podman_units + (["front"] if shake_web_podman_front | bool else []) }}'
   register: shake_web_quadlets
 
-- name: Remove the front unit until the switch
+- name: Remove the front unit when it is turned off
   ansible.builtin.file:
     path: '{{ shake_web_podman_home }}/.config/containers/systemd/front.kube'
     state: absent
