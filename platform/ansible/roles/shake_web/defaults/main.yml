@@ -15,3 +15,17 @@ shake_web_alexa_image: ghcr.io/ruruthegeek/pokebs-alexaskill:main
 shake_web_ayahuya_image: ghcr.io/ruruthegeek/ayahuya:main
 shake_web_shake_static_image: ghcr.io/ruruthegeek/shake-web-static:main
 shake_web_pkhack_static_image: ghcr.io/ruruthegeek/pkhack-static:main
+
+# Podman（root 以外）で動かす。tasks/podman.yml を参照。
+shake_web_podman_user: shakeweb
+shake_web_podman_home: /var/lib/shakeweb
+# コンテナの中の uid 1 以上が、ホストのこの番号から並ぶ（Alexa の 10001 は +10000）。
+shake_web_podman_subid_start: 200000
+shake_web_podman_env:
+  XDG_RUNTIME_DIR: '/run/user/{{ shake_web_podman_account.uid }}'
+# 入口以外の Pod（Quadlet のユニット名）。
+shake_web_podman_units: [shake-web, pkhack, alexa, ayahuya, shake-static, pkhack-static]
+# 入口の nginx を Podman で動かすか。true にすると Docker の入口の代わりに 80/443 を受ける。
+shake_web_podman_front: false
+# 入口の nginx（digest で固定。stacks/shake-web/compose.lock.yaml と同じもの）。
+shake_web_front_image: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10

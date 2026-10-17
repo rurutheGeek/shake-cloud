@@ -1,0 +1,28 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（pkhack-static.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# pkhack の html/（クイズハブの静的ランディングと assets）。入口の nginx から 127.0.0.1:18082 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pkhack-static
+  labels:
+    app: pkhack-static
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pkhack-static
+  template:
+    metadata:
+      labels:
+        app: pkhack-static
+    spec:
+      containers:
+        - name: pkhack-static
+          image: '{{ shake_web_pkhack_static_image }}'
+          ports:
+            - containerPort: 8080
+              hostIP: 127.0.0.1
+              hostPort: 18082
+          securityContext:
+            allowPrivilegeEscalation: false

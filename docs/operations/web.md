@@ -37,6 +37,9 @@ tags:
 
 ## 配備
 
+**Podman への移行中（2026-10-17〜）。** アプリと静的物は Podman（root 以外のユーザー `shakeweb`）でも動かしている。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。各 Pod は `127.0.0.1` の固定ポート（shake-web 13000・pkhack 13001・alexa 18010・ayahuya 18080・shake-static 18081・pkhack-static 18082）だけに出し、更新は `podman-auto-update.timer`（5 分ごと、起動に失敗したら戻す）。入口の nginx（`front`）は、中継の PROXY protocol の送信元を確かめるためホストのネットワークで動かす。`shake_web_podman_front` を `true` にするまでは、80/443 は Docker の入口が受ける。
+
+
 ```bash
 .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
   --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
