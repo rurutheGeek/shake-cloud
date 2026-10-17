@@ -173,7 +173,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-03 | `ops` `network` `dns` |
+| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-14 | `ops` `network` `dns` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
@@ -189,15 +189,16 @@ flowchart TB
 | [クラウドAPIの構築](operations/cloud.md) | 2026-10-03 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-10-03 | `ops` `storage` |
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
+| [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-05 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-14 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
-| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-03 | `ops` `network` |
+| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
@@ -206,7 +207,7 @@ flowchart TB
 | [電源と UPS](operations/power.md) | 2026-10-03 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
-| [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-03 | `ops` `network` `router` |
+| [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-14 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-04 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
@@ -216,7 +217,7 @@ flowchart TB
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-05 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
-| [VLAN 分離への切替](operations/vlan.md) | 2026-10-03 | `ops` `network` |
+| [VLAN 分離への切替](operations/vlan.md) | 2026-10-14 | `ops` `network` |
 | [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-05 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
@@ -255,6 +256,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 139 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 140 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

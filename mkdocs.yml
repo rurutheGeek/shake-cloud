@@ -132,6 +132,7 @@ nav:
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
           - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
+          - Flint 3（家庭内ルーター）: operations/flint3.md
           - router-01（OpenWrt・自作ルータ）: operations/router.md
           - router-01 の設定まとめ: operations/router-config.md
           - DNS と広告遮断（AdGuard Home）: operations/adguard.md

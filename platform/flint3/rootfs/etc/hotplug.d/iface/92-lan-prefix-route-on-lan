@@ -1,0 +1,14 @@
+#!/bin/sh
+# LAN 側が上がり直したときにも、上流の /64 を br-lan へ向け直す。**Flint 3 だけに要る。**
+#
+# 91-lan-prefix-route は wan6 が上がったときにしか動かない。Flint 3 は内蔵スイッチの
+# 設定を変えると br-lan が作り直され、その経路が消える。wan6 は上がったままなので
+# 91 は呼ばれず、**LAN の端末だけ IPv6 が通らなくなる**（2026-10-14、LAN3 の区画を
+# 変えた後に実測。Flint 3 自身は IPv6 で外へ出られるので気づきにくい）。
+[ "${ACTION:-}" = "ifup" ] || exit 0
+[ "${INTERFACE:-}" = "lan" ] || exit 0
+
+rm -f /tmp/lan-prefix-route
+ACTION=ifup INTERFACE=wan6 sh /etc/hotplug.d/iface/91-lan-prefix-route
+/etc/init.d/ndppd restart
+exit 0

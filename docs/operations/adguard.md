@@ -1,6 +1,6 @@
 ---
 title: DNS と広告遮断（AdGuard Home）
-updated: 2026-10-03
+updated: 2026-10-14
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,9 @@ tags:
 
 # DNS と広告遮断（AdGuard Home）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+
+**状態**: **2026-10-14 から [Flint 3](flint3.md) で稼働。** フィルタと除外ルールは同じ。待ち受けは `:3053`（LAN の `:53` を転送）、設定は `platform/flint3/rootfs/etc/AdGuardHome/config.yaml`。管理画面は SSO 経由では開けない。以下は router-01 での記録。
 
 **状態**: **router-01 で稼働中（家の DNS の窓口）。**
 対象読者: 家のネットワークを運用する人。設定の一覧は

@@ -105,6 +105,50 @@ resource "netbox_ip_range" "dhcp" {
   tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
 }
 
+# 区画（network.yaml の segments）。Flint 3 が境界になる L3 の分け方を台帳へ載せる。
+# server は上の management と同じ Prefix なので作らない（同じ CIDR を2つ作ると重複する）。
+# 予約だけの区画（reserved）は status を reserved にする。ここからは採番しない。
+locals {
+  segment_prefixes = { for name, segment in local.network.segments : name => segment if name != "server" }
+  segment_pools    = { for name, segment in local.network.segments : name => segment if try(segment.dhcp_start, null) != null }
+  segment_cloud    = { for name, segment in local.network.segments : name => segment if try(segment.cloud, null) != null }
+}
+
+resource "netbox_prefix" "segment" {
+  for_each = local.segment_prefixes
+
+  prefix      = each.value.prefix
+  status      = try(each.value.reserved, false) ? "reserved" : "active"
+  site_id     = tonumber(netbox_site.this.id)
+  description = "Segment ${each.key} (VLAN ${each.value.vlan_id}). Gateway ${each.value.gateway} on the Flint 3."
+  tags        = [netbox_tag.this["managed-by-terraform-admin"].name]
+}
+
+resource "netbox_ip_range" "segment_dhcp" {
+  for_each = local.segment_pools
+
+  start_address = "${each.value.dhcp_start}/${split("/", each.value.prefix)[1]}"
+  end_address   = "${each.value.dhcp_end}/${split("/", each.value.prefix)[1]}"
+  status        = "active"
+  description   = "DHCP pool of segment ${each.key}, served by the Flint 3."
+  tags          = [netbox_tag.this["managed-by-terraform-admin"].name]
+
+  depends_on = [netbox_prefix.segment]
+}
+
+# クラウドAPIが、その区画のVMへ配る帯（server 以外。server は上の cloud）。
+# API は VM 作成時にここから採番する。
+resource "netbox_ip_range" "segment_cloud" {
+  for_each = local.segment_cloud
+
+  start_address = each.value.cloud.range_start
+  end_address   = each.value.cloud.range_end
+  status        = "active"
+  description   = "Allocated by the cloud API for instances in subnet-${each.key}."
+  tags          = [netbox_tag.this["managed-by-cloud-api"].name]
+
+  depends_on = [netbox_prefix.segment]
+}
 
 # core-01（05-seed）は NetBox より先に存在するので、台帳には後からここで載せる。
 # これが無いと Ansible の動的インベントリに出てこず、core-01 だけ手書きの

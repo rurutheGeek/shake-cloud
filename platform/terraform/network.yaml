@@ -68,3 +68,48 @@ vlan:
     # 利用者VM（cloud プール）が載る VLAN。APIが作るVMはこのタグで接続する。
     # 切替時は cloud.prefix と cloud.range_* もこのVLANのサブネットへ変える。
     vlan_id: null
+
+# 区画（Flint 3 が境界になる L3 の分け方）。2026-10-13 に決めた設計で、
+# **実機へはまだ入れていない**（手順と状態は docs/operations/vlan.md）。
+#
+# VLAN 番号は第3オクテットに揃える。server は今の LAN をそのまま使い、
+# K11 のトランクでは**タグなし**で通す（ホストと既存VMの設定を変えないため）。
+# 上の infrastructure〜cloud の帯は、すべて server の中の切り方。
+# management（20）は番号と範囲だけ空けてある。当面は作らず、Proxmox と
+# Flint 3 の管理面は送信元の制限で絞る。
+segments:
+  server:
+    vlan_id: 10
+    prefix: 192.168.10.0/24
+    gateway: 192.168.10.1
+    ipv6: true
+  management:
+    vlan_id: 20
+    prefix: 192.168.20.0/24
+    gateway: 192.168.20.1
+    reserved: true
+  dmz:
+    # 外部公開VM。K11 のトランクでタグ付き。VM 作成時に subnet_id で選ぶ。
+    vlan_id: 30
+    prefix: 192.168.30.0/24
+    gateway: 192.168.30.1
+    # K11 のトランクで付けるタグ。クラウドAPIはこの区画のVMの NIC にこれを付ける
+    # （vmbr0 が VLAN 対応になるまで、API はこの区画への作成を断る）。
+    bridge_tag: 30
+    # クラウドAPIがこの区画のVMへ配る帯。
+    cloud:
+      range_start: 192.168.30.100/24
+      range_end: 192.168.30.180/24
+  personal:
+    vlan_id: 40
+    prefix: 192.168.40.0/24
+    gateway: 192.168.40.1
+    dhcp_start: 192.168.40.20
+    dhcp_end: 192.168.40.199
+  iot:
+    # インターネット接続のみ（家電・ゲーム機）。無線の既定。
+    vlan_id: 50
+    prefix: 192.168.50.0/24
+    gateway: 192.168.50.1
+    dhcp_start: 192.168.50.20
+    dhcp_end: 192.168.50.199

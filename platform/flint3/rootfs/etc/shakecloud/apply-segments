@@ -1,0 +1,256 @@
+#!/bin/sh
+# 無線の区画を作る。正本は platform/terraform/network.yaml の segments、
+# 方針は docs/operations/vlan.md。何度実行してもよい。
+#
+#   lan（サーバー、192.168.10.0/24）   有線と、管理用 SSID（porygon-…）
+#   personal（個人端末、192.168.40.0/24）  SSID ditto-… と、有線の LAN3（デスクトップ）
+#   iot（ネット専用、192.168.50.0/24）     SSID jumpluff-…（2.4GHz のみ、端末間は分離）
+#
+# ditto と jumpluff のパスワードはここでは入れない。/etc/shakecloud/set-wifi-key が
+# 入れるまで、その SSID は止めておく。
+set -eu
+
+DITTO='ditto-2hc355ek'
+JUMPLUFF='jumpluff-p7y45x7r'
+
+delete_named() {
+	for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='$1'$/\1/p"); do
+		uci delete "firewall.$section"
+	done
+}
+
+# --- network ---------------------------------------------------------------
+uci set network.br_personal=device
+uci set network.br_personal.name='br-personal'
+uci set network.br_personal.type='bridge'
+# 無線の端末が来るまで空のブリッジなので、空でも作らせる。
+uci set network.br_personal.bridge_empty='1'
+# 有線は LAN3 だけ個人端末（デスクトップ）。内蔵スイッチの番号は LAN1=7、LAN2=6、
+# LAN3=5、LAN4=4、CPU 側=3（2026-10-14 に実機のリンクで確認）。
+uci set network.vlan_lan.ports='4 6 7 3t'
+uci set network.vlan_personal=switch_vlan
+uci set network.vlan_personal.device='switch1'
+uci set network.vlan_personal.vlan='40'
+uci set network.vlan_personal.ports='5 3t'
+uci -q delete network.br_personal.ports || true
+uci add_list network.br_personal.ports='eth1.40'
+uci set network.personal=interface
+uci set network.personal.device='br-personal'
+uci set network.personal.proto='static'
+uci set network.personal.ipaddr='192.168.40.1'
+uci set network.personal.netmask='255.255.255.0'
+uci set network.personal.force_link='1'
+
+# GL.iNet が用意している iot。初期値の 192.168.10.1 はサーバーの区画と重なる。
+uci set network.iot.ipaddr='192.168.50.1'
+uci set network.iot.netmask='255.255.255.0'
+uci set network.iot.disabled='0'
+uci commit network
+
+# --- dhcp ------------------------------------------------------------------
+uci set dhcp.personal=dhcp
+uci set dhcp.personal.interface='personal'
+uci set dhcp.personal.start='20'
+uci set dhcp.personal.limit='180'
+uci set dhcp.personal.leasetime='12h'
+uci set dhcp.personal.dhcpv4='server'
+uci set dhcp.personal.dhcpv6='disabled'
+uci set dhcp.personal.ra='disabled'
+uci set dhcp.personal.force='1'
+uci -q delete dhcp.personal.dhcp_option || true
+uci add_list dhcp.personal.dhcp_option='6,192.168.40.1'
+
+uci set dhcp.iot.start='20'
+uci set dhcp.iot.limit='180'
+uci -q delete dhcp.iot.dhcp_option || true
+uci add_list dhcp.iot.dhcp_option='6,192.168.50.1'
+uci commit dhcp
+
+# --- firewall --------------------------------------------------------------
+# GL.iNet の初期ルールのうち、外から LAN へ IPsec（ESP・UDP 500）を通すもの。
+# IPsec は使っておらず、IPv6 では LAN の機器が外から直接見えるので消す。
+for name in Allow-IPSec-ESP Allow-ISAKMP; do
+	delete_named "$name"
+done
+# GL.iNet の初期ルールは iot の初期アドレス（192.168.10.1）を宛先にしていて、
+# そのままだとサーバーの区画から Flint 3 の管理画面を塞ぐ。
+for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='Block-LAN-mgmt-iot'$/\1/p"); do
+	uci set "firewall.$section.dest_ip=192.168.50.1"
+done
+
+uci -q delete firewall.personal || true
+uci -q delete firewall.personal_wan || true
+uci -q delete firewall.personal_lan || true
+uci set firewall.personal=zone
+uci set firewall.personal.name='personal'
+uci set firewall.personal.network='personal'
+uci set firewall.personal.input='REJECT'
+uci set firewall.personal.output='ACCEPT'
+uci set firewall.personal.forward='REJECT'
+uci set firewall.personal_wan=forwarding
+uci set firewall.personal_wan.src='personal'
+uci set firewall.personal_wan.dest='wan'
+# 個人端末 → サーバーは許可（ストリーミング・RDP・Web）。逆向きは開けない。
+uci set firewall.personal_lan=forwarding
+uci set firewall.personal_lan.src='personal'
+uci set firewall.personal_lan.dest='lan'
+
+for name in Personal-mDNS IoT-mDNS Personal-Desktop-Admin Personal-DHCP Personal-DNS Personal-Ping Personal-to-IoT Server-to-IoT-apps Server-to-IoT-monitor Server-to-Personal-Tailscale Dev-to-Personal; do
+	delete_named "$name"
+done
+rule() {
+	uci add firewall rule >/dev/null
+	uci set "firewall.@rule[-1].name=$1"
+	shift
+	for option in "$@"; do
+		uci set "firewall.@rule[-1].$option"
+	done
+}
+rule Personal-DHCP src=personal proto=udp dest_port=67-68 target=ACCEPT
+rule Personal-DNS src=personal 'proto=tcp udp' dest_port=53 target=ACCEPT
+rule Personal-Ping src=personal proto=icmp icmp_type=echo-request family=ipv4 target=ACCEPT
+# Flint 3 の管理画面・SSH・AdGuard Home の画面（:3000）は、個人端末のうちデスクトップ（有線の MAC）だけ。
+rule Personal-Desktop-Admin src=personal src_mac=9C:6B:00:3F:92:99 proto=tcp 'dest_port=22 80 443 3000' target=ACCEPT
+# 個人端末 → ネット専用は、印刷と機器の画面だけ。
+rule Personal-to-IoT src=personal dest=iot proto=tcp 'dest_port=80 443 631 9100' target=ACCEPT
+# サーバー → ネット専用は、家電を制御する apps-01 と、監視の monitor-01 だけ。
+rule Server-to-IoT-apps src=lan src_ip=192.168.10.105 dest=iot target=ACCEPT
+rule Server-to-IoT-monitor src=lan src_ip=192.168.10.210 dest=iot target=ACCEPT
+# mDNS の中継（avahi）が各区画の問い合わせを受けられるようにする。
+rule Personal-mDNS src=personal proto=udp dest_port=5353 target=ACCEPT
+rule IoT-mDNS src=iot proto=udp dest_port=5353 target=ACCEPT
+# 開発用の VM（dev-01・dev-02）からは、個人端末へ接続を始められる。実機のスマホへの
+# adb の無線デバッグや Flutter の実機実行のため。adb は毎回違うポートを使うので絞らない。
+rule Dev-to-Personal src=lan 'src_ip=192.168.10.202 192.168.10.203' dest=personal target=ACCEPT
+# Tailscale の端末同士が家の中で直接つながれるようにする。これが無いと、区画を
+# またぐ端末同士（有線のデスクトップと無線のノートPC）が外の中継サーバー経由になり遅い。
+rule Server-to-Personal-Tailscale src=lan dest=personal proto=udp dest_port=41641 target=ACCEPT
+uci commit firewall
+
+# 宅外の Tailscale 端末から、個人端末の区画へも家のアドレスで入れるようにする。
+# Tailscale 側は `tailscale set --advertise-routes=192.168.10.0/24,192.168.40.0/24`
+# と、管理画面（API）での経路の承認が要る。ネット専用（iot）は入れない。
+# Tailscale のゾーンと、サーバーの区画への転送。**ここで毎回入れ直す。**
+# 2026-10-14、tailscale → lan の転送が設定から消えていて、宅外のスマホから
+# サービス（Vaultwarden など）へ届かなかった。DNS だけは通るので気づきにくい。
+uci set firewall.tailscale=zone
+uci set firewall.tailscale.name='tailscale'
+uci set firewall.tailscale.input='ACCEPT'
+uci set firewall.tailscale.output='ACCEPT'
+uci set firewall.tailscale.forward='REJECT'
+uci -q delete firewall.tailscale.device || true
+uci add_list firewall.tailscale.device='tailscale0'
+uci -q delete firewall.tailscale_lan || true
+uci set firewall.tailscale_lan=forwarding
+uci set firewall.tailscale_lan.src='tailscale'
+uci set firewall.tailscale_lan.dest='lan'
+uci -q delete firewall.tailscale_personal || true
+uci set firewall.tailscale_personal=forwarding
+uci set firewall.tailscale_personal.src='tailscale'
+uci set firewall.tailscale_personal.dest='personal'
+
+# 宅外の Tailscale 端末の DNS（tailnet の DNS は 192.168.10.1）も AdGuard Home へ回す。
+# tailscale0 は GL.iNet の転送の対象外なので、ここで明示する。
+uci -q delete firewall.tailscale_dns || true
+uci set firewall.tailscale_dns=redirect
+uci set firewall.tailscale_dns.name='Tailscale-DNS-to-AdGuard'
+uci set firewall.tailscale_dns.src='tailscale'
+uci set firewall.tailscale_dns.proto='tcp udp'
+uci set firewall.tailscale_dns.src_dport='53'
+uci set firewall.tailscale_dns.dest_port='3053'
+uci set firewall.tailscale_dns.target='DNAT'
+uci commit firewall
+
+# 新しい区画の DNS も AdGuard Home（:3053）へ回す。
+uci set route_policy.global.append_source_if='personal iot'
+uci commit route_policy
+
+# --- wireless --------------------------------------------------------------
+# ditto: 個人端末。3 帯域とも同じ名前。2.4/5GHz は WPA2/WPA3 混在、6GHz は WPA3。
+for iface in wifi2g wifi5g wifi6g; do
+	[ "$(uci -q get wireless.$iface.ssid)" = "$DITTO" ] || uci set wireless.$iface.disabled='1'
+	uci set wireless.$iface.ssid="$DITTO"
+	uci set wireless.$iface.network='personal'
+	uci set wireless.$iface.isolate='0'
+done
+uci set wireless.wifi2g.sae='1'
+uci set wireless.wifi5g.sae='1'
+
+# ditto の MLO（6GHz・5GHz・2.4GHz を束ねる）。GL.iNet は通常の電波とは別の
+# MLO 用の電波（wlanmld*）を持つ。同じ名前・同じパスワードで出し、WPA3 のみ。
+# パスワードは通常の ditto（set-wifi-key が入れる）から写す。
+uci set mlo.mld0.disabled='0'
+uci commit mlo
+for band in 2g 5g 6g; do
+	iface="wlanmld$band"
+	uci set wireless.$iface.ssid="$DITTO"
+	uci set wireless.$iface.network='personal'
+	uci set wireless.$iface.isolate='0'
+	uci set wireless.$iface.wps_pbc='0'
+	uci set wireless.$iface.wps_pbc_enable='0'
+	if key=$(uci -q get wireless.wifi5g.key); then
+		uci set wireless.$iface.key="$key"
+		uci set wireless.$iface.disabled='0'
+	else
+		uci set wireless.$iface.disabled='1'
+	fi
+done
+
+# jumpluff: ネット専用。2.4GHz のみ、WPA2、端末間は分離。
+if [ -z "$(uci -q get wireless.iot2g)" ]; then
+	uci set wireless.iot2g=wifi-iface
+	uci set wireless.iot2g.disabled='1'
+fi
+uci set wireless.iot2g.device='wifi0'
+uci set wireless.iot2g.mode='ap'
+uci set wireless.iot2g.ifname='wlan04'
+uci set wireless.iot2g.network='iot'
+uci set wireless.iot2g.ssid="$JUMPLUFF"
+uci set wireless.iot2g.encryption='psk2+ccmp'
+uci set wireless.iot2g.sae='0'
+uci set wireless.iot2g.isolate='1'
+uci set wireless.iot2g.hidden='0'
+
+# porygon: 管理用。5GHz、サーバーの区画。パスワードはこの場で作り、
+# /etc/shakecloud/porygon.key（root だけが読める）へ置く。
+if [ -z "$(uci -q get wireless.porygon5g)" ]; then
+	suffix=$(tr -dc 'a-z2-9' < /dev/urandom | head -c 8)
+	umask 077
+	tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom | head -c 20 > /etc/shakecloud/porygon.key
+	uci set wireless.porygon5g=wifi-iface
+	uci set wireless.porygon5g.ssid="porygon-$suffix"
+	uci set wireless.porygon5g.key="$(cat /etc/shakecloud/porygon.key)"
+fi
+uci set wireless.porygon5g.device='wifi1'
+uci set wireless.porygon5g.mode='ap'
+uci set wireless.porygon5g.ifname='wlan14'
+uci set wireless.porygon5g.network='lan'
+uci set wireless.porygon5g.encryption='psk2+ccmp'
+uci set wireless.porygon5g.sae='1'
+uci set wireless.porygon5g.isolate='0'
+uci set wireless.porygon5g.hidden='0'
+uci set wireless.porygon5g.disabled='0'
+# WPS は使わない。
+for iface in wifi2g wifi5g wifi6g iot2g porygon5g; do
+	uci set wireless.$iface.wps_pbc='0'
+	uci set wireless.$iface.wps_pbc_enable='0'
+done
+uci commit wireless
+
+# --- mDNS の中継 -------------------------------------------------------------
+# サーバー・個人端末・ネット専用の間で mDNS を中継する（Moonlight の自動検出、
+# apps-01 の CUPS がプリンターを .local の名前で引く、など）。
+conf=/etc/avahi/avahi-daemon.conf
+sed -i '/^allow-interfaces=/d' "$conf"
+sed -i 's/^\[server\]$/[server]\nallow-interfaces=br-lan,br-personal,br-iot/' "$conf"
+sed -i 's/^enable-reflector=.*/enable-reflector=yes/' "$conf"
+grep -qxF "$conf" /etc/sysupgrade.conf || echo "$conf" >> /etc/sysupgrade.conf
+/etc/init.d/avahi-daemon enable
+/etc/init.d/avahi-daemon restart
+
+/etc/init.d/network reload
+/etc/init.d/dnsmasq restart
+/etc/init.d/firewall reload >/dev/null 2>&1
+wifi reload 2>/dev/null || wifi
+logger -t shakecloud "apply-segments applied"
+echo "applied: $(uci get wireless.porygon5g.ssid)"

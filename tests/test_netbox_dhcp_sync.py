@@ -190,9 +190,9 @@ class DeviceSpecTests(unittest.TestCase):
         # 静的 IP の端末は devices に書く（clients は「名前だけ」用で、いまは空）。
         # reserved にすると dnsmasq が同じ IP を他の端末へ配らない。
         devices = {device['name']: device for device in self.spec['devices']}
-        self.assertEqual(devices['eufycam-s4']['address'], '192.168.10.98/24')
-        self.assertEqual(devices['alexa']['address'], '192.168.10.46/24')
-        self.assertEqual(devices['switchbot-hubmini-ca2a09']['address'], '192.168.10.99/24')
+        self.assertEqual(devices['eufycam-s4']['address'], '192.168.50.98/24')
+        self.assertEqual(devices['alexa']['address'], '192.168.50.46/24')
+        self.assertEqual(devices['switchbot-hubmini-ca2a09']['address'], '192.168.50.99/24')
         self.assertEqual(self.spec.get('clients', []), [])
 
     def test_every_declared_address_sits_in_a_managed_band(self):
@@ -203,9 +203,21 @@ class DeviceSpecTests(unittest.TestCase):
             address = device.get('address')
             if not address:
                 continue
+            # ゲートウェイ自身（Flint 3）は帯の外。予約にもしない（dhcp: false）。
+            if address.split('/')[0] == network['segments']['server']['gateway']:
+                self.assertIs(device.get('dhcp'), False, device['name'])
+                continue
+            # 個人端末・ネット専用の区画の機器は、その区画の範囲に居ればよい
+            # （Flint 3 の dnsmasq が受けたインターフェースの区画で予約を配る）。
+            import ipaddress
+            ip = ipaddress.ip_interface(address).ip
+            in_segment = any(
+                ip in ipaddress.ip_network(segment['prefix'])
+                for name, segment in network['segments'].items()
+                if name in ('personal', 'iot'))
             self.assertTrue(
                 sync.in_range(address, network['infrastructure']) or
-                sync.in_range(address, network['dhcp']),
+                sync.in_range(address, network['dhcp']) or in_segment,
                 device['name'])
 
     def test_every_device_references_declared_roles_and_types(self):
@@ -542,6 +554,18 @@ class TimerTests(unittest.TestCase):
         self.assertIn('OnCalendar=', timer)
         playbook = (ROOT / 'platform/ansible/netbox-dhcp-sync.yml').read_text(encoding='utf-8')
         self.assertIn('netbox_dhcp_sync', playbook)
+
+
+class SegmentTests(unittest.TestCase):
+    def test_personal_and_iot_reservations_are_pulled(self):
+        # A printer on the IoT segment keeps its address only if `pull` writes its
+        # reservation; the server-only filter silently dropped it (2026-10-14).
+        network = sync.load_yaml(sync.NETWORK)
+        sections = sync.segment_sections(network)
+        self.assertTrue(any(sync.in_range('192.168.50.3/24', section) for section in sections))
+        self.assertTrue(any(sync.in_range('192.168.40.97/24', section) for section in sections))
+        self.assertFalse(any(sync.in_range('192.168.10.3/24', section) for section in sections))
+        self.assertFalse(any(sync.in_range('192.168.30.5/24', section) for section in sections))
 
 
 if __name__ == '__main__':
