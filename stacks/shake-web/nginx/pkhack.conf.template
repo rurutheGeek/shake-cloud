@@ -1,7 +1,7 @@
 # =============================================================================
 #  pkhack サブドメイン（ポケモンクイズ）
 # -----------------------------------------------------------------------------
-#  rurutheGeek/pkhack を配信する。/quiz 配下を Next.js アプリ(pkhack_app:3000)へ
+#  rurutheGeek/pkhack を配信する。/quiz 配下を Next.js アプリ(127.0.0.1:13001)へ
 #  プロキシし、/quiz/index.html（静的ハブ）と /assets は pkhack repo の静的ファイルを
 #  配信する。ルート(/)はクイズハブ /quiz/ へリダイレクト。
 #  socket.io マルチプレイ用に WebSocket(Upgrade)ヘッダを付与する。
@@ -11,7 +11,7 @@
 # =============================================================================
 server {
     listen 443 ssl proxy_protocol;
-    listen 8443 ssl;
+    listen 127.0.0.1:8443 ssl;
     server_name pkhack.ruruthegeek.dpdns.org;
 
     set_real_ip_from 100.92.253.28;
@@ -23,10 +23,6 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
 
-    resolver 127.0.0.11 valid=30s;
-    # 静的物のコンテナ。作り直しで IP が変わっても届くよう、名前を都度引く。
-    set $pkhack_static http://pkhack_static:8080;
-
     # ルートはクイズハブへ誘導
     location = / {
         return 302 /quiz/;
@@ -34,7 +30,7 @@ server {
 
     # クイズハブの静的ランディング（pkhack repo の html/quiz/index.html）
     location = /quiz/index.html {
-        proxy_pass $pkhack_static;
+        proxy_pass http://127.0.0.1:18082;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -44,7 +40,7 @@ server {
 
     # 共有アセット（画像・音・絵文字・css/js）
     location /assets {
-        proxy_pass $pkhack_static;
+        proxy_pass http://127.0.0.1:18082;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -54,7 +50,7 @@ server {
 
     # Next.js アプリ（/quiz 配下・socket.io マルチプレイ含む）
     location /quiz {
-        proxy_pass http://pkhack_app:3000;
+        proxy_pass http://127.0.0.1:13001;
 
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

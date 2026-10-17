@@ -128,3 +128,6 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Run the sites with Podman
+  ansible.builtin.import_tasks: podman.yml

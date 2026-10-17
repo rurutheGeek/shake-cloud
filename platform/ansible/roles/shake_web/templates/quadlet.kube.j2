@@ -1,0 +1,22 @@
+# Ansible（roles/shake_web）が置く。Quadlet が {{ item }}.service を作り、
+# Kubernetes の YAML を `podman kube play` で動かす。
+[Unit]
+Description=Shake-Web {{ item }}
+Wants=network-online.target
+After=network-online.target
+
+[Kube]
+Yaml={{ shake_web_project_dir }}/kube/{{ item }}.yaml
+{% if item == 'front' %}
+ConfigMap={{ shake_web_project_dir }}/kube/front-config.yaml
+{% else %}
+# 5 分ごとの podman auto-update が GHCR の新しいイメージを取って入れ替える
+AutoUpdate=registry
+{% endif %}
+
+[Service]
+Restart=always
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target
