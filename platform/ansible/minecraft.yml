@@ -1,0 +1,10 @@
+---
+# Minecraft（stacks/minecraft）を shakeserver（Raspberry Pi 5）へ配備する。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#     -i platform/ansible/outpost.ini platform/ansible/minecraft.yml
+- name: Deploy Minecraft
+  hosts: minecraft
+  become: true
+  roles:
+    - docker
+    - minecraft

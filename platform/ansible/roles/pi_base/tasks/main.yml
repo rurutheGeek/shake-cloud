@@ -1,0 +1,213 @@
+---
+- name: Create the systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system.conf.d
+    state: directory
+    mode: '0755'
+
+# 固まったときに抜き差しに行かなくて済むように、最初に入れる。
+- name: Reboot automatically when the system hangs
+  ansible.builtin.copy:
+    content: |
+      # Ansible（pi_base）が置く。応答が無くなったらハードウェアのウォッチドッグが再起動する。
+      [Manager]
+      RuntimeWatchdogSec={{ pi_base_watchdog_sec }}
+      RebootWatchdogSec={{ pi_base_reboot_watchdog_sec }}
+    dest: /etc/systemd/system.conf.d/50-watchdog.conf
+    mode: '0644'
+  register: pi_base_watchdog
+
+- name: Let systemd pick up the watchdog
+  ansible.builtin.systemd:
+    daemon_reexec: true
+  when: pi_base_watchdog is changed
+
+- name: Create the journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Limit the journal
+  ansible.builtin.template:
+    src: journald.conf.j2
+    dest: /etc/systemd/journald.conf.d/50-pi-base.conf
+    mode: '0644'
+  notify: Restart journald
+
+- name: Mount the data disk
+  ansible.posix.mount:
+    path: '{{ pi_base_data_mount }}'
+    src: 'LABEL={{ pi_base_data_label }}'
+    fstype: ext4
+    opts: defaults,noatime,nofail,x-systemd.device-timeout=10s
+    passno: '2'
+    state: mounted
+  when: pi_base_data_label | length > 0
+
+- name: Look for rpi-swap
+  ansible.builtin.stat:
+    path: /etc/rpi/swap.conf
+  register: pi_base_rpi_swap
+
+- name: Create the rpi-swap drop-in directory
+  ansible.builtin.file:
+    path: /etc/rpi/swap.conf.d
+    state: directory
+    mode: '0755'
+  when: pi_base_rpi_swap.stat.exists
+
+- name: Keep swap in memory only
+  ansible.builtin.copy:
+    content: |
+      # Ansible（pi_base）が置く。SD カードの上にスワップのファイルを作らない。
+      [Main]
+      Mechanism={{ pi_base_swap_mechanism }}
+    dest: /etc/rpi/swap.conf.d/50-pi-base.conf
+    mode: '0644'
+  register: pi_base_swap
+  when: pi_base_rpi_swap.stat.exists
+
+- name: Read the active swaps
+  ansible.builtin.slurp:
+    src: /proc/swaps
+  register: pi_base_swaps
+  when: pi_base_rpi_swap.stat.exists
+
+# 使われているスワップは消さない（次の起動で zram だけになってから消える）。
+- name: Remove the swap file from the SD card
+  ansible.builtin.file:
+    path: /var/swap
+    state: absent
+  when:
+    - pi_base_rpi_swap.stat.exists
+    - pi_base_swap_mechanism == 'zram'
+    - "'/var/swap' not in (pi_base_swaps.content | b64decode)"
+
+- name: Boot without the desktop
+  ansible.builtin.command:
+    argv: [systemctl, set-default, multi-user.target]
+  register: pi_base_target
+  changed_when: "'Created symlink' in pi_base_target.stderr or 'Removed' in pi_base_target.stderr"
+  when: pi_base_headless
+
+- name: Stop services that are not used
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+  loop: '{{ pi_base_disabled_services }}'
+  failed_when: false
+
+# 一覧に書いたものは引退が決まっている。動いていても止めて消す。
+- name: Remove retired containers (their volumes stay)
+  ansible.builtin.command:
+    argv: [docker, rm, --force, '{{ item }}']
+  loop: '{{ pi_base_retired_containers }}'
+  register: pi_base_rm
+  changed_when: pi_base_rm.rc == 0
+  failed_when: pi_base_rm.rc != 0 and 'No such container' not in pi_base_rm.stderr
+
+# system prune は停止中のコンテナ（Minecraft など）まで消すので使わない。
+- name: Prune images no container uses, and the build cache
+  ansible.builtin.command:
+    argv: '{{ item }}'
+  loop:
+    - [docker, image, prune, --all, --force]
+    - [docker, builder, prune, --all, --force]
+  register: pi_base_prune
+  changed_when: "'Total reclaimed space: 0B' not in pi_base_prune.stdout"
+  when: pi_base_prune_docker
+
+- name: Stop retired services
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+  loop: '{{ pi_base_retired_services }}'
+  failed_when: false
+
+- name: Remove retired service definitions
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item if '.' in item else item + '.service' }}"
+    state: absent
+  loop: '{{ pi_base_retired_services }}'
+  register: pi_base_units
+
+- name: Reload systemd after removing units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: pi_base_units is changed
+
+# 消したり止めたりしたサービスの「失敗」の記録を消す。残ると監視の警告が出続ける。
+- name: Forget the failures of retired and disabled services
+  ansible.builtin.command:
+    argv: "{{ ['systemctl', 'reset-failed'] + (pi_base_retired_services + pi_base_disabled_services) }}"
+  when: (pi_base_retired_services + pi_base_disabled_services) | length > 0
+  changed_when: false
+  failed_when: false
+
+- name: Remove retired cron lines
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      current=$(crontab -l -u {{ item.user | quote }} 2>/dev/null || true)
+      kept=$(printf '%s\n' "$current" | grep -vF -- {{ item.match | quote }} || true)
+      if [ "$current" = "$kept" ]; then echo same; exit 0; fi
+      printf '%s\n' "$kept" | crontab -u {{ item.user | quote }} -
+      echo changed
+  loop: '{{ pi_base_retired_cron }}'
+  register: pi_base_cron
+  changed_when: "'changed' in pi_base_cron.stdout"
+
+- name: Remove retired files
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop: '{{ pi_base_retired_paths }}'
+
+- name: Prune volumes no container uses
+  ansible.builtin.command:
+    argv: [docker, volume, prune, --all, --force]
+  register: pi_base_volumes
+  changed_when: "'Total reclaimed space: 0B' not in pi_base_volumes.stdout"
+  when: pi_base_prune_volumes
+
+- name: Tell smartmontools how to read the USB disk cases
+  ansible.builtin.copy:
+    content: |
+      // Ansible（pi_base）が置く。smartmontools の表に無い USB ケースの読み方。
+      {% for bridge in pi_base_smart_usb_bridges %}
+      { "USB: {{ bridge.name }}", "{{ bridge.usb }}", "", "", "-d {{ bridge.type | default('sat') }}" },
+      {% endfor %}
+    dest: /etc/smart_drivedb.h
+    mode: '0644'
+  when: pi_base_smart_usb_bridges | length > 0
+  register: pi_base_smart_drivedb
+
+- name: Restart smartd after the table changed
+  ansible.builtin.systemd_service:
+    name: smartmontools
+    state: restarted
+  when: pi_base_smart_drivedb is changed
+
+# 家の中の区画へ出さない（DMZ の機械）。pi_base_lan_guard が無ければ何もしない。
+- name: Install the LAN guard
+  ansible.builtin.template:
+    src: homeguard.nft.j2
+    dest: /etc/nftables.conf
+    mode: '0644'
+    validate: nft -c -f %s
+  when: pi_base_lan_guard is defined
+  register: pi_base_lan_guard_file
+
+- name: Load the LAN guard
+  ansible.builtin.command:
+    argv: [nft, -f, /etc/nftables.conf]
+  when: pi_base_lan_guard is defined and pi_base_lan_guard_file is changed
+
+- name: Load the LAN guard at boot
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true
+  when: pi_base_lan_guard is defined

@@ -1,0 +1,42 @@
+---
+- name: Install nginx and sslh
+  ansible.builtin.apt:
+    name: [nginx, libnginx-mod-stream, sslh]
+    state: present
+
+- name: Place the stream relay
+  ansible.builtin.template:
+    src: stream_proxy.conf.j2
+    dest: /etc/nginx/stream.conf.d/stream_proxy.conf
+    mode: '0644'
+  notify: Reload nginx
+
+- name: Send nginx's own logs to syslog, not the SD card
+  ansible.builtin.lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: '^(\s*){{ item.key }}\s'
+    line: '\g<1>{{ item.key }} {{ item.value }};'
+    backrefs: true
+  loop:
+    - {key: error_log, value: 'syslog:server=unix:/dev/log,tag=nginx'}
+    - {key: access_log, value: 'syslog:server=unix:/dev/log,tag=nginx'}
+  notify: Reload nginx
+
+- name: Check the nginx configuration
+  ansible.builtin.command:
+    argv: [nginx, -t]
+  changed_when: false
+
+- name: Place the sslh settings
+  ansible.builtin.template:
+    src: sslh.j2
+    dest: /etc/default/sslh
+    mode: '0644'
+  notify: Restart sslh
+
+- name: Keep nginx and sslh running
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: [nginx, sslh]

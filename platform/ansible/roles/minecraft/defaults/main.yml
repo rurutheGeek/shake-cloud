@@ -1,0 +1,16 @@
+---
+minecraft_project_dir: /opt/minecraft-stack
+minecraft_storage_root: /srv/minecraft
+minecraft_source_dir: '{{ playbook_dir }}/../../stacks/minecraft'
+minecraft_sops_file: '{{ playbook_dir }}/../sops/minecraft.sops.yaml'
+# 既存のワールドの持ち主（itzg のイメージは UID・GID でファイルを書く）。
+minecraft_uid: 1000
+minecraft_gid: 1000
+minecraft_memory: 3G
+# 起動しておくか。false なら配備だけして止めておく。
+minecraft_started: true
+# 旧配備（Compose を手で置いていた頃）のワールド。あれば storage へ移す。
+minecraft_legacy_data: /opt/minecraft/pixelmon
+minecraft_legacy_containers:
+  - shake_minecraft-pixelmon1.21.1
+  - shake_minecraft-pixelmon1.21.1-backup

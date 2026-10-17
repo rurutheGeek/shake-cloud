@@ -30,7 +30,7 @@ zone: apextox.dpdns.org
 # 従来どおり自分で証明書を取る。
 edge:
   host: core-01
-  backends: [monitor-01, media-01, apps-01, cloud-01]
+  backends: [tarakoserver, media-01, apps-01, cloud-01]
 cloudflare_zone_id: 112734e967c919ddd9ec1fa5c4f2a320
 
 records:
@@ -116,6 +116,11 @@ records:
     address: 192.168.10.101
     upstream: 127.0.0.1:8082
     description: FreshRSS（共通RSSタイムライン。OIDC）
+  forgejo:
+    host: media-01
+    address: 192.168.10.101
+    upstream: 127.0.0.1:8083
+    description: Forgejo（リポジトリの保管庫。OIDC）
   netbox:
     host: core-01
     upstream: 127.0.0.1:8000
@@ -132,20 +137,34 @@ records:
     upstream: 192.168.10.1:3000
     description: AdGuard Home（DNS・広告遮断。Forward Auth）
     auth: true
-  # ルータの管理画面（LuCI）。**SSO は付けない。** ルータは復旧経路なので、
-  # identity（Authentik）が止まっていても開ける必要がある。認証は LuCI 自身の
-  # root パスワード。upstream はルータの LAN アドレス。
+  # ルータ（Flint 3）の管理画面。**SSO は付けない。** ルータは復旧経路なので、
+  # identity（Authentik）が止まっていても開ける必要がある。認証は GL.iNet の
+  # 管理者パスワード。upstream はルータの LAN アドレス。
   router:
     host: core-01
     upstream: 192.168.10.1:80
-    description: router-01 の管理画面（LuCI。SSOなし・復旧経路）
-  # monitor-01 はクラウドVMで hosts.yaml の台帳に居ないため address を直接書く。
+    description: Flint 3 の管理画面（GL.iNet。SSOなし・復旧経路）
+  # 監視は Raspberry Pi 4（tarakoserver）。hosts.yaml の台帳に居ないため address を直接書く。
   grafana:
-    host: monitor-01
+    host: tarakoserver
+    address: 192.168.10.11
     upstream: 127.0.0.1:3000
     description: Grafana（監視ポータル。OIDC）
+  netmap:
+    host: tarakoserver
+    address: 192.168.10.11
+    upstream: 127.0.0.1:8096
+    description: ネットワーク図（区画・VLAN・ファイアウォール。Forward Auth）
+    auth: true
+  panel:
+    host: tarakoserver
+    address: 192.168.10.11
+    upstream: 127.0.0.1:8097
+    description: 監視のタッチパネルをスマホで見る・触る（Forward Auth）
+    auth: true
   peanut:
-    host: monitor-01
+    host: tarakoserver
+    address: 192.168.10.11
     upstream: 127.0.0.1:8080
     description: PeaNUT（UPSのREST。HomarrのUPSウィジェット用）
   vault:

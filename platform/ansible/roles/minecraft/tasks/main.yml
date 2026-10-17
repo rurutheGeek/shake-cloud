@@ -1,0 +1,102 @@
+---
+- name: Read the Minecraft secrets
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ minecraft_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: minecraft_sops
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Remember the secrets
+  ansible.builtin.set_fact:
+    minecraft_secrets: '{{ minecraft_sops.stdout | from_json }}'
+  no_log: true
+
+- name: Create the deployment directories
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    mode: '{{ item.mode }}'
+  loop:
+    - {path: '{{ minecraft_project_dir }}', mode: '0750'}
+    - {path: '{{ minecraft_project_dir }}/secrets', mode: '0700'}
+    - {path: '{{ minecraft_storage_root }}', mode: '0750'}
+
+- name: Copy the stack
+  ansible.builtin.copy:
+    src: '{{ minecraft_source_dir }}/{{ item }}'
+    dest: '{{ minecraft_project_dir }}/{{ item }}'
+    mode: preserve
+  loop: [compose.yaml, compose.lock.yaml, manage.py, .env.example]
+
+- name: Render the deployment environment
+  ansible.builtin.template:
+    src: env.j2
+    dest: '{{ minecraft_project_dir }}/.env'
+    mode: '0600'
+  no_log: true
+
+- name: Install the secrets
+  ansible.builtin.copy:
+    content: "{{ minecraft_secrets[item.key] }}\n"
+    dest: '{{ minecraft_project_dir }}/secrets/{{ item.name }}'
+    mode: '0400'
+  loop:
+    - {name: mc_rcon_password, key: MC_RCON_PASSWORD}
+    - {name: cf_access_key, key: CF_ACCESS_KEY}
+    - {name: cf_secret_key, key: CF_SECRET_KEY}
+    - {name: cf_api_key, key: CF_API_KEY}
+  loop_control:
+    label: '{{ item.name }}'
+  no_log: true
+
+# 旧配備（/opt/minecraft の手置きの Compose）から引き継ぐ。ワールドは移すだけで消さない。
+- name: Look for the legacy world
+  ansible.builtin.stat:
+    path: '{{ minecraft_legacy_data }}'
+  register: minecraft_legacy
+
+- name: Look for the world in storage
+  ansible.builtin.stat:
+    path: '{{ minecraft_storage_root }}/data'
+  register: minecraft_data
+
+- name: Remove the legacy containers
+  ansible.builtin.command:
+    argv: [docker, rm, -f, '{{ item }}']
+  loop: '{{ minecraft_legacy_containers }}'
+  register: minecraft_rm
+  changed_when: minecraft_rm.rc == 0
+  failed_when: minecraft_rm.rc != 0 and 'No such container' not in minecraft_rm.stderr
+  when: minecraft_legacy.stat.exists and not minecraft_data.stat.exists
+
+- name: Move the legacy world into storage
+  ansible.builtin.command:
+    argv: [mv, '{{ minecraft_legacy_data }}', '{{ minecraft_storage_root }}/data']
+  changed_when: true
+  when: minecraft_legacy.stat.exists and not minecraft_data.stat.exists
+
+- name: Initialize the stack
+  ansible.builtin.command:
+    argv: [python3, manage.py, init]
+    chdir: '{{ minecraft_project_dir }}'
+  register: minecraft_init
+  changed_when: "'CHANGED' in minecraft_init.stdout"
+
+- name: Start Minecraft
+  ansible.builtin.command:
+    argv: [python3, manage.py, up]
+    chdir: '{{ minecraft_project_dir }}'
+  register: minecraft_up
+  changed_when: "'Started' in minecraft_up.stderr or 'Recreated' in minecraft_up.stderr or 'Created' in minecraft_up.stderr"
+  when: minecraft_started | bool
+
+- name: Keep Minecraft stopped
+  ansible.builtin.command:
+    argv: [python3, manage.py, down]
+    chdir: '{{ minecraft_project_dir }}'
+  register: minecraft_down
+  changed_when: "'Removed' in minecraft_down.stderr"
+  when: not (minecraft_started | bool)

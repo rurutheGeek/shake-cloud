@@ -1,13 +1,23 @@
 # Tailscale の ACL（ポリシー）
 
-`acl.json` が tailnet のポリシーの正本です（2026-10-05 に適用）。管理画面でも入れられますが、変更はこのファイルへ戻してください。
+`acl.json` が tailnet のポリシーの正本です。管理画面でも入れられますが、変更はこのファイルへ戻してください。
 
-- `tag:relay`（negitoroserver）が行けるのは `tag:web`（web-01）の 80/443 と、Minecraft の `shakeserver:25565` だけ。
-- `tag:web` は tailnet へ発信できません（受けるだけ）。
-- タグの無い端末（利用者の端末）はこれまでどおり相互と LAN へ届きます。
+| 端末 | タグ | 届く先 |
+| --- | --- | --- |
+| デスクトップ・ノート・スマホ・dev-02 | なし | すべて |
+| game-01 | `tag:game` | なし（受けるだけ） |
+| negitoroserver | `tag:relay` | shakeserver（`tag:dmz`）の 80/443 |
+| tarakoserver | `tag:monitoring` | negitoroserver の 80・9100（監視） |
+| shakeserver | `tag:dmz` | なし（受けるだけ）。入口から DMZ へは、公開するポートだけを足す（今は無し） |
+| Flint 3 | `tag:router` | なし。`192.168.10.0/24`・`192.168.40.0/24` の経路は自動承認 |
+
+- `tests` が通らないポリシーは Tailscale が受け付けない。入れる前に `.../acl/validate` へ送って確かめる。
+- Tailscale の制限は tailnet を通る通信だけに効く。game-01 はサーバーの区画にいるので、LAN を直接通れば Proxmox へ届く。
 
 ```bash
 TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml)
+curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  --data-binary @platform/tailscale/acl.json https://api.tailscale.com/api/v2/tailnet/-/acl/validate
 curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   --data-binary @platform/tailscale/acl.json https://api.tailscale.com/api/v2/tailnet/-/acl
 ```

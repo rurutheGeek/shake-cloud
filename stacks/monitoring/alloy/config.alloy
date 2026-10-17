@@ -1,0 +1,84 @@
+// Grafana Alloy（ログを集めて Loki へ送る）。promtail の後継。
+//   - このホストの journald（Raspberry Pi はメモリの上の /run/log/journal）
+//   - このホストの Docker のコンテナのログ
+//   - Flint 3 などからの syslog（UDP 1514、RFC 3164）
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__journal__hostname"]
+    target_label  = "host"
+  }
+}
+
+loki.source.journal "host" {
+  path          = "/var/log/journal-runtime"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = {job = "journal"}
+  forward_to    = [loki.write.local.receiver]
+}
+
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker" {
+  targets = discovery.docker.local.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "local" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker.output
+  labels     = {job = "docker", host = sys.env("HOST_NAME")}
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.relabel "syslog" {
+  forward_to = []
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+}
+
+loki.source.syslog "network" {
+  listener {
+    address       = "0.0.0.0:1514"
+    protocol      = "udp"
+    syslog_format = "rfc3164"
+    labels        = {job = "syslog"}
+  }
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.local.receiver]
+}

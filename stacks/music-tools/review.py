@@ -412,6 +412,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
 PAGE = r'''<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>全曲レビュー</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%232563eb%27/%3E%3Ccircle cx=%2711%27 cy=%2721%27 r=%273.5%27 fill=%27%23fff%27/%3E%3Cpath d=%27M14.5 21V8h6v3.5h-4%27 stroke=%27%23fff%27 stroke-width=%272.4%27 fill=%27none%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3Cpath d=%27M24 18l1 2 2 .3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.4 2-.3z%27 fill=%27%23fde047%27/%3E%3C/svg%3E">
 <style>
 :root{color-scheme:dark}
 body{font-family:sans-serif;font-size:13px;margin:0;background:#141414;color:#d8d8d8}

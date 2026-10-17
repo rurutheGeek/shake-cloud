@@ -1,0 +1,10 @@
+# Ansible（relay）が置く。443 番を TLS のまま中継し、PROXY protocol で相手のアドレスを渡す。
+# ログは SD カードではなく syslog（journald、メモリ）へ。
+log_format stream_log "$time_local $remote_addr -> $upstream_addr [$status]";
+access_log syslog:server=unix:/dev/log,tag=nginx_stream stream_log;
+
+server {
+    listen 443;
+    proxy_pass {{ relay_https_upstream }};
+    proxy_protocol on;
+}

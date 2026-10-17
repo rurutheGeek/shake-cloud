@@ -39,22 +39,6 @@ hosts:
     tags: [cloud-control, storage, managed-by-terraform-admin]
     description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。
 
-  monitor-01:
-    vm_id: 120
-    pool: platform
-    flavor: small
-    # 2026-10-11: 2GiB では実使用が最大約1.6GiB・スワップ約0.3GiBと余裕が無いので
-    # 上限を 3GiB へ広げた。
-    memory_mib: 3072
-    # balloon 下限。1GiB まで縮められて Grafana が OOM 死した（2026-10-06）。
-    memory_min_mib: 2048
-    # Prometheus の時系列と Grafana の状態も同じディスクに置く（2026-10-03 時点で約1.3GiB）。
-    disk_gib: 48
-    on_boot: true
-    started: true
-    tags: [monitoring, managed-by-terraform-admin]
-    description: 監視（Prometheus・Alertmanager・Grafana・UPS）。クラウドが壊れても原因を見られるよう基盤側に置く。クラウドVMから移した（2026-10-03。移行中の名前は monitor-02）。
-
   k8s-cp-01:
     vm_id: 200
     pool: platform

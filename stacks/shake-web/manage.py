@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shake-Web（公開サイト）の配備。web-01 で sudo で動かす。
+"""Shake-Web（公開サイト）の配備。shakeserver（Pi 5）で sudo で動かす。
 
 旧 shakeserver（Raspberry Pi 5）では Ansible が git clone と rsync を行っていた。
 ここでは同じ流れを ``fetch``（4リポジトリを固定した ref へ更新）と

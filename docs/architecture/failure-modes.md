@@ -22,10 +22,10 @@ tags:
 
 | 単一点 | 落ちると | いまの受け止め方 |
 | --- | --- | --- |
-| **物理ホスト `apextox`** | すべて。VM・クラウド・認証・家電・監視・復旧経路のTailscaleに加え、**家中のインターネットとDNS**（家庭内ルータ `router-01` がこのホスト上のVMのため） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。復旧経路のTailscaleも `router-01` 上で同じホストに載っているので、**カバーできるのはVM単位の故障まで** |
+| **物理ホスト `apextox`** | VM・クラウド・認証（Authentik）・家電（Home Assistant） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。**2026-10-14 からルータ（Flint 3）と監視（tarakoserver）は K11 の外**なので、K11 が落ちても家のインターネット・DNS・Tailscale と監視は残る |
 | **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](../development/O01-cloud-backup.md)） |
-| **`router-01`（家庭内ルータ）** | **家中のインターネット・DNS・DHCP。** ホームラボだけでなく全端末 | 2026-09-20 に Aterm から切替（[N06](../development/N06-router.md)）。K11上のVMなので上の行と一蓮托生。K11と別電源で残るのは ONU・スイッチ・Aterm（APモード）だけで、**そこにDNSもDHCPも居ない** |
-| **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | `router-01` 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
+| **Flint 3（家庭内ルータ）** | **家中のインターネット・DNS・DHCP・Wi-Fi・Tailscale。** 全端末 | 物理機1台。UPS の電池側にはつないでいない（停電で止まる）。切り戻しとして停止中の router-01（K11 上、2026-10-28 以降に削除）。設定は毎日 K11 へ取る（[Flint 3](../operations/flint3.md)） |
+| **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | Flint 3 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
 | **Garage（cloud-01、単一ノード）** | S3バケットとオブジェクト | **stateとバックアップの唯一の保管先にしない。** Terraform state は外部のS3互換に置く |
 | **Cloudflare（DNS）** | 名前解決と、証明書のDNS-01更新 | 外部依存。既存証明書は期限まで有効なので即死はしない |
 | **ドメイン `apextox.dpdns.org`** | 全サービスの名前 | 無料ドメインの継続性は未確認。取り上げられたら名前の付け替え（[配備台帳 §6](../operations/handover.md)） |
@@ -39,10 +39,10 @@ tags:
 | `cloud-01` | VMの作成・電源操作・削除、ポータル、容量と上限の確認 | **既存のVMは動き続ける。** Proxmoxの画面からは操作できる |
 | `apps-01` | このドキュメントサイト・Homarr・Vaultwarden・**Home Assistant（家電）**・CUPS（印刷）・Eufy中継 | 他VMのサービス |
 | `media-01` | Nextcloud・**Calendar・Tasks**・Kavita・Navidrome・FreshRSS・MeTube・LocalSend受信機 | 原本ファイルはディスク上に残る |
-| `monitor-01` | 監視・アラート・Grafana。**監視の停止自体は誰も検知しない** | 他は影響なし |
+| tarakoserver（監視、Raspberry Pi 4） | 監視・アラート・Grafana・ログ・ネットワーク図。**監視の停止自体は家の中では誰も検知しない**（外部の dead man's switch と negitoroserver が気づく） | 他は影響なし。固まったらハードウェアのウォッチドッグが再起動する |
 | Kubernetes（cp・worker） | **クラウドの database と function の2機能**、AWX | VM・S3の2機能は動く。既に作ったDBは止まる |
 | `game1` | ゲーム、RomM、将来のローカルAIとBot | 他は影響なし |
-| `router-01` | **家中のインターネット・DNS・DHCP。** ホームラボ以外の端末も巻き込む | LAN内のIP直打ちは生きる（すでにリースを持っている端末のみ）。[つながらないときの調べ方](../operations/router-troubleshooting.md) |
+| Flint 3 | **家中のインターネット・DNS・DHCP・Wi-Fi。** ホームラボ以外の端末も巻き込む | LAN内のIP直打ちは生きる（すでにリースを持っている端末のみ） |
 | `dev-01` / `dev-02` | 配備の実行環境（dev-02が自動化の実行ホスト） | 稼働中のサービスは影響なし |
 
 **再起動の前に確認すること**: `apps-01` を再起動すると家電の操作と印刷が同時に止まります。`media-01` を止めるとカレンダーと同期も止まります。どちらも他の人が使っている時間帯を避けてください。
@@ -75,11 +75,11 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 上から順です。**下のものは上のものに依存します。**
 
 1. **物理ホスト** — Proxmoxが上がること。画面は `https://pve.apextox.dpdns.org:8006`（名前が引けないときはIP直 `https://192.168.10.10:8006`）
-2. **`router-01`** — 起動順1で自動起動する。**これが上がるまで名前解決もDHCPも無い**ので、他のVMの確認は名前ではなくIPで行う
+2. **Flint 3** — K11 とは別の機械。**これが上がるまで名前解決もDHCPも無い**ので、他の確認は名前ではなくIPで行う
 3. **`core-01`** — NetBox（台帳）が要る。これが無いとAnsibleの動的インベントリが引けず、他の配備が進まない。Authentik（ブラウザのログイン）とHTTPSの入口もここ
 4. **`cloud-01`** — VMの操作とS3（Garage）が戻る。**アクセスキーは Authentik に依存しないので、3を待たずにTerraformは動かせる**
 5. **Kubernetes** — database・function
-6. **`monitor-01`と各サービスVM**（`apps-01`・`media-01`・`game1`） — 利用者向けの機能
+6. **各サービスVM**（`apps-01`・`media-01`・`game-01`） — 利用者向けの機能。監視（tarakoserver）は K11 と独立に動く
 
 **Terraform state は外部に置いてあります。** ホストが丸ごと失われても宣言と state は残るので、作り直しは宣言から始められます。ただし**原本・アプリのDB・秘密値は state に入っていません**。復元手順は[O03](../development/O03-restore.md)で整備中です。
 

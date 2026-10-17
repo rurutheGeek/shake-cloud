@@ -1,0 +1,16 @@
+#!/bin/sh
+# GL.iNet の 19-tailscale-iface（gl_tailscale）は、インターフェースが変わるたびに
+# `tailscale up --reset` で起動し直し、GL の画面で選んだ経路しか流さない。
+# 2026-10-15、DMZ を足したネットワークの読み込み直しで家の経路が消え、
+# 外のスマホが Tailscale 越しの DNS（AdGuard）を引けずネットに出られなくなった。
+# gl_tailscale が終わるのを待ってから、家の経路を流し直す。
+ROUTES='192.168.10.0/24,192.168.40.0/24'
+[ "$ACTION" = ifup ] || exit 0
+(
+	sleep 20
+	for i in 1 2 3 4 5 6; do
+		tailscale set --advertise-routes="$ROUTES" >/dev/null 2>&1 && break
+		sleep 10
+	done
+	logger -t shakecloud "tailscale routes re-advertised: $ROUTES"
+) &

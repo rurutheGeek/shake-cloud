@@ -29,66 +29,67 @@ tags:
 ```mermaid
 flowchart TB
   internet["インターネット<br/>IPv6（v6プラス・MAP-E）"]
-  devices["家庭内LANの端末（有線・Wi-Fi）"]
   remote["宅外の端末（Tailscale）"]
+  relay["negitoroserver（zero2w・家の外）<br/>公開の入口・外からの監視"]
+  router["Flint 3<br/>ルータ・DHCP・DNS（AdGuard Home）・Tailscale・区画"]
 
-  subgraph host["物理ホスト apextox（Proxmox VE）"]
-    router["router-01 / OpenWrt<br/>ルータ・DHCP・DNS（AdGuard Home）"]
-    subgraph infra["基盤VM platform プール"]
-      core01["core-01<br/>共通ログイン・台帳・HTTPSの入口"]
-      cloud01["cloud-01<br/>自作クラウド・S3"]
-      monitor["monitor-01<br/>監視"]
-      k8s["k8s-cp/worker<br/>AWX・DB・関数"]
+  subgraph server["サーバーの区画 192.168.10.0/24"]
+    subgraph host["物理ホスト apextox（Proxmox VE）"]
+      subgraph infra["基盤VM platform プール"]
+        core01["core-01<br/>共通ログイン・台帳・HTTPSの入口"]
+        cloud01["cloud-01<br/>自作クラウド・S3"]
+        k8s["k8s-cp/worker<br/>AWX・DB・関数"]
+      end
+      subgraph svcpool["サービスVM cloud プール"]
+        media["media-01<br/>メディア"]
+        apps["apps-01<br/>docs・パスワード・家電"]
+        game["game-01<br/>ゲーム（GPU）"]
+      end
     end
-    subgraph svcpool["サービスVM cloud プール"]
-      media["media-01<br/>メディア"]
-      apps["apps-01<br/>docs・パスワード・家電"]
-      game["game1<br/>ゲーム・AI（GPU）"]
-    end
+    taraco["tarakoserver（Pi 4）<br/>監視・ログ・ネットワーク図"]
   end
-  switch["TL-SG605"]
-  aterm["Aterm（APモード）"]
+  personal["個人端末の区画 192.168.40.0/24<br/>Wi-Fi ditto・デスクトップ"]
+  iot["ネット専用の区画 192.168.50.0/24<br/>Wi-Fi jumpluff・家電"]
+  dmz["DMZ 192.168.30.0/24<br/>shakeserver（Pi 5）・公開サイト"]
 
   internet --> router
-  router --> switch
-  switch --> aterm --> devices
-  switch --> core01
-  switch --> apps
-  switch --> media
-  switch --> monitor
-  switch --> game
+  router --> server
+  router --> personal
+  router --> iot
+  router --> dmz
   remote -. Tailscale .-> router
-  devices -- "HTTPS名（core-01のCaddyがTLS終端）" --> core01
+  internet --> relay
+  relay -. "Tailscale（80/443）" .-> dmz
+  personal -- "HTTPS名（core-01のCaddyがTLS終端）" --> core01
   core01 --> apps
   core01 --> media
-  core01 --> monitor
+  core01 --> taraco
   core01 --> cloud01
-  devices --> game
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
-  media --> cloud01
-  monitor --> k8s
+  taraco -. "監視" .-> host
   router -. "IP台帳（予約・リース）" .-> core01
 ```
 
 | 役割 | VM（プール） | 配分（計画。実機は台帳） | 中身 |
 | --- | --- | --- | --- |
 | 物理基盤 | apextox（ホスト） | Ryzen 9 8945HS 8コア/16スレッド、RAM 59.7GiB、SSD 1TB | Proxmox VE。全VMとGPUパススルー |
-| ルータ・DNS | router-01（platform） | 2 / 512MiB / 1GiB | OpenWrt。MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・NDP代理（ndppd） |
+| ルータ・DNS | Flint 3（GL-BE9300、物理機） | — | MAP-E（v6プラス）・DHCP・DNS（AdGuard Home ＋ dnsmasq）・IPv6 中継・区画（VLAN）・Wi-Fi・Tailscale subnet router（2026-10-14 に K11 上の router-01 から切替） |
 | 共通ログイン・台帳・HTTPSの入口 | core-01（platform） | 2 / 4GiB / 48GiB（計画4 / 8GiB） | Authentik（SSO・招待・復旧）・NetBox・Caddy（AdGuardとルータ管理画面の中継も） |
 | 自作クラウド・S3 | cloud-01（platform） | 2 / 2GiB / 40GiB | shakecloud API・管理DB・ポータル・Garage（S3互換） |
 | docs・パスワード・家電 | apps-01（cloud） | 2 / 4GiB / OS32GiB＋データ16GiB | Shake Lab Docs・Homarr・Vaultwarden・LibreSpeed・mail-view・Home Assistant・eufy-security-ws・eufy-leo-rtc・CUPS（print-api）・ポケモン翻訳 |
 | クラスタ | k8s-cp-01・k8s-worker-01・k8s-worker-02（platform） | cp 2 / 3GiB / 32GiB、worker 4 / 8GiB / OS32＋データ64・48GiB | Kubernetes・AWX・CloudNativePG・Knative |
 | メディア | media-01（cloud） | 4 / 6GiB / OS32＋データ64GiB | Nextcloud・Kavita・Navidrome・FreshRSS |
-| 監視 | monitor-01（platform） | 2 / 2GiB / 48GiB（時系列はOSと同じディスク） | Prometheus・Alertmanager・Grafana・PeaNUT・exporter |
+| 監視 | tarakoserver（Raspberry Pi 4、物理機） | 4コア / 4GiB / SD 119GB＋HDD 1TB | Prometheus・Alertmanager・Grafana・Loki・Alloy・PeaNUT・exporter・ネットワーク図。K11 の外（2026-10-15 に monitor-01 から移設） |
 | ゲーム・AI | game1（cloud） | 8 / 現行12GiB（16GiB候補） / 256GiB、GPUパススルー | Wolf・RomM・SFTPGo。将来OllamaとRAG |
-| 復旧経路 | router-01（platform） | （router-01と共用） | Tailscale subnet router（OpenWrt上）。宅外から管理LANへ（N02） |
+| 公開の入口 | negitoroserver（Raspberry Pi Zero 2 W、家の外） | 4コア / 416MiB | nginx（443 の中継）・sslh（80）・外からの監視。Tailscale で shakeserver（Pi 5・DMZ）へ |
+| DMZ | shakeserver（Raspberry Pi 5、物理機） | 4コア / 8GiB / NVMe 238GB | Minecraft（停止中）。Flint 3 の LAN4 につないで DMZ に置く予定 |
 | 開発 | dev-01・dev-02（dev） | 各2 / 6GiB / 40GiB | Terraform・Docker・Go |
 | 検証 | probe-01（lab） | 2 / 2GiB / 32GiB | 復元ドリル用（停止中） |
 | 利用者VM（例） | win-01（cloud） | 2 / 4GiB / 64GiB | APIが作る検証VM（停止中） |
 
 VMの管理方法はプールで揃えています。**基盤VMは Terraform（`platform/terraform/hosts.yaml`）**、**cloudプールのVM（media-01・apps-01・game1・win-01・android-01）は自作API・Provider（`platform/terraform/services/<name>/`）** が作り、IPはどちらも NetBox から採番します。VMID帯は platform 100–399、dev 400–499、lab 900–999、cloud 5000–5999 です（[配分と運用設計](operations.md)）。
 
-**ネットワークは router-01 が担当します。** ONU → K11 の nic0 → router-01（OpenWrt VM）→ nic1 → TL-SG605 → Aterm（APモード）・各VM、という経路です。端末は DHCP で DNS を `192.168.10.1` と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します（`*.lan` は dnsmasq）。予約とリースは NetBox と同期します。**図と IP 帯は[ネットワーク・公開範囲・SSO](network-auth.md)、設定は[router-01の設定まとめ](../operations/router-config.md)。**
+**ネットワークは Flint 3 が担当します。** ONU → Flint 3（WAN）→ LAN1（TL-SG605）・LAN2（K11）・LAN3（デスクトップ）・LAN4（DMZ）、Wi-Fi は ditto（個人端末）・jumpluff（ネット専用）・porygon（サーバー）です。端末は DHCP で DNS を区画のゲートウェイ（`192.168.10.1` など）と教わり、AdGuard Home が広告を遮断して外部は DoH で解決します。予約は NetBox から同期します。**区画と区画間の通信は[VLAN 分離](../operations/vlan.md)、実機の図は[ネットワーク図](../network-map.md)、設定は[Flint 3](../operations/flint3.md)。**
 
 ## 2. 自作しているもの（OSSとの分担）
 
@@ -342,7 +343,7 @@ flowchart LR
 | プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](../services/printer.md)） |
 | Alexa / Echo | Home Assistant Cloudも独自Skillも作らない | 見送り。SwitchBotとEufyは各社のAlexaスキルで操作可能 |
 
-## 9. 監視（monitor-01）
+## 9. 監視（tarakoserver）
 
 ```mermaid
 flowchart LR
@@ -350,8 +351,9 @@ flowchart LR
   ups["UPS<br/>nut-exporter"]
   vm["各VM 5台<br/>node-exporter"]
   https["HTTPS名 20件<br/>blackbox"]
-  prom["Prometheus<br/>monitor-01"]
-  alert["Alertmanager<br/>メール通知"]
+  prom["Prometheus<br/>tarakoserver（Pi 4）"]
+  loki["Loki・Alloy<br/>journal・Docker・Flint 3 の syslog"]
+  alert["Alertmanager<br/>Discord 通知"]
   grafana["Grafana<br/>OIDC"]
   peanut["PeaNUT<br/>HomarrのUPS表示"]
   deadman["healthchecks.io<br/>dead man's switch"]
@@ -364,11 +366,12 @@ flowchart LR
   prom --> alert
   alert --> deadman
   prom --> grafana
+  loki --> grafana
   ups --> peanut
   ups --> hoststop
 ```
 
-監視は monitor-01 に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。Grafanaは Authentik のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
+監視は K11 の外の tarakoserver（Raspberry Pi 4）に独立させ、物理ホスト・UPS・各VM・HTTPS名を横断して見ます。ログは Loki に集めます。Grafanaは Authentik のOIDCで閲覧します（`admins`=Admin、`users`=Viewer）。**2026-09-17時点で28ターゲットを収集**（HTTPS名20・node_exporter 5台・pve-exporter・nut-exporter・Prometheus自身）。blackboxの失敗はk8s停止中によるAWXの1件だけで、他は成功しています。
 
 | 見るもの | 方法 |
 | --- | --- |
@@ -377,7 +380,7 @@ flowchart LR
 | HTTPS名 | blackboxが疎通と証明書を確認。ログイン用のリダイレクト（302）や401/403は「生きている」とみなす |
 | ノード資源 | ディスク空き15%未満・空きメモリ10%未満・OOM kill・systemd unit failed・計画外再起動 |
 | バックアップ | 管理DBの最終成功時刻をメトリクス化（`backup_last_success_timestamp_seconds`）。36時間の停滞と欠測そのものを通知 |
-| 通知 | AlertmanagerがGmailでメール。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
+| 通知 | Alertmanager が Discord（webhook）へ。重さは緊急・注意・記録の 3 段で、記録は送らない。監視経路そのものの死活は healthchecks.io のdead man's switchで外部から見る |
 | Homarr連携 | 実装済み。Proxmox連携のSystem HealthとPeaNUT経由のUPSウィジェット |
 
 ## 10. ゲームとAI（game1・GPUパススルー）
@@ -491,14 +494,14 @@ flowchart LR
 ```mermaid
 flowchart TB
   net["インターネット<br/>MAP-E（v6プラス）"]
-  router["router-01（OpenWrt）<br/>FW・DHCP・AdGuard Home"]
+  router["Flint 3<br/>FW・DHCP・AdGuard Home・区画"]
   lan["家庭内LAN"]
   dns["Cloudflare DNS<br/>内部IPを名前で引く"]
   caddy["core-01のCaddy<br/>Let's Encrypt DNS-01"]
   fixed["基盤VM<br/>静的割り当て"]
   cloudips["サービスVM・利用者VM<br/>APIが採番"]
   metallb["MetalLB<br/>KubernetesのLB"]
-  tailscale["router-01<br/>Tailscale subnet router（N02）"]
+  tailscale["Flint 3<br/>Tailscale subnet router"]
   vpn["セルフホストVPN<br/>未構築"]
 
   net -->|"80/443は使えない"| router
@@ -513,12 +516,12 @@ flowchart TB
   vpn -.-> cloudips
 ```
 
-- **入口も自作**: 家庭内ルータは K11 上の OpenWrt VM `router-01`（`192.168.10.1`）です。ファイアウォール・DHCP・DNS（AdGuard Home）を担い、設定の正本は `platform/openwrt/`。2026-09-20 に市販ルータから切り替えました（[N06](../development/N06-router.md)・[router-01](../operations/router.md)）。**K11が落ちると家中のネットも落ちます**（[障害モード](failure-modes.md)）。ネットワーク単体の図は[ネットワーク・公開範囲・SSO](network-auth.md)にあります。
+- **入口**: 家庭内ルータは Flint 3（GL-BE9300、`192.168.10.1`）です。ファイアウォール・DHCP・DNS（AdGuard Home）・区画・Tailscale を担い、純正ファームに足す設定の正本は `platform/flint3/`。2026-10-14 に K11 上の OpenWrt VM `router-01` から切り替えました（[Flint 3](../operations/flint3.md)）。K11 が落ちても家のネットは残ります（[障害モード](failure-modes.md)）。実機から作る図は[ネットワーク図](../network-map.md)にあります。
 - **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
-- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が monitor-01・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
+- **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: 公開Web入口やセルフホストVPNは未構築です。復旧経路として router-01（OpenWrt）上の Tailscale subnet router が管理LAN（`192.168.10.0/24`）を広告します（Tailscaleへ参加済み・**ルート承認と tailnet DNS は 2026-10-01 に適用済み**。宅外端末での実機検証が未了）。[Tailscale subnet router](../operations/net.md)・[N02](../development/N02-tailscale.md)。
-- **VLAN**: 管理側はタグなしのまま、利用者VMだけをタグ付きVLANへ移す計画ですが、**既存スイッチ（TL-SG605）がアンマネージドでVLANを設定できません。** マネージドスイッチの調達が前提条件です（[N03](../development/N03-vlan.md)）。
+- **LANの外**: Flint 3 上の Tailscale subnet router がサーバー（`192.168.10.0/24`）と個人端末（`192.168.40.0/24`）の区画を流します。公開サイトは家の外の negitoroserver（zero2w）が受け、Tailscale で DMZ の shakeserver（Pi 5）へ中継します。アクセス制限は `platform/tailscale/acl.json`。[Tailscale subnet router](../operations/net.md)。
+- **VLAN（区画）**: Flint 3 の内蔵スイッチと Wi-Fi で、サーバー（10）・DMZ（30）・個人端末（40）・ネット専用（50）に分けています。DMZ の VM には K11 の `vmbr0` の VLAN 対応がまだ要ります（[VLAN 分離](../operations/vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 
 ## 14. 開発・運用の進め方（dev-01・dev-02）
@@ -557,8 +560,8 @@ flowchart LR
 | --- | --- | --- |
 | Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](../development/H04-eufy.md)） |
 | VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
-| 復旧用Tailscale | **subnet router を router-01（OpenWrt）で稼働中（2026-09-14に cloud VM `net-01`、2026-10-03 に net-01 を廃止して移設）**。ルート承認と tailnet DNS は 2026-10-01 に適用済みで、宅外端末での実機検証が未了 | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
-| VLAN分離 | 宣言と安全装置・手順は用意済み。未設定 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
+| 復旧用Tailscale | **subnet router を Flint 3 で稼働中（2026-10-14 に router-01 から移設）**。サーバーと個人端末の区画を流す。宅外のスマホ・ノート PC から家の中へ入れることを確認済み | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
+| VLAN分離 | Flint 3 でサーバー・個人端末・ネット専用・DMZ に分けた（2026-10-14〜15）。DMZ の VM 用の K11 の VLAN 対応は未 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
 | 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
 | メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |
 | CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](../development/O02-cnpg-backup.md)） |

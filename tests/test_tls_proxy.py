@@ -95,6 +95,7 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['poke']['upstream'], f"127.0.0.1:{defaults('poke_translate')['poke_translate_port']}")
         self.assertEqual(records['adminer']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_adminer_port']}")
         self.assertEqual(records['pkdb-entry']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_entry_port']}")
+        self.assertEqual(records['netmap']['upstream'], f"127.0.0.1:{defaults('netmap')['netmap_port']}")
         self.assertEqual(records['khinsider']['upstream'], '127.0.0.1:5820')
         self.assertEqual(records['nextcloud-mcp']['upstream'], '127.0.0.1:5811')
         # 全曲レビューは navidrome の /review/ から music-tools の review へ中継する。
@@ -142,7 +143,7 @@ class TlsProxyTests(unittest.TestCase):
                      'apps-01': ['librespeed.yml', 'docs-site.yml', 'mail-view.yml', 'homarr.yml',
                                  'vaultwarden.yml', 'cups.yml', 'poke-translate.yml', 'pkdb.yml'],
                      CLOUD_NAME: ['media-tls.yml'],
-                     'monitor-01': ['monitoring.yml']}
+                     'tarakoserver': ['monitoring.yml', 'netmap.yml', 'touch-panel.yml']}
         served = {record['host'] for record in DNS['records'].values() if 'upstream' in record}
         self.assertEqual(served, set(playbooks))
         for host, files in playbooks.items():
@@ -157,7 +158,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertEqual(behind_auth,
                          {'navidrome', 'metube', 'khinsider', 'cups', 'adguard',
                           'mail-view', 'backup', 'urbackup', 'adminer', 'portal',
-                          'pkdb-entry'})
+                          'pkdb-entry', 'netmap', 'panel'})
         # ルータは復旧経路。identity が止まっていても開けるよう SSO を付けない。
         self.assertNotIn('auth', records['router'])
         for name in ('nextcloud', 'kavita', 'nextcloud-mcp'):
@@ -204,7 +205,7 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 10)
+        self.assertEqual(len(sites), 11)
         # navidrome は通常の認証に加え、/review/ の全曲レビューと
         # /review-static/ の生成HTMLにも forward_auth を付ける。
         self.assertEqual(rendered.count('forward_auth https://'), 7)
@@ -227,7 +228,7 @@ class TlsProxyTests(unittest.TestCase):
         self.assertIn('uri strip_prefix /review-static', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
-        for name in ('nextcloud', 'kavita', 'freshrss', 'nextcloud-mcp'):
+        for name in ('nextcloud', 'kavita', 'freshrss', 'forgejo', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)
 
@@ -294,7 +295,7 @@ class EdgeRenderingTests(unittest.TestCase):
     def test_without_backends_nothing_about_the_edge_is_rendered(self):
         # Until a host is moved, every host keeps requesting its own
         # certificates exactly as before.
-        for host in ('cloud-01', CLOUD_NAME, 'monitor-01', SEED_HOST):
+        for host in ('cloud-01', CLOUD_NAME, 'tarakoserver', SEED_HOST):
             rendered = caddyfile(sites_of(host))
             self.assertIn('dns cloudflare {file./run/secrets/cloudflare_dns_api_token}', rendered, host)
             for marker in ('tls internal', 'trusted_proxies', 'tls_trust_pool', 'X-Forwarded-For', '@outpost'):
@@ -396,7 +397,7 @@ class EdgeRoleTests(unittest.TestCase):
             (work / 'ca').mkdir()
             (work / 'out').mkdir()
             dns = json.loads(json.dumps(DNS))
-            dns['edge']['backends'] = ['monitor-01', CLOUD_NAME]
+            dns['edge']['backends'] = ['tarakoserver', CLOUD_NAME]
             for backend in dns['edge']['backends']:
                 (work / 'ca' / f'{backend}.crt').write_text('test\n')
             (work / 'vars.json').write_text(json.dumps({
@@ -405,7 +406,7 @@ class EdgeRoleTests(unittest.TestCase):
                 f'{SEED_HOST} ansible_host={EDGE_ADDRESS}\n'
                 'cloud-01 ansible_host=192.168.10.205\n'
                 f'{CLOUD_INSTANCE_ID} ansible_host={MEDIA_ADDRESS} cloud_name={CLOUD_NAME}\n'
-                'i-2193bd70bacdd1602 ansible_host=192.168.10.102 cloud_name=monitor-01\n')
+                'tarakoserver ansible_host=192.168.10.11\n')
             (work / 'play.yml').write_text(
                 '- hosts: all\n'
                 '  gather_facts: false\n'
@@ -425,11 +426,11 @@ class EdgeRoleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-2000:])
             rendered = {path.stem: path.read_text() for path in (work / 'out').iterdir()}
 
-        self.assertEqual(set(rendered), {SEED_HOST, 'cloud-01', CLOUD_NAME, 'monitor-01'})
+        self.assertEqual(set(rendered), {SEED_HOST, 'cloud-01', CLOUD_NAME, 'tarakoserver'})
         # Only the edge and the host that has not been moved hold the token.
         holders = {host for host, text in rendered.items() if 'dns cloudflare' in text}
         self.assertEqual(holders, {SEED_HOST, 'cloud-01'})
-        for host in (CLOUD_NAME, 'monitor-01'):
+        for host in (CLOUD_NAME, 'tarakoserver'):
             self.assertIn(f'trusted_proxies static {EDGE_ADDRESS}/32', rendered[host], host)
         edge = rendered[SEED_HOST]
         relayed = [name for name, record in DNS['records'].items()

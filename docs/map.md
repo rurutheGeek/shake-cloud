@@ -87,6 +87,7 @@ flowchart TB
 | --- | --- | --- |
 | [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
+| [ネットワーク図](network-map.md) | 2026-10-14 | `hub` `network` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 | [サービス図](service-map.md) | 2026-10-04 | `hub` |
 
@@ -97,6 +98,7 @@ flowchart TB
 | [Android VMの画面を使う（RDP）](services/android.md) | 2026-10-02 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
+| [リポジトリの保管庫（Forgejo）](services/forgejo.md) | 2026-10-15 | `guide` `git` |
 | [Homarrの使い方](services/homarr.md) | 2026-10-03 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
 | [共通ログインの使い方](services/identity.md) | 2026-09-27 | `guide` `identity` |
@@ -148,6 +150,7 @@ flowchart TB
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
 | [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-03 | `plan` `cloud` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-10-03 | `plan` `monitoring` |
+| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
 | [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
@@ -197,14 +200,14 @@ flowchart TB
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
-| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
+| [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
+| [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
-| [電源と UPS](operations/power.md) | 2026-10-03 | `ops` `power` |
+| [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-14 | `ops` `network` `router` |
@@ -218,7 +221,7 @@ flowchart TB
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
 | [VLAN 分離への切替](operations/vlan.md) | 2026-10-14 | `ops` `network` |
-| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-05 | `ops` `web` |
+| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-16 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
 ### 設計
@@ -256,6 +259,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 140 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 143 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

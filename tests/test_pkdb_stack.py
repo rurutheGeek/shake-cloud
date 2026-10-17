@@ -111,12 +111,19 @@ class DeploymentTests(unittest.TestCase):
         env = (ROLE / 'templates/env.j2').read_text(encoding='utf-8')
         self.assertNotIn('PASSWORD', env)
 
-    def test_the_security_group_opens_the_port_to_the_lan_only(self):
+    def test_the_security_group_opens_the_port_to_named_hosts_only(self):
+        # 公開サイトの機械（DMZ の Pi 5）だけ。サーバーの区画全体には開けない。
         text = (ROOT / 'platform/terraform/services/apps/main.tf').read_text(encoding='utf-8')
-        rule = text.split('resource "shakecloud_security_group_rule" "pkdb"')[1].split('}')[0]
-        self.assertIn('from_port   = 5432', rule)
-        self.assertIn('to_port     = 5432', rule)
-        self.assertIn('cidr        = local.lan_cidr', rule)
+        self.assertNotIn('"shakecloud_security_group_rule" "pkdb"', text)
+        for name, cidr in (('pkdb_dmz', '192.168.30.12/32'),):
+            rule = text.split(f'resource "shakecloud_security_group_rule" "{name}"')[1].split('}')[0]
+            self.assertIn('from_port   = 5432', rule)
+            self.assertIn('to_port     = 5432', rule)
+            self.assertIn(f'cidr        = "{cidr}"', rule)
+
+    def test_the_dmz_host_is_the_one_flint_lets_through(self):
+        clients = (ROOT / 'platform/flint3/rootfs/etc/shakecloud/dmz-db-clients').read_text(encoding='utf-8')
+        self.assertIn('192.168.30.12\n', clients)
 
     def test_the_name_resolves_to_the_host_not_the_http_entry(self):
         dns = yaml.safe_load((ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))

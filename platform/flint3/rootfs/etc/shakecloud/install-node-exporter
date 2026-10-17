@@ -1,0 +1,26 @@
+#!/bin/sh
+# Flint 3 の資源（CPU・メモリ・温度・通信量）と区画・SSID ごとの台数を tarakoserver の Prometheus へ出す。
+# サーバーの区画（lan）の 9100 だけで待ち受ける。何度流してもよい。
+# ファームウェアを更新すると追加パッケージは消えるので、更新後に流し直す。
+#
+#   ssh root@192.168.10.1 /etc/shakecloud/install-node-exporter
+set -eu
+
+opkg update >/dev/null
+opkg install prometheus-node-exporter-lua prometheus-node-exporter-lua-thermal prometheus-node-exporter-lua-textfile
+
+uci set prometheus-node-exporter-lua.main.listen_interface='lan'
+uci set prometheus-node-exporter-lua.main.listen_port='9100'
+uci commit prometheus-node-exporter-lua
+
+# 区画・SSID ごとの台数（network-counts）を 1 分ごとに書く。
+line='* * * * * /etc/shakecloud/network-counts'
+touch /etc/crontabs/root
+grep -qxF "$line" /etc/crontabs/root || echo "$line" >>/etc/crontabs/root
+/etc/init.d/cron enable
+/etc/init.d/cron restart
+/etc/shakecloud/network-counts
+
+/etc/init.d/prometheus-node-exporter-lua enable
+/etc/init.d/prometheus-node-exporter-lua restart
+echo "node exporter: http://192.168.10.1:9100/metrics"

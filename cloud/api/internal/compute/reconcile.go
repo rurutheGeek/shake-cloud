@@ -67,6 +67,18 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			continue
 		}
 		observed := map[string]string{"running": db.StateRunning, "stopped": db.StateStopped}[vm.Status]
+		if observed != "" && observed != instance.State {
+			// /cluster/resources is pvestatd's cache and trails a power change
+			// by up to about ten seconds. Read just after the worker finished a
+			// stop, it still says running, and believing it turned a stopped
+			// instance back to running so the next start did nothing
+			// (2026-10-15). The VM's own status is current.
+			live, err := s.PVE.VMStatus(ctx, *instance.VMID)
+			if err != nil {
+				return err
+			}
+			observed = map[string]string{"running": db.StateRunning, "stopped": db.StateStopped}[live]
+		}
 		switch {
 		case observed == "":
 			continue
@@ -83,6 +95,17 @@ func (s *Service) Reconcile(ctx context.Context) error {
 		case strings.HasPrefix(instance.StateReason, "Server.VMMissing"):
 			if err := db.NoteReason(ctx, s.Pool, instance.ID, ""); err != nil {
 				return err
+			}
+		}
+		// Instances created before the API managed onboot get it once. A VM
+		// that stopped outside the API keeps onboot, so monitoring still
+		// reports it until its owner starts or stops it.
+		if observed == instance.State {
+			on := instance.State == db.StateRunning
+			if !s.onbootKnown(instance.ID, on) {
+				if err := s.setOnboot(ctx, instance.ID, *instance.VMID, on); err != nil {
+					s.Log.Warn("setting onboot failed", "instance_id", instance.ID, "err", err)
+				}
 			}
 		}
 	}

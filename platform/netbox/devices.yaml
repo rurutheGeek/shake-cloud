@@ -205,6 +205,11 @@ device_types:
     model: M575S
     slug: logitech-m575s
   - manufacturer: Elecom
+    model: 電源タップ 4口
+    slug: elecom-power-strip-4
+    comments: |
+      UPS1 のバッテリー口から 4 台へ分ける（あだ名はヒュドラ）
+  - manufacturer: Elecom
     model: TK-FCM107KBK
     slug: elecom-tk-fcm107kbk
   - manufacturer: Makita
@@ -367,7 +372,10 @@ devices:
   - name: tarakoserver
     device_type: Raspberry Pi 4
     role: Server
-    description: Raspberry Pi 4
+    description: Raspberry Pi 4（4GB）。監視（Prometheus・Grafana・Alertmanager）とネットワーク図、タッチパネルの表示
+    # Ansible の monitoring グループ。2026-10-14 に monitor-01 から移した。
+    tags: [monitoring]
+    power_ports: [ac]
     interface: {name: eth0, type: 1000base-t, mac: 'e4:5f:01:f2:b8:dc'}
     address: 192.168.10.11/24
     dns_name: tarakoserver
@@ -381,7 +389,7 @@ devices:
     comments: |
       （アクティブクーラー付き）
     interface: {name: eth0, type: 1000base-t, mac: '2c:cf:67:2c:e3:4d'}
-    address: 192.168.10.12/24
+    address: 192.168.30.12/24
     dns_name: shakeserver
 
   - name: printer
@@ -588,6 +596,16 @@ devices:
     interface: {name: wlan0, type: ieee802.11ac, mac: 'de:78:35:35:ac:8c'}
     dns_name: pixel-8a
 
+  - name: iphone
+    device_type: Client Device
+    role: Client
+    description: iPhone（実機の開発・検証に使う）
+    comments: |
+      MAC は iOS のプライベート Wi-Fi アドレス（ditto で固定）。ローテーションにすると予約が外れる
+    interface: {name: wlan0, type: ieee802.11ac, mac: '06:6d:e4:99:dc:16'}
+    address: 192.168.40.110/24
+    dns_name: iphone
+
 # 周辺機器・ストレージ・工具などの資産。ネット接続の有無を問わず dcim に載せる。
 # 購入日・購入元は comments へ（保証・買い替えの判断材料）。ケーブル・電源タップ・
 # 充電器・SDカード・電子部品は消耗品なので載せない（方針は docs/operations/netbox.md）。
@@ -612,6 +630,14 @@ devices:
       - surge4
       - surge5
       - surge6
+  # タップは消耗品として載せない方針の例外。UPS の 1 口から ONU・Pi 4・Pi 5・スイッチの
+  # 4 台へ分かれ、停電のときどれが動き続けるかを追う分かれ目なので載せる。
+  - name: hydra
+    device_type: 電源タップ 4口
+    role: Power
+    description: エレコムの 4 口タップ（あだ名はヒュドラ）。UPS1 のバッテリー口から ONU・Pi 4・Pi 5・スイッチへ
+    power_ports: [ac]
+    power_outlets: [outlet1, outlet2, outlet3, outlet4]
   - name: ups-2
     device_type: CP1200PFCLCDJP
     role: Power
@@ -910,33 +936,48 @@ cables:
     type: cat6a
     description: Flint 3 LAN3 → デスクトップ（2.5G、個人端末の区画）
 
-  - a: {device: tl-sg605, interface: port4}
+  - a: {device: flint3, interface: lan4}
     b: {device: shakeserver, interface: eth0}
     type: cat6a
-    description: スイッチ → Raspberry Pi 5
+    description: Flint 3 LAN4 → Raspberry Pi 5（DMZ）
 
-# 電源系統（UPS1 のバッテリー口。UPS2 は予備）。
+# 電源系統（UPS1 のバッテリー口。UPS2 は予備）。2026-10-15 に組み替えた。
   - a: {device: ups-1, power_outlet: battery1}
     b: {device: apextox, power_port: ac}
     type: power
     description: UPS1 バッテリー1 → ミニPC（K11）
 
   - a: {device: ups-1, power_outlet: battery2}
-    b: {device: onu-1, power_port: ac}
-    type: power
-    description: UPS1 バッテリー2 → ONU
-
-  - a: {device: ups-1, power_outlet: battery3}
-    b: {device: aterm, power_port: ac}
-    type: power
-    description: UPS1 バッテリー3 → Aterm（AP モード）
-
-  - a: {device: ups-1, power_outlet: battery4}
     b: {device: ouchithegeek, power_port: ac}
     type: power
-    description: UPS1 バッテリー4 → デスクトップ
+    description: UPS1 バッテリー2 → デスクトップ
 
-  - a: {device: ups-1, power_outlet: battery5}
+  - a: {device: ups-1, power_outlet: battery3}
+    b: {device: hydra, power_port: ac}
+    type: power
+    description: UPS1 バッテリー3 → タップ（ヒュドラ）
+
+  - a: {device: ups-1, power_outlet: battery4}
+    b: {device: flint3, power_port: ac}
+    type: power
+    description: UPS1 バッテリー4 → Flint 3
+
+  - a: {device: hydra, power_outlet: outlet1}
+    b: {device: onu-1, power_port: ac}
+    type: power
+    description: ヒュドラ → ONU
+
+  - a: {device: hydra, power_outlet: outlet2}
+    b: {device: tarakoserver, power_port: ac}
+    type: power
+    description: ヒュドラ → Raspberry Pi 4（UPS の USB もここ）
+
+  - a: {device: hydra, power_outlet: outlet3}
     b: {device: shakeserver, power_port: ac}
     type: power
-    description: UPS1 バッテリー5 → Raspberry Pi 5
+    description: ヒュドラ → Raspberry Pi 5
+
+  - a: {device: hydra, power_outlet: outlet4}
+    b: {device: tl-sg605, power_port: ac}
+    type: power
+    description: ヒュドラ → スイッチ

@@ -33,6 +33,7 @@
     dest: '{{ tls_proxy_project_dir }}/{{ item }}'
     mode: '0644'
   loop: [Dockerfile, compose.yaml, compose.token.yaml]
+  register: tls_proxy_build_files
 
 # 入口の後ろのホストは compose.token.yaml を重ねない（トークンを渡さない）。
 - name: Write the storage location and the compose files in use
@@ -74,9 +75,18 @@
     state: absent
   when: tls_proxy_behind_edge
 
+# 組み立ては Dockerfile などが変わったとき、またはイメージが無いときだけ。
+# Raspberry Pi では組み立てに 10〜20 分かかり、設定を変えるたびに組み直すのは無駄。
+- name: Look for the built Caddy image
+  ansible.builtin.command:
+    argv: [docker, image, inspect, shakecloud-tls-proxy:local]
+  register: tls_proxy_image
+  changed_when: false
+  failed_when: false
+
 - name: Build and start Caddy
   ansible.builtin.command:
-    argv: [docker, compose, up, -d, --build]
+    argv: "{{ ['docker', 'compose', 'up', '-d'] + (['--build'] if tls_proxy_build_files is changed or tls_proxy_image.rc != 0 else ['--no-build']) }}"
     chdir: '{{ tls_proxy_project_dir }}'
   register: tls_proxy_up
   changed_when: "'Started' in tls_proxy_up.stderr or 'Recreated' in tls_proxy_up.stderr"

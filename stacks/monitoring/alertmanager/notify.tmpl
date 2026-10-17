@@ -1,0 +1,41 @@
+{{/* Discord に送る文。title が 1 行目、message が本文。英語の項目名と IP は出さない。 */}}
+
+{{/* どこで起きたか。host（Prometheus が付ける名前）→ VM の名前 → URL の先頭 → id の順。 */}}
+{{ define "shake.where" -}}
+{{ if .Labels.host }}{{ .Labels.host }}
+{{- else if .Labels.name }}{{ .Labels.name }}
+{{- else if match "^https://" .Labels.instance }}{{ reReplaceAll "^https://([^./:]+).*$" "$1" .Labels.instance }}
+{{- else if .Labels.id }}{{ reReplaceAll "^(qemu|lxc|node)/" "" .Labels.id }}
+{{- else if .Labels.target }}{{ .Labels.target }}
+{{- else }}{{ .Labels.instance }}{{ end }}
+{{- end }}
+
+{{/* その中のどれか（ディスク・マウント先・サービス・点検の項目）。 */}}
+{{ define "shake.detail" -}}
+{{ with .Labels.mountpoint }} {{ . }}{{ end }}
+{{- with .Labels.disk }} {{ . }}{{ end }}
+{{- if .Labels.host }}{{ with .Labels.name }} {{ . }}{{ end }}{{ end }}
+{{- with .Labels.check }} {{ . }}{{ end }}
+{{- with .Labels.area }} {{ . }}{{ end }}
+{{- end }}
+
+{{ define "shake.title" -}}
+{{ if eq .Status "resolved" }}✅ 直った
+{{- else if eq .CommonLabels.severity "critical" }}🔴 緊急
+{{- else }}🟡 注意{{ end }}｜{{ (index .Alerts 0).Annotations.panel }}
+{{- if gt (len .Alerts.Firing) 1 }}（{{ len .Alerts.Firing }} 件）{{ end }}
+{{- end }}
+
+{{ define "shake.message" -}}
+{{ if eq .Status "firing" -}}
+{{ range .Alerts.Firing }}・{{ template "shake.where" . }}{{ template "shake.detail" . }}：{{ .Annotations.summary }}（{{ .StartsAt | tz "Asia/Tokyo" | date "1/2 15:04" }} から）
+{{ end -}}
+{{ range .Alerts.Resolved }}・直った：{{ template "shake.where" . }}{{ template "shake.detail" . }}
+{{ end -}}
+すること：{{ (index .Alerts.Firing 0).Annotations.description }}
+{{ else -}}
+{{ range .Alerts.Resolved }}・{{ template "shake.where" . }}{{ template "shake.detail" . }}：{{ .Annotations.summary }}（{{ .StartsAt | tz "Asia/Tokyo" | date "1/2 15:04" }}〜{{ .EndsAt | tz "Asia/Tokyo" | date "15:04" }}）
+{{ end -}}
+{{ end -}}
+→ https://grafana.apextox.dpdns.org/
+{{- end }}

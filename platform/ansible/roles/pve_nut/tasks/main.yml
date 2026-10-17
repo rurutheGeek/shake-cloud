@@ -27,6 +27,7 @@
     group: nut
     mode: '0640'
   register: pve_nut_ups_conf
+  when: pve_nut_server | length == 0
 
 - name: Configure upsd
   ansible.builtin.template:
@@ -36,6 +37,7 @@
     group: nut
     mode: '0640'
   register: pve_nut_upsd_conf
+  when: pve_nut_server | length == 0
 
 - name: Configure the read-only monitor user
   ansible.builtin.template:
@@ -46,6 +48,7 @@
     mode: '0640'
   no_log: true
   register: pve_nut_users_conf
+  when: pve_nut_server | length == 0
 
 - name: Run NUT as a network server
   ansible.builtin.template:
@@ -87,29 +90,42 @@
     argv: [udevadm, trigger, --action=add, --subsystem-match=usb]
   changed_when: false
 
-- name: Enable and start upsd
-  ansible.builtin.systemd:
-    name: nut-server
-    enabled: true
-    state: restarted
-  when: pve_nut_ups_conf is changed or pve_nut_upsd_conf is changed or pve_nut_users_conf is changed or pve_nut_nut_conf is changed
+- name: Run the UPS driver and upsd here
+  when: pve_nut_server | length == 0
+  block:
+    - name: Enable and start upsd
+      ansible.builtin.systemd:
+        name: nut-server
+        enabled: true
+        state: restarted
+      when: pve_nut_ups_conf is changed or pve_nut_upsd_conf is changed or pve_nut_users_conf is changed or pve_nut_nut_conf is changed
 
-- name: Start the UPS driver
-  ansible.builtin.command:
-    argv: [upsdrvctl, start]
-  register: pve_nut_driver
-  changed_when: "'started' in pve_nut_driver.stdout"
-  failed_when: false
+    - name: Start the UPS driver
+      ansible.builtin.command:
+        argv: [upsdrvctl, start]
+      register: pve_nut_driver
+      changed_when: "'started' in pve_nut_driver.stdout"
+      failed_when: false
 
-- name: Restart the UPS driver unit
-  ansible.builtin.systemd:
-    name: 'nut-driver@{{ pve_nut_ups_name }}'
-    state: restarted
+    - name: Restart the UPS driver unit
+      ansible.builtin.systemd:
+        name: 'nut-driver@{{ pve_nut_ups_name }}'
+        state: restarted
+      failed_when: false
+
+# UPS が別のホストにあるとき、K11 の upsd とドライバは止める（USB に UPS は無い）。
+- name: Stop the local UPS driver and upsd
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: false
+    state: stopped
+  loop: [nut-server.service, nut-driver.target, 'nut-driver@{{ pve_nut_ups_name }}.service']
   failed_when: false
+  when: pve_nut_server | length > 0
 
 - name: Wait for the UPS to answer
   ansible.builtin.command:
-    argv: [upsc, '{{ pve_nut_ups_name }}@localhost', ups.status]
+    argv: [upsc, "{{ pve_nut_ups_name }}@{{ pve_nut_server or 'localhost' }}", ups.status]
   register: pve_nut_status
   changed_when: false
   retries: 10

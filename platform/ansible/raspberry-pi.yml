@@ -1,0 +1,9 @@
+---
+# Raspberry Pi 3 台の土台（書き込みの削減・画面と VNC の停止・古いコンテナの片付け）。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#     -i platform/ansible/outpost.ini platform/ansible/raspberry-pi.yml --limit shakeserver
+- name: Raspberry Pi base
+  hosts: raspberry_pi
+  become: true
+  roles:
+    - pi_base

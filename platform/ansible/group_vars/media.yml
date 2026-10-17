@@ -17,11 +17,13 @@ nextcloud_data_dir: /srv/media-stack/storage/nextcloud/data
 # クライアント端末（Windows等）のバックアップ置き場。UrBackup のイメージは
 # 重複排除にハードリンクを使うため、1つのディレクトリにまとめる。
 client_backup_root: /srv/media-stack/client-backups
-# uid は中身を読み書きするコンテナのもの（www-data 33、UrBackup 101）。
+# uid は中身を読み書きするコンテナのもの（www-data 33、UrBackup 101、Forgejo の git 1000）。
 media_bulk_binds:
   - {source: library, target: '{{ library_root }}', uid: 33}
   - {source: nextcloud-data, target: '{{ nextcloud_data_dir }}', uid: 33}
   - {source: client-backups, target: '{{ client_backup_root }}', uid: 101}
+  # Forgejo のリポジトリ・LFS・SQLite。
+  - {source: forgejo, target: '{{ storage_root }}/forgejo', uid: 1000}
 # Each tagged host runs an independent complete stack; this is not a DB cluster.
 # Override with AWX inventory host variables when needed.
 install_docker: true

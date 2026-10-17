@@ -28,10 +28,19 @@ vms:
     docs: [operations/cloud.md]
     services:
       - {name: Garage, description: S3互換オブジェクトストア, docs: [operations/garage.md]}
-  - name: monitor-01
+  - name: shakeserver
     kind: base
-    role: 監視
-    address: 192.168.10.210
+    role: 公開サイト（Raspberry Pi 5・DMZ）
+    address: 192.168.30.12
+    docs: [operations/web.md]
+    services:
+      - {name: Shake-Web, description: Issues・Shaketter・ToBa・ikura と Wiki, docs: [operations/web.md]}
+      - {name: pkhack, description: ポケモンクイズ, docs: [operations/web.md]}
+      - {name: nginx, description: 4サイトの入口。CloudFlare Origin 証明書で TLS 終端, docs: [operations/web.md]}
+  - name: tarakoserver
+    kind: base
+    role: 監視（Raspberry Pi 4）
+    address: 192.168.10.11
     docs: [operations/monitoring.md]
     services:
       - {name: Prometheus, description: メトリクスの収集とアラート, docs: [operations/monitoring.md]}
@@ -49,15 +58,6 @@ vms:
     address: 192.168.10.101
     docs: [operations/nextcloud.md, operations/bulk-storage.md]
     services: []
-  - name: web-01
-    kind: cloud
-    role: 公開サイト
-    address: 192.168.10.102
-    docs: [operations/web.md]
-    services:
-      - {name: Shake-Web, description: Issues・Shaketter・ToBa・ikura と Wiki, docs: [operations/web.md]}
-      - {name: pkhack, description: ポケモンクイズ, docs: [operations/web.md]}
-      - {name: nginx, description: 4サイトの入口。CloudFlare Origin 証明書で TLS 終端, docs: [operations/web.md]}
   - name: game-01
     kind: cloud
     role: ゲーム（GPUパススルー）
@@ -107,12 +107,15 @@ record_docs:
   metube: [services/usage.md]
   khinsider: [services/music.md]
   freshrss: [services/rss.md]
+  forgejo: [services/forgejo.md]
   netbox: [operations/netbox.md]
   homarr: [services/homarr.md]
   adguard: [operations/adguard.md]
   router: [operations/router.md]
   grafana: [operations/monitoring.md]
   peanut: [operations/power.md]
+  netmap: [network-map.md]
+  panel: [development/M02-touch-panel.md]
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]

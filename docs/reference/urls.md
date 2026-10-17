@@ -27,7 +27,7 @@ tags:
 | LibreSpeed | <https://speed.apextox.dpdns.org> | 端末 ↔ apps-01 の実効速度（apps-01。`127.0.0.1:8300`。履歴は `/results/stats.php`） | 全員 |
 | ポケモン翻訳 | <https://poke.apextox.dpdns.org> | ポケモン用語を公式名に固定する翻訳と拡張機能の配布（apps-01。`127.0.0.1:8320`） | 全員 |
 | メールビューア | <https://mail-view.apextox.dpdns.org> | 通知メール（`shake.notify@gmail.com`）の**読み取り専用**表示（apps-01。`127.0.0.1:8310`。Forward Auth） | 全員 |
-| Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（monitor-01。稼働・資源・UPS。OIDC） | `admins`=Admin / `users`=Viewer |
+| Grafana | <https://grafana.apextox.dpdns.org> | 監視ポータル（tarakoserver。稼働・資源・UPS・ログ。OIDC） | `admins`=Admin / `users`=Viewer |
 | Vaultwarden | <https://vault.apextox.dpdns.org> | パスワード管理（apps-01。OIDC。`/admin` は SSH 転送で `127.0.0.1:8222`） | 全員 |
 | ゲームポータル | <https://play.apextox.dpdns.org> | ゲーム配信の入口（game1） | 管理者 |
 | ポケモン系のPostgreSQL | `pkdb.apextox.dpdns.org:5432` | PostgreSQL 15（apps-01）。DBは `sleepy_pkdb`・`shakeweb`・`pkhack`。[運用](../operations/pkdb.md)・[取扱説明書](pokemondb.md) | DBのロールを持つアプリ |
@@ -36,7 +36,7 @@ tags:
 | Adminer | <https://adminer.apextox.dpdns.org> | ポケモン系PostgreSQLの管理画面（apps-01。`127.0.0.1:8330`。Forward Auth）。**ふだんは登録画面「ポケモン登録」の右上から開く**。「サーバ」は `db` | `admins` |
 | プリンター（CUPS） | <https://cups.apextox.dpdns.org> | 印刷状況のWeb UI（apps-01。SSO。`/admin` は入口で403）。印刷はキュー `ts8430`・`192.168.10.105:631`（LAN/VPN） | 全員 |
 | AdGuard Home | <https://adguard.apextox.dpdns.org> | DNS・広告遮断の管理画面（ルータ上。SSO）。ルータの `:3000` は core-01 だけに開けている | 全員 |
-| ルータ（LuCI） | <https://router.apextox.dpdns.org> | router-01 の管理画面。**SSO なし**（復旧経路のため）。認証は LuCI の root パスワード。IP 直は `http://192.168.10.1` | 管理者 |
+| ルータ（Flint 3） | <https://router.apextox.dpdns.org> | Flint 3（GL.iNet）の管理画面。**SSO なし**（復旧経路のため）。認証は GL.iNet の管理者パスワード。IP 直は `http://192.168.10.1` | 管理者 |
 | Home Assistant | <https://ha.apextox.dpdns.org> | 家電・自動化（[利用者向けの使い方](../services/home-assistant.md)）。apps-01 の `127.0.0.1:8123` を Caddy で HTTPS 化。Authentik SSO + 緊急用ローカルオーナー | Authentik（`users` / `admins`）またはローカルオーナー |
 | バックアップポータル | <https://backup.apextox.dpdns.org> | 端末ごとのバックアップ手順と UrBackup の状態（media-01 の `127.0.0.1:55416`。Forward Auth）。Windows クライアントは `192.168.10.101:55413` へ直結（[使い方](../operations/client-backup.md)） | 全員 |
 | UrBackup管理画面 | <https://urbackup.apextox.dpdns.org> | クライアント配布・世代・復元（media-01 の `127.0.0.1:55414`。Forward Auth） | 全員 |
@@ -106,7 +106,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
 | core-01（旧 services-01） | `debian@192.168.10.200` | Authentik・NetBox・入口のCaddy（AdGuard・ルータの画面の中継） |
 | apps-01 | `debian@192.168.10.105` | Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳（クラウドVM） |
-| web-01 | `debian@192.168.10.102` | Shake-Web・pkhack・Alexa スキル・ayahuya・nginx（公開サイト。クラウドVM） |
+| shakeserver | `ansible_admin@192.168.30.12`（鍵は `~/.ssh/id_ed25519_shake`） | Shake-Web・pkhack・Alexa スキル・ayahuya・nginx（公開サイト。Raspberry Pi 5・DMZ） |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB・Garage（S3） |
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |
 | k8s-worker-01 | `192.168.10.209` | AWX・CNPG・Knative |
@@ -115,7 +115,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | probe-01 | `192.168.10.201` | 検証用 |
 | game1 | `192.168.10.127` | ゲーム（クラウド管理下） |
 | media-01 | `debian@192.168.10.101` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend（クラウド管理下） |
-| monitor-01 | `debian@192.168.10.210` | 監視（Prometheus・Grafana・Alertmanager・PeaNUT）。基盤VM |
+| tarakoserver | `ansible_admin@192.168.10.11`（鍵 `~/.ssh/id_ed25519_shake`） | 監視（Prometheus・Grafana・Alertmanager・Loki・Alloy・PeaNUT）とネットワーク図。Raspberry Pi 4 |
 
 VM の正本は[配備台帳](../operations/handover.md)と `platform/terraform/hosts.yaml` です。
 

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Ansible（monitoring_backup）が K11 に置く。tarakoserver から最新の監視の写しを取り寄せる。
+set -eu
+umask 077
+dir={{ monitoring_backup_pve_dir }}
+mkdir -p "$dir"
+out="$dir/monitoring-$(date +%Y%m%d-%H%M%S).tar.zst"
+ssh -o BatchMode=yes -i /root/.ssh/monitoring_backup ansible_admin@{{ ansible_host }} | zstd -q -T0 -o "$out.part"
+zstd -q -t "$out.part"
+mv "$out.part" "$out"
+find "$dir" -name 'monitoring-*.tar.zst' -mtime +{{ monitoring_backup_remote_days }} -delete

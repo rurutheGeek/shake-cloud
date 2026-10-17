@@ -1,19 +1,23 @@
 #!/bin/sh
 # ミニPC（apextox）の外から、公開サイトと監視の入口を見る。
-# 状態が「2回続けて」変わったときだけ Discord へ通知する（単発のDNS断・瞬断で
-# 鳴らさない）。結果は標準出力と {{ public_monitor_state_dir }}/<名前> に残す。
+# 状態が 10 回（1 分ごとなので 10 分）続けて変わったときだけ Discord へ通知する
+# （配線替えの抜き差し・単発の DNS 断で鳴らさない）。文の形は家の中の監視
+# （stacks/monitoring/alertmanager/notify.tmpl）と揃える。結果は標準出力と
+# {{ public_monitor_state_dir }}/<名前> に残す。
 #   --test を付けるとテスト通知を1通送る。
 set -eu
 
 STATE_DIR={{ public_monitor_state_dir }}
 WEBHOOK_FILE={{ public_monitor_config_dir }}/webhook
-THRESHOLD=2
+THRESHOLD=10
+export TZ=Asia/Tokyo
 mkdir -p "$STATE_DIR"
 
 # 名前引きは DoH（1.1.1.1）で行う。tailnet の DNS（100.100.100.100 / fd7a::53）が
 # たまに詰まると、サイトは無事なのに監視だけ NG になる（2026-10-06 に発生）。
 DOH='https://1.1.1.1/dns-query'
 
+# notify <1 行目> <本文>。本文の改行は \n で書く（JSON の文字列にそのまま入る）。
 notify() {
     if [ ! -s "$WEBHOOK_FILE" ]; then
         echo "public-monitor: no webhook; skipped: $1" >&2
@@ -21,11 +25,13 @@ notify() {
     fi
     if ! curl -fsS --max-time 10 --doh-url "$DOH" \
         -H 'Content-Type: application/json' \
-        -d "$(printf '{"content":"%s"}' "$1")" \
+        -d "$(printf '{"embeds":[{"title":"%s","description":"%s"}]}' "$1" "$2")" \
         "$(cat "$WEBHOOK_FILE")" >/dev/null 2>&1; then
         echo "public-monitor: notify failed: $1" >&2
     fi
 }
+
+when() { date -d "@$1" '+%-m/%-d %H:%M'; }
 
 # 失敗しても5秒あけて3回まで試す（単発の取りこぼしを吸収する）。
 fetch_code() {
@@ -50,40 +56,44 @@ check() {
     done
 
     file="$STATE_DIR/$name"
-    # 状態ファイル: <確定状態> <保留状態> <保留の連続回数>（古い形式は確定状態だけ）
-    stable=unknown; pending=-; count=0
+    # 状態ファイル: <確定状態> <保留状態> <保留の連続回数> <保留が始まった時刻>
+    stable=unknown; pending=-; count=0; since=0
     if [ -f "$file" ]; then
-        read stable pending count < "$file" || true
-        stable=${stable:-unknown}; pending=${pending:--}; count=${count:-0}
+        read stable pending count since < "$file" || true
+        stable=${stable:-unknown}; pending=${pending:--}; count=${count:-0}; since=${since:-0}
     fi
 
     if [ "$now" = "$stable" ]; then
-        pending=-; count=0
+        pending=-; count=0; since=0
     else
         if [ "$now" = "$pending" ]; then
             count=$((count + 1))
         else
             pending="$now"
             count=1
+            since=$(date +%s)
         fi
         if [ "$count" -ge "$THRESHOLD" ]; then
             if [ "$now" = ng ]; then
-                notify "[監視] NG: $name ($url) 応答=$code"
+                notify "🔴 緊急｜外から見て応答しない" \
+                    "・$name：外から見て応答しない（$(when "$since") から）\nすること：家の回線（ONU・Flint 3）と web-01 を確認してください。家ごと落ちていると、家の中の監視からは届きません。\n→ $url"
             elif [ "$stable" = ng ]; then
-                notify "[監視] 回復: $name ($url) 応答=$code"
+                notify "✅ 直った｜外から見て応答しない" \
+                    "・$name（$(when "$since") に戻った）\n→ $url"
             fi
             stable="$now"
             pending=-
             count=0
+            since=0
         fi
     fi
 
-    echo "$stable $pending $count" > "$file"
+    echo "$stable $pending $count $since" > "$file"
     echo "$name $stable$([ "$pending" = - ] || echo " (保留:$pending/$count)") $code"
 }
 
 if [ "${1:-}" = "--test" ]; then
-    notify "[監視] テスト通知（$(hostname)）"
+    notify "⚪ テスト｜外からの見張り" "・$(hostname) から送った試しの通知"
     exit 0
 fi
 
@@ -91,4 +101,6 @@ check shake   'https://shake.ruruthegeek.dpdns.org/'   '200 302 301'
 check pkhack  'https://pkhack.ruruthegeek.dpdns.org/'  '200 302 301'
 check ayahuya 'https://ayahuya.ruruthegeek.dpdns.org/' '200 302 301'
 check apex    'https://ruruthegeek.dpdns.org/'         '200 302 301'
+{% if public_monitor_check_internal %}
 check grafana 'https://grafana.apextox.dpdns.org/'     '200 302 401 403'
+{% endif %}

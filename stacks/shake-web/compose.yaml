@@ -1,5 +1,5 @@
-# Shake-Web（公開サイト）の配備。旧 shakeserver（Raspberry Pi 5）から
-# web-01 へ 2026-10-05 に移した。
+# Shake-Web（公開サイト）の配備。DMZ の shakeserver（Raspberry Pi 5）で動かす
+# （2026-10-05〜16 は web-01。消した）。
 #
 # イメージはホストでビルドする（shake-web / pkhack は Next.js、alexa は Python）。
 # 元ホストと同じく CI の成果物ではなくソースからのビルドなので、compose.lock.yaml
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
     ports:
       # 公開は negitoroserver → この 80/443（80 は sslh が HTTP として中継）。
-      # セキュリティグループが送信元を絞る。8443 は直接確認用で、ホストの
+      # Flint 3 の DMZ と Tailscale の ACL（tag:relay → tag:dmz:80,443）が送信元を絞る。8443 は直接確認用で、ホストの
       # 127.0.0.1 にだけ出す（外からは見えない）。
       - '80:80'
       - '443:443'

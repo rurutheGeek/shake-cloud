@@ -70,3 +70,33 @@ class ShutdownScriptTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+UPS_SERVER = ROOT / 'platform/ansible/roles/ups_server'
+
+
+class UpsServerTests(unittest.TestCase):
+    def test_k11_follows_the_ups_on_tarakoserver(self):
+        defaults = yaml.safe_load((ROLE / 'defaults/main.yml').read_text())
+        server = yaml.safe_load((UPS_SERVER / 'defaults/main.yml').read_text())
+        self.assertEqual(defaults['pve_nut_server'], server['ups_server_listen_address'])
+        self.assertEqual(defaults['pve_nut_secondary_user'], server['ups_server_secondary_user'])
+        upsmon = (ROLE / 'templates/upsmon.conf.j2').read_text()
+        self.assertIn('@{{ pve_nut_server }} 1 {{ pve_nut_secondary_user }}', upsmon)
+        self.assertIn('secondary', upsmon)
+
+    def test_the_secondary_user_may_not_force_a_shutdown(self):
+        users = (UPS_SERVER / 'templates/upsd.users.j2').read_text()
+        secondary = users.split('[{{ ups_server_secondary_user }}]', 1)[1]
+        self.assertIn('upsmon secondary', secondary)
+        self.assertNotIn('primary', secondary)
+
+    def test_the_ups_output_is_never_cut(self):
+        # K11 がまだ止まり切っていないうちに UPS の出力を切らない。
+        upsmon = (UPS_SERVER / 'templates/upsmon.conf.j2').read_text()
+        self.assertNotRegex(upsmon, r'(?m)^POWERDOWNFLAG')
+
+    def test_monitoring_reads_the_ups_where_it_is_plugged(self):
+        defaults = yaml.safe_load((ROOT / 'platform/ansible/roles/monitoring/defaults/main.yml').read_text())
+        server = yaml.safe_load((UPS_SERVER / 'defaults/main.yml').read_text())
+        self.assertEqual(defaults['monitoring_nut_server'], server['ups_server_listen_address'])

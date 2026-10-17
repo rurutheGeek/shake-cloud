@@ -8,6 +8,7 @@ theme:
 nav:
   - ホーム: index.md
   - サービス図: service-map.md
+  - ネットワーク図: network-map.md
   - ドキュメント地図: map.md
   - ドキュメントの書き方: contributing-docs.md
   - 利用者向け:
@@ -23,6 +24,7 @@ nav:
       - 音楽・取り込み・タグ: services/music.md
       - タグ管理（MP3）: services/tags.md
       - 共通RSSタイムライン: services/rss.md
+      - リポジトリの保管庫: services/forgejo.md
       - Home Assistantと家電の使い方: services/home-assistant.md
       - Android VMの画面を使う（RDP）: services/android.md
       - プリンター（Canon TS8430）: services/printer.md
@@ -78,6 +80,7 @@ nav:
           - I07 クラウドポータルのUI改善: development/I07-portal-ui.md
       - M：監視:
           - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
+          - M02 監視のタッチパネル: development/M02-touch-panel.md
       - O：復旧・運用:
           - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
           - O02 CNPGバックアップ: development/O02-cnpg-backup.md

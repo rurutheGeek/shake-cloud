@@ -1,0 +1,14 @@
+---
+# Pi 4。タッチパネルに監視を表示するので、画面は残す（キオスクは別に入れる）。
+pi_base_headless: false
+# NetBox のインベントリでは機器の名前で入る。鍵は Raspberry Pi 用。
+ansible_user: ansible_admin
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519_shake
+# 起動は USB メモリ／SD カード。書き込みの多いものは HDD（LABEL=tarako-data、/srv）へ置く。
+docker_data_root: /srv/docker
+pi_base_data_label: tarako-data
+# ログはメモリの上だけ。残したいものは Alloy が Loki（HDD）へ送る。
+pi_base_journal_storage: volatile
+# HDD（WD Blue 1TB）の UGREEN のケース。表に無く、SMART が読めなかった（2026-10-15）。
+pi_base_smart_usb_bridges:
+  - {usb: '0x0bda:0x9201', name: 'UGREEN; Realtek RTL9201', type: sat}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Monitoring stack lifecycle on monitor-01. Run with sudo.
+"""Monitoring stack lifecycle on tarakoserver (Raspberry Pi 4). Run with sudo.
 
 Prometheus keeps its time series on the data disk, Grafana its database. The
 secret values (Grafana admin, NUT password, Proxmox token) are generated or
@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parent
 # （空URLは設定エラーになるため）。
 WATCHDOG_BLOCK = re.compile(r'^[ \t]*# deadman:start.*?^[ \t]*# deadman:end[ \t]*\n',
                             re.MULTILINE | re.DOTALL)
+# Discord の送り先。webhook が無いときは丸ごと外し、すべて silent（送らない）へ回す。
+DISCORD_BLOCK = re.compile(r'^[ \t]*# discord:start.*?^[ \t]*# discord:end[ \t]*\n',
+                           re.MULTILINE | re.DOTALL)
+# Ansible が public-monitor.sops.yaml から入れる（negitoroserver の外からの見張りと同じ送り先）。
+DISCORD_WEBHOOK = 'discord_webhook_url'
 GENERATED_SECRETS = ('grafana_admin_password', 'nut_password', 'peanut_web_password')
 # The Proxmox read-only token is copied from SOPS by the Ansible role.
 PVE_TOKEN = 'pve_token'
@@ -101,7 +106,7 @@ def render_peanut_config():
     path = target / 'settings.yml'
     path.write_text(
         'NUT_SERVERS:\n'
-        f"  - HOST: {values.get('NUT_SERVER', '192.168.10.10')}\n"
+        f"  - HOST: {values.get('NUT_SERVER', '192.168.10.11')}\n"
         '    PORT: 3493\n'
         f"    USERNAME: {values.get('NUT_USERNAME', 'monitor')}\n"
         f'    PASSWORD: {nut_password}\n')
@@ -114,26 +119,39 @@ def without_watchdog(text):
     return WATCHDOG_BLOCK.sub('', text)
 
 
+def without_discord(text):
+    """Send everything to the silent receiver when no Discord webhook is installed."""
+    return DISCORD_BLOCK.sub('', text).replace('receiver: discord', 'receiver: silent')
+
+
 def render_alertmanager_config():
-    """Write Alertmanager's config with the SMTP values from .env.
+    """Write Alertmanager's config, its message template and the webhook file.
 
     Alertmanager 0.34 does not expand environment variables in its config,
-    so the template is filled here. The file contains the SMTP password and
-    is owned by the container user (nobody).
+    so the template is filled here. The webhook URL is a secret: it is handed
+    over as a file (webhook_url_file) owned by the container user (nobody).
     """
     values = settings()
     template = string.Template((ROOT / 'alertmanager/alertmanager.yml.template').read_text())
-    rendered = template.substitute({key: values.get(key, '') for key in (
-        'SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USERNAME', 'SMTP_PASSWORD',
-        'SMTP_REQUIRE_TLS', 'ALERT_EMAIL', 'WATCHDOG_PING_URL')})
+    rendered = template.substitute(WATCHDOG_PING_URL=values.get('WATCHDOG_PING_URL', ''))
     if not values.get('WATCHDOG_PING_URL'):
         rendered = without_watchdog(rendered)
+    webhook = secret(DISCORD_WEBHOOK)
+    if not webhook:
+        rendered = without_discord(rendered)
     target = storage() / 'alertmanager-config'
     target.mkdir(parents=True, exist_ok=True)
-    path = target / 'alertmanager.yml'
-    path.write_text(rendered)
-    os.chown(path, 65534, 65534)
-    path.chmod(0o600)
+    files = {'alertmanager.yml': rendered,
+             'notify.tmpl': (ROOT / 'alertmanager/notify.tmpl').read_text()}
+    if webhook:
+        files[DISCORD_WEBHOOK] = webhook + '\n'
+    for name, content in files.items():
+        path = target / name
+        path.write_text(content)
+        os.chown(path, 65534, 65534)
+        path.chmod(0o600)
+    if not webhook:
+        (target / DISCORD_WEBHOOK).unlink(missing_ok=True)
 
 
 def init():
@@ -143,7 +161,8 @@ def init():
         shutil.copyfile(ROOT / '.env.example', ROOT / '.env')
         changed = True
     (ROOT / '.env').chmod(0o600)
-    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter', 'peanut'):
+    for name in ('prometheus', 'alertmanager', 'alertmanager-config', 'grafana', 'pve-exporter', 'peanut',
+                 'loki', 'alloy'):
         path = storage() / name
         if not path.exists():
             path.mkdir(parents=True, mode=0o750)
@@ -151,6 +170,10 @@ def init():
     if (storage() / 'grafana').stat().st_uid != 472:
         # Grafana runs as UID 472 in the official image.
         os.chown(storage() / 'grafana', 472, 472)
+        changed = True
+    if (storage() / 'loki').stat().st_uid != 10001:
+        # Loki runs as UID 10001 in the official image.
+        os.chown(storage() / 'loki', 10001, 10001)
         changed = True
     for name in ('prometheus', 'alertmanager', 'alertmanager-config'):
         # The Prometheus and Alertmanager images run as nobody (65534).
@@ -211,7 +234,7 @@ def backup(destination):
         run(['tar', '--numeric-owner', '-cpf', str(target / 'state.tar'), '-C', str(source), '.'])
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
              'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'secrets',
-             'manage.py', 'prometheus', 'grafana', 'blackbox'])
+             'manage.py', 'prometheus', 'grafana', 'blackbox', 'loki', 'alloy'])
     finally:
         if running:
             compose('start', *running)

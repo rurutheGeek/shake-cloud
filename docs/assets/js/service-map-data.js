@@ -34,7 +34,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/net/",
-       "title": "Tailscale（router-01 上の subnet router）"
+       "title": "Tailscale（Flint 3 上の subnet router）"
       }
      ],
      "name": "Tailscale"
@@ -57,14 +57,14 @@ window.SERVICE_MAP = {
      "url": "https://adguard.apextox.dpdns.org/"
     },
     {
-     "description": "LuCI。SSOなし・復旧経路",
+     "description": "GL.iNet。SSOなし・復旧経路",
      "docs": [
       {
        "path": "operations/router/",
        "title": "router-01（OpenWrt・自作ルータ）"
       }
      ],
-     "name": "router-01 の管理画面",
+     "name": "Flint 3 の管理画面",
      "route": [
       "core-01",
       "router-01"
@@ -185,23 +185,67 @@ window.SERVICE_MAP = {
    ]
   },
   {
-   "address": "192.168.10.210",
+   "address": "192.168.30.12",
    "docs": [
     {
-     "path": "operations/monitoring/",
-     "title": "監視（monitor-01）"
+     "path": "operations/web/",
+     "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
     }
    ],
    "kind": "base",
-   "name": "monitor-01",
-   "role": "監視",
+   "name": "shakeserver",
+   "role": "公開サイト（Raspberry Pi 5・DMZ）",
+   "services": [
+    {
+     "description": "Issues・Shaketter・ToBa・ikura と Wiki",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "Shake-Web"
+    },
+    {
+     "description": "ポケモンクイズ",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "pkhack"
+    },
+    {
+     "description": "4サイトの入口。CloudFlare Origin 証明書で TLS 終端",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "nginx"
+    }
+   ]
+  },
+  {
+   "address": "192.168.10.11",
+   "docs": [
+    {
+     "path": "operations/monitoring/",
+     "title": "監視（tarakoserver）"
+    }
+   ],
+   "kind": "base",
+   "name": "tarakoserver",
+   "role": "監視（Raspberry Pi 4）",
    "services": [
     {
      "description": "メトリクスの収集とアラート",
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Prometheus"
@@ -211,7 +255,7 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Alertmanager"
@@ -221,17 +265,51 @@ window.SERVICE_MAP = {
      "docs": [
       {
        "path": "operations/monitoring/",
-       "title": "監視（monitor-01）"
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "Grafana",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": false,
      "upstream": "127.0.0.1:3000",
      "url": "https://grafana.apextox.dpdns.org/"
+    },
+    {
+     "description": "区画・VLAN・ファイアウォール。Forward Auth",
+     "docs": [
+      {
+       "path": "network-map/",
+       "title": "ネットワーク図"
+      }
+     ],
+     "name": "ネットワーク図",
+     "route": [
+      "core-01",
+      "tarakoserver"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8096",
+     "url": "https://netmap.apextox.dpdns.org/"
+    },
+    {
+     "description": "Forward Auth",
+     "docs": [
+      {
+       "path": "development/M02-touch-panel/",
+       "title": "M02 監視のタッチパネル"
+      }
+     ],
+     "name": "監視のタッチパネルをスマホで見る・触る",
+     "route": [
+      "core-01",
+      "tarakoserver"
+     ],
+     "sso": true,
+     "upstream": "127.0.0.1:8097",
+     "url": "https://panel.apextox.dpdns.org/"
     },
     {
      "description": "UPSのREST。HomarrのUPSウィジェット用",
@@ -244,7 +322,7 @@ window.SERVICE_MAP = {
      "name": "PeaNUT",
      "route": [
       "core-01",
-      "monitor-01"
+      "tarakoserver"
      ],
      "sso": false,
      "upstream": "127.0.0.1:8080",
@@ -669,6 +747,23 @@ window.SERVICE_MAP = {
      "url": "https://freshrss.apextox.dpdns.org/"
     },
     {
+     "description": "リポジトリの保管庫。OIDC",
+     "docs": [
+      {
+       "path": "services/forgejo/",
+       "title": "リポジトリの保管庫（Forgejo）"
+      }
+     ],
+     "name": "Forgejo",
+     "route": [
+      "core-01",
+      "media-01"
+     ],
+     "sso": false,
+     "upstream": "127.0.0.1:8083",
+     "url": "https://forgejo.apextox.dpdns.org/"
+    },
+    {
      "description": "media-01・53317",
      "docs": [
       {
@@ -678,50 +773,6 @@ window.SERVICE_MAP = {
      ],
      "name": "LocalSend受信機",
      "url": "https://localsend.apextox.dpdns.org/"
-    }
-   ]
-  },
-  {
-   "address": "192.168.10.102",
-   "docs": [
-    {
-     "path": "operations/web/",
-     "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-    }
-   ],
-   "kind": "cloud",
-   "name": "web-01",
-   "role": "公開サイト",
-   "services": [
-    {
-     "description": "Issues・Shaketter・ToBa・ikura と Wiki",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "Shake-Web"
-    },
-    {
-     "description": "ポケモンクイズ",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "pkhack"
-    },
-    {
-     "description": "4サイトの入口。CloudFlare Origin 証明書で TLS 終端",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "nginx"
     }
    ]
   },

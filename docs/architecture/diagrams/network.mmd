@@ -1,37 +1,37 @@
 flowchart TB
   internet["インターネット<br/>IPv6（v6プラス・MAP-E）・IPv4"]
   onu["ONU"]
-  remote["宅外の端末"]
+  remote["宅外の端末（Tailscale）"]
+  relay["negitoroserver（家の外）<br/>公開の入口 80/443"]
 
-  subgraph k11["K11（apextox / Proxmox VE）"]
-    subgraph router["router-01（OpenWrt VM）"]
-      adguard["AdGuard Home<br/>192.168.10.1:53<br/>広告遮断・DoH"]
-      dnsmasq["dnsmasq<br/>127.0.0.1:5353<br/>DHCP・*.lan"]
-      mape["MAP-E・ndppd<br/>IPv6中継・NDP代理"]
-    end
-    subgraph lan["LAN の端末（192.168.10.0/24）"]
-      wifi["Wi-Fi 端末"]
-      wired["有線端末"]
-      vms["各VM<br/>core-01・apps-01・media-01・monitor-01<br/>game1・k8s・dev-a/b"]
-    end
-    caddy["core-01のCaddy<br/>HTTPS入口（Let's Encrypt）"]
-    authentik["Authentik（core-01）<br/>SSO・Forward Auth"]
-    netbox["NetBox（core-01）<br/>予約・リースの台帳"]
+  subgraph flint["Flint 3（GL-BE9300）"]
+    adguard["AdGuard Home<br/>:53→:3053<br/>広告遮断・DoH"]
+    dnsmasq["dnsmasq<br/>DHCP・*.lan"]
+    mape["MAP-E・ndppd<br/>IPv6中継"]
+    fw["ファイアウォール<br/>区画間は許可したものだけ"]
+    ts["Tailscale subnet router<br/>10.0/24・40.0/24"]
   end
-  switch["TL-SG605（スイッチ）"]
-  aterm["Aterm（APモード）"]
 
-  internet --> onu --> router
-  router --> switch
-  switch --> aterm --> wifi
-  switch --> wired
-  switch --> vms
-  lan -- "DNS（:53）" --> adguard
-  lan -- "DHCP" --> dnsmasq
-  adguard -- "*.lan" --> dnsmasq
+  subgraph server["サーバー 192.168.10.0/24（LAN1・LAN2・Wi-Fi porygon）"]
+    k11["K11（Proxmox）<br/>core-01・cloud-01・apps-01・media-01<br/>game-01・k8s・dev"]
+    taraco["tarakoserver（Pi 4）<br/>監視・ログ"]
+    netbox["NetBox（core-01）<br/>予約の台帳"]
+  end
+  dmz["DMZ 192.168.30.0/24（LAN4）<br/>shakeserver（Pi 5）・公開サイト"]
+  personal["個人端末 192.168.40.0/24<br/>Wi-Fi ditto・LAN3"]
+  iot["ネット専用 192.168.50.0/24<br/>Wi-Fi jumpluff"]
+
+  internet --> onu --> mape
+  fw --> server
+  fw --> dmz
+  fw --> personal
+  fw --> iot
+  personal -- "DNS" --> adguard
   adguard -- "外部ドメイン（DoH）" --> internet
   netbox -. "予約を配る（pull）" .-> dnsmasq
-  dnsmasq -. "リースを書く（push）" .-> netbox
-  remote -. "Tailscale（router-01）" .-> switch
-  vms --> caddy
-  caddy -. "認証" .-> authentik
+  remote -. "Tailscale" .-> ts
+  ts --> server
+  ts --> personal
+  internet --> relay
+  relay -. "Tailscale（80/443）" .-> dmz
+  dnsmasq -. "syslog" .-> taraco
