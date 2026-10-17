@@ -6,7 +6,7 @@ DMZ の `shakeserver`（Raspberry Pi 5）で公開サイトを動かすスタッ
 | サービス | 内容 | イメージ |
 | --- | --- | --- |
 | `web` | nginx（4サイトの入口。CloudFlare Origin 証明書で TLS 終端） | `nginx:1.27-alpine` |
-| `quiz_app` | Shake-Web の Next.js（bsquiz / Issues / Shaketter / ToBa / ikura / Wiki のAPI） | `ghcr.io/ruruthegeek/shake-web-quiz:main` |
+| `quiz_app` | Shake-Web の Next.js（bsquiz / Issues / Shaketter / ToBa / ikura / Wiki のAPI） | `ghcr.io/ruruthegeek/shake-web:main` |
 | `pkhack_app` | pkhack の Next.js（ポケモンクイズ） | `ghcr.io/ruruthegeek/pkhack:main` |
 | `alexa_skill` | Alexa スキル（pokebs_alexaskill） | `ghcr.io/ruruthegeek/pokebs-alexaskill:main` |
 | `ayahuya` | アヤフヤハッカーズ（純静的。root 以外で動く nginx、8080） | `ghcr.io/ruruthegeek/ayahuya:main` |

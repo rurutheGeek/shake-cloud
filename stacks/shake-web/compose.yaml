@@ -52,7 +52,7 @@ services:
       - no-new-privileges:true
 
   quiz_app:
-    image: ${SHAKE_WEB_QUIZ_IMAGE:-ghcr.io/ruruthegeek/shake-web-quiz:main}
+    image: ${SHAKE_WEB_IMAGE:-ghcr.io/ruruthegeek/shake-web:main}
     container_name: bsquiz
     restart: unless-stopped
     logging: *logging

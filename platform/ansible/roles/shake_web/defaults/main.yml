@@ -12,7 +12,7 @@ shake_web_shake_ref: main
 shake_web_pkhack_ref: main
 # アプリは各リポジトリの CI がビルドしたイメージ（GHCR）を使う。
 # 戻すときはタグをコミット SHA にする。
-shake_web_quiz_image: ghcr.io/ruruthegeek/shake-web-quiz:main
+shake_web_app_image: ghcr.io/ruruthegeek/shake-web:main
 shake_web_pkhack_image: ghcr.io/ruruthegeek/pkhack:main
 shake_web_alexa_image: ghcr.io/ruruthegeek/pokebs-alexaskill:main
 shake_web_ayahuya_image: ghcr.io/ruruthegeek/ayahuya:main

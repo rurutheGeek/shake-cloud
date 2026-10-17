@@ -27,7 +27,7 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | 配備先 | shakeserver（Pi 5、DMZ `192.168.30.12`、`outpost.ini` の `web`）。`.venv/bin/ansible-playbook -i platform/ansible/outpost.ini --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml`。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（NVMe） |
-| イメージ | nginx（`compose.lock.yaml` で digest 固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web-quiz`・`pkhack`・`pokebs-alexaskill`・`ayahuya`（タグ `main` を追う。自作なので固定しない） |
+| イメージ | nginx（`compose.lock.yaml` で digest 固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web`・`pkhack`・`pokebs-alexaskill`・`ayahuya`（タグ `main` を追う。自作なので固定しない） |
 | DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
 | 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
