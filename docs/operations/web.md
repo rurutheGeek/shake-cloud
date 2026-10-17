@@ -37,7 +37,7 @@ tags:
 
 ## 配備
 
-Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に Docker Compose から移した）。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Ansible が描画し、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。Pod の一覧とポートは [stacks/shake-web/README.md](../../stacks/shake-web/README.md)。
+Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に Docker Compose から移した）。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Ansible が描画し、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。Pod の一覧とポートは `stacks/shake-web/README.md`。
 
 ```bash
 .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
