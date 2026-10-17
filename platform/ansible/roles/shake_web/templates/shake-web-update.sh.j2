@@ -1,18 +1,11 @@
 #!/bin/sh
-# 5分ごとに、静的物のソース（main）と CI がビルドしたイメージを見て更新する。
-# 旧ホスト向けの CD（アプリ側の deploy.yml → shake-infra）の代わりに、
+# 5分ごとに、各リポジトリの CI がビルドしたイメージ（GHCR）を見て、新しければ入れ替える。
 # 配備先（shakeserver）が自分で取りに行く方式（UBSLEEPY と同じ）。
 set -eu
 cd {{ shake_web_project_dir }}
 
-fetched=$(python3 manage.py fetch)
-echo "$fetched"
 pulled=$(python3 manage.py pull)
 echo "$pulled"
-
-case "$fetched" in
-    *CHANGED*) python3 manage.py sync ;;
-esac
 case "$pulled" in
     *CHANGED*) python3 manage.py up ;;
 esac

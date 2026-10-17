@@ -31,7 +31,7 @@ tags:
 | DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
 | 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
-| 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 2本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵・GHCR 読み取り用のマシンユーザーのトークン） |
+| 秘密値 | `platform/sops/shake-web.sops.yaml`（CloudFlare Origin 証明鍵・DB パスワード・セッション鍵・GHCR 読み取り用のマシンユーザーのトークン） |
 | コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、守りは `platform/ansible/host_vars/shakeserver.yml`（`pi_base_lan_guard`） |
 | 監視 | node_exporter（`192.168.30.12:9100`）。Prometheus の `node-targets.yml` に登録済み。外からは negitoroserver の public-monitor |
 
@@ -42,10 +42,9 @@ tags:
   --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 ```
 
-`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（静的物のために shake-web と pkhack を `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `pull`（CI がビルドしたイメージを取ってくる）→ `up`（`docker compose up -d`）。
+`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `pull`（CI がビルドしたイメージを取ってくる）→ `up`（`docker compose up -d`）。ホストではソースを取らず、ビルドもしない。
 
-- 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
-- **アプリはホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** ayahuya は入口の nginx が TLS だけを受け持ち、`ayahuya:8080` へ転送する（記事ページの書き出しと旧 URL の 301 はイメージ側）。GHCR のパッケージは非公開で、配備先は読み取り専用のマシンユーザーのトークン（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `docker login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。戻すときは `shake_web_*_image` をコミット SHA のタグにする。
+- **アプリと静的物（`html/`）はホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** ayahuya は入口の nginx が TLS だけを受け持ち、`ayahuya:8080` へ転送する（記事ページの書き出しと旧 URL の 301 はイメージ側）。GHCR のパッケージは非公開で、配備先は読み取り専用のマシンユーザーのトークン（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `docker login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。戻すときは `shake_web_*_image` をコミット SHA のタグにする。
 - アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
 - **配備先が5分ごとに、静的物のソース（`main`）と各アプリのイメージを見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo systemctl start shake-web-update'`。
 - 起動に失敗したら `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
@@ -76,7 +75,7 @@ tags:
 Flint 3 の DMZ が家の中への転送を止め（pkdb だけ通す。`dmz-db-clients`）、Pi 5 の `inet homeguard`（`pi_base` の `pi_base_lan_guard`）が家の中の区画（`192.168.10/30/40/50.0/24`）への送信を落とす。通すのは DNS（DMZ のゲートウェイと AdGuard Home）と pkdb だけ。pkdb の側（apps-01 のセキュリティグループ `pkdb_dmz`）も Pi 5 だけを受ける。
 
 - 実測（2026-10-16）: pkdb とインターネット 443 は届く。`192.168.10.105:22`・`192.168.10.10:8006`・`192.168.10.1:80`・`192.168.40.97:3389` は届かない。
-- GitHub への git は 22 ではなく `ssh.github.com:443` を使う（`manage.py` が指定）。
+- GitHub へは GHCR からのイメージの取得（443）だけ。git は使わない。
 
 ### プロキシ（negitoroserver）側
 

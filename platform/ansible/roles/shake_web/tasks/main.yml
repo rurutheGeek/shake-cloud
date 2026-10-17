@@ -1,12 +1,4 @@
 ---
-- name: Install git and rsync
-  ansible.builtin.apt:
-    name:
-      - git
-      - rsync
-    state: present
-    update_cache: true
-
 - name: Create the project and storage directories
   ansible.builtin.file:
     path: '{{ item }}'
@@ -16,7 +8,6 @@
     mode: '0750'
   loop:
     - '{{ shake_web_project_dir }}'
-    - '{{ shake_web_project_dir }}/secrets'
     - '{{ shake_web_storage_root }}'
     - '{{ shake_web_storage_root }}/certs'
 
@@ -46,18 +37,6 @@
   register: shake_web_secrets
   changed_when: false
   check_mode: false
-  no_log: true
-
-- name: Install the deploy keys
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json)[item.key] }}'
-    dest: '{{ shake_web_project_dir }}/secrets/{{ item.path }}'
-    mode: '0600'
-  loop:
-    - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
-    - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
-  loop_control:
-    label: '{{ item.path }}'
   no_log: true
 
 # CI がビルドしたイメージ（GHCR、非公開）を取るための読み取り専用の資格情報。
@@ -99,18 +78,14 @@
   register: shake_web_init
   changed_when: "'CHANGED' in shake_web_init.stdout"
 
-- name: Fetch the application sources
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', fetch]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_fetch
-  changed_when: "'CHANGED' in shake_web_fetch.stdout"
-
-- name: Sync the static content
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
-    chdir: '{{ shake_web_project_dir }}'
-  changed_when: false
+# Alexa スキルは root 以外（uid 10001）で動き、ログをここへ書く。
+- name: Let the Alexa skill write its logs
+  ansible.builtin.file:
+    path: '{{ shake_web_storage_root }}/alexa/logs'
+    state: directory
+    owner: '10001'
+    group: '10001'
+    recurse: true
 
 - name: Pull the images built by the application CI
   ansible.builtin.command:
