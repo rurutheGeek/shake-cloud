@@ -26,6 +26,8 @@ sudo -n firewall-cmd --reload >/dev/null
 sudo -n firewall-cmd --zone=FedoraWorkstation --list-rich-rules | grep -c 'priority="-20"'
 EOF
 )
+# 手元で組み立てた $script を送る（展開はこちら側でしてよい）。
+# shellcheck disable=SC2087
 ssh -o BatchMode=yes -i "$KEY" "$JUMP" "ssh -o BatchMode=yes game-01 sh" <<EOF
 $script
 EOF
