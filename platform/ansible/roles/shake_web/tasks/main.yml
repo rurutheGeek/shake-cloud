@@ -60,6 +60,16 @@
     label: '{{ item.path }}'
   no_log: true
 
+# CI がビルドしたイメージ（GHCR、非公開）を取るための読み取り専用の資格情報。
+# GHCR はパッケージごとに絞ったトークンを受け付けないため、専用のマシンユーザー
+# （読ませるパッケージだけに Read 権限を付けたアカウント）のトークンを使う。
+- name: Log in to GHCR
+  ansible.builtin.command:
+    argv: [docker, login, ghcr.io, -u, '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_USER }}', --password-stdin]
+    stdin: '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_READ_TOKEN }}'
+  no_log: true
+  changed_when: true
+
 # --- 外向き（egress）の確認 ---
 - name: Install the CloudFlare Origin certificate
   ansible.builtin.copy:
