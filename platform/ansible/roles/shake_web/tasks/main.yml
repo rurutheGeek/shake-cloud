@@ -1,15 +1,17 @@
 ---
 - name: Create the project and storage directories
   ansible.builtin.file:
-    path: '{{ item }}'
+    path: '{{ item.path }}'
     state: directory
     owner: root
     group: root
-    mode: '0750'
+    mode: '{{ item.mode }}'
   loop:
-    - '{{ shake_web_project_dir }}'
-    - '{{ shake_web_storage_root }}'
-    - '{{ shake_web_storage_root }}/certs'
+    - {path: '{{ shake_web_project_dir }}', mode: '0750'}
+    # Podman（shakeweb）のコンテナがログの置き場（log・alexa/logs）まで通れるよう、
+    # 中を一覧できないまま通り抜けだけを許す
+    - {path: '{{ shake_web_storage_root }}', mode: '0751'}
+    - {path: '{{ shake_web_storage_root }}/certs', mode: '0750'}
 
 - name: Copy the stack definitions
   ansible.builtin.copy:
