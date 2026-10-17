@@ -143,9 +143,9 @@ rule Server-to-Personal-Tailscale src=lan dest=personal proto=udp dest_port=4164
 rule Game-to-Personal src=lan src_ip=192.168.60.0/24 dest=personal proto=udp target=ACCEPT
 uci commit firewall
 
-# 宅外の Tailscale 端末から、個人端末の区画へも家のアドレスで入れるようにする。
-# Tailscale 側は `tailscale set --advertise-routes=192.168.10.0/24,192.168.40.0/24`
-# と、管理画面（API）での経路の承認が要る。ネット専用（iot）は入れない。
+# 宅外の Tailscale 端末からは、サーバーの区画だけを家のアドレスで入れる
+# （`tailscale set --advertise-routes=192.168.10.0/24`、95-shakecloud-tailscale-routes）。
+# 個人端末の区画は流さない（家の中の通信が Flint 3 の Tailscale を回るため）。
 # Tailscale のゾーンと、サーバーの区画への転送。**ここで毎回入れ直す。**
 # 2026-10-14、tailscale → lan の転送が設定から消えていて、宅外のスマホから
 # サービス（Vaultwarden など）へ届かなかった。DNS だけは通るので気づきにくい。
