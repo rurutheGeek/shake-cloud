@@ -19,6 +19,7 @@ shake_web_pkhack_static_image: ghcr.io/ruruthegeek/pkhack-static:main
 # Podman（root 以外）で動かす。tasks/podman.yml を参照。
 shake_web_podman_user: shakeweb
 shake_web_podman_home: /var/lib/shakeweb
+shake_web_podman_kube_dir: '{{ shake_web_podman_home }}/kube'
 # コンテナの中の uid 1 以上が、ホストのこの番号から並ぶ（Alexa の 10001 は +10000）。
 shake_web_podman_subid_start: 200000
 shake_web_podman_env:

@@ -6,9 +6,9 @@ Wants=network-online.target
 After=network-online.target
 
 [Kube]
-Yaml={{ shake_web_project_dir }}/kube/{{ item }}.yaml
+Yaml={{ shake_web_podman_kube_dir }}/{{ item }}.yaml
 {% if item == 'front' %}
-ConfigMap={{ shake_web_project_dir }}/kube/front-config.yaml
+ConfigMap={{ shake_web_podman_kube_dir }}/front-config.yaml
 {% else %}
 # 5 分ごとの podman auto-update が GHCR の新しいイメージを取って入れ替える
 AutoUpdate=registry
