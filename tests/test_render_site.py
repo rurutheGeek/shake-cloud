@@ -54,6 +54,16 @@ class RenderSiteTests(unittest.TestCase):
         block = variables.split('variable "netbox_cluster_name"')[1].split('}')[0]
         self.assertIn(f'default = "{self.site["ledger"]["cluster"]}"', block)
 
+    def test_a_routed_network_goes_to_its_instance_not_to_the_subnets(self):
+        site = render_site.render(TERRAFORM)
+        network = yaml.safe_load((TERRAFORM / 'network.yaml').read_text(encoding='utf-8'))
+        game = network['routed']['game']
+        self.assertEqual(site['routed_prefixes'], {game['instance']: game['prefix']})
+        self.assertNotIn(game['prefix'], [subnet['prefix'] for subnet in site['network']['subnets']])
+        # game-01 の IP（台帳の予約）の後ろにある。
+        ledger = (ROOT / 'docs/operations/handover.md').read_text(encoding='utf-8')
+        self.assertIn(game['via'], ledger)
+
     def test_ledger_groups_use_declared_tags_and_trusted_accounts(self):
         ledger = self.site['ledger']
         tags = self.yaml('tags.yaml')['tags']

@@ -52,6 +52,13 @@ uci set network.iot.netmask='255.255.255.0'
 uci set network.iot.disabled='0'
 uci commit network
 
+# ゲームの区画（network.yaml の routed.game）は game-01 の後ろ。
+uci -q delete network.game_route || true
+uci set network.game_route=route
+uci set network.game_route.interface='lan'
+uci set network.game_route.target='192.168.60.0/24'
+uci set network.game_route.gateway='192.168.10.127'
+
 # --- dhcp ------------------------------------------------------------------
 uci set dhcp.personal=dhcp
 uci set dhcp.personal.interface='personal'
@@ -130,6 +137,10 @@ rule Dev-to-Personal src=lan 'src_ip=192.168.10.202 192.168.10.203' dest=persona
 # Tailscale の端末同士が家の中で直接つながれるようにする。これが無いと、区画を
 # またぐ端末同士（有線のデスクトップと無線のノートPC）が外の中継サーバー経由になり遅い。
 rule Server-to-Personal-Tailscale src=lan dest=personal proto=udp dest_port=41641 target=ACCEPT
+# game-01 の後ろのゲームの区画（network.yaml の routed.game）から個人端末へ。プレイヤー
+# どうしが直接話す作り（Grim Dawn の LAN プレイ）なので、コンテナから話しかける向きも要る。
+# ポートを実測するまで UDP だけに絞る。個人端末 → ゲームの区画は personal_lan で通る。
+rule Game-to-Personal src=lan src_ip=192.168.60.0/24 dest=personal proto=udp target=ACCEPT
 uci commit firewall
 
 # 宅外の Tailscale 端末から、個人端末の区画へも家のアドレスで入れるようにする。
