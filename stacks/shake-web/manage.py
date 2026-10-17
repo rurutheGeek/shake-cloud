@@ -4,6 +4,7 @@
 旧 shakeserver（Raspberry Pi 5）では Ansible が git clone と rsync を行っていた。
 ここでは同じ流れを ``fetch``（4リポジトリを固定した ref へ更新）と
 ``sync``（nginx が配る静的物を写す）に分け、``up`` がビルドして起動する。
+アプリ側の CI がビルドしたイメージ（今は ayahuya だけ）は ``pull`` が取ってくる。
 秘密値（Deploy key・DB のパスワード）は role が SOPS から置く。
 """
 import argparse
@@ -33,19 +34,16 @@ REPOS = {
         None,
         'ALEXA_REF', 'main',
     ),
-    'ayahuya': (
-        'git@github.com:rurutheGeek/ayahuya.git',
-        ROOT / 'secrets/id_ayahuya',
-        'AYAHUYA_REF', 'main',
-    ),
 }
 
 # nginx が配る静的物（src 内のパス → STORAGE_ROOT 内のパス）。
 STATIC = {
     'shake-web/html': 'html',
     'pkhack/html': 'pkhack/html',
-    'ayahuya/html': 'ayahuya/html',
 }
+
+# アプリ側の CI がビルドしたイメージ（GHCR）を使うサービス。タグ（main）を追う。
+PULLED_SERVICES = ['ayahuya']
 
 
 def run(args, **kwargs):
@@ -116,7 +114,7 @@ def init():
     if not os.path.ismount(probe):
         sys.exit(f'{probe} is not a mount point; refusing to deploy (data disk?)')
     changed = False
-    for directory in ('src', 'html', 'pkhack/html', 'ayahuya/html',
+    for directory in ('src', 'html', 'pkhack/html',
                       'alexa/logs', 'log', 'certs', 'templates'):
         target = path / directory
         if not target.exists():
@@ -135,7 +133,7 @@ def is_repo(path):
 
 
 def fetch():
-    """4リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
+    """3リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
     path = storage()
     conf = settings()
     changed = []
@@ -185,6 +183,24 @@ def sync():
     print(f'OK: synced {", ".join(changed)}')
 
 
+def image_ids():
+    result = compose('images', '--quiet', *PULLED_SERVICES)
+    return set(result.stdout.split())
+
+
+def pull():
+    """CI がビルドしたイメージを取ってくる。新しいイメージが来たら CHANGED を出す。"""
+    before = image_ids()
+    compose('pull', '--quiet', *PULLED_SERVICES)
+    ids = []
+    for service in PULLED_SERVICES:
+        image = compose('config', '--images', service).stdout.strip()
+        ids.append(run(['docker', 'image', 'inspect', '--format', '{{.Id}}', image],
+                       capture_output=True).stdout.strip())
+    changed = [s for s, i in zip(PULLED_SERVICES, ids) if i not in before]
+    print(f'CHANGED: pulled {", ".join(changed)}' if changed else 'OK: every image is current')
+
+
 def up():
     result = compose('up', '-d', '--build')
     output = result.stdout + result.stderr
@@ -204,7 +220,7 @@ def status():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['init', 'fetch', 'sync', 'lock', 'up', 'status'])
+    parser.add_argument('action', choices=['init', 'fetch', 'sync', 'pull', 'lock', 'up', 'status'])
     args = parser.parse_args()
     globals()[args.action]()
 

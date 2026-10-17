@@ -11,4 +11,5 @@ shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
 shake_web_shake_ref: main
 shake_web_pkhack_ref: main
 shake_web_alexa_ref: main
-shake_web_ayahuya_ref: main
+# ayahuya は CI がビルドしたイメージ（GHCR）を使う。戻すときはタグをコミット SHA にする。
+shake_web_ayahuya_image: ghcr.io/ruruthegeek/ayahuya:main

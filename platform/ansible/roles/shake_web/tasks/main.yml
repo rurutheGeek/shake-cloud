@@ -56,10 +56,19 @@
   loop:
     - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
     - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
-    - {key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya}
   loop_control:
     label: '{{ item.path }}'
   no_log: true
+
+# CI がビルドしたイメージ（GHCR、非公開）を取るための読み取り専用の資格情報。
+# GHCR はパッケージごとに絞ったトークンを受け付けないため、専用のマシンユーザー
+# （読ませるパッケージだけに Read 権限を付けたアカウント）のトークンを使う。
+- name: Log in to GHCR
+  ansible.builtin.command:
+    argv: [docker, login, ghcr.io, -u, '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_USER }}', --password-stdin]
+    stdin: '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_READ_TOKEN }}'
+  no_log: true
+  changed_when: true
 
 # --- 外向き（egress）の確認 ---
 - name: Install the CloudFlare Origin certificate
@@ -102,6 +111,13 @@
     argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
     chdir: '{{ shake_web_project_dir }}'
   changed_when: false
+
+- name: Pull the images built by the application CI
+  ansible.builtin.command:
+    argv: [python3, '{{ shake_web_project_dir }}/manage.py', pull]
+    chdir: '{{ shake_web_project_dir }}'
+  register: shake_web_pull
+  changed_when: "'CHANGED' in shake_web_pull.stdout"
 
 - name: Start the stack
   ansible.builtin.command:
