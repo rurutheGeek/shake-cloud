@@ -10,5 +10,4 @@
   hosts: web
   become: true
   roles:
-    - docker
     - shake_web

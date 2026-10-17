@@ -1,32 +1,19 @@
 ---
-- name: Create the project and storage directories
+# Shake-Web の公開サイト。Podman（root 以外のユーザー shakeweb）と Kubernetes の YAML
+# （stacks/shake-web/kube/）で動かす。手順は tasks/podman.yml。
+
+- name: Create the storage directories
   ansible.builtin.file:
-    path: '{{ item.path }}'
+    path: '{{ item }}'
     state: directory
     owner: root
     group: root
-    mode: '{{ item.mode }}'
-  loop:
-    - {path: '{{ shake_web_project_dir }}', mode: '0750'}
     # Podman（shakeweb）のコンテナがログの置き場（log・alexa/logs）まで通れるよう、
     # 中を一覧できないまま通り抜けだけを許す
-    - {path: '{{ shake_web_storage_root }}', mode: '0751'}
-    - {path: '{{ shake_web_storage_root }}/certs', mode: '0750'}
-
-- name: Copy the stack definitions
-  ansible.builtin.copy:
-    src: '{{ shake_web_source_dir }}/{{ item }}'
-    dest: '{{ shake_web_project_dir }}/'
-    mode: '0644'
+    mode: '0751'
   loop:
-    - compose.yaml
-    - compose.lock.yaml
-    - manage.py
-    - .env.example
-
-# nginx/*.template は Podman の入口（127.0.0.1 の固定ポートへ転送する）向け。
-# Docker の入口には配らない（Docker の中から 127.0.0.1 はコンテナ自身になり、届かない）。
-# 切り替えまで、Docker の入口は配備先に置いてある設定（コンテナ名で転送する版）を使う。
+    - '{{ shake_web_storage_root }}'
+    - '{{ shake_web_storage_root }}/alexa'
 
 # 秘密値は SOPS から一度だけ読む（暗号化された正本は platform/sops/）。
 - name: Read the Shake-Web secrets
@@ -39,95 +26,9 @@
   check_mode: false
   no_log: true
 
-# CI がビルドしたイメージ（GHCR、非公開）を取るための読み取り専用の資格情報。
-# GHCR はパッケージごとに絞ったトークンを受け付けないため、専用のマシンユーザー
-# （読ませるパッケージだけに Read 権限を付けたアカウント）のトークンを使う。
-- name: Log in to GHCR
-  ansible.builtin.command:
-    argv: [docker, login, ghcr.io, -u, '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_USER }}', --password-stdin]
-    stdin: '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_READ_TOKEN }}'
-  no_log: true
-  changed_when: true
-
-# --- 外向き（egress）の確認 ---
-- name: Install the CloudFlare Origin certificate
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_CERT }}'
-    dest: '{{ shake_web_storage_root }}/certs/cert.pem'
-    mode: '0644'
-  no_log: true
-
-- name: Install the CloudFlare Origin private key
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_KEY }}'
-    dest: '{{ shake_web_storage_root }}/certs/key.pem'
-    mode: '0600'
-  no_log: true
-
-- name: Render the deployment environment
-  ansible.builtin.template:
-    src: env.j2
-    dest: '{{ shake_web_project_dir }}/.env'
-    mode: '0600'
-  no_log: true
-
-- name: Initialize the deployment
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', init]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_init
-  changed_when: "'CHANGED' in shake_web_init.stdout"
-
-# Alexa スキルは root 以外（uid 10001）で動き、ログをここへ書く。
-- name: Let the Alexa skill write its logs
-  ansible.builtin.file:
-    path: '{{ shake_web_storage_root }}/alexa/logs'
-    state: directory
-    owner: '10001'
-    group: '10001'
-    recurse: true
-
-- name: Pull the images built by the application CI
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', pull]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_pull
-  changed_when: "'CHANGED' in shake_web_pull.stdout"
-
-- name: Start the stack
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', up]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_up
-  changed_when: "'CHANGED' in shake_web_up.stdout"
-
-# 旧ホスト向けの CD（アプリ側 deploy.yml → shake-infra）の代わり。配備先が
-# 5分ごとに main を見て、変わっていたら同期して作り直す。
-- name: Install the auto-update script
-  ansible.builtin.template:
-    src: shake-web-update.sh.j2
-    dest: /usr/local/sbin/shake-web-update
-    owner: root
-    group: root
-    mode: '0755'
-
-- name: Install the auto-update units
-  ansible.builtin.template:
-    src: '{{ item }}.j2'
-    dest: '/etc/systemd/system/{{ item }}'
-    owner: root
-    group: root
-    mode: '0644'
-  loop:
-    - shake-web-update.service
-    - shake-web-update.timer
-
-- name: Enable the auto-update timer
-  ansible.builtin.systemd:
-    name: shake-web-update.timer
-    enabled: true
-    state: started
-    daemon_reload: true
+# 2026-10-17 まで動かしていた Docker Compose の構成を片付ける（入口の 80/443 を空ける）
+- name: Retire the Docker Compose deployment
+  ansible.builtin.import_tasks: retire-docker.yml
 
 - name: Run the sites with Podman
   ansible.builtin.import_tasks: podman.yml

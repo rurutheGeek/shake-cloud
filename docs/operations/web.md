@@ -27,7 +27,7 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | 配備先 | shakeserver（Pi 5、DMZ `192.168.30.12`、`outpost.ini` の `web`）。`.venv/bin/ansible-playbook -i platform/ansible/outpost.ini --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml`。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（NVMe） |
-| イメージ | nginx（`compose.lock.yaml` で digest 固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web`・`pkhack`・`pokebs-alexaskill`・`ayahuya`（タグ `main` を追う。自作なので固定しない） |
+| イメージ | 入口の nginx（digest で固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web`・`pkhack`・`pokebs-alexaskill`・`ayahuya`・`shake-web-static`・`pkhack-static`（タグ `main` を追う。自作なので固定しない） |
 | DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
 | 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
@@ -37,20 +37,17 @@ tags:
 
 ## 配備
 
-**Podman への移行中（2026-10-17〜）。** アプリと静的物は Podman（root 以外のユーザー `shakeweb`）でも動かしている。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。各 Pod は `127.0.0.1` の固定ポート（shake-web 13000・pkhack 13001・alexa 18010・ayahuya 18080・shake-static 18081・pkhack-static 18082）だけに出し、更新は `podman-auto-update.timer`（5 分ごと、起動に失敗したら戻す）。入口の nginx（`front`）は、中継の PROXY protocol の送信元を確かめるためホストのネットワークで動かす。`shake_web_podman_front` を `true` にするまでは、80/443 は Docker の入口が受ける。
-
+Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に Docker Compose から移した）。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Ansible が描画し、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。Pod の一覧とポートは [stacks/shake-web/README.md](../../stacks/shake-web/README.md)。
 
 ```bash
 .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
   --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 ```
 
-`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `pull`（CI がビルドしたイメージを取ってくる）→ `up`（`docker compose up -d`）。ホストではソースを取らず、ビルドもしない。
-
-- **アプリと静的物（`html/`）はホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** ayahuya は入口の nginx が TLS だけを受け持ち、`ayahuya:8080` へ転送する（記事ページの書き出しと旧 URL の 301 はイメージ側）。GHCR のパッケージは非公開で、配備先は読み取り専用のマシンユーザーのトークン（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `docker login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。戻すときは `shake_web_*_image` をコミット SHA のタグにする。
-- アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
-- **配備先が5分ごとに、静的物のソース（`main`）と各アプリのイメージを見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo systemctl start shake-web-update'`。
-- 起動に失敗したら `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
+- **アプリと静的物はホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** 配備先は GitHub へ GHCR からの取得（443）だけをする。GHCR は非公開で、読み取り専用のマシンユーザー（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `podman login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。
+- **更新は `podman-auto-update.timer`（5 分ごと）。** 新しいイメージを取って入れ替え、起動に失敗したら元のイメージに戻る。戻すときは `shake_web_*_image` をコミット SHA のタグにして Ansible を流す。即時に更新したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman auto-update'`。
+- 入口の nginx（`front`）だけはホストのネットワークで動かす。中継（`100.92.253.28`）が付ける PROXY protocol を信じる条件（送信元がその IP であること）を保つため。Pod のネットワークに入れると送信元が書き換わる（2026-10-17 に確認）。各 Pod へは `127.0.0.1` の固定ポートで転送する。
+- 状態を見るときは `sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman ps` と `systemctl --user status <pod>.service`（同じ環境で）。
 
 ## 公開の切り替え（2026-10-05 実施済み）
 
