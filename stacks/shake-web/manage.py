@@ -3,8 +3,9 @@
 
 旧 shakeserver（Raspberry Pi 5）では Ansible が git clone と rsync を行っていた。
 ここでは同じ流れを ``fetch``（4リポジトリを固定した ref へ更新）と
-``sync``（nginx が配る静的物を写す）に分け、``up`` がビルドして起動する。
-アプリ側の CI がビルドしたイメージ（今は ayahuya だけ）は ``pull`` が取ってくる。
+``sync``（nginx が配る静的物を写す）に分け、``up`` が起動する。
+アプリは各リポジトリの CI がビルドしたイメージで、``pull`` が取ってくる。
+ソースの取得（``fetch``）は、nginx が配る静的物（html/）のためだけに残す。
 秘密値（Deploy key・DB のパスワード）は role が SOPS から置く。
 """
 import argparse
@@ -29,11 +30,6 @@ REPOS = {
         ROOT / 'secrets/id_pkhack',
         'PKHACK_REF', 'main',
     ),
-    'pokebs_alexaskill': (
-        'https://github.com/rurutheGeek/pokebs_alexaskill.git',
-        None,
-        'ALEXA_REF', 'main',
-    ),
 }
 
 # nginx が配る静的物（src 内のパス → STORAGE_ROOT 内のパス）。
@@ -43,7 +39,7 @@ STATIC = {
 }
 
 # アプリ側の CI がビルドしたイメージ（GHCR）を使うサービス。タグ（main）を追う。
-PULLED_SERVICES = ['ayahuya']
+PULLED_SERVICES = ['quiz_app', 'pkhack_app', 'alexa_skill', 'ayahuya']
 
 
 def run(args, **kwargs):
@@ -63,7 +59,7 @@ def storage():
 
 
 # レジストリのイメージ（compose.lock.yaml で digest を固定するもの）。
-# ビルドするサービス（quiz_app・pkhack_app・alexa_skill）は対象外。
+# 自作のイメージ（PULLED_SERVICES）は対象外。
 REGISTRY_IMAGES = {
     'web': 'nginx:1.27-alpine',
 }
@@ -133,7 +129,7 @@ def is_repo(path):
 
 
 def fetch():
-    """3リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
+    """2リポジトリを .env の ref へ合わせる。変わったものだけ CHANGED を出す。"""
     path = storage()
     conf = settings()
     changed = []
@@ -202,7 +198,7 @@ def pull():
 
 
 def up():
-    result = compose('up', '-d', '--build')
+    result = compose('up', '-d')
     output = result.stdout + result.stderr
     changed = any(word in output for word in ('Created', 'Recreated', 'Started'))
     if changed:

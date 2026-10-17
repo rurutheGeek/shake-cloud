@@ -1,16 +1,14 @@
 # Shake-Web（公開サイト）の配備。DMZ の shakeserver（Raspberry Pi 5）で動かす
 # （2026-10-05〜16 は web-01。消した）。
 #
-# イメージはホストでビルドする（shake-web / pkhack は Next.js、alexa は Python）。
-# 元ホストと同じく CI の成果物ではなくソースからのビルドなので、compose.lock.yaml
-# は無い。土台のイメージはタグで固定し、更新は明示的に行う。
+# アプリ（quiz_app・pkhack_app・alexa_skill・ayahuya）は、各リポジトリの CI が
+# ビルドしたイメージ（GHCR）を使う。ホストではビルドしない。タグ main を追い、
+# manage.py pull が新しいイメージを取ってくる。自作のイメージなので digest 固定は
+# しない（nginx は compose.lock.yaml で固定する）。
 #
-# ソースは STORAGE_ROOT/src/<リポジトリ>（manage.py fetch）に置き、nginx が配る
-# 静的物だけ STORAGE_ROOT/{html,pkhack/html} へ写す（manage.py sync）。
-#
-# ayahuya だけは、アプリ側の CI がビルドしたイメージ（GHCR）を使う（web 構成の
-# リファクタリングのフェーズ 0）。タグ main を追い、manage.py pull が新しいイメージを
-# 取ってくる。自前の CI の成果物なので、nginx のような digest 固定はしない。
+# nginx が配る静的物（shake-web と pkhack の html/）だけは、ソースを
+# STORAGE_ROOT/src/<リポジトリ>（manage.py fetch）に置き、STORAGE_ROOT/{html,pkhack/html}
+# へ写す（manage.py sync）。
 name: shake-web
 
 services:
@@ -54,9 +52,7 @@ services:
       - no-new-privileges:true
 
   quiz_app:
-    build:
-      context: ${STORAGE_ROOT}/src/shake-web/quiz
-    image: shake-web-quiz:local
+    image: ${SHAKE_WEB_IMAGE:-ghcr.io/ruruthegeek/shake-web:main}
     container_name: bsquiz
     restart: unless-stopped
     logging: *logging
@@ -92,9 +88,7 @@ services:
       - PKHACK_DB_EDITOR_PASSWORD=${PKHACK_DB_EDITOR_PASSWORD}
 
   alexa_skill:
-    build:
-      context: ${STORAGE_ROOT}/src/pokebs_alexaskill
-    image: shake-web-alexa:local
+    image: ${ALEXA_IMAGE:-ghcr.io/ruruthegeek/pokebs-alexaskill:main}
     container_name: alexa_skill
     restart: unless-stopped
     logging: *logging
@@ -108,9 +102,7 @@ services:
   # pkhack サブドメイン用 Next.js アプリ（ポケモンクイズ）。
   # nginx から pkhack_app:3000 で参照するためホストポートは公開しない（quiz_app と競合回避）。
   pkhack_app:
-    build:
-      context: ${STORAGE_ROOT}/src/pkhack/quiz
-    image: shake-web-pkhack:local
+    image: ${PKHACK_IMAGE:-ghcr.io/ruruthegeek/pkhack:main}
     container_name: pkhack_app
     restart: unless-stopped
     logging: *logging
