@@ -25,6 +25,7 @@ tags:
 | 30 | DMZ | `192.168.30.0/24` | shakeserver（Raspberry Pi 5、LAN4。Minecraft など）、DMZ の VM（K11 の VLAN 対応のあと） | タグ付き |
 | 40 | 個人端末 | `192.168.40.0/24` | デスクトップ（Flint 3 の LAN3）、ノートPC、スマホ（SSID `ditto-…`） | 通さない |
 | 50 | ネット専用 | `192.168.50.0/24` | 家電、プリンター（SSID `jumpluff-…`）。TL-SG605 の先はまだサーバーの区画 | 通さない |
+| 70 | AdGuard なし | `192.168.70.0/24` | AdGuard Home を通したくないとき（SSID `ソーナノWiFi`）。DNS は 1.1.1.1 へ直接 | 通さない |
 | —（経路） | ゲーム | `192.168.60.0/24` | game-01 のランチャーのコンテナ（セッションごとに 1 つ、NAT しない）。Flint 3 が game-01（`192.168.10.127`）へ送る。正本は `network.yaml` の `routed.game`。クラウド API が game-01 の ipfilter にこの区画を入れる | 通さない（game-01 の中） |
 
 ## 区画間の通信

@@ -3,12 +3,14 @@
 #
 #   ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto
 #   ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key jumpluff
+#   ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key wynaut
 set -eu
 
 case "${1:-}" in
 ditto) ifaces='wifi2g wifi5g wifi6g wlanmld2g wlanmld5g wlanmld6g' ;;
 jumpluff) ifaces='iot2g' ;;
-*) echo "usage: $0 ditto|jumpluff"; exit 2 ;;
+wynaut) ifaces='wynaut5g' ;;
+*) echo "usage: $0 ditto|jumpluff|wynaut"; exit 2 ;;
 esac
 
 printf 'password for %s: ' "$1"

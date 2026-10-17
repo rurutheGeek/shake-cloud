@@ -5,8 +5,9 @@
 #   lan（サーバー、192.168.10.0/24）   有線と、管理用 SSID（porygon-…）
 #   personal（個人端末、192.168.40.0/24）  SSID ditto-… と、有線の LAN3（デスクトップ）
 #   iot（ネット専用、192.168.50.0/24）     SSID jumpluff-…（2.4GHz のみ、端末間は分離）
+#   wynaut（AdGuard を通さない、192.168.70.0/24）  SSID ソーナノWiFi（5GHz、ネットだけ）
 #
-# ditto と jumpluff のパスワードはここでは入れない。/etc/shakecloud/set-wifi-key が
+# ditto・jumpluff・ソーナノWiFi のパスワードはここでは入れない。/etc/shakecloud/set-wifi-key が
 # 入れるまで、その SSID は止めておく。
 set -eu
 
@@ -50,6 +51,18 @@ uci set network.personal.force_link='1'
 uci set network.iot.ipaddr='192.168.50.1'
 uci set network.iot.netmask='255.255.255.0'
 uci set network.iot.disabled='0'
+
+# AdGuard Home を通したくないときに使う区画。無線だけなので空のブリッジ。
+uci set network.br_wynaut=device
+uci set network.br_wynaut.name='br-wynaut'
+uci set network.br_wynaut.type='bridge'
+uci set network.br_wynaut.bridge_empty='1'
+uci set network.wynaut=interface
+uci set network.wynaut.device='br-wynaut'
+uci set network.wynaut.proto='static'
+uci set network.wynaut.ipaddr='192.168.70.1'
+uci set network.wynaut.netmask='255.255.255.0'
+uci set network.wynaut.force_link='1'
 uci commit network
 
 # ゲームの区画（network.yaml の routed.game）は game-01 の後ろ。
@@ -76,6 +89,19 @@ uci set dhcp.iot.start='20'
 uci set dhcp.iot.limit='180'
 uci -q delete dhcp.iot.dhcp_option || true
 uci add_list dhcp.iot.dhcp_option='6,192.168.50.1'
+
+# DNS は Flint 3（AdGuard Home）ではなく外へ直接。
+uci set dhcp.wynaut=dhcp
+uci set dhcp.wynaut.interface='wynaut'
+uci set dhcp.wynaut.start='20'
+uci set dhcp.wynaut.limit='180'
+uci set dhcp.wynaut.leasetime='12h'
+uci set dhcp.wynaut.dhcpv4='server'
+uci set dhcp.wynaut.dhcpv6='disabled'
+uci set dhcp.wynaut.ra='disabled'
+uci set dhcp.wynaut.force='1'
+uci -q delete dhcp.wynaut.dhcp_option || true
+uci add_list dhcp.wynaut.dhcp_option='6,1.1.1.1,1.0.0.1'
 uci commit dhcp
 
 # --- firewall --------------------------------------------------------------
@@ -107,7 +133,20 @@ uci set firewall.personal_lan=forwarding
 uci set firewall.personal_lan.src='personal'
 uci set firewall.personal_lan.dest='lan'
 
-for name in Personal-mDNS IoT-mDNS Personal-Desktop-Admin Personal-DHCP Personal-DNS Personal-Ping Personal-to-IoT Server-to-IoT-apps Server-to-IoT-monitor Server-to-Personal-Tailscale Dev-to-Personal; do
+# wynaut: ネットだけ。Flint 3 へは DHCP だけ受ける。
+uci -q delete firewall.wynaut || true
+uci -q delete firewall.wynaut_wan || true
+uci set firewall.wynaut=zone
+uci set firewall.wynaut.name='wynaut'
+uci set firewall.wynaut.network='wynaut'
+uci set firewall.wynaut.input='REJECT'
+uci set firewall.wynaut.output='ACCEPT'
+uci set firewall.wynaut.forward='REJECT'
+uci set firewall.wynaut_wan=forwarding
+uci set firewall.wynaut_wan.src='wynaut'
+uci set firewall.wynaut_wan.dest='wan'
+
+for name in Wynaut-DHCP Personal-mDNS IoT-mDNS Personal-Desktop-Admin Personal-DHCP Personal-DNS Personal-Ping Personal-to-IoT Server-to-IoT-apps Server-to-IoT-monitor Server-to-Personal-Tailscale Dev-to-Personal; do
 	delete_named "$name"
 done
 rule() {
@@ -118,6 +157,7 @@ rule() {
 		uci set "firewall.@rule[-1].$option"
 	done
 }
+rule Wynaut-DHCP src=wynaut proto=udp dest_port=67-68 target=ACCEPT
 rule Personal-DHCP src=personal proto=udp dest_port=67-68 target=ACCEPT
 rule Personal-DNS src=personal 'proto=tcp udp' dest_port=53 target=ACCEPT
 rule Personal-Ping src=personal proto=icmp icmp_type=echo-request family=ipv4 target=ACCEPT
@@ -240,6 +280,21 @@ uci set wireless.iot2g.sae='0'
 uci set wireless.iot2g.isolate='1'
 uci set wireless.iot2g.hidden='0'
 
+# ソーナノWiFi: AdGuard を通さない。5GHz、WPA2/WPA3 混在、端末間は分離。
+if [ -z "$(uci -q get wireless.wynaut5g)" ]; then
+	uci set wireless.wynaut5g=wifi-iface
+	uci set wireless.wynaut5g.disabled='1'
+fi
+uci set wireless.wynaut5g.device='wifi1'
+uci set wireless.wynaut5g.mode='ap'
+uci set wireless.wynaut5g.ifname='wlan17'
+uci set wireless.wynaut5g.network='wynaut'
+uci set wireless.wynaut5g.ssid='ソーナノWiFi'
+uci set wireless.wynaut5g.encryption='psk2+ccmp'
+uci set wireless.wynaut5g.sae='1'
+uci set wireless.wynaut5g.isolate='1'
+uci set wireless.wynaut5g.hidden='0'
+
 # porygon: 管理用。5GHz、サーバーの区画。パスワードはこの場で作り、
 # /etc/shakecloud/porygon.key（root だけが読める）へ置く。
 if [ -z "$(uci -q get wireless.porygon5g)" ]; then
@@ -260,7 +315,7 @@ uci set wireless.porygon5g.isolate='0'
 uci set wireless.porygon5g.hidden='0'
 uci set wireless.porygon5g.disabled='0'
 # WPS は使わない。
-for iface in wifi2g wifi5g wifi6g iot2g porygon5g; do
+for iface in wifi2g wifi5g wifi6g iot2g wynaut5g porygon5g; do
 	uci set wireless.$iface.wps_pbc='0'
 	uci set wireless.$iface.wps_pbc_enable='0'
 done
