@@ -49,9 +49,10 @@
     sysctl_file: /etc/sysctl.d/60-shake-web.conf
     state: present
 
+# shakeweb が読む置き場（/opt/shake-web は root だけが入れる）
 - name: Create the Kubernetes manifest directory
   ansible.builtin.file:
-    path: '{{ shake_web_project_dir }}/kube'
+    path: '{{ shake_web_podman_kube_dir }}'
     state: directory
     owner: root
     group: '{{ shake_web_podman_user }}'
@@ -100,7 +101,7 @@
 - name: Render the Kubernetes manifests
   ansible.builtin.template:
     src: '{{ shake_web_source_dir }}/kube/{{ item }}.yaml.j2'
-    dest: '{{ shake_web_project_dir }}/kube/{{ item }}.yaml'
+    dest: '{{ shake_web_podman_kube_dir }}/{{ item }}.yaml'
     owner: root
     group: '{{ shake_web_podman_user }}'
     mode: '0640'
@@ -111,7 +112,7 @@
 - name: Render the nginx configuration as a ConfigMap
   ansible.builtin.template:
     src: front-config.yaml.j2
-    dest: '{{ shake_web_project_dir }}/kube/front-config.yaml'
+    dest: '{{ shake_web_podman_kube_dir }}/front-config.yaml'
     owner: root
     group: '{{ shake_web_podman_user }}'
     mode: '0640'
@@ -121,7 +122,7 @@
 - name: Render the secrets
   ansible.builtin.template:
     src: secrets.yaml.j2
-    dest: '{{ shake_web_project_dir }}/kube/secrets.yaml'
+    dest: '{{ shake_web_podman_kube_dir }}/secrets.yaml'
     owner: root
     group: '{{ shake_web_podman_user }}'
     mode: '0640'
@@ -151,7 +152,7 @@
     cmd: |
       set -eu
       podman secret rm shake-web-env shake-web-tls >/dev/null 2>&1 || true
-      podman kube play {{ shake_web_project_dir }}/kube/secrets.yaml >/dev/null
+      podman kube play {{ shake_web_podman_kube_dir }}/secrets.yaml >/dev/null
     executable: /bin/bash
   become: true
   become_user: '{{ shake_web_podman_user }}'

@@ -22,11 +22,9 @@
     - manage.py
     - .env.example
 
-- name: Copy the nginx templates
-  ansible.builtin.copy:
-    src: '{{ shake_web_source_dir }}/nginx/'
-    dest: '{{ shake_web_storage_root }}/templates/'
-    mode: '0644'
+# nginx/*.template は Podman の入口（127.0.0.1 の固定ポートへ転送する）向け。
+# Docker の入口には配らない（Docker の中から 127.0.0.1 はコンテナ自身になり、届かない）。
+# 切り替えまで、Docker の入口は配備先に置いてある設定（コンテナ名で転送する版）を使う。
 
 # 秘密値は SOPS から一度だけ読む（暗号化された正本は platform/sops/）。
 - name: Read the Shake-Web secrets
