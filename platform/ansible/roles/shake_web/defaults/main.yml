@@ -10,6 +10,9 @@ shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
 # 追う ref。検証中は pkhack だけブランチを指す（main に戻すのは切替時）。
 shake_web_shake_ref: main
 shake_web_pkhack_ref: main
-shake_web_alexa_ref: main
-# ayahuya は CI がビルドしたイメージ（GHCR）を使う。戻すときはタグをコミット SHA にする。
+# アプリは各リポジトリの CI がビルドしたイメージ（GHCR）を使う。
+# 戻すときはタグをコミット SHA にする。
+shake_web_quiz_image: ghcr.io/ruruthegeek/shake-web-quiz:main
+shake_web_pkhack_image: ghcr.io/ruruthegeek/pkhack:main
+shake_web_alexa_image: ghcr.io/ruruthegeek/pokebs-alexaskill:main
 shake_web_ayahuya_image: ghcr.io/ruruthegeek/ayahuya:main

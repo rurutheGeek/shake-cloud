@@ -1,5 +1,5 @@
 #!/bin/sh
-# 5分ごとに main と、CI がビルドしたイメージ（ayahuya）を見て、変わっていたら作り直す。
+# 5分ごとに、静的物のソース（main）と CI がビルドしたイメージを見て更新する。
 # 旧ホスト向けの CD（アプリ側の deploy.yml → shake-infra）の代わりに、
 # 配備先（shakeserver）が自分で取りに行く方式（UBSLEEPY と同じ）。
 set -eu
@@ -13,6 +13,6 @@ echo "$pulled"
 case "$fetched" in
     *CHANGED*) python3 manage.py sync ;;
 esac
-case "$fetched$pulled" in
+case "$pulled" in
     *CHANGED*) python3 manage.py up ;;
 esac
