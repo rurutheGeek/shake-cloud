@@ -107,6 +107,13 @@ func run(log *slog.Logger) error {
 			log.Warn("databases and functions disabled: no Kubernetes settings")
 		}
 		srv.Compute = service
+		// The site file may have changed with this deployment (routed prefixes):
+		// rewrite every grouped instance's firewall once.
+		bumped, err := db.BumpFirewallOfAllGrouped(ctx, pool)
+		if err != nil {
+			return err
+		}
+		log.Info("firewalls queued for a rewrite", "instances", bumped)
 		go service.RunWorker(ctx)
 		go service.RunReconciler(ctx, time.Minute)
 		go service.RunLedger(ctx, 15*time.Minute)
