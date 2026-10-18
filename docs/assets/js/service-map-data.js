@@ -517,6 +517,23 @@ window.SERVICE_MAP = {
      "url": "https://pkdb-entry.apextox.dpdns.org/"
     },
     {
+     "description": "AI がデータを調べ・足す。OAuth・admins のみ",
+     "docs": [
+      {
+       "path": "operations/pkdb/",
+       "title": "ポケモン系のPostgreSQL（pkdb）"
+      }
+     ],
+     "name": "ポケモンDBのMCPサーバ",
+     "route": [
+      "core-01",
+      "apps-01"
+     ],
+     "sso": false,
+     "upstream": "127.0.0.1:8332",
+     "url": "https://pkdb-mcp.apextox.dpdns.org/"
+    },
+    {
      "description": "印刷状況。Forward Auth",
      "docs": [
       {

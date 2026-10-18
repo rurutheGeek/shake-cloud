@@ -106,6 +106,49 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 
 関数は SQL からも呼べます（`pkdb_editor` に実行権限あり）。AIやスクリプトから足すときも、表へ直接 `INSERT` せずこれを使います。
 
+## AI からの登録（MCP サーバ）
+
+**<https://pkdb-mcp.apextox.dpdns.org/mcp>**（Streamable HTTP）。認可は MCP の仕様どおり OAuth 2.1 で、トークンを出すのは Authentik のアプリケーション `pkdb-mcp`（`admins` のみ、PKCE の公開クライアント）。入口に Forward Auth は付けない。
+
+### つなぎ方
+
+opencode（`~/.config/opencode/opencode.jsonc` の `mcp`）:
+
+```jsonc
+"pkdb": {
+  "type": "remote",
+  "url": "https://pkdb-mcp.apextox.dpdns.org/mcp",
+  "enabled": true,
+  "oauth": { "clientId": "pkdb-mcp", "scope": "openid profile offline_access" }
+}
+```
+
+```bash
+opencode mcp auth pkdb
+```
+
+ブラウザで Authentik のログインが開き、トークンは `~/.local/share/opencode/mcp-auth.json` に残る。Authentik の DCR（動的なクライアント登録）は既定で匿名の登録を受け付けないため、クライアントは事前登録する。登録済みの戻り先は opencode の `http://127.0.0.1:19876/mcp/oauth/callback` だけで、ほかのクライアントは `stacks/identity/configure.py` の `PKDB_MCP_REDIRECTS` に足す。
+
+### ツール
+
+| 種類 | ツール |
+| --- | --- |
+| 読む | `describe_tables`（表と列の説明）・`query`（読み取り専用の SELECT、10 秒・500 行まで）・`recent_changes`（`entry_log`） |
+| 書く | 登録の関数と同じ名前（`register_pokemon`・`register_move`・`save_learnset`・`import_rankings` など 21 個） |
+| まとめて | `batch`（書くツールを 1 つのトランザクションで。1 件でも失敗すれば全部取り消す） |
+
+### 決まりごと
+
+- 書くツールはどれも `source`（出典）が必須で、`entry_log.source` に残る。`actor` は `mcp:<Authentikのユーザ名>`、`db_role` は `pkdb_mcp`。
+- **名前で指定した特性・わざ・進化方法が、その作品に無ければ error**（`pkdb.strict`）。過去作から写さない。先に `register_ability`・`register_move` で入れる。画面からの登録は今までどおり写す・足す。
+- マテリアライズドビューの作り直しは、ツール 1 回（`batch` なら全体）につき最後に 1 回（`pkdb.defer_refresh`）。作り直しは約 1.5 秒で、その間クイズの読み込みは待たされる。ビューに一意の索引が無いので `CONCURRENTLY` は使えない。
+
+| 部品 | 場所 |
+| --- | --- |
+| サーバ | `stacks/pkdb/mcp/`（Python 3.13 + 公式 SDK `mcp`。apps-01 でイメージを組む。`127.0.0.1:8332`） |
+| DBのロール | `pkdb_mcp`（`sql/mcp.sql`）。`pkdb_entry` の権限を受け継ぐだけで、表へ直接は書けない。パスワードは apps-01 の `/opt/pkdb/secrets/mcp_password` |
+| トークンの確認 | Authentik の JWKS で署名、発行者 `https://auth.apextox.dpdns.org/application/o/pkdb-mcp/`、宛先 `pkdb-mcp`、期限 |
+
 ## データの直し
 
 pokemondb の誤りや抜けは、手で直さず `stacks/pkdb/sql/data_fixes.sql` に足します。配備のたびに流れ、直っていれば何もしません。直したときは、マテリアライズドビューも依存の順に作り直します。
