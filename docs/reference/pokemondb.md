@@ -389,7 +389,8 @@ SELECT save_learnset('登録者', '0025', '00', '100',
 - 登録済みの行を直すときは、同じ引数で `update_pokemon` を呼ぶ（図鑑番号・フォーム・作品で行が決まる）。直す前の値は `entry_log` に残る。
 - わざ・特性は名前で入れると、その作品に無ければ直近の作品から写し、どの作品にも無ければ新しく足す。
 - 実行できるのは `pkdb_editor` と、登録画面用の `pkdb_entry`。
-- 登録の記録は `entry_log`（`created_at`・`actor`・`action`・`detail`）に残る。`detail` は before/after の形。
+- 登録の記録は `entry_log`（`created_at`・`actor`・`db_role`・`source`・`action`・`detail`）に残る。`detail` は before/after の形。`db_role` は接続したロール（`session_user`）で、`actor` と違い呼ぶ側が変えられない。
+- 出典を残すときは、関数と同じトランザクションで `SELECT set_config('pkdb.source', '<出典>', true);` を先に呼ぶ。
 - **他作品からのコピーは根拠を確認する。** 画面のコピーは下書き用で、作品ごとの正しい値を保存し直す前提。
 
 ## まだ入っていないデータ

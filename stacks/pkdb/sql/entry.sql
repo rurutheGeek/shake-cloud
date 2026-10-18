@@ -33,6 +33,18 @@ CREATE TABLE IF NOT EXISTS pokemondb.entry_log (
 COMMENT ON TABLE pokemondb.entry_log IS '登録画面（pkdb-entry）からの登録の記録';
 CREATE INDEX IF NOT EXISTS entry_log_created_at_idx ON pokemondb.entry_log (created_at DESC);
 
+-- actor は呼ぶ側が名乗る名前。db_role は接続したロールで、SECURITY DEFINER の中でも
+-- session_user は呼んだ側のまま。source は呼ぶ側が同じトランザクションで
+-- set_config('pkdb.source', '<出典>', true) した値。
+-- 既定値は列を足したあとに付ける（足すときに付けると既存の行が配備したロールで埋まる）。
+ALTER TABLE pokemondb.entry_log ADD COLUMN IF NOT EXISTS db_role text;
+ALTER TABLE pokemondb.entry_log ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE pokemondb.entry_log ALTER COLUMN db_role SET DEFAULT session_user;
+ALTER TABLE pokemondb.entry_log
+  ALTER COLUMN source SET DEFAULT nullif(current_setting('pkdb.source', true), '');
+COMMENT ON COLUMN pokemondb.entry_log.db_role IS '登録に使った接続のロール（session_user）';
+COMMENT ON COLUMN pokemondb.entry_log.source IS '値の出典（呼ぶ側が pkdb.source に入れたもの）';
+
 -- 引数を変えた関数は旧いものを落としてから作る（残すと別関数として残ってしまう）。
 DO $$
 DECLARE
