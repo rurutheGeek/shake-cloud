@@ -482,4 +482,8 @@ def app():
         enable_dns_rebinding_protection=bool(host),
         allowed_hosts=[host, '127.0.0.1:8080', 'localhost:8080'] if host else [],
         allowed_origins=[f'https://{host}'] if host else [])
-    return mcp.streamable_http_app(transport_security=security, host='0.0.0.0')
+    starlette = mcp.streamable_http_app(transport_security=security, host='0.0.0.0')
+    if not ISSUER:
+        return starlette
+    # ブラウザの無い機械からは、Authentik のアプリパスワードを Basic で渡せる。
+    return auth.BasicToBearer(starlette, auth.BasicExchange(ISSUER, CLIENT_ID))
