@@ -249,6 +249,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('PERFORM refresh_views();', body)
         self.assertIn('GRANT EXECUTE ON FUNCTION pokemondb.update_pokemon(', text)
 
+    def test_the_log_records_the_connected_role_and_the_source(self):
+        text = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        self.assertIn('ADD COLUMN IF NOT EXISTS db_role text;', text)
+        self.assertIn('ALTER COLUMN db_role SET DEFAULT session_user', text)
+        self.assertIn("current_setting('pkdb.source', true)", text)
+        queries = (STACK / 'entry/app/queries.py').read_text(encoding='utf-8')
+        self.assertEqual(queries.count('actor, db_role, source'), 2)
+
     def test_the_data_fixes_only_add_or_correct_and_refresh_the_views(self):
         text = (STACK / 'sql/data_fixes.sql').read_text(encoding='utf-8')
         for forbidden in ('DROP ', 'DELETE ', 'TRUNCATE '):
