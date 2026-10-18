@@ -471,8 +471,9 @@ async def batch(source: Source, calls: Annotated[list[BatchCall], Field(min_leng
 
 @mcp.custom_route('/healthz', methods=['GET'])
 async def healthz(request: Request):
-    ok = await anyio.to_thread.run_sync(db.healthy)
-    return JSONResponse({'ok': ok}, status_code=200 if ok else 503)
+    # プロセスが応答すれば 200（コンテナの healthcheck）。DB につながるかは db で返し、
+    # 配備は db が true になるまで待つ。
+    return JSONResponse({'ok': True, 'db': await anyio.to_thread.run_sync(db.healthy)})
 
 
 def app():
