@@ -921,7 +921,9 @@ def configure_pkdb_mcp(api, groups, flows, mappings, signing_key):
     body = public_oidc_provider_body(PKDB_MCP, PKDB_MCP_REDIRECTS[0], flows, mappings, signing_key)
     body['redirect_uris'] = [{'matching_mode': 'strict', 'url': url,
                               'redirect_uri_type': 'authorization'} for url in PKDB_MCP_REDIRECTS]
-    body['grant_types'] = ['authorization_code', 'refresh_token']
+    # client_credentials は、ブラウザの無い機械がアプリパスワードで引き換えるため
+    # （MCP サーバが Basic の資格情報をここでトークンにする）。
+    body['grant_types'] = ['authorization_code', 'refresh_token', 'client_credentials']
     provider = ensure_oauth2_provider(api, PKDB_MCP, body)
     application = ensure_application(api, PKDB_MCP, {
         'name': 'ポケモンDB（MCP）', 'slug': PKDB_MCP, 'provider': provider['pk'],
