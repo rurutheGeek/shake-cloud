@@ -216,6 +216,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn("set_config('pkdb.source', %s, true)", database)
         self.assertIn("set_config('pkdb.defer_refresh', 'on', true)", database)
         self.assertIn('connection.read_only = True', database)
+        # 初回の配備はロールが compose up のあとに入るので、起動では DB を待たない。
+        self.assertIn('pool.open(wait=False)', database)
         entry = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
         self.assertIn("current_setting('pkdb.strict', true)", entry)
         for name in ('refresh_views', 'refresh_move_views'):

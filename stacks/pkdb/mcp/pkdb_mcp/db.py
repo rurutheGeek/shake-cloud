@@ -56,8 +56,9 @@ pool = ConnectionPool(_conninfo(), min_size=1, max_size=4, open=False,
 
 
 def open_pool():
-    pool.open()
-    pool.wait(timeout=15)
+    # 待たずに起動する。初回の配備では、ロール pkdb_mcp とパスワードがコンテナの
+    # 起動（compose up --wait）のあとに入る。つながるまでは /healthz の db が false。
+    pool.open(wait=False)
 
 
 def close_pool():
