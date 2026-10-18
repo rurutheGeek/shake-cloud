@@ -459,10 +459,10 @@ async def batch(source: Source, calls: Annotated[list[BatchCall], Field(min_leng
         for index, call in enumerate(calls):
             if call.tool not in WRITE_TOOLS:
                 raise ToolError(f'{index + 1}件目: {call.tool} は書き込みのツールではありません')
-            result = await mcp.call_tool(call.tool, {'source': source, **call.arguments})
-            if getattr(result, 'is_error', False) or getattr(result, 'isError', False):
-                text = ' '.join(getattr(block, 'text', '') for block in result.content)
-                raise ToolError(f'{index + 1}件目（{call.tool}）: {text}')
+            try:
+                await mcp.call_tool(call.tool, {'source': source, **call.arguments})
+            except ToolError as error:
+                raise ToolError(f'{index + 1}件目（{call.tool}）: {error}') from None
     finally:
         PLAN.reset(token)
     return await _execute(source, plan)
