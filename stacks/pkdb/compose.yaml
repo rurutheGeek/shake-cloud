@@ -77,6 +77,39 @@ services:
       retries: 4
       start_period: 20s
 
+  # AI 向けの MCP サーバ（Streamable HTTP、/mcp）。認可は MCP の仕様どおり OAuth で、
+  # トークンは Authentik が出し、ここで署名と宛先を確かめる。入口（Caddy）は
+  # Forward Auth を付けない（MCP のクライアントはブラウザのログインを持たない）。
+  mcp:
+    build: ./mcp
+    image: shakecloud-pkdb-mcp:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      PKDB_MCP_DB_HOST: db
+      PKDB_MCP_DB_NAME: sleepy_pkdb
+      PKDB_MCP_DB_USER: pkdb_mcp
+      # manage.py が secrets/mcp_password から環境変数で渡す。
+      PKDB_MCP_DB_PASSWORD: ${PKDB_MCP_PASSWORD:?run manage.py up}
+      PKDB_MCP_PUBLIC_URL: ${PKDB_MCP_PUBLIC_URL:?set in .env}
+      PKDB_MCP_ALLOWED_HOST: ${PKDB_MCP_ALLOWED_HOST:?set in .env}
+      PKDB_MCP_ISSUER: ${PKDB_MCP_ISSUER:?set in .env}
+      PKDB_MCP_CLIENT_ID: pkdb-mcp
+    ports:
+      - '127.0.0.1:${PKDB_MCP_PORT:-8332}:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+
 secrets:
   postgres_password:
     file: ./secrets/postgres_password

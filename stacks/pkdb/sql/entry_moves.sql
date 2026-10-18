@@ -81,7 +81,8 @@ BEGIN
            pp, priority, target, effect_chance, description, p_title_group_id, notes
     FROM move_data WHERE move_id = v_id ORDER BY title_group_id DESC LIMIT 1;
   ELSE
-    v_id := entry_move_id(v_name, p_title_group_id);
+    -- 登録そのものなので、pkdb.strict でも足してよい。
+    v_id := entry_move_id(v_name, p_title_group_id, true);
   END IF;
 
   UPDATE move_data
@@ -271,7 +272,8 @@ BEGIN
     SELECT ability_id, name, english_name, description, p_title_group_id
     FROM ability_data WHERE ability_id = v_id ORDER BY title_group_id DESC LIMIT 1;
   ELSE
-    v_id := entry_ability_id(v_name, p_title_group_id);
+    -- 登録そのものなので、pkdb.strict でも足してよい。
+    v_id := entry_ability_id(v_name, p_title_group_id, true);
   END IF;
 
   UPDATE ability_data
