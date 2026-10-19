@@ -1,6 +1,6 @@
 ---
 title: Nextcloud MCPサーバ（管理者向け）
-updated: 2026-09-28
+updated: 2026-10-19
 section: 運用手順
 audience: 管理者
 tags:
