@@ -112,7 +112,7 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 | 症状 | 確認 |
 | --- | --- |
 | `/mcp`が401を返す | OAuthなら`opencode mcp auth nextcloud`で再ログイン。BasicならアプリパスワードがNextcloudで失効していないか |
-| OAuthのログイン後にブラウザが`127.0.0.1:19876`を開けない | opencodeを動かしている機械とブラウザが別。そのURLをopencodeの機械で`curl`する |
+| OAuthのログインが終わらない | opencodeを動かす機械にブラウザーが無い（戻り先は`127.0.0.1:19876`）。その機械はアプリパスワードのBasicで使う（dev-02はこれ） |
 | `initialize`だけ401 | Nextcloud側で資格情報が拒否されている（サーバーログに`initialize: Nextcloudが応答しません`と出ない場合はここ） |
 | MP3タグ編集が失敗する | tag-api（`127.0.0.1:5810`）が起動しているか、`NEXTCLOUD_MCP_TAG_API_TOKEN`が空でないか（[W06](../development/W06-music-tools.md)） |
 | zip展開が途中で失敗する | `NEXTCLOUD_MCP_MAX_EXTRACT_FILES`/`_BYTES`の上限に触れていないか。大物はNextcloud UI（files_zip等）へ誘導する |
