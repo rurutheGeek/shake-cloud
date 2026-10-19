@@ -10,6 +10,16 @@
     nextcloud_mcp_dir: /opt/nextcloud-mcp
     nextcloud_mcp_port: 5811
     nextcloud_mcp_tmp: /var/tmp/nextcloud-mcp
+    # OAuthのクライアント登録と暗号化したNextcloudトークン。消すと全員が再ログイン。
+    nextcloud_mcp_state: /var/lib/nextcloud-mcp
+    nextcloud_mcp_venv: '{{ nextcloud_mcp_dir }}/venv'
+    # Nextcloudに登録するOAuth2クライアント。秘密値はNextcloudがハッシュしか
+    # 持たないので、このホストのこのファイルだけが原本（Gitにも置かない）。
+    nextcloud_mcp_oauth_client: '{{ nextcloud_mcp_dir }}/oauth-client.json'
+    nextcloud_mcp_zone: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml).zone }}"
+    nextcloud_mcp_public_url: 'https://nextcloud-mcp.{{ nextcloud_mcp_zone }}'
+    nextcloud_mcp_nextcloud_url: 'https://nextcloud.{{ nextcloud_mcp_zone }}'
+    nextcloud_mcp_release: 'https://github.com/rurutheGeek/nextcloud-mcp/releases/download/v{{ nextcloud_mcp_version }}'
   tasks:
     - name: Create the MCP deployment directory
       ansible.builtin.file:
@@ -20,11 +30,67 @@
       # 本体は公開リポジトリ（rurutheGeek/nextcloud-mcp）のリリースが正本。
       # バージョンとsha256は group_vars/media.yml が持つ。
       ansible.builtin.get_url:
-        url: 'https://github.com/rurutheGeek/nextcloud-mcp/releases/download/v{{ nextcloud_mcp_version }}/nextcloud_mcp.py'
+        url: '{{ nextcloud_mcp_release }}/nextcloud_mcp.py'
         dest: '{{ nextcloud_mcp_dir }}/nextcloud_mcp.py'
         mode: '0755'
         checksum: 'sha256:{{ nextcloud_mcp_sha256 }}'
       notify: Restart Nextcloud MCP
+    - name: Install the MCP OAuth front end
+      ansible.builtin.get_url:
+        url: '{{ nextcloud_mcp_release }}/nextcloud_mcp_oauth.py'
+        dest: '{{ nextcloud_mcp_dir }}/nextcloud_mcp_oauth.py'
+        mode: '0644'
+        checksum: 'sha256:{{ nextcloud_mcp_oauth_sha256 }}'
+      notify: Restart Nextcloud MCP
+    - name: Fetch the MCP OAuth requirements
+      ansible.builtin.get_url:
+        url: '{{ nextcloud_mcp_release }}/requirements-oauth.txt'
+        dest: '{{ nextcloud_mcp_dir }}/requirements-oauth.txt'
+        mode: '0644'
+        checksum: 'sha256:{{ nextcloud_mcp_requirements_sha256 }}'
+      register: nextcloud_mcp_requirements
+    - name: Install the Python venv package
+      ansible.builtin.apt:
+        name: python3-venv
+        state: present
+    - name: Create the MCP venv
+      # システムのPythonへは入れない（pipモジュールはホスト側にpackagingを要るので使わない）。
+      ansible.builtin.command:
+        argv: [/usr/bin/python3, -m, venv, '{{ nextcloud_mcp_venv }}']
+        creates: '{{ nextcloud_mcp_venv }}/bin/python'
+      register: nextcloud_mcp_venv_created
+    - name: Install the MCP OAuth packages into the venv
+      # 版はリリースのrequirementsが固定する。変わったときだけ入れ直す。
+      ansible.builtin.command:
+        argv: ['{{ nextcloud_mcp_venv }}/bin/pip', install, --quiet, --disable-pip-version-check,
+               -r, '{{ nextcloud_mcp_dir }}/requirements-oauth.txt']
+      when: nextcloud_mcp_venv_created is changed or nextcloud_mcp_requirements is changed
+      notify: Restart Nextcloud MCP
+    - name: Create the MCP OAuth state directory
+      ansible.builtin.file:
+        path: '{{ nextcloud_mcp_state }}'
+        state: directory
+        mode: '0700'
+    - name: Copy the OAuth client helper
+      ansible.builtin.copy:
+        src: '{{ source_dir }}/nextcloud-mcp/oauth_client.py'
+        dest: '{{ nextcloud_mcp_dir }}/oauth_client.py'
+        mode: '0755'
+    - name: Register the MCP as a Nextcloud OAuth2 client
+      # 冪等。登録が無い・転送先が違う・秘密値のファイルが無いときだけ作り直す。
+      ansible.builtin.command:
+        argv: ['{{ nextcloud_mcp_dir }}/oauth_client.py', nextcloud-mcp,
+               '{{ nextcloud_mcp_public_url }}/auth/callback', '{{ nextcloud_mcp_oauth_client }}']
+      register: nextcloud_mcp_oauth_registration
+      changed_when: "'CHANGED' in nextcloud_mcp_oauth_registration.stdout"
+      when: not ansible_check_mode
+      notify: Restart Nextcloud MCP
+    - name: Read the MCP OAuth client
+      ansible.builtin.slurp:
+        src: '{{ nextcloud_mcp_oauth_client }}'
+      register: nextcloud_mcp_oauth_client_file
+      when: not ansible_check_mode
+      no_log: true
     - name: Create the MCP temporary directory
       # zip/tar の作業領域。GB級になりうるので tmpfs ではなくディスクに置く。
       ansible.builtin.file:
@@ -52,8 +118,16 @@
           NEXTCLOUD_MCP_TAG_API_URL=http://127.0.0.1:5810
           NEXTCLOUD_MCP_TAG_API_TOKEN={{ (nextcloud_mcp_tag_secrets.stdout | from_json).TAG_API_TOKEN }}
           NEXTCLOUD_MCP_TMP={{ nextcloud_mcp_tmp }}
+          NEXTCLOUD_MCP_AUTH={{ nextcloud_mcp_auth }}
+          NEXTCLOUD_MCP_PUBLIC_URL={{ nextcloud_mcp_public_url }}
+          NEXTCLOUD_MCP_NEXTCLOUD_PUBLIC_URL={{ nextcloud_mcp_nextcloud_url }}
+          NEXTCLOUD_MCP_OAUTH_CLIENT_ID={{ (nextcloud_mcp_oauth_client_file.content | b64decode | from_json).clientId }}
+          NEXTCLOUD_MCP_OAUTH_CLIENT_SECRET={{ (nextcloud_mcp_oauth_client_file.content | b64decode | from_json).clientSecret }}
+          NEXTCLOUD_MCP_STATE_DIR={{ nextcloud_mcp_state }}
         dest: '{{ nextcloud_mcp_dir }}/nextcloud-mcp.env'
         mode: '0400'
+      # OAuthクライアントは --check では登録しないので、環境も書かない。
+      when: not ansible_check_mode
       no_log: true
       notify: Restart Nextcloud MCP
     - name: Install the MCP unit

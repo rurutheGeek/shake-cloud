@@ -1,6 +1,6 @@
 ---
 title: Nextcloud MCPサーバ（管理者向け）
-updated: 2026-09-28
+updated: 2026-10-19
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Nextcloud MCPサーバ（管理者向け）
 
-> **更新日** 2026-09-28 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-19 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-状態: **media-01へ配備済み・稼働中（v1.1.0）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](../development/A06-nextcloud-mcp.md)が正本）。
+状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](../development/A06-nextcloud-mcp.md)が正本）。
 
 AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍・
 カレンダー予定の一覧/追加を渡すMCPサーバーです。media-01に常設し、専用ユーザーや
@@ -23,7 +23,10 @@ AIエージェント（opencode等）にNextcloudのファイル操作・MP3タ�
 
 | 対象 | 場所 |
 | --- | --- |
-| 本体 | 公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp)（`group_vars/media.yml` の `nextcloud_mcp_version`/`_sha256` で固定し、プレイがGitHub Releaseから取得） |
+| 本体 | 公開リポジトリ [`rurutheGeek/nextcloud-mcp`](https://github.com/rurutheGeek/nextcloud-mcp)（`group_vars/media.yml` の `nextcloud_mcp_version` と各 `_sha256` で固定し、プレイがGitHub Releaseから `nextcloud_mcp.py`・`nextcloud_mcp_oauth.py`・`requirements-oauth.txt` を取得。依存は `/opt/nextcloud-mcp/venv`） |
+| 認証方式 | `group_vars/media.yml` の `nextcloud_mcp_auth`（`both`） |
+| NextcloudのOAuth2クライアント | `stacks/nextcloud-mcp/oauth_client.py`（プレイが冪等に登録。秘密値はmedia-01の `/opt/nextcloud-mcp/oauth-client.json` だけ） |
+| OAuthの状態 | media-01の `/var/lib/nextcloud-mcp`（クライアント登録と暗号化したNextcloudトークン） |
 | systemdユニット | `stacks/nextcloud-mcp/nextcloud-mcp.service.j2` |
 | 配備 | `platform/ansible/media-nextcloud-mcp.yml` |
 | DNS/Caddy | `platform/terraform/dns.yaml`（`nextcloud-mcp`レコード）・`tls_proxy`ロール |
@@ -44,24 +47,27 @@ ansible-playbook -i <inventory> platform/ansible/media-nextcloud-mcp.yml
 ansible-playbook -i <inventory> media-tls.yml   # media-01のtls_proxyロールを再適用
 ```
 
-`/etc/systemd/system/nextcloud-mcp.service`は`ProtectSystem=strict`＋
-`ReadWritePaths=/var/tmp/nextcloud-mcp`だけ書き込み可能です。展開する
+`/etc/systemd/system/nextcloud-mcp.service`は`ProtectSystem=strict`で、
+`ReadWritePaths`の`/var/tmp/nextcloud-mcp`と`/var/lib/nextcloud-mcp`だけ書き込み可能です。展開する
 アーカイブが大きい場合はこのディレクトリのディスク空き容量に注意してください
 （tmpfsではなく実ディスク）。
 
 ## 資格情報
 
-- **サーバーは利用者の資格情報を保存しません。** 呼び出し元が送った
-  `Authorization`ヘッダーをNextcloudへそのまま転送するだけです。
+- **OAuth（推奨）**: MCPクライアントはMCP仕様のOAuth 2.1でログインします。
+  サーバーがNextcloud標準のOAuth2アプリへ利用者を送り、受け取った利用者の
+  Nextcloudトークンを`/var/lib/nextcloud-mcp`へ暗号化して保存します。以後の
+  操作はそのトークンで行うので、ACLは呼び出し元に従います。暗号鍵はOAuth2
+  クライアントの秘密値から作るので、`oauth-client.json`を消して登録し直すと
+  全員が再ログインになります。
+- **Basic（移行中のため残す）**: 呼び出し元が送った`Authorization`ヘッダーを
+  Nextcloudへそのまま転送し、何も保存しません。
 - `.env`（`/opt/nextcloud-mcp/nextcloud-mcp.env`、モード0400）に入るのは
   tag-apiの共有トークン（`NEXTCLOUD_MCP_TAG_API_TOKEN`）だけです。値は
   `platform/sops/music-tags.sops.yaml`が正本（[W06](../development/W06-music-tools.md)と共用、
   ローテーションは両方に影響します）。
-- **未確認: このNextcloudはOIDCログイン（`user_oidc`）です。** 利用者が
-  Settings → Securityでアプリパスワードを作れるか、WebDAV/OCSでBasic認証が
-  通るかを実機で確認してください。通らない場合はOIDCアクセストークンを
-  Bearerで転送する方式へ切り替えます（`Authorization`を転送するだけの設計
-  なので変更は小さい想定です）。
+- OIDCログイン（`user_oidc`）のNextcloudでも、アプリパスワードのBasicと
+  OAuth2アプリのトークンの両方が通ることを実機で確認済みです。
 
 ## 監視・ヘルスチェック
 
@@ -105,7 +111,8 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 
 | 症状 | 確認 |
 | --- | --- |
-| `/mcp`が401を返す | `Authorization`ヘッダーが付いているか。アプリパスワードが失効していないか |
+| `/mcp`が401を返す | OAuthなら`opencode mcp auth nextcloud`で再ログイン。BasicならアプリパスワードがNextcloudで失効していないか |
+| OAuthのログイン後にブラウザが`127.0.0.1:19876`を開けない | opencodeを動かしている機械とブラウザが別。そのURLをopencodeの機械で`curl`する |
 | `initialize`だけ401 | Nextcloud側で資格情報が拒否されている（サーバーログに`initialize: Nextcloudが応答しません`と出ない場合はここ） |
 | MP3タグ編集が失敗する | tag-api（`127.0.0.1:5810`）が起動しているか、`NEXTCLOUD_MCP_TAG_API_TOKEN`が空でないか（[W06](../development/W06-music-tools.md)） |
 | zip展開が途中で失敗する | `NEXTCLOUD_MCP_MAX_EXTRACT_FILES`/`_BYTES`の上限に触れていないか。大物はNextcloud UI（files_zip等）へ誘導する |
