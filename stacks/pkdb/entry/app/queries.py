@@ -111,7 +111,7 @@ def dashboard_missing():
 
 def recent_log(limit=12):
     return db.query("""
-        SELECT id, created_at, actor, action, detail
+        SELECT id, created_at, actor, db_role, source, action, detail
         FROM entry_log ORDER BY id DESC LIMIT %(limit)s
     """, {'limit': limit})
 
@@ -563,7 +563,7 @@ def history(action, actor, limit, offset):
     where = "(%(action)s = '' OR action = %(action)s) AND (%(actor)s = '' OR actor = %(actor)s)"
     total = db.query_one(f'SELECT count(*) AS count FROM entry_log WHERE {where}', params)['count']
     rows = db.query(f"""
-        SELECT id, created_at, actor, action, detail
+        SELECT id, created_at, actor, db_role, source, action, detail
         FROM entry_log WHERE {where}
         ORDER BY id DESC LIMIT %(limit)s OFFSET %(offset)s
     """, params)

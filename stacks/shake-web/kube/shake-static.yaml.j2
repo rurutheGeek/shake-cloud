@@ -1,0 +1,28 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（shake-static.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# shake-web の html/（shake の静的フロントと apex のランディング）。入口の nginx から 127.0.0.1:18081 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shake-static
+  labels:
+    app: shake-static
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shake-static
+  template:
+    metadata:
+      labels:
+        app: shake-static
+    spec:
+      containers:
+        - name: shake-static
+          image: '{{ shake_web_shake_static_image }}'
+          ports:
+            - containerPort: 8080
+              hostIP: 127.0.0.1
+              hostPort: 18081
+          securityContext:
+            allowPrivilegeEscalation: false

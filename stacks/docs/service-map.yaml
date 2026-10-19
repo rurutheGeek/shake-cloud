@@ -28,6 +28,15 @@ vms:
     docs: [operations/cloud.md]
     services:
       - {name: Garage, description: S3互換オブジェクトストア, docs: [operations/garage.md]}
+  - name: shakeserver
+    kind: base
+    role: 公開サイト（Raspberry Pi 5・DMZ）
+    address: 192.168.30.12
+    docs: [operations/web.md]
+    services:
+      - {name: Shake-Web, description: Issues・Shaketter・ToBa・ikura と Wiki, docs: [operations/web.md]}
+      - {name: pkhack, description: ポケモンクイズ, docs: [operations/web.md]}
+      - {name: nginx, description: 4サイトの入口。CloudFlare Origin 証明書で TLS 終端, docs: [operations/web.md]}
   - name: tarakoserver
     kind: base
     role: 監視（Raspberry Pi 4）
@@ -49,15 +58,6 @@ vms:
     address: 192.168.10.101
     docs: [operations/nextcloud.md, operations/bulk-storage.md]
     services: []
-  - name: web-01
-    kind: cloud
-    role: 公開サイト
-    address: 192.168.10.102
-    docs: [operations/web.md]
-    services:
-      - {name: Shake-Web, description: Issues・Shaketter・ToBa・ikura と Wiki, docs: [operations/web.md]}
-      - {name: pkhack, description: ポケモンクイズ, docs: [operations/web.md]}
-      - {name: nginx, description: 4サイトの入口。CloudFlare Origin 証明書で TLS 終端, docs: [operations/web.md]}
   - name: game-01
     kind: cloud
     role: ゲーム（GPUパススルー）
@@ -123,6 +123,7 @@ record_docs:
   pkdb: [operations/pkdb.md]
   adminer: [operations/pkdb.md]
   pkdb-entry: [operations/pkdb.md]
+  pkdb-mcp: [operations/pkdb.md]
   ha: [services/home-assistant.md]
   docs: [contributing-docs.md]
   portal: [operations/bot-portal.md]

@@ -33,6 +33,18 @@ CREATE TABLE IF NOT EXISTS pokemondb.entry_log (
 COMMENT ON TABLE pokemondb.entry_log IS '登録画面（pkdb-entry）からの登録の記録';
 CREATE INDEX IF NOT EXISTS entry_log_created_at_idx ON pokemondb.entry_log (created_at DESC);
 
+-- actor は呼ぶ側が名乗る名前。db_role は接続したロールで、SECURITY DEFINER の中でも
+-- session_user は呼んだ側のまま。source は呼ぶ側が同じトランザクションで
+-- set_config('pkdb.source', '<出典>', true) した値。
+-- 既定値は列を足したあとに付ける（足すときに付けると既存の行が配備したロールで埋まる）。
+ALTER TABLE pokemondb.entry_log ADD COLUMN IF NOT EXISTS db_role text;
+ALTER TABLE pokemondb.entry_log ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE pokemondb.entry_log ALTER COLUMN db_role SET DEFAULT session_user;
+ALTER TABLE pokemondb.entry_log
+  ALTER COLUMN source SET DEFAULT nullif(current_setting('pkdb.source', true), '');
+COMMENT ON COLUMN pokemondb.entry_log.db_role IS '登録に使った接続のロール（session_user）';
+COMMENT ON COLUMN pokemondb.entry_log.source IS '値の出典（呼ぶ側が pkdb.source に入れたもの）';
+
 -- 引数を変えた関数は旧いものを落としてから作る（残すと別関数として残ってしまう）。
 DO $$
 DECLARE
@@ -43,17 +55,48 @@ BEGIN
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'pokemondb'
-      AND p.proname IN ('register_pokemon', 'update_pokemon')
+      AND p.proname IN ('register_pokemon', 'update_pokemon', 'entry_ability_id', 'entry_move_id')
   LOOP
     EXECUTE 'DROP FUNCTION ' || v_signature;
   END LOOP;
 END
 $$;
 
+-- 呼ぶ側がトランザクションの中で決める切り替え（set_config(..., true)）。
+--   pkdb.strict = on        : 名前で指定した特性・わざ・進化方法が、その作品に無ければ
+--                             error（直近の作品から写したり、新しく足したりしない）。
+--                             MCP サーバ（AI）が使う。根拠の無い流用と打ち間違いを防ぐ。
+--   pkdb.defer_refresh = on : マテリアライズドビューを作り直さず、作り直しが要ることだけ
+--                             pkdb.refresh_pending に残す。まとめて登録したあと、呼ぶ側が
+--                             set_config で off に戻して refresh_views() を1回呼ぶ。
+CREATE OR REPLACE FUNCTION pokemondb.entry_strict() RETURNS boolean
+LANGUAGE sql STABLE SET search_path = pokemondb, pg_temp AS $fn$
+  SELECT coalesce(current_setting('pkdb.strict', true), '') = 'on'
+$fn$;
+
+CREATE OR REPLACE FUNCTION pokemondb.entry_deferred(p_kind text) RETURNS boolean
+LANGUAGE plpgsql SET search_path = pokemondb, pg_temp AS $fn$
+DECLARE
+  v_pending text := coalesce(current_setting('pkdb.refresh_pending', true), '');
+BEGIN
+  IF coalesce(current_setting('pkdb.defer_refresh', true), '') <> 'on' THEN
+    RETURN false;
+  END IF;
+  -- all は moves を含む。強い方を残す。
+  IF v_pending <> 'all' THEN
+    PERFORM set_config('pkdb.refresh_pending', p_kind, true);
+  END IF;
+  RETURN true;
+END
+$fn$;
+
 -- マテリアライズドビューを作り直す。元の表を直したら必ず依存の順に全部。
 CREATE OR REPLACE FUNCTION pokemondb.refresh_views() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pokemondb, pg_temp AS $fn$
 BEGIN
+  IF entry_deferred('all') THEN
+    RETURN;
+  END IF;
   REFRESH MATERIALIZED VIEW mv_latest_pokemon_status;
   REFRESH MATERIALIZED VIEW mv_quiz_status;
   REFRESH MATERIALIZED VIEW mv_bsquiz_status;
@@ -67,6 +110,9 @@ $fn$;
 CREATE OR REPLACE FUNCTION pokemondb.refresh_move_views() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pokemondb, pg_temp AS $fn$
 BEGIN
+  IF entry_deferred('moves') THEN
+    RETURN;
+  END IF;
   REFRESH MATERIALIZED VIEW mv_shiritori_words;
 END
 $fn$;
@@ -87,7 +133,9 @@ $fn$;
 
 -- 特性名から、その作品での特性IDを返す。その作品の行が無ければ直近の作品から写し、
 -- どの作品にも無い名前なら新しい特性として足す。IDは裏で採る。
-CREATE OR REPLACE FUNCTION pokemondb.entry_ability_id(p_name text, p_title_group_id text)
+-- p_create が false（省略時は pkdb.strict が on）なら、写す・足す代わりに error。
+CREATE OR REPLACE FUNCTION pokemondb.entry_ability_id(p_name text, p_title_group_id text,
+                                                      p_create boolean DEFAULT NULL)
 RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pokemondb, pg_temp AS $fn$
 DECLARE
@@ -101,6 +149,10 @@ BEGIN
   WHERE name = v_name AND title_group_id = p_title_group_id;
   IF v_id IS NOT NULL THEN
     RETURN v_id;
+  END IF;
+  IF NOT coalesce(p_create, NOT entry_strict()) THEN
+    RAISE EXCEPTION '特性「%」は作品 % にありません。先に register_ability で登録してください',
+      v_name, p_title_group_id USING ERRCODE = '22023';
   END IF;
   SELECT ability_id INTO v_id FROM ability_data
   WHERE name = v_name ORDER BY title_group_id DESC LIMIT 1;
@@ -118,7 +170,9 @@ $fn$;
 
 -- わざ名から、その作品でのわざIDを返す。その作品の行が無ければ直近の作品の内容を写し、
 -- どの作品にも無い名前なら新しいわざとして足す。IDは裏で採る。
-CREATE OR REPLACE FUNCTION pokemondb.entry_move_id(p_name text, p_title_group_id text)
+-- p_create が false（省略時は pkdb.strict が on）なら、写す・足す代わりに error。
+CREATE OR REPLACE FUNCTION pokemondb.entry_move_id(p_name text, p_title_group_id text,
+                                                   p_create boolean DEFAULT NULL)
 RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pokemondb, pg_temp AS $fn$
 DECLARE
@@ -132,6 +186,10 @@ BEGIN
   WHERE name = v_name AND title_group_id = p_title_group_id;
   IF v_id IS NOT NULL THEN
     RETURN v_id;
+  END IF;
+  IF NOT coalesce(p_create, NOT entry_strict()) THEN
+    RAISE EXCEPTION 'わざ「%」は作品 % にありません。先に register_move で登録してください',
+      v_name, p_title_group_id USING ERRCODE = '22023';
   END IF;
   SELECT move_id INTO v_id FROM move_data
   WHERE name = v_name ORDER BY title_group_id DESC LIMIT 1;
@@ -790,8 +848,8 @@ $fn$;
 REVOKE ALL ON FUNCTION pokemondb.refresh_views() FROM PUBLIC;
 REVOKE ALL ON FUNCTION pokemondb.refresh_move_views() FROM PUBLIC;
 REVOKE ALL ON FUNCTION pokemondb.entry_type_id(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION pokemondb.entry_ability_id(text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION pokemondb.entry_move_id(text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION pokemondb.entry_ability_id(text, text, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION pokemondb.entry_move_id(text, text, boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION pokemondb.entry_method_id(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION pokemondb.entry_lang_snapshot(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION pokemondb.entry_alias_snapshot(text, text) FROM PUBLIC;

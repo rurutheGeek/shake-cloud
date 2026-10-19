@@ -99,9 +99,10 @@
   loop: '{{ pi_base_disabled_services }}'
   failed_when: false
 
+# 一覧に書いたものは引退が決まっている。動いていても止めて消す。
 - name: Remove retired containers (their volumes stay)
   ansible.builtin.command:
-    argv: [docker, rm, '{{ item }}']
+    argv: [docker, rm, --force, '{{ item }}']
   loop: '{{ pi_base_retired_containers }}'
   register: pi_base_rm
   changed_when: pi_base_rm.rc == 0
@@ -189,3 +190,24 @@
     name: smartmontools
     state: restarted
   when: pi_base_smart_drivedb is changed
+
+# 家の中の区画へ出さない（DMZ の機械）。pi_base_lan_guard が無ければ何もしない。
+- name: Install the LAN guard
+  ansible.builtin.template:
+    src: homeguard.nft.j2
+    dest: /etc/nftables.conf
+    mode: '0644'
+    validate: nft -c -f %s
+  when: pi_base_lan_guard is defined
+  register: pi_base_lan_guard_file
+
+- name: Load the LAN guard
+  ansible.builtin.command:
+    argv: [nft, -f, /etc/nftables.conf]
+  when: pi_base_lan_guard is defined and pi_base_lan_guard_file is changed
+
+- name: Load the LAN guard at boot
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true
+  when: pi_base_lan_guard is defined

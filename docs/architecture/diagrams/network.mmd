@@ -13,11 +13,11 @@ flowchart TB
   end
 
   subgraph server["サーバー 192.168.10.0/24（LAN1・LAN2・Wi-Fi porygon）"]
-    k11["K11（Proxmox）<br/>core-01・cloud-01・apps-01・media-01<br/>web-01・game-01・k8s・dev"]
+    k11["K11（Proxmox）<br/>core-01・cloud-01・apps-01・media-01<br/>game-01・k8s・dev"]
     taraco["tarakoserver（Pi 4）<br/>監視・ログ"]
     netbox["NetBox（core-01）<br/>予約の台帳"]
   end
-  dmz["DMZ 192.168.30.0/24（LAN4）<br/>shakeserver（Pi 5）"]
+  dmz["DMZ 192.168.30.0/24（LAN4）<br/>shakeserver（Pi 5）・公開サイト"]
   personal["個人端末 192.168.40.0/24<br/>Wi-Fi ditto・LAN3"]
   iot["ネット専用 192.168.50.0/24<br/>Wi-Fi jumpluff"]
 
@@ -33,5 +33,5 @@ flowchart TB
   ts --> server
   ts --> personal
   internet --> relay
-  relay -. "Tailscale" .-> k11
+  relay -. "Tailscale（80/443）" .-> dmz
   dnsmasq -. "syslog" .-> taraco

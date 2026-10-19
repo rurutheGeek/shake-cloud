@@ -231,6 +231,13 @@ records:
     upstream: 127.0.0.1:8331
     description: ポケモン登録（ポケモン系PostgreSQLへ新しいポケモンを足す画面。Forward Auth）
     auth: true
+  # MCP のクライアントはブラウザのログインを持たないので Forward Auth は付けない。
+  # 認可は OAuth（Authentik のトークンを pkdb-mcp 自身が確かめる）。
+  pkdb-mcp:
+    host: apps-01
+    address: 192.168.10.105
+    upstream: 127.0.0.1:8332
+    description: ポケモンDBのMCPサーバ（AI がデータを調べ・足す。OAuth・admins のみ）
   cups:
     host: apps-01
     address: 192.168.10.105

@@ -80,10 +80,6 @@ scrape_configs:
         target_label: host
         replacement: 'apps-01'
       - source_labels: [__address__]
-        regex: '192\.168\.10\.102:9100'
-        target_label: host
-        replacement: 'web-01'
-      - source_labels: [__address__]
         regex: '192\.168\.30\.12:9100'
         target_label: host
         replacement: 'Pi 5（shakeserver）'

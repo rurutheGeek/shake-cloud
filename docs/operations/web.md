@@ -1,6 +1,6 @@
 ---
 title: 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
-updated: 2026-10-05
+updated: 2026-10-16
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,45 +10,44 @@ tags:
 
 # 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-16 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **web-01 へ移行・公開切替済み（2026-10-05）。** 旧 `shakeserver`（Raspberry Pi 5）で動いていた公開サイトを、クラウドVM `web-01`（192.168.10.102、VMID 5002）へ移し、negitoroserver の中継先も web-01 の tailnet IP（`100.75.249.112`）へ切り替えた（[shake-infra#26](https://github.com/rurutheGeek/shake-infra/pull/26)）。旧ホストの Web コンテナ（`web`・`quiz_app`・`pkhack_app`・`alexa_skill`）は停止し、`restart=no` にしてある。Minecraft（25565）と旧DB（`shake_postgres`）は残した。旧ホストの配備は shake-infra の `web` ロールが正本だったが、移行後はこのリポジトリ（`stacks/shake-web/`）が正本。
+**状態**: **DMZ の shakeserver（Raspberry Pi 5、`192.168.30.12`）で公開中（2026-10-16〜）。** 中継（negitoroserver）は Pi 5 の tailnet IP（`100.116.167.59`）を指す。2026-10-05〜16 に使った web-01（クラウドVM）は 2026-10-16 に消した。
 
 ## 構成
 
 | サイト | ホスト | 中身 |
 | --- | --- | --- |
-| `shake.ruruthegeek.dpdns.org` | `web-01` | Shake ブランド（Issues・Shaketter・ToBa・ikura）＋ Wiki。Next.js（`quiz_app`＝コンテナ名 `bsquiz`）と静的 HTML |
-| `pkhack.ruruthegeek.dpdns.org` | `web-01` | ポケモンクイズ（Next.js。コンテナ名 `pkhack_app`）と静的ハブ |
-| `ayahuya.ruruthegeek.dpdns.org` | `web-01` | アヤフヤハッカーズ（純静的） |
-| `ruruthegeek.dpdns.org` | `web-01` | ランディング（静的）と旧URLのリダイレクト |
-| Alexa スキル | `web-01` | `alexa_skill`（`127.0.0.1:8010`。公開は nginx 経由の `/alexa/`） |
+| `shake.ruruthegeek.dpdns.org` | `shakeserver`（Pi 5、DMZ） | Shake ブランド（Issues・Shaketter・ToBa・ikura）＋ Wiki。Next.js（`quiz_app`＝コンテナ名 `bsquiz`）と静的 HTML |
+| `pkhack.ruruthegeek.dpdns.org` | `shakeserver` | ポケモンクイズ（Next.js。コンテナ名 `pkhack_app`）と静的ハブ |
+| `ayahuya.ruruthegeek.dpdns.org` | `shakeserver` | アヤフヤハッカーズ（純静的） |
+| `ruruthegeek.dpdns.org` | `shakeserver` | ランディング（静的）と旧URLのリダイレクト |
+| Alexa スキル | `shakeserver` | `alexa_skill`（`127.0.0.1:8010`。公開は nginx 経由の `/alexa/`） |
 
 | 項目 | 値 |
 | --- | --- |
-| 配備先 | web-01（`192.168.10.102`）。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（データディスク） |
-| イメージ | nginx・`shake-web-quiz:local`・`shake-web-pkhack:local`・`shake-web-alexa:local`（アプリはホストでビルドするため digest 固定は無い） |
-| DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
-| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **web-01 の tailnet IP `100.75.249.112`**。web-01 は tailnet 端末（`--accept-dns=false`、ルートは受けない）。プロキシには LAN のサブネットルートを持たせない |
+| 配備先 | shakeserver（Pi 5、DMZ `192.168.30.12`、`outpost.ini` の `web`）。`.venv/bin/ansible-playbook -i platform/ansible/outpost.ini --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml`。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（NVMe） |
+| イメージ | 入口の nginx（digest で固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web`・`pkhack`・`pokebs-alexaskill`・`ayahuya`・`shake-web-static`・`pkhack-static`（タグ `main` を追う。自作なので固定しない） |
+| DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
+| 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
-| 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 3本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵） |
-| コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、`platform/terraform/services/web/` |
-| 監視 | node_exporter（`192.168.10.102:9100`）。Prometheus の `node-targets.yml` に登録済み |
+| 秘密値 | `platform/sops/shake-web.sops.yaml`（CloudFlare Origin 証明鍵・DB パスワード・セッション鍵・GHCR 読み取り用のマシンユーザーのトークン） |
+| コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、守りは `platform/ansible/host_vars/shakeserver.yml`（`pi_base_lan_guard`） |
+| 監視 | node_exporter（`192.168.30.12:9100`）。Prometheus の `node-targets.yml` に登録済み。外からは negitoroserver の public-monitor |
 
 ## 配備
 
+Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に Docker Compose から移した）。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Ansible が描画し、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。Pod の一覧とポートは `stacks/shake-web/README.md`。
+
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-     -i platform/ansible/inventory.netbox.yml platform/ansible/shake-web.yml'
+.venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
+  --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 ```
 
-`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（4リポジトリを `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `up`（`docker compose up -d --build`）。
-
-- 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
-- アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
-- **web-01 が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh debian@192.168.10.102 'sudo systemctl start shake-web-update'`。
-- ビルドに失敗したら `ssh debian@192.168.10.102 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
+- **アプリと静的物はホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** 配備先は GitHub へ GHCR からの取得（443）だけをする。GHCR は非公開で、読み取り専用のマシンユーザー（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `podman login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。
+- **更新は `podman-auto-update.timer`（5 分ごと）。** 新しいイメージを取って入れ替え、起動に失敗したら元のイメージに戻る。戻すときは `shake_web_*_image` をコミット SHA のタグにして Ansible を流す。即時に更新したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman auto-update'`。
+- 入口の nginx（`front`）だけはホストのネットワークで動かす。中継（`100.92.253.28`）が付ける PROXY protocol を信じる条件（送信元がその IP であること）を保つため。Pod のネットワークに入れると送信元が書き換わる（2026-10-17 に確認）。各 Pod へは `127.0.0.1` の固定ポートで転送する。
+- 状態を見るときは `sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman ps` と `systemctl --user status <pod>.service`（同じ環境で）。
 
 ## 公開の切り替え（2026-10-05 実施済み）
 
@@ -60,11 +59,11 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 ## 既知の不具合
 
 - `pkhack` の practice 3本（`langquiz/practice`・`bsquiz/practice`・`abilityquiz/practice`）は **旧ホストでも 500**。クエリが存在しない `POKEMON_NAMES` を参照する、`mv_quiz_status` に無い種族値・特性の列を読む、が原因。移行とは無関係の既存不具合。
-- 2026-10-05 の移行で pkhack の SQL を小文字スキーマへ合わせた（[pkhack#7](https://github.com/rurutheGeek/pkhack/pull/7)、merge 済み）。web-01 は main から fetch して動く。
+- 2026-10-05 の移行で pkhack の SQL を小文字スキーマへ合わせた（[pkhack#7](https://github.com/rurutheGeek/pkhack/pull/7)、merge 済み）。配備先は main から fetch して動く。
 
 ## 守り（外部公開の前提・2026-10-05 に強化）
 
-- セキュリティグループは既定で拒否。許可は LAN から 22、入口（core-01）と公開中継（negitoroserver）から 80/443、tarakoserver（監視）から 9100 だけ。LAN の dev-02 から 80/443/8443/3000/8010/9100 が閉じていることを実測した。
+- 入ってくる通信は、Flint 3 の DMZ（家の中から DMZ へは配備の SSH と監視だけ）と Tailscale の ACL（`tag:relay` → `tag:dmz:80,443`）が絞る。
 - SSH は鍵のみ（`PasswordAuthentication no`・`KbdInteractiveAuthentication no`・root は `without-password`）。`unattended-upgrades` は有効。
 - nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
 - Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
@@ -73,24 +72,19 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 
 ### 外向き（egress）と自宅LANの分離
 
-公開サイトが突破されても自宅LANへ横展開できないように、SG の外向きも既定拒否にしている。許可はコード（`platform/terraform/services/web/main.tf`）が正本。
+Flint 3 の DMZ が家の中への転送を止め（pkdb だけ通す。`dmz-db-clients`）、Pi 5 の `inet homeguard`（`pi_base` の `pi_base_lan_guard`）が家の中の区画（`192.168.10/30/40/50.0/24`）への送信を落とす。通すのは DNS（DMZ のゲートウェイと AdGuard Home）と pkdb だけ。pkdb の側（apps-01 のセキュリティグループ `pkdb_dmz`）も Pi 5 だけを受ける。
 
-- 許可: DNS（53 tcp/udp → `192.168.10.1`）、NTP（123/udp → 全）、pkdb（5432/tcp → `192.168.10.105`）、HTTP/HTTPS（80/443 → 全）。
-- 実測（2026-10-05）: PVE の `8006`・SSH `22`、Garage `3900`、NetBox `8000`、他VMへ届かない。pkdb とインターネット 443 は OK。
-- GitHub への git は 22 ではなく `ssh.github.com:443` を使う（`manage.py` が指定）。
-- 新しい SG は EC2 と同じで外向きが全許可。既定の「全許可」2本（`0.0.0.0/0`・`::/0` の all）は作成後に import して削除してある。**SG を作り直したときは既定が戻る**ので、`shake_web` ロールが配備のたびに確認して revoke する。
-- IPv6 の外向きは開けない（LAN 側の IPv6 へ届かせないため）。
-- ゲスト側にも nftables の一段（`/etc/nftables.conf` の `inet homeguard`）を置き、**LAN 宛の 80/443 を output と forward の両方で drop** する。SG は宛先 IP の除外を書けないため、ルータの LuCI・入口 core-01 の Caddy・AP の管理画面（いずれも LAN の 80/443）へアプリから届くのをここで塞ぐ。実測（2026-10-05）: `192.168.10.1:80/443`・`192.168.10.200:443`・`192.168.10.2:80` は web-01 から閉じ、pkdb・DNS・インターネット 443 は開いている。policy は accept のままで、Docker の転送や他の通信には触らない。
+- 実測（2026-10-16）: pkdb とインターネット 443 は届く。`192.168.10.105:22`・`192.168.10.10:8006`・`192.168.10.1:80`・`192.168.40.97:3389` は届かない。
+- GitHub へは GHCR からのイメージの取得（443）だけ。git は使わない。
 
 ### プロキシ（negitoroserver）側
 
-公開の中継は、旧ホストと同じく **tailnet の端末間**で行う。web-01 は tailnet に入り（`100.75.249.112`）、プロキシはその tailnet IP を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
+公開の中継は **tailnet の端末間**で行う。プロキシは shakeserver の tailnet IP（`100.116.167.59`）を直接指す。プロキシには LAN のサブネットルート（`accept-routes`）を持たせない。これで、プロキシが突破されても届くのは tailnet 上だけで、LAN 全体へのルートは持たない。
 
-残りは Tailscale の ACL で `negitoroserver` から届く先を `web-01` の 80/443 だけに絞るのが望ましい（管理コンソールで設定。いまは tailnet 全体が相互到達できる）。
+Tailscale の ACL（`platform/tailscale/acl.json`）で、negitoroserver（`tag:relay`）から届く先は `tag:dmz`（Pi 5）の 80/443 だけ。
 
 ### プロキシ（negitoroserver）の侵害に備えて（提案）
 
-- Tailscale の ACL で negitoroserver の宛先を web-01 の 80/443 だけに絞る（管理コンソールで設定）。
 - 中継は DERP リレー（443）でも成立する。直通 UDP を開けていないため、状況により中継経由になる（機能は同じ）。
 
 ## 外からの監視（negitoroserver）
@@ -104,8 +98,6 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 ## 検証
 
 ```bash
-tools/tf services/web output
-ssh debian@192.168.10.102 'systemctl is-active web-data-mount.service docker; findmnt /srv'
-ssh debian@192.168.10.102 'sudo docker ps; curl -sk --resolve pkhack.ruruthegeek.dpdns.org:8443:127.0.0.1 \
+ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo docker ps; curl -sk --resolve pkhack.ruruthegeek.dpdns.org:8443:127.0.0.1 \
   "https://pkhack.ruruthegeek.dpdns.org:8443/quiz/api/langquiz/names?lang=JPN"'
 ```

@@ -185,6 +185,50 @@ window.SERVICE_MAP = {
    ]
   },
   {
+   "address": "192.168.30.12",
+   "docs": [
+    {
+     "path": "operations/web/",
+     "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+    }
+   ],
+   "kind": "base",
+   "name": "shakeserver",
+   "role": "公開サイト（Raspberry Pi 5・DMZ）",
+   "services": [
+    {
+     "description": "Issues・Shaketter・ToBa・ikura と Wiki",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "Shake-Web"
+    },
+    {
+     "description": "ポケモンクイズ",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "pkhack"
+    },
+    {
+     "description": "4サイトの入口。CloudFlare Origin 証明書で TLS 終端",
+     "docs": [
+      {
+       "path": "operations/web/",
+       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
+      }
+     ],
+     "name": "nginx"
+    }
+   ]
+  },
+  {
    "address": "192.168.10.11",
    "docs": [
     {
@@ -473,6 +517,23 @@ window.SERVICE_MAP = {
      "url": "https://pkdb-entry.apextox.dpdns.org/"
     },
     {
+     "description": "AI がデータを調べ・足す。OAuth・admins のみ",
+     "docs": [
+      {
+       "path": "operations/pkdb/",
+       "title": "ポケモン系のPostgreSQL（pkdb）"
+      }
+     ],
+     "name": "ポケモンDBのMCPサーバ",
+     "route": [
+      "core-01",
+      "apps-01"
+     ],
+     "sso": false,
+     "upstream": "127.0.0.1:8332",
+     "url": "https://pkdb-mcp.apextox.dpdns.org/"
+    },
+    {
      "description": "印刷状況。Forward Auth",
      "docs": [
       {
@@ -746,50 +807,6 @@ window.SERVICE_MAP = {
      ],
      "name": "LocalSend受信機",
      "url": "https://localsend.apextox.dpdns.org/"
-    }
-   ]
-  },
-  {
-   "address": "192.168.10.102",
-   "docs": [
-    {
-     "path": "operations/web/",
-     "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-    }
-   ],
-   "kind": "cloud",
-   "name": "web-01",
-   "role": "公開サイト",
-   "services": [
-    {
-     "description": "Issues・Shaketter・ToBa・ikura と Wiki",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "Shake-Web"
-    },
-    {
-     "description": "ポケモンクイズ",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "pkhack"
-    },
-    {
-     "description": "4サイトの入口。CloudFlare Origin 証明書で TLS 終端",
-     "docs": [
-      {
-       "path": "operations/web/",
-       "title": "公開サイト（Shake-Web / pkhack / Alexa / ayahuya）"
-      }
-     ],
-     "name": "nginx"
     }
    ]
   },

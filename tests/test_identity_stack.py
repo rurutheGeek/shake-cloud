@@ -156,6 +156,28 @@ class MailViewEntryTests(unittest.TestCase):
                     if method == 'POST' and path == 'policies/bindings/']
         self.assertEqual(bindings, [{'target': 'app1', 'group': 'group-admins', 'order': 10}])
 
+    def test_the_pokemon_mcp_client_is_public_pkce_for_admins_only(self):
+        api = self.RecordingAPI()
+        api.call = lambda method, path, body=None, calls=api.calls: (
+            calls.append((method, path, body)) or
+            ({'pk': 'oauth1'} if path == 'providers/oauth2/' else
+             {'pk': 'app1', 'slug': body['slug']} if path == 'core/applications/' else {}))
+        configure.configure_pkdb_mcp(
+            api, {'users': {'pk': 'group-users'}, 'admins': {'pk': 'group-admins'}},
+            FLOWS, ['mapping1'], 'key1')
+        provider = next(body for method, path, body in api.calls
+                        if method == 'POST' and path == 'providers/oauth2/')
+        self.assertEqual(provider['client_type'], 'public')
+        self.assertEqual(provider['client_id'], 'pkdb-mcp')
+        self.assertNotIn('client_secret', provider)
+        self.assertIn('refresh_token', provider['grant_types'])
+        self.assertIn('client_credentials', provider['grant_types'])
+        self.assertEqual([uri['url'] for uri in provider['redirect_uris']],
+                         ['http://127.0.0.1:19876/mcp/oauth/callback'])
+        bindings = [body for method, path, body in api.calls
+                    if method == 'POST' and path == 'policies/bindings/']
+        self.assertEqual(bindings, [{'target': 'app1', 'group': 'group-admins', 'order': 10}])
+
     def test_adminer_is_a_forward_auth_application_for_admins_only(self):
         api = self.RecordingAPI()
         configure.configure_adminer(api, {'users': {'pk': 'group-users'}, 'admins': {'pk': 'group-admins'}},

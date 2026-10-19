@@ -1,0 +1,42 @@
+---
+# 2026-10-17 まで動かしていた Docker Compose の構成（/opt/shake-web）を片付ける。
+# 入口の nginx が 80/443 を受けていたので、Podman の入口を起動する前に止める。
+# 二度目以降は何もしない。
+
+- name: Look for the Docker Compose deployment
+  ansible.builtin.stat:
+    path: '{{ shake_web_retired_project_dir }}/compose.yaml'
+  register: shake_web_retired_compose
+
+- name: Stop the Docker update timer
+  ansible.builtin.systemd:
+    name: shake-web-update.timer
+    state: stopped
+    enabled: false
+  when: shake_web_retired_compose.stat.exists
+
+- name: Stop and remove the Docker Compose containers
+  ansible.builtin.command:
+    argv: [docker, compose, --project-directory, '{{ shake_web_retired_project_dir }}', -p, shake-web, down, --rmi, all]
+  when: shake_web_retired_compose.stat.exists
+  changed_when: true
+
+- name: Remove the Docker deployment files
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: absent
+  loop:
+    - '{{ shake_web_retired_project_dir }}'
+    - /usr/local/sbin/shake-web-update
+    - /etc/systemd/system/shake-web-update.service
+    - /etc/systemd/system/shake-web-update.timer
+    # 証明書は Secret、nginx の設定は ConfigMap で渡すので、ホストには置かない
+    - '{{ shake_web_storage_root }}/certs'
+    - '{{ shake_web_storage_root }}/templates'
+    - /root/.docker/config.json
+  register: shake_web_retired_files
+
+- name: Reload systemd after removing the Docker units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: shake_web_retired_files is changed

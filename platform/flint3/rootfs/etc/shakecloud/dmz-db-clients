@@ -1,0 +1,3 @@
+# DMZ から pkdb（apps-01:5432）へ入れるアドレス。apply-dmz が読む（1 行 1 つ）。
+# shakeserver（Pi 5）。公開サイト（stacks/shake-web）がポケモン系の DB を読む。
+192.168.30.12

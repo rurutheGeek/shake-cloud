@@ -8,7 +8,6 @@
     - 192.168.10.205:9100
     - 192.168.10.11:9100
     - 192.168.10.105:9100
-    - 192.168.10.102:9100
   labels:
     group: platform
 # 家の Raspberry Pi（tarakoserver は上の platform に居る）。shakeserver は DMZ（VLAN 30）。

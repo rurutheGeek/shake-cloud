@@ -1,5 +1,5 @@
 ---
-# Pi 5。公開サイトは web-01・apps-01 へ移行済み（2026-10-05）。データのボリュームは残す。
+# Pi 5（DMZ）。公開サイト（shake-web.yml）を置く。2026-10-05 の旧配備のコンテナは片付けた。データのボリュームは残す。
 # 写しは K11 の /srv/bulk/backups/pi-migration/2026-10-14/。
 pi_base_retired_containers:
   - pkhack_app
@@ -9,16 +9,25 @@ pi_base_retired_containers:
   - shake_postgres
   - shake_postgres-backup
   - shake_adminer
+  # コンテナの監視。Prometheus は読んでいない（2026-10-16 に片付け）。
+  - cadvisor
 pi_base_prune_docker: true
 # Minecraft のワールドの持ち主（旧配備のまま）。
 minecraft_uid: 999
 minecraft_gid: 991
-# 2026-10-14 に片付けた旧配備（公開サイト・DB・Bot は web-01・apps-01 へ移行済み）。
+# 2026-10-14 に片付けた旧配備（DB・Bot は apps-01 へ移行済み。公開サイトは今の shake-web.yml）。
 # ssl-cert-check は旧公開サイトの証明書の点検（証明書は消した。期限は家の監視が見る）。
 pi_base_retired_services: [ups-exporter, ssl-cert-check.timer, ssl-cert-check]
-# 止めるサービス。既定（VNC・CUPS）に、使わない NVMe-oF（ネットワーク越しの NVMe）を足す。
+# 止めるサービス。既定（VNC・CUPS）に、使わない NVMe-oF（ネットワーク越しの NVMe）と、
+# Wayland の画面共有（wayvnc。5900 番を全部の口で開いていた）を足す。
 # nvme-cli そのものは NVMe の健康状態の収集に要るので残す。
-pi_base_disabled_services: [vncserver-x11-serviced, cups, cups-browsed, nvmf-autoconnect]
+pi_base_disabled_services:
+  - vncserver-x11-serviced
+  - cups
+  - cups-browsed
+  - nvmf-autoconnect
+  - wayvnc
+  - wayvnc-control
 pi_base_retired_paths:
   - /opt/ups-exporter
   - /opt/ubsleepy
@@ -32,3 +41,21 @@ pi_base_retired_cron:
   - {user: root, match: acme.sh}
   - {user: 39ix, match: ups_to_json.py}
 pi_base_prune_volumes: true
+# 家の中の区画へは出さない（2026-10-09 に手で入れた homeguard を取り込んだ）。
+# 通すのは DMZ のゲートウェイ（DNS・DHCP・NTP・ping）、AdGuard Home の DNS、公開サイトが読む pkdb だけ。
+# Flint 3 の DMZ-to-pkdb（dmz-db-clients）・apps-01 のセキュリティグループと対。
+pi_base_lan_guard:
+  allow:
+    - {comment: DMZ のゲートウェイの DNS, address: 192.168.30.1, match: 'meta l4proto { tcp, udp } th dport 53'}
+    - {comment: DMZ のゲートウェイの DHCP・NTP, address: 192.168.30.1, match: 'udp dport { 67, 123 }'}
+    - {comment: DMZ のゲートウェイへの ping, address: 192.168.30.1, match: 'icmp type echo-request'}
+    # 名前引きは Tailscale の DNS（100.100.100.100）経由で AdGuard Home（Flint 3）へ行く。
+    - {comment: AdGuard Home（Flint 3）の DNS, address: 192.168.10.1, match: 'meta l4proto { tcp, udp } th dport 53'}
+    - {comment: ポケモン系の PostgreSQL（apps-01）, address: 192.168.10.105, match: 'tcp dport 5432'}
+  block:
+    - 192.168.10.0/24
+    - 192.168.30.0/24
+    - 192.168.40.0/24
+    - 192.168.50.0/24
+  block6:
+    - 240b:10:b280:2400::/64

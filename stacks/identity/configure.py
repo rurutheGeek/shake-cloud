@@ -62,6 +62,11 @@ ADGUARD = 'adguard'
 MAIL_VIEW = 'mail-view'
 ADMINER = 'adminer'
 PKDB_ENTRY = 'pkdb-entry'
+# ポケモンDBの MCP サーバ。MCP の認可（OAuth 2.1）の認可サーバをここが務め、
+# MCP のクライアント（AI のアプリ）は PKCE の公開クライアントとして事前登録する。
+# 戻り先はクライアントごとに固定（opencode は 127.0.0.1:19876 で待つ）。
+PKDB_MCP = 'pkdb-mcp'
+PKDB_MCP_REDIRECTS = ('http://127.0.0.1:19876/mcp/oauth/callback',)
 # The bot portal runs on apps-01. It controls the bots' containers and runs
 # manage.py, so its browser UI goes through Forward Auth too.
 BOT_PORTAL = 'portal'
@@ -931,6 +936,32 @@ def configure_pkdb_entry(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'pkdb-entry forward-auth provider')
 
 
+def configure_pkdb_mcp(api, groups, flows, mappings, signing_key):
+    """Reconcile the OAuth client the Pokémon DB MCP server trusts, admins only.
+
+    The MCP server checks the access token's signature, issuer and audience
+    (the client id) itself. AI clients keep a session across days, so they get a
+    refresh token (offline_access is among the mappings).
+    """
+    body = public_oidc_provider_body(PKDB_MCP, PKDB_MCP_REDIRECTS[0], flows, mappings, signing_key)
+    body['redirect_uris'] = [{'matching_mode': 'strict', 'url': url,
+                              'redirect_uri_type': 'authorization'} for url in PKDB_MCP_REDIRECTS]
+    # client_credentials は、ブラウザの無い機械がアプリパスワードで引き換えるため
+    # （MCP サーバが Basic の資格情報をここでトークンにする）。
+    body['grant_types'] = ['authorization_code', 'refresh_token', 'client_credentials']
+    provider = ensure_oauth2_provider(api, PKDB_MCP, body)
+    application = ensure_application(api, PKDB_MCP, {
+        'name': 'ポケモンDB（MCP）', 'slug': PKDB_MCP, 'provider': provider['pk'],
+        'meta_launch_url': 'blank://blank',
+        'policy_engine_mode': 'any',
+    })
+    # 図鑑のデータを書き換えるので、登録画面と同じく admins だけ。
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {PKDB_MCP}')
+    else:
+        print(f'OK: admins may use {PKDB_MCP}')
+
+
 def main():
     api = API(os.environ['AUTHENTIK_TOKEN'])
     wait_until_ready(api)
@@ -1002,6 +1033,7 @@ def main():
     configure_mail_view(api, groups, flows, portal_url)
     configure_adminer(api, groups, flows, portal_url)
     configure_pkdb_entry(api, groups, flows, portal_url)
+    configure_pkdb_mcp(api, groups, flows, mappings, keys[0])
     configure_bot_portal(api, groups, flows, portal_url)
     configure_netmap(api, groups, flows, portal_url)
     configure_touch_panel(api, groups, flows, portal_url)

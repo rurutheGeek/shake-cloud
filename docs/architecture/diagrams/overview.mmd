@@ -14,7 +14,6 @@ flowchart TB
     subgraph svcpool["サービスVM（cloud）"]
       media["media-01<br/>Nextcloud・Kavita・Navidrome・FreshRSS"]
       apps["apps-01<br/>docs・Homarr・Vaultwarden<br/>家電・CUPS・LibreSpeed"]
-      web["web-01<br/>公開サイト"]
       game["game-01<br/>ゲーム（GPU）"]
     end
     subgraph devpool["開発・検証VM（dev / lab）"]
@@ -23,7 +22,7 @@ flowchart TB
     end
   end
   taraco["tarakoserver（Pi 4）<br/>Prometheus・Grafana・Loki・ネットワーク図"]
-  shake["shakeserver（Pi 5・DMZ）<br/>Minecraft"]
+  shake["shakeserver（Pi 5・DMZ）<br/>公開サイト・Minecraft"]
 
   internet --> onu --> router
   router --> host
@@ -31,7 +30,7 @@ flowchart TB
   router --> shake
   remote -. Tailscale .-> router
   internet --> relay
-  relay -. "Tailscale（80/443）" .-> web
+  relay -. "Tailscale（80/443）" .-> shake
   cloud01 -- "VM・S3・DB・関数を払い出す" --> svcpool
   core01 --> apps
   core01 --> media

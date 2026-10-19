@@ -1,0 +1,49 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（front.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# 入口の nginx。4 サイトの TLS 終端とドメインごとの振り分けだけを受け持ち、
+# 各アプリと静的物へ 127.0.0.1 の固定ポートで転送する。
+# 中継（negitoroserver）が付ける PROXY protocol の送信元を確かめるため、ホストの
+# ネットワークで動かす（Pod のネットワークに入れると送信元が書き換わる）。
+# 設定（nginx/*.template）は ConfigMap（front-config.yaml）、証明書は Secret（shake-web-tls）。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front
+  labels:
+    app: front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: front
+  template:
+    metadata:
+      labels:
+        app: front
+    spec:
+      hostNetwork: true
+      containers:
+        - name: nginx
+          image: '{{ shake_web_front_image }}'
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: templates
+              mountPath: /etc/nginx/templates
+              readOnly: true
+            - name: certs
+              mountPath: /etc/nginx/certs
+              readOnly: true
+            - name: logs
+              mountPath: /var/log/nginx
+      volumes:
+        - name: templates
+          configMap:
+            name: shake-web-nginx
+        - name: certs
+          secret:
+            secretName: shake-web-tls
+        - name: logs
+          hostPath:
+            path: '{{ shake_web_storage_root }}/log'
+            type: Directory

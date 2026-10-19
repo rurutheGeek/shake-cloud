@@ -3,9 +3,6 @@
     "tag:relay": [
       "autogroup:admin"
     ],
-    "tag:web": [
-      "autogroup:admin"
-    ],
     "tag:router": [
       "autogroup:admin"
     ],
@@ -35,7 +32,7 @@
         "tag:relay"
       ],
       "dst": [
-        "tag:web:80,443"
+        "tag:dmz:80,443"
       ]
     },
     {
@@ -63,11 +60,10 @@
     {
       "src": "tag:relay",
       "accept": [
-        "tag:web:443",
-        "tag:web:80"
+        "tag:dmz:443",
+        "tag:dmz:80"
       ],
       "deny": [
-        "tag:web:22",
         "tag:dmz:22",
         "tag:dmz:25565",
         "tag:router:22",
@@ -78,19 +74,9 @@
       ]
     },
     {
-      "src": "tag:web",
-      "deny": [
-        "tag:relay:22",
-        "tag:dmz:22",
-        "192.168.10.10:8006",
-        "192.168.10.200:443"
-      ]
-    },
-    {
       "src": "tag:dmz",
       "deny": [
         "tag:relay:22",
-        "tag:web:443",
         "tag:monitoring:22"
       ]
     },
@@ -101,15 +87,13 @@
       ],
       "deny": [
         "tag:relay:22",
-        "tag:dmz:22",
-        "tag:web:443"
+        "tag:dmz:22"
       ]
     },
     {
       "src": "tag:router",
       "deny": [
         "tag:relay:22",
-        "tag:web:443",
         "tag:dmz:22"
       ]
     },
@@ -133,7 +117,6 @@
         "192.168.10.200:443",
         "192.168.40.97:3389",
         "tag:dmz:22",
-        "tag:web:443",
         "100.64.122.9:22"
       ]
     },

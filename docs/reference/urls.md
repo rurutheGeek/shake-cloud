@@ -107,7 +107,7 @@ Navidrome のスマートフォンアプリは、SSO を通さない `https://na
 | Proxmox ホスト | `root@192.168.10.10` | 仮想化ホスト |
 | core-01（旧 services-01） | `debian@192.168.10.200` | Authentik・NetBox・入口のCaddy（AdGuard・ルータの画面の中継） |
 | apps-01 | `debian@192.168.10.105` | Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳（クラウドVM） |
-| web-01 | `debian@192.168.10.102` | Shake-Web・pkhack・Alexa スキル・ayahuya・nginx（公開サイト。クラウドVM） |
+| shakeserver | `ansible_admin@192.168.30.12`（鍵は `~/.ssh/id_ed25519_shake`） | Shake-Web・pkhack・Alexa スキル・ayahuya・nginx（公開サイト。Raspberry Pi 5・DMZ） |
 | cloud-01 | `debian@192.168.10.205` | クラウドAPI・管理DB・Garage（S3） |
 | k8s-cp-01 | `debian@192.168.10.207` | Kubernetes control plane |
 | k8s-worker-01 | `192.168.10.209` | AWX・CNPG・Knative |

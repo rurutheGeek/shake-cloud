@@ -1,20 +1,33 @@
 ---
-# Shake-Web の公開サイト（旧 shakeserver から 2026-10-05 に web-01 へ移行）。
-shake_web_project_dir: /opt/shake-web
+# Shake-Web の公開サイト。DMZ の shakeserver（Pi 5）に置く（2026-10-05〜16 は web-01。消した）。
+# 守りは pi_base の homeguard と Flint 3 の DMZ。
+# Docker Compose で動かしていたころの置き場（tasks/retire-docker.yml が片付ける）。
+shake_web_retired_project_dir: /opt/shake-web
 shake_web_storage_root: /srv/shake-web
 shake_web_source_dir: '{{ playbook_dir }}/../../stacks/shake-web'
 # ポケモン系 PostgreSQL（apps-01）。旧ホストでは host.docker.internal だった。
 shake_web_db_host: pkdb.apextox.dpdns.org
 shake_web_sops_file: '{{ playbook_dir }}/../sops/shake-web.sops.yaml'
-# 外向き（egress）の確認に使う。クラウドAPI のアクセスキーは services.sops.yaml。
-shake_web_cloud_api: https://cloud.apextox.dpdns.org
-shake_web_services_sops: '{{ playbook_dir }}/../sops/services.sops.yaml'
-shake_web_cloud_group_name: web-01
-# 公開の中継（negitoroserver）は tailnet 経由でこの VM へ届く。
-shake_web_tailscale_sops: '{{ playbook_dir }}/../sops/tailscale.sops.yaml'
-shake_web_tailscale_hostname: web-01
-# 追う ref。検証中は pkhack だけブランチを指す（main に戻すのは切替時）。
-shake_web_shake_ref: main
-shake_web_pkhack_ref: main
-shake_web_alexa_ref: main
-shake_web_ayahuya_ref: main
+# アプリと静的物は各リポジトリの CI がビルドしたイメージ（GHCR）を使う。
+# 戻すときはタグをコミット SHA にする。
+shake_web_app_image: ghcr.io/ruruthegeek/shake-web:main
+shake_web_pkhack_image: ghcr.io/ruruthegeek/pkhack:main
+shake_web_alexa_image: ghcr.io/ruruthegeek/pokebs-alexaskill:main
+shake_web_ayahuya_image: ghcr.io/ruruthegeek/ayahuya:main
+shake_web_shake_static_image: ghcr.io/ruruthegeek/shake-web-static:main
+shake_web_pkhack_static_image: ghcr.io/ruruthegeek/pkhack-static:main
+
+# Podman（root 以外）で動かす。tasks/podman.yml を参照。
+shake_web_podman_user: shakeweb
+shake_web_podman_home: /var/lib/shakeweb
+shake_web_podman_kube_dir: '{{ shake_web_podman_home }}/kube'
+# コンテナの中の uid 1 以上が、ホストのこの番号から並ぶ（Alexa の 10001 は +10000）。
+shake_web_podman_subid_start: 200000
+shake_web_podman_env:
+  XDG_RUNTIME_DIR: '/run/user/{{ shake_web_podman_account.uid }}'
+# 入口以外の Pod（Quadlet のユニット名）。
+shake_web_podman_units: [shake-web, pkhack, alexa, ayahuya, shake-static, pkhack-static]
+# 入口の nginx（front）を動かすか。80/443 を受ける。
+shake_web_podman_front: true
+# 入口の nginx（外部のイメージなので digest で固定する）。
+shake_web_front_image: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10

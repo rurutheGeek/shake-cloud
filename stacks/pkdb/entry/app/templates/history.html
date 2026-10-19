@@ -35,8 +35,11 @@
       <span class="action-chip">{{ item.action_label }}</span>
       <strong class="log-summary">{{ item.summary }}</strong>
       <span class="dim">{{ ENTITY_LABELS.get(item.entity, item.entity) }}</span>
-      <span class="log-meta dim">{{ item.created.strftime('%Y/%m/%d %H:%M') if item.created else '' }} / {{ item.row.actor }}</span>
+      <span class="log-meta dim">{{ item.created.strftime('%Y/%m/%d %H:%M') if item.created else '' }} / {{ item.row.actor }}{% if item.row.db_role %}（{{ item.row.db_role }}）{% endif %}</span>
     </header>
+    {% if item.row.source %}
+    <p class="log-source dim">出典: {{ item.row.source }}</p>
+    {% endif %}
     {% if item.pairs %}
     <details>
       <summary>変更内容（{{ item.pairs | length }} 項目）</summary>

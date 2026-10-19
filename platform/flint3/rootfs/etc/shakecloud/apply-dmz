@@ -83,7 +83,7 @@ rule() {
 rule DMZ-DHCP src=dmz proto=udp dest_port=67-68 target=ACCEPT
 rule DMZ-DNS src=dmz 'proto=tcp udp' dest_port=53 target=ACCEPT
 rule DMZ-Ping src=dmz proto=icmp icmp_type=echo-request family=ipv4 target=ACCEPT
-clients="$(grep -Eo '^192\.168\.30\.[0-9]+' "$CLIENTS_FILE" 2>/dev/null | tr '\n' ' ' || true)"
+clients="$(grep -Eo '^192\.168\.30\.[0-9]+' "$CLIENTS_FILE" 2>/dev/null | tr '\n' ' ' | sed 's/ $//' || true)"
 if [ -n "$clients" ]; then
 	rule DMZ-to-pkdb src=dmz "src_ip=$clients" dest=lan "dest_ip=$PKDB" proto=tcp dest_port=5432 target=ACCEPT
 fi
