@@ -47,8 +47,14 @@ nextcloud_custom_apps:
     repo: rurutheGeek/nextcloud-localsend
     version: 1.0.2
 # Nextcloud MCPサーバ（公開リポジトリのGitHub Releaseが正本。bumpで更新）。
-nextcloud_mcp_version: 1.1.0
-nextcloud_mcp_sha256: 39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6
+# 1.2.0からOAuth（Nextcloud標準のOAuth2アプリ経由）に対応。OAuth部分と
+# その依存の一覧も同じリリースから取り、sha256で固定する。
+nextcloud_mcp_version: 1.2.0
+nextcloud_mcp_sha256: 76612fdd06b1eb5511d4f61bcc18b648a49582b4a40863554ce7495490dd0f20
+nextcloud_mcp_oauth_sha256: eeb8a31c3e5023538e8d7ac9e09198e60aa0173f53d4585cf35fe693a9129028
+nextcloud_mcp_requirements_sha256: ec8307fc1d71ac8578c50233a4a73ddfe3b2e55327db14e82f2638afb133e1d8
+# basic・oauth・both。both はBasic（アプリパスワード）の既存クライアントも受ける。
+nextcloud_mcp_auth: both
 # 撤去済みの自作アプリ。manage.py remove-apps が occ と custom_apps から消す。
 # 片付けが済んだら空リストにしてよい。
 nextcloud_retired_apps:
