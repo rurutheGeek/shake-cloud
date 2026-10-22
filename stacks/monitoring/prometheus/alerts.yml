@@ -342,3 +342,56 @@ groups:
           panel: "K11 ディスク残り少"
           summary: "K11 のディスクが 85% を超えた"
           description: "不要なイメージ・バックアップ・キャッシュを消してください。"
+
+  - name: image_scan
+    rules:
+      # tarakoserver の image-scan.timer（roles/image_scan）が毎日 02:30 ごろに書く。
+      - alert: ImageCriticalVulnerability
+        expr: shakecloud_image_critical_vulnerabilities > 0
+        labels:
+          severity: warning
+        annotations:
+          panel: "イメージに重大な脆弱性"
+          summary: "{{ $labels.image }} に修正版のある重大（CRITICAL）な脆弱性が {{ $value }} 件ある"
+          description: "Grafana の「イメージの脆弱性」で中身を確かめ、{{ $labels.source }} の digest を修正版へ上げて配り直してください。"
+
+      # 公式イメージがソースから入れた PHP・Node.js は Trivy から見えないので、版で見る。
+      - alert: ImageRuntimeSecurityRelease
+        expr: shakecloud_image_runtime{status="security"} == 1
+        labels:
+          severity: warning
+        annotations:
+          panel: "ランタイムにセキュリティ修正"
+          summary: "{{ $labels.image }} の {{ $labels.runtime }} {{ $labels.installed }} に、セキュリティ修正版 {{ $labels.latest }} が出ている"
+          description: "修正版を含むイメージが出ていれば、{{ $labels.source }} の digest を上げて配り直してください。"
+
+      - alert: ImageRuntimeEndOfLife
+        expr: shakecloud_image_runtime{status="eol"} == 1
+        labels:
+          severity: info
+        annotations:
+          panel: "ランタイムのサポート切れ"
+          summary: "{{ $labels.image }} の {{ $labels.runtime }} {{ $labels.installed }} はサポートが終わった系列"
+          description: "{{ $labels.source }} のイメージを、サポート中の系列のものへ移してください。"
+
+      - alert: ImageScanFailed
+        expr: shakecloud_image_scan_error == 1
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          panel: "イメージを調べられない"
+          summary: "{{ $labels.image }} を調べられなかった（{{ $labels.reason }}）"
+          description: "tarakoserver で journalctl -u image-scan を確認してください。"
+
+      - alert: ImageScanStale
+        expr: >-
+          absent(shakecloud_image_scan_last_success_timestamp_seconds)
+          or time() - shakecloud_image_scan_last_success_timestamp_seconds > 36 * 3600
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          panel: "脆弱性の点検停止"
+          summary: "イメージの脆弱性の点検が 36 時間以上終わっていない"
+          description: "tarakoserver の image-scan.timer と journalctl -u image-scan を確認してください。"
