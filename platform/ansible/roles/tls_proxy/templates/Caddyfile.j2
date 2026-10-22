@@ -137,7 +137,13 @@
 	@blocked path {{ site.value.block | join(' ') }}
 	respond @blocked 403
 {% endif %}
-{% if behind_edge %}
+{% if site.value.upstream.startswith('https://') %}
+	# 中継先が名前で経路を選ぶ（クラウドの function は Knative が Host で選ぶ）
+	# ので、Host を中継先の名前に書き換える。
+	reverse_proxy {{ site.value.upstream }} {
+		header_up Host {upstream_hostport}
+	}
+{% elif behind_edge %}
 	reverse_proxy {{ site.value.upstream }} {
 {{ client_address('		') }}	}
 {% else %}
