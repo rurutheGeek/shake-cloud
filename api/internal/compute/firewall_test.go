@@ -229,3 +229,34 @@ func TestGroupRequestsThatCannotWorkAreRefused(t *testing.T) {
 		t.Fatalf("too many groups: %v", err)
 	}
 }
+
+func TestARoutedPrefixStaysInTheIPFilterAndNothingElseDoes(t *testing.T) {
+	pve := newFakePVE()
+	s := &Service{PVE: pve}
+	ctx := context.Background()
+	if err := pve.CreateIPSet(ctx, 100, ipfilterSet); err != nil {
+		t.Fatal(err)
+	}
+	// Added by hand: a pass over the firewall must remove it again.
+	if err := pve.AddIPSetEntry(ctx, 100, ipfilterSet, "192.168.10.128"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pinAddress(ctx, 100, "192.168.10.127/24", "192.168.60.0/24"); err != nil {
+		t.Fatal(err)
+	}
+	entries := slices.Clone(pve.firewall(100).ipsets[ipfilterSet])
+	slices.Sort(entries)
+	want := []string{globalIPv6, "192.168.10.127", "192.168.60.0/24"}
+	slices.Sort(want)
+	if !slices.Equal(entries, want) {
+		t.Fatalf("ipfilter-net0 = %v, want %v", entries, want)
+	}
+
+	// Without a routed prefix the instance may send from its own address only.
+	if err := s.pinAddress(ctx, 100, "192.168.10.127/24", ""); err != nil {
+		t.Fatal(err)
+	}
+	if entries := pve.firewall(100).ipsets[ipfilterSet]; slices.Contains(entries, "192.168.60.0/24") {
+		t.Fatalf("the routed prefix stayed after it was removed from the site: %v", entries)
+	}
+}

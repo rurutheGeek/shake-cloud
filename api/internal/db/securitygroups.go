@@ -255,6 +255,18 @@ func SetInstanceGroups(ctx context.Context, q Querier, instanceID string, groupI
 	return err
 }
 
+// BumpFirewallOfAllGrouped marks every live instance with a group as needing
+// its firewall written again. The API calls it once at start: the firewall
+// also depends on the site file (routed prefixes), which only changes with a
+// deployment, and a pass also removes anything added to the VM by hand.
+func BumpFirewallOfAllGrouped(ctx context.Context, q Querier) (int64, error) {
+	tag, err := q.Exec(ctx, `UPDATE instances SET firewall_generation = firewall_generation + 1,
+		firewall_next_attempt_at = now()
+		WHERE state <> 'terminated'
+		  AND instance_id IN (SELECT instance_id FROM instance_security_groups)`)
+	return tag.RowsAffected(), err
+}
+
 // BumpFirewallOfGroup marks every live instance in a group as needing its
 // firewall written again, after the group's rules changed.
 func BumpFirewallOfGroup(ctx context.Context, q Querier, groupID string) error {
