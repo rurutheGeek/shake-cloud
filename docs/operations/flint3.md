@@ -52,7 +52,7 @@ K11 の WAN（`nic0`）は空き。内蔵スイッチの番号は LAN1=7、LAN2=
 - 管理用の VLAN は作っていない。`porygon` はサーバーの区画へつながり、Proxmox の画面（`https://192.168.10.10:8006`）へも入れる。
 - MLO は GL.iNet の MLO 用の電波（`wlanmld2g`／`5g`／`6g`）を `ditto` と同じ名前で出している。MLO の親デバイス `mld0` は `hotplug.d/net/90-mld-personal` が個人端末のブリッジへ入れる。
 - WPS は無効。
-- 区画間の通信の方針は [VLAN 分離への切替](vlan.md)。
+- 区画間の通信の方針は [区画と区画間の通信](vlan.md)。
 
 ## 設定の入れ方
 

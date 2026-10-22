@@ -11,6 +11,15 @@ nav:
   - ネットワーク図: network-map.md
   - ドキュメント地図: map.md
   - ドキュメントの書き方: contributing-docs.md
+  - セキュリティ:
+      - セキュリティ（信頼境界と対策）: architecture/security.md
+      - 区画と区画間の通信（VLAN）: operations/vlan.md
+      - Tailscale（宅外からの経路）: operations/net.md
+      - 認証基盤（identity・Authentik）: operations/identity.md
+      - 秘密値の管理: operations/secrets.md
+      - Nextcloudのアクセス権限: operations/nextcloud-permissions.md
+      - Vaultwardenの管理: operations/vaultwarden.md
+      - 構成監査の未対応指摘: audits/config-audit-2026-09-16.md
   - 利用者向け:
       - 利用ガイドの入口: services/index.md
       - 全サービスの使い方: services/usage.md
@@ -98,10 +107,8 @@ nav:
       - 運用手順の入口: operations/index.md
       - 立ち上げる:
           - 初回セットアップの順番: operations/bootstrap.md
-          - 秘密値の管理: operations/secrets.md
           - Terraformの実行: operations/terraform.md
           - NetBoxの使い方: operations/netbox.md
-          - 認証基盤（identity・Authentik）: operations/identity.md
           - Proxmox導入後の進め方: operations/bring-up.md
           - クラウドAPIの構築（土台）: operations/cloud.md
           - クラウドAPI本体とインスタンス: operations/cloud-api.md
@@ -117,10 +124,8 @@ nav:
           - Flux にアプリを足す: operations/flux-apps.md
       - サービスの管理:
           - Nextcloudと追加アプリ: operations/nextcloud.md
-          - Nextcloudのアクセス権限: operations/nextcloud-permissions.md
           - Nextcloud MCPサーバ: operations/nextcloud-mcp.md
           - Botポータル: operations/bot-portal.md
-          - Vaultwardenの管理: operations/vaultwarden.md
           - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
           - 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）: operations/web.md
           - Discord Bot（UBSLEEPY）: operations/ubsleepy.md
@@ -130,8 +135,6 @@ nav:
           - Windows 11 ProのVMを作る: operations/windows.md
           - android-01（Waydroid）の環境: operations/android-01.md
       - ネットワークとストレージ:
-          - Tailscale（subnet router）: operations/net.md
-          - VLAN 分離への切替: operations/vlan.md
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
           - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
@@ -152,7 +155,6 @@ nav:
       - ホームラボの全体像: architecture/overview.md
       - 設計と決定の入口: architecture/index.md
       - 決定ログ: architecture/decisions.md
-      - 信頼境界とセキュリティ方針: architecture/security.md
       - 障害モードと単一障害点: architecture/failure-modes.md
       - IaCの所有境界: architecture/iac.md
       - 配置と命名の再編: architecture/placement-naming.md
@@ -169,7 +171,6 @@ nav:
   - 記録:
       - 記録の入口: audits/index.md
       - Web GUI監査・改善案: audits/webgui-2026-09-12.md
-      - 構成監査の未対応指摘: audits/config-audit-2026-09-16.md
 
 # Mermaidをオフラインで描画する（docs/assets/js/README.md参照）。
 extra_javascript:

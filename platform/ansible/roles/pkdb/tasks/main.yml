@@ -25,6 +25,14 @@
     mode: '0644'
     directory_mode: '0755'
 
+# MCP サーバも同じく、このソースからイメージを組む。
+- name: Copy the MCP server sources
+  ansible.builtin.copy:
+    src: '{{ pkdb_source_dir }}/mcp/'
+    dest: '{{ pkdb_project_dir }}/mcp/'
+    mode: '0644'
+    directory_mode: '0755'
+
 # 旧版のPHP1ファイルが残っていても使われないが、紛らわしいので消す。
 - name: Drop the old single-file entry page
   ansible.builtin.file:
@@ -80,9 +88,10 @@
   register: pkdb_applied
   changed_when: "'CHANGED' in pkdb_applied.stdout"
 
-# 登録画面のロール（pkdb_entry）は entry.sql が作る。パスワードはこのホストの
-# secrets/entry_password だけにあり、既存のロールのパスワードには触らない。
-- name: Let the entry page log in with its own role
+# 登録画面のロール（pkdb_entry）は entry.sql が、MCP サーバのロール（pkdb_mcp）は
+# mcp.sql が作る。パスワードはこのホストの secrets/entry_password・mcp_password だけに
+# あり、ほかのロールのパスワードには触らない。
+- name: Let the entry page and the MCP server log in with their own roles
   ansible.builtin.command:
     argv: [python3, manage.py, entry-password]
     chdir: '{{ pkdb_project_dir }}'
@@ -109,6 +118,27 @@
   retries: 20
   delay: 3
   until: pkdb_entry_public.status in [200, 302]
+
+# ロールのパスワードより先に起動して接続に失敗していても、restart で入り直す。
+- name: Wait for the MCP server on loopback
+  ansible.builtin.uri:
+    url: 'http://127.0.0.1:{{ pkdb_mcp_port }}/healthz'
+    return_content: true
+  register: pkdb_mcp
+  retries: 30
+  delay: 3
+  until: pkdb_mcp.status == 200 and 'true' in pkdb_mcp.content
+
+# 入口から、OAuth の保護リソースの案内（どの認可サーバのトークンか）が読めること。
+- name: Wait for the MCP server's protected resource metadata
+  ansible.builtin.uri:
+    url: '{{ pkdb_mcp_url }}/.well-known/oauth-protected-resource/mcp'
+    return_content: true
+    validate_certs: true
+  register: pkdb_mcp_public
+  retries: 20
+  delay: 3
+  until: pkdb_mcp_public.status == 200 and pkdb_mcp_issuer in pkdb_mcp_public.content
 
 - name: Wait for Adminer on loopback
   ansible.builtin.uri:

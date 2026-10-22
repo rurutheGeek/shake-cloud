@@ -26,6 +26,9 @@ BEGIN
   IF v_id IS NOT NULL THEN
     RETURN v_id;
   END IF;
+  IF entry_strict() THEN
+    RAISE EXCEPTION '進化方法「%」はまだありません（pkdb.strict）', v_name USING ERRCODE = '22023';
+  END IF;
   SELECT (coalesce(max(method_id::integer) FILTER (WHERE method_id ~ '^[0-9]+$'), 0) + 1)::text
   INTO v_id FROM evolution_method;
   INSERT INTO evolution_method (method_id, method_name) VALUES (v_id, v_name);

@@ -1,6 +1,6 @@
 ---
-title: 信頼境界とセキュリティ方針
-updated: 2026-10-03
+title: セキュリティ（信頼境界と対策）
+updated: 2026-10-22
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -8,65 +8,72 @@ tags:
   - security
 ---
 
-# 信頼境界とセキュリティ方針
+# セキュリティ（信頼境界と対策）
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-22 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-**何を信頼していて、何を信頼していないか**を1枚にまとめます。個々の決定の理由は[決定ログ](decisions.md)、手順は[秘密値の管理](../operations/secrets.md)と[認証基盤](../operations/identity.md)にあります。
+**状態**: 境界は Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（2026-10-16〜）。K11 の `vmbr0` は VLAN 未対応のため、DMZ にクラウドVMはまだ作れない。
 
-**家庭内の2人運用が前提です。** 組織の監査要件、内部犯行への耐性、規制対応は想定していません。「守らないと決めたこと」を §5 に明記します。
+**家庭内の2人運用が前提です。** 組織の監査要件、内部犯行への耐性、規制対応は想定していません（[§6](#6-守らないと決めたこと)）。
 
-## 1. 公開範囲
+## 1. 外から届く経路
 
-**インターネットには何も公開していません。** グローバルIPも使いません。
+**家のルータにポート転送はありません。** 外から家の中へ入る経路は、どれも Tailscale を通ります。
 
-| 外から見えるもの | 中身 |
-| --- | --- |
-| `apextox.dpdns.org` のDNS応答 | Cloudflareの公開DNSに**内部IPをそのまま**書いている。名前は誰でも引けるが、応答は `192.168.10.x` なので外からは届かない |
-| それ以外 | 無い。ポート転送もリバースプロキシも置いていない |
-
-**2026-10-14 から、インターネットとの境界は Flint 3（GL-BE9300）です**（[Flint 3](../operations/flint3.md)）。2026-09-20〜10-14 は K11 上の OpenWrt VM `router-01` でした。家の中は区画（サーバー・DMZ・個人端末・ネット専用）に分け、区画間は Flint 3 のファイアウォールで許可したものだけ通します（[VLAN 分離](../operations/vlan.md)）。Flint 3 は純正ファームのまま、足す設定だけを Git（`platform/flint3/`）で管理します。
+| 経路 | 入口 | 届く先 | 絞っているもの |
+| --- | --- | --- | --- |
+| 公開サイト（`*.ruruthegeek.dpdns.org`） | Cloudflare → negitoroserver（Raspberry Pi Zero 2 W、**家の外**）の nginx stream（443）・sslh（80） | tailnet 経由で DMZ の shakeserver（Pi 5）の 80/443 だけ | Tailscale ACL（`tag:relay` → `tag:dmz:80,443`）。negitoroserver はサブネットルートを持たない |
+| 宅外からの管理・利用 | Tailscale → Flint 3 の subnet router | サーバーの区画（`192.168.10.0/24`）。個人端末の区画は 2026-10-17 から流さない | Tailscale ACL（`platform/tailscale/acl.json`）。タグの付いた機器は決めた先だけ |
+| `apextox.dpdns.org` の名前 | Cloudflare の公開DNS | **応答だけ**。中身は内部IP（`192.168.10.x`）なので外からは届かない | — |
 
 内部IPを公開DNSに書いているのは、**証明書をDNS-01で取るためだけ**です。`home.arpa` と自前CAにしなかったのは、全端末へCAを登録する手間と、スマートフォンのアプリが自前CAを信用しない問題を避けるためです。代償として、名前の一覧と内部IPの割り当ては外から推測できます（[決定ログ](decisions.md)）。
-
-LANの外から使うにはVPNが要ります。未構築です（[VPNの比較と併用](vpn.md)）。宅外からは Flint 3 上の Tailscale subnet router だけがあります（アクセス制限は `platform/tailscale/acl.json`）（[Tailscale subnet router](../operations/net.md)）。
 
 ## 2. 信頼境界
 
 ```mermaid
 flowchart TB
   net["インターネット"]
-  router["Flint 3<br/>ファイアウォール・DHCP・AdGuard Home・区画"]
-  lan["家庭内LAN 192.168.10.0/24<br/>ここにいる端末は信頼する"]
-  edge["core-01のCaddy（HTTPS入口）<br/>TLS終端"]
-  app["アプリ本体<br/>入口を経由しないと触れない"]
-  api["クラウドAPI cloud-01"]
-  pve["Proxmox VE apextox"]
-  git["Git リポジトリ（公開）"]
+  cf["Cloudflare"]
+  relay["negitoroserver（家の外）<br/>公開の中継"]
+  ts["Tailscale（tailnet）<br/>ACL で絞る"]
+  router["Flint 3<br/>ファイアウォール・区画・AdGuard Home"]
+  dmz["DMZ 192.168.30.0/24<br/>shakeserver（公開サイト）"]
+  lan["サーバー 192.168.10.0/24<br/>基盤VM・利用者VM・apextox"]
+  personal["個人端末 192.168.40.0/24"]
+  iot["ネット専用 192.168.50.0/24"]
+  edge["core-01 の Caddy（HTTPS入口）"]
+  app["アプリ本体（127.0.0.1）"]
 
-  net -->|"WAN。着信は遮断"| router
+  net --> cf --> relay
+  relay -->|"80/443 だけ"| ts
+  ts -->|"tag:dmz:80,443"| dmz
+  ts -->|"subnet router"| router
+  net -->|"着信は遮断"| router
   router --> lan
-  net -. "公開DNSの応答だけ" .-> lan
+  router --> personal
+  router --> iot
+  router --> dmz
+  personal -->|"許可"| lan
+  dmz -. "pkdb:5432 だけ" .-> lan
   lan -->|"名前 + TLS"| edge
-  edge -->|"OIDC / Forward Auth を通した後だけ"| app
-  lan -->|"アクセスキー or OIDC"| api
-  api -->|"cloudapi@pve の絞ったトークン"| pve
-  git -. "SOPSで暗号化した値だけ" .-> lan
+  edge -->|"OIDC / Forward Auth の後"| app
 ```
 
 | 境界 | 通すもの | 止めるもの |
 | --- | --- | --- |
-| インターネット → LAN | DNSの応答のみ | 通信そのもの。Flint 3 のファイアウォールが遮断し、ポート転送も置いていない |
-| 端末 → 名前解決 | Flint 3 の AdGuard Home が応答（広告・トラッカーのブロックリスト付き） | ブロックリストに載った名前。**DNSは全端末の単一経路**（[AdGuard Home](../operations/adguard.md)） |
-| LAN → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。core-01のCaddyはcatch-allでAuthentikへ渡す |
+| インターネット → 家 | 返りの通信だけ | 着信すべて。ポート転送なし。IPsec を通す GL.iNet の初期ルールも削除済み |
+| 区画 → 区画 | [区画間の通信](../operations/vlan.md#区画間の通信)の表にあるものだけ | それ以外。既定は拒否 |
+| DMZ → 家の中 | pkdb（apps-01:5432）だけ | それ以外。Flint 3・Pi 5 の nftables・apps-01 のセキュリティグループの3か所で止める（[§4](#4-対策の一覧)） |
+| 端末 → 名前解決 | Flint 3 の AdGuard Home（ブロックリスト付き） | ブロックリストに載った名前。AdGuard なしの区画（ソーナノWiFi）は 1.1.1.1 へ直接 |
+| 端末 → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。core-01 の Caddy は catch-all で Authentik へ渡す |
 | HTTPS入口 → アプリ | 認証を通したリクエスト | アプリ本体は `127.0.0.1` に閉じており、入口を経由しないと触れない |
 | 利用者 → 他人のVM | 一覧の閲覧（所有者名・イメージ・割り当て・状態） | 電源・削除・サイズ変更は403。他人の `client_token` は返さない。`user_data` は一覧に出さない |
-| クラウドAPI → Proxmox | `cloudapi@pve` に割り当てたロールの範囲 | それ以外。APIが唯一の経路で、利用者はProxmoxの資格情報を持たない |
+| クラウドAPI → Proxmox | `cloudapi@pve` に割り当てたロールの範囲 | それ以外。利用者は Proxmox の資格情報を持たない |
 | 実行環境 → Git | コード・設定例・Markdown・digestロック・SOPS暗号文 | `.env`、Cookie、CA秘密鍵、実データ、state |
 
-**ルータの管理画面（LuCI）にだけSSOを付けていません。** `https://router.apextox.dpdns.org` は LuCI 自身の root パスワードで守り、Authentik を通しません。**ルータは復旧経路だから**で、Authentik（core-01）が止まっているときに開けなくなると詰みます。AdGuard の管理画面（`https://adguard.apextox.dpdns.org`）は復旧に必須ではないので Forward Auth を通します。
+**ルータの管理画面にだけSSOを付けていません。** Flint 3 自身のパスワードで守り、Authentik を通しません。**ルータは復旧経路だから**で、Authentik（core-01）が止まっているときに開けなくなると詰みます。AdGuard の管理画面は復旧に必須ではないので Forward Auth を通します。
 
-**HTTPSの入口は core-01 の1台です。** Caddy が受ける名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。Cloudflare の DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。代償として、core-01 が止まるとHTTPS名ではどのサービスにも入れません。
+**HTTPSの入口は core-01 の1台です。** Cloudflare の DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。代償として、core-01 が止まるとHTTPS名ではどのサービスにも入れません（[HTTPSの入口](../operations/edge.md)）。
 
 ## 3. 認証と資格情報
 
@@ -74,15 +81,17 @@ flowchart TB
 
 | 経路 | 使うもの | 止まったときの影響 |
 | --- | --- | --- |
-| ブラウザ | Authentik の OIDC | Authentik（core-01）が落ちるとブラウザから入れない |
+| ブラウザ | Authentik の OIDC（パスキー・パスワード＋認証器） | Authentik（core-01）が落ちるとブラウザから入れない |
 | Terraform・CLI・スクリプト | アクセスキー `sca_<キーID>.<秘密値>` を `Authorization: Bearer` で | **Authentikが落ちても動く。** これが分けている理由 |
-| OIDC非対応のアプリ | 入口での Forward Auth（Navidrome・MeTube・CUPS） | 入口が落ちるとアプリにも届かない |
+| OIDC非対応のアプリ | 入口での Forward Auth（Navidrome・MeTube・CUPS・AdGuard・netmap など） | 入口が落ちるとアプリにも届かない |
+| AI のクライアント（ポケモンDBの MCP） | Authentik を認可サーバにした OAuth 2.1（PKCE の公開クライアント） | Authentik が落ちると新しいトークンが取れない |
+
+`admins` だけに開けているもの: ネットワーク図（netmap）・監視のタッチパネル・Botポータル・ポケモンDBの登録画面と MCP・Adminer。グループの意味は[認証基盤](../operations/identity.md)。
 
 アクセスキーの扱い:
 
 - **発行はポータルのログインからだけ。** アクセスキーで別のアクセスキーは作れません。漏れたキーが自分の複製を作って居座れないようにするためです。
-- 1アカウント5本まで。削除は行を残して無効化します。
-- 表示は発行時の一度だけ。
+- 1アカウント5本まで。削除は行を残して無効化します。表示は発行時の一度だけ。
 - ブートストラップ管理キーは2026-09-11に無効化済みです。緊急時は cloud-01 で `manage.py rotate-bootstrap-key`。
 
 アカウントの同一性:
@@ -90,45 +99,75 @@ flowchart TB
 - Authentik の `sub` は `user_uuid` を使います。プロバイダを作り直しても変わらないためです。
 - **知らない `sub` で既知のメールアドレスが来たらログインを拒否します**（`AccountConflict`）。黙って別アカウントを作ると、その人のリソースが2つに分かれるためです。
 
-**SSOは権限の統合ではありません。** Vaultwardenは共通ログインを通しても保管庫を開くマスターパスワードが別に要ります。Nextcloudの共有設定はKavita・Navidromeへ継承されません。
+**SSOは権限の統合ではありません。** Vaultwardenは共通ログインを通しても保管庫を開くマスターパスワードが別に要ります。Nextcloudの共有設定はKavita・Navidromeへ継承されません（[Nextcloudのアクセス権限](../operations/nextcloud-permissions.md)）。
 
-## 4. 実装側で決めていること
+## 4. 対策の一覧
 
-| 対象 | 決めていること |
-| --- | --- |
-| SSH鍵 | 公開鍵だけを保存する。`user-data` には触らず、NoCloud の `meta-data` の `public-keys` で渡す（`user-data` は自由書式なので他人の文書を書き換えない） |
-| `user-data` | seed ISO に平文で入りゲストから読める。**秘密の置き場としては案内しない** |
-| Webコンソール | 5分有効・アカウントに結び付いたURL。ページを開くたびにProxmoxのチケットと使い捨てパスワードを発行。WebSocketは1ページ表示につき1本 |
-| コンソールの防御 | Cookieで認証されたWebSocketはOriginが自サイトでなければ断る。URLのトークンはアクセスログに出さず、メモリ上もハッシュで持つ。ページは `Cache-Control: no-store` |
-| noVNC | 同梱する（`web/static/novnc/`）。**CDNは使わない。** CSPの `script-src 'self'` に収まる |
-| CSRF | Goの `http.CrossOriginProtection`。GETは見ないので、WebSocketのOrigin検査を別に置いている |
-| 送信元IP | Caddyの後ろに置くので `SHAKECLOUD_TRUSTED_PROXIES` が要る。広げすぎると直接つないだ人が送信元を偽れる |
-| ネットワーク絞り | セキュリティグループ（VM単位のFW）。効かせるには VM の有効化・NICの `firewall=1`・ルール本体の3つが揃う必要がある |
-| 中継コンテナ | `eufy-security-ws` は `172.31.254.1:3000` にだけbindし、LANへは出さない |
-| 監査ログ | APIの操作を記録する。削除保護は作らない |
+「正本」はその対策を実際に入れているコードです。文書と食い違ったらコードが正しい。
 
-## 5. 守らないと決めたこと
+| 層 | 対策 | 正本 | 手順・詳細 |
+| --- | --- | --- | --- |
+| 境界 | 区画とファイアウォール。WPS 無効、IPsec の初期ルール削除。個人端末の区画からの管理画面・SSH はデスクトップ（有線の MAC）だけ | `platform/flint3/rootfs/etc/shakecloud/apply-segments` | [Flint 3](../operations/flint3.md)・[区画](../operations/vlan.md) |
+| 境界 | 設定崩れを5分ごとに点検して警告（`RouterConfigDrift`）。設定を毎日 K11 へ取り、差分を Git に残す | `stacks/netmap/app/checks.py`・`flint3-backup.timer` | [Flint 3](../operations/flint3.md) |
+| DMZ | DMZ → 家の中は pkdb だけ。送信元は `dmz-db-clients` に書いたアドレスだけ | `platform/flint3/rootfs/etc/shakecloud/apply-dmz` | [区画](../operations/vlan.md#dmz-の作り方) |
+| DMZ | Pi 5 自身も家の区画への送信を落とす（`inet homeguard`。Docker の転送も対象） | `platform/ansible/host_vars/shakeserver.yml` の `pi_base_lan_guard` | [公開サイト](../operations/web.md) |
+| DMZ | pkdb 側も Pi 5（`192.168.30.12/32`）だけ受ける | `platform/terraform/services/apps/main.tf` の `pkdb_dmz` | [pkdb](../operations/pkdb.md) |
+| 公開サイト | SSH は鍵のみ、`unattended-upgrades`、nginx のセキュリティヘッダと TLS1.2 以上、全コンテナに `no-new-privileges`、アプリは `127.0.0.1` | `platform/ansible/roles/shake_web/`・`stacks/shake-web/` | [公開サイト](../operations/web.md) |
+| 宅外 | tailnet のタグごとに届く先を決め、ポリシーに `tests` を書いて誤りを弾く | `platform/tailscale/acl.json` | [Tailscale](../operations/net.md)・`platform/tailscale/README.md` |
+| HTTPS | 証明書と DNS 編集トークンは入口の1台だけ。後ろへは内部CAの HTTPS で中継 | `platform/ansible/roles/tls_proxy/`・`platform/terraform/dns.yaml` | [HTTPSの入口](../operations/edge.md) |
+| 認証 | Authentik の OIDC・Forward Auth・パスキー・メールの確認コード・招待制 | `stacks/identity/configure.py`・`invitations.py` | [認証基盤](../operations/identity.md) |
+| クラウドAPI | CSRF（`http.CrossOriginProtection`）、WebSocket の Origin 検査、コンソールURLは5分・アカウントに結び付け・ログに出さない、`Cache-Control: no-store`、noVNC 同梱で CSP `script-src 'self'` | `cloud/api/internal/server/` | [クラウドAPI本体](../operations/cloud-api.md) |
+| クラウドAPI | 監査ログは追記専用（トリガーで UPDATE・DELETE・TRUNCATE を拒否） | `cloud/api/internal/db/` | [クラウドの使い方](../services/cloud.md) |
+| VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
+| VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
+| 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
+| 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
+| 検知 | Flint 3 の syslog と Pi の journal を Loki へ集める。公開サイトは家の外から見張る | `stacks/monitoring/` | [監視](../operations/monitoring.md) |
+| 供給網 | イメージは `compose.lock.yaml` の digest で固定。CI で Go の `govulncheck`。`renovate.json`（GitHub App が入っていないと PR は作られない） | `stacks/*/compose.lock.yaml`・`.github/workflows/validate.yml` | [構成監査](../audits/config-audit-2026-09-16.md) |
+| 中継コンテナ | `eufy-security-ws` は `172.31.254.1:3000`、eufy-leo-rtc の RTSP は `172.31.254.1:8554` にだけ bind し、LAN へは出さない | `stacks/eufy-leo-rtc/` ほか | [配備台帳](../operations/handover.md) |
 
-正直に書きます。**ここに書いてあることは弱点であって、対策済みではありません。**
+## 5. 残っている穴
+
+上から順に影響が大きいものです。対処したら行を消し、[配備台帳](../operations/handover.md)に結果を書きます。
+
+| 穴 | 起きうること | 次の一手 |
+| --- | --- | --- |
+| **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | Flint 3 で個人端末 → `192.168.10.10:8006,22` をデスクトップだけにする（ホストFWを触らずに済む） |
+| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、基盤VMへ直接届く。ARP スプーフィングで平文の通信も読める | `vmbr0` の VLAN 対応（[区画](../operations/vlan.md#dmz-の作り方)）。既定 SG を絞る |
+| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる | 接続先を `https://netbox.apextox.dpdns.org` にして `:8000` を閉じる |
+| print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | Caddy 経由にするか `127.0.0.1` へ |
+| Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | Cilium で default-deny |
+| 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | 登録を必須にするか決める |
+| negitoroserver が Cloudflare 以外からも 443 を受ける | Cloudflare を迂回して直接叩ける | Cloudflare の IP だけを許可（shake-infra 側） |
+| DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | `vmbr0` の VLAN 対応のあと pentest-01 で `check-segments.sh` |
+| 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | 宅外の回線から一度測る |
+| Garage の管理API（`:3903`）が利用者VMから届く | S3 の管理操作を試される | VM のFWで到達先をクラウドAPIだけに |
+| `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | 例を `127.0.0.1` に |
+| APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | LAN と tailnet だけなので後回し |
+
+元の指摘と経緯は[構成監査の未対応指摘](../audits/config-audit-2026-09-16.md)にあります。
+
+## 6. 守らないと決めたこと
+
+**ここに書いてあることは弱点であって、対策済みではありません。**
 
 | 守らないもの | 理由と、成立する前提 |
 | --- | --- |
-| LAN内の端末 | LANに入れた時点で、名前解決とHTTPS入口には届く。アプリの認証が最後の壁。**LANに知らない端末を入れないことが前提** |
+| サーバーの区画の端末 | サーバーの区画に入った時点で、名前解決とHTTPS入口には届く。アプリの認証が最後の壁。**サーバーの区画（有線と管理用 Wi-Fi `porygon-…`）に知らない端末を入れないことが前提** |
 | 物理ホストのroot | 取られたら全部が終わる。Proxmoxホストの鍵は人が管理し、コードで配らない |
 | 内部構成の秘匿 | 名前と内部IPは公開DNSから引ける。証明書をDNS-01で取る代償として受け入れている |
 | 内部犯行 | 2人とも `admins` に入りうる運用。操作は監査ログに残るが、権限で止めていない |
-| VLANによる分離 | 宣言と手順は用意済みだが、**実機は未切替**。いまは管理面と利用者VMが同じL2にいる（[VLAN 分離への切替](../operations/vlan.md)） |
-| ルータと被保護資産の分離 | 2026-10-14 に別筐体（Flint 3）へ分けて解消 |
 | 外部依存の停止 | Cloudflare（DNS）・DigitalPlat（ドメイン）・外部SMTPが止まると、証明書更新と招待・復旧メールが止まる（[障害モード](failure-modes.md)） |
 | S3の冗長性 | Garageは単一ノード。**stateやバックアップの唯一の保管先にしない** |
 
-## 6. 秘密値の置き場所
+## 7. 秘密値の置き場所
 
 | 場所 | 入るもの |
 | --- | --- |
 | Git（`platform/sops/*.sops.yaml`） | 配備の**前に**必要な資格情報。SOPS + age で暗号化。キー名と構造は平文なので差分レビューができる |
 | 各VMの `/opt/<stack>/secrets/` | 配備時に自動生成する値。Gitへは入らない。人に鍵を作らせない・変えさせない |
 | core-01 の `oidc-cloud.json` | OIDCクライアントの秘密値の**正本**。SOPSへ複製しない（2か所に持つと作り直したとき食い違う） |
+| Flint 3 の `/etc/shakecloud/porygon.key` | 管理用 Wi-Fi のパスワード。`apply-segments` がその場で作る |
 | 手元だけ | `pve.ini`・`seed.ini`（NetBoxを最初に作るとき用）・`.local/pve-readonly.env`。`.example` から作る |
 
 一覧と作り方は[秘密値の管理](../operations/secrets.md)、どのファイルに何が入っているかは[配備台帳 §7](../operations/handover.md)にあります。
@@ -137,7 +176,10 @@ flowchart TB
 
 ## 関連
 
+- [区画と区画間の通信](../operations/vlan.md) — どの区画からどこへ通すかの表
+- [Tailscale](../operations/net.md) — 宅外からの経路
+- [公開サイト](../operations/web.md) — DMZ の Pi 5 と中継の守り
+- [認証基盤](../operations/identity.md) — グループ・パスキー・復旧
+- [秘密値の管理](../operations/secrets.md) — SOPS と age の手順
 - [決定ログ](decisions.md) — ここに書いた方針の元になった決定
 - [障害モードと単一障害点](failure-modes.md) — 止まったときに何が起きるか
-- [ネットワーク・公開範囲・SSO](network-auth.md) — 機器と経路の設計
-- [秘密値の管理](../operations/secrets.md) — SOPS と age の手順

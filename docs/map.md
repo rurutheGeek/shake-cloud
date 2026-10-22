@@ -67,6 +67,7 @@ flowchart TB
 | ホスト固有の値（ノード名・ストレージ名） | `platform/terraform/site.yaml`（`tools/site-yaml.py` が生成） |
 | 設計をなぜそう決めたか | [設計の入口](architecture/index.md)と[決定ログ](architecture/decisions.md) |
 | 言葉の意味 | [用語集](reference/glossary.md) |
+| 外から届く経路・対策・残っている穴 | [セキュリティ](architecture/security.md)（区画間で通すものは[区画と区画間の通信](operations/vlan.md)、実体は `platform/flint3/`・`platform/tailscale/acl.json`） |
 
 ## Obsidian で読む
 
@@ -86,7 +87,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
-| [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
+| [Shake Lab Docs](index.md) | 2026-10-22 | `hub` |
 | [ネットワーク図](network-map.md) | 2026-10-14 | `hub` `network` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 | [サービス図](service-map.md) | 2026-10-04 | `hub` |
@@ -220,7 +221,7 @@ flowchart TB
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-05 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
-| [VLAN 分離への切替](operations/vlan.md) | 2026-10-14 | `ops` `network` |
+| [区画と区画間の通信（VLAN）](operations/vlan.md) | 2026-10-22 | `ops` `network` |
 | [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-16 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
@@ -236,9 +237,9 @@ flowchart TB
 | [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-04 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-03 | `design` `overview` |
+| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-22 | `design` `overview` |
 | [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
-| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-03 | `design` `security` |
+| [セキュリティ（信頼境界と対策）](architecture/security.md) | 2026-10-22 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-03 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-10-03 | `design` `bootstrap` |
 

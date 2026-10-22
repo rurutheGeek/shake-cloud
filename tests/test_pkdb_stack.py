@@ -47,7 +47,7 @@ class StackTests(unittest.TestCase):
     def test_the_project_is_postgresql_and_its_admin_ui(self):
         compose = self.compose()
         self.assertEqual(compose['name'], 'pkdb')
-        self.assertEqual(list(compose['services']), ['db', 'adminer', 'entry'])
+        self.assertEqual(list(compose['services']), ['db', 'adminer', 'entry', 'mcp'])
 
     def test_the_admin_ui_is_loopback_only_and_pinned(self):
         adminer = self.compose()['services']['adminer']
@@ -142,7 +142,9 @@ class DeploymentTests(unittest.TestCase):
             {'database': 'sleepy_pkdb', 'file': 'entry_learnsets.sql'},
             {'database': 'sleepy_pkdb', 'file': 'entry_evolution.sql'},
             {'database': 'sleepy_pkdb', 'file': 'entry_rankings.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'mcp.sql'},
             {'database': 'sleepy_pkdb', 'file': 'app_intro.sql'},
+            {'database': 'sleepy_pkdb', 'file': 'app_quiz.sql'},
             {'database': 'postgres', 'file': 'ubsleepy.sql'},
             {'database': 'ubsleepy', 'file': 'ubsleepy_tables.sql'},
             {'database': 'ubsleepy_test', 'file': 'ubsleepy_tables.sql'},
@@ -184,6 +186,48 @@ class DeploymentTests(unittest.TestCase):
         record = yaml.safe_load(
             (ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))['records']['pkdb-entry']
         self.assertTrue(record['auth'])
+
+    def test_the_mcp_server_is_loopback_only_and_has_no_forward_auth(self):
+        mcp = yaml.safe_load(
+            (STACK / 'compose.yaml').read_text(encoding='utf-8'))['services']['mcp']
+        self.assertEqual(mcp['ports'], ['127.0.0.1:${PKDB_MCP_PORT:-8332}:8080'])
+        self.assertEqual(mcp['build'], './mcp')
+        self.assertTrue(mcp['read_only'])
+        self.assertEqual(mcp['cap_drop'], ['ALL'])
+        self.assertEqual(mcp['environment']['PKDB_MCP_DB_USER'], 'pkdb_mcp')
+        self.assertEqual(mcp['environment']['PKDB_MCP_CLIENT_ID'], 'pkdb-mcp')
+        record = yaml.safe_load(
+            (ROOT / 'platform/terraform/dns.yaml').read_text(encoding='utf-8'))['records']['pkdb-mcp']
+        # MCP のクライアントはブラウザのログインを持たない。認可はサーバ自身の OAuth。
+        self.assertNotIn('auth', record)
+        self.assertEqual(record['upstream'], '127.0.0.1:8332')
+        requirements = (STACK / 'mcp/requirements.txt').read_text(encoding='utf-8').split()
+        self.assertTrue(all('==' in line for line in requirements), requirements)
+
+    def test_the_mcp_role_only_inherits_the_entry_role(self):
+        text = (STACK / 'sql/mcp.sql').read_text(encoding='utf-8')
+        self.assertIn('GRANT pkdb_entry TO pkdb_mcp', text)
+        for forbidden in ('INSERT', 'UPDATE ', 'DELETE', 'ALL PRIVILEGES', 'PASSWORD'):
+            self.assertNotIn(forbidden, text, forbidden)
+
+    def test_the_mcp_writes_are_strict_sourced_and_refresh_once(self):
+        server = (STACK / 'mcp/pkdb_mcp/server.py').read_text(encoding='utf-8')
+        database = (STACK / 'mcp/pkdb_mcp/db.py').read_text(encoding='utf-8')
+        self.assertIn('db.execute, actor, source, True, calls', server)
+        self.assertIn("set_config('pkdb.source', %s, true)", database)
+        self.assertIn("set_config('pkdb.defer_refresh', 'on', true)", database)
+        self.assertIn('connection.read_only = True', database)
+        entry = (STACK / 'sql/entry.sql').read_text(encoding='utf-8')
+        self.assertIn("current_setting('pkdb.strict', true)", entry)
+        for name in ('refresh_views', 'refresh_move_views'):
+            body = entry.split(f'CREATE OR REPLACE FUNCTION pokemondb.{name}()')[1].split('$fn$;')[0]
+            self.assertIn('IF entry_deferred(', body, name)
+        for name in ('entry_ability_id', 'entry_move_id'):
+            body = entry.split(f'CREATE OR REPLACE FUNCTION pokemondb.{name}(')[1].split('$fn$;')[0]
+            self.assertIn('IF NOT coalesce(p_create, NOT entry_strict()) THEN', body, name)
+        moves = (STACK / 'sql/entry_moves.sql').read_text(encoding='utf-8')
+        self.assertIn('entry_move_id(v_name, p_title_group_id, true)', moves)
+        self.assertIn('entry_ability_id(v_name, p_title_group_id, true)', moves)
 
     def test_the_entry_role_cannot_write_tables_directly(self):
         grantees = []
@@ -480,11 +524,13 @@ class ManageTests(unittest.TestCase):
         self.assertNotIn('--single-transaction', args)
         self.assertIn('ON_ERROR_STOP=1', args)
 
-    def test_the_entry_password_is_set_only_when_the_stored_one_does_not_log_in(self):
+    def test_the_app_passwords_are_set_only_when_the_stored_one_does_not_log_in(self):
         project, _ = self.project()
         manage.init()
-        stored = (project / 'secrets' / 'entry_password').read_text(encoding='utf-8').strip()
-        for returncode, expected in ((0, 0), (2, 1)):
+        stored = {role: (project / 'secrets' / secret).read_text(encoding='utf-8').strip()
+                  for role, secret in manage.APP_ROLES}
+        self.assertEqual(set(stored), {'pkdb_entry', 'pkdb_mcp'})
+        for returncode, expected in ((0, 0), (2, 2)):
             statements = []
 
             def client(program, *args, **kwargs):
@@ -494,12 +540,15 @@ class ManageTests(unittest.TestCase):
             with patch.object(manage, 'local', client), \
                  patch.object(manage.subprocess, 'run',
                               return_value=SimpleNamespace(returncode=returncode)) as probe:
-                manage.entry_password()
+                manage.app_passwords()
             self.assertEqual(len(statements), expected)
-            self.assertNotIn(stored, ' '.join(probe.call_args.args[0]))
-            self.assertNotIn('127.0.0.1', ' '.join(probe.call_args.args[0]))
-            for statement in statements:
-                self.assertEqual(statement, f"ALTER ROLE pkdb_entry PASSWORD '{stored}';\n")
+            for call in probe.call_args_list:
+                self.assertNotIn('127.0.0.1', ' '.join(call.args[0]))
+                for password in stored.values():
+                    self.assertNotIn(password, ' '.join(call.args[0]))
+            self.assertEqual(statements, [] if expected == 0 else
+                             [f"ALTER ROLE {role} PASSWORD '{password}';\n"
+                              for role, password in stored.items()])
 
     def test_init_adds_the_entry_secret_without_touching_the_superusers(self):
         project, _ = self.project()

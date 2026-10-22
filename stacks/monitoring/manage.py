@@ -234,7 +234,7 @@ def backup(destination):
         run(['tar', '--numeric-owner', '-cpf', str(target / 'state.tar'), '-C', str(source), '.'])
         run(['tar', '--numeric-owner', '-cpf', str(target / 'deployment.tar'),
              'compose.yaml', 'compose.lock.yaml', '.env', '.env.example', 'secrets',
-             'manage.py', 'prometheus', 'grafana', 'blackbox', 'loki', 'alloy'])
+             'manage.py', 'prometheus', 'grafana', 'blackbox', 'loki', 'alloy', 'canary'])
     finally:
         if running:
             compose('start', *running)
@@ -263,10 +263,10 @@ def main():
         render_peanut_config()
         compose('up', '-d', '--remove-orphans', '--wait', '--wait-timeout', '300')
     elif args.action == 'reload':
-        # Prometheus・Alertmanager・blackbox は設定を起動時にしか読まない。
+        # Prometheus・Alertmanager・blackbox・Loki（ruler の規則）は設定を起動時にしか読まない。
         render_pve_config()
         render_alertmanager_config()
-        compose('restart', 'prometheus', 'alertmanager', 'blackbox')
+        compose('restart', 'prometheus', 'alertmanager', 'blackbox', 'loki')
     elif args.action == 'restart':
         # 保存先の所有権を直したときなど、設定は同じでもコンテナを作り直す。
         render_peanut_config()
