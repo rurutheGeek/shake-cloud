@@ -1,6 +1,6 @@
 # music-tools の配備とタグ編集
 
-media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → タグ編集 → Navidrome 表示）を担うスタックです。仕様・進捗の正本は [W06](../../docs/development/W06-music-tools.md)、タグ編集の使い方は [Nextcloudの使い方](../../docs/services/nextcloud-guide.md)、Picard廃止の経緯は [D05](../../docs/development/D05-picard.md) です。
+media-01 の音楽導線（MeTube 取込 → Nextcloud 共有 music → タグ編集 → Navidrome 表示）を担うスタックです。仕様・進捗の正本は [W06](https://github.com/rurutheGeek/shake-cloud/issues/183)、タグ編集の使い方は [Nextcloudの使い方](../../docs/services/nextcloud-guide.md)、Picard廃止の経緯は [D05](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D05-picard.md) です。
 
 状態: **media-01 で MeTube・変換・タグAPI・KHInsider・全曲レビューが稼働中（2026-09-26）。タグAPIはNextcloudの「MP3タグ編集」が使う。同期タイマーは停止中（W06の残り）**。共有 Cookie の実物は未登録です。
 
@@ -53,14 +53,14 @@ sudo python3 manage.py backup --destination /srv/backups/music-tools
 
 `deployment.tar` の `.env` には共有 Cookie などの実値が入り得ます。保存先は 0700 の非公開領域にし、Git へ入れないでください。
 
-音楽の原本 `${LIBRARY_ROOT}/music`（`YouTube`・`Converted` を含む）は**バックアップに含みません**。原本は別途バックアップしてください（[O03](../../docs/development/O03-restore.md) 等）。
+音楽の原本 `${LIBRARY_ROOT}/music`（`YouTube`・`Converted` を含む）は**バックアップに含みません**。原本は別途バックアップしてください（[O03](https://github.com/rurutheGeek/shake-cloud/issues/214) 等）。
 
 復元時は次の点に注意します。
 
 - **同じ CPU アーキテクチャ**へ戻す（`manifest.json` の `architecture` を確認する）。
 - サービスを停止してから展開する。変換・タグAPI・同期が動いたまま状態を差し替えない。
 - 既存の `storage/` へ上書きしない。空のディレクトリへ展開し、`.env` の `LIBRARY_ROOT`・ポート類を合わせてから `manage.py up` で起動する。
-- 原本（music）の復元は [O03](../../docs/development/O03-restore.md) の手順に従う。復元後は同期タイマーの二重実行に注意する。
+- 原本（music）の復元は [O03](https://github.com/rurutheGeek/shake-cloud/issues/214) の手順に従う。復元後は同期タイマーの二重実行に注意する。
 
 ## タグ編集
 

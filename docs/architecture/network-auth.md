@@ -49,7 +49,7 @@ tags:
 
 **DNS（AdGuard Home）は Flint 3 に置いています。** ルータが落ちると名前解決も止まります。切り戻し先として router-01（K11 上、停止中）を 2026-10-28 まで残しています。
 
-（経緯）**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](../development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
+（経緯）**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
 
 ## 分離するネットワーク
 
@@ -107,7 +107,7 @@ VLAN、Kubernetes namespace、APIキーのスコープはそれぞれ別の境�
 | `*.functions.k8s.apextox.dpdns.org` | クラウドの function（Knative・ワイルドカード証明書） |
 
 - **名前の引き方（LAN）:** 端末は DHCP で `192.168.10.1` を知り、AdGuard Home が外部ドメインを **DoH**（Cloudflare / Google）で解決します。`*.lan`（`aterm.lan` など）は dnsmasq（`127.0.0.1:5353`）が答えます。**IPv6 の RDNSS は上流（JPNE）の RA に無いため配れず**、端末は DHCPv4 の DNS を使います（[DNS と広告遮断](../operations/adguard.md)）。
-- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](../development/N02-tailscale.md)の未完了項目です。
+- **名前の引き方（外）:** Cloudflare の公開 DNS に**内部IPをそのまま**書いています（プロキシは通さない）。外から名前を引けても内部IPなので届かず、サービスはインターネットに公開していません。Tailscale経由のDNS（AdGuard Home）とサブネット経路は2026-10-01に設定済みで、宅外端末での実機検証だけが[N02](https://github.com/rurutheGeek/shake-cloud/issues/201)の未完了項目です。
 - **入口と証明書:** HTTPSの入口は core-01 の Caddy 1台です。上の表の名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。証明書は Caddy が Let's Encrypt から DNS-01 で取ります。AdGuard とルータの管理画面も同じ Caddy が受けて、ルータの `192.168.10.1` へ中継します（ルータのファイアウォールで core-01 だけに許可）。
 - **トークン:** Caddy が使う Cloudflare のトークンは、このゾーンの DNS 編集だけができます。持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。core-01 が乗っ取られると DNS を書き換えられる、という引き換えは受け入れています。
 
@@ -138,7 +138,7 @@ VPNは接続経路、SSOは本人確認、アプリの権限は操作可能範�
 
 OIDC対応アプリへさらに一律Forward Authを重ねない構成を優先します。Forward Authでは認証済みヘッダーを信頼するバックエンドへの直接アクセスを制限し、クライアントが送った同名ヘッダーを信用しない設定にします。[Authentik Forward Auth](https://docs.goauthentik.io/add-secure-apps/providers/proxy/forward_auth)、[Proxmox連携](https://docs.goauthentik.io/integrations/services/proxmox-ve/)
 
-**Home AssistantはコアがOIDCに対応していないため、コミュニティ製の [hass-oidc-auth](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1、digest固定）を公開クライアント（PKCE）で使います。** 入口は `https://ha.apextox.dpdns.org`（Caddyが `127.0.0.1:8123` をTLS終端。Let's Encrypt）です。Authentik側の `home-assistant` クライアントは `stacks/identity/configure.py` が冪等作成し、`redirect` は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`、`users`／`admins` へバインドします。HAは `auth_oidc` を `configuration.yaml` の管理ブロックへ設定します（[H01](../development/H01-home-assistant.md)）。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・Companionアプリがあるため、CaddyのForward Authは使いません。Authentikの手順もHA向けには非公式統合を案内しています。[Authentik Home Assistant](https://integrations.goauthentik.io/miscellaneous/home-assistant)
+**Home AssistantはコアがOIDCに対応していないため、コミュニティ製の [hass-oidc-auth](https://github.com/christiaangoossens/hass-oidc-auth)（v1.2.1、digest固定）を公開クライアント（PKCE）で使います。** 入口は `https://ha.apextox.dpdns.org`（Caddyが `127.0.0.1:8123` をTLS終端。Let's Encrypt）です。Authentik側の `home-assistant` クライアントは `stacks/identity/configure.py` が冪等作成し、`redirect` は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`、`users`／`admins` へバインドします。HAは `auth_oidc` を `configuration.yaml` の管理ブロックへ設定します（[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)）。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・Companionアプリがあるため、CaddyのForward Authは使いません。Authentikの手順もHA向けには非公式統合を案内しています。[Authentik Home Assistant](https://integrations.goauthentik.io/miscellaneous/home-assistant)
 
 ## パスキーと復旧
 
@@ -164,4 +164,4 @@ AuthentikはWebAuthn／パスキーに対応します。固定したHTTPS名で�
 
 DAV、Subsonic、OPDS、S3、SQLへブラウザの認証画面を返さないようにします。認証プロキシの対象外にするAPI経路も、サービス自身の認証は有効にします。[Nextcloud Android](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/sync_android.html)、[Navidrome認証](https://navidrome.org/docs/usage/integration/authentication/)、[Kavitaクライアント](https://wiki.kavitareader.com/guides/features/opds/)、[Vaultwarden OIDC](https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect)
 
-LocalSendは端末間転送に使用し、専用サーバーを置きません。ただしmedia-01には非公式の常設受信機を置き、送信ファイルをNextcloudの `inbox` へ着地させます（[D06](../development/D06-localsend.md)。実送受信は未確認）。VLANやVPNを越える自動検出は前提にせず、遠隔ファイル共有はNextcloudへ揃えます。[LocalSendプロトコル](https://github.com/localsend/protocol)
+LocalSendは端末間転送に使用し、専用サーバーを置きません。ただしmedia-01には非公式の常設受信機を置き、送信ファイルをNextcloudの `inbox` へ着地させます（[D06](https://github.com/rurutheGeek/shake-cloud/issues/216)。実送受信は未確認）。VLANやVPNを越える自動検出は前提にせず、遠隔ファイル共有はNextcloudへ揃えます。[LocalSendプロトコル](https://github.com/localsend/protocol)

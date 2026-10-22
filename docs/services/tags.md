@@ -77,7 +77,7 @@ sudo docker compose ... run --rm --entrypoint python3 tagger /tools/organize.py 
 - タグ: `storage/tags/tag-backups/`（Nextcloud編集）、`storage/convert/organize/tag-backups/`（organize.py）
 - 移動: `storage/convert/organize/journal-*.json` → `organize.py undo` で戻せる
 - 埋め込み画像: `storage/convert/organize/apic-backups/`
-- 音声本体のバックアップは別途必要です（[O03](../development/O03-restore.md)）
+- 音声本体のバックアップは別途必要です（[O03](https://github.com/rurutheGeek/shake-cloud/issues/214)）
 
 ## タグ付け方針（迷ったときの基準）
 

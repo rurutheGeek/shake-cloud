@@ -19,3 +19,7 @@ ingressController:
   service:
     annotations:
       metallb.universe.tf/loadBalancerIPs: 192.168.10.241
+# operator は既定で2台を別ノードに置く。1台構成では2台目が置けず、helm の
+# --wait が終わらない（2026-10-22）。ノード数に合わせる。
+operator:
+  replicas: {{ 1 if k8s_schedule_on_control_plane | bool else 2 }}

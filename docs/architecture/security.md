@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-22 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-**状態**: 境界は Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（2026-10-16〜）。K11 の `vmbr0` は VLAN 未対応のため、DMZ にクラウドVMはまだ作れない。
+**状態**: 境界は Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（2026-10-16〜）。DMZ にクラウドVMを置くには K11 の `vmbr0` の VLAN 対応が要る（いまは置いていないので困っていない）。
 
 **家庭内の2人運用が前提です。** 組織の監査要件、内部犯行への耐性、規制対応は想定していません（[§6](#6-守らないと決めたこと)）。
 
@@ -125,6 +125,8 @@ flowchart TB
 | 利用者VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
 | 利用者VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
 | 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
+| 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
+| 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
 | 検知 | Flint 3 の syslog と Pi の journal を Loki へ集める。公開サイトは家の外から見張る | `stacks/monitoring/` | [監視](../operations/monitoring.md) |
 | 供給網 | 固定したイメージの脆弱性を毎日調べ、修正版のある重大なものを警告（`ImageCriticalVulnerability`）。Trivy と、ランタイムの版の照合 | `platform/ansible/roles/image_scan/` | [監視](../operations/monitoring.md) |
 | 供給網 | イメージは `compose.lock.yaml` の digest で固定。CI で Go の `govulncheck`。`renovate.json`（GitHub App が入っていないと PR は作られない） | `stacks/*/compose.lock.yaml`・`.github/workflows/validate.yml` | [構成監査](../audits/config-audit-2026-09-16.md) |
@@ -132,20 +134,20 @@ flowchart TB
 
 ## 5. 残っている穴
 
-上から順に影響が大きいものです。対処したら行を消し、[配備台帳](../operations/handover.md)に結果を書きます。
+上から順に影響が大きいものです。次の一手と進み具合は Issue にあります。対処したら Issue を閉じ、この行を消します。
 
-| 穴 | 起きうること | 次の一手 |
+| 穴 | 起きうること | Issue |
 | --- | --- | --- |
-| **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | Flint 3 で個人端末 → `192.168.10.10:8006,22` をデスクトップだけにする（ホストFWを触らずに済む） |
-| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、同じ区画の機器へ直接届く（core-01・cloud-01 は VM ファイアウォールで口を絞った）。ARP スプーフィングで平文の通信も読める | `vmbr0` の VLAN 対応（[区画](../operations/vlan.md#dmz-の作り方)）。既定 SG を絞る |
-| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる（`:8000` に届くのはサーバーの区画だけ） | 接続先を `https://netbox.apextox.dpdns.org` にして `:8000` を閉じる |
-| print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | Caddy 経由にするか `127.0.0.1` へ |
-| Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | Cilium で default-deny |
-| 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | 登録を必須にするか決める |
-| DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | `vmbr0` の VLAN 対応のあと pentest-01 で `check-segments.sh` |
-| 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | 宅外の回線から一度測る |
-| `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | 例を `127.0.0.1` に |
-| APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | LAN と tailnet だけなので後回し |
+| **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | [#219](https://github.com/rurutheGeek/shake-cloud/issues/219) |
+| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、同じ区画の機器へ直接届く（core-01・cloud-01 は VM ファイアウォールで口を絞った）。ARP スプーフィングで平文の通信も読める | [#224](https://github.com/rurutheGeek/shake-cloud/issues/224) |
+| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる（`:8000` に届くのはサーバーの区画だけ） | [#221](https://github.com/rurutheGeek/shake-cloud/issues/221) |
+| print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | [#222](https://github.com/rurutheGeek/shake-cloud/issues/222) |
+| Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | [#223](https://github.com/rurutheGeek/shake-cloud/issues/223) |
+| 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | [#225](https://github.com/rurutheGeek/shake-cloud/issues/225) |
+| DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | [#220](https://github.com/rurutheGeek/shake-cloud/issues/220) |
+| 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | [#220](https://github.com/rurutheGeek/shake-cloud/issues/220) |
+| `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | [#226](https://github.com/rurutheGeek/shake-cloud/issues/226) |
+| APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | 後回し（LAN と tailnet だけ） |
 
 元の指摘と経緯は[構成監査の未対応指摘](../audits/config-audit-2026-09-16.md)にあります。
 
@@ -172,7 +174,7 @@ flowchart TB
 | Flint 3 の `/etc/shakecloud/porygon.key` | 管理用 Wi-Fi のパスワード。`apply-segments` がその場で作る |
 | 手元だけ | `pve.ini`・`seed.ini`（NetBoxを最初に作るとき用）・`.local/pve-readonly.env`。`.example` から作る |
 
-一覧と作り方は[秘密値の管理](../operations/secrets.md)、どのファイルに何が入っているかは[配備台帳 §7](../operations/handover.md)にあります。
+一覧と作り方は[秘密値の管理](../operations/secrets.md)、どのファイルに何が入っているかは[秘密値の管理 §7](../operations/secrets.md#where)にあります。
 
 公開前の検査は `python3 tools/check-publication.py` です。既知の秘密値と禁止パス（`storage` `library` `backups` `runtime` `secrets` `trust` `.terraform`、`.env`、state）を検出しますが、**補助であって保証ではありません。** ステージした差分の目視確認も行ってください。
 

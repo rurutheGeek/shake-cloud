@@ -252,7 +252,7 @@ class SecretTests(unittest.TestCase):
 
     def test_the_readme_documents_the_auth_proxy_and_the_work_item(self):
         readme = (UNIT / 'README.md').read_text(encoding='utf-8')
-        self.assertIn('../../../docs/development/W05-navidrome.md', readme)
+        self.assertIn('https://github.com/rurutheGeek/shake-cloud/issues/182', readme)
         self.assertIn('認証プロキシ', readme)
         self.assertIn('読み取り専用', readme)
         self.assertIn('stacks/compose.lock.yaml', readme)

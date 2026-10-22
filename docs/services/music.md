@@ -68,7 +68,7 @@ KHInsiderは日本語のゲームでもアルバム名・曲名を英語で載�
 
 タグ編集はNextcloudの「MP3タグ編集」へ統合したため、サーバーのPicard（`jlesage/musicbrainz-picard` のブラウザー内デスクトップ）は撤去し、`https://picard.apextox.dpdns.org` も閉じました。PCでPicardを使いたい場合は、Nextcloudからファイルを取り出して[公式配布](https://picard.musicbrainz.org/downloads/)のデスクトップ版を使い、終わったらNextcloudへアップロードし直します（サーバー側のデータ `storage/picard` は残してあるので、戻す場合はcomposeとDNSを戻します）。
 
-タグの編集手段（手動・自動ツール・ジャンル方針・バックアップ）は[タグ管理（MP3）](tags.md)、Navidromeでできないことと代替手段は[Navidrome改造予定](../development/navidrome-ideas.md)にまとめています。
+タグの編集手段（手動・自動ツール・ジャンル方針・バックアップ）は[タグ管理（MP3）](tags.md)、Navidromeでできないことと代替手段は[Navidrome改造予定](https://github.com/rurutheGeek/shake-cloud/issues/238)にまとめています。
 
 ## MP3タグをコードで編集
 

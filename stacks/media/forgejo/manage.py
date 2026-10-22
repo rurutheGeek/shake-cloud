@@ -6,7 +6,13 @@ After the container is healthy, `up` reconciles the Authentik login source, the
 local administrator the API calls use, the archive organization and the pull
 mirrors listed in mirrors.json. Removing a mirror from the list never deletes
 the repository: keeping it is the point of the archive.
+
+A pull mirror only carries git data. For entries with "issues": true, `issues`
+copies the GitHub issues and their comments into a plain repository next to the
+mirror (`<name>-issues`), one Markdown file to read and one JSON file to restore
+from per issue. Issues that disappear upstream stay in the copy.
 """
+import base64
 import argparse
 import datetime
 import json
@@ -205,7 +211,7 @@ def api(method, path, body=None):
 
 
 def mirror_list():
-    """Validate mirrors.json: [{"url": ..., "name"?: ..., "interval"?: ..., "wiki"?: bool, "lfs"?: bool}]."""
+    """Validate mirrors.json: [{"url": ..., "name"?: ..., "interval"?: ..., "wiki"?: bool, "lfs"?: bool, "issues"?: bool}]."""
     entries = json.loads((ROOT / 'mirrors.json').read_text())
     if not isinstance(entries, list):
         raise ValueError('mirrors.json must be a JSON list')
@@ -219,6 +225,8 @@ def mirror_list():
             raise ValueError(f'mirror name missing or duplicated: {name!r}')
         names.add(name)
         entry['name'] = name
+        if entry.get('issues') and github_repository(url) is None:
+            raise ValueError(f'issues can only be copied from github.com: {url!r}')
     return entries
 
 
@@ -242,6 +250,99 @@ def mirrors():
             'service': 'git',
         })
         print(f'CHANGED: mirror {organization}/{name} created from {entry["url"]}')
+
+
+def github_repository(url):
+    """'https://github.com/owner/repo(.git)' -> 'owner/repo', anything else -> None."""
+    parts = urllib.parse.urlsplit(url)
+    path = parts.path.strip('/').removesuffix('.git').split('/')
+    if parts.netloc != 'github.com' or len(path) != 2 or not all(path):
+        return None
+    return '/'.join(path)
+
+
+def github(path):
+    """GET every page of a GitHub API list. Public repositories need no token."""
+    items, page = [], 1
+    while True:
+        separator = '&' if '?' in path else '?'
+        request = urllib.request.Request(
+            f'https://api.github.com{path}{separator}per_page=100&page={page}',
+            headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'shakecloud-forgejo'})
+        with urllib.request.urlopen(request, timeout=60) as response:
+            batch = json.loads(response.read())
+        items.extend(batch)
+        if len(batch) < 100:
+            return items
+        page += 1
+
+
+def issue_files(issues, comments):
+    """Render {path: text} for every issue (pull requests are left out)."""
+    by_issue = {}
+    for comment in comments:
+        number = int(comment['issue_url'].rsplit('/', 1)[1])
+        by_issue.setdefault(number, []).append(comment)
+    files, index = {}, []
+    for issue in sorted((i for i in issues if 'pull_request' not in i), key=lambda i: i['number']):
+        number = issue['number']
+        thread = sorted(by_issue.get(number, []), key=lambda c: c['created_at'])
+        labels = ', '.join(label['name'] for label in issue.get('labels', []))
+        lines = [f"# #{number} {issue['title']}", '',
+                 f"- 状態: {issue['state']}" + (f"（{issue.get('state_reason')}）" if issue.get('state_reason') else ''),
+                 f"- ラベル: {labels or 'なし'}",
+                 f"- 作成: {issue['created_at']}（{issue['user']['login']}）",
+                 f"- 閉じた日: {issue.get('closed_at') or '—'}",
+                 f"- 元: {issue['html_url']}", '', issue.get('body') or '']
+        for comment in thread:
+            lines += ['', f"## {comment['user']['login']} {comment['created_at']}", '', comment.get('body') or '']
+        stem = f'issues/{number:04d}'
+        files[stem + '.md'] = '\n'.join(lines).rstrip() + '\n'
+        files[stem + '.json'] = json.dumps({'issue': issue, 'comments': thread},
+                                           ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+        index.append(f"| [#{number}]({stem}.md) | {issue['state']} | {issue['title']} | {labels} |")
+    return files, index
+
+
+def copy_issues(entry, organization):
+    source = github_repository(entry['url'])
+    name = entry['name'] + '-issues'
+    status, _ = api('GET', f'/repos/{organization}/{name}')
+    if status == 404:
+        api('POST', f'/orgs/{organization}/repos', {
+            'name': name, 'private': True, 'auto_init': True, 'default_branch': 'main',
+            'description': f'Issues of https://github.com/{source}, copied daily by manage.py issues'})
+        print(f'CHANGED: repository {organization}/{name} created')
+    files, index = issue_files(github(f'/repos/{source}/issues?state=all'),
+                               github(f'/repos/{source}/issues/comments'))
+    # The index lists what exists upstream now; files of vanished issues stay.
+    files['README.md'] = '\n'.join([
+        f'# {source} の Issues の写し', '',
+        f'元は https://github.com/{source}/issues 。Forgejo の manage.py issues が毎日写す。'
+        '元で消えたものも、ここからは消さない。', '',
+        '| 番号 | 状態 | 題 | ラベル |', '| --- | --- | --- | --- |', *index]) + '\n'
+    changes = []
+    for path, text in sorted(files.items()):
+        status, current = api('GET', f'/repos/{organization}/{name}/contents/{path}?ref=main')
+        encoded = base64.b64encode(text.encode()).decode()
+        if status == 404:
+            changes.append({'operation': 'create', 'path': path, 'content': encoded})
+        elif base64.b64decode(current['content']).decode() != text:
+            changes.append({'operation': 'update', 'path': path, 'content': encoded, 'sha': current['sha']})
+    if not changes:
+        print(f'OK: issues of {source} unchanged')
+        return
+    api('POST', f'/repos/{organization}/{name}/contents', {
+        'branch': 'main', 'files': changes,
+        'message': f'{source} の Issues を写す（{len(changes)} ファイル）'})
+    print(f'CHANGED: {len(changes)} files of {source} issues copied to {organization}/{name}')
+
+
+def issues():
+    organization = settings().get('FORGEJO_ARCHIVE_ORG', 'archive')
+    for entry in mirror_list():
+        if entry.get('issues'):
+            copy_issues(entry, organization)
 
 
 def configure():
@@ -299,7 +400,7 @@ def backup(destination):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',
-                        choices=['init', 'lock', 'up', 'configure', 'mirrors', 'status', 'down', 'backup'])
+                        choices=['init', 'lock', 'up', 'configure', 'mirrors', 'issues', 'status', 'down', 'backup'])
     parser.add_argument('--destination', default=str(ROOT / 'backups'))
     args = parser.parse_args()
     if args.action in ('init', 'up', 'configure', 'mirrors'):
@@ -312,6 +413,8 @@ def main():
         configure()
     elif args.action == 'mirrors':
         mirrors()
+    elif args.action == 'issues':
+        issues()
     elif args.action == 'status':
         compose('ps')
     elif args.action == 'down':

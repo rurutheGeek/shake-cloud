@@ -14,7 +14,7 @@ tags:
 
 [構成案トップ](index.md) / [ネットワーク設計](network-auth.md) / [VM配分](operations.md#resource-budget)
 
-更新: 2026-09-13。状態: **比較・配置計画。core-01（旧services-01）へのVPN配備は未実施**。[N01](../development/N01-vpn.md)と[N02](../development/N02-tailscale.md)は並列に調査・設定作成を進められます。
+更新: 2026-09-13。状態: **比較・配置計画。core-01（旧services-01）へのVPN配備は未実施**。[N01](https://github.com/rurutheGeek/shake-cloud/issues/200)と[N02](https://github.com/rurutheGeek/shake-cloud/issues/201)は並列に調査・設定作成を進められます。
 
 方針は **K11にセルフホストVPNを置き、Tailscaleも併用する**。Windows・macOS・Linux・iOS・Androidからの使いやすさと、一般利用者がAuthentikの招待から参加できることを重視する。第一検証候補はNetBird、Tailscaleアプリへの統一を優先する場合の候補はHeadscaleとする。WireGuard単独には決め打ちしない。
 
@@ -70,7 +70,7 @@ Headscaleを選ぶ場合、同じTailscaleクライアントがSaaSとHeadscale�
 
 **初回VPN接続に必要な管理サーバーとAuthentikが、そのVPNに接続しないと開けない構成は避ける。** 宅外で新規接続・再認証できるように、限定したHTTPS認証入口を外部到達可能にするか、登録・再認証を宅内LAN／予備Tailscaleで行う運用を明記する。前者を採るなら、既存の「内部WebはVPNのみ」方針に対する明示的な例外として設計・確認してから公開する。
 
-**回線の条件は2026-09-20に実測で確定した（[N06](../development/N06-router.md)）。** CGNATではなく **MAP-E（v6プラス・JPNE）** で、ポート開放は可能だが**割り当てられた240個に限られ、80/443は含まれない**。したがって **NetBird公式quickstartが前提にする TCP 80/443 への到達は、この回線では満たせない。** 一方 **WireGuard は割当ポートで公開できる**ので、選定の重みが変わった。ポート転送は `router-01`（OpenWrt）で設定する。公開Caddyとのポート競合だけは引き続き調整が要る。宅外から直接到達できなければ、外部の公開入口を別途用意するかTailscaleを通常経路として使い続ける。
+**回線の条件は2026-09-20に実測で確定した（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。** CGNATではなく **MAP-E（v6プラス・JPNE）** で、ポート開放は可能だが**割り当てられた240個に限られ、80/443は含まれない**。したがって **NetBird公式quickstartが前提にする TCP 80/443 への到達は、この回線では満たせない。** 一方 **WireGuard は割当ポートで公開できる**ので、選定の重みが変わった。ポート転送は `router-01`（OpenWrt）で設定する。公開Caddyとのポート競合だけは引き続き調整が要る。宅外から直接到達できなければ、外部の公開入口を別途用意するかTailscaleを通常経路として使い続ける。
 
 ## 選定の合格条件
 

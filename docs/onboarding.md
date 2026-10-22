@@ -1,6 +1,6 @@
 ---
 title: 開発参加ガイド
-updated: 2026-09-12
+updated: 2026-10-22
 section: 入口
 audience: 全員
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 開発参加ガイド
 
-> **更新日** 2026-09-12 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-10-22 ・ **区分** 入口 ・ **読む人** 全員
 
 **状態**: 既存の接続手順と配備台帳に合わせた資料更新。この更新でVMの作成・変更や接続の再検証は行っていません。
 
@@ -68,7 +68,7 @@ Host dev-02
 
 VS Code の Remote-SSH もこの設定をそのまま使います。
 
-`192.168.10.0/24` はNATの内側です。宅外アクセスは[VPN計画 N01](development/N01-vpn.md)と[復旧経路 N02](development/N02-tailscale.md)で整備します。LANや構成管理者が確認した経路を使い、既存TailscaleのDNS・経路がすでに動作するとは扱わないでください。
+`192.168.10.0/24` はNATの内側です。宅外アクセスは[VPN計画 N01](https://github.com/rurutheGeek/shake-cloud/issues/200)と[復旧経路 N02](https://github.com/rurutheGeek/shake-cloud/issues/201)で整備します。LANや構成管理者が確認した経路を使い、既存TailscaleのDNS・経路がすでに動作するとは扱わないでください。
 
 ## 3. 公開鍵で入れるようにする
 
@@ -116,7 +116,7 @@ CLIから操作したい場合は、リポジトリの `tools/devvm` が同じ�
 
 ## 5. 開発する機能を選ぶ
 
-[並列開発計画](development/index.md)から担当するIDを選びます。W01・A01などの番号は作業順ではありません。個別文書の「開発開始」と「実機配備・切替」の前提、共有ファイルの担当を確認し、既存dev-01／dev-02でコード・設定・模擬テストを進めます。
+[GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)から担当する作業を選びます（決まりは[開発の進め方](development/index.md)）。dev-01／dev-02 でコード・設定・模擬テストを進めます。
 
 クラウドのVM・S3・DB・関数提供はすでに実装済みです。[クラウドの使い方](services/cloud.md)からログインしてアクセスキーを発行し、サービスVMはAPI／Providerで管理します。CPU・RAMの変更は所有者の通常操作とは異なり管理者だけが実行できます。既存dev-01／dev-02は管理者Terraformの所有を維持します。
 

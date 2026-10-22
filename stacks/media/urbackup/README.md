@@ -1,6 +1,6 @@
 # クライアントバックアップ UrBackup（media-01）
 
-[W08 クライアント端末のバックアップ](../../../docs/development/W08-client-backup.md) の開発・配備ユニットです。Windows PC の**ファイルとシステムイメージの世代バックアップ**を media-01 の独立した Compose プロジェクト `media-urbackup` として構築します。Android は既存の Nextcloud で担保し、このユニットには含めません（[クライアントバックアップ運用](../../../docs/operations/client-backup.md)）。
+[W08 クライアント端末のバックアップ](https://github.com/rurutheGeek/shake-cloud/issues/185) の開発・配備ユニットです。Windows PC の**ファイルとシステムイメージの世代バックアップ**を media-01 の独立した Compose プロジェクト `media-urbackup` として構築します。Android は既存の Nextcloud で担保し、このユニットには含めません（[クライアントバックアップ運用](../../../docs/operations/client-backup.md)）。
 
 ## 保存先と公開範囲
 

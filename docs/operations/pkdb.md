@@ -64,10 +64,14 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 | `app_intro_alias` | UBSLEEPY のイントロクイズ | 曲の別名（1行に1つ）。`in_work` が `work` と違う行は、再録でその作品に流れるときだけの呼び名 |
 | `app_intro_appearance` | 同上 | 曲がほかに流れる作品（再録・流用） |
 | `app_intro_secret` | 同上 | ふだん出題しない音源（未使用曲・古いバージョンなど） |
+| `app_quiz_trainer` | UBSLEEPY のクイズ | トレーナーの手持ち（1行が1つの対戦の1匹） |
+| `app_quiz_wild` | 同上 | 野生の出現（場所・出方・時間帯・条件ごとの1匹。出現率つき） |
+| `app_quiz_wild_weight` | 同上 | アルセウスの出現テーブルの重み（地方の単位） |
 
 - 定義は `stacks/pkdb/sql/app_intro.sql`（配備のたびに流れ、冪等）。作品は略称、曲名は文字のまま持ち、**リストを直している間は正規化しません**。
 - Bot は `pkdb_reader` で1分ごとに読み直すので、**直すと配備なしで本番・テストの両方に反映**されます。表が空・DBにつながらないときは、Bot のイメージに入っているCSVを使います。
-- 直すのは UBSLEEPY-next の `python tools/intro_db.py`（apps-01 のコンテナの `psql` を `pkdb_editor` で使う。手順は同リポジトリの `CLAUDE.md`）。`pkdb_editor` はこの3表にだけ直接書けます。
+- 直すのは UBSLEEPY-next の `python tools/intro_db.py`（apps-01 のコンテナの `psql` を `pkdb_editor` で使う。手順は同リポジトリの `CLAUDE.md`）。`pkdb_editor` はこの3表と `app_quiz_*` にだけ直接書けます。
+- `app_quiz_*` の定義は `stacks/pkdb/sql/app_quiz.sql`。作品は `title_solo.title_id`、ポケモンは `ndex_number`・`form_id` で持ち、名前は図鑑の表から引きます。中身は UBSLEEPY-next の `temp/quizdata/work/load_pkdb.py` が入れ替えます（pret・Bulbapedia・PokeAPI・PKHeX などから集めたもの）。
 - このために `pkdb_editor` へスキーマ `pokemondb` の `USAGE` を足しました（表の `SELECT` は元から持っていたが、スキーマに入れず使えていなかった）。
 
 ## ポケモンDBの登録画面

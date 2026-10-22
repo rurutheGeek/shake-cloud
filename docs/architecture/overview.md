@@ -19,7 +19,7 @@ tags:
 - VMの配分・電源・状態の正本: [クラウド開発の引き継ぎとTODO](../operations/handover.md)（配備台帳）
 - サービスを探す入口: [接続先一覧](../reference/urls.md)・[Homarr](https://homarr.apextox.dpdns.org)
 - 誰が何を作るかの境界: [IaCの所有境界](iac.md)
-- 作業IDごとの計画: [機能別VMと並列開発計画](../development/index.md)
+- 残っている作業: [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)（[開発の進め方](../development/index.md)）
 - 秘密値の置き場所: [秘密値の管理（SOPS + age）](../operations/secrets.md)
 
 ## 1. 全体像（役割とVM）
@@ -338,7 +338,7 @@ flowchart LR
 | 対象 | 接続 | 現状 |
 | --- | --- | --- |
 | Home Assistant | HA 2026.9.2。設定は `/srv/home-assistant/config` が正本 | SSO＋緊急用ローカル。バックアップと復元試験は未完 |
-| Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](../development/H04-eufy.md)） |
+| Eufy | `eufy-security-ws` とHA統合 `eufy_security` | eufyCam S4（単体・ソーラー・fw 1.1.1.2）とSmartTrackで、ログイン・デバイス一覧・Push・スナップショットは動作。イベントのHA取り込みは確認中。**ライブ映像は新WebRTC方式のため現行ソフトでは不可**（[H04](https://github.com/rurutheGeek/shake-cloud/issues/198)） |
 | SwitchBot | Hub Mini経由のSwitchBot Cloud統合 | 鍵・ドアセンサー・赤外線家電（エアコン・テレビ・照明等）のエンティティを確認。実機操作は確認待ち |
 | プリンター | Canon TS8430 を IPP Everywhere でCUPSに登録 | LAN内の端末からキュー `ts8430` で印刷。Nextcloudからの印刷も動作（[プリンター](../services/printer.md)） |
 | Alexa / Echo | Home Assistant Cloudも独自Skillも作らない | 見送り。SwitchBotとEufyは各社のAlexaスキルで操作可能 |
@@ -385,7 +385,7 @@ flowchart LR
 
 ## 10. ゲームとAI（game1・GPUパススルー）
 
-game1 は **GPUをパススルーした** `cloud` プールのVMです（8vCPU・現行12GiB、16GiB候補、256GiB）。ゲーム配信と将来のローカルAI・RAGを同じVMで動かし、**GPUを増設したら Ollama と汎用RAGを載せる予定**です（[A02](../development/A02-ollama.md)・[A03](../development/A03-rag.md)・[G03](../development/G03-game-ai-resources.md)）。VMを停止するとゲーム・AI・Bot・ライブラリも止まります。
+game1 は **GPUをパススルーした** `cloud` プールのVMです（8vCPU・現行12GiB、16GiB候補、256GiB）。ゲーム配信と将来のローカルAI・RAGを同じVMで動かし、**GPUを増設したら Ollama と汎用RAGを載せる予定**です（[A02](https://github.com/rurutheGeek/shake-cloud/issues/188)・[A03](https://github.com/rurutheGeek/shake-cloud/issues/189)・[G03](https://github.com/rurutheGeek/shake-cloud/issues/195)）。VMを停止するとゲーム・AI・Bot・ライブラリも止まります。
 
 ゲームスタックは別の開発者が担当し、Ansible（`site.yml` と `roles/*`）が設定・Compose fragment・env を生成して `game-server-next.service` で起動する構成です。構成ファイルはまだ本リポジトリへ取り込まれていません。
 
@@ -416,7 +416,7 @@ flowchart LR
 
 - **常駐コンテナ**: ingress（自作Go・CaddyとCloudflare DNSプラグインを自前ビルド、TLS終端と振り分け）、portal（自作FastAPIのモノリス。auth・data・runtime・portal・metricsを同梱）、runtime-controller（Wolfの `wolf.sock` を所有しHTTPで公開）、wolf（本家に独自patchを当てたビルド。gamescope/GStreamer、`docker.sock` 保持）、RomM・MariaDB（既製。共有ライブラリの権威）、SFTPGo（既製）、Netdata（既製）。
 - **runner**: FedoraベースにAzahar・Dolphin・RetroArch・Lutris・Wine・Pegasusを固定版で同梱した自作イメージ。Wolfが `docker.sock` 経由で都度起動し、`RUNNER` で中身を切り替えます。起動ロジックは自作Pythonアダプタがargvを組み立てます。
-- 品質の判定は [G01 Wolf](../development/G01-wolf.md)・[G02 Azahar](../development/G02-azahar.md)・[W07 RomM](../development/W07-romm.md) で管理します。
+- 品質の判定は [G01 Wolf](https://github.com/rurutheGeek/shake-cloud/issues/193)・[G02 Azahar](https://github.com/rurutheGeek/shake-cloud/issues/194)・[W07 RomM](https://github.com/rurutheGeek/shake-cloud/issues/184) で管理します。
 
 ## 11. Kubernetes（k8s-cp-01 / k8s-worker-01 / k8s-worker-02）
 
@@ -552,25 +552,25 @@ flowchart LR
 | クラウド | shakecloud API・CLI・Provider | 1サービス1 state。Providerの資格情報はstateへ書かない |
 | 秘密値 | SOPS + age（`platform/sops/`） | 自動生成し、復号鍵は作業機とクラスタにだけ置く |
 
-作業は[機能別VMと並列開発計画](../development/index.md)のID（W・A・G・H・N・I・M・O・D）で管理し、**仕様と進捗の正本は個別計画書、実機の配備結果は[配備台帳](../operations/handover.md)** に記録します。計画の作成を配備済みとは扱いません。検査は `python3 -m unittest discover -s tests`、`yamllint`、`mkdocs build --strict`、`tools/check-publication.py`、Goの `vet`・`test`、実機E2E（`tools/verify-*.py`）をCIと同じように手元で流せます。
+作業は [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) で管理し（[開発の進め方](../development/index.md)）、実機の配備結果は[配備台帳](../operations/handover.md)に記録します。Issue を書いたことを配備済みとは扱いません。検査は `python3 -m unittest discover -s tests`、`yamllint`、`mkdocs build --strict`、`tools/check-publication.py`、Goの `vet`・`test`、実機E2E（`tools/verify-*.py`）をCIと同じように手元で流せます。
 
 ## 15. 既知の制約とこれから
 
 | 項目 | 現状 | これから |
 | --- | --- | --- |
-| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](../development/H04-eufy.md)） |
-| VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](../development/N01-vpn.md)） |
-| 復旧用Tailscale | **subnet router を Flint 3 で稼働中（2026-10-14 に router-01 から移設）**。サーバーと個人端末の区画を流す。宅外のスマホ・ノート PC から家の中へ入れることを確認済み | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](../development/N02-tailscale.md)・[net.md](../operations/net.md)） |
-| VLAN分離 | Flint 3 でサーバー・個人端末・ネット専用・DMZ に分けた（2026-10-14〜15）。DMZ の VM 用の K11 の VLAN 対応は未 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](../development/N03-vlan.md)） |
-| 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](../development/O01-cloud-backup.md)・[backup.md](../operations/backup.md)） |
+| Eufyのライブ映像 | S4の新WebRTC方式に対応する公開ソフトがなく不可 | イベント・スナップショットで運用。後継SDKでの実装は保留（[H04](https://github.com/rurutheGeek/shake-cloud/issues/198)） |
+| VPN | 未構築。LANの外から常用サービスへは使えない | NetBirdを第一候補に、外部到達と認証入口を確認してから配備（[N01](https://github.com/rurutheGeek/shake-cloud/issues/200)） |
+| 復旧用Tailscale | **subnet router を Flint 3 で稼働中（2026-10-14 に router-01 から移設）**。サーバーと個人端末の区画を流す。宅外のスマホ・ノート PC から家の中へ入れることを確認済み | 管理LANの範囲だけを広告し、切戻しを文書化（[N02](https://github.com/rurutheGeek/shake-cloud/issues/201)・[net.md](../operations/net.md)） |
+| VLAN分離 | Flint 3 でサーバー・個人端末・ネット専用・DMZ に分けた（2026-10-14〜15）。DMZ の VM 用の K11 の VLAN 対応は未 | 物理スイッチ・ルーターとbridgeのVLAN対応が前提（[N03](https://github.com/rurutheGeek/shake-cloud/issues/202)） |
+| 管理DBの外部バックアップ | ローカルに14世代。Tier1 VMは週次vzdumpを6TB HDDへ取る（同じ筐体・単一ディスク） | 別ディスク・別機器への暗号化コピーと復元照合（[O01](https://github.com/rurutheGeek/shake-cloud/issues/212)・[backup.md](../operations/backup.md)） |
 | メディア原本の保全 | 原本は6TB HDD上。単一ディスクで冗長性なし | 別機器へのコピー（[bulk-storage.md](../operations/bulk-storage.md)） |
-| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](../development/O02-cnpg-backup.md)） |
-| 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](../development/O03-restore.md)） |
-| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・低電池停止・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了 | 外部監視の冗長化（別電源のラズパイ）（[M01](../development/M01-monitoring.md)） |
-| メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](../development/W06-music-tools.md)） |
-| Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](../development/H01-home-assistant.md)） |
+| CNPGのバックアップ | 未整備 | GarageへのベースバックアップとWAL（[O02](https://github.com/rurutheGeek/shake-cloud/issues/213)） |
+| 復元の合格 | ツールはあるがアプリ横断の隔離復元が未合格 | 原本・state・秘密を一組として手順を確定（[O03](https://github.com/rurutheGeek/shake-cloud/issues/214)） |
+| 監視（M01） | 稼働。全ターゲット収集（AWX除く）・UPS・アラート・dead man's switch・低電池停止・Homarr連携に加え、ホスト/ストレージ/VMメモリ/ゲーム使用量のダッシュボードまで完了 | 外部監視の冗長化（別電源のラズパイ）（[M01](https://github.com/rurutheGeek/shake-cloud/issues/210)） |
+| メディアのデータ移行 | media-01への配備は完了。実データ移行とログイン実測が未完 | W03〜W06の手順で移行し容量を再測定（[W06](https://github.com/rurutheGeek/shake-cloud/issues/183)） |
+| Home Assistantの復元 | バックアップと復元試験が未完 | `manage.py backup` から隔離復元まで確認（[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)） |
 | Kubernetesの常用 | 3台停止中。DB・関数はここに依存 | 容量を確認して起動・join（[Kubernetes](../operations/kubernetes.md)） |
-| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](../development/N04-public-edge.md)） |
+| 公開Web入口 | 要件検討中。未作成 | 公開要件が揃ったらcloud VMとして追加（[N04](https://github.com/rurutheGeek/shake-cloud/issues/203)） |
 | タイムゾーンの適用残り | 宣言は`Asia/Tokyo`へ修正済み（2026-09-17）。dev-02は未適用、k8sノード・probe-01は停止中 | 次の配備・起動で適用される（UTCへ戻る事故は解消） |
 
 ## 関連ページ

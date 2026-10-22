@@ -1,0 +1,29 @@
+# database（CloudNativePG）に渡すメモリの上限。function と合わせて 1GiB
+# （1台構成の k8s-cp-01、platform/terraform/hosts.yaml）。
+# クラウドAPI は requests しか付けないので、limits はここの既定で付く。
+# 合計を超える作成は Kubernetes が断る（Pod が作られず、database は Ready にならない）。
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: memory
+  namespace: databases
+spec:
+  limits:
+    - type: Container
+      default:
+        memory: 320Mi
+      defaultRequest:
+        memory: 256Mi
+      max:
+        memory: 640Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: memory
+  namespace: databases
+spec:
+  hard:
+    # 既定の 320Mi で2台ぶん。
+    limits.memory: 640Mi
+    requests.memory: 640Mi

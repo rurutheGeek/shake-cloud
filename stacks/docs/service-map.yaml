@@ -116,7 +116,7 @@ record_docs:
   peanut: [operations/power.md]
   netmap: [network-map.md]
   aihist: [operations/aihist.md]
-  panel: [development/M02-touch-panel.md]
+  panel: [operations/monitoring.md]
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
   poke: [services/poke-translate.md]

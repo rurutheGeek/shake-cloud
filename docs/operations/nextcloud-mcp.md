@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-19 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](../development/A06-nextcloud-mcp.md)が正本）。
+状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)が正本）。
 
 AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍・
 カレンダー予定の一覧/追加を渡すMCPサーバーです。media-01に常設し、専用ユーザーや
@@ -31,7 +31,7 @@ AIエージェント（opencode等）にNextcloudのファイル操作・MP3タ�
 | 配備 | `platform/ansible/media-nextcloud-mcp.yml` |
 | DNS/Caddy | `platform/terraform/dns.yaml`（`nextcloud-mcp`レコード）・`tls_proxy`ロール |
 | 監視 | `stacks/monitoring/prometheus/blackbox-targets.yml`（`/healthz`をhttps probe） |
-| tag-apiの共有トークン | `platform/sops/music-tags.sops.yaml`（[W06](../development/W06-music-tools.md)と共用） |
+| tag-apiの共有トークン | `platform/sops/music-tags.sops.yaml`（[W06](https://github.com/rurutheGeek/shake-cloud/issues/183)と共用） |
 | テスト | `tests/test_nextcloud_mcp.py`・`tests/test_tls_proxy.py`・`tests/test_monitoring_stack.py` |
 
 ## 配備
@@ -64,7 +64,7 @@ ansible-playbook -i <inventory> media-tls.yml   # media-01のtls_proxyロール�
   Nextcloudへそのまま転送し、何も保存しません。
 - `.env`（`/opt/nextcloud-mcp/nextcloud-mcp.env`、モード0400）に入るのは
   tag-apiの共有トークン（`NEXTCLOUD_MCP_TAG_API_TOKEN`）だけです。値は
-  `platform/sops/music-tags.sops.yaml`が正本（[W06](../development/W06-music-tools.md)と共用、
+  `platform/sops/music-tags.sops.yaml`が正本（[W06](https://github.com/rurutheGeek/shake-cloud/issues/183)と共用、
   ローテーションは両方に影響します）。
 - OIDCログイン（`user_oidc`）のNextcloudでも、アプリパスワードのBasicと
   OAuth2アプリのトークンの両方が通ることを実機で確認済みです。
@@ -114,7 +114,7 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 | `/mcp`が401を返す | OAuthなら`opencode mcp auth nextcloud`で再ログイン。BasicならアプリパスワードがNextcloudで失効していないか |
 | OAuthのログインが終わらない | opencodeを動かす機械にブラウザーが無い（戻り先は`127.0.0.1:19876`）。その機械はアプリパスワードのBasicで使う（dev-02はこれ） |
 | `initialize`だけ401 | Nextcloud側で資格情報が拒否されている（サーバーログに`initialize: Nextcloudが応答しません`と出ない場合はここ） |
-| MP3タグ編集が失敗する | tag-api（`127.0.0.1:5810`）が起動しているか、`NEXTCLOUD_MCP_TAG_API_TOKEN`が空でないか（[W06](../development/W06-music-tools.md)） |
+| MP3タグ編集が失敗する | tag-api（`127.0.0.1:5810`）が起動しているか、`NEXTCLOUD_MCP_TAG_API_TOKEN`が空でないか（[W06](https://github.com/rurutheGeek/shake-cloud/issues/183)） |
 | zip展開が途中で失敗する | `NEXTCLOUD_MCP_MAX_EXTRACT_FILES`/`_BYTES`の上限に触れていないか。大物はNextcloud UI（files_zip等）へ誘導する |
 | カレンダーで「Calendar app is not available」 | NextcloudでCalendarアプリが有効か（capabilitiesの`calendar`）。`group_vars/media.yml`の`nextcloud_apps`に`calendar`がある（`media-nextcloud.yml`が導入する） |
 | 予定が意図した時刻とずれて見える | `NEXTCLOUD_MCP_TIMEZONE`（既定はmedia-01のタイムゾーン）を確認。オフセット無しの入力・終日予定・一覧表示がこの値を基準にする |

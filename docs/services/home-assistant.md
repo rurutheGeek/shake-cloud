@@ -94,4 +94,4 @@ Home Assistant（HA）は、家の家電の状態を見たり操作したり、�
 - サーバーの再起動中は、HAと自動化も一時的に止まります
 - 「設定 → デバイスとサービス」の追加・変更・削除は管理者の作業です
 
-管理者向け: [配備台帳](../operations/handover.md)・[H01 Home Assistantの計画](../development/H01-home-assistant.md)
+管理者向け: [配備台帳](../operations/handover.md)・[H01 Home Assistantの計画](https://github.com/rurutheGeek/shake-cloud/issues/196)

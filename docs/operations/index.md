@@ -92,7 +92,6 @@ tags:
 | [電源とUPS](power.md) | 安全な停止順と復電 |
 | [確認と、はまりどころ](verify.md) | 変更後に流す検査と、実際に踏んだ落とし穴 |
 | [配備台帳](handover.md) | **実機の状態・進捗・TODOの正本** |
-| [配備の記録](handover-log.md) | 日付つきの出来事（書いた時点の事実） |
 
 決定そのものは[決定ログ](../architecture/decisions.md)、止まったときの影響範囲は[障害モードと単一障害点](../architecture/failure-modes.md)にあります。
 

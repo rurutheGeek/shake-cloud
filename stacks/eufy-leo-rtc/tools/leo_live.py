@@ -325,7 +325,7 @@ last_video_t = 0.0
 VIDEO_IDLE = float(os.environ.get('LEO_VIDEO_IDLE', '20'))
 ack_seqs = []
 # アプリの平文レポート（90ce）を模して送る実験（LEO_APP_REPORT=1 のときだけ）。
-# 仕様は docs/development/H05-ha-live-request.md §9.4 参照。
+# 仕様は https://github.com/rurutheGeek/shake-cloud/issues/199 §9.4 参照。
 _rep_tpl = []
 _rep_i = 0
 _rep_counter = 0

@@ -18,7 +18,7 @@ tags:
 （全断 53 秒）。IPv6 の近隣代理は odhcpd ではなく **ndppd** が担当する。
 **実機へ `uci`／`opkg` で入れた変更はイメージにまだ焼かれていない**ので、
 VM を作り直す前に `build.sh` でイメージを再生成すること。
-（開発計画と調査結果は [N06 ルータ自作（OpenWrt）](../development/N06-router.md) が正本。
+（開発計画と調査結果は [N06 ルータ自作（OpenWrt）](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md) が正本。
 **つながらなくなったときは
 [ルータがつながらないときの調べ方](router-troubleshooting.md)** から読む）
 
@@ -521,7 +521,7 @@ ip -6 addr; ip -6 route; ping -6 -c2 2001:4860:4860::8888
 - 2026-09-20: 切替を実施。router-01 が `192.168.10.1` を持ち、LAN・DHCP・DNS・
   IPv6（ルータの WAN 側）は動いたが、**IPv4 だけが一切通らない**状態になった。
 - 2026-09-20: 上の障害を `legacymap` の欠落と特定し、修正して IPv4 が復旧。
-  経緯は N06「[切替後に IPv4 だけ通らなかった原因](../development/N06-router.md)」。
+  経緯は N06「[切替後に IPv4 だけ通らなかった原因](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)」。
   `verify-router.py` の `map_ports` が PASS（STUN 6 サンプルがすべて MAP-E の
   割当内）。**実機には `uci set` で入れてあるが、
   正本は `rootfs/etc/shakecloud/config/network`** で、VM を作り直す前に

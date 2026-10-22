@@ -45,6 +45,9 @@ pkdb_sql:
   # アプリ用の表（app_<アプリ名>_）。イントロクイズの対応リスト。
   - database: sleepy_pkdb
     file: app_intro.sql
+  # アプリ用の表。クイズのトレーナーの手持ちと野生の出現。
+  - database: sleepy_pkdb
+    file: app_quiz.sql
   - database: postgres
     file: ubsleepy.sql
   - database: ubsleepy

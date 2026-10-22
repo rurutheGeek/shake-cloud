@@ -131,7 +131,7 @@ ssh debian@192.168.10.101 'sudo -u www-data touch /srv/media-stack/library/inbox
 - **USBが落ちたとき。** ホストのext4はそのまま残ります。NFSはI/Oエラーを返すので、ホストで `dmesg` と再接続を確認し、必要なら `mount /srv/bulk` → `exportfs -ra`。ゲストは `mount -a` のあと `systemctl restart docker` で戻します。
 - **USBの挿し替え。** 識別子で固定しているので挿し位置を変えても同じパスです。**必ず `umount /srv/bulk` してから**抜いてください。
 - **UASのエラーが繰り返すとき。** JMS551はUASで不安定な例があります（2026-09-22の設置時に1回、UAS abortと再接続を記録）。USB3ポートでも続くなら `/etc/default/grub` の `GRUB_CMDLINE_LINUX_DEFAULT` へ `usb-storage.quirks=152d:0561:u` を足して `update-grub` → 再起動し、UASを無効化します。
-- **SMART。** ホストのnode_exporterが15分ごとに `smartmon_*` として集め、Grafanaの「Shake Lab storage」で健康・温度・セクター/CRC・マウント状態が見えます（[M01](../development/M01-monitoring.md)）。手元では `smartctl -a -d sat /dev/sda`。異常時は `storage` グループのアラートが鳴ります。
+- **SMART。** ホストのnode_exporterが15分ごとに `smartmon_*` として集め、Grafanaの「Shake Lab storage」で健康・温度・セクター/CRC・マウント状態が見えます（[M01](https://github.com/rurutheGeek/shake-cloud/issues/210)）。手元では `smartctl -a -d sat /dev/sda`。異常時は `storage` グループのアラートが鳴ります。
 - **HDDティアのVMディスク。** クラウドAPIの `disk_tier: hdd` は `/srv/bulk/disks` へ qcow2 で置きます。**5400rpm・USB接続なのでランダムI/Oは得意ではなく、DBやOSの起動ディスクには向きません。** 大きいが普段は眠っているVM（アーカイブ、検証、メディア処理の作業台）向けです。**この1台が落ちるとHDD上のVMはI/Oエラーで止まり、バックアップ・メディア・Nextcloudも同時に落ちます。**vzdumpの `vm_disk_max_used_percent`（既定85%）はHDDのファイルシステム全体（バックアップ・メディア含む）の使用率で判定するので、HDDを埋めると新規作成が止まります。
 - **バックアップ。** このディスクはバックアップではありません（[Garage](garage.md)とは別物）。唯一のコピーになるライブラリは、別ディスク・別機器へもコピーしてください。
 - **旧データの掃除。** 移行元は `/srv/media-stack/library` の下（データディスク `/dev/vdb` 上）に隠れたまま残っています。回収するときはDockerを止めてNFSを外し、ローカルの同名ディレクトリを消してから戻します。消す前に `findmnt` でNFSが外れていることを必ず確認してください。

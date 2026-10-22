@@ -16,23 +16,43 @@ spec:
   # この Ingress に証明書を発行させる（cert-manager → Let's Encrypt DNS-01）。
   ingress_annotations: |
     cert-manager.io/cluster-issuer: letsencrypt-dns
-  # DB は Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク）。
+  # DB は Operator 内蔵の PostgreSQL。PVC は local-path（k8s-cp-01 のデータディスク）。
   postgres_storage_class: local-path
   postgres_storage_requirements:
     requests:
       storage: 8Gi
-  # 常時1レプリカ。worker-01 の RAM を守るため requests だけ置く（limits は付けない）。
+  # 常時1レプリカ。1台構成（k8s-cp-01）で database・function と同居するので、
+  # 部品ごとに上限を付けて他を圧迫しないようにする。
   web_replicas: 1
   task_replicas: 1
+  # uwsgi のワーカー数は既定で CPU 数に比例する。4コアでは 1Gi を超えて
+  # OOMKilled になった（2026-10-22、空の DB へ移行した直後）。2つに絞る。
+  uwsgi_processes: 2
   web_resource_requirements:
     requests:
       cpu: 100m
       memory: 512Mi
+    limits:
+      memory: 1536Mi
   task_resource_requirements:
     requests:
       cpu: 100m
       memory: 512Mi
+    limits:
+      memory: 1Gi
   ee_resource_requirements:
     requests:
       cpu: 50m
       memory: 64Mi
+    limits:
+      memory: 512Mi
+  redis_resource_requirements:
+    requests:
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  postgres_resource_requirements:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 512Mi

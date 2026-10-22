@@ -1,16 +1,16 @@
 # Nextcloud・Calendar・Tasks（media-01）
 
-[W03 Nextcloud・Calendar・Tasksのmedia-01移行](../../../docs/development/W03-nextcloud.md) の開発・配備ユニットです。media-01 のデータディスク `/srv/media-stack` 上に、独立した Compose プロジェクト `media-nextcloud` として構築します。データ移行そのものは W03 の手順で行い、このユニットはアプリの再配備を再現するだけです。
+[W03 Nextcloud・Calendar・Tasksのmedia-01移行](https://github.com/rurutheGeek/shake-cloud/issues/180) の開発・配備ユニットです。media-01 のデータディスク `/srv/media-stack` 上に、独立した Compose プロジェクト `media-nextcloud` として構築します。データ移行そのものは W03 の手順で行い、このユニットはアプリの再配備を再現するだけです。
 
 ## 構成
 
 - PostgreSQL（DB）と Redis（キャッシュ）は `backend` ネットワークだけで使い、ホストへ公開しません。
 - アプリの状態: `${STORAGE_ROOT:-/srv/media-stack/storage}` 配下の `postgres` と `nextcloud/{html,config,data}`
 - 共有の原本: `${LIBRARY_ROOT:-/srv/media-stack/library}` 配下の `books`・`music`・`docs` を Nextcloud の外部ストレージとしてマウント
-- 公開: `127.0.0.1:${NEXTCLOUD_PORT:-8080}` のみ。LAN へ直接公開せず、HTTPS と SSO は前段の入口（[N05](../../../docs/development/N05-https.md)）で行う
+- 公開: `127.0.0.1:${NEXTCLOUD_PORT:-8080}` のみ。LAN へ直接公開せず、HTTPS と SSO は前段の入口（[N05](https://github.com/rurutheGeek/shake-cloud/issues/204)）で行う
 - `cron` コンテナが Nextcloud のバックグラウンドジョブを実行する
 - 自作アプリ `cups_print`（印刷）・`localsend_share`（LocalSend送信）・`shake_tags`（MP3タグ）を `html/custom_apps/` へ置き、中継APIのURLとトークンを `occ` で設定する。`cups_print` と `localsend_share` は公開リポジトリのGitHub Releaseから `manage.py custom-apps` が導入し、イメージは固定のままでコンテナには html ボリューム越しに見える
-- Vaultwarden は含まない（[W02](../../../docs/development/W02-vaultwarden.md) で core-01 へ分離）
+- Vaultwarden は含まない（[W02](https://github.com/rurutheGeek/shake-cloud/issues/179) で core-01 へ分離）
 
 ## 使い方（media-01）
 
@@ -59,11 +59,11 @@ sudo python3 manage.py down
 - Nextcloud を停止してから `storage` と `library` を `tar --numeric-owner` で取ります。DB は `storage/postgres` にあり、コールド状態のコピーとして同じ PostgreSQL 17 イメージへ戻します。
 - `secrets/`（DB パスワードと管理者パスワード）と `.env`・`compose.yaml`・`compose.lock.yaml` も一緒に保管します。秘密値を Git へ入れません。
 - 復元先は元と同じ `/srv/media-stack` のパスにし、UID/GID 33 を保ったまま展開します。別ホストへ戻す場合は `NEXTCLOUD_TRUSTED_DOMAINS` と `BIND_ADDRESS` を見直します。
-- 戻したら `manage.py up` の後、アップロード・ダウンロード・共有、Calendar/Tasks、スマホの CalDAV 同期、cron の実行を確認します。移行の完了条件は [W03](../../../docs/development/W03-nextcloud.md) を正とします。
+- 戻したら `manage.py up` の後、アップロード・ダウンロード・共有、Calendar/Tasks、スマホの CalDAV 同期、cron の実行を確認します。移行の完了条件は [W03](https://github.com/rurutheGeek/shake-cloud/issues/180) を正とします。
 
 ## 画像OCR検索（ocr_search）
 
-計画と設計は[W10](../../../docs/development/W10-ocr-search.md)。アプリと認識サービスは公開リポジトリ `rurutheGeek/nextcloud-ocr-search` が正本で、バージョンは `platform/ansible/group_vars/media.yml` の `nextcloud_custom_apps` の1行が決める。
+計画と設計は[W10](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/W10-ocr-search.md)。アプリと認識サービスは公開リポジトリ `rurutheGeek/nextcloud-ocr-search` が正本で、バージョンは `platform/ansible/group_vars/media.yml` の `nextcloud_custom_apps` の1行が決める。
 
 | 操作（media-01の `/opt/media-stack/media/nextcloud` で、rootで実行） | 内容 |
 | --- | --- |

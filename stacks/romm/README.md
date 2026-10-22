@@ -6,7 +6,7 @@
 
 配備先: **game1**。RomMはゲームVMのライブラリ管理で、メディア（音楽・本）の移行ではない。
 
-担当計画: [W07 RomM](../../docs/development/W07-romm.md)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
+担当計画: [W07 RomM](https://github.com/rurutheGeek/shake-cloud/issues/184)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
 
 ## 再利用するもの
 
@@ -27,4 +27,4 @@ ROM原本とアプリDB・メタデータを分け、game1内の保存先を参�
 書き込まない。イメージのダイジェスト固定、冷間バックアップ、停止・再開は
 `manage.py` の明示操作で行う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

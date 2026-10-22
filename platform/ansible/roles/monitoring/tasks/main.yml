@@ -20,6 +20,7 @@
     - blackbox
     - loki
     - alloy
+    - canary
   register: monitoring_stack_files
 
 # digest の正本はリポジトリの lock。配備先で pull して決めさせない。

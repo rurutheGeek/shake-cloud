@@ -4,7 +4,7 @@
 プロジェクトとして置いています。** 旧ハブの `media-hub`（Authentik・docs・他サービス
 同居）は流用せず、認証は新しい identity の OIDC へ接続しています。
 
-- 担当計画: [W01 Homarr](../../docs/development/W01-homarr.md)
+- 担当計画: [W01 Homarr](https://github.com/rurutheGeek/shake-cloud/issues/178)
 - 利用案内: [Homarrの使い方](../../docs/services/homarr.md)
 - 所有境界: [IaCの所有境界](../../docs/architecture/iac.md)
 

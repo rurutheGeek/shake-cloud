@@ -16,7 +16,7 @@ tags:
 **状態**: **実機で稼働中の設定を「素の状態からの変更」だけ抜き出した一覧。**
 対象読者: ネットワーク機器に慣れていない人。細かい手順は
 [router-01（OpenWrt・自作ルータ）](router.md)、調査の根拠は
-[N06 ルータ自作](../development/N06-router.md) が正本です。
+[N06 ルータ自作](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md) が正本です。
 ネットワーク全体の図と IP 帯は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)。
 
 ## まず用語（3分）
@@ -168,4 +168,4 @@ ssh root@192.168.10.10 'wdctl | head -4'
 - [router-01（OpenWrt・自作ルータ）](router.md)
 - [NetBox の使い方](netbox.md)
 - [電源と UPS](power.md)
-- [N06 ルータ自作（OpenWrt）](../development/N06-router.md)
+- [N06 ルータ自作（OpenWrt）](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)

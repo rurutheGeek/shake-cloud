@@ -298,8 +298,8 @@ window.SERVICE_MAP = {
      "description": "Forward Auth",
      "docs": [
       {
-       "path": "development/M02-touch-panel/",
-       "title": "M02 監視のタッチパネル"
+       "path": "operations/monitoring/",
+       "title": "監視（tarakoserver）"
       }
      ],
      "name": "監視のタッチパネルをスマホで見る・触る",
