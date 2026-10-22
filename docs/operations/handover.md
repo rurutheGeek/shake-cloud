@@ -1,6 +1,6 @@
 ---
 title: クラウド開発の引き継ぎとTODO
-updated: 2026-10-14
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,11 +10,18 @@ tags:
 
 # クラウド開発の引き継ぎとTODO
 
-> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **Phase 1〜7（VM・S3・ボリューム/SG・セルフサービス・CLI/Provider）に加え、Kubernetes クラスタ（kubeadm + Cilium + Flux/SOPS）と、その上の AWX 24.6.1・CloudNativePG 1.30.0（database）・Knative 1.23（function）まで実機で構築・確認済み。クラウドの4機能（VM・S3・database・function）が API・Provider・CLI・ポータルで揃った。identity は招待・メール復旧・Email OTP・パスキー（パスワードレス）まで実装済み。**`main` と cloud 機能のブランチは `e2fb0d9` で統合済み。以後の router・NetBox・AdGuard・監視・ストレージ・LibreSpeed の追補はブランチ `feat/ops-monitoring-storage` にあり、origin の旧ブランチより先行している。**media-01 は新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備済み。既存環境からのデータ移行（W03〜W06。RomMはgame1でW07）が残る。残りは Phase 8（VLAN 分離の実機切替。**TL-SG605 がアンマネージドのため、マネージドスイッチを調達するまで着手できない**）、DB の外部バックアップ、既存環境からのメディアデータ移行。**2026-09-12のI01実測を反映し、k8s-cp-01・k8s-worker-01・probe-01は停止中、dev-a/dev-bの宣言RAMは6GiB。Homarrはservices-01へ新規配備済み（`https://homarr.apextox.dpdns.org`、identityのOIDC）。2026-09-13にNextcloudの「…」→「印刷」からservices-01のCUPSへ送る自作アプリをmedia-01へ配備した（D08）。2026-09-12に監視スタック（Prometheus・Alertmanager・Grafana・exporter）をmonitor-01へ配備した（M01）。2026-09-12〜13にHome Assistant（services-01）へAuthentik SSO・Eufy（イベント・スナップショット）・SwitchBot Cloudを設定した（H01/H02/H04。Eufyのライブ映像は公開ソフトでは不可のため H05 で自前実装中、Alexaは見送り）。2026-09-14に復旧経路のTailscale subnet routerをcloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）として作成し、tailnetへ参加した（N02。2026-10-01にルート承認とtailnet DNS（AdGuard Home）を適用。宅外端末での実機検証が未了）。****2026-09-30（午後）: H05 のライブ配信を android-01 VM から services-01（HA と同じホスト）へ移した。** `stacks/eufy-leo-rtc/` を独立 Compose（`mediamtx`＋`leo-live`、両方ホストネットワーク、イメージは digest 固定）にし、`platform/ansible/eufy-leo-rtc.yml` で配備する（秘密値は `platform/sops/eufy-security.sops.yaml` の EUFY_SN/DID/LICENSE/ACCOUNT/CONTACT）。RTSP は docker ゲートウェイ `172.31.254.1:8554` だけに開き、HA のカメラは `rtsp://172.31.254.1:8554/eufy`＋`http://172.31.254.1:8888/snapshot.jpg`。VM のパイプラインは停止した（アプリ捕捉が要る解析のときだけ使う）。 **2026-09-30: H05 のライブ映像を Home Assistant へ反映した。** eufyCam S4 のネイティブ leo_rtc クライアント（`stacks/eufy-leo-rtc/`、android-01 VM `192.168.10.104`）が映像（P 平文＋IDR AES-GCM 復号）と音声（ADTS AAC 16kHz）を復号し、`tools/live_supervisor.sh` がセッションを繰り返して Mediamtx (`:8554`) へ RTSP 配信する。HA（services-01）は Generic Camera `camera.eufycam_s4_leo_rtc`（`rtsp://192.168.10.104:8554/eufy`）として表示できる（`manage.py ensure-camera` で `.storage` へ登録、Ansible タスク化）。HA 用は**映像のみ**（go2rtc の MJPEG スナップショットは音声トラックがあると失敗するため）、録画用に `eufy_av`（映像＋音声）も出す。カメラはバッテリー機で 1 wake あたり数十秒〜数分しか流れず、切れている間は HA が「ストリームなし」になる（現状の制約）。上流 mega-yfue/eufy-sdk への移植は `feat/leo-rtc-s4`（2026-10-16 から Forgejo の `archive/eufy-sdk-leo-rtc`。解析記録は `archive/eufy-leo-rtc-re`、Ghidra 等の成果は `archive/eufy-re-analysis`）で wire 層 13 モジュール、`npm run verify` green。 2026-09-21〜23: LibreSpeed（`https://speed.apextox.dpdns.org`）をservices-01へ配備し、Proxmoxホスト直結の6TB USB HDDをext4・NFSでmedia-01とgame1へ共有、Tier1 VMの週次vzdumpとgame1セーブ、Proxmoxホストのnode_exporter・SMART/NVMe、Grafanaのホスト・ストレージ・VMメモリ・ゲーム使用量ダッシュボード、storage health（journald上限・root noatime・Dockerログ上限）、AdGuardのHaGeZi's Pro Blocklistを追加した。2026-10-02: media-01 へ UrBackup（Windows のイメージ・ファイルの世代バックアップ）を配備し、Android はポータルの WebUSB ボタン（USB直結）で担保する W08 を追加した（詳細は下の W08 行）。 2026-10-02: AdGuard の HaGeZi's Pro Blocklist が Xbox 実績用ドメイン（`vortex-win.data.microsoft.com`・`vortex.data.microsoft.com`・`pipe.aria.microsoft.com` など）を遮断し、Minecraft / Minecraft Dungeons の実績が解除されない症状を実測。`user_rules` に HaGeZi の Microsoft 一覧ぶんの除外を追加し、DNS 側の遮断は解消した。その後、**MCD2（Minecraft Dungeons II）の Steam 版は Xbox 実績が記録されない既知の不具合**（[feedback.minecraft.net 2026-09-30](https://feedback.minecraft.net/hc/en-us/community/posts/49272314358413-BROKEN-Steam-version-doesn-t-earn-Xbox-achievements)、Switch 2 でも報告）で、AdGuard・PC 側は無関係と判明。ゲーム内実績は出るが Xbox プロフィールはプレイ時間のみになる。Mojang の修正待ち（除外は他タイトル用に残す）。** **2026-10-03: 配置と命名の再編を実機へ適用済み。** identity・storage-s3・net-01・旧 monitor-01（クラウドVM）を削除し、Authentik・NetBox・入口の Caddy は core-01、Garage は cloud-01、監視は基盤VMの monitor-01（120）、Tailscale は router-01、アプリは apps-01（5005）へ集約した。リポジトリ側も旧インベントリ（`inventory.cloud.py`・`cloud-inventory.yml`・`monitor.ini.example`）を削除し、文書を現状へ合わせた。詳細と残作業は §6 の各再編行。
+**状態**（2026-10-22）:
 
-**この文書が、クラウドの実機配備状態と既存TODOの正本です。** 2026-09-12に[機能別の並列開発計画](../development/index.md)を追加しました。各作業IDの仕様・進捗は個別計画書を正本とし、実機配備後にこの台帳へ結果を記録します。2026-09-12に media-01 を新規cloud VMとして作成し、Nextcloud・Kavita・Navidrome等を配備しました（I02。既存環境からのデータ移行は未完）。2026-09-12に Home Assistant Container を services-01 へ配備し、AuthentikのOIDC（SSO）・Eufy（イベント/スナップショット）・SwitchBot Cloud まで設定しました（H01/H02/H04。バックアップと復元試験は未完、Eufyのライブ映像は新方式のため不可）。 途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。
+- **クラウド**: VM・S3・database・function の4機能が API・Provider・CLI・ポータルで揃っている。Kubernetes のノードは必要なときだけ起動する（§3）。
+- **基盤**: core-01（Authentik・NetBox・HTTPS の入口）、cloud-01（クラウドAPI・Garage）、apps-01・media-01（アプリ）。監視は K11 の外の tarakoserver（Raspberry Pi 4）。
+- **ネットワーク**: ルータは Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（Pi 5）。守りの全体は[セキュリティ](../architecture/security.md)。
+- **残りの大きなもの**: K11 の `vmbr0` の VLAN 対応（DMZ にクラウドVMを置くため。[N03](../development/N03-vlan.md)）、既存環境からのメディアデータの移行（W03〜W06）、管理DB・CNPG の外部バックアップと復元の合格（O01〜O03）。一覧は[開発計画](../development/index.md)。
+
+これまでの経緯（以前この欄に書き足していた記録）は[配備の記録](handover-log.md)へ移した。
+
+**この文書が、実機の配備状態と既存TODOの正本です。** 各作業IDの仕様・進捗は[個別計画書](../development/index.md)を正本とし、実機配備後にこの台帳へ結果を記録します。途中で担当が変わっても、ここを読めば「何が決まっていて、どこまでできていて、次に何をやるか」が分かるようにします。作業を終えたら表の状態と更新日を直してください。チャットや個人の作業メモにだけ残さないこと。**日付つきの出来事は[配備の記録](handover-log.md)へ書き、この文書には結果の状態だけを書きます。**
 
 ## 1. 何を作っているか
 
@@ -70,18 +77,6 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）で�
 
 I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../architecture/operations.md#measured-budget)にあります。この表の停止状態は再開すると変わります。通常の再開は容量確認後に `tools/k8s up` でcp・worker-01を起動します。`--all` は停止中のworker-02も含むため、追加の容量確認と配置計画が必要です。
 
-2026-09-22に、Proxmoxホスト直結の6TB USB HDD（`/srv/bulk`、ext4、ラベル `bulk6tb`）を、media-01（`/srv/media-stack/library`）とgame1（ROM原本・セーブ）へNFS共有しました。Tier1 VMの週次vzdumpは毎週日曜06:00・snapshot・zstd・keep-last=4で `/srv/bulk/backups` へ取り、game1のセーブは `tools/game1-saves-backup.sh` で別途取ります。対象VMIDは 2026-09-22 時点では 101・110・130・140・150・401・5001・5002 で、**2026-10-03 に 101・120・140・150・401・5001・5005 へ更新しました**。手順と限界は[共有バルクストレージ](bulk-storage.md)・[バックアップ](backup.md)が正本です。
-
-2026-10-22に、PHPの遠隔コード実行の脆弱性 php2shell（CVE-2026-109618／109619）への対応として、PHPで動く4つのイメージを修正版のPHPを含むものへ上げました。Nextcloud 33.0.8→33.0.10（PHP 8.4.25→8.4.27）、FreshRSS 1.30.4（8.4.24→8.4.27）、Adminer 6.1.1→6.1.2（8.4.26→8.4.27）、LibreSpeed 6.2.0→6.3.1（8.5.8→8.5.12）です。Nextcloud の更新前に、DBの控えを media-01 の `/var/backups/nextcloud/` に取りました。
-
-同じ日に、固定したイメージの脆弱性の毎日の点検を tarakoserver に入れました（`platform/ansible/image-scan.yml`、[監視](monitoring.md#image-scan)）。Trivy（OSパッケージ・ライブラリ）と、ソースから入った PHP・Node.js・Python の版の比較で、結果は Grafana の「Shake Lab イメージの脆弱性」とアラートで見ます。
-
-2026-10-22 に、core-01・cloud-01 の受信を Proxmox の VM ファイアウォールで絞りました（既定は拒否、正本は `platform/terraform/firewall.yaml`、[区画](vlan.md)）。05-seed の `terraform.tfvars` は作業機に無かったため、state の値から作り直しました（gitignore 対象）。
-
-同じ日に、中継（negitoroserver）の ufw をコード化しました（`roles/relay`）。手で入れてあった規則と同じ形で、80 番も Cloudflare だけにしました。
-
-同じ日に、公開サイトのゾーン（ruruthegeek.dpdns.org）の守りを Terraform（`25-edge`）にしました。暗号化をフル（厳密）・TLS 1.2 以上・HTTPS へ転送にし、走査を止める WAF の独自ルールとレート制限を足しました（[公開サイト](web.md)）。
-
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。現在の基盤VM（core-01・cloud-01・monitor-01）と dev-a・media-01・apps-01 は JST です（当時の記録の services-01・identity・storage-s3 は再編で core-01 への統合・削除）。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
@@ -99,12 +94,12 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 | NetBox API | `http://192.168.10.200:8000/api/`（ツールの接続先。`https://netbox.apextox.dpdns.org/api/` でも届く） | トークン | 書き込み: `netbox.sops.yaml`、読み取り: `netbox-inventory.sops.yaml`、クラウドAPI用: `cloudapi.sops.yaml` |
 | Authentik | `https://auth.apextox.dpdns.org` | `akadmin` | core-01 の `/opt/identity-stack/secrets/bootstrap_password` |
 | Homarr | `https://homarr.apextox.dpdns.org` | Authentik（`users`は閲覧、`admins`は編集） | SSO。ローカル復旧は apps-01 の `/opt/homarr/secrets/admin_password` |
-| Grafana | `https://grafana.apextox.dpdns.org` | Authentik（`admins`=Admin、`users`=Viewer） | SSO。ローカル復旧は monitor-01 の `/opt/monitoring-stack/secrets/grafana_admin_password` |
+| Grafana | `https://grafana.apextox.dpdns.org` | Authentik（`admins`=Admin、`users`=Viewer） | SSO。ローカル復旧は tarakoserver の `/opt/monitoring-stack/secrets/grafana_admin_password` |
 | LibreSpeed | `https://speed.apextox.dpdns.org` | 不要（LAN内） | 履歴の統計ページ（`/results/stats.php`）は apps-01 の `/opt/librespeed/secrets/stats_password` |
 | クラウドのポータル | `https://cloud.apextox.dpdns.org` | Authentik のアカウント（`users` か `admins`） | Authentik 側。`akadmin` は `admins` に入っている |
 | クラウドAPI（Terraform・CLI・curl） | `https://cloud.apextox.dpdns.org/v1/` | アクセスキー | 利用者の分はポータルで発行（表示は一度だけ）。管理用ブートストラップキーは 2026-09-11 に無効化（§5 Phase 5）。緊急時は cloud-01 で `manage.py rotate-bootstrap-key` |
 | 開発VM への SSH | `debian@192.168.10.202` / `.203` | パスワードまたは鍵 | `.local/devvm-passwords.yml`（**devbox の playbook を実行した作業機の手元にだけある平文**。dev-b には無い） |
-| 基盤VM への SSH（core-01、cloud-01、monitor-01、probe-01 など） | `debian@<IP>` | 鍵のみ | 鍵は `platform/terraform/access.yaml`。dev-b からは `~/.ssh/id_ed25519_pve` |
+| 基盤VM への SSH（core-01、cloud-01、probe-01 など） | `debian@<IP>` | 鍵のみ | 鍵は `platform/terraform/access.yaml`。dev-b からは `~/.ssh/id_ed25519_pve` |
 | Terraform の state | Cloudflare R2 | アクセスキー | `platform/sops/s3.sops.yaml` |
 | DNS（`apextox.dpdns.org`） | Cloudflare ダッシュボード（ゾーンID `112734e967c919ddd9ec1fa5c4f2a320`） | 所有者の Cloudflare アカウント | 証明書用のトークン（このゾーンの DNS 編集だけ）: `platform/sops/cloudflare-dns.sops.yaml` |
 | ドキュメントサイト | `https://docs.apextox.dpdns.org` | 不要（LAN 内に公開） | 資格情報なし。原稿は Git の `docs/`、配備は `platform/ansible/docs-site.yml` |
@@ -298,7 +293,7 @@ VM の中にある秘密値は、次の場所で自動生成されています�
 | core-01 `/opt/identity-stack/secrets/` | Authentik の DB・鍵、`akadmin` の初期パスワード、ブートストラップトークン、`oidc-cloud.json` |
 | cloud-01 `/opt/cloud-stack/secrets/` | 管理DBのパスワード、`oidc_credentials`（identity の `oidc-cloud.json` の写し）。`bootstrap_admin_key` は 2026-09-11 に無効化して空 |
 | apps-01 `/opt/<アプリ名>/secrets/` | Home Assistant の config、Eufy の `.env`、Vaultwarden の `secrets/admin_token`、LibreSpeed の `secrets/stats_password`、print-api のトークンなど。状態は `/srv/<アプリ名>/...` |
-| monitor-01 `/opt/monitoring-stack/secrets/` | Grafana の管理者パスワード、Grafana の OIDC 秘密値（identity の `oidc-grafana.json` の写し）、NUT のパスワード、`game_metrics_token`（Prometheusだけが読む0444）など。状態は `/srv/monitoring/...` |
+| tarakoserver `/opt/monitoring-stack/secrets/` | Grafana の管理者パスワード、Grafana の OIDC 秘密値（identity の `oidc-grafana.json` の写し）、NUT のパスワード、`game_metrics_token`（Prometheusだけが読む0444）など。状態は `/srv/monitoring/...` |
 | **core-01 だけ**の `/opt/tls-proxy/secrets/` | Cloudflare の DNS 編集トークン（`cloudflare-dns.sops.yaml` の写し）。証明書は `/srv/tls-proxy/storage/data`。他ホストの Caddy は内部CAで、トークンを持たない（[HTTPSの入口](edge.md)） |
 
 リポジトリ側の暗号化済みファイルは次のとおりです。
@@ -314,7 +309,7 @@ VM の中にある秘密値は、次の場所で自動生成されています�
 | `platform/sops/cloudflare-dns.sops.yaml` | `apextox.dpdns.org` の DNS 編集トークン（証明書の DNS-01 用）。state 用の `cloudflare.sops.yaml` とは別 |
 | `platform/sops/eufy-security.sops.yaml` | Eufy アカウント（`EUFY_USERNAME`・`EUFY_PASSWORD`・`EUFY_COUNTRY`・`EUFY_TRUSTED_DEVICE_NAME`・`EUFY_STATION_IP_ADDRESSES`）。`eufy-security-ws.yml` が `.env` へ写す。投入済みで WS は稼働 |
 | `platform/sops/home-assistant.sops.yaml` | Home Assistant の長期アクセストークン（`HA_TOKEN`） |
-| `platform/sops/monitoring.sops.yaml` | monitor-01 用の Proxmox 読み取りトークン（`PVE_TOKEN_VALUE`）、NUT 監視ユーザーのパスワード（`NUT_MONITOR_PASSWORD`）、ゲームポータルの指標トークン（`GAME_METRICS_TOKEN`。Prometheusの `game` ジョブだけが使う） |
+| `platform/sops/monitoring.sops.yaml` | 監視（tarakoserver）用の Proxmox 読み取りトークン（`PVE_TOKEN_VALUE`）、NUT 監視ユーザーのパスワード（`NUT_MONITOR_PASSWORD`）、ゲームポータルの指標トークン（`GAME_METRICS_TOKEN`。Prometheusの `game` ジョブだけが使う） |
 | `platform/sops/k8s.sops.yaml` | database/function 用 ServiceAccount `databases/cloud-api` の接続情報（`K8S_API_URL`・`K8S_CA_BASE64`・`K8S_TOKEN`） |
 | `platform/sops/print-api.sops.yaml` | Nextcloud 印刷アプリ → apps-01 `print-api` のトークン |
 | `platform/sops/smtp.sops.yaml` | Gmail（`shake.notify@gmail.com`）のアプリパスワード。identity の招待・復旧メール用 |
