@@ -136,6 +136,22 @@ window.SERVICE_MAP = {
      "sso": false,
      "upstream": "127.0.0.1:8000",
      "url": "https://netbox.apextox.dpdns.org/"
+    },
+    {
+     "description": "翻訳サイトと拡張機能の配布。クラウドの function",
+     "docs": [
+      {
+       "path": "services/poke-translate/",
+       "title": "ポケモン翻訳"
+      }
+     ],
+     "name": "ポケモン用語対応翻訳",
+     "route": [
+      "core-01"
+     ],
+     "sso": false,
+     "upstream": "https://fn-f3d2a715882161487.functions.k8s.apextox.dpdns.org",
+     "url": "https://poke.apextox.dpdns.org/"
     }
    ]
   },
@@ -402,23 +418,6 @@ window.SERVICE_MAP = {
      "sso": false,
      "upstream": "127.0.0.1:8300",
      "url": "https://speed.apextox.dpdns.org/"
-    },
-    {
-     "description": "翻訳サイトと拡張機能の配布",
-     "docs": [
-      {
-       "path": "services/poke-translate/",
-       "title": "ポケモン翻訳"
-      }
-     ],
-     "name": "ポケモン用語対応翻訳",
-     "route": [
-      "core-01",
-      "apps-01"
-     ],
-     "sso": false,
-     "upstream": "127.0.0.1:8320",
-     "url": "https://poke.apextox.dpdns.org/"
     },
     {
      "description": "家電・自動化",

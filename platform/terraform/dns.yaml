@@ -177,11 +177,13 @@ records:
     address: 192.168.10.105
     upstream: 127.0.0.1:8300
     description: LibreSpeed（端末↔apps-01の速度計測）
+  # クラウドの function（platform/terraform/services/poke-translate）。入口が
+  # 関数の URL へ HTTPS で中継する。関数を作り直したら名前（fn-…）を
+  # `tools/tf services/poke-translate output url` に合わせる。
   poke:
-    host: apps-01
-    address: 192.168.10.105
-    upstream: 127.0.0.1:8320
-    description: ポケモン用語対応翻訳（翻訳サイトと拡張機能の配布）
+    host: core-01
+    upstream: https://fn-f3d2a715882161487.functions.k8s.apextox.dpdns.org
+    description: ポケモン用語対応翻訳（翻訳サイトと拡張機能の配布。クラウドの function）
   ha:
     host: apps-01
     address: 192.168.10.105
