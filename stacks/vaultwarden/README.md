@@ -57,7 +57,7 @@ sudo python3 manage.py backup --destination /var/backups/vaultwarden
   Authentikの既定emailスコープは `email_verified` を返さないため、`SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION=true` でログインを許可します（招待はメール宛リンクで本人確認しています）。
 - **Vaultwarden 1.37.1／1.37.2 はマスターパスワードの設定・変更が422で失敗する**
   （`missing field newMasterPasswordHash`。SSO初回作成した保管庫はこの設定が必須なので
-  毎回作成画面に戻る）。**1.37.3で修正済み**なので、この版以上を固定します。
+  毎回作成画面に戻る）。**1.37.3で修正済み**なので、この版以上を固定します（2026-10-22 から 1.37.4）。
 - SSOの保管庫は**identityのアカウント単位**です。ブラウザーに残った別アカウント
   （管理用 `akadmin` など）のAuthentikセッションでSSOすると、その人の保管庫に入り、
   未設定なら作成／マスターパスワード画面が出ます。本人の保管庫に入るには

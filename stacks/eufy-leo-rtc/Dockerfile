@@ -1,6 +1,6 @@
 # leo_rtc クライアント本体。カメラと同じ LAN で UDP を直接話す。
 # ベースイメージ・ffmpeg とも digest / sha256 を固定し、更新は明示的に行う。
-FROM python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26
+FROM python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
 
 # Debian の ffmpeg 5.1 はパイプ入力の HEVC で参照フレームを落とし、灰色の映像に
 # なる（実測: 同じ捕捉でも一括変換なら正常）。静的ビルド 7.0.2 を固定して入れる。
