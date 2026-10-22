@@ -2,7 +2,7 @@
 # 2026-09-10 に新規構築。旧環境の検証用スタックからは移行していない。
 name: identity
 x-authentik: &authentik
-  image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.1}
+  image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.8.5}
   restart: unless-stopped
   shm_size: 512mb
   environment: &environment

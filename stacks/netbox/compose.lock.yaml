@@ -1,10 +1,10 @@
 {
   "services": {
     "netbox": {
-      "image": "netboxcommunity/netbox@sha256:a2cdf00fab61d2ae37e4f987adaa403fad5c4049a63bc960768b7bbf804e2cb6"
+      "image": "netboxcommunity/netbox@sha256:1d6e0b5fbd48da9868376900561ee55992e04446ce7861dab5e9a42ae01f3fcb"
     },
     "netbox-worker": {
-      "image": "netboxcommunity/netbox@sha256:a2cdf00fab61d2ae37e4f987adaa403fad5c4049a63bc960768b7bbf804e2cb6"
+      "image": "netboxcommunity/netbox@sha256:1d6e0b5fbd48da9868376900561ee55992e04446ce7861dab5e9a42ae01f3fcb"
     },
     "postgres": {
       "image": "postgres@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
