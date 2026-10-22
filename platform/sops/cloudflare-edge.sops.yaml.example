@@ -1,0 +1,17 @@
+# platform/sops/cloudflare-edge.sops.yaml の中身の例。
+# 公開サイトのゾーン（ruruthegeek.dpdns.org）の守りを Terraform（25-edge）で書くトークン。
+# DNS の書き換え（cloudflare-dns）と state 置き場（cloudflare）とは別物で、混ぜない。
+#
+# 権限（対象ゾーンは ruruthegeek.dpdns.org だけ）:
+#   ゾーン → ゾーン設定 → 編集
+#   ゾーン → ゾーン WAF → 編集
+#   ゾーン → ボット管理 → 編集
+#   ゾーン → ゾーン → 読み取り
+#
+# 入れ方。値は画面に出ず、平文のファイルも残らない。
+#
+#   read -rsp 'トークン: ' T && printf 'CLOUDFLARE_EDGE_API_TOKEN: %s\n' "$T" \
+#     | sops --encrypt --filename-override platform/sops/cloudflare-edge.sops.yaml \
+#         --input-type yaml --output-type yaml /dev/stdin > platform/sops/cloudflare-edge.sops.yaml.tmp \
+#     && mv platform/sops/cloudflare-edge.sops.yaml.tmp platform/sops/cloudflare-edge.sops.yaml; unset T
+CLOUDFLARE_EDGE_API_TOKEN: REPLACE_WITH_THE_CLOUDFLARE_EDGE_TOKEN

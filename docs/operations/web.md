@@ -71,6 +71,19 @@ Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に D
 - negitoroserver の受信は ufw で、80・443 を Cloudflare のアドレスだけ、SSH を tailnet だけに絞る（`roles/relay` の `relay_cloudflare_ranges`。2026-10-22 にコード化し、80 も Cloudflare だけにした）。
 - 残りのリスク: 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
 
+### Cloudflare での守り
+
+送信元は家の側では Cloudflare のアドレスにしか見えないので、攻撃は Cloudflare の手前で止める。正本は `platform/terraform/25-edge`（`tools/tf 25-edge apply`、2026-10-22〜）。
+
+| 項目 | 設定 |
+| --- | --- |
+| 暗号化 | フル（厳密）。Pi 5 の Origin 証明書を検証する。TLS 1.2 以上、HTTP は HTTPS へ転送 |
+| WAF | Cloudflare の無料マネージドルール（既定で有効）と、独自ルール1件（`.php`・`/wp-`・`/.env`・`/.git` などを探す走査を 403） |
+| レート制限 | 同じIPから10秒に50回（画像・スクリプトなどは数えない）を超えたら10秒止める。無料プランの1件 |
+| ボット | AIボットの遮断と robots.txt の管理は有効のまま。**Bot Fight Mode は使わない**（Alexa スキルへの Amazon からの呼び出しが止まりうるうえ、無料プランでは例外を作れない） |
+
+このゾーンの DNS レコードは Terraform の外（手で入れたまま）。
+
 ### 外向き（egress）と自宅LANの分離
 
 Flint 3 の DMZ が家の中への転送を止め（pkdb だけ通す。`dmz-db-clients`）、Pi 5 の `inet homeguard`（`pi_base` の `pi_base_lan_guard`）が家の中の区画（`192.168.10/30/40/50.0/24`）への送信を落とす。通すのは DNS（DMZ のゲートウェイと AdGuard Home）と pkdb だけ。pkdb の側（apps-01 のセキュリティグループ `pkdb_dmz`）も Pi 5 だけを受ける。
