@@ -158,7 +158,8 @@ class RoleTests(unittest.TestCase):
     def test_the_scan_runs_gently_on_the_monitoring_host(self):
         units = role_task(TASKS, 'Place the scan service and timer')['loop']
         service = next(u for u in units if u['name'] == 'image-scan.service')['content']
-        for line in ('Nice=19', 'IOSchedulingClass=idle', 'MemoryMax=1G'):
+        for line in ('Nice=19', 'IOSchedulingClass=idle', 'MemoryMax=1G',
+                     'Environment=TMPDIR={{ image_scan_state_dir }}/tmp'):
             self.assertIn(line, service)
         self.assertTrue(DEFAULTS['image_scan_state_dir'].startswith('/srv/'))
         self.assertTrue(DEFAULTS['image_scan_textfile'].startswith('/var/lib/prometheus/node-exporter/'))

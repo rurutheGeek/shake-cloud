@@ -82,6 +82,9 @@
         [Service]
         Type=oneshot
         ExecStart=/usr/local/sbin/image-scan run --config /etc/image-scan/config.json
+        # Pi の /tmp は小さい tmpfs。Java の DB（約1GB、jar を含むイメージだけで使う）を HDD で展開する。
+        Environment=TMPDIR={{ image_scan_state_dir }}/tmp
+        ExecStartPre=/bin/mkdir -p {{ image_scan_state_dir }}/tmp
         # 監視と同じホストなので、低い優先度で回し、メモリにも上限を置く。
         Nice=19
         IOSchedulingClass=idle
