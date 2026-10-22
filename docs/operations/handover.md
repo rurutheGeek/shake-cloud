@@ -77,8 +77,6 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）で�
 
 I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../architecture/operations.md#measured-budget)にあります。この表の停止状態は再開すると変わります。通常の再開は容量確認後に `tools/k8s up` でcp・worker-01を起動します。`--all` は停止中のworker-02も含むため、追加の容量確認と配置計画が必要です。
 
-同じ日に、点検で修正版のある重大な脆弱性が出たイメージのうち、新しいイメージで減るものを上げて配りました（23個→13個）。Python 系・Vaultwarden 1.37.4・Authentik 2026.8.5・NetBox v4.7-5.1.1・Home Assistant・homarr・metube・blackbox-exporter・peanut です。更新前に Home Assistant・Authentik・NetBox は `manage.py backup` を取りました。PostgreSQL・Kavita・UrBackup・minecraft・mc-backup・pve-exporter・eufy-security-ws は新しいイメージでも減らないので据え置き、ubsleepy-next は自前のイメージなので、そのリポジトリでベースイメージを上げて作り直す必要があります。monitoring は実機に未コミットのおとり（canary）があるため、lock の2行だけを実機で差し替えました。`platform/ansible/seed.ini`（gitignore 対象）は旧名 services-01 のままだったので core-01 に直しました。
-
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。現在の基盤VM（core-01・cloud-01・monitor-01）と dev-a・media-01・apps-01 は JST です（当時の記録の services-01・identity・storage-s3 は再編で core-01 への統合・削除）。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
