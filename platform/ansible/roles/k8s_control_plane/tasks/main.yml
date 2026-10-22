@@ -49,6 +49,18 @@
   failed_when: k8s_untaint.rc != 0 and 'not found' not in k8s_untaint.stderr
   when: k8s_schedule_on_control_plane | bool
 
+# kubeadm は control plane に exclude-from-external-load-balancers を付け、MetalLB は
+# そのノードからアドレスを通知しない。1台構成では .241 に誰も応答しなくなる
+# （2026-10-22）。
+- name: Let the control plane announce load balancer addresses
+  ansible.builtin.command:
+    argv: [kubectl, label, nodes, --all, node.kubernetes.io/exclude-from-external-load-balancers-]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_unlabel
+  changed_when: "'unlabeled' in k8s_unlabel.stdout"
+  when: k8s_schedule_on_control_plane | bool
+
 # 新しいトークンを毎回作る。join 側は未参加のときだけ使うので、
 # 何度流しても古いトークンが残って問題になることはない。
 - name: Create a bootstrap token and print the join command
