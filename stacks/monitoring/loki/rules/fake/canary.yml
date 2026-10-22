@@ -1,0 +1,18 @@
+# おとり（canary）に触れた送信元を知らせる。正規の利用者はこの IP を知らないので、
+# 1 回の接続でも緊急にする。通知は Alertmanager 経由で Discord へ。
+groups:
+  - name: canary
+    rules:
+      - alert: CanaryTouched
+        expr: >-
+          sum by (src, port) (
+            count_over_time({compose_service="canary"} | json | event="touch" [5m])
+          ) > 0
+        labels:
+          severity: critical
+          host: おとり
+          check: '{{ $labels.port }}番'
+        annotations:
+          panel: "おとりに接続あり"
+          summary: "{{ $labels.src }} がおとりに接続した"
+          description: "接続元の機械を特定して止めてください。心当たりがなければ侵入を疑い、その機械を LAN から外します。"

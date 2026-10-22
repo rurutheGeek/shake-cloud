@@ -31,6 +31,7 @@ tarakoserver（Raspberry Pi 4、`192.168.10.11`）の独立Composeです。K11 �
 | UPS の画面（Homarr 用） | PeaNUT | 8080 |
 | ログの保存・検索 | Loki | 3100 |
 | ログの収集 | Alloy | 12345（syslog は 0.0.0.0:1514/udp） |
+| おとり | canary（`stacks/monitoring/canary/canary.py`） | LAN の専用 IP `192.168.10.250`（macvlan） |
 
 収集ジョブは `prometheus`・`blackbox`・`pve`・`nut`・`node`・`game` の6つ（`stacks/monitoring/prometheus/prometheus.yml`）。保持は既定15日（`PROMETHEUS_RETENTION`）で、時系列は `/srv/monitoring`（tarakoserver の HDD、`LABEL=tarako-data`）に置きます。起動は SD カードで、書き込みの多いもの（時系列・ログ・Docker）はすべて HDD です。
 
@@ -124,6 +125,14 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 | `UpsOnBattery` | 停電か入力異常。残り時間を確認（[電源とUPS](power.md)） |
 
 ゲストの `pve_memory_usage_bytes` はゲスト内のキャッシュを含むため上限比では張り付きが常態になり、**規則にはしていません**。ゲスト内の実圧迫は `NodeMemoryLow` が受け持ちます。
+
+### おとり
+
+- `192.168.10.250` の 21・22・23・80・445・3306・3389・5900・8080 で待ち受け、接続を JSON 1 行にして標準出力へ書く（バナーを返すだけで、認証も処理もしない）。Alloy → Loki → Loki の規則（`loki/rules/fake/canary.yml`）→ Alertmanager → Discord。
+- 正規の利用者はこの IP を知らないので、1 回の接続でも 🔴 緊急（`CanaryTouched`、5 分の窓）。通知の「すること」に従い、接続元（`src`）を特定する。
+- アドレスは DHCP 帯・管理帯・MetalLB 帯の外（`network.yaml`）。tarakoserver 自身からはこの IP に届かない（macvlan の仕様）ので、試すときは別の機械から `nc 192.168.10.250 22`。
+- 置いたのはサーバーの区画だけ。DMZ には置いていない。
+- 配備は `monitoring.yml`。`canary` が新規に作られ、設定の読み直し（`manage.py reload`）が Loki も再起動する（ログの取り込みが数十秒止まる。データは残る）。
 
 <a id="image-scan"></a>
 

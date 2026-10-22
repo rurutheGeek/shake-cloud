@@ -150,3 +150,34 @@ services:
       - '${BIND_ADDRESS:-127.0.0.1}:12345:12345'
       - '${SYSLOG_BIND_ADDRESS:-0.0.0.0}:1514:1514/udp'
     depends_on: [loki]
+
+  # おとり。LAN の専用 IP（macvlan）で待ち受け、触られたら標準出力へ JSON を書く。
+  # Alloy が Loki へ送り、Loki の規則（loki/rules）が Discord へ知らせる。
+  canary:
+    image: ${CANARY_IMAGE:-python}:${CANARY_TAG:-3.13-slim}
+    restart: unless-stopped
+    command: [python, -u, /app/canary.py]
+    user: '65534:65534'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    environment:
+      CANARY_PORTS: ${CANARY_PORTS:-}
+    volumes:
+      - ./canary:/app:ro
+    networks:
+      canary:
+        ipv4_address: ${CANARY_ADDRESS:-192.168.10.250}
+
+networks:
+  canary:
+    driver: macvlan
+    driver_opts:
+      parent: ${CANARY_PARENT:-eth0}
+    ipam:
+      config:
+        - subnet: ${CANARY_SUBNET:-192.168.10.0/24}
+          gateway: ${CANARY_GATEWAY:-192.168.10.1}
+          ip_range: ${CANARY_ADDRESS:-192.168.10.250}/32

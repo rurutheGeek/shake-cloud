@@ -32,7 +32,7 @@ class ComposeTests(unittest.TestCase):
         services = set(self.compose()['services'])
         self.assertEqual(services, {'prometheus', 'alertmanager', 'grafana',
                                     'blackbox', 'pve-exporter', 'nut-exporter', 'peanut',
-                                    'loki', 'alloy'})
+                                    'loki', 'alloy', 'canary'})
 
     def test_every_published_port_stays_on_loopback(self):
         # 例外は Alloy の syslog（1514/udp）だけ。Flint 3 からログを受けるため LAN に開ける。
@@ -318,3 +318,61 @@ class IdentityClientTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CanaryTests(unittest.TestCase):
+    def test_the_decoy_address_is_outside_every_allocated_range(self):
+        import ipaddress
+        network = yaml.safe_load((ROOT / 'platform/terraform/network.yaml').read_text(encoding='utf-8'))
+        env = dict(line.split('=', 1) for line in (STACK / '.env.example').read_text(encoding='utf-8').splitlines()
+                   if line.startswith('CANARY_ADDRESS='))
+        address = ipaddress.ip_address(env['CANARY_ADDRESS'])
+        for name in ('infrastructure', 'dhcp', 'management', 'metallb', 'cloud'):
+            section = network.get(name) or {}
+            if 'range_start' not in section:
+                continue
+            start = ipaddress.ip_interface(section['range_start']).ip
+            end = ipaddress.ip_interface(section['range_end']).ip
+            self.assertFalse(start <= address <= end, name)
+
+    def test_the_rule_alerts_through_alertmanager_with_the_panel_text(self):
+        rules = load(STACK / 'loki/rules/fake/canary.yml')
+        rule = rules['groups'][0]['rules'][0]
+        self.assertEqual(rule['labels']['severity'], 'critical')
+        for key in ('panel', 'summary', 'description'):
+            self.assertIn(key, rule['annotations'])
+        loki = load(STACK / 'loki/config.yaml')
+        self.assertEqual(loki['ruler']['alertmanager_url'], 'http://alertmanager:9093')
+
+    def test_the_decoy_runs_unprivileged_and_read_only(self):
+        service = load(STACK / 'compose.yaml')['services']['canary']
+        self.assertTrue(service['read_only'])
+        self.assertEqual(service['cap_drop'], ['ALL'])
+        self.assertNotIn('ports', service)
+
+    def test_a_touch_is_written_as_one_json_line(self):
+        import asyncio
+        import contextlib
+        import io
+        spec = importlib.util.spec_from_file_location('canary', STACK / 'canary/canary.py')
+        canary = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(canary)
+
+        async def touch():
+            server = await asyncio.start_server(canary.handler(22), '127.0.0.1', 0)
+            port = server.sockets[0].getsockname()[1]
+            reader, writer = await asyncio.open_connection('127.0.0.1', port)
+            banner = await reader.readline()
+            writer.write(b'probe\n')
+            await writer.drain()
+            writer.close()
+            await asyncio.sleep(0.2)
+            server.close()
+            return banner
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            banner = asyncio.run(touch())
+        self.assertTrue(banner.startswith(b'SSH-2.0-'))
+        event = json.loads(out.getvalue().strip().splitlines()[-1])
+        self.assertEqual((event['event'], event['port'], event['src']), ('touch', 22, '127.0.0.1'))

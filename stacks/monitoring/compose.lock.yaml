@@ -9,6 +9,9 @@
     "blackbox": {
       "image": "prom/blackbox-exporter@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13"
     },
+    "canary": {
+      "image": "python@sha256:27b7c9d4f13ca20bb1170148f02095d50a5dfce1f7f2dabf5ca273727e43b7ea"
+    },
     "grafana": {
       "image": "grafana/grafana@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283"
     },

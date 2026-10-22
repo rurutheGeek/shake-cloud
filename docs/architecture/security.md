@@ -125,6 +125,7 @@ flowchart TB
 | 利用者VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
 | 利用者VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
 | 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
+| 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
 | 検知 | Flint 3 の syslog と Pi の journal を Loki へ集める。公開サイトは家の外から見張る | `stacks/monitoring/` | [監視](../operations/monitoring.md) |
 | 供給網 | 固定したイメージの脆弱性を毎日調べ、修正版のある重大なものを警告（`ImageCriticalVulnerability`）。Trivy と、ランタイムの版の照合 | `platform/ansible/roles/image_scan/` | [監視](../operations/monitoring.md) |
 | 供給網 | イメージは `compose.lock.yaml` の digest で固定。CI で Go の `govulncheck`。`renovate.json`（GitHub App が入っていないと PR は作られない） | `stacks/*/compose.lock.yaml`・`.github/workflows/validate.yml` | [構成監査](../audits/config-audit-2026-09-16.md) |
