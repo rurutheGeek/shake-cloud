@@ -1,6 +1,6 @@
 ---
 title: Shake Lab Docs
-updated: 2026-10-04
+updated: 2026-10-22
 section: 入口
 audience: 全員
 tags:
@@ -9,7 +9,7 @@ tags:
 
 # Shake Lab Docs
 
-> **更新日** 2026-10-04 ・ **区分** 入口 ・ **読む人** 全員
+> **更新日** 2026-10-22 ・ **区分** 入口 ・ **読む人** 全員
 
 Proxmox VE 1台で動かしているホームラボの手順書です。どのVMで何が動いているかは **[サービス図](service-map.md)** で見られます。
 
@@ -52,6 +52,16 @@ Proxmox VE 1台で動かしているホームラボの手順書です。どのVM
 - [決定ログ](architecture/decisions.md)
 - [障害モード](architecture/failure-modes.md)
 - [設計の一覧](architecture/index.md)
+
+</div>
+<div markdown="1">
+
+## 守る
+
+- [セキュリティ（信頼境界と対策）](architecture/security.md)
+- [区画と区画間の通信](operations/vlan.md)
+- [認証基盤](operations/identity.md)
+- [秘密値の管理](operations/secrets.md)
 
 </div>
 </div>

@@ -96,7 +96,7 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 
 ## 関連
 
-- [信頼境界とセキュリティ方針](security.md) — 何を信頼していないか
+- [セキュリティ（信頼境界と対策）](security.md) — 何を信頼していないか
 - [配備台帳](../operations/handover.md) — 実機の稼働状況
 - [確認と、はまりどころ](../operations/verify.md) — 症状ごとの対処
 - [電源とUPS](../operations/power.md) — 停止順と復電
