@@ -49,6 +49,20 @@ tags:
 
 IPv6 は `/64` が1つしか来ないため、サーバー区画だけへ中継する。
 
+## 同じ区画の中（基盤VMの受信）
+
+Flint 3 は区画の間しか絞れないので、同じサーバー区画の中の横の広がりは、Proxmox の VM ファイアウォールで止める（2026-10-22〜）。
+
+| VM | 受ける通信 | 担当 |
+| --- | --- | --- |
+| core-01 | 入口（80・443）、NetBox API（8000、サーバー区画から）、SSH（サーバー・個人端末）、node_exporter（tarakoserver）、mDNS、ping | 05-seed |
+| cloud-01 | ポータルとAPI（80・443）、Garage の S3 API（3900、サーバー・個人端末）、SSH、node_exporter、ping | 10-platform |
+| 利用者VM | クラウドAPIのセキュリティグループ | クラウドAPI |
+
+- 正本は `platform/terraform/firewall.yaml`。書いていない受信は落ちる（Garage の管理API 3903・RPC 3901、core-01 の CUPS 631 など）。送信は絞らない
+- 口を開けたら `firewall.yaml` に足し、`tools/tf 05-seed apply`（core-01）か `tools/tf 10-platform apply`（cloud-01）で配る
+- 締め出されたら K11 の root で `pvesh set /nodes/apextox/qemu/<VMID>/firewall/options -enable 0`（VMID は core-01 が 150、cloud-01 が 140）
+
 ## 切替の順序
 
 1. Flint 3 を既存LANと同じ構成（区画なし、`192.168.10.1`）でルーターにする（router-01 からの本切替）。
@@ -83,4 +97,4 @@ IPv6 は `/64` が1つしか来ないため、サーバー区画だけへ中継�
 
 - 内部サービス（S3・DB・ゲーム）と公開入口は、まだ管理VLAN・管理LAN上です。4区分に分けるのは後段。
 - 同一VLAN内はルータを通らないため、Proxmox の VM ファイアウォール（セキュリティグループ）と、将来の Cilium NetworkPolicy を併用します（[ネットワーク・SSO](../architecture/network-auth.md)）。
-- Garage の管理API（`:3903`）は、VLAN 切替後も**利用者VLANから届きうる**ので、到達先をクラウドAPIだけに絞るのは別途 VM ファイアウォールで行います。
+- Garage の管理API（`:3903`）は cloud-01 の VM ファイアウォールで落としている（上の「同じ区画の中」）。

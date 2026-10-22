@@ -171,6 +171,7 @@ class MailViewEntryTests(unittest.TestCase):
         self.assertEqual(provider['client_id'], 'pkdb-mcp')
         self.assertNotIn('client_secret', provider)
         self.assertIn('refresh_token', provider['grant_types'])
+        self.assertIn('client_credentials', provider['grant_types'])
         self.assertEqual([uri['url'] for uri in provider['redirect_uris']],
                          ['http://127.0.0.1:19876/mcp/oauth/callback'])
         bindings = [body for method, path, body in api.calls

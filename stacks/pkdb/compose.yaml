@@ -35,7 +35,7 @@ services:
   # 管理画面。LAN へ出すのは HTTPS 入口（Caddy）だけにし、Authentik の
   # Forward Auth（admins のみ）を前に置く。DBのログインはその後に別途要る。
   adminer:
-    image: adminer:6.1.1
+    image: adminer:6.1.2
     restart: unless-stopped
     environment:
       ADMINER_DEFAULT_SERVER: db

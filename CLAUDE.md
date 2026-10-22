@@ -31,7 +31,7 @@ go test ./internal/server -run TestName          # cloud/api 内で単一テス�
 ## 全体構成
 
 - `platform/` 基盤：`terraform/10-platform`・`05-seed`（基盤VMとNetBox台帳）、`terraform/services/<name>/`（サービスVMを自作クラウドAPIのTerraform Providerで宣言、サービスごとに1 state）、`ansible/`（配備Playbook）、`flux/`（`main`を監視しAWX・CNPG・Knativeを配るk8s構成）。
-- `stacks/<name>/` サービス：ホストごとの独立Docker Compose。イメージは各 `compose.lock.yaml` のdigestで固定。各ユニットは `manage.py`（初期化・backup等）を持つ。Ansibleの `source_dir` がstackと配備先の対応点。
+- `stacks/<name>/` サービス：ホストごとの独立Docker Compose。外部のイメージは各 `compose.lock.yaml` のdigestで固定（自作の `ghcr.io/ruruthegeek/` は対象外）。各ユニットは `manage.py`（初期化・backup等）を持つ。Ansibleの `source_dir` がstackと配備先の対応点。
 - `cloud/` 自作クラウド（VM・S3・database・function）：`api/`（Go、PostgreSQL管理DB、`internal/` にproxmox・garage・cnpg・knative・netbox連携とHTTPサーバ／ポータル `server/web/`）、`client/`（共通Goクライアント）、`cli/`、`mcp/`（読み取り専用MCPサーバ）、`provider/`（Terraform Provider）。**APIの正本は `cloud/openapi/shakecloud.yaml`**。API変更時はopenapi・client・cli・provider・ポータルを揃える。
 - インベントリは NetBox 動的インベントリ（`platform/ansible/inventory.netbox.yml`）へ統一済み。グループはNetBoxのタグ（正本 `platform/terraform/tags.yaml`）で、クラウドVMはクラウドAPIが台帳へ登録し `cloud.yaml` の `ledger.tags_by_name` がタグを決める。クラウドVMのホスト名はインスタンスID（`i-...`）なので `--limit` はグループ名で絞る。`seed.ini` はNetBox自身の初回構築・復旧だけ、`pve.ini` はProxmoxホスト用（`docs/operations/services.md` の「Ansibleのインベントリ」）。
 - Terraform実行は `tools/tf services/<name> plan|apply`（`SHAKECLOUD_ACCESS_KEY` が必要）。

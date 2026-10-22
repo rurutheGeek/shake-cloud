@@ -80,7 +80,7 @@ proxmox_download_file.cloud_image["debian13"] will be destroyed
 
 | VMID | プール | 所有者 | 用途 |
 | --- | --- | --- | --- |
-| 100–399 | `platform` | 管理者Terraform | router-01、core-01、cloud-01、monitor-01、k8s、dev-01/b、probe-01の基盤VM。100は既存game1として予約 |
+| 100–399 | `platform` | 管理者Terraform | router-01、core-01、cloud-01、k8s、probe-01の基盤VM（monitor-01 は 2026-10-14 に廃止、dev-01/02 は 2026-10-03 にクラウドVMへ引き取り）。100は既存game1として予約 |
 | 400–499 | `dev` | 管理者Terraform | 開発VM。利用者は電源とコンソールのみ |
 | 900–999 | `lab` | 管理者Terraform | 検証・復元ドリル。使い捨て |
 | 5000–5999 | `cloud` | 自作クラウドAPI | 利用者がAPI・Providerで作るVM |

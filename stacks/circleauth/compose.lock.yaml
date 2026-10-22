@@ -1,7 +1,7 @@
 {
   "services": {
     "bot": {
-      "image": "python@sha256:4f2d437a6b02de3c9f9aab4b90ba4bc50bd8ad825c5640c28a558c5639f6ded1"
+      "image": "python@sha256:fa73a7f200473ac67c9d05b7d91b9b6f3b5b945e296406986b307d7f738e0b37"
     }
   }
 }

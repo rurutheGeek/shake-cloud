@@ -29,7 +29,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   - グループ `users`・`admins`（`akadmin` は `admins`）
   - OIDC クライアント `cloud`（`sub` は `user_uuid`。プロバイダを作り直しても利用者の同一性が変わらないため）
   - OIDC クライアント `homarr`（apps-01 の Homarr。入口は core-01。`sub` は `user_uuid`。`users`グループへ閲覧を許可）
-  - OIDC クライアント `grafana`（monitor-01の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
+  - OIDC クライアント `grafana`（tarakoserver の監視ポータル。redirect は `https://grafana.apextox.dpdns.org/login/generic_oauth`。`admins` を Admin、`users` を Viewer に対応付け）
   - OIDC クライアント `home-assistant`（家電のSSO。[`hass-oidc-auth`](https://github.com/christiaangoossens/hass-oidc-auth)用の**公開クライアント**で秘密値なし。redirect は `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode` は `user_uuid`。`users`と`admins`の両方を許可）
   - OIDC クライアント `vaultwarden`（`https://vault.apextox.dpdns.org/identity/connect/oidc-signin`、`users` を許可）
   - media-01 の入口（Nextcloud・Kavita・FreshRSS は OIDC クライアント、Navidrome・MeTube は Forward Auth）と CUPS（Forward Auth）のクライアント

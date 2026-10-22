@@ -2,6 +2,8 @@ locals {
   # 公開鍵の正本。access.yaml は 10-platform も読む。順序が意味を持つので
   # seed 専用の並び（seed_ssh_public_keys）を使う。
   access = yamldecode(file("${path.module}/../access.yaml"))
+  # 受信の許可。正本は ../firewall.yaml（10-platform も読む）。
+  firewall = yamldecode(file("${path.module}/../firewall.yaml"))
 }
 
 resource "proxmox_virtual_environment_vm" "services" {
@@ -40,9 +42,10 @@ resource "proxmox_virtual_environment_vm" "services" {
   }
 
   network_device {
-    bridge  = var.network_bridge
-    model   = "virtio"
-    vlan_id = var.network_vlan_id
+    bridge   = var.network_bridge
+    model    = "virtio"
+    vlan_id  = var.network_vlan_id
+    firewall = contains(keys(local.firewall.hosts), var.name)
   }
 
   initialization {
@@ -71,4 +74,16 @@ resource "proxmox_virtual_environment_vm" "services" {
     # 電源状態は作成時のみ設定する。10-platform と同じ方針。
     ignore_changes = [started]
   }
+}
+
+# 受信を ../firewall.yaml の許可だけに絞る。
+module "firewall" {
+  count = contains(keys(local.firewall.hosts), var.name) ? 1 : 0
+
+  source = "../modules/vm-firewall"
+
+  node_name = var.proxmox_node_name
+  vm_id     = proxmox_virtual_environment_vm.services.vm_id
+  rules     = local.firewall.hosts[var.name]
+  sources   = local.firewall.sources
 }

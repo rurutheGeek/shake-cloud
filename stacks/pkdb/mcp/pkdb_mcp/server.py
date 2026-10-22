@@ -459,10 +459,10 @@ async def batch(source: Source, calls: Annotated[list[BatchCall], Field(min_leng
         for index, call in enumerate(calls):
             if call.tool not in WRITE_TOOLS:
                 raise ToolError(f'{index + 1}件目: {call.tool} は書き込みのツールではありません')
-            result = await mcp.call_tool(call.tool, {'source': source, **call.arguments})
-            if getattr(result, 'is_error', False) or getattr(result, 'isError', False):
-                text = ' '.join(getattr(block, 'text', '') for block in result.content)
-                raise ToolError(f'{index + 1}件目（{call.tool}）: {text}')
+            try:
+                await mcp.call_tool(call.tool, {'source': source, **call.arguments})
+            except ToolError as error:
+                raise ToolError(f'{index + 1}件目（{call.tool}）: {error}') from None
     finally:
         PLAN.reset(token)
     return await _execute(source, plan)
@@ -471,8 +471,9 @@ async def batch(source: Source, calls: Annotated[list[BatchCall], Field(min_leng
 
 @mcp.custom_route('/healthz', methods=['GET'])
 async def healthz(request: Request):
-    ok = await anyio.to_thread.run_sync(db.healthy)
-    return JSONResponse({'ok': ok}, status_code=200 if ok else 503)
+    # プロセスが応答すれば 200（コンテナの healthcheck）。DB につながるかは db で返し、
+    # 配備は db が true になるまで待つ。
+    return JSONResponse({'ok': True, 'db': await anyio.to_thread.run_sync(db.healthy)})
 
 
 def app():
@@ -481,4 +482,8 @@ def app():
         enable_dns_rebinding_protection=bool(host),
         allowed_hosts=[host, '127.0.0.1:8080', 'localhost:8080'] if host else [],
         allowed_origins=[f'https://{host}'] if host else [])
-    return mcp.streamable_http_app(transport_security=security, host='0.0.0.0')
+    starlette = mcp.streamable_http_app(transport_security=security, host='0.0.0.0')
+    if not ISSUER:
+        return starlette
+    # ブラウザの無い機械からは、Authentik のアプリパスワードを Basic で渡せる。
+    return auth.BasicToBearer(starlette, auth.BasicExchange(ISSUER, CLIENT_ID))

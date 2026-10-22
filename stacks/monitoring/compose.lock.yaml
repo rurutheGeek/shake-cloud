@@ -7,7 +7,7 @@
       "image": "grafana/alloy@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f"
     },
     "blackbox": {
-      "image": "prom/blackbox-exporter@sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc"
+      "image": "prom/blackbox-exporter@sha256:ea1c7aa3ef3f307cd03e85f34abb604478ccb90b567fc690da0cd9776da76b13"
     },
     "canary": {
       "image": "python@sha256:27b7c9d4f13ca20bb1170148f02095d50a5dfce1f7f2dabf5ca273727e43b7ea"
@@ -22,7 +22,7 @@
       "image": "ghcr.io/druggeri/nut_exporter@sha256:276460d141c732772f8b1fcd785a7de272473e6d39fd85c32b163efc2999cb9a"
     },
     "peanut": {
-      "image": "brandawg93/peanut@sha256:6629dce915da8b313f08b2e73dd2e54b60e7c0f642c21a8ebc37fe0a820bf41e"
+      "image": "brandawg93/peanut@sha256:13e99d1fd1b599c41f18c51483c53a8ee4f5a1da64c1a67b6e66d6a265be111b"
     },
     "prometheus": {
       "image": "prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0"

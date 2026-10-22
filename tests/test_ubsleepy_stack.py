@@ -256,13 +256,45 @@ class ManageTests(unittest.TestCase):
 
         with patch.object(manage, 'run', fake_run), \
                 patch.object(manage, 'compose') as compose, \
+                patch.object(manage, 'prune') as prune, \
                 patch('builtins.print'):
             manage.deploy('b' * 40)
 
+        prune.assert_called_once_with(manage.KEEP_IMAGES)
         self.assertIn(['docker', 'pull', f'{manage.IMAGE}:{"b" * 40}'], calls)
         lock = (project / 'compose.lock.yaml').read_text(encoding='utf-8')
         self.assertIn(f'image: {manage.IMAGE}@{digest}', lock)
         self.assertEqual(compose.call_args.args, ('up', '-d', '--remove-orphans'))
+
+    def test_prune_keeps_the_images_in_use_and_the_newest_unused(self):
+        self.project()
+
+        def fake_run(args, **kwargs):
+            if args[:3] == ['docker', 'ps', '-aq']:
+                return SimpleNamespace(stdout='c1\nc2\n')
+            if args[:2] == ['docker', 'inspect']:
+                # 本番とテストのコンテナが、それぞれ別のイメージを使っている
+                return SimpleNamespace(stdout='sha256:prod\nsha256:test\n')
+            return SimpleNamespace(stdout=(
+                'sha256:test\t2026-10-21 10:00:00 +0900 JST\n'
+                'sha256:prod\t2026-10-20 10:00:00 +0900 JST\n'
+                'sha256:old2\t2026-10-19 10:00:00 +0900 JST\n'
+                'sha256:old1\t2026-10-18 10:00:00 +0900 JST\n'
+                'sha256:old0\t2026-10-17 10:00:00 +0900 JST\n'))
+
+        with patch.object(manage, 'run', fake_run), \
+                patch.object(manage.subprocess, 'run',
+                             return_value=SimpleNamespace(returncode=0, stderr='')) as rmi, \
+                patch('builtins.print'):
+            manage.prune(1)
+
+        removed = [call.args[0][-1] for call in rmi.call_args_list]
+        self.assertEqual(removed, ['sha256:old1', 'sha256:old0'])
+
+    def test_both_stacks_share_the_same_manage_py(self):
+        # 本番とテストは同じ IMAGE を使う。prune が片方の使うイメージを消さないよう、同じ中身にそろえる
+        self.assertEqual((STACK / 'manage.py').read_text(encoding='utf-8'),
+                         (ROOT / 'stacks/ubsleepy-next/manage.py').read_text(encoding='utf-8'))
 
     def test_deploy_needs_a_commit(self):
         self.project()

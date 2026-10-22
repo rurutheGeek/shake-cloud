@@ -4,11 +4,10 @@
 #   .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
 #     --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 #
-# 秘密値（Deploy key 3本・CloudFlare Origin 証明鍵・DB のパスワード）は
+# 秘密値（Deploy key 2本・CloudFlare Origin 証明鍵・DB のパスワード・GHCR の読み取りトークン）は
 # platform/sops/shake-web.sops.yaml から role が読む。
 - name: Deploy the Shake-Web sites
   hosts: web
   become: true
   roles:
-    - docker
     - shake_web

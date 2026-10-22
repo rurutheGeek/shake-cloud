@@ -27,27 +27,27 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | 配備先 | shakeserver（Pi 5、DMZ `192.168.30.12`、`outpost.ini` の `web`）。`.venv/bin/ansible-playbook -i platform/ansible/outpost.ini --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml`。Compose と `.env` は `/opt/shake-web`、ソース・静的物・ログ・証明書は `/srv/shake-web`（NVMe） |
-| イメージ | nginx・`shake-web-quiz:local`・`shake-web-pkhack:local`・`shake-web-alexa:local`（アプリはホストでビルドするため digest 固定は無い） |
+| イメージ | 入口の nginx（digest で固定）と、各アプリの CI がビルドした GHCR のイメージ `shake-web`・`pkhack`・`pokebs-alexaskill`・`ayahuya`・`shake-web-static`・`pkhack-static`（タグ `main` を追う。自作なので固定しない） |
 | DB | `pkdb.apextox.dpdns.org:5432`（apps-01）。DMZ からは Flint 3 の `DMZ-to-pkdb`（`dmz-db-clients`）と apps-01 のセキュリティグループ（`pkdb_dmz`）で Pi 5 だけ通す。`sleepy_pkdb`・`shakeweb`・`pkhack`。旧ホストの `host.docker.internal` から切り替えた |
 | 入口（現在） | Cloudflare → `negitoroserver`（`100.92.253.28`）の nginx stream（443・PROXY protocol）と sslh（80）→ **shakeserver の tailnet IP `100.116.167.59`**（`roles/relay/defaults/main.yml`）。Tailscale の ACL は `tag:relay` → `tag:dmz:80,443` だけ。プロキシには LAN のサブネットルートを持たせない |
 | 入口（予定） | core-01 の Caddy へ寄せる（[edge.md](edge.md)）。名前は `ruruthegeek.dpdns.org` ゾーンのまま |
-| 秘密値 | `platform/sops/shake-web.sops.yaml`（Deploy key 3本・CloudFlare Origin 証明鍵・DB パスワード・セッション鍵） |
+| 秘密値 | `platform/sops/shake-web.sops.yaml`（CloudFlare Origin 証明鍵・DB パスワード・セッション鍵・GHCR 読み取り用のマシンユーザーのトークン） |
 | コード | `stacks/shake-web/`、`platform/ansible/roles/shake_web/`、`platform/ansible/shake-web.yml`、守りは `platform/ansible/host_vars/shakeserver.yml`（`pi_base_lan_guard`） |
 | 監視 | node_exporter（`192.168.30.12:9100`）。Prometheus の `node-targets.yml` に登録済み。外からは negitoroserver の public-monitor |
 
 ## 配備
+
+Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に Docker Compose から移した）。定義は Kubernetes の YAML（`stacks/shake-web/kube/`）で、Ansible が描画し、Quadlet の `.kube` ユニット（`~shakeweb/.config/containers/systemd/`）が `podman kube play` する。Pod の一覧とポートは `stacks/shake-web/README.md`。
 
 ```bash
 .venv/bin/ansible-playbook -i platform/ansible/outpost.ini \
   --private-key ~/.ssh/id_ed25519_shake platform/ansible/shake-web.yml
 ```
 
-`manage.py` の流れ: `init`（保存先とデータディスクのマウント確認）→ `fetch`（4リポジトリを `.env` の ref へ）→ `sync`（nginx が配る静的物をコピー）→ `up`（`docker compose up -d --build`）。
-
-- 追う ref は `roles/shake_web/defaults/main.yml` の `shake_web_*_ref`（既定 `main`）。
-- アプリの更新は「Ansible を流し直す」だけ。手元で `docker compose` を叩かない。
-- **配備先が5分ごとに `main` を見て自分で更新する**（`shake-web-update.timer`。旧ホスト向け CD の代わり。UBSLEEPY と同じ方式）。即時に反映したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo systemctl start shake-web-update'`。
-- ビルドに失敗したら `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo python3 /opt/shake-web/manage.py status'` と `sudo docker logs pkhack_app --tail 50` を見る。
+- **アプリと静的物はホストでビルドせず、各リポジトリの CI（`.github/workflows/image.yml`）がビルドした GHCR のイメージを動かす。** 配備先は GitHub へ GHCR からの取得（443）だけをする。GHCR は非公開で、読み取り専用のマシンユーザー（`SHAKE_GHCR_USER`・`SHAKE_GHCR_READ_TOKEN`、SOPS）で `podman login` する。そのアカウントには読ませるパッケージにだけ Read を付ける（[bootstrap.md](bootstrap.md) の「残っている手作業」）。
+- **更新は `podman-auto-update.timer`（5 分ごと）。** 新しいイメージを取って入れ替え、起動に失敗したら元のイメージに戻る。戻すときは `shake_web_*_image` をコミット SHA のタグにして Ansible を流す。即時に更新したいときは `ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.30.12 'sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman auto-update'`。
+- 入口の nginx（`front`）だけはホストのネットワークで動かす。中継（`100.92.253.28`）が付ける PROXY protocol を信じる条件（送信元がその IP であること）を保つため。Pod のネットワークに入れると送信元が書き換わる（2026-10-17 に確認）。各 Pod へは `127.0.0.1` の固定ポートで転送する。
+- 状態を見るときは `sudo -u shakeweb XDG_RUNTIME_DIR=/run/user/$(id -u shakeweb) podman ps` と `systemctl --user status <pod>.service`（同じ環境で）。
 
 ## 公開の切り替え（2026-10-05 実施済み）
 
@@ -68,14 +68,28 @@ tags:
 - nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
 - Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
 - クイズのトークン暗号鍵 `QUIZ_SECRET` を SOPS に追加し、`platform/sops/shake-web.sops.yaml` から配る（pkhack のコードは既定値フォールバックを削除。`QUIZ_SECRET` 未設定なら起動しない）。
-- 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
+- negitoroserver の受信は ufw で、80・443 を Cloudflare のアドレスだけ、SSH を tailnet だけに絞る（`roles/relay` の `relay_cloudflare_ranges`。2026-10-22 にコード化し、80 も Cloudflare だけにした）。
+- 残りのリスク: 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
+
+### Cloudflare での守り
+
+送信元は家の側では Cloudflare のアドレスにしか見えないので、攻撃は Cloudflare の手前で止める。正本は `platform/terraform/25-edge`（`tools/tf 25-edge apply`、2026-10-22〜）。
+
+| 項目 | 設定 |
+| --- | --- |
+| 暗号化 | フル（厳密）。Pi 5 の Origin 証明書を検証する。TLS 1.2 以上、HTTP は HTTPS へ転送 |
+| WAF | Cloudflare の無料マネージドルール（既定で有効）と、独自ルール1件（`.php`・`/wp-`・`/.env`・`/.git` などを探す走査を 403） |
+| レート制限 | 同じIPから10秒に50回（画像・スクリプトなどは数えない）を超えたら10秒止める。無料プランの1件 |
+| ボット | AIボットの遮断と robots.txt の管理は有効のまま。**Bot Fight Mode は使わない**（Alexa スキルへの Amazon からの呼び出しが止まりうるうえ、無料プランでは例外を作れない） |
+
+このゾーンの DNS レコードは Terraform の外（手で入れたまま）。
 
 ### 外向き（egress）と自宅LANの分離
 
 Flint 3 の DMZ が家の中への転送を止め（pkdb だけ通す。`dmz-db-clients`）、Pi 5 の `inet homeguard`（`pi_base` の `pi_base_lan_guard`）が家の中の区画（`192.168.10/30/40/50.0/24`）への送信を落とす。通すのは DNS（DMZ のゲートウェイと AdGuard Home）と pkdb だけ。pkdb の側（apps-01 のセキュリティグループ `pkdb_dmz`）も Pi 5 だけを受ける。
 
 - 実測（2026-10-16）: pkdb とインターネット 443 は届く。`192.168.10.105:22`・`192.168.10.10:8006`・`192.168.10.1:80`・`192.168.40.97:3389` は届かない。
-- GitHub への git は 22 ではなく `ssh.github.com:443` を使う（`manage.py` が指定）。
+- GitHub へは GHCR からのイメージの取得（443）だけ。git は使わない。
 
 ### プロキシ（negitoroserver）側
 

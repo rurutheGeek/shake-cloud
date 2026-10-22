@@ -127,7 +127,7 @@
   register: pkdb_mcp
   retries: 30
   delay: 3
-  until: pkdb_mcp.status == 200 and 'true' in pkdb_mcp.content
+  until: pkdb_mcp.status == 200 and pkdb_mcp.json.db | default(false)
 
 # 入口から、OAuth の保護リソースの案内（どの認可サーバのトークンか）が読めること。
 - name: Wait for the MCP server's protected resource metadata

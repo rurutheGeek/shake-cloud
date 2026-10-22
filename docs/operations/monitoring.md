@@ -134,6 +134,30 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 - 置いたのはサーバーの区画だけ。DMZ には置いていない。
 - 配備は `monitoring.yml`。`canary` が新規に作られ、設定の読み直し（`manage.py reload`）が Loki も再起動する（ログの取り込みが数十秒止まる。データは残る）。
 
+<a id="image-scan"></a>
+
+### イメージの脆弱性（image_scan）
+
+| アラート | 意味 |
+| --- | --- |
+| `ImageCriticalVulnerability` | OSパッケージかライブラリに、修正版のある重大（CRITICAL）な脆弱性がある |
+| `ImageRuntimeSecurityRelease` | イメージの PHP・Node.js に、同じ系列のセキュリティ修正版が出ている |
+| `ImageRuntimeEndOfLife` | PHP・Python の系列がサポート切れ |
+| `ImageScanFailed` / `ImageScanStale` | イメージを調べられない／点検が36時間以上終わっていない。tarakoserver で `journalctl -u image-scan` |
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象 | リポジトリの `compose.lock.yaml` の digest と、Dockerfile の最後の `FROM`。配備（`platform/ansible/image-scan.yml`）のたびに集め直す |
+| 置き場 | tarakoserver の `image-scan.timer`（毎日 02:30 ごろ）。脆弱性DBとパッケージ一覧は `/srv/image-scan`（HDD） |
+| OSパッケージ・ライブラリ | Trivy。パッケージ一覧（SBOM）は digest ごとに1回だけ作り、毎日それを新しいDBと照らす。レジストリに行くのは新しい digest のときだけ |
+| ランタイム | 公式イメージの PHP・Node.js・Python はソースから入るので Trivy に見えない。イメージの環境変数（`PHP_VERSION` など）を、php.net・nodejs.org・endoflife.date の一覧と比べる |
+| 画面 | Grafana の「Shake Lab イメージの脆弱性」 |
+| 実測（Pi 4） | 1イメージ約35秒、メモリ最大約230MiB、DB 1.6GB |
+
+- Dockerfile で足したパッケージ（`pip install` など）は、ベースイメージの分しか見ていません
+- arm64 の Pi で動くイメージも、同じ digest の amd64 版で調べています
+- 修正版が出るまでの脆弱性（unfixed）と、HIGH 以下は数えていません（Debian のイメージ1つで数百件になり、通知が意味を持たないため）
+
 ## 4. 鳴らないことを検知する（dead man's switch）
 
 tarakoserver は K11 の外にあるので、K11 が落ちても監視は残ります。ただし tarakoserver 自身や家の回線が落ちると監視も沈黙します。「静かなこと」と「正常なこと」を区別するため、外部の受信点（healthchecks.io）へ常時POSTしています。家の外にある negitoroserver の public-monitor（[公開サイト](web.md)）も、公開サイトを外から見ています。

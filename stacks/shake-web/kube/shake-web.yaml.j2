@@ -1,0 +1,97 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（shake-web.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# Shake ツールの API（shake-web の quiz/。Next.js）。入口の nginx から 127.0.0.1:13000 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shake-web
+  labels:
+    app: shake-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shake-web
+  template:
+    metadata:
+      labels:
+        app: shake-web
+    spec:
+      containers:
+        - name: shake-web
+          image: '{{ shake_web_app_image }}'
+          ports:
+            - containerPort: 3000
+              hostIP: 127.0.0.1
+              hostPort: 13000
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: DB_HOST
+              value: "{{ shake_web_db_host }}"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "pkdb_reader"
+            - name: DB_NAME
+              value: "sleepy_pkdb"
+            - name: SHAKEWEB_DB_HOST
+              value: "{{ shake_web_db_host }}"
+            - name: SHAKEWEB_DB_PORT
+              value: "5432"
+            - name: SHAKEWEB_DB_NAME
+              value: "shakeweb"
+            - name: SHAKEWEB_DB_READER_USER
+              value: "shakeweb_reader"
+            - name: SHAKEWEB_DB_EDITOR_USER
+              value: "shakeweb_editor"
+            - name: PKHACK_DB_HOST
+              value: "{{ shake_web_db_host }}"
+            - name: PKHACK_DB_PORT
+              value: "5432"
+            - name: PKHACK_DB_NAME
+              value: "pkhack"
+            - name: PKHACK_DB_READER_USER
+              value: "pkhack_reader"
+            - name: PKHACK_DB_EDITOR_USER
+              value: "pkhack_editor"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: DB_PASSWORD
+            - name: SHAKE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: SHAKE_SECRET
+            - name: IKURA_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: IKURA_SECRET
+            - name: QUIZ_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: QUIZ_SECRET
+            - name: SHAKEWEB_DB_READER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: SHAKEWEB_DB_READER_PASSWORD
+            - name: SHAKEWEB_DB_EDITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: SHAKEWEB_DB_EDITOR_PASSWORD
+            - name: PKHACK_DB_READER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: PKHACK_DB_READER_PASSWORD
+            - name: PKHACK_DB_EDITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: PKHACK_DB_EDITOR_PASSWORD

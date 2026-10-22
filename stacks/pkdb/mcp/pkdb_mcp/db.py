@@ -56,12 +56,22 @@ pool = ConnectionPool(_conninfo(), min_size=1, max_size=4, open=False,
 
 
 def open_pool():
-    pool.open()
-    pool.wait(timeout=15)
+    # 待たずに起動する。初回の配備では、ロール pkdb_mcp とパスワードがコンテナの
+    # 起動（compose up --wait）のあとに入る。つながるまでは /healthz の db が false。
+    pool.open(wait=False)
 
 
 def close_pool():
     pool.close()
+
+
+def expected(error):
+    """登録関数が入力の誤りとして返したエラーか（RAISE ... USING ERRCODE）。
+
+    関数は 22023（値の誤り）・23505（重複）などを返す。これらは AI へそのまま返し、
+    ログにトレースバックを残さない。
+    """
+    return isinstance(error, errors.RaiseException) or (error.sqlstate or '')[:2] in ('22', '23')
 
 
 def _message(error):
@@ -113,7 +123,9 @@ def execute(actor, source, strict, calls):
                         sql.Identifier(call.function), placeholders)
                     try:
                         cursor.execute(statement, [actor, *call.args])
-                    except errors.RaiseException as error:
+                    except psycopg.Error as error:
+                        if not expected(error):
+                            raise
                         prefix = f'{index + 1}件目（{call.function}）: ' if len(calls) > 1 else ''
                         raise DbError(prefix + _message(error)) from None
                     results.append(cursor.fetchone()['result'])

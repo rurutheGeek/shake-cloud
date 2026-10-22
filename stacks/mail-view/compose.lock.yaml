@@ -1,7 +1,7 @@
 {
   "services": {
     "mail-view": {
-      "image": "python@sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f"
+      "image": "python@sha256:c50ccfb66e5cc97a610dcd0b9597de6ef5b52c96280b51997b353a0fc87a8361"
     }
   }
 }

@@ -4,6 +4,9 @@
 リポジトリに無いスタックは、どの digest が動いているかをGitで追えず、再配備の
 たびに `:latest` の中身が変わりうる。ここでは全スタックの lock がリポジトリに
 あり、compose のサービスを漏れなく覆っていることを確かめる。
+
+自作のイメージ（自分たちの CI が GHCR に置くもの）は対象外。中身はアプリの
+リポジトリのコミットで追え、配備先がタグ（main）を追って更新する。
 """
 import re
 import subprocess
@@ -14,6 +17,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DIGEST = re.compile(r'@sha256:[0-9a-f]{64}$')
+# 自作のイメージ（自分たちの CI がビルドして置く）。
+OWN_IMAGES = 'ghcr.io/ruruthegeek/'
 
 # まだ lock をリポジトリへ入れられていないスタック。理由が解けたら行を消す。
 # 増やさない。
@@ -40,6 +45,8 @@ def default_image(image):
 def needs_a_lock(service):
     image = default_image(service.get('image', ''))
     if not image or 'build' in service or image.endswith(':local'):
+        return False
+    if image.startswith(OWN_IMAGES):
         return False
     return not DIGEST.search(image)
 

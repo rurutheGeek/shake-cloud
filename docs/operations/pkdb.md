@@ -112,26 +112,32 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 
 ## AI からの登録（MCP サーバ）
 
-**<https://pkdb-mcp.apextox.dpdns.org/mcp>**（Streamable HTTP）。認可は MCP の仕様どおり OAuth 2.1 で、トークンを出すのは Authentik のアプリケーション `pkdb-mcp`（`admins` のみ、PKCE の公開クライアント）。入口に Forward Auth は付けない。
+**<https://pkdb-mcp.apextox.dpdns.org/mcp>**（Streamable HTTP）。認可は MCP の仕様どおり OAuth 2.1 で、トークンを出すのは Authentik のアプリケーション `pkdb-mcp`（`admins` のみ、PKCE の公開クライアント）。ブラウザの無い機械からは、Authentik のアプリパスワードを Basic で渡せる。入口に Forward Auth は付けない。
 
 ### つなぎ方
 
-opencode（`~/.config/opencode/opencode.jsonc` の `mcp`）:
+どちらの方法でも同じトークンの確かめ方になり、`entry_log` の `actor` は `mcp:<Authentikのユーザ名>`。
+
+| 方法 | 使う場面 | クライアントの設定 |
+| --- | --- | --- |
+| OAuth（MCP の仕様のログイン） | クライアントと同じ機械にブラウザがある | URL だけ。初回にブラウザで Authentik のログインが開く |
+| アプリパスワード（`Authorization: Basic`） | ブラウザの無い機械・OAuth を持たないクライアント | ヘッダに `Basic base64(<ユーザ名>:<アプリパスワード>)` |
+
+アプリパスワードは Authentik の利用者の設定（「トークンとアプリパスワード」）で作り、消せば使えなくなる。pkdb-mcp が Authentik のトークン窓口で `client_credentials` に引き換え、期限まで覚えておく。
+
+opencode（ブラウザの無い dev-02、`~/.config/opencode/opencode.jsonc` の `mcp`）:
 
 ```jsonc
 "pkdb": {
   "type": "remote",
   "url": "https://pkdb-mcp.apextox.dpdns.org/mcp",
   "enabled": true,
-  "oauth": { "clientId": "pkdb-mcp", "scope": "openid profile offline_access" }
+  "oauth": false,
+  "headers": { "Authorization": "Basic {file:pkdb-mcp.key}" }
 }
 ```
 
-```bash
-opencode mcp auth pkdb
-```
-
-ブラウザで Authentik のログインが開き、トークンは `~/.local/share/opencode/mcp-auth.json` に残る。Authentik の DCR（動的なクライアント登録）は既定で匿名の登録を受け付けないため、クライアントは事前登録する。登録済みの戻り先は opencode の `http://127.0.0.1:19876/mcp/oauth/callback` だけで、ほかのクライアントは `stacks/identity/configure.py` の `PKDB_MCP_REDIRECTS` に足す。
+`pkdb-mcp.key` は `<ユーザ名>:<アプリパスワード>` を base64 にした1行（`~/.config/opencode/`、0600）。OAuth のクライアントの戻り先は、`stacks/identity/configure.py` の `PKDB_MCP_REDIRECTS` に登録したものだけ（いまは opencode の `http://127.0.0.1:19876/mcp/oauth/callback`）。
 
 ### ツール
 

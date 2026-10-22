@@ -1,41 +1,19 @@
 ---
-- name: Install git and rsync
-  ansible.builtin.apt:
-    name:
-      - git
-      - rsync
-    state: present
-    update_cache: true
+# Shake-Web の公開サイト。Podman（root 以外のユーザー shakeweb）と Kubernetes の YAML
+# （stacks/shake-web/kube/）で動かす。手順は tasks/podman.yml。
 
-- name: Create the project and storage directories
+- name: Create the storage directories
   ansible.builtin.file:
     path: '{{ item }}'
     state: directory
     owner: root
     group: root
-    mode: '0750'
+    # Podman（shakeweb）のコンテナがログの置き場（log・alexa/logs）まで通れるよう、
+    # 中を一覧できないまま通り抜けだけを許す
+    mode: '0751'
   loop:
-    - '{{ shake_web_project_dir }}'
-    - '{{ shake_web_project_dir }}/secrets'
     - '{{ shake_web_storage_root }}'
-    - '{{ shake_web_storage_root }}/certs'
-
-- name: Copy the stack definitions
-  ansible.builtin.copy:
-    src: '{{ shake_web_source_dir }}/{{ item }}'
-    dest: '{{ shake_web_project_dir }}/'
-    mode: '0644'
-  loop:
-    - compose.yaml
-    - compose.lock.yaml
-    - manage.py
-    - .env.example
-
-- name: Copy the nginx templates
-  ansible.builtin.copy:
-    src: '{{ shake_web_source_dir }}/nginx/'
-    dest: '{{ shake_web_storage_root }}/templates/'
-    mode: '0644'
+    - '{{ shake_web_storage_root }}/alexa'
 
 # 秘密値は SOPS から一度だけ読む（暗号化された正本は platform/sops/）。
 - name: Read the Shake-Web secrets
@@ -48,92 +26,9 @@
   check_mode: false
   no_log: true
 
-- name: Install the deploy keys
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json)[item.key] }}'
-    dest: '{{ shake_web_project_dir }}/secrets/{{ item.path }}'
-    mode: '0600'
-  loop:
-    - {key: SHAKE_WEB_DEPLOY_KEY, path: id_shake_web}
-    - {key: SHAKE_PKHACK_DEPLOY_KEY, path: id_pkhack}
-    - {key: SHAKE_AYAHUYA_DEPLOY_KEY, path: id_ayahuya}
-  loop_control:
-    label: '{{ item.path }}'
-  no_log: true
+# 2026-10-17 まで動かしていた Docker Compose の構成を片付ける（入口の 80/443 を空ける）
+- name: Retire the Docker Compose deployment
+  ansible.builtin.import_tasks: retire-docker.yml
 
-# --- 外向き（egress）の確認 ---
-- name: Install the CloudFlare Origin certificate
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_CERT }}'
-    dest: '{{ shake_web_storage_root }}/certs/cert.pem'
-    mode: '0644'
-  no_log: true
-
-- name: Install the CloudFlare Origin private key
-  ansible.builtin.copy:
-    content: '{{ (shake_web_secrets.stdout | from_json).SHAKE_ORIGIN_KEY }}'
-    dest: '{{ shake_web_storage_root }}/certs/key.pem'
-    mode: '0600'
-  no_log: true
-
-- name: Render the deployment environment
-  ansible.builtin.template:
-    src: env.j2
-    dest: '{{ shake_web_project_dir }}/.env'
-    mode: '0600'
-  no_log: true
-
-- name: Initialize the deployment
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', init]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_init
-  changed_when: "'CHANGED' in shake_web_init.stdout"
-
-- name: Fetch the application sources
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', fetch]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_fetch
-  changed_when: "'CHANGED' in shake_web_fetch.stdout"
-
-- name: Sync the static content
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', sync]
-    chdir: '{{ shake_web_project_dir }}'
-  changed_when: false
-
-- name: Start the stack
-  ansible.builtin.command:
-    argv: [python3, '{{ shake_web_project_dir }}/manage.py', up]
-    chdir: '{{ shake_web_project_dir }}'
-  register: shake_web_up
-  changed_when: "'CHANGED' in shake_web_up.stdout"
-
-# 旧ホスト向けの CD（アプリ側 deploy.yml → shake-infra）の代わり。配備先が
-# 5分ごとに main を見て、変わっていたら同期して作り直す。
-- name: Install the auto-update script
-  ansible.builtin.template:
-    src: shake-web-update.sh.j2
-    dest: /usr/local/sbin/shake-web-update
-    owner: root
-    group: root
-    mode: '0755'
-
-- name: Install the auto-update units
-  ansible.builtin.template:
-    src: '{{ item }}.j2'
-    dest: '/etc/systemd/system/{{ item }}'
-    owner: root
-    group: root
-    mode: '0644'
-  loop:
-    - shake-web-update.service
-    - shake-web-update.timer
-
-- name: Enable the auto-update timer
-  ansible.builtin.systemd:
-    name: shake-web-update.timer
-    enabled: true
-    state: started
-    daemon_reload: true
+- name: Run the sites with Podman
+  ansible.builtin.import_tasks: podman.yml

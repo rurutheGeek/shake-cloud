@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 {{ nextcloud_mcp_dir }}/nextcloud_mcp.py
+ExecStart={{ nextcloud_mcp_venv }}/bin/python {{ nextcloud_mcp_dir }}/nextcloud_mcp.py
 EnvironmentFile={{ nextcloud_mcp_dir }}/nextcloud-mcp.env
 Restart=on-failure
 NoNewPrivileges=true
@@ -16,7 +16,7 @@ ProtectHome=true
 # 「Failed to set up mount namespacing: ...: No such file or directory」で
 # 起動に失敗する（2026-09-26実機で発生）。GB級アーカイブをtmpfsに置かない
 # 設計上、そもそもPrivateTmpは要らない。
-ReadWritePaths={{ nextcloud_mcp_tmp }}
+ReadWritePaths={{ nextcloud_mcp_tmp }} {{ nextcloud_mcp_state }}
 
 [Install]
 WantedBy=multi-user.target

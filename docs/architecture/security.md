@@ -22,7 +22,7 @@ tags:
 
 | 経路 | 入口 | 届く先 | 絞っているもの |
 | --- | --- | --- | --- |
-| 公開サイト（`*.ruruthegeek.dpdns.org`） | Cloudflare → negitoroserver（Raspberry Pi Zero 2 W、**家の外**）の nginx stream（443）・sslh（80） | tailnet 経由で DMZ の shakeserver（Pi 5）の 80/443 だけ | Tailscale ACL（`tag:relay` → `tag:dmz:80,443`）。negitoroserver はサブネットルートを持たない |
+| 公開サイト（`*.ruruthegeek.dpdns.org`） | Cloudflare（WAF・レート制限）→ negitoroserver（Raspberry Pi Zero 2 W、**家の外**）の nginx stream（443）・sslh（80） | tailnet 経由で DMZ の shakeserver（Pi 5）の 80/443 だけ | negitoroserver の ufw は 80/443 を Cloudflare のアドレスだけ、SSH を tailnet だけ。Tailscale ACL（`tag:relay` → `tag:dmz:80,443`）。negitoroserver はサブネットルートを持たない |
 | 宅外からの管理・利用 | Tailscale → Flint 3 の subnet router | サーバーの区画（`192.168.10.0/24`）。個人端末の区画は 2026-10-17 から流さない | Tailscale ACL（`platform/tailscale/acl.json`）。タグの付いた機器は決めた先だけ |
 | `apextox.dpdns.org` の名前 | Cloudflare の公開DNS | **応答だけ**。中身は内部IP（`192.168.10.x`）なので外からは届かない | — |
 
@@ -63,6 +63,7 @@ flowchart TB
 | --- | --- | --- |
 | インターネット → 家 | 返りの通信だけ | 着信すべて。ポート転送なし。IPsec を通す GL.iNet の初期ルールも削除済み |
 | 区画 → 区画 | [区画間の通信](../operations/vlan.md#区画間の通信)の表にあるものだけ | それ以外。既定は拒否 |
+| サーバーの区画の中 → core-01・cloud-01 | `platform/terraform/firewall.yaml` に書いた口だけ | それ以外（Garage の管理API・RPC、core-01 の CUPS など）。Proxmox の VM ファイアウォールで落とす |
 | DMZ → 家の中 | pkdb（apps-01:5432）だけ | それ以外。Flint 3・Pi 5 の nftables・apps-01 のセキュリティグループの3か所で止める（[§4](#4-対策の一覧)） |
 | 端末 → 名前解決 | Flint 3 の AdGuard Home（ブロックリスト付き） | ブロックリストに載った名前。AdGuard なしの区画（ソーナノWiFi）は 1.1.1.1 へ直接 |
 | 端末 → HTTPS入口 | 名前が一致するTLS接続 | 証明書の名前に無いホスト。core-01 の Caddy は catch-all で Authentik へ渡す |
@@ -110,19 +111,23 @@ flowchart TB
 | 境界 | 区画とファイアウォール。WPS 無効、IPsec の初期ルール削除。個人端末の区画からの管理画面・SSH はデスクトップ（有線の MAC）だけ | `platform/flint3/rootfs/etc/shakecloud/apply-segments` | [Flint 3](../operations/flint3.md)・[区画](../operations/vlan.md) |
 | 境界 | 設定崩れを5分ごとに点検して警告（`RouterConfigDrift`）。設定を毎日 K11 へ取り、差分を Git に残す | `stacks/netmap/app/checks.py`・`flint3-backup.timer` | [Flint 3](../operations/flint3.md) |
 | DMZ | DMZ → 家の中は pkdb だけ。送信元は `dmz-db-clients` に書いたアドレスだけ | `platform/flint3/rootfs/etc/shakecloud/apply-dmz` | [区画](../operations/vlan.md#dmz-の作り方) |
+| 公開の手前 | Cloudflare はフル（厳密）・TLS1.2 以上、WAF のマネージドルールと走査の遮断、レート制限 | `platform/terraform/25-edge/` | [公開サイト](../operations/web.md#cloudflare-での守り) |
+| 公開の中継 | negitoroserver の ufw。80・443 は Cloudflare のアドレスだけ、SSH は tailnet だけ | `platform/ansible/roles/relay/`（`relay_cloudflare_ranges`） | [公開サイト](../operations/web.md) |
 | DMZ | Pi 5 自身も家の区画への送信を落とす（`inet homeguard`。Docker の転送も対象） | `platform/ansible/host_vars/shakeserver.yml` の `pi_base_lan_guard` | [公開サイト](../operations/web.md) |
 | DMZ | pkdb 側も Pi 5（`192.168.30.12/32`）だけ受ける | `platform/terraform/services/apps/main.tf` の `pkdb_dmz` | [pkdb](../operations/pkdb.md) |
-| 公開サイト | SSH は鍵のみ、`unattended-upgrades`、nginx のセキュリティヘッダと TLS1.2 以上、全コンテナに `no-new-privileges`、アプリは `127.0.0.1` | `platform/ansible/roles/shake_web/`・`stacks/shake-web/` | [公開サイト](../operations/web.md) |
+| 公開サイト | root ではないユーザー（`shakeweb`）の Podman で動かす。SSH は鍵のみ、`unattended-upgrades`、nginx のセキュリティヘッダと TLS1.2 以上、アプリは `127.0.0.1`。イメージは CI がビルドし、読み取り専用のマシンユーザーで GHCR から取る | `platform/ansible/roles/shake_web/`・`stacks/shake-web/` | [公開サイト](../operations/web.md) |
 | 宅外 | tailnet のタグごとに届く先を決め、ポリシーに `tests` を書いて誤りを弾く | `platform/tailscale/acl.json` | [Tailscale](../operations/net.md)・`platform/tailscale/README.md` |
 | HTTPS | 証明書と DNS 編集トークンは入口の1台だけ。後ろへは内部CAの HTTPS で中継 | `platform/ansible/roles/tls_proxy/`・`platform/terraform/dns.yaml` | [HTTPSの入口](../operations/edge.md) |
 | 認証 | Authentik の OIDC・Forward Auth・パスキー・メールの確認コード・招待制 | `stacks/identity/configure.py`・`invitations.py` | [認証基盤](../operations/identity.md) |
 | クラウドAPI | CSRF（`http.CrossOriginProtection`）、WebSocket の Origin 検査、コンソールURLは5分・アカウントに結び付け・ログに出さない、`Cache-Control: no-store`、noVNC 同梱で CSP `script-src 'self'` | `cloud/api/internal/server/` | [クラウドAPI本体](../operations/cloud-api.md) |
 | クラウドAPI | 監査ログは追記専用（トリガーで UPDATE・DELETE・TRUNCATE を拒否） | `cloud/api/internal/db/` | [クラウドの使い方](../services/cloud.md) |
-| VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
-| VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
+| 基盤VM | core-01・cloud-01 の受信は書いた口だけ（受信の既定は拒否、送信は許可） | `platform/terraform/firewall.yaml`・`modules/vm-firewall/` | [区画](../operations/vlan.md#同じ区画の中基盤vmの受信) |
+| 利用者VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
+| 利用者VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
 | 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
 | 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
 | 検知 | Flint 3 の syslog と Pi の journal を Loki へ集める。公開サイトは家の外から見張る | `stacks/monitoring/` | [監視](../operations/monitoring.md) |
+| 供給網 | 固定したイメージの脆弱性を毎日調べ、修正版のある重大なものを警告（`ImageCriticalVulnerability`）。Trivy と、ランタイムの版の照合 | `platform/ansible/roles/image_scan/` | [監視](../operations/monitoring.md) |
 | 供給網 | イメージは `compose.lock.yaml` の digest で固定。CI で Go の `govulncheck`。`renovate.json`（GitHub App が入っていないと PR は作られない） | `stacks/*/compose.lock.yaml`・`.github/workflows/validate.yml` | [構成監査](../audits/config-audit-2026-09-16.md) |
 | 中継コンテナ | `eufy-security-ws` は `172.31.254.1:3000`、eufy-leo-rtc の RTSP は `172.31.254.1:8554` にだけ bind し、LAN へは出さない | `stacks/eufy-leo-rtc/` ほか | [配備台帳](../operations/handover.md) |
 
@@ -133,15 +138,13 @@ flowchart TB
 | 穴 | 起きうること | 次の一手 |
 | --- | --- | --- |
 | **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | Flint 3 で個人端末 → `192.168.10.10:8006,22` をデスクトップだけにする（ホストFWを触らずに済む） |
-| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、基盤VMへ直接届く。ARP スプーフィングで平文の通信も読める | `vmbr0` の VLAN 対応（[区画](../operations/vlan.md#dmz-の作り方)）。既定 SG を絞る |
-| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる | 接続先を `https://netbox.apextox.dpdns.org` にして `:8000` を閉じる |
+| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、同じ区画の機器へ直接届く（core-01・cloud-01 は VM ファイアウォールで口を絞った）。ARP スプーフィングで平文の通信も読める | `vmbr0` の VLAN 対応（[区画](../operations/vlan.md#dmz-の作り方)）。既定 SG を絞る |
+| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる（`:8000` に届くのはサーバーの区画だけ） | 接続先を `https://netbox.apextox.dpdns.org` にして `:8000` を閉じる |
 | print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | Caddy 経由にするか `127.0.0.1` へ |
 | Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | Cilium で default-deny |
 | 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | 登録を必須にするか決める |
-| negitoroserver が Cloudflare 以外からも 443 を受ける | Cloudflare を迂回して直接叩ける | Cloudflare の IP だけを許可（shake-infra 側） |
 | DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | `vmbr0` の VLAN 対応のあと pentest-01 で `check-segments.sh` |
 | 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | 宅外の回線から一度測る |
-| Garage の管理API（`:3903`）が利用者VMから届く | S3 の管理操作を試される | VM のFWで到達先をクラウドAPIだけに |
 | `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | 例を `127.0.0.1` に |
 | APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | LAN と tailnet だけなので後回し |
 

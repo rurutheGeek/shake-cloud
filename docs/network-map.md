@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-14 ・ **区分** 入口 ・ **読む人** 全員
 
-[netmap.apextox.dpdns.org](https://netmap.apextox.dpdns.org)（monitor-01、Authentik でログイン）。開くたびに実機の設定を読み直す。
+[netmap.apextox.dpdns.org](https://netmap.apextox.dpdns.org)（tarakoserver、Authentik でログイン）。開くたびに実機の設定を読み直す。
 
 | 画面 | 中身 | 読む先 |
 | --- | --- | --- |
