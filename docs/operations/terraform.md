@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-09-13 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 00-bootstrap・05-seed・10-platform・20-dns は実機へ適用済み。Terraform CLI は `.terraform-version`（1.15.8）に固定。
+**状態**: 00-bootstrap・05-seed・10-platform・20-dns・25-edge は実機へ適用済み。Terraform CLI は `.terraform-version`（1.15.8）に固定。
 
 所有境界の設計は[IaCの所有境界](../architecture/iac.md)を参照してください。ここでは実行方法とstateの扱いを書きます。
 
@@ -98,6 +98,7 @@ K11は単一SSDです。そこにstateを置くと、ディスク1枚の故障�
 | --- | --- | --- | --- |
 | `platform/sops/cloudflare.sops.yaml` | Cloudflare APIトークン | `state-store` だけ | Workers R2 ストレージ → 編集 |
 | `platform/sops/s3.sops.yaml` | S3のアクセスキー・エンドポイント・バケット名 | それ以外の全モジュール | 対象バケットのオブジェクト読み書き |
+| `platform/sops/cloudflare-edge.sops.yaml` | Cloudflare APIトークン | `25-edge` だけ | 公開サイトのゾーンの設定・WAF・ボット管理 → 編集 |
 
 ```bash
 cp platform/sops/cloudflare.sops.yaml.example platform/sops/cloudflare.sops.yaml

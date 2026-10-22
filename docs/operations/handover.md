@@ -80,6 +80,8 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 
 同じ日に、中継（negitoroserver）の ufw をコード化しました（`roles/relay`）。手で入れてあった規則と同じ形で、80 番も Cloudflare だけにしました。
 
+同じ日に、公開サイトのゾーン（ruruthegeek.dpdns.org）の守りを Terraform（`25-edge`）にしました。暗号化をフル（厳密）・TLS 1.2 以上・HTTPS へ転送にし、走査を止める WAF の独自ルールとレート制限を足しました（[公開サイト](web.md)）。
+
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。現在の基盤VM（core-01・cloud-01・monitor-01）と dev-a・media-01・apps-01 は JST です（当時の記録の services-01・identity・storage-s3 は再編で core-01 への統合・削除）。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
