@@ -1,7 +1,7 @@
 {
   "services": {
     "cron": {
-      "image": "nextcloud@sha256:9ed3924f92f651aab622b23557b3f3dbcf04f7678567f50a41dbace2463c0a52"
+      "image": "nextcloud@sha256:ca04a99f5a081030dd6c494bdfbb1cbc2bf3e2e10c0f9fcdc3be031ac3803f77"
     },
     "kavita": {
       "image": "ghcr.io/kareadita/kavita@sha256:31181a32f0dda73cae68721867028a7253d57881b58bea5754cd9e578e75421a"
@@ -10,7 +10,7 @@
       "image": "deluan/navidrome@sha256:a384948b81bd1529986c5960169e7fc4fa00f46bde6bd517971a4c36671db2af"
     },
     "nextcloud": {
-      "image": "nextcloud@sha256:9ed3924f92f651aab622b23557b3f3dbcf04f7678567f50a41dbace2463c0a52"
+      "image": "nextcloud@sha256:ca04a99f5a081030dd6c494bdfbb1cbc2bf3e2e10c0f9fcdc3be031ac3803f77"
     },
     "postgres": {
       "image": "postgres@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73"
@@ -19,7 +19,7 @@
       "image": "redis@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf"
     },
     "vaultwarden": {
-      "image": "vaultwarden/server@sha256:094b5689ed81549bd293418395c7cf495ae9d960fc2d4928cef2083ef913d912"
+      "image": "vaultwarden/server@sha256:efb3cde962015fcc036b2ea625242248611943b27212ebf4392841fb30fad055"
     }
   }
 }

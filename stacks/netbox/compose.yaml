@@ -1,6 +1,6 @@
 name: ${COMPOSE_PROJECT_NAME:-media-netbox}
 x-netbox: &netbox
-  image: ${NETBOX_IMAGE:-netboxcommunity/netbox:v4.7-5.1.0}
+  image: ${NETBOX_IMAGE:-netboxcommunity/netbox:v4.7-5.1.1}
   restart: unless-stopped
   labels:
     media-stack.configuration: ${NETBOX_CONFIG_SHA:-unmanaged}

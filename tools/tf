@@ -19,6 +19,7 @@
 #   05-seed      … state置き場 ＋ Proxmox の terraform@pve
 #   10-platform  … state置き場 ＋ Proxmox の terraform@pve ＋ NetBox
 #   20-dns       … state置き場 ＋ Cloudflare の DNS 編集トークン（Proxmox は触らない）
+#   25-edge      … state置き場 ＋ 公開サイトのゾーンの守り（設定・WAF・ボット）のトークン
 #   services/*   … state置き場（s3.sops.yaml）＋ services.sops.yaml の shakecloud
 #                  アクセスキー（無ければ呼び出し元の環境変数）。DNS Provider を
 #                  宣言したモジュールだけ cloudflare-dns も足す。基盤の資格情報は
@@ -79,6 +80,11 @@ if [ "$module" = 20-dns ]; then
   # NetBox が採番したアドレスを 10-platform の state から読むのに bucket 名が要る。
   TF_VAR_state_bucket=$TF_STATE_BUCKET
   export CLOUDFLARE_API_TOKEN TF_VAR_state_bucket
+# --- 公開サイトのゾーンの守り。DNS 編集のトークンとは別のものを渡す ---
+elif [ "$module" = 25-edge ]; then
+  require_file cloudflare-edge.sops.yaml
+  CLOUDFLARE_API_TOKEN=$(secret cloudflare-edge.sops.yaml CLOUDFLARE_EDGE_API_TOKEN)
+  export CLOUDFLARE_API_TOKEN
 # --- サービスVM。state と shakecloud キーだけを渡し、基盤の資格情報は渡さない ---
 elif [[ "$module" == services/* ]]; then
   # 呼び出し元の環境に基盤の資格情報が残っていても、子プロセスへ持ち込まない。

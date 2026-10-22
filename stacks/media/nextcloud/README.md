@@ -19,7 +19,7 @@ sudo python3 manage.py init   # .env を作成し、保存先を 33:33 で用意
 sudo python3 manage.py lock   # compose.lock.yaml が無いときだけ digest を固定する
 sudo python3 manage.py up     # 固定済みイメージで起動する
 python3 manage.py setup       # files_external と background:cron を有効化し、共有ライブラリを外部ストレージへ登録する
-python3 manage.py apps --apps calendar,notes,tasks,text,user_oidc,cups_print,localsend_share,shake_tags
+python3 manage.py apps --apps calendar,notes,tasks,text,user_oidc,cups_print,localsend_share,shake_tags,ocr_search
 python3 manage.py config-notes   # Notesの表示既定を生Markdown（edit）にする
 sudo python3 manage.py import-calendar \
   --user <uid> --file /srv/media-stack/library/inbox/.../export.ics \
@@ -60,3 +60,16 @@ sudo python3 manage.py down
 - `secrets/`（DB パスワードと管理者パスワード）と `.env`・`compose.yaml`・`compose.lock.yaml` も一緒に保管します。秘密値を Git へ入れません。
 - 復元先は元と同じ `/srv/media-stack` のパスにし、UID/GID 33 を保ったまま展開します。別ホストへ戻す場合は `NEXTCLOUD_TRUSTED_DOMAINS` と `BIND_ADDRESS` を見直します。
 - 戻したら `manage.py up` の後、アップロード・ダウンロード・共有、Calendar/Tasks、スマホの CalDAV 同期、cron の実行を確認します。移行の完了条件は [W03](../../../docs/development/W03-nextcloud.md) を正とします。
+
+## 画像OCR検索（ocr_search）
+
+計画と設計は[W10](../../../docs/development/W10-ocr-search.md)。アプリと認識サービスは公開リポジトリ `rurutheGeek/nextcloud-ocr-search` が正本で、バージョンは `platform/ansible/group_vars/media.yml` の `nextcloud_custom_apps` の1行が決める。
+
+| 操作（media-01の `/opt/media-stack/media/nextcloud` で、rootで実行） | 内容 |
+| --- | --- |
+| `python3 manage.py ocr-service --repos rurutheGeek/nextcloud-ocr-search --versions <x.y.z>` | リリースのソースから `server/` を `ocr-service/` へ取得する。`up` がここからイメージ `ocr-search-service:<x.y.z>` をビルドする |
+| `python3 manage.py config-ocr` | アプリへ認識サービスのURL（`http://ocr:8080`）と `secrets/ocr_token` を設定する |
+| `python3 manage.py ocr-index --max-runtime 7200` | 未索引の画像をキューへ積み、最大7200秒だけ認識する。毎晩 `media-stack-ocr-index.timer` が実行する |
+
+`ocr` コンテナはポートを公開せず、internalネットワーク `ocr` で `nextcloud`・`cron` からだけ届く。上限は2CPU・1GiBで、Nextcloudは `ocr` に依存しない（止まっていても画像はキューで待つ）。状態は `docker compose exec --user 33:33 nextcloud php occ ocr_search:status` で見る。
+

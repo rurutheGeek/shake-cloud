@@ -67,6 +67,7 @@ flowchart TB
 | ホスト固有の値（ノード名・ストレージ名） | `platform/terraform/site.yaml`（`tools/site-yaml.py` が生成） |
 | 設計をなぜそう決めたか | [設計の入口](architecture/index.md)と[決定ログ](architecture/decisions.md) |
 | 言葉の意味 | [用語集](reference/glossary.md) |
+| 外から届く経路・対策・残っている穴 | [セキュリティ](architecture/security.md)（区画間で通すものは[区画と区画間の通信](operations/vlan.md)、実体は `platform/flint3/`・`platform/tailscale/acl.json`） |
 
 ## Obsidian で読む
 
@@ -86,7 +87,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
-| [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
+| [Shake Lab Docs](index.md) | 2026-10-22 | `hub` |
 | [ネットワーク図](network-map.md) | 2026-10-14 | `hub` `network` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 | [サービス図](service-map.md) | 2026-10-04 | `hub` |
@@ -107,8 +108,8 @@ flowchart TB
 | [通信速度テスト（LibreSpeed）](services/librespeed.md) | 2026-10-03 | `guide` `network` |
 | [AIエージェントからクラウドを見る（MCP）](services/mcp.md) | 2026-09-23 | `guide` `cloud` `ai` |
 | [音楽の取り込み・タグ編集・BCSTM](services/music.md) | 2026-09-16 | `guide` `music` |
-| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-09-28 | `guide` `nextcloud` |
-| [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-09-19 | `guide` `nextcloud` `cloud` |
+| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-10-19 | `guide` `nextcloud` |
+| [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-10-08 | `guide` `nextcloud` `cloud` |
 | [ポケモン翻訳](services/poke-translate.md) | 2026-09-27 | `guide` |
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
 | [共通RSSタイムライン（FreshRSS）](services/rss.md) | 2026-09-16 | `guide` `rss` |
@@ -153,7 +154,7 @@ flowchart TB
 | [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
-| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
+| [N03 VLAN切替](development/N03-vlan.md) | 2026-10-22 | `plan` `network` |
 | [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
 | [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-10-03 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
@@ -169,7 +170,8 @@ flowchart TB
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
 | [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
 | [W09 Smart Switchの非公式クライアント（解析）](development/W09-smartswitch-re.md) | 2026-10-03 | `plan` `smartswitch` `reverse-engineering` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-10-04 | `plan` |
+| [W10 Nextcloudの画像OCR検索（ocr_search）](development/W10-ocr-search.md) | 2026-10-11 | `plan` `nextcloud` `ocr` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-10-22 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
@@ -196,15 +198,16 @@ flowchart TB
 | [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-14 | `ops` `handover` |
+| [配備の記録](operations/handover-log.md) | 2026-10-22 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-22 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
-| [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
+| [運用手順の入口](operations/index.md) | 2026-10-22 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
 | [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
-| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
+| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-10-19 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
@@ -221,7 +224,7 @@ flowchart TB
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-05 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
-| [VLAN 分離への切替](operations/vlan.md) | 2026-10-14 | `ops` `network` |
+| [区画と区画間の通信（VLAN）](operations/vlan.md) | 2026-10-22 | `ops` `network` |
 | [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-16 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
@@ -237,9 +240,9 @@ flowchart TB
 | [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-04 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-03 | `design` `overview` |
+| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-22 | `design` `overview` |
 | [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
-| [信頼境界とセキュリティ方針](architecture/security.md) | 2026-10-03 | `design` `security` |
+| [セキュリティ（信頼境界と対策）](architecture/security.md) | 2026-10-22 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-03 | `design` `network` |
 | [K11到着後・Proxmox VE導入後の進め方](operations/bring-up.md) | 2026-10-03 | `design` `bootstrap` |
 
@@ -260,6 +263,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 144 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 146 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

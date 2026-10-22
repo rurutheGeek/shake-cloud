@@ -1,0 +1,31 @@
+---
+# 基盤VMの受信の許可。**このファイルが正本。**
+#
+# ここに書いたVMは、NIC の firewall=1 と VM のファイアウォール（受信の既定は
+# 拒否、送信は許可）が有効になる。区画（VLAN）の間は Flint 3 が絞るので、ここは
+# 同じ区画の中の横の広がり（乗っ取られた VM から台帳・認証・API へ）を止める。
+# 書いていない受信は落ちる。ポートを開けたら、ここへ足してから配る。
+#
+# 05-seed（core-01）と 10-platform（cloud-01）が読む。利用者VMはクラウドAPIの
+# セキュリティグループが受け持つので、ここに書かない。
+sources:
+  servers: 192.168.10.0/24     # サーバー区画。Tailscale からの通信も Flint 3（.1）経由でここから来る
+  personal: 192.168.40.0/24    # 個人端末（デスクトップなど）
+  monitor: 192.168.10.11/32    # tarakoserver（Prometheus）
+
+hosts:
+  core-01:
+    - {proto: tcp, dport: '80,443', comment: 入口（Caddy）}
+    - {proto: udp, dport: '443', comment: 入口（HTTP/3）}
+    - {proto: tcp, dport: '8000', from: [servers], comment: NetBox API（動的インベントリ・netmap・クラウドの台帳）}
+    - {proto: tcp, dport: '22', from: [servers, personal], comment: SSH}
+    - {proto: tcp, dport: '9100', from: [monitor], comment: node_exporter}
+    - {proto: udp, dport: '5353', from: [servers], comment: mDNS}
+    - {proto: icmp, comment: ping}
+  cloud-01:
+    - {proto: tcp, dport: '80,443', comment: クラウドのポータルとAPI（Caddy）}
+    - {proto: udp, dport: '443', comment: HTTP/3}
+    - {proto: tcp, dport: '3900', from: [servers, personal], comment: Garage の S3 API}
+    - {proto: tcp, dport: '22', from: [servers, personal], comment: SSH}
+    - {proto: tcp, dport: '9100', from: [monitor], comment: node_exporter}
+    - {proto: icmp, comment: ping}

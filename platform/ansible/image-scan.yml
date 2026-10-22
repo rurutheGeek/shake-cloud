@@ -1,0 +1,10 @@
+---
+# 固定したイメージの脆弱性（Trivy）とランタイムの版（PHP など）を、監視のホストで毎日調べる。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/image-scan.yml'
+# 結果は Grafana の「イメージの脆弱性」と、alerts.yml の image_scan の通知で見る。
+- name: Deploy the container image scan
+  hosts: monitoring
+  become: true
+  roles:
+    - image_scan

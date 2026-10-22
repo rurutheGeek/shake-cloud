@@ -82,6 +82,12 @@ variable "network_bridge" {
   type = string
 }
 
+variable "network_firewall" {
+  description = "NIC の firewall=1。firewall.yaml に書いたVMだけ true（ルールは modules/vm-firewall）。"
+  type        = bool
+  default     = false
+}
+
 variable "network_vlan_id" {
   description = "VLAN を使わない場合は null。network.yaml の vlan.management.vlan_id から来る。"
   type        = number

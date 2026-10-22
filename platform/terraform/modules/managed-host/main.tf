@@ -88,9 +88,10 @@ resource "proxmox_virtual_environment_vm" "this" {
   }
 
   network_device {
-    bridge  = var.network_bridge
-    model   = "virtio"
-    vlan_id = var.network_vlan_id
+    bridge   = var.network_bridge
+    model    = "virtio"
+    vlan_id  = var.network_vlan_id
+    firewall = var.network_firewall
   }
 
   initialization {

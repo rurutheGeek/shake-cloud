@@ -1,0 +1,16 @@
+---
+# 固定したイメージの脆弱性を毎日調べ、node_exporter の textfile へ出す。
+# 対象はリポジトリの compose.lock.yaml と Dockerfile の FROM（配備時に集める）。
+image_scan_trivy_version: 0.75.0
+# リリースの trivy_<版>_checksums.txt の値。版を上げたら両方とも差し替える。
+image_scan_trivy_sha256:
+  ARM64: a1ee9f6ffb7d112b64ff726a2a0717c21175c1114361391f4a132956751a13b3
+  64bit: c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
+image_scan_trivy_arch: "{{ {'aarch64': 'ARM64', 'x86_64': '64bit'}[ansible_facts['architecture']] }}"
+# 脆弱性DB（約1.6GB）と、イメージごとのパッケージ一覧（SBOM）の置き場。HDD に置く。
+image_scan_state_dir: /srv/image-scan
+image_scan_textfile: /var/lib/prometheus/node-exporter/image_scan.prom
+# 実機の VM は amd64。arm64 の Pi で動くイメージも同じ版の amd64 版で調べる。
+image_scan_platform: linux/amd64
+image_scan_oncalendar: '*-*-* 02:30:00'
+image_scan_repo_root: '{{ playbook_dir }}/../..'

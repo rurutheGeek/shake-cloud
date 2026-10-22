@@ -40,3 +40,20 @@
     enabled: true
     state: started
   loop: [nginx, sslh]
+
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Place the firewall script
+  ansible.builtin.template:
+    src: relay-firewall.sh.j2
+    dest: /usr/local/sbin/relay-firewall
+    mode: '0755'
+
+- name: Make the ufw rules match the declared ones
+  ansible.builtin.command:
+    argv: [/usr/local/sbin/relay-firewall]
+  register: relay_firewall
+  changed_when: "'CHANGED' in relay_firewall.stdout"

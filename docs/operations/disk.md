@@ -85,7 +85,7 @@ SSDへの無駄な書き込みを減らす設定を、ホストとサービスVM
 # ホスト
 ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
   .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/storage-health.yml
-# 基盤VM・クラウドVM（NetBox インベントリ。monitor-01・core-01・cloud-01・media-01 が対象。--limit はグループ名で絞る）
+# 基盤VM・クラウドVM（NetBox インベントリ。core-01・cloud-01・media-01 など。--limit はグループ名で絞る）
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/storage-health.yml'
 ```

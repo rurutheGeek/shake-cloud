@@ -77,6 +77,17 @@ vlan:
 # 上の infrastructure〜cloud の帯は、すべて server の中の切り方。
 # management（20）は番号と範囲だけ空けてある。当面は作らず、Proxmox と
 # Flint 3 の管理面は送信元の制限で絞る。
+# VLAN ではなく、1 台の VM の後ろに経路で置く区画。Flint 3 はこの区画を via へ送り、
+# クラウド API は instance の ipfilter にこの区画を入れる（コンテナが自分の IP で話す）。
+# VM を作れる区画（segments・API の subnets）には入らない。
+routed:
+  game:
+    # game-01 のゲームのコンテナ（ランチャーのセッションごとに 1 つ）。NAT せず、
+    # 個人端末の区画から直接届くようにする（LAN プレイ）。
+    prefix: 192.168.60.0/24
+    via: 192.168.10.127
+    instance: i-bec54e3a0169b3660
+
 segments:
   server:
     vlan_id: 10
@@ -113,3 +124,10 @@ segments:
     gateway: 192.168.50.1
     dhcp_start: 192.168.50.20
     dhcp_end: 192.168.50.199
+  wynaut:
+    # AdGuard Home を通さない無線（SSID ソーナノWiFi）。インターネット接続のみ、DNS は外へ直接。
+    vlan_id: 51
+    prefix: 192.168.51.0/24
+    gateway: 192.168.51.1
+    dhcp_start: 192.168.51.20
+    dhcp_end: 192.168.51.199

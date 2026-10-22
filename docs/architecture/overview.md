@@ -1,6 +1,6 @@
 ---
 title: ホームラボの全体像（詳細）
-updated: 2026-10-03
+updated: 2026-10-22
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ホームラボの全体像（詳細）
 
-> **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-22 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 正本リポジトリ: <https://github.com/rurutheGeek/shake-cloud>
 
@@ -520,7 +520,7 @@ flowchart TB
 - **回線**: MAP-E（v6プラス・JPNE）。CGNATではないのでポート開放はできますが、**割り当ての240個に限られ80/443は含まれません**。`https://名前/` での公開はこの回線では成立しません。
 - **名前とTLS**: ゾーンは `apextox.dpdns.org`（Cloudflareに委任）。`platform/terraform/dns.yaml` が名前の正本で、**core-01のCaddy**（`stacks/tls-proxy/`）が受ける名前はすべて core-01 を指し、core-01 が tarakoserver・media-01・apps-01・cloud-01 へ中継します。証明書はDNS-01で取得し、Cloudflareの DNS 編集トークンを持つVMは core-01 だけです（ほかに Proxmox ホストと k8s の cert-manager）。
 - **公開範囲**: Cloudflareの公開DNSに内部IPを書いており、インターネットへは公開していません。外から名前は引けますが届きません。NetBoxとdocsの直ポートは残作業で閉じます。
-- **LANの外**: Flint 3 上の Tailscale subnet router がサーバー（`192.168.10.0/24`）と個人端末（`192.168.40.0/24`）の区画を流します。公開サイトは家の外の negitoroserver（zero2w）が受け、Tailscale で DMZ の shakeserver（Pi 5）へ中継します。アクセス制限は `platform/tailscale/acl.json`。[Tailscale subnet router](../operations/net.md)。
+- **LANの外**: Flint 3 上の Tailscale subnet router がサーバー（`192.168.10.0/24`）の区画を流します（個人端末の区画は 2026-10-17 から流さない）。公開サイトは家の外の negitoroserver（zero2w）が受け、Tailscale で DMZ の shakeserver（Pi 5）へ中継します。アクセス制限は `platform/tailscale/acl.json`。[Tailscale subnet router](../operations/net.md)。
 - **VLAN（区画）**: Flint 3 の内蔵スイッチと Wi-Fi で、サーバー（10）・DMZ（30）・個人端末（40）・ネット専用（50）に分けています。DMZ の VM には K11 の `vmbr0` の VLAN 対応がまだ要ります（[VLAN 分離](../operations/vlan.md)）。
 - **既知だった障害**: クラウドが使うレンジがルーターのDHCP配布範囲と重なり、他端末がサービスVMのIPを取得して到達不能になった実例がありました（2026-09-12、media-01）。**2026-09-14に解消済み**（ルーター側で対応。当時のnet-01作成前に確認）。
 

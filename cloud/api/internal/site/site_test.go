@@ -174,3 +174,26 @@ func TestSubnetDeclarationsAreChecked(t *testing.T) {
 		}
 	}
 }
+
+func TestRoutedPrefixesAreOwnedByAnInstanceAndOverlapNothing(t *testing.T) {
+	s := sample()
+	s.Network.Subnets = []Subnet{{Name: "server", Prefix: "192.168.10.0/24", Gateway: "192.168.10.1", VLANID: 10}}
+	s.RoutedPrefixes = map[string]string{"i-bec54e3a0169b3660": "192.168.60.0/24"}
+	if err := s.Validate(); err != nil && strings.Contains(err.Error(), "routed") {
+		t.Fatal(err)
+	}
+	s.RoutedPrefixes = map[string]string{
+		"game-01":             "192.168.60.0/24",
+		"i-0123456789abcdef0": "192.168.10.128/25",
+		"i-bec54e3a0169b3660": "192.168.60.1/24",
+	}
+	err := s.Validate()
+	if err == nil {
+		t.Fatal("broken routed prefixes were accepted")
+	}
+	for _, want := range []string{`"game-01" is not an instance ID`, "overlaps segment server", `"192.168.60.1/24"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}

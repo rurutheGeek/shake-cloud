@@ -1,0 +1,111 @@
+---
+- name: Create the Trivy directory
+  ansible.builtin.file:
+    path: '/opt/trivy/{{ image_scan_trivy_version }}'
+    state: directory
+    mode: '0755'
+
+- name: Download Trivy
+  ansible.builtin.get_url:
+    url: "https://github.com/aquasecurity/trivy/releases/download/v{{ image_scan_trivy_version }}/trivy_{{ image_scan_trivy_version }}_Linux-{{ image_scan_trivy_arch }}.tar.gz"
+    dest: '/opt/trivy/{{ image_scan_trivy_version }}/trivy.tar.gz'
+    checksum: 'sha256:{{ image_scan_trivy_sha256[image_scan_trivy_arch] }}'
+    mode: '0644'
+
+- name: Unpack Trivy
+  ansible.builtin.unarchive:
+    src: '/opt/trivy/{{ image_scan_trivy_version }}/trivy.tar.gz'
+    dest: '/opt/trivy/{{ image_scan_trivy_version }}'
+    remote_src: true
+    include: [trivy]
+    creates: '/opt/trivy/{{ image_scan_trivy_version }}/trivy'
+
+- name: Point at the pinned Trivy
+  ansible.builtin.file:
+    src: '/opt/trivy/{{ image_scan_trivy_version }}/trivy'
+    dest: /usr/local/bin/trivy
+    state: link
+
+- name: Create the scan directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0750'
+  loop: ['{{ image_scan_state_dir }}', /etc/image-scan]
+
+- name: Place the scan script
+  ansible.builtin.copy:
+    src: image-scan.py
+    dest: /usr/local/sbin/image-scan
+    mode: '0755'
+
+# 一覧はリポジトリが正本。配備のたびに作り直す。
+- name: Collect the pinned images from the repository
+  ansible.builtin.command:
+    argv: [python3, '{{ role_path }}/files/image-scan.py', collect, --root, '{{ image_scan_repo_root }}']
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  register: image_scan_images
+
+- name: Write the image list and settings
+  ansible.builtin.copy:
+    dest: '/etc/image-scan/{{ item.name }}'
+    content: '{{ item.content | to_nice_json }}'
+    mode: '0644'
+  loop:
+    - name: images.json
+      content: '{{ image_scan_images.stdout | from_json }}'
+    - name: config.json
+      content:
+        images: /etc/image-scan/images.json
+        state_dir: '{{ image_scan_state_dir }}'
+        textfile: '{{ image_scan_textfile }}'
+        platform: '{{ image_scan_platform }}'
+        trivy: /usr/local/bin/trivy
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Place the scan service and timer
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item.name }}'
+    mode: '0644'
+    content: '{{ item.content }}'
+  loop:
+    - name: image-scan.service
+      content: |
+        [Unit]
+        Description=固定したイメージの脆弱性を調べる
+        Wants=network-online.target
+        After=network-online.target
+        RequiresMountsFor={{ image_scan_state_dir }}
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/image-scan run --config /etc/image-scan/config.json
+        # Pi の /tmp は小さい tmpfs。Java の DB（約1GB、jar を含むイメージだけで使う）を HDD で展開する。
+        Environment=TMPDIR={{ image_scan_state_dir }}/tmp
+        ExecStartPre=/bin/mkdir -p {{ image_scan_state_dir }}/tmp
+        # 監視と同じホストなので、低い優先度で回し、メモリにも上限を置く。
+        Nice=19
+        IOSchedulingClass=idle
+        MemoryMax=1G
+        TimeoutStartSec=3h
+    - name: image-scan.timer
+      content: |
+        [Unit]
+        Description=固定したイメージの脆弱性を毎日調べる
+        [Timer]
+        OnCalendar={{ image_scan_oncalendar }}
+        RandomizedDelaySec=20min
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Enable the scan timer
+  ansible.builtin.systemd:
+    name: image-scan.timer
+    enabled: true
+    state: started
+    daemon_reload: true
