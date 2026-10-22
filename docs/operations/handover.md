@@ -36,7 +36,6 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | VMID | 名前 | IP | 役割 | 状態 |
 | --- | --- | --- | --- | --- |
 | 100 | game-01 | 192.168.10.127 | ゲーム（Bazzite、GPU パススルー）。クラウドVMとして引き取り済み | 稼働 |
-| 101 | router-01 | — | 旧ルータ（OpenWrt） | 停止・自動起動なし。2026-10-28 以降に削除 |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI・管理DB・Garage | 稼働 |
 | 150 | core-01 | 192.168.10.200 | Authentik・NetBox・入口の Caddy・ドキュメント | 稼働 |
 | 200 / 210 / 211 | k8s-cp-01 / k8s-worker-01 / k8s-worker-02 | .207 / .209 / .208 | Kubernetes（AWX・CNPG・Knative・poke-translate の function） | k8s-cp-01 の1台で常時稼働（6GiB）。worker-01・02 は停止した予備（[Kubernetes](kubernetes.md)） |

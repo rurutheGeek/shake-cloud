@@ -77,6 +77,6 @@ tags:
 | タイルが赤い | apps-01 で `sudo python3 manage.py status`。コンテナが動いているか |
 | ページは開くが数値が低い | 端末がWi-Fiか有線か、電波状況、同時通信の有無 |
 | 有線なのに300Mbps前後で頭打ち | USB接続のGbEアダプタ・USB-Cドック経由（USB 2.0では約300Mbpsが天井）。PC本体のLANポートへ直挿しして再測 |
-| LAN内なのに300Mbps前後（Tailscale導入端末） | Tailscaleのsubnet routeがLANより優先され、router-01経由で回り込むことがある。TailscaleのIFメトリックを上げる（`Set-NetIPInterface -InterfaceAlias Tailscale -InterfaceMetric 9999`）、または計測時だけOFF |
+| LAN内なのに300Mbps前後（Tailscale導入端末） | Tailscaleのsubnet routeがLANより優先され、Flint 3経由で回り込むことがある。TailscaleのIFメトリックを上げる（`Set-NetIPInterface -InterfaceAlias Tailscale -InterfaceMetric 9999`）、または計測時だけOFF |
 | 数値が毎回ばらつく | Wi-Fiは仕様です。有線で同じ値になるか試す |
 | 統計ページに入れない | 管理者に `secrets/stats_password` を確認してもらう |

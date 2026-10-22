@@ -8,7 +8,7 @@
 #
 # **プレフィックスは実行時に ubus から取る。** 上流の /64 は固定ではなく、
 # リポジトリにグローバルアドレスを書かない方針のため
-# （docs/development/N06-router.md）。
+# （https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md）。
 #
 # 検証:
 #   ip -6 route | grep br-lan        # <prefix>/64 dev br-lan があること

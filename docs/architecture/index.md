@@ -39,7 +39,7 @@ tags:
 ## 前提と合意した範囲
 
 - 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
-- ルータは **Flint 3（GL-BE9300）**。2026-10-14 に K11 上の OpenWrt VM `router-01`（2026-09-20〜）から切り替えた。区画（VLAN）は Flint 3 の内蔵スイッチと Wi-Fi で分ける。（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)・[router-config](../operations/router-config.md)）。Aterm は AP モードの Wi-Fi 専用機、スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路はラズパイではなく router-01（OpenWrt）上のTailscale subnet routerに置く。
+- ルータは **Flint 3（GL-BE9300）**。区画（VLAN）は Flint 3 の内蔵スイッチと Wi-Fi で分ける。（[Flint 3](../operations/flint3.md)）。スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路は Flint 3 上の Tailscale subnet router に置く。
 - サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
 - 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantなどのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
@@ -66,10 +66,10 @@ tags:
 | 自作クラウド | Go API・ジョブ・管理DB、Terraform Provider | APIはcloud-01のCompose、Providerは開発VM |
 | ブラウザ認証 | Authentik + 専用PostgreSQL | Kubernetes外のcore-01 |
 | VPN・宅外からの監視 | Tailscale（subnet router は Flint 3 上。アクセス制限は `platform/tailscale/acl.json`）。セルフホストVPNはN01で継続検討 | K11 の外に出られないため、対象VMへagent |
-| DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **Flint 3**（2026-10-14 に router-01 から移行） |
+| DNS | **AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）** | **Flint 3** |
 | 公開入口 | Caddy（core-01の1台でTLS終端し、tarakoserver・media-01・apps-01・cloud-01へ中継）。公開サイトは家の外の negitoroserver が受けて DMZ の shakeserver（Pi 5）へ | core-01。公開用VMはN04 |
 | 家電・自動化 | Home Assistant Container（配備済み） | apps-01。Authentik OIDCでSSO。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り |
-| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | tarakoserver（Raspberry Pi 4、K11 の外）。UPS・証明書・資源を監視。DNSは Flint 3 の AdGuard Home、復旧経路は router-01 のTailscale |
+| 監視 | Prometheus + Grafana + Alertmanager（配備済み） | tarakoserver（Raspberry Pi 4、K11 の外）。UPS・証明書・資源を監視。DNSは Flint 3 の AdGuard Home、復旧経路は Flint 3 のTailscale |
 | 印刷 | CUPS（apps-01）＋Nextcloud印刷アプリ（media-01） | 配備済み。API経由の印刷は確認済みで、ブラウザー操作は未確認（D08） |
 | ポケモンRDB・図鑑VDB | PostgreSQL＋pgvector | game1。WebUI・agent・推論と一式移行。汎用RAG・Botも同居 |
 | 音楽タグの編集 | Nextcloudの自作アプリ `shake_tags` とタグAPI | media-01。MeTubeの取込とNextcloudのmusicをNavidrome向けに整える（専用GUIコンテナは2026-09-13に撤去） |
@@ -103,7 +103,7 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 
 | 項目 | 現状（2026-09-20） |
 | --- | --- |
-| ネットワーク（ルータ・DNS・DHCP） | **Flint 3 へ切替済み（2026-10-14。それまでは K11 上の OpenWrt VM router-01）。** Aterm は AP モードの Wi-Fi 専用。DNS は AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）、IPv6 は odhcpd の relay ＋ ndppd。予約・リースは NetBox と同期する。手順は[router-01](../operations/router.md)・[設定まとめ](../operations/router-config.md) |
+| ネットワーク（ルータ・DNS・DHCP） | **Flint 3（2026-10-14〜）。**DNS は AdGuard Home（広告遮断・DoH）＋ dnsmasq（DHCP・`*.lan`）、IPv6 は odhcpd の relay ＋ ndppd。予約・リースは NetBox と同期する。手順は[Flint 3](../operations/flint3.md) |
 | メディア・認証 | Homarr・Vaultwarden・Home Assistantはapps-01（旧services-01）、Nextcloud・Kavita・Navidromeはmedia-01で配備済み。既存環境からのデータ移行（W03–W06）が残る |
 | ドキュメントサイト | `https://docs.apextox.dpdns.org`（LAN 内。直アクセスは `http://192.168.10.200:8090`）。Git の `docs/` から Ansible（`platform/ansible/docs-site.yml`）が生成・配備する |
 | Proxmoxの所有境界（プール・ロール・ACL） | Terraform `00-bootstrap` として実装済み。**実機へ適用済み**（2026-09-10 に API で確認） |

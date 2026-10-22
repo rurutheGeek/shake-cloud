@@ -5,7 +5,6 @@
 # Tier1: 失うと作り直せないVM。game1（約237G）はゲーム本体・Ollamaモデルを
 # 含むため丸ごとは取らず、セーブを tools/game1-saves-backup.sh で別に取る。
 pve_backup_vmids:
-  - 101   # router-01（OpenWrt設定）
   - 140   # cloud-01（管理DB・Garage）
   - 150   # core-01（Authentik・NetBox）
   - 401   # dev-02（旧 dev-b。鍵・作業ツリー）

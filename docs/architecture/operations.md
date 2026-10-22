@@ -24,7 +24,6 @@ tags:
 | 配置 | vCPU / RAMの計画値 | ディスク | 機能・起動方針 |
 | --- | --- | --- | --- |
 | Proxmox | ホスト用6GiB枠 | 現行パーティション維持＋6TB USB HDD（`/srv/bulk`） | ホストとキャッシュの予算。実消費は測定。バルク領域は[共有バルクストレージ](../operations/bulk-storage.md) |
-| router-01（101） | 2 / 512MiB（宣言値） | イメージのみ | **旧家庭内ルータ（OpenWrt）。停止中・自動起動なし**（2026-10-14 に Flint 3 へ切替。2026-10-28 以降に削除） |
 | core-01（150。旧services-01） | 2 / 4.5GiB（固定。2026-10-11 に実測（最大約3.8GiB）へ合わせて 6→4.5GiB） | 現行容量とデータ量を実測 | Authentik（共通ログイン）・NetBox（台帳）・HTTPSの入口のCaddy（AdGuardとルータ管理画面の中継も）。VPNは追加予定。常時。`05-seed`の所有を維持 |
 | apps-01（cloud VM、192.168.10.105） | 2 / 4GiB（下限3GiB） | OS32GiB＋データ16GiB（`/srv`） | MkDocs・Home Assistant・Homarr・Vaultwarden・Eufy中継・印刷API（CUPS）・LibreSpeed・mail-view・ポケモン翻訳・eufy-leo-rtc。配備先は `/opt/<アプリ名>`、データは `/srv/<アプリ名>`。常時 |
 | cloud-01（140） | 2 / 1GiB（固定。2026-10-11 に実測（最大約0.67GiB）へ合わせて 2→1GiB） | 40GiB | クラウドAPIと管理DB、Garage（S3。2026-10-03にstorage-s3から統合）。常時 |

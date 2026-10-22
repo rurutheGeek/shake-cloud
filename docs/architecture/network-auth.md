@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-03 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-[構成案トップ](index.md)へ戻る。**2026-10-14 にルータを Flint 3（GL-BE9300）へ切り替えました（2026-09-20〜10-14 は K11 上の OpenWrt VM `router-01`）。DNS は Flint 3 上の AdGuard Home ＋ dnsmasq です。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[Flint 3](../operations/flint3.md)（旧ルータは[router-01の設定まとめ](../operations/router-config.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
+[構成案トップ](index.md)へ戻る。**2026-10-14 にルータを Flint 3（GL-BE9300）へ切り替えました（2026-09-20〜10-14 は K11 上の OpenWrt VM `router-01`）。DNS は Flint 3 上の AdGuard Home ＋ dnsmasq です。** このページは現在のネットワークと、決めた方針（公開範囲・SSO）をまとめます。現在のURLは[接続先一覧](../reference/urls.md)、ルータの設定は[Flint 3](../operations/flint3.md)、認証基盤の運用は[認証基盤（Authentik）](../operations/identity.md)を参照してください。
 
 ## 全体図
 
@@ -47,9 +47,9 @@ tags:
 
 宅内で遊ぶときはLAN直結を優先し、全インターネット通信を Flint 3 に流すexit nodeは初期要件に含めません。subnet routerが広告するLAN範囲とTailscaleのアクセス権を管理対象に限定します。[Subnet router公式](https://tailscale.com/docs/features/subnet-routers/how-to/setup)
 
-**DNS（AdGuard Home）は Flint 3 に置いています。** ルータが落ちると名前解決も止まります。切り戻し先として router-01（K11 上、停止中）を 2026-10-28 まで残しています。
+**DNS（AdGuard Home）は Flint 3 に置いています。** ルータが落ちると名前解決も止まります。
 
-（経緯）**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。**Aterm を戻せば元の構成に戻せます**（ロールバック手順は[router-01](../operations/router.md)）。
+（経緯）**ルータは OPNsense ではなく OpenWrt を選びました。** K11 上のVMで完結し、MAP-E（v6プラス）の対応とイメージの再現性（Image Builder で設定を焼く）を優先したためです（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。切替は手動で行い、配線・ゲートウェイ・DHCP・DNS・公開Webの転送を確認しました。その後 2026-10-14 に K11 の外の Flint 3 へ移し、OpenWrt VM は 2026-10-22 に削除しました。
 
 ## 分離するネットワーク
 

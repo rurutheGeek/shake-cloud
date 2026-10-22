@@ -1,6 +1,6 @@
 ---
 title: Flint 3（家庭内ルーター）
-updated: 2026-10-14
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Flint 3（家庭内ルーター）
 
-> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **2026-10-14 に router-01 から切替済み。** ONU 直結で MAP-E・DHCP・DNS（AdGuard Home）・IPv6 中継・Tailscale を担当。router-01 は停止（削除していない）。DMZ（VLAN 30）は 2026-10-15 に作成（LAN4 は DMZ 専用。shakeserver のつなぎ替えは未）。ログは tarakoserver の Loki へ送る（UDP 1514）。
+**状態**: **2026-10-14 から稼働。** ONU 直結で MAP-E・DHCP・DNS（AdGuard Home）・IPv6 中継・Tailscale を担当。DMZ（VLAN 30）は 2026-10-15 に作成（LAN4 は DMZ 専用。shakeserver のつなぎ替えは未）。ログは tarakoserver の Loki へ送る（UDP 1514）。
 
 ## 構成
 
@@ -20,7 +20,7 @@ tags:
 | --- | --- |
 | 機種・ファーム | GL.iNet GL-BE9300、純正 4.10.1（OpenWrt 23.05派生、カーネル 5.4、fw4） |
 | アドレス | `192.168.10.1`（サーバー）、`192.168.40.1`（個人端末）、`192.168.50.1`（ネット専用） |
-| 回線 | MAP-E（v6プラス）。外部 IPv4・PSID・ポート範囲は router-01 と同じ |
+| 回線 | MAP-E（v6プラス）。外部 IPv4・PSID・ポート範囲は契約で決まる |
 | 設定の正本 | `platform/flint3/`、区画は `platform/terraform/network.yaml` の `segments` |
 | ログイン | `ssh root@192.168.10.1`（鍵 `id_ed25519_pve`）。管理画面は `https://192.168.10.1/` |
 | 追加パッケージ | `map`・`ndppd`・`conntrack`（ファーム更新で消える） |
@@ -63,7 +63,7 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 
 - `deploy.sh` は `/etc/AdGuardHome/config.yaml` も上書きする。稼働中の AdGuard Home は自分の形式へ書き換えているので、置いたら `/etc/init.d/adguardhome restart`。
 - `apply-segments` は何度流してもよい。ネットワークと Wi-Fi を読み込み直すので、有線・無線とも数十秒切れる。
-- `apply-router` は router-01 からの切替用。**稼働中の Flint 3 へ流し直さない**（切替前のバックアップを上書きする）。
+- `apply-router` は初期構築用。**稼働中の Flint 3 へ流し直さない**（構築前のバックアップを上書きする）。
 
 ## 設定のバックアップ
 
@@ -121,21 +121,13 @@ Tailscale を入れた Windows・スマホは、家の中にいても、家の�
 
 ## 既知の制約
 
-- 同じ宛先へ短時間に何度もつなぐと、一部の接続が途中で止まる（ニチバンのサイトへ30回で12回）。MAP-E の 240 ポートを使い回すため。router-01 では起きなかった。
+- 同じ宛先へ短時間に何度もつなぐと、一部の接続が途中で止まる（ニチバンのサイトへ30回で12回）。MAP-E の 240 ポートを使い回すため。旧ルータ（OpenWrt 24.10）では起きなかった。
 - AdGuard Home の管理画面（`:3000`）は GL.iNet の管理画面のログインを要求する。`adguard.apextox.dpdns.org`（SSO 経由）からは入れない。
 - ルーターを入れ替えた直後は、上流が CE アドレスの持ち主を覚え直すまで約5分 IPv4 が止まる。
 - DMZ（`192.168.30.0/24`）からサーバーの区画へは `dmz-db-clients` に書いたアドレスから pkdb（5432）だけ。今は誰も書いていない。
 - GL.iNet の付属スクリプトとファームウェア更新が書き換える設定は、tarakoserver の `netmap-router-check.timer` が 5 分ごとに `apply-segments` と見比べる。崩れると `RouterConfigDrift`、点検が止まると `RouterCheckStale`。
 - GL.iNet の `gl_tailscale` はネットワークが変わるたびに Tailscale を起動し直して経路を消すので、`95-shakecloud-tailscale-routes` が流し直す（約20秒、そのあいだ宅外から家の中へ届かない）。
 - 開発用の VM（dev-01・dev-02）からは個人端末へ接続を始められる（実機のスマホへの adb など）。ほかのサーバーからは始められない。
-
-## router-01 へ戻す
-
-1. ONU のケーブルを Flint 3 の WAN から K11 の WAN（`nic0`）へ挿し直す。
-2. Flint 3 を止めるか、LAN の `192.168.10.1` を外す（同時に名乗らせない）。
-3. `ssh root@192.168.10.10 'qm set 101 -onboot 1 && qm start 101'`。
-
-router-01 の Tailscale の端末情報は Flint 3 が使っている。router-01 の Tailscale は起動させない。
 
 ## 実施記録
 

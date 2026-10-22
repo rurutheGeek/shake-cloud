@@ -22,7 +22,6 @@ VMの置き場所（Terraformで直接作るか、クラウドAPIで作るか）
 
 | VM | 作り方 | 中身 |
 | --- | --- | --- |
-| router-01 | Terraform（router） | 家庭内ルータ（OpenWrt） |
 | identity・cloud-01・storage-s3 | Terraform（`hosts.yaml`） | Authentik、クラウドAPI、Garage |
 | k8s-cp-01・k8s-worker-01/02 | Terraform（`hosts.yaml`） | Kubernetes（使うときだけ起動） |
 | probe-01 | Terraform（`hosts.yaml`） | クラウドの検証用（dev-a・dev-b は 2026-10-03 にクラウドVMへ引き取り済み） |
@@ -36,7 +35,7 @@ services-01 は、NetBox を最初に立てるための「過渡的なホスト�
 
 | 対象 | 実例 | ばらつき |
 | --- | --- | --- |
-| ホスト名 | `router-01`・`media-01` / `identity`・`storage-s3` / `dev-a` / `game1` / `win11pro` | 連番の有無と形、役割名と製品名の混在（`storage-s3`）、中身と名前のずれ（`net-01` は Tailscale） |
+| ホスト名 | `core-01`・`media-01` / `identity`・`storage-s3` / `dev-a` / `game1` / `win11pro` | 連番の有無と形、役割名と製品名の混在（`storage-s3`）、中身と名前のずれ（`net-01` は Tailscale） |
 | Compose のプロジェクト名 | `media-kavita`・`services-home-assistant`・`game1-romm` / `homarr`・`identity`・`monitoring` / **`media-netbox`**（実体は services-01） | ホスト名の前置きの有無、実体と違う前置き |
 | 配備先ディレクトリ | `/opt/homarr-stack` / `/opt/services/vaultwarden` / `/opt/media-stack/media/kavita` / `/opt/docs-site` | 3通り以上 |
 | データの置き場 | `/srv/homarr-stack/storage` / `/srv/services/vaultwarden` / `/srv/media-stack/storage` / `/srv/monitoring` | 同上 |
@@ -44,7 +43,7 @@ services-01 は、NetBox を最初に立てるための「過渡的なホスト�
 | Playbook | `media-kavita.yml` / `homarr.yml` / `media-kavita-sso.yml` / `cloud.yml` | 前置きと分割の基準が無い。`inventory.netbox.yml`・`cloud-inventory.yml`・`k8s-vars.yml` など Playbook でないものが同じ場所にある |
 | インベントリのグループ | タグ `media-stack` → `media`、`identity` → `identity_provider`、`cloud-control` → `cloud_control` | タグとグループの名前の対応がまちまち |
 | SOPS のファイル | `eufy-security`・`music-tags`（サービス別） / `services`（Terraformのクラウド鍵） / `cloudflare` と `cloudflare-dns` | 単位が混在 |
-| VMID | platform帯（100〜399）に `game1`（100、実はcloudプール）と `router-01`（101） | 帯と中身が一致しない |
+| VMID | platform帯（100〜399）に `game1`（100、実はcloudプール） | 帯と中身が一致しない |
 
 ## 2. 置き場所の基準
 
@@ -54,7 +53,7 @@ services-01 は、NetBox を最初に立てるための「過渡的なホスト�
 
 | VM | 中身 | いまのVMとの対応 |
 | --- | --- | --- |
-| router-01 | ルータ（OpenWrt）・AdGuard Home・**Tailscale の subnet router** | AdGuard Home は今もここ。Tailscale を net-01 から移す。宅外からの復旧経路は、依存が最も少ない場所に置く（core-01 が固まっても入れる）。net-01 は消す |
+| Flint 3（物理機） | ルータ・AdGuard Home・**Tailscale の subnet router** | 2026-10-14 に K11 上の router-01 から移した。宅外からの復旧経路は、依存が最も少ない場所に置く（K11 が止まっても入れる） |
 | **core-01** | Authentik（ログイン）・NetBox（台帳）・入口のCaddy | identity と、services-01 の NetBox・入口をまとめる |
 | **cloud-01** | クラウドAPIとその管理DB・Garage（S3の実体） | いまの cloud-01 に storage-s3 を合流する。**クラウド関連は core-01 と分ける**（クラウドAPIは Proxmox でVMを作る・消す強い権限を持つため） |
 | **monitor-01** | Prometheus・Grafana・通知・UPS監視（PeaNUT） | クラウドVMから基盤へ移す。クラウドが壊れたときに原因を見る道具なので、作り直しにクラウドAPIを要らなくする。**core-01 には入れない**（見張る相手と一緒に止まると通知が出ない） |
@@ -125,7 +124,7 @@ services-01 は、いまメモリが 3.5GB / 3.9GB でほぼ満杯です（2026-
 | 項目 | 状態 |
 | --- | --- |
 | 置き場所の基準（2章） | **合意（2026-10-03）** |
-| 基盤は router-01・core-01・cloud-01・monitor-01・k8s | **合意（2026-10-03）** |
+| 基盤は core-01・cloud-01・monitor-01・k8s | **合意（2026-10-03）** |
 | クラウド関連（クラウドAPI・Garage）は cloud-01 にまとめ、core-01 と分ける | **合意（2026-10-03）** |
 | Tailscale はルータへ移し、net-01 は消す | **合意（2026-10-03）** |
 | monitor-01 を基盤へ（core-01 とは別VM） | **合意（2026-10-03）** |

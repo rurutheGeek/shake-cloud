@@ -126,7 +126,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-14 | `ops` `network` `dns` |
+| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-22 | `ops` `network` `dns` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
@@ -142,7 +142,7 @@ flowchart TB
 | [クラウドAPIの構築](operations/cloud.md) | 2026-10-03 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-10-03 | `ops` `storage` |
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
-| [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
+| [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-22 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
 | [配備台帳（実機の状態とTODO）](operations/handover.md) | 2026-10-22 | `ops` `handover` |
@@ -151,16 +151,14 @@ flowchart TB
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-22 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
-| [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
+| [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-22 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
 | [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-10-19 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
 | [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |
-| [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
-| [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
-| [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-14 | `ops` `network` `router` |
+| [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-10-22 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-10-22 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-22 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
@@ -210,6 +208,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 93 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 91 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

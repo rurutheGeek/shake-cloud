@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep NetBox and the OpenWrt router's DHCP in step.
+"""Keep NetBox and the router's DHCP in step.
 
 NetBox is the source of truth for the physical devices (not only the ones on
 the network: microcontrollers, microphones and unmanaged switches live in the
