@@ -186,7 +186,7 @@ flowchart TB
 | [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
 | [配備・Git管理・ストレージ・復旧](architecture/operations.md) | 2026-10-22 | `design` `placement` |
-| [ホームラボの全体像（詳細）](architecture/overview.md) | 2026-10-22 | `design` `overview` |
+| [ホームラボの全体像](architecture/overview.md) | 2026-10-22 | `design` `overview` |
 | [配置と命名の再編](architecture/placement-naming.md) | 2026-10-03 | `design` `iac` |
 | [セキュリティ（信頼境界と対策）](architecture/security.md) | 2026-10-22 | `design` `security` |
 | [セルフホストVPNとTailscaleの併用](architecture/vpn.md) | 2026-10-03 | `design` `network` |
