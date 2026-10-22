@@ -44,6 +44,7 @@ nav:
           - W07 RomM: development/W07-romm.md
           - W08 クライアント端末のバックアップ: development/W08-client-backup.md
           - W09 Smart Switchの非公式クライアント（解析）: development/W09-smartswitch-re.md
+          - W10 Nextcloudの画像OCR検索: development/W10-ocr-search.md
           - Navidromeの改造案: development/navidrome-ideas.md
       - A：AI:
           - A01 ポケモンDB・WebUI・agent: development/A01-pokemon-ai.md
