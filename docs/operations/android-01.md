@@ -13,7 +13,7 @@ tags:
 
 > **更新日** 2026-10-02 ・ **区分** 運用手順 ・ **読む人** 管理者・開発者
 
-クラウドVM `android-01` 上のAndroid（Waydroid）環境の構成・復旧手順・FROZENの原因と対策・未解決の課題です。利用者向けの画面の使い方は[Android VMの画面を使う（RDP）](../services/android.md)、Eufyカメラのライブ映像での使われ方は[H05](../development/H05-eufy-leo-rtc.md)を見てください。
+クラウドVM `android-01` 上のAndroid（Waydroid）環境の構成・復旧手順・FROZENの原因と対策・未解決の課題です。利用者向けの画面の使い方は[Android VMの画面を使う（RDP）](../services/android.md)、Eufyカメラのライブ映像での使われ方は[H05](https://github.com/rurutheGeek/shake-cloud/issues/199)を見てください。
 
 **この環境のスクリプトはGitに入っていません。** `/opt/leo/` 配下（`persist.sh`・`ui-loop.sh`・`recover.sh`・`verify.sh`・`hook.js`・`ENV-NOTES.md`）と`android-env.service`はVM上にだけあります。VMを作り直すと失われるので、コード化は未了の宿題です（下の「未了」）。
 
@@ -61,6 +61,6 @@ RDPはVM内クライアント（`xvfb`と`freerdp3-x11`を導入済み）での�
 ## 未解決・未了
 
 - **Fridaのアタッチでアプリが落ちる（未解決）。** `frida ... -p <pid>`の直後に`target terminated with signal 6`で終了する。対象アプリ（6.0.90、v7a）はパック難読化とアンチデバッグ入り。候補: ①frida-serverの実行ファイル名・ソケット名を変えて起動する、②起動直後ではなく画面が安定してからアタッチする、③arm64版のアプリへ差し替える（Play StoreまたはAurora Storeから取得可能）、④上記で不可ならFrida gadget方式。完了条件は「Fridaがアタッチしたまま動き、`/opt/leo/hook2.log`にログが出続ける（アプリが落ちない）」。
-- 公式アプリのライブ表示は2026-09-30時点で開けない（[H05](../development/H05-eufy-leo-rtc.md)）。この環境の用途は、その後ネイティブのleo_rtcクライアントでの検証へ移っている。
+- 公式アプリのライブ表示は2026-09-30時点で開けない（[H05](https://github.com/rurutheGeek/shake-cloud/issues/199)）。この環境の用途は、その後ネイティブのleo_rtcクライアントでの検証へ移っている。
 - `/opt/leo/`のスクリプトと`android-env.service`をリポジトリ（Ansible）へ取り込む。方針は「コード化できるものはコードにする」。取り込むまでは、VM再作成で消える。
 - 認証情報・取得したログ・鍵はGitや外部へ共有しない。テストアカウントの変更・ログアウトとアプリの設定変更はしない。

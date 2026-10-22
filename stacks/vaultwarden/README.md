@@ -5,7 +5,7 @@
 新しい identity（Authentik）の OIDC へ接続し、HTTPS 名は
 `vault.apextox.dpdns.org` です。
 
-- 担当計画: [W02 Vaultwardenのapps-01移行](../../docs/development/W02-vaultwarden.md)
+- 担当計画: [W02 Vaultwardenのapps-01移行](https://github.com/rurutheGeek/shake-cloud/issues/179)
 - 利用・SSO手順: [Vaultwarden](../../docs/operations/vaultwarden.md)
 - 所有境界: [IaCの所有境界](../../docs/architecture/iac.md)
 

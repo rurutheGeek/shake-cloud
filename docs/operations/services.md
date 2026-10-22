@@ -1,6 +1,6 @@
 ---
 title: サービスの置き場所とクラウドVMでの作り方
-updated: 2026-10-04
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # サービスの置き場所とクラウドVMでの作り方
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 方針と手順。apps-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み（apps-01 へは 2026-10-03 に移設）。
 
@@ -28,7 +28,7 @@ tags:
 - 監視（Prometheus・Alertmanager・Grafana・Loki・Alloy・PeaNUT・exporter、M01）は tarakoserver（Raspberry Pi 4、`192.168.10.11`）に置きます。K11 が落ちても原因を見られるよう、K11 の外にしています。2026-10-14〜15 に monitor-01（基盤VM）から移し、monitor-01 は廃止しました。Grafana は `https://grafana.apextox.dpdns.org`（core-01 の Authentik OIDC）。詳しくは[監視](monitoring.md)。
 - public-edgeは公開要件が揃ってから新規cloud VMとして追加します。AI専用VMは追加しません。
 
-スペック案・独立した作業ID・依存関係は[並列開発計画](../development/index.md)を参照してください。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
+残っている作業は [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) にあります。増設は現有ホストへのVM追加を指し、ハードウェア増設の提案は含めません。
 
 ## リポジトリのどこに置くか
 
@@ -39,7 +39,7 @@ tags:
 | `platform/ansible/roles/<name>/` と `platform/ansible/<name>.yml` | VM の中の構成を冪等に適用する場合（任意） | `roles/garage/` |
 | `platform/flux/apps/<name>.yaml` | Kubernetes に載せる場合 | `awx.yaml` |
 | `platform/terraform/dns.yaml` | LAN の中で名前を付ける場合。`20-dns` が Cloudflare へ書く | `awx`、`cloud` |
-| `docs/development/<ID>-<name>.md` | 独立して開発・確認できる作業ごとの計画。番号は実施順ではない | [W01 Homarr](../development/W01-homarr.md) |
+| `docs/development/<ID>-<name>.md` | 独立して開発・確認できる作業ごとの計画。番号は実施順ではない | [W01 Homarr](https://github.com/rurutheGeek/shake-cloud/issues/178) |
 | `docs/operations/<name>.md` | 管理者向けの構築・運用 | [identity.md](identity.md) |
 | `docs/services/<name>.md` | 利用者向けの使い方 | [usage.md](../services/usage.md) |
 
@@ -220,7 +220,7 @@ terraform -chdir=platform/terraform/services/<name> apply
 ## まだ無いもの
 
 - クラウドVMへの DNS **自動**登録（`dns.yaml` へ手で宣言する）。
-- 既存環境からのメディアデータ移行（[並列開発計画](../development/index.md)のW03〜W06）。
+- 既存環境からのメディアデータ移行（W03〜W06 の Issue）。
 
 <a id="inventory"></a>
 ## Ansibleのインベントリ（NetBoxへ統一）

@@ -3,7 +3,7 @@
 #
 # 配備先は cloud プールではなく platform プールの単独 VM。ゲートウェイそのもの
 # なので 05-seed の NetBox 台帳（管理レンジは .201 から）には載せず、IP は
-# 192.168.10.1 を固定で持つ。設計は docs/development/N06-router.md、配備と
+# 192.168.10.1 を固定で持つ。設計は https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md、配備と
 # 切替の手順は docs/operations/router.md。
 #
 # **links は切替の状態。** 構築中は両方 false（リンクダウン）にして既存 LAN へ

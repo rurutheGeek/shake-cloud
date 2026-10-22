@@ -6,7 +6,7 @@
 
 配備先: **core-01**。
 
-担当計画: [N01 VPN](../../docs/development/N01-vpn.md)、復旧経路は[N02 Tailscale](../../docs/development/N02-tailscale.md)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
+担当計画: [N01 VPN](https://github.com/rurutheGeek/shake-cloud/issues/200)、復旧経路は[N02 Tailscale](https://github.com/rurutheGeek/shake-cloud/issues/201)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
 
 ## 再利用するもの
 
@@ -18,4 +18,4 @@
 
 同居サービスのCompose名・ポート・永続保存先を衝突させない。共有DNS／TLS・同一state適用・VM再起動だけを調整し、コードと資料の作業は並列に進める。サービスの起動確認・認証・再配備・停止再開・データ復元は各担当計画の完了条件を使う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

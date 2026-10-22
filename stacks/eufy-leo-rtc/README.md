@@ -2,8 +2,8 @@
 
 eufyCam S4（T8172）のような **単体バッテリーカメラ**のライブ映像を、スマホアプリと同じ
 ネイティブ leo_rtc 経路で扱うためのリバースエンジニアリング実装です。計画・根拠・到達点の
-正本は [H05 Eufy leo_rtc クライアント](../../docs/development/H05-eufy-leo-rtc.md)、
-ライブ不可の経緯は [H04 EufyCam連携の検証](../../docs/development/H04-eufy.md) です。
+正本は [H05 Eufy leo_rtc クライアント](https://github.com/rurutheGeek/shake-cloud/issues/199)、
+ライブ不可の経緯は [H04 EufyCam連携の検証](https://github.com/rurutheGeek/shake-cloud/issues/198) です。
 
 状態: **実機でライブ映像・音声のデコードと配信に成功（2026-09-29）。**
 `tools/leo_live.py` が wake〜ICE〜KCP〜メディア 1003〜受信を実行し、`vf_9061.bin`（映像）・
@@ -39,7 +39,7 @@ discover → login → call を行い、RSA+AES でセッション鍵を共有�
 - **Eufy アカウントでログインしません。** シグナリングのログインは機器の
   `p2p_did`（DID）と `p2p_license`（LICENSE）だけで成立します。同じアカウントで
   別クライアントがログインすると `eufy-security-ws` の v6 push トークンが失効する
-  ため（[H04](../../docs/development/H04-eufy.md)）、この経路を使います。
+  ため（[H04](https://github.com/rurutheGeek/shake-cloud/issues/198)）、この経路を使います。
 - DID・LICENSE・ACCOUNT は `.env`（0600）か環境変数だけに置き、Git・ログ・文書へ
   残しません。`.env.example` は空の雛形です。
 - 実機のカメラを起こすとバッテリーを消費します。検証は必要な時間だけにし、
@@ -184,7 +184,7 @@ sudo python3 /opt/home-assistant/manage.py ensure-camera \
 `datachannel_*` の確立ログ。**取れたファイルは Git へ入れないでください**（DID・鍵を含む可能性）。
 
 注意: アプリの利用で `eufy-security-ws` の v6 push トークンが回ることがあります。通知が
-止まったら [H04](../../docs/development/H04-eufy.md) の `manage.py reset-mega-session` で復旧します。
+止まったら [H04](https://github.com/rurutheGeek/shake-cloud/issues/198) の `manage.py reset-mega-session` で復旧します。
 
 ## 検証
 
@@ -205,5 +205,5 @@ python3 -m unittest discover -s tests -p 'test_eufy_leo_rtc.py'
    （現在はアプリのメモリから取得した実測値を `video.py` に定数として保持）。
 3. 欠落対策（約3重複の活用・受信バッファ拡大）で画質を安定させ、RTSP か HA のカメラへ橋渡しする。
 
-試行錯誤の履歴は増やさず、結果は [H05](../../docs/development/H05-eufy-leo-rtc.md) の
+試行錯誤の履歴は増やさず、結果は [H05](https://github.com/rurutheGeek/shake-cloud/issues/199) の
 「試したことと結果」に追記します。

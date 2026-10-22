@@ -104,11 +104,11 @@ pveum passwd dev-a@pve
 
 ### セルフホストVPNを追加する
 
-専用vpn-01の旧案を変更し、services-01（現 core-01 / apps-01）の別Composeへ追加します。[N01](../development/N01-vpn.md)で設定・認証・外部到達を検証し、[N02](../development/N02-tailscale.md)で Tailscale の復旧経路を確認します（当時は net-01、2026-10-03 以降はルータ上で動作。[Tailscale](net.md)）（ラズパイは導入しませんでした）。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
+専用vpn-01の旧案を変更し、services-01（現 core-01 / apps-01）の別Composeへ追加します。[N01](https://github.com/rurutheGeek/shake-cloud/issues/200)で設定・認証・外部到達を検証し、[N02](https://github.com/rurutheGeek/shake-cloud/issues/201)で Tailscale の復旧経路を確認します（当時は net-01、2026-10-03 以降はルータ上で動作。[Tailscale](net.md)）（ラズパイは導入しませんでした）。両方の調査・設定作成は並行し、接続先変更時だけ調整します。
 
 ## 4. Home Assistantをapps-01へ追加する
 
-HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](../development/H01-home-assistant.md)のとおり、**services-01へ配備済みです（2026-09-12。2026-10-03 に apps-01 へ移設）**。入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。認証はAuthentik OIDC（公開クライアント `home-assistant` と `hass-oidc-auth` v1.2.1）と緊急用のローカルオーナーを併用します。WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetes・game1から分離できますが、apps-01再起動時は家電・印刷・Eufy中継も停止します。
+HAOS専用VMの旧案を変更し、Home Assistant Containerを使います。[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)のとおり、**services-01へ配備済みです（2026-09-12。2026-10-03 に apps-01 へ移設）**。入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。認証はAuthentik OIDC（公開クライアント `home-assistant` と `hass-oidc-auth` v1.2.1）と緊急用のローカルオーナーを併用します。WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetes・game1から分離できますが、apps-01再起動時は家電・印刷・Eufy中継も停止します。
 
 SwitchBotはHub Mini経由のSwitchBot Cloud統合を配備済みです。Eufyは `eufy-security-ws`（3.1.0）とHA統合 `eufy_security`（v8.2.4）でログイン・デバイス一覧・Pushまで動作し、イベント取り込みを確認中です。ライブ映像はS4の新しいWebRTC方式のため当面使えません。Alexa連携は2026-09-12に見送りました。家電1台の操作・状態更新、再起動後の復帰、構成・履歴の復元を合格条件にします。
 

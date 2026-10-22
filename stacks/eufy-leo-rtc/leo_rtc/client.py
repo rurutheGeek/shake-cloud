@@ -7,7 +7,7 @@ signaling servers.
 
 Scope: discover, login, call (including the wake fields) and the info/hangup
 exchanges. Media transport (WebRTC SDP/ICE, DTLS/SCTP or SRTP, H.264) is not
-implemented yet; see docs/development/H05-eufy-leo-rtc.md.
+implemented yet; see https://github.com/rurutheGeek/shake-cloud/issues/199.
 
 Safety: this client never logs in with the Eufy account. It uses the camera's
 device id and license, so it does not invalidate the eufy-security-ws session.

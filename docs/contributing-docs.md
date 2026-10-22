@@ -26,7 +26,7 @@ python3 -m unittest tests.test_docs_structure
 | --- | --- | --- |
 | 入口 | `docs/`（直下） | 案内板。このページ、[トップ](index.md)、[地図](map.md)、[開発参加ガイド](onboarding.md) |
 | 利用ガイド | `docs/services/` | サービスを使う人向け。SSH・設定ファイルが出てこないもの |
-| 開発計画 | `docs/development/` | 作業IDごとの仕様と作業記録。**進捗・TODO は GitHub Issues** |
+| 開発の進め方 | `docs/development/` | [開発の進め方](development/index.md)の1枚だけ。**作業そのもの（仕様・進捗・TODO）は GitHub Issues** |
 | 運用手順 | `docs/operations/` | 立ち上げ・配備・運用・復旧。実行する手順 |
 | 設計 | `docs/architecture/` | なぜそう作ったか。決定と根拠 |
 | リファレンス | `docs/reference/` | 引くための表。URL・用語 |
@@ -36,7 +36,7 @@ python3 -m unittest tests.test_docs_structure
 
 - **手順か設計か** — 「実行する」なら運用手順、「なぜその形か」なら設計。`operations/bring-up.md` は初回構築の手順なので運用手順側にあります。
 - **設計か決定ログか** — 検討の経緯と比較は設計の各ページ、**結論だけ**は[決定ログ](architecture/decisions.md)。決定ログは「理由なく蒸し返さない」ための場所です。
-- **Issue か計画書か台帳か** — これからやること・進捗は [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)、仕様は開発計画、実機でこうなったは[配備台帳](operations/handover.md)。**計画を書いたことを配備済みと扱いません。**
+- **Issue か台帳か** — これからやること・仕様・進捗は [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)、実機でこうなったは[配備台帳](operations/handover.md)。**Issue を書いたことを配備済みと扱いません。**
 - **経緯はどこにも書き足さない** — 「いつ・何をしたか」はコミットメッセージに書き、文書は**いまの状態**だけにします（状態が変わったら上書きし、済んだ行は消す）。追いたいときは `git log -p -- <ファイル>`。よく書き換える文書（とくに配備台帳）ほど短く保ちます（台帳の長さは `tests/test_docs_structure.py` が検査します）。残す価値のある「はまったこと」は[確認と、はまりどころ](operations/verify.md)、「決めたこと」は[決定ログ](architecture/decisions.md)へ。
 
 ## 2. 正本をひとつにする
@@ -51,7 +51,7 @@ python3 -m unittest tests.test_docs_structure
 
 実例: N06 の調査で「回線が MAP-E で 80/443 が使えない」「スイッチが VLAN を扱えない」と確定したのに、それを前提にしていた N03・N04・N01 は「確認する」と書かれたままでした。N03 は、K11 が Flint 3 に直結してスイッチ待ちが解消した後も「機材待ち」のままでした。
 
-- その調査が**誰の前提だったか**（計画書の「依存と並列作業」「競合」に自分のIDが出てくるもの）
+- その調査が**誰の前提だったか**（関係する Issue を検索して探す）
 - 相手の Issue に、確定した前提をコメントし、ラベル（`人の手` など）と題を直す
 - 今後の判断を縛る事実なら、[決定ログ](architecture/decisions.md)にも1行足す
 
@@ -61,12 +61,9 @@ python3 -m unittest tests.test_docs_structure
 
 | 区分 | 形 | 例 |
 | --- | --- | --- |
-| 開発計画 | `<ID>-<name>.md` | `W06-music-tools.md` |
 | 記録 | `<対象>-<YYYY-MM-DD>.md` | `webgui-2026-09-12.md` |
 | セクションの入口 | `index.md` | `services/index.md` |
 | その他 | 内容が分かる英小文字とハイフン | `nextcloud-permissions.md` |
-
-作業IDの記号は W（Web・メディア）・A（AI）・G（ゲーム）・H（家電）・N（ネットワーク）・I（基盤）・M（監視）・O（復旧・運用）・D（資料のみ）です。**番号は識別用で、実施順や優先度ではありません。**
 
 ## 5. ページの先頭
 

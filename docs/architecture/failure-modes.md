@@ -23,7 +23,7 @@ tags:
 | 単一点 | 落ちると | いまの受け止め方 |
 | --- | --- | --- |
 | **物理ホスト `apextox`** | VM・クラウド・認証（Authentik）・家電（Home Assistant） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。**2026-10-14 からルータ（Flint 3）と監視（tarakoserver）は K11 の外**なので、K11 が落ちても家のインターネット・DNS・Tailscale と監視は残る |
-| **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](../development/O01-cloud-backup.md)） |
+| **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](https://github.com/rurutheGeek/shake-cloud/issues/212)） |
 | **Flint 3（家庭内ルータ）** | **家中のインターネット・DNS・DHCP・Wi-Fi・Tailscale。** 全端末 | 物理機1台。UPS の電池側にはつないでいない（停電で止まる）。切り戻しとして停止中の router-01（K11 上、2026-10-28 以降に削除）。設定は毎日 K11 へ取る（[Flint 3](../operations/flint3.md)） |
 | **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | Flint 3 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
 | **Garage（cloud-01、単一ノード）** | S3バケットとオブジェクト | **stateとバックアップの唯一の保管先にしない。** Terraform state は外部のS3互換に置く |
@@ -67,7 +67,7 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 | 段階 | いまの状態 |
 | --- | --- |
 | 停電の検知 | NUT経由でPrometheusが取得。Grafanaに表示 |
-| 低電池での自動シャットダウン | **未整備**（[M01](../development/M01-monitoring.md)の残件） |
+| 低電池での自動シャットダウン | **未整備**（[M01](https://github.com/rurutheGeek/shake-cloud/issues/210)の残件） |
 | 復電後の起動 | 停電時に動いていたゲストを起動時に戻す（`onboot` は常時基盤だけ。Kubernetesは状態復元に任せる） |
 
 ## 5. 復旧の順番
@@ -81,17 +81,17 @@ UPSが付いています。手順は[電源とUPS](../operations/power.md)が正
 5. **Kubernetes** — database・function
 6. **各サービスVM**（`apps-01`・`media-01`・`game-01`） — 利用者向けの機能。監視（tarakoserver）は K11 と独立に動く
 
-**Terraform state は外部に置いてあります。** ホストが丸ごと失われても宣言と state は残るので、作り直しは宣言から始められます。ただし**原本・アプリのDB・秘密値は state に入っていません**。復元手順は[O03](../development/O03-restore.md)で整備中です。
+**Terraform state は外部に置いてあります。** ホストが丸ごと失われても宣言と state は残るので、作り直しは宣言から始められます。ただし**原本・アプリのDB・秘密値は state に入っていません**。復元手順は[O03](https://github.com/rurutheGeek/shake-cloud/issues/214)で整備中です。
 
 ## 6. まだ確かめていないこと
 
 | 項目 | 状態 |
 | --- | --- |
-| アプリ横断の隔離復元 | ツールはあるが合格していない（[O03](../development/O03-restore.md)） |
-| バックアップの別筐体・別場所コピー | 週次vzdumpは同じ筐体の6TB HDDまで。別機器・別場所は未着手（[O01](../development/O01-cloud-backup.md)・[バックアップ](../operations/backup.md)） |
-| CloudNativePGのバックアップ | 未整備（[O02](../development/O02-cnpg-backup.md)） |
-| Home Assistantの復元試験 | 未完（[H01](../development/H01-home-assistant.md)） |
-| 低電池での自動シャットダウン | 未整備（[M01](../development/M01-monitoring.md)） |
+| アプリ横断の隔離復元 | ツールはあるが合格していない（[O03](https://github.com/rurutheGeek/shake-cloud/issues/214)） |
+| バックアップの別筐体・別場所コピー | 週次vzdumpは同じ筐体の6TB HDDまで。別機器・別場所は未着手（[O01](https://github.com/rurutheGeek/shake-cloud/issues/212)・[バックアップ](../operations/backup.md)） |
+| CloudNativePGのバックアップ | 未整備（[O02](https://github.com/rurutheGeek/shake-cloud/issues/213)） |
+| Home Assistantの復元試験 | 未完（[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)） |
+| 低電池での自動シャットダウン | 未整備（[M01](https://github.com/rurutheGeek/shake-cloud/issues/210)） |
 | 原本ライブラリのバックアップ | メディア原本は6TB HDD上にあり、**同じディスクへは退避できない**。別ディスクが要る（[共有バルクストレージ](../operations/bulk-storage.md)） |
 
 ## 関連

@@ -124,7 +124,7 @@ tools/tf 10-platform  init -migrate-state
 
 プロンプトに `yes` と答えると、ローカルの `terraform.tfstate` がR2へコピーされます。以降はR2上のstateが正です。移行後、手元に残った `terraform.tfstate` は削除して構いませんが、**移行が成功したことを `plan` で確かめてから**にします。
 
-`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。条件付き書き込み（If-None-Match）を使うため、DynamoDBのような事業者固有の仕組みは要りません。**現在の保管先（Cloudflare R2）は条件付き書き込みに対応しており、2026-09-12に実機で確認済みです**（2本目のPUTが412 PreconditionFailed、同じstateへの同時planがロック拒否）。対応していない保管先へ移す場合は、この行を外す前にそう判断します（[I05](../development/I05-service-state.md)）。
+`use_lockfile = true` はTerraform 1.10以降のS3ネイティブなロックです。条件付き書き込み（If-None-Match）を使うため、DynamoDBのような事業者固有の仕組みは要りません。**現在の保管先（Cloudflare R2）は条件付き書き込みに対応しており、2026-09-12に実機で確認済みです**（2本目のPUTが412 PreconditionFailed、同じstateへの同時planがロック拒否）。対応していない保管先へ移す場合は、この行を外す前にそう判断します（[I05](https://github.com/rurutheGeek/shake-cloud/issues/207)）。
 
 ### 実行はラッパー経由で
 

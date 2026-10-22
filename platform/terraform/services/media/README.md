@@ -6,7 +6,7 @@
 **2026-10-02に UrBackup 用の受信ルール（55413/tcp・35623/udp）を追加**（W08）。
 `terraform.tfvars`（gitignore）の `ssh_public_key_path` は `~/.ssh/id_ed25519_pve.pub`。
 
-担当は[I02 media-01](../../../../docs/development/I02-media-vm.md)。初期予算は
+担当は[I02 media-01](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/I02-media-vm.md)。初期予算は
 4vCPU／6GiB、OS32GiB＋データ64GiB。I01のホスト測定・軽量化は記録済み。
 アプリの実データ・索引・復元領域は移行（W03〜W06）の前後に測って容量を見直す。
 

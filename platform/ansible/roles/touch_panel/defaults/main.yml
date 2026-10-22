@@ -1,5 +1,5 @@
 ---
-# 監視のタッチパネル（stacks/touch-panel）。設計は docs/development/M02-touch-panel.md。
+# 監視のタッチパネル（stacks/touch-panel）。設計は https://github.com/rurutheGeek/shake-cloud/issues/211。
 touch_panel_source_dir: "{{ playbook_dir }}/../../stacks/touch-panel"
 # ビルドと画面の設定は HDD（/srv）に置き、SD カードへの書き込みを減らす。
 touch_panel_state_dir: /srv/touch-panel

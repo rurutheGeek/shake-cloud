@@ -41,7 +41,7 @@ packages:
   - tcpdump
   # WAN 側の近隣要請への代理応答。odhcpd の `ndp relay` は端末が
   # アドレスを作る瞬間しか学習できず、ルータ再起動後に固定アドレスの端末が
-  # IPv6 を失う（docs/development/N06-router.md）。
+  # IPv6 を失う（https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md）。
   - ndppd
   # 宅外から管理LANへ入る復旧経路（Tailscale の subnet router）。2026-10-03 に
   # net-01（クラウドVM）から移した。クラウドやほかのVMが止まっていても入れるよう、

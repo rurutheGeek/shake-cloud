@@ -92,7 +92,7 @@ tags:
 - サーバー状態: `/srv/media-stack/storage/urbackup`（ローカルデータディスク。`manage.py backup` の対象）
 - バックアップ本体: `/srv/media-stack/client-backups/urbackup`（media-01 の HDD ボリューム `media-01-bulk` 上。2026-10-03 に NFS から移行）
 - 空き容量が厳しくなると、UrBackup が古い世代から削除する（ソフトクォータ95%）。Grafana の「Shake Lab storage」で HDD の空きを監視する。
-- **HDD は冗長化されていない。** 端末バックアップも唯一のコピーにしないよう、別ディスク・別機器への2次コピーを後日足す（[O01](../development/O01-cloud-backup.md) 系の課題）。
+- **HDD は冗長化されていない。** 端末バックアップも唯一のコピーにしないよう、別ディスク・別機器への2次コピーを後日足す（[O01](https://github.com/rurutheGeek/shake-cloud/issues/212) 系の課題）。
 
 ## 5. 設定の変更と確認
 

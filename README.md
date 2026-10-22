@@ -9,7 +9,7 @@ Proxmox VE 上のホームラボを、コードで構築・運用するリポジ
 | 目的 | 入口 |
 | --- | --- |
 | サービスを使う | [利用ガイド](docs/services/index.md)・[全サービスの使い方](docs/services/usage.md) |
-| 開発に参加する | [開発参加ガイド](docs/onboarding.md)・[開発計画](docs/development/index.md) |
+| 開発に参加する | [開発参加ガイド](docs/onboarding.md)・[開発の進め方](docs/development/index.md)・[Issues](https://github.com/rurutheGeek/shake-cloud/issues) |
 | 環境を立ち上げる・運用する | [運用手順の入口](docs/operations/index.md)・[初回セットアップの順番](docs/operations/bootstrap.md) |
 | 仕組みを知る | [ホームラボの全体像](docs/architecture/overview.md)・[設計](docs/architecture/index.md) |
 | URL・用語を引く | [接続先一覧](docs/reference/urls.md)・[用語集](docs/reference/glossary.md) |
@@ -124,7 +124,7 @@ Ansibleを変更した場合は `platform/ansible/requirements.txt` と `platfor
 
 - クラウドは VM・S3・database・function の4機能を API・Provider・CLI・ポータルまで実装・実機確認済みです。Kubernetes は kubeadm + Cilium + Flux で構築し、AWX・CloudNativePG・Knative を配備しています（[クラウド開発の引き継ぎとTODO](docs/operations/handover.md)）。アクセスキーの読み取り専用スコープと、それを前提にした読み取り専用MCPサーバ（`cloud/mcp`、22ツール）を実装しました。**MCPのクライアント登録と実機確認はこれから**です（[MCPサーバ](docs/operations/mcp.md)）。
 - メディア系は media-01 へ配備済みで、`https://nextcloud.apextox.dpdns.org` ほか `*.apextox.dpdns.org`（Let's Encrypt）と Authentik（core-01）の OIDC／Forward Auth を使います。**既存環境からのメディアデータ移行と、ブラウザでのログイン実測は未完です**（[配備台帳](docs/operations/handover.md)）。
-- Home Assistant Container は apps-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](docs/development/H04-eufy.md)）。
+- Home Assistant Container は apps-01 へ配備済みです。SwitchBot Cloud（Hub Mini）とEufy（`eufy-security-ws`）を連携していますが、**Eufyのライブ映像は新しいWebRTC方式のため当面不可**、スマートスピーカー連携は見送りです（[Home Assistantと家電](docs/services/home-assistant.md)・[H04](https://github.com/rurutheGeek/shake-cloud/issues/198)）。
 - Authentik（core-01）は外部SMTPリレーで招待・復旧メールを送信済みです（[メール設定](docs/operations/smtp.md)）。MeTube・音楽変換・タグ編集は media-01 へ配備済みです（W06）。**同期タイマーの切替と、共有Cookieを使う実ダウンロードは未確認です。**
 - AWX 24.6.1 は構築済みです。ジョブテンプレート・プロジェクトの整備はこれからです（[AWXの使い方](docs/operations/awx.md)）。
 - VPN（宅外アクセス）は未構築です（[VPN比較・Tailscale併用](docs/architecture/vpn.md)）。管理DBの外部バックアップも未着手です。

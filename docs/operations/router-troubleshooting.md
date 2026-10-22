@@ -16,7 +16,7 @@ tags:
 2026-09-20 の切替で実際に起きた 2 つの障害と、その切り分けを
 そのまま残したものです。ルータ本体の手順は
 [router-01（OpenWrt・自作ルータ）](router.md)、設計は
-[N06 ルータ自作（OpenWrt）](../development/N06-router.md) が正本です。
+[N06 ルータ自作（OpenWrt）](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md) が正本です。
 
 ## 今回起きたこと（要約）
 
