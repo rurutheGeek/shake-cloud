@@ -1,6 +1,6 @@
 ---
 title: VLAN 分離への切替
-updated: 2026-10-14
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # VLAN 分離への切替
 
-> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 個人端末（Wi-Fi `ditto` と Flint 3 の LAN3）とネット専用（Wi-Fi `jumpluff`）を実機で分離済み（2026-10-14）。DMZ は Flint 3 側を作成済み（2026-10-15、LAN4 は DMZ 専用）。shakeserver の LAN4 へのつなぎ替えと、K11 の VLAN 対応（DMZ の VM 用）は未。管理は予約のみ。実機の設定は [Flint 3](flint3.md)。
 
@@ -44,6 +44,20 @@ tags:
 | Tailscale → サーバー・個人端末 | 許可。ネット専用へは入れない |
 
 IPv6 は `/64` が1つしか来ないため、サーバー区画だけへ中継する。
+
+## 同じ区画の中（基盤VMの受信）
+
+Flint 3 は区画の間しか絞れないので、同じサーバー区画の中の横の広がりは、Proxmox の VM ファイアウォールで止める（2026-10-22〜）。
+
+| VM | 受ける通信 | 担当 |
+| --- | --- | --- |
+| core-01 | 入口（80・443）、NetBox API（8000、サーバー区画から）、SSH（サーバー・個人端末）、node_exporter（tarakoserver）、mDNS、ping | 05-seed |
+| cloud-01 | ポータルとAPI（80・443）、Garage の S3 API（3900、サーバー・個人端末）、SSH、node_exporter、ping | 10-platform |
+| 利用者VM | クラウドAPIのセキュリティグループ | クラウドAPI |
+
+- 正本は `platform/terraform/firewall.yaml`。書いていない受信は落ちる（Garage の管理API 3903・RPC 3901、core-01 の CUPS 631 など）。送信は絞らない
+- 口を開けたら `firewall.yaml` に足し、`tools/tf 05-seed apply`（core-01）か `tools/tf 10-platform apply`（cloud-01）で配る
+- 締め出されたら K11 の root で `pvesh set /nodes/apextox/qemu/<VMID>/firewall/options -enable 0`（VMID は core-01 が 150、cloud-01 が 140）
 
 ## 切替の順序
 

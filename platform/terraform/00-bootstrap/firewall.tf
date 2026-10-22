@@ -15,8 +15,9 @@
 #     ファイアウォールを誰かが有効にしても、いきなり全部は落ちない）。
 #
 # VM 側は、VM ごとの firewall/options の enable と NIC の firewall=1 が両方
-# 揃ったものだけが絞られる。基盤VMは NIC が firewall=0、game1 は firewall=1 だが
-# VM の enable が無いので、この変更で通信は変わらない（実機で確認する）。
+# 揃ったものだけが絞られる。有効化した時点（2026-09-11）は基盤VMの NIC が
+# firewall=0 で、通信は変わらなかった。2026-10-22 からは ../firewall.yaml に
+# 書いた基盤VM（core-01・cloud-01）を、05-seed と 10-platform が絞る。
 resource "proxmox_node_firewall" "node" {
   node_name = local.site.node_name
   enabled   = false
