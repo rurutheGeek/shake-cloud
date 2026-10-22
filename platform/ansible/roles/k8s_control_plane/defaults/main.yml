@@ -2,3 +2,7 @@
 # control plane のアドレス（LAN の IP）。libvirt ではなく NetBox が採番した
 # primary IP を使うので、宣言に書き写さない。
 k8s_control_plane_address: "{{ hostvars[groups['k8s_cp'][0]]['ansible_host'] }}"
+
+# 1台構成。control plane にもアプリの Pod を載せる（taint を外す）。worker を
+# 足して control plane を専用に戻すときは false にし、taint は手で付け直す。
+k8s_schedule_on_control_plane: true

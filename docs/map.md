@@ -148,7 +148,7 @@ flowchart TB
 | [配備台帳（実機の状態とTODO）](operations/handover.md) | 2026-10-22 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-22 | `ops` |
-| [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
+| [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-22 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
 | [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
@@ -179,7 +179,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [最小クラウドとTerraform Provider](architecture/cloud.md) | 2026-10-03 | `design` `cloud` |
-| [決定ログ](architecture/decisions.md) | 2026-10-04 | `design` `decisions` |
+| [決定ログ](architecture/decisions.md) | 2026-10-22 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-10-03 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-10-03 | `design` `game` |
 | [IaCの所有境界](architecture/iac.md) | 2026-10-22 | `design` `iac` |

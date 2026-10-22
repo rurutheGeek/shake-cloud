@@ -1,6 +1,6 @@
 ---
 title: Kubernetes クラスタ
-updated: 2026-10-03
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # Kubernetes クラスタ
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: クラスタ＋共通基盤（local-path・MetalLB・cert-manager）＋Flux/SOPS＋AWX＋CloudNativePG＋Knative まで実機で確認済み。PVC の永続化・LoadBalancer・CA 証明書・GitOps 同期・AWX の HTTPS・database/function が動いています。
 
@@ -19,7 +19,7 @@ tags:
 
 **すでに構築済みのもの（現在の電源状態は[配備台帳](handover.md)参照）:** AWX、クラウドの function（Knative）、database（CloudNativePG）。**Flux/SOPS で `platform/flux/apps/` から配っています。** 自作cloud API本体はcloud-01のComposeに維持します。新しい配置方針では、Homarr・Vaultwardenはapps-01、メディアはmedia-01、AIはgame1です。[並列開発計画](../development/index.md)を参照してください。
 
-**使わないときは落とせます。** control plane と worker は別VMなので、worker だけ止めて control plane（etcd/API）を残す、全部止める、どちらもできます（[起動と停止](#起動と停止)）。
+**1台構成で常時動かします（2026-10-22）。** k8s-cp-01 が control plane と AWX・database・function をまとめて持ち、worker-01・worker-02 は止めた予備です。database・function に渡すメモリは合計 1GiB までです（[メモリの上限](#メモリの上限)）。
 
 ## 版と CIDR
 
@@ -40,11 +40,11 @@ tags:
 
 | VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 | k8s-cp-01 | .207 | control plane・etcd | 2 | 3GiB | 32 | **停止中（2026-09-12）**。稼働時は Ready（control-plane taint あり） |
-| 210 | k8s-worker-01 | .209 | ワークロード（AWX・cloud など） | 4 | 8GiB | OS32+データ64 | **停止中（2026-09-12）**。稼働時は Ready |
+| 200 | k8s-cp-01 | .207 | control plane・etcd・AWX・database・function | 4 | 6GiB | OS32+データ64 | **稼働（2026-10-22 から常時）**。control-plane の taint は外してある |
+| 210 | k8s-worker-01 | .209 | 予備の worker | 4 | 8GiB | OS32+データ64 | **停止（予備）**。2026-10-22 にクラスタから外した。使うときは起動して join |
 | 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
 
-宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せず（taint を外さない）、worker に載せます。**現在の電源状態は[配備台帳](handover.md)が正本です**（この表の「Ready」はクラスタが稼働しているときの状態）。
+宣言の正本は `platform/terraform/hosts.yaml`、`10-platform` が作ります。Pod は control plane に載せます（`k8s_schedule_on_control_plane`、taint を外す）。worker を足して control plane を専用に戻すときは false にして taint を付け直します。**現在の電源状態は[配備台帳](handover.md)が正本です**（この表の「Ready」はクラスタが稼働しているときの状態）。
 
 ## 準備とクラスタ作成
 
@@ -124,21 +124,31 @@ sops platform/flux/apps/<name>.sops.yaml
 <a id="アプリ-awx"></a>
 ## アプリ: AWX
 
-AWX（Ansible の実行基盤）を **worker-01** に Flux で配備しています。
+AWX（Ansible の実行基盤）を **k8s-cp-01** に Flux で配備しています。
 
 | 項目 | 値 |
 | --- | --- |
 | 入口 | **`https://awx.apextox.dpdns.org/`**（Cilium Ingress。証明書は cert-manager が Let's Encrypt で発行） |
 | 管理者 | ユーザー `admin`。パスワードは `platform/flux/apps/awx-instance/admin-password.sops.yaml`（`sops -d ... \| grep password` で見る） |
-| DB | Operator 内蔵の PostgreSQL。PVC は local-path（worker-01 のデータディスク） |
+| DB | Operator 内蔵の PostgreSQL。PVC は local-path（k8s-cp-01 のデータディスク） |
 | 版 | Operator **2.19.1** / AWX **24.6.1** |
 | 置き場 | `platform/flux/apps/`（Flux が Git から適用。`dependsOn` で Operator → AWX の順） |
 
 - Operator は上流リポジトリ（tag `2.19.1`）を Flux の `GitRepository` で取得し、`config/default` を kustomize で適用します。**`kube-rbac-proxy` は GCR から消えている**ため quay のミラーに差し替えています。
 - **HTTPS**: Cilium の Ingress（共有 LB `cilium-ingress` = **192.168.10.241**）が受け、cert-manager の `ClusterIssuer` **`letsencrypt-dns`**（Cloudflare DNS-01）が証明書を発行します。名前は `dns.yaml` の `awx` レコードで `.241` に向けています。AWX は `service_type: ClusterIP` で、Ingress(`cilium`) から `awx-service` へルーティングします。
   - Ingress を有効化した直後は **`cilium-envoy` を作り直さないと共有 LB が待ち受けを始めません**（`k8s_control_plane` ロールが Cilium の値変更時に再起動します）。
-- **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB です。
+- **k8s ノードはバルーニングを無効化**しました（`memory_min_mib` = `memory_mib`）。kubelet が上限を「使える量」として広告するので、ホストが後から回収すると Pod が追い出されます。最初の配備で worker-01 が 5.9GiB に縮み、**AWX が OOM/Evict** されました。固定後は 8GiB を使い、AWX 込みで空き約 4GiB でした。1台構成では AWX の部品ごとに上限（web・task 1Gi、DB 512Mi など）を付けています。
 - `awx` namespace の `AWX/awx` は `Running: True`。`https://awx.apextox.dpdns.org/api/v2/ping/` が応答します。HTTP は 301 で HTTPS へ転送されます。
+
+<a id="メモリの上限"></a>
+## メモリの上限
+
+| namespace | 既定（request / limit） | 1つの上限 | 合計 |
+| --- | --- | --- | --- |
+| `databases` | 256Mi / 320Mi | 640Mi | 640Mi（既定の大きさで2つ） |
+| `functions` | 64Mi / 128Mi | 256Mi | 384Mi（同時に動いている分だけ数える） |
+
+置き場は `platform/flux/apps/databases/limits.yaml` と `platform/flux/apps/functions-limits.yaml`（LimitRange と ResourceQuota）。クラウドAPI は limits を付けないので、ここの既定が付きます。合計を超える作成は Kubernetes が断り、database は Ready になりません。
 
 ## アプリ: CloudNativePG（database）
 
@@ -192,11 +202,11 @@ Podを置く余力が必要な場合は、まずホストの空きRAM・割当�
 
 **止まらないもの:** クラウドAPI本体（cloud-01 の Compose）・管理DB・Garage/S3（cloud-01）・Authentik・NetBox（core-01）・docs（apps-01）・Proxmox。ただし**クラウドAPI の database/function の画面と API はエラー（503 系）**になります（Kubernetes に届かないため）。VM・ボリューム・セキュリティグループ・イメージ・S3 は影響を受けません。
 
-**データ:** local-path の PVC は worker-01 のデータディスクに残るので、起動し直せば読めます。ただし**単一ノードでバックアップは未設定**なので、ディスク故障やノード喪失で失われます（CNPG の外部バックアップは保留中）。
+**データ:** local-path の PVC は k8s-cp-01 のデータディスクに残るので、起動し直せば読めます。ただし**単一ノードでバックアップは未設定**なので、ディスク故障やノード喪失で失われます（CNPG の外部バックアップは保留中）。
 
 **起動:** `tools/k8s up` は control plane → worker の順に起動し、Flux が Git と同期し直します。AWX・CNPG・Knative が Ready になるまで数分かかります。`down` は停止の完了を待たないので、`up` の前に `status` で `stopped` を確認します。
 
-**どのVMを止めるか:** worker-01 に AWX・CNPG・Knative が載っているので、**worker-01 を止めた時点で上のアプリは止まります**。control plane だけ残しても同じです（アプリは動きません）。`tools/k8s down` は起動中の worker を全部止めます。
+**どのVMを止めるか:** 1台構成なので、k8s-cp-01 を止めると上のすべてが止まります。
 
 ## 次のスライス
 
