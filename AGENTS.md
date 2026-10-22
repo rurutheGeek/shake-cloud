@@ -52,6 +52,7 @@ go test ./internal/server -run TestName          # cloud/api 内で単一テス�
 規約の正本は `docs/contributing-docs.md`。とくに次を守る。
 
 - **文書は「いま」だけ。** 経緯（いつ・何をしたか）はコミットメッセージに書き、文書へ追記しない。状態が変わったら上書きし、済んだ行は消す。
+- 構成図が変わるほどの変更（機械・VMの追加や廃止、入口や区画の変更）をしたら、`docs/architecture/history.md` に1行足す。それ以外の経緯は書かない。
 - `handover.md` は1行1〜2文。手順・設定値・実測はそのサービスの運用ページへ書き、台帳からはリンクだけ。`tests/test_docs_structure.py` が長さを検査する。
 - 同じ事実を2か所に書かない。正本（`docs/map.md` の表）へリンクする。
 - 調べて前提が確定したら、それを待っていた Issue まで直す。作業の仕様・進捗は Issue に書き、サイトに計画書を足さない（`docs/development/` は進め方の1枚だけ）。
