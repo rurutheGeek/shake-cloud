@@ -1,6 +1,6 @@
 ---
 title: A06 NextcloudファイルAIエージェント（nextcloud-mcp）
-updated: 2026-10-02
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,7 +10,9 @@ tags:
 
 # A06 NextcloudファイルAIエージェント（nextcloud-mcp）
 
-> **更新日** 2026-10-02 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**進捗**: [Issue #192](https://github.com/rurutheGeek/shake-cloud/issues/192)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 

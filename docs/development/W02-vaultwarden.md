@@ -1,6 +1,6 @@
 ---
 title: W02 Vaultwardenのapps-01移行（旧services-01）
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # W02 Vaultwardenのapps-01移行（旧services-01）
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: apps-01で稼働（2026-09-12にservices-01へ新規構築、2026-10-03にapps-01へ移設）。既存環境のホストは検証用ステージングで実データが無いため移行していない。`https://vault.apextox.dpdns.org`（Let's Encrypt）＋identity OIDCクライアント `vaultwarden`、`/alive` 200・一般登録無効を実機で確認。ブラウザーでのSSOログインと保管庫作成は実測済み（2026-09-14）。独立バックアップの復元は未確認
+**進捗**: [Issue #179](https://github.com/rurutheGeek/shake-cloud/issues/179)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 `stacks/vaultwarden/compose.yaml` に本体とOIDC（identityの`vaultwarden`クライアント）の定義がある。[利用・SSO手順](../operations/vaultwarden.md)では既存保管庫、ローカル復旧認証、メール確認などが定義済み。
 

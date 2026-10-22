@@ -134,20 +134,20 @@ flowchart TB
 
 ## 5. 残っている穴
 
-上から順に影響が大きいものです。対処したら行を消し、[配備台帳](../operations/handover.md)に結果を書きます。
+上から順に影響が大きいものです。次の一手と進み具合は Issue にあります。対処したら Issue を閉じ、この行を消します。
 
-| 穴 | 起きうること | 次の一手 |
+| 穴 | 起きうること | Issue |
 | --- | --- | --- |
-| **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | Flint 3 で個人端末 → `192.168.10.10:8006,22` をデスクトップだけにする（ホストFWを触らずに済む） |
-| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、同じ区画の機器へ直接届く（core-01・cloud-01 は VM ファイアウォールで口を絞った）。ARP スプーフィングで平文の通信も読める | `vmbr0` の VLAN 対応（[区画](../operations/vlan.md#dmz-の作り方)）。既定 SG を絞る |
-| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる（`:8000` に届くのはサーバーの区画だけ） | 接続先を `https://netbox.apextox.dpdns.org` にして `:8000` を閉じる |
-| print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | Caddy 経由にするか `127.0.0.1` へ |
-| Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | Cilium で default-deny |
-| 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | 登録を必須にするか決める |
-| DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | `vmbr0` の VLAN 対応のあと pentest-01 で `check-segments.sh` |
-| 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | 宅外の回線から一度測る |
-| `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | 例を `127.0.0.1` に |
-| APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | LAN と tailnet だけなので後回し |
+| **Proxmox（`:8006`・SSH）を送信元で絞っていない** | 個人端末の区画のどの端末からも管理画面に届く。ホストのFWは締め出しを避けるため無効（`firewall.tf` の説明） | [#219](https://github.com/rurutheGeek/shake-cloud/issues/219) |
+| **利用者VMと基盤VMが同じL2、既定のセキュリティグループは全許可** | 利用者VMが侵害されると、同じ区画の機器へ直接届く（core-01・cloud-01 は VM ファイアウォールで口を絞った）。ARP スプーフィングで平文の通信も読める | [#224](https://github.com/rurutheGeek/shake-cloud/issues/224) |
+| NetBox の書き込みトークンが平文HTTP（`:8000`）を流れる | 上の L2 の穴と組み合わさるとトークンが取れる（`:8000` に届くのはサーバーの区画だけ） | [#221](https://github.com/rurutheGeek/shake-cloud/issues/221) |
+| print-api が `0.0.0.0` で bearer トークンを平文HTTPで受ける | 同上 | [#222](https://github.com/rurutheGeek/shake-cloud/issues/222) |
+| Kubernetes に NetworkPolicy が無い | `functions`（利用者のコード）から `databases` へ届く | [#223](https://github.com/rurutheGeek/shake-cloud/issues/223) |
+| 認証器（パスキー・確認コード）の登録が任意 | 認証器の無い利用者はパスワードだけで入れる | [#225](https://github.com/rurutheGeek/shake-cloud/issues/225) |
+| DMZ からの侵入の検査が未実施 | 区画の規則の漏れに気づけない | [#220](https://github.com/rurutheGeek/shake-cloud/issues/220) |
+| 外からのポートスキャンが未実施 | 意図せず開いている口に気づけない | [#220](https://github.com/rurutheGeek/shake-cloud/issues/220) |
+| `cloud/.env.example` が `BIND_ADDRESS=0.0.0.0` | 例のまま手で配備すると平文APIが LAN に出る（Ansible は `127.0.0.1` で上書き） | [#226](https://github.com/rurutheGeek/shake-cloud/issues/226) |
+| APIにレート制限が無い | 高コストな操作（12GiB のアップロード・VM 作成）を連打される | 後回し（LAN と tailnet だけ） |
 
 元の指摘と経緯は[構成監査の未対応指摘](../audits/config-audit-2026-09-16.md)にあります。
 

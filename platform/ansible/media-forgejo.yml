@@ -37,3 +37,39 @@
           FORGEJO_ARCHIVE_ORG={{ forgejo_archive_org | default('archive') }}
           FORGEJO_UID=1000
           FORGEJO_GID=1000
+    # プルミラーは Git の中身しか写さない。mirrors.json で "issues": true の
+    # GitHub リポジトリは、Issues とコメントを毎日 <名前>-issues へ写す。
+    - name: Place the issue copy service and timer
+      ansible.builtin.copy:
+        dest: '/etc/systemd/system/{{ item.name }}'
+        mode: '0644'
+        content: '{{ item.content }}'
+      loop:
+        - name: forgejo-issues.service
+          content: |
+            [Unit]
+            Description=GitHub の Issues を Forgejo へ写す
+            After=network-online.target docker.service
+            Wants=network-online.target
+            [Service]
+            Type=oneshot
+            WorkingDirectory={{ project_dir }}/media/forgejo
+            ExecStart=/usr/bin/python3 {{ project_dir }}/media/forgejo/manage.py issues
+        - name: forgejo-issues.timer
+          content: |
+            [Unit]
+            Description=GitHub の Issues を毎日 Forgejo へ写す
+            [Timer]
+            OnCalendar=*-*-* 03:30
+            RandomizedDelaySec=30min
+            Persistent=true
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: '{{ item.name }}'
+    - name: Enable the issue copy timer
+      ansible.builtin.systemd:
+        name: forgejo-issues.timer
+        enabled: true
+        state: started
+        daemon_reload: true

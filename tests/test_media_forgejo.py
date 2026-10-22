@@ -150,6 +150,71 @@ class ManageTests(unittest.TestCase):
         self.assertEqual((body['repo_owner'], body['repo_name'], body['mirror_interval']),
                          ('archive', 'new', '24h'))
 
+    def test_issues_are_copied_only_from_github(self):
+        self.write_mirrors([{'url': 'https://example.org/owner/repo', 'issues': True}])
+        with self.assertRaises(ValueError):
+            self.manage.mirror_list()
+        self.assertEqual(self.manage.github_repository('https://github.com/o/r.git'), 'o/r')
+        self.assertIsNone(self.manage.github_repository('https://github.com/o'))
+
+    def test_issue_files_leave_out_pull_requests_and_keep_comments_in_order(self):
+        user = {'login': 'someone'}
+        issues = [
+            {'number': 2, 'title': 'PR', 'state': 'closed', 'pull_request': {}, 'user': user,
+             'created_at': '2026-10-01T00:00:00Z', 'html_url': 'https://github.com/o/r/pull/2'},
+            {'number': 7, 'title': '題', 'state': 'open', 'labels': [{'name': 'N'}], 'user': user,
+             'created_at': '2026-10-02T00:00:00Z', 'html_url': 'https://github.com/o/r/issues/7',
+             'body': '本文'},
+        ]
+        comments = [
+            {'issue_url': 'https://api.github.com/repos/o/r/issues/7', 'user': user,
+             'created_at': '2026-10-04T00:00:00Z', 'body': '二つ目'},
+            {'issue_url': 'https://api.github.com/repos/o/r/issues/7', 'user': user,
+             'created_at': '2026-10-03T00:00:00Z', 'body': '一つ目'},
+            {'issue_url': 'https://api.github.com/repos/o/r/issues/2', 'user': user,
+             'created_at': '2026-10-03T00:00:00Z', 'body': 'PR のコメント'},
+        ]
+        files, index = self.manage.issue_files(issues, comments)
+        self.assertEqual(sorted(files), ['issues/0007.json', 'issues/0007.md'])
+        text = files['issues/0007.md']
+        self.assertLess(text.index('一つ目'), text.index('二つ目'))
+        self.assertIn('本文', text)
+        self.assertEqual(len(json.loads(files['issues/0007.json'])['comments']), 2)
+        self.assertEqual(len(index), 1)
+
+    def test_unchanged_files_are_not_committed(self):
+        self.write_mirrors([{'url': 'https://github.com/o/r', 'issues': True}])
+        user = {'login': 'someone'}
+        issue = {'number': 1, 'title': 't', 'state': 'open', 'user': user,
+                 'created_at': '2026-10-02T00:00:00Z', 'html_url': 'https://github.com/o/r/issues/1'}
+        files, _ = self.manage.issue_files([issue], [])
+        stored = dict(files)
+        posts = []
+
+        def api(method, path, body=None):
+            if method == 'POST':
+                posts.append((path, body))
+                return 201, {}
+            if '/contents/' in path:
+                name = path.split('/contents/', 1)[1].split('?', 1)[0]
+                if name not in stored:
+                    return 404, None
+                import base64
+                return 200, {'sha': 'x', 'content': base64.b64encode(stored[name].encode()).decode()}
+            return 200, {}
+
+        def github(path):
+            return [issue] if path.endswith('issues?state=all') else []
+        with mock.patch.object(self.manage, 'api', api), mock.patch.object(self.manage, 'github', github):
+            self.manage.issues()
+        self.assertEqual(len(posts), 1)
+        self.assertEqual([change['path'] for change in posts[0][1]['files']], ['README.md'])
+
+    def test_the_copy_runs_daily(self):
+        text = PLAYBOOK.read_text(encoding='utf-8')
+        self.assertIn('manage.py issues', text)
+        self.assertIn('forgejo-issues.timer', text)
+
     def test_the_reconciler_never_deletes(self):
         source = (UNIT / 'manage.py').read_text(encoding='utf-8')
         self.assertNotIn("'DELETE'", source)

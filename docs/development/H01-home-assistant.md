@@ -1,6 +1,6 @@
 ---
 title: H01 Home Assistant Containerの導入
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # H01 Home Assistant Containerの導入
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: apps-01で稼働（2026-09-12にservices-01へ配備、2026-10-03にapps-01へ移設。HA 2026.9.2）。ローカルオーナー作成・Authentik SSO（hass-oidc-auth）ログイン・Eufy統合の導入まで動作確認済み。バックアップ復元試験・未認証拒否・テスト自動化・履歴の確認は未完
+**進捗**: [Issue #196](https://github.com/rurutheGeek/shake-cloud/issues/196)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 [家電の構成案](../architecture/operations.md#home-devices)は専用HAOSを想定していたが、採用先はapps-01（旧services-01）上のContainer。HAOS追加アプリの管理は使わず、必要な周辺サービスは個別Composeで管理する。
 
