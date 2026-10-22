@@ -86,7 +86,7 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
+| [ドキュメントの書き方](contributing-docs.md) | 2026-10-22 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-10-22 | `hub` |
 | [ネットワーク図](network-map.md) | 2026-10-14 | `hub` `network` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
@@ -197,8 +197,7 @@ flowchart TB
 | [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [配備の記録](operations/handover-log.md) | 2026-10-22 | `ops` `handover` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-22 | `ops` `handover` |
+| [配備台帳（実機の状態とTODO）](operations/handover.md) | 2026-10-22 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-22 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
@@ -214,7 +213,7 @@ flowchart TB
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
 | [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-14 | `ops` `network` `router` |
-| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
+| [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-10-22 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-04 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
 | [shakecloud Terraform Provider](operations/terraform-provider.md) | 2026-09-12 | `ops` `terraform` `cloud` |
@@ -262,6 +261,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 145 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 144 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

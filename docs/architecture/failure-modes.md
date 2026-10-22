@@ -28,7 +28,7 @@ tags:
 | **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | Flint 3 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
 | **Garage（cloud-01、単一ノード）** | S3バケットとオブジェクト | **stateとバックアップの唯一の保管先にしない。** Terraform state は外部のS3互換に置く |
 | **Cloudflare（DNS）** | 名前解決と、証明書のDNS-01更新 | 外部依存。既存証明書は期限まで有効なので即死はしない |
-| **ドメイン `apextox.dpdns.org`** | 全サービスの名前 | 無料ドメインの継続性は未確認。取り上げられたら名前の付け替え（[配備台帳 §6](../operations/handover.md)） |
+| **ドメイン `apextox.dpdns.org`** | 全サービスの名前 | 無料ドメインの継続性は未確認。取り上げられたら名前の付け替え（[配備台帳 §4](../operations/handover.md)） |
 | **外部SMTPリレー** | 招待メールと、パスワード復旧メール | 新規招待と復旧が止まる。既存ログインは影響なし |
 
 ## 2. VMごとの停止の影響

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-22 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
-**状態**: 境界は Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（2026-10-16〜）。K11 の `vmbr0` は VLAN 未対応のため、DMZ にクラウドVMはまだ作れない。
+**状態**: 境界は Flint 3（2026-10-14〜）。区画（サーバー・DMZ・個人端末・ネット専用・AdGuard なし・ゲーム）は実機で分離済み。公開サイトは DMZ の shakeserver（2026-10-16〜）。DMZ にクラウドVMを置くには K11 の `vmbr0` の VLAN 対応が要る（いまは置いていないので困っていない）。
 
 **家庭内の2人運用が前提です。** 組織の監査要件、内部犯行への耐性、規制対応は想定していません（[§6](#6-守らないと決めたこと)）。
 
@@ -126,6 +126,7 @@ flowchart TB
 | 利用者VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
 | 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
 | 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
+| 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |
 | 検知 | Flint 3 の syslog と Pi の journal を Loki へ集める。公開サイトは家の外から見張る | `stacks/monitoring/` | [監視](../operations/monitoring.md) |
 | 供給網 | 固定したイメージの脆弱性を毎日調べ、修正版のある重大なものを警告（`ImageCriticalVulnerability`）。Trivy と、ランタイムの版の照合 | `platform/ansible/roles/image_scan/` | [監視](../operations/monitoring.md) |
 | 供給網 | イメージは `compose.lock.yaml` の digest で固定。CI で Go の `govulncheck`。`renovate.json`（GitHub App が入っていないと PR は作られない） | `stacks/*/compose.lock.yaml`・`.github/workflows/validate.yml` | [構成監査](../audits/config-audit-2026-09-16.md) |
@@ -173,7 +174,7 @@ flowchart TB
 | Flint 3 の `/etc/shakecloud/porygon.key` | 管理用 Wi-Fi のパスワード。`apply-segments` がその場で作る |
 | 手元だけ | `pve.ini`・`seed.ini`（NetBoxを最初に作るとき用）・`.local/pve-readonly.env`。`.example` から作る |
 
-一覧と作り方は[秘密値の管理](../operations/secrets.md)、どのファイルに何が入っているかは[配備台帳 §7](../operations/handover.md)にあります。
+一覧と作り方は[秘密値の管理](../operations/secrets.md)、どのファイルに何が入っているかは[秘密値の管理 §7](../operations/secrets.md#where)にあります。
 
 公開前の検査は `python3 tools/check-publication.py` です。既知の秘密値と禁止パス（`storage` `library` `backups` `runtime` `secrets` `trust` `.terraform`、`.env`、state）を検出しますが、**補助であって保証ではありません。** ステージした差分の目視確認も行ってください。
 

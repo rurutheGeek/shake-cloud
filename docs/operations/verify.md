@@ -53,7 +53,7 @@ cd cloud/api && go vet ./... && go test ./...
 
 実機で「API から VM が1台できて、片付けまで済む」ことは次で確かめます。作成→SSH→削除まで行い、残骸があれば失敗します。
 
-**アクセスキーはポータルで発行したものを使います**（ブートストラップ管理キーは 2026-09-11 に無効化済み。[配備台帳](handover.md) §4・§5 Phase 5）。ポータルにログイン →「アクセスキー」→ 発行し、表示された一度きりの値を環境変数に入れます。どうしても管理キーが要る場合は `manage.py rotate-bootstrap-key` で作り直します。
+**アクセスキーはポータルで発行したものを使います**（ブートストラップ管理キーは 2026-09-11 に無効化済み。[秘密値の管理 §7](secrets.md#where)）。ポータルにログイン →「アクセスキー」→ 発行し、表示された一度きりの値を環境変数に入れます。どうしても管理キーが要る場合は `manage.py rotate-bootstrap-key` で作り直します。
 
 ```bash
 export SHAKECLOUD_ACCESS_KEY='sca_...'   # ポータルで発行したアクセスキー
@@ -73,7 +73,7 @@ tools/tf 10-platform plan -detailed-exitcode
 sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-cloud.py'
 ```
 
-ボリュームとセキュリティグループは、実際に遮断・許可されるところまで見ます（[配備台帳](handover.md) §5 Phase 4、`SHAKECLOUD_ACCESS_KEY` が要ります）:
+ボリュームとセキュリティグループは、実際に遮断・許可されるところまで見ます（`SHAKECLOUD_ACCESS_KEY` が要ります）:
 
 ```bash
 sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
