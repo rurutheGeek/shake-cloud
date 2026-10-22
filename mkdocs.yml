@@ -107,7 +107,6 @@ nav:
   - 運用・構築:
       - 運用手順の入口: operations/index.md
       - 配備台帳（実機の状態とTODO）: operations/handover.md
-      - 配備の記録: operations/handover-log.md
       - 確認と、はまりどころ: operations/verify.md
       - 立ち上げる:
           - 初回セットアップの順番: operations/bootstrap.md
