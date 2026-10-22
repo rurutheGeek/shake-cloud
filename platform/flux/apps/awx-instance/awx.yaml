@@ -25,12 +25,15 @@ spec:
   # 部品ごとに上限を付けて他を圧迫しないようにする。
   web_replicas: 1
   task_replicas: 1
+  # uwsgi のワーカー数は既定で CPU 数に比例する。4コアでは 1Gi を超えて
+  # OOMKilled になった（2026-10-22、空の DB へ移行した直後）。2つに絞る。
+  uwsgi_processes: 2
   web_resource_requirements:
     requests:
       cpu: 100m
       memory: 512Mi
     limits:
-      memory: 1Gi
+      memory: 1536Mi
   task_resource_requirements:
     requests:
       cpu: 100m
