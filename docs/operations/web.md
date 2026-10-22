@@ -68,7 +68,8 @@ Podman（root 以外のユーザー `shakeweb`）で動かす（2026-10-17 に D
 - nginx は `server_tokens off`、TLS1.2 以上（TLS1.1 は拒否を実測）、`X-Content-Type-Options`・`X-Frame-Options`・`Referrer-Policy`・HSTS を全サイトへ付与（`stacks/shake-web/nginx/00-security.conf.template`）。8443 はホストの 127.0.0.1 にだけ公開。
 - Docker は json-file を `max-size=10m`・`max-file=3` に制限し、全サービスに `no-new-privileges` を付与。アプリのポートは `127.0.0.1` のみ。
 - クイズのトークン暗号鍵 `QUIZ_SECRET` を SOPS に追加し、`platform/sops/shake-web.sops.yaml` から配る（pkhack のコードは既定値フォールバックを削除。`QUIZ_SECRET` 未設定なら起動しない）。
-- 残りのリスク: ① negitoroserver は Cloudflare 以外からも直接 443 を受ける（Cloudflare IP の許可リストは shake-infra 側の改善）。② 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
+- negitoroserver の受信は ufw で、80・443 を Cloudflare のアドレスだけ、SSH を tailnet だけに絞る（`roles/relay` の `relay_cloudflare_ranges`。2026-10-22 にコード化し、80 も Cloudflare だけにした）。
+- 残りのリスク: 旧ホストの停止済みデプロイと pkhack の履歴には DB パスワードが残る。`pkdb_reader` のローテーションを推奨。
 
 ### 外向き（egress）と自宅LANの分離
 

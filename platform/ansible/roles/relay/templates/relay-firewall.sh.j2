@@ -1,0 +1,34 @@
+#!/bin/sh
+# Ansible（relay）が置く。ufw の規則を、ここに書いたものと一致させる。
+# 一致していれば何もしない（OK）。違えば作り直す（CHANGED）。作り直しの間は
+# ufw が一瞬止まる（すべて通る側に倒れる。締め出しにはならない）。
+set -eu
+
+want() {
+  echo "ufw allow in on tailscale0 to any port 22 proto tcp"
+{% for range in relay_cloudflare_ranges %}
+  echo "ufw allow from {{ range }} to any port 80,443 proto tcp"
+{% endfor %}
+}
+
+have() {
+  ufw show added | sed -n 's/^\(ufw .*\)$/\1/p'
+}
+
+if ufw status | grep -q '^Status: active' \
+   && [ "$(want | sort)" = "$(have | sort)" ] \
+   && grep -q '^DEFAULT_INPUT_POLICY="DROP"' /etc/default/ufw; then
+  echo "OK: ufw rules match"
+  exit 0
+fi
+
+ufw --force reset >/dev/null
+ufw default deny incoming >/dev/null
+ufw default allow outgoing >/dev/null
+ufw logging low >/dev/null
+want | while read -r command; do
+  # shellcheck disable=SC2086
+  $command >/dev/null
+done
+ufw --force enable >/dev/null
+echo "CHANGED: ufw rules rewritten"
