@@ -1,0 +1,70 @@
+# Minecraft（Pixelmon Reforged 1.21.1・NeoForge）を shakeserver（Raspberry Pi 5）に置く。
+# 外からは negitoroserver（家の外の入口）が tailnet 越しに 25565 を中継する。
+# 秘密値（RCON・R2・CurseForge）は .env ではなく manage.py が環境変数で渡す。
+# イメージは compose.lock.yaml でダイジェスト固定する。Minecraft の版は VERSION、
+# NeoForge と Mod（CURSEFORGE_FILES）は起動のたびに最新へ上がる（わざとそうしている）。
+name: minecraft
+
+services:
+  server:
+    image: ${MINECRAFT_IMAGE:-itzg/minecraft-server}:${MINECRAFT_TAG:-java21}
+    container_name: minecraft-server
+    restart: unless-stopped
+    environment:
+      UID: ${MC_UID:-1000}
+      GID: ${MC_GID:-1000}
+      EULA: 'TRUE'
+      VERSION: 1.21.1
+      TYPE: NEOFORGE
+      NEOFORGE_VERSION: LATEST
+      MEMORY: ${MC_MEMORY:-3G}
+      SERVER_NAME: kogakumon
+      GAMEMODE: survival
+      DIFFICULTY: peaceful
+      ALLOW_FLIGHT: 'TRUE'
+      ENABLE_RCON: 'true'
+      RCON_PASSWORD: ${MC_RCON_PASSWORD:?run manage.py up}
+      RCON_PORT: 25575
+      SNOOPER_ENABLED: 'FALSE'
+      MOTD: "§a§lPixelmon Reforged 1.21.1§b\ninfo> https://ruruthegeek.dpdns.org/mcserver/"
+      OPS: ruruthegeek,Baked_sususu
+      EXISTING_OPS_FILE: SKIP
+      TZ: Asia/Tokyo
+      SERVER_PORT: 25565
+      SIMULATION_DISTANCE: 4
+      RESOURCE_PACK: ${MC_RESOURCE_PACK_URL:-}
+      RESOURCE_PACK_SHA1: ${MC_RESOURCE_PACK_HASH:-}
+      CURSEFORGE_FILES: https://www.curseforge.com/minecraft/mc-mods/pixelmon,https://www.curseforge.com/minecraft/mc-mods/ore-excavation
+      CF_API_KEY: ${CF_API_KEY:?run manage.py up}
+      REMOVE_OLD_MODS: 'TRUE'
+      RCON_CMDS_STARTUP: |-
+        gamerule keepInventory true
+    ports:
+      - '${MC_BIND_ADDRESS:-0.0.0.0}:25565:25565/tcp'
+      - '127.0.0.1:25575:25575'
+    volumes:
+      - ${STORAGE_ROOT:-/srv/minecraft}/data:/data
+
+  backup:
+    image: ${MC_BACKUP_IMAGE:-itzg/mc-backup}:${MC_BACKUP_TAG:-latest}
+    container_name: minecraft-backup
+    restart: unless-stopped
+    depends_on: [server]
+    environment:
+      RCON_HOST: server
+      RCON_PORT: 25575
+      RCON_PASSWORD: ${MC_RCON_PASSWORD:?run manage.py up}
+      INITIAL_DELAY: 2m
+      BACKUP_INTERVAL: 24h
+      PRUNE_BACKUPS_DAYS: 7
+      BACKUP_METHOD: rclone
+      RCLONE_REMOTE: r2
+      RCLONE_DEST_DIR: /minecraft-backups
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${CF_ACCESS_KEY:?run manage.py up}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${CF_SECRET_KEY:?run manage.py up}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${CF_ACCOUNT_ID:?set CF_ACCOUNT_ID}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_REGION: auto
+    volumes:
+      - ${STORAGE_ROOT:-/srv/minecraft}/data:/data:ro

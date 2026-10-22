@@ -19,14 +19,17 @@ tags:
 | 名前 | 何か |
 | --- | --- |
 | `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる。管理は `192.168.10.10` |
-| `router-01` | **家庭内ルータ（OpenWrt）。** K11上のVM（`192.168.10.1`）で、ファイアウォール・DHCP・DNSを担う（[router-01](../operations/router.md)） |
+| `router-01` | **旧家庭内ルータ（OpenWrt）。** K11上のVM。2026-10-14 に Flint 3 へ切り替えて停止中（切り戻し用。2026-10-28 以降に削除）（[router-01](../operations/router.md)） |
+| Flint 3 | **家庭内ルータ**（GL.iNet GL-BE9300、`192.168.10.1`）。ファイアウォール・DHCP・DNS（AdGuard Home）・区画（VLAN）・Wi-Fi・Tailscale を担う（[Flint 3](../operations/flint3.md)） |
 | `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの構築](../operations/cloud.md)・[Garage](../operations/garage.md)） |
 | `core-01` | 共通ログイン（Authentik・[認証基盤](../operations/identity.md)）・台帳（NetBox）・HTTPSの入口（Caddy）。旧 `services-01` |
 | `apps-01` | アプリ置き場（クラウドVM）。Homarr・パスワード・家電・印刷・速度テスト・手順書サイトなど |
 | `media-01` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend受信機 |
-| `monitor-01` | Prometheus・Alertmanager・Grafana（基盤VM） |
+| `tarakoserver` | Raspberry Pi 4。監視（Prometheus・Alertmanager・Grafana・Loki）とネットワーク図。2026-10-15 に廃止した基盤VM `monitor-01` の後継 |
+| `shakeserver` | Raspberry Pi 5。DMZ に置く（Minecraft） |
+| `negitoroserver` | Raspberry Pi Zero 2 W。家の外にある公開の入口（nginx・sslh）と外からの監視 |
 | `game1` | ゲームとローカルAI。GPUをパススルーしている |
-| subnet router | 宅外から管理LANへ戻るための Tailscale の中継。`router-01` の上で動く（[詳細](../operations/net.md)） |
+| subnet router | 宅外から家の区画へ入るための Tailscale の中継。Flint 3 の上で動く（[詳細](../operations/net.md)） |
 | `k8s-cp-01` / `k8s-worker-*` | Kubernetes。AWX・DB提供・関数提供が載る（[Kubernetes](../operations/kubernetes.md)） |
 | `dev-01` / `dev-02` | 開発VM（[開発VMの使い方](../services/devvm.md)） |
 
@@ -41,7 +44,7 @@ tags:
 | **配備台帳** | [handover.md](../operations/handover.md)。実機の状態・決定・TODOの正本 |
 | **作業ID** | W・A・G・H・N・I・M・O・D で始まる開発単位（[開発計画](../development/index.md)）。番号は実施順ではない |
 | **正本** | その事実を書いてよい唯一の場所。ほかのページはリンクするだけにする |
-| **機器帯 / DHCP帯** | アドレスの切り分け。機器帯 `.2`–`.19`（ルータ・AP・プリンタ・ホスト）、DHCP `.20`–`.99`（router-01 が配る）、クラウド `.100`–`.180`、管理 `.201`–`.239`、MetalLB `.240`–`.249`。正本は `platform/terraform/network.yaml` |
+| **機器帯 / DHCP帯** | アドレスの切り分け。機器帯 `.2`–`.19`（ルータ・AP・プリンタ・ホスト）、DHCP `.20`–`.99`（Flint 3 が配る）、クラウド `.100`–`.180`、管理 `.201`–`.239`、MetalLB `.240`–`.249`。正本は `platform/terraform/network.yaml` |
 | **バルク領域** | Proxmoxホスト直結の6TB USB HDD（`/srv/bulk`）。メディア原本と週次バックアップの置き場（[共有バルクストレージ](../operations/bulk-storage.md)） |
 
 ## 使っているソフト
@@ -60,8 +63,8 @@ tags:
 | **CloudNativePG** | Kubernetes上のPostgreSQL。クラウドの「database」機能の実体 |
 | **Knative** | Kubernetes上のHTTP実行。クラウドの「function」機能の実体 |
 | **SOPS / age** | 秘密値を暗号化したままGitに置くための道具（[秘密値の管理](../operations/secrets.md)） |
-| **OpenWrt** | ルータ用のLinux。`router-01` の中身。設定の正本は `platform/openwrt/` |
-| **AdGuard Home** | DNSサーバー兼広告・トラッカー遮断。`router-01` 上で家中の名前解決を担う（[AdGuard Home](../operations/adguard.md)） |
+| **OpenWrt** | ルータ用のLinux。旧ルータ `router-01` の中身（設定の正本は `platform/openwrt/`）。Flint 3 の純正ファームも OpenWrt が土台 |
+| **AdGuard Home** | DNSサーバー兼広告・トラッカー遮断。Flint 3 上で家中の名前解決を担う（[AdGuard Home](../operations/adguard.md)） |
 | **LuCI** | OpenWrt の管理画面。**SSOを付けていない**（復旧経路のため） |
 | **LibreSpeed** | 自前の回線速度テスト。apps-01（[LibreSpeed](../services/librespeed.md)） |
 | **Homarr** | サービス一覧のハブ画面 |

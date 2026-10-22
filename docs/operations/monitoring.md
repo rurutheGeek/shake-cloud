@@ -1,6 +1,6 @@
 ---
-title: 監視（monitor-01）
-updated: 2026-10-03
+title: 監視（tarakoserver）
+updated: 2026-10-16
 section: 運用手順
 audience: 管理者
 tags:
@@ -8,9 +8,9 @@ tags:
   - monitoring
 ---
 
-# 監視（monitor-01）
+# 監視（tarakoserver）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-16 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: 稼働中。`https://grafana.apextox.dpdns.org`（core-01 の Authentik の OIDC）。
 
@@ -18,7 +18,7 @@ tags:
 
 ## 1. 何が動いているか
 
-monitor-01（基盤VM、VMID 120、`192.168.10.210`）の独立Composeです。2026-10-03 に、クラウドVM（`192.168.10.102`）から基盤VMへ作り直しました。**サービス自身のポートはすべて `127.0.0.1` に閉じて**おり、入口は同じVMのCaddy（`stacks/tls-proxy/`）だけです。
+tarakoserver（Raspberry Pi 4、`192.168.10.11`）の独立Composeです。K11 の外の物理機に置いているので、K11 が落ちても監視は残ります。2026-10-14〜15 に monitor-01（基盤VM、VMID 120）から移し、monitor-01 は廃止しました。**サービス自身のポートは `127.0.0.1` に閉じて**おり、入口は core-01 の Caddy から中継される同じ機械の Caddy（`stacks/tls-proxy/`）だけです。例外は Alloy の syslog（UDP 1514、LAN）です。
 
 | 役割 | ソフト | ポート（127.0.0.1） |
 | --- | --- | --- |
@@ -28,8 +28,13 @@ monitor-01（基盤VM、VMID 120、`192.168.10.210`）の独立Composeです。2
 | 疎通・証明書 | blackbox_exporter | 9115 |
 | Proxmox | pve-exporter | 9221 |
 | UPS | nut_exporter | 9199 |
+| UPS の画面（Homarr 用） | PeaNUT | 8080 |
+| ログの保存・検索 | Loki | 3100 |
+| ログの収集 | Alloy | 12345（syslog は 0.0.0.0:1514/udp） |
 
-収集ジョブは `prometheus`・`blackbox`・`pve`・`nut`・`node`・`game` の6つ（`stacks/monitoring/prometheus/prometheus.yml`）。保持は既定15日（`PROMETHEUS_RETENTION`）で、時系列は `/srv/monitoring`（OSと同じディスク）に置きます。
+収集ジョブは `prometheus`・`blackbox`・`pve`・`nut`・`node`・`game` の6つ（`stacks/monitoring/prometheus/prometheus.yml`）。保持は既定15日（`PROMETHEUS_RETENTION`）で、時系列は `/srv/monitoring`（tarakoserver の HDD、`LABEL=tarako-data`）に置きます。起動は SD カードで、書き込みの多いもの（時系列・ログ・Docker）はすべて HDD です。
+
+ログは Loki（14 日）に集めます。集めるのは tarakoserver の journal・Docker のコンテナのログと、Flint 3 の syslog（UDP 1514、`apply-segments` が設定）です。Grafana の Explore で Loki を選んで見ます。
 
 Grafana のダッシュボードは overview・host・storage・vm-memory・game-server の5枚です（`stacks/monitoring/grafana/provisioning/dashboards/`）。
 
@@ -38,28 +43,42 @@ Grafana のダッシュボードは overview・host・storage・vm-memory・game
 | 入口 | 認証 |
 | --- | --- |
 | `https://grafana.apextox.dpdns.org` | core-01 の Authentik の OIDC。**`admins` は Admin、`users` は Viewer** |
-| Prometheus・Alertmanager の画面 | 入口を出していません。見るなら monitor-01 へSSHして `127.0.0.1` へポートフォワード |
+| Prometheus・Alertmanager の画面 | 入口を出していません。見るなら tarakoserver へSSHして `127.0.0.1` へポートフォワード |
 
-**Authentik（core-01）が落ちていて Grafana に入れないとき**は、ローカル管理者で入ります。パスワードは monitor-01 の `/opt/monitoring-stack/secrets/grafana_admin_password` です。
+**Authentik（core-01）が落ちていて Grafana に入れないとき**は、ローカル管理者で入ります。パスワードは tarakoserver の `/opt/monitoring-stack/secrets/grafana_admin_password` です。
 
 ```bash
-ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_password'
+ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_password'
 ```
 
 ## 3. アラートが鳴ったら
 
-通知はメール（`smtp.sops.yaml` の Gmail）です。定義は `stacks/monitoring/prometheus/alerts.yml`。**`severity: critical` は `SmartDeviceUnhealthy` の1つだけ**で、残りは `warning` です。
+通知は Discord（webhook）へ届きます。送り先は negitoroserver の外からの見張りと同じチャンネル（`platform/sops/public-monitor.sops.yaml` の `DISCORD_WEBHOOK_URL`）。2026-10-16 にメールから切り替えました。定義は `stacks/monitoring/prometheus/alerts.yml`、送り方は `stacks/monitoring/alertmanager/alertmanager.yml.template`、文の形は `stacks/monitoring/alertmanager/notify.tmpl` です。
+
+| 重さ（`severity`） | Discord | 念押し | 例 |
+| --- | --- | --- | --- |
+| 🔴 `critical`（緊急） | 送る。直ったら「✅ 直った」 | 4 時間ごと | サービス・機械・VM の応答なし、HDD 外れ、SMART の FAILED・不良セクター、停電 |
+| 🟡 `warning`（注意） | 送る。直ったら「✅ 直った」 | 1 日 1 回 | 空き容量・メモリ、サービスの失敗、バックアップの遅れ、ルータの設定崩れ、証明書 |
+| ⚪ `info`（記録） | 送らない（Grafana とタッチパネルだけ） | — | 再起動した、収集・点検が止まった（原因はほかの警告で出る） |
+
+- **短い途切れでは送らない。** 応答なし系は 10 分、停電は 5 分続いたら送ります（配線替えの抜き差しで鳴らさない）。
+- **同じ種類は 1 通にまとめます**（`group_by: [alertname]`）。
+- **親が落ちたら子は送りません**（`inhibit_rules`）：K11 が応答しないときの VM・サービス・HDD、Flint 3 が応答しないときのルータの向こう、HDD が見えないときの HDD 上のサービス、停電中の応答なし。
+- **作業中は止められます。** Alertmanager のサイレンス（`alertname != Watchdog`）。タッチパネルの「作業中」（[M02](../development/M02-touch-panel.md)）からも入れられます。外からの見張りには効きません。
+- **「どこ」は名前で出します。** node_exporter の機械は Prometheus の `host` ラベル（`prometheus.yml` の node の relabel）、VM は Proxmox の名前、サービスは URL の先頭です。
+- webhook が無いと、`manage.py` が送り先を `silent` にします（何も送らない）。送り先を Discord 以外にするときは `discord_configs` を `slack_configs`・`webhook_configs` などに替えます。
+
 
 ### 疎通（availability）
 
 | アラート | 意味 | 最初に見るところ |
 | --- | --- | --- |
-| `ServiceProbeFailed` | HTTPS名が5分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
+| `ServiceProbeFailed` | HTTPS名が10分応答しない | そのVMが動いているか。動いていれば中身のコンテナ。[確認と、はまりどころ](verify.md) |
 | `CertificateExpiringSoon` | 証明書の期限が14日以内 | 該当ホストのCaddyログ。Cloudflareトークンの権限（ゾーン読み取り＋DNS編集の両方が要る） |
 
 ### ノード（node_exporter を入れた4台）
 
-対象は core-01・cloud-01・monitor-01・apps-01 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
+対象は core-01・cloud-01・tarakoserver・apps-01・shakeserver・Flint 3 と Proxmox ホストです（追加の対象は `stacks/monitoring/prometheus/node-targets.yml` に入ります）。media-01・game1 は入れておらず、Proxmox 側の資源で見ます。
 
 | アラート | 意味 |
 | --- | --- |
@@ -88,7 +107,7 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 | `BulkDiskUnmounted` | `/srv/bulk` が見えない。**HDD上のクラウドVMのディスク（media-01 のデータなど）と、NFS越しの game1 も巻き込む** |
 | `BulkDiskAlmostFull` | 空きが10%未満 |
 | `BulkAreaAlmostFull` | HDDのバックアップ領域・クラウド領域のどちらかが上限の85%を超えた |
-| `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。唯一の critical。** ディスク交換の検討 |
+| `SmartDeviceUnhealthy` | **SMART自己診断がFAILED。** ディスク交換の検討 |
 | `SmartSectorErrors` | 不良・代替処理待ちセクター |
 | `SmartCableErrors` | CRCエラーの増加。**多くはケーブル側** |
 | `SmartTemperatureHigh` | 50℃超 |
@@ -108,21 +127,21 @@ ssh debian@192.168.10.210 'sudo cat /opt/monitoring-stack/secrets/grafana_admin_
 
 ## 4. 鳴らないことを検知する（dead man's switch）
 
-monitor-01 は K11 の上にあるので、**K11ごと落ちると監視も沈黙します。** 「静かなこと」と「正常なこと」を区別するため、外部の受信点（healthchecks.io）へ常時POSTしています。
+tarakoserver は K11 の外にあるので、K11 が落ちても監視は残ります。ただし tarakoserver 自身や家の回線が落ちると監視も沈黙します。「静かなこと」と「正常なこと」を区別するため、外部の受信点（healthchecks.io）へ常時POSTしています。家の外にある negitoroserver の public-monitor（[公開サイト](web.md)）も、公開サイトを外から見ています。
 
 - `Watchdog`（`severity: none`。`vector(1)` で常時firing）→ Alertmanager の `deadman` 宛先 → 1時間ごとにPOST
 - 受信側は Period 12時間 / Grace 1時間。**届かなくなったら向こうから通知が来ます**
-- ping URL は `platform/sops/monitoring.sops.yaml` の `WATCHDOG_PING_URL`。**空なら `deadman` は何もせず、`Watchdog` がメールに流れることもありません**
+- ping URL は `platform/sops/monitoring.sops.yaml` の `WATCHDOG_PING_URL`。**空なら `deadman` は何もせず、`Watchdog` が Discord に流れることもありません**
 
 ```bash
 sops set platform/sops/monitoring.sops.yaml '["WATCHDOG_PING_URL"]' '"<url>"'
 ```
 
-**いまルータも K11 上のVMなので、K11が落ちると通知経路ごと失われます**（[障害モード](../architecture/failure-modes.md)）。外部の受信点だけが残ります。
+ルータは Flint 3（K11 とは別の機械）です。K11 が落ちても通知は届きます。家の回線か Flint 3 が落ちたときは、外部の受信点と negitoroserver だけが気づきます（[障害モード](../architecture/failure-modes.md)）。
 
 ## 5. 直す・入れ替える
 
-monitor-01 の `/opt/monitoring-stack` で `manage.py` を使います（`sudo` が要ります）。
+tarakoserver の `/opt/monitoring-stack` で `manage.py` を使います（`sudo` が要ります）。
 
 | コマンド | 何をする |
 | --- | --- |
@@ -131,7 +150,7 @@ monitor-01 の `/opt/monitoring-stack` で `manage.py` を使います（`sudo` 
 | `restart` | コンテナを作り直す |
 | `up` | 配備・起動 |
 | `lock` | イメージのdigestを `compose.lock.yaml` へ固定。**正本はリポジトリの `stacks/monitoring/compose.lock.yaml`** で、Ansibleが配る。更新するときはリポジトリのlockを書き換えて配り直す（配備先だけで `--refresh-images` しない） |
-| `backup` | 状態の取得 |
+| `backup` | 状態の取得（監視を1分ほど止めて固める）。毎日 `monitoring-backup.timer`（4:00）が2世代残し、K11 の `monitoring-pull.timer`（5:00）が `/srv/bulk/backups/monitoring` へ14日分取り寄せる（ロール `monitoring_backup`） |
 
 アラート規則やスクレイプ先を変えたときは、Gitを直してから Ansible で配り直します。
 
@@ -140,7 +159,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
   'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
 ```
 
-**`.env` の SMTP・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。
+**Discord の webhook・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。
 
 Proxmox ホスト側の exporter は別Playbookです。
 
@@ -151,8 +170,8 @@ Proxmox ホスト側の exporter は別Playbookです。
 
 ## 6. 限界
 
-- **monitor-01 が止まると、監視の停止そのものは誰も検知しません。** 外部のdead man's switchだけが気づきます
-- 監視対象と監視基盤が同じ物理ホストにあります。K11障害は両方を同時に失います
+- **tarakoserver が止まると、監視の停止そのものは家の中では誰も検知しません。** 外部のdead man's switchだけが気づきます。固まったときはハードウェアのウォッチドッグ（15秒）が再起動します
+- tarakoserver の電源（Switch の AC アダプター）は、重い処理で電圧不足の記録が出ることがあります（`vcgencmd get_throttled`）
 - media-01・game1 には node_exporter を入れていないので、ゲスト内の空きメモリ・fs は見えません（Proxmox側の割当と使用量だけ）
 - 保持は15日です。それより古い傾向は残りません
 

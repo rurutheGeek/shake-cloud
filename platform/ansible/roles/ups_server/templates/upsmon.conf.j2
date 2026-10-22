@@ -1,0 +1,14 @@
+# Ansible（ups_server）が置く。低電池でこのホストを止める（upsmon primary）。
+# primary は secondary（K11）の切断を HOSTSYNC 秒まで待ってから止まる。
+# POWERDOWNFLAG は置かない：UPS の出力を切ると、まだ止まり切っていない K11 も落ちる。
+RUN_AS_USER nut
+MONITOR {{ ups_server_ups_name }}@localhost 1 {{ ups_server_upsmon_user }} {{ (ups_server_secrets.stdout | from_json).NUT_UPSMON_PASSWORD }} primary
+MINSUPPLIES 1
+SHUTDOWNCMD "/sbin/shutdown -h +0"
+POLLFREQ 5
+POLLFREQALERT 5
+HOSTSYNC 15
+DEADTIME 15
+NOTIFYFLAG ONBATT SYSLOG+WALL
+NOTIFYFLAG LOWBATT SYSLOG+WALL
+NOTIFYFLAG ONLINE SYSLOG

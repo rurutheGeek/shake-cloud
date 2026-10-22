@@ -1,0 +1,143 @@
+---
+# --- tarakoserver：毎日写しを作る ---
+- name: Create the local backup directory
+  ansible.builtin.file:
+    path: '{{ monitoring_backup_local_dir }}'
+    state: directory
+    mode: '0700'
+
+- name: Place the backup scripts
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/usr/local/sbin/{{ item | regex_replace("\.sh$", "") }}'
+    mode: '0755'
+  loop: [monitoring-backup.sh, monitoring-backup-latest.sh]
+
+- name: Place the backup service and timer
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item.name }}'
+    mode: '0644'
+    content: '{{ item.content }}'
+  loop:
+    - name: monitoring-backup.service
+      content: |
+        [Unit]
+        Description=監視の記録を固めて写す
+        RequiresMountsFor={{ monitoring_backup_local_dir }}
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/monitoring-backup
+    - name: monitoring-backup.timer
+      content: |
+        [Unit]
+        Description=監視の記録を毎日写す
+        [Timer]
+        OnCalendar=*-*-* 04:00
+        RandomizedDelaySec=10min
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.name }}'
+
+- name: Enable the backup timer
+  ansible.builtin.systemd:
+    name: monitoring-backup.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# --- K11：毎日取り寄せる。K11 の鍵は最新の写しを受け取ることしかできない ---
+- name: Create K11's pull key
+  ansible.builtin.command:
+    argv: [ssh-keygen, -q, -t, ed25519, -N, '', -C, monitoring-backup, -f, /root/.ssh/monitoring_backup]
+    creates: /root/.ssh/monitoring_backup
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'
+
+- name: Read K11's pull key
+  ansible.builtin.slurp:
+    src: /root/.ssh/monitoring_backup.pub
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  register: monitoring_backup_pubkey
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'
+
+- name: Allow K11 to fetch only the latest backup
+  ansible.builtin.lineinfile:
+    path: '/home/{{ ansible_user }}/.ssh/authorized_keys'
+    regexp: ' monitoring-backup$'
+    line: 'command="sudo -n /usr/local/sbin/monitoring-backup-latest",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding {{ monitoring_backup_pubkey.content | b64decode | trim }}'
+    create: true
+    owner: '{{ ansible_user }}'
+    mode: '0600'
+
+- name: Trust tarakoserver's host key on K11
+  ansible.builtin.shell:
+    cmd: >-
+      ssh-keygen -F {{ ansible_host }} >/dev/null || ssh-keyscan -t ed25519 {{ ansible_host }} 2>/dev/null >> /root/.ssh/known_hosts
+  register: monitoring_backup_known
+  changed_when: false
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'
+
+- name: Install zstd on K11
+  ansible.builtin.apt:
+    name: zstd
+    state: present
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'
+
+- name: Place the pull script, service and timer on K11
+  ansible.builtin.copy:
+    dest: '{{ item.dest }}'
+    mode: '{{ item.mode }}'
+    content: '{{ item.content }}'
+  loop:
+    - dest: /usr/local/sbin/monitoring-pull
+      mode: '0755'
+      content: "{{ lookup('ansible.builtin.template', 'monitoring-pull.sh.j2') }}"
+    - dest: /etc/systemd/system/monitoring-pull.service
+      mode: '0644'
+      content: |
+        [Unit]
+        Description=tarakoserver の監視の写しを取り寄せる
+        RequiresMountsFor={{ monitoring_backup_pve_dir }}
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/monitoring-pull
+    - dest: /etc/systemd/system/monitoring-pull.timer
+      mode: '0644'
+      content: |
+        [Unit]
+        Description=tarakoserver の監視の写しを毎日取り寄せる
+        [Timer]
+        OnCalendar=*-*-* 05:00
+        RandomizedDelaySec=10min
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: '{{ item.dest }}'
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'
+
+- name: Enable the pull timer on K11
+  ansible.builtin.systemd:
+    name: monitoring-pull.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  delegate_to: '{{ monitoring_backup_pve_host }}'
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: '{{ monitoring_backup_pve_key }}'

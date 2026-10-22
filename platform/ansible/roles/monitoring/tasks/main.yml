@@ -18,6 +18,8 @@
     - alertmanager
     - grafana
     - blackbox
+    - loki
+    - alloy
   register: monitoring_stack_files
 
 # digest の正本はリポジトリの lock。配備先で pull して決めさせない。
@@ -47,39 +49,9 @@
     - {key: GRAFANA_OIDC_ENABLED, value: 'true'}
     - {key: PVE_USER, value: 'monitoring@pve'}
     - {key: PVE_TOKEN_NAME, value: 'monitoring'}
-    - {key: NUT_SERVER, value: '192.168.10.10'}
+    - {key: NUT_SERVER, value: '{{ monitoring_nut_server }}'}
     - {key: NUT_USERNAME, value: 'monitor'}
-
-# SMTP は identity と同じ smtp.sops.yaml。無ければ通知だけが無効になる。
-- name: Read the SMTP credentials
-  ansible.builtin.command:
-    argv: [sops, --decrypt, --output-type, json, '{{ monitoring_smtp_sops_file }}']
-  delegate_to: localhost
-  become: false
-  register: monitoring_smtp
-  changed_when: false
-  # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
-  check_mode: false
-  no_log: true
-
-- name: Converge the SMTP settings
-  ansible.builtin.lineinfile:
-    path: '{{ monitoring_project_dir }}/.env'
-    regexp: '^{{ item }}='
-    line: '{{ item }}={{ (monitoring_smtp.stdout | from_json)[item] | default("") }}'
-    mode: '0600'
-  loop: '{{ monitoring_smtp_keys }}'
-  register: monitoring_smtp_env
-  no_log: true
-
-- name: Point alerts at the notification mailbox
-  ansible.builtin.lineinfile:
-    path: '{{ monitoring_project_dir }}/.env'
-    regexp: '^ALERT_EMAIL='
-    line: 'ALERT_EMAIL={{ (monitoring_smtp.stdout | from_json).SMTP_FROM | default("") }}'
-    mode: '0600'
-  register: monitoring_alert_email
-  no_log: true
+    - {key: PROMETHEUS_RETENTION, value: '{{ monitoring_prometheus_retention }}'}
 
 - name: Create the secrets directory
   ansible.builtin.file:
@@ -97,6 +69,33 @@
   # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
   check_mode: false
   no_log: true
+
+# 警告の送り先。negitoroserver の外からの見張りと同じ Discord の webhook。
+- name: Read the Discord webhook
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ monitoring_discord_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: monitoring_discord
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Install the Discord webhook
+  ansible.builtin.copy:
+    content: '{{ (monitoring_discord.stdout | from_json).DISCORD_WEBHOOK_URL }}'
+    dest: '{{ monitoring_project_dir }}/secrets/discord_webhook_url'
+    mode: '0400'
+  register: monitoring_discord_webhook
+  no_log: true
+
+# 以前の送り先（メール）の値を .env から消す。
+- name: Remove the old SMTP settings
+  ansible.builtin.lineinfile:
+    path: '{{ monitoring_project_dir }}/.env'
+    regexp: '^(SMTP_[A-Z_]+|ALERT_EMAIL)='
+    state: absent
+  register: monitoring_smtp_removed
 
 - name: Install the Proxmox read-only token
   ansible.builtin.copy:
@@ -163,6 +162,9 @@
     name: prometheus-node-exporter
     state: present
 
+- name: Disable openipmi
+  ansible.builtin.import_tasks: "{{ playbook_dir }}/tasks/disable-openipmi.yml"
+
 - name: Initialize storage and generated secrets
   ansible.builtin.command:
     argv: [python3, manage.py, init]
@@ -199,8 +201,8 @@
   changed_when: true
   when: >-
     monitoring_stack_files is changed
-    or monitoring_smtp_env is changed
-    or monitoring_alert_email is changed
+    or monitoring_discord_webhook is changed
+    or monitoring_smtp_removed is changed
     or monitoring_watchdog is changed
     or monitoring_game_token is changed
 

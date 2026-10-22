@@ -17,6 +17,7 @@ import (
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
 )
 
 // RunWorker carries out pending actions until ctx ends.
@@ -216,7 +217,7 @@ func (s *Service) address(ctx context.Context, instance db.Instance) (netbox.IPA
 	if len(existing) > 0 {
 		return existing[0], nil
 	}
-	rangeID, err := s.ipRange(ctx)
+	rangeID, err := s.ipRange(ctx, s.instanceSubnet(instance))
 	if err != nil {
 		return netbox.IPAddress{}, err
 	}
@@ -225,17 +226,21 @@ func (s *Service) address(ctx context.Context, instance db.Instance) (netbox.IPA
 	})
 }
 
-func (s *Service) ipRange(ctx context.Context) (int, error) {
+func (s *Service) ipRange(ctx context.Context, subnet site.Subnet) (int, error) {
 	s.rangeMu.Lock()
 	defer s.rangeMu.Unlock()
-	if s.rangeID == 0 {
-		id, err := s.IPAM.IPRangeID(ctx, s.Site.Network.IPRangeStart)
-		if err != nil {
-			return 0, err
-		}
-		s.rangeID = id
+	if id, ok := s.rangeIDs[subnet.IPRangeStart]; ok {
+		return id, nil
 	}
-	return s.rangeID, nil
+	id, err := s.IPAM.IPRangeID(ctx, subnet.IPRangeStart)
+	if err != nil {
+		return 0, err
+	}
+	if s.rangeIDs == nil {
+		s.rangeIDs = map[string]int{}
+	}
+	s.rangeIDs[subnet.IPRangeStart] = id
+	return id, nil
 }
 
 func seedFileName(instanceID string) string { return "shakecloud-" + instanceID + ".iso" }
@@ -257,7 +262,7 @@ func (s *Service) uploadSeed(ctx context.Context, instance db.Instance, ipAddres
 	}
 	config := seed.Config{
 		InstanceID: instance.ID, Hostname: seed.Hostname(instance.Name, instance.ID), MACAddress: instance.MACAddress,
-		Address: address, Gateway: netip.MustParseAddr(s.Site.Network.Gateway), UserData: instance.UserData,
+		Address: address, Gateway: netip.MustParseAddr(s.instanceSubnet(instance).Gateway), UserData: instance.UserData,
 		GuestOS: guestOS,
 	}
 	if instance.KeyPublicKey != "" {
@@ -347,9 +352,10 @@ func (s *Service) vmParams(instance db.Instance, vmid int, resources db.Resource
 		"scsihw":      {"virtio-scsi-single"},
 		"virtio0":     {fmt.Sprintf("%s:0,import-from=%s,discard=on", diskStorage, imageVolume)},
 		"ide2":        {resources.SeedVolume + ",media=cdrom"},
-		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
+		"net0":        {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":        {"order=virtio0"},
 		"serial0":     {"socket"},
+		"onboot":      {"1"},
 		"tags":        {"shakecloud"},
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s). Managed by cloud/api; do not edit.", instance.ID, instance.AccountID)},
 	}
@@ -393,9 +399,10 @@ func (s *Service) installVmParams(instance db.Instance, vmid int, resources db.R
 		"virtio0": {fmt.Sprintf("%s:%d,discard=on", diskStorage, instance.RootDiskGiB)},
 		"ide0":    {resources.SeedVolume + ",media=cdrom"},
 		"ide2":    {installVolume + ",media=cdrom"},
-		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.Site.Network.VLANID))},
+		"net0":    {fmt.Sprintf("virtio=%s,bridge=%s,firewall=1%s", instance.MACAddress, s.Site.Network.Bridge, vlanTag(s.instanceSubnet(instance).BridgeTag))},
 		"boot":    {"order=ide2;virtio0"},
 		"serial0": {"socket"},
+		"onboot":  {"1"},
 		"tags":    {"shakecloud"},
 		"description": {fmt.Sprintf("shake-cloud instance %s (account %s, ISO install). Managed by cloud/api; do not edit.",
 			instance.ID, instance.AccountID)},
@@ -547,11 +554,49 @@ func (s *Service) power(ctx context.Context, instance db.Instance, action string
 	if owned, err := s.owns(ctx, vmid, instance); err != nil || !owned {
 		return errors.Join(err, fmt.Errorf("VM %d does not belong to %s", vmid, instance.ID))
 	}
+	// Proxmox starts onboot VMs when the host boots, and monitoring alerts on
+	// an onboot VM that is down. Both should follow what the owner asked for.
+	switch action {
+	case "start":
+		if err := s.setOnboot(ctx, instance.ID, vmid, true); err != nil {
+			return fmt.Errorf("onboot: %w", err)
+		}
+	case "shutdown":
+		if err := s.setOnboot(ctx, instance.ID, vmid, false); err != nil {
+			return fmt.Errorf("onboot: %w", err)
+		}
+	}
 	switch {
 	case action == "start" && vm.Status == "running", action == "shutdown" && vm.Status == "stopped":
 		return nil
 	}
 	return s.task(ctx, func() (string, error) { return s.PVE.Power(ctx, vmid, action, params) })
+}
+
+// setOnboot writes the VM's autostart flag and remembers it.
+func (s *Service) setOnboot(ctx context.Context, instanceID string, vmid int, on bool) error {
+	value := "0"
+	if on {
+		value = "1"
+	}
+	if err := s.PVE.UpdateVMConfig(ctx, vmid, url.Values{"onboot": {value}}); err != nil {
+		return err
+	}
+	s.onbootMu.Lock()
+	defer s.onbootMu.Unlock()
+	if s.onboot == nil {
+		s.onboot = map[string]bool{}
+	}
+	s.onboot[instanceID] = on
+	return nil
+}
+
+// onbootKnown reports whether this process already wrote the flag as on.
+func (s *Service) onbootKnown(instanceID string, on bool) bool {
+	s.onbootMu.Lock()
+	defer s.onbootMu.Unlock()
+	written, ok := s.onboot[instanceID]
+	return ok && written == on
 }
 
 // terminate removes the VM, the seed ISO and the address. A VM on the

@@ -9,6 +9,23 @@ services:
     project_dir: /opt/ubsleepy
     source_dir: ''
     actions: [restart, status, up, down, backup]
+    db:
+      kind: postgres
+      container: pkdb-db-1
+      database: ubsleepy
+      user: ubsleepy_reader
+      quiz_log: true
+    links:
+      - label: Discordで見る（おねむなbot【研修中】）
+        url: https://discord.com/users/1140784885557112873
+      - label: 招待URL（サーバーに追加）
+        url: https://discord.com/oauth2/authorize?client_id=1140784885557112873&scope=bot+applications.commands&permissions=268553280
+      - label: GitHub（UBSLEEPY-next）
+        url: https://github.com/rurutheGeek/UBSLEEPY-next
+      - label: プライバシーポリシー
+        url: https://ruruthegeek.github.io/UBSLEEPY-next/privacy.html
+      - label: 利用規約
+        url: https://ruruthegeek.github.io/UBSLEEPY-next/terms.html
     help: |
       本番サーバー向けのBotです。イメージはGHCRの固定digest（compose.lock.yaml）で、apps-01ではビルドしません。
       セーブデータ（おこづかい・クジびきけん・クイズ戦績）はPostgreSQL（ubsleepy DB）で、全サーバー共通です。
@@ -17,7 +34,7 @@ services:
     checks:
       - "本番サーバーで `/help` `/dex ピカチュウ` `/search みず 合計<400` が動くか。"
       - "`/q` でクイズを出題し、ポケモン名をリプライして正誤判定・ヒント・ギブが動くか。"
-      - "`/quizrate` で戦績、`/pocketmoney` で残高・ランキングが出るか。"
+      - "`/quizrecord` で戦績と苦手な問題、`/pocketmoney` で残高・ランキングが出るか。"
       - "`/channel`（引数なし）で投稿先が見えるか。日替わり投稿・IDくじが動くか。"
       - この画面のログに警告以上が出ていないか（通常ログはdocker logsにだけ出ます）。
 
@@ -28,6 +45,16 @@ services:
     project_dir: /opt/circleauth
     source_dir: /srv/circleauth/source
     actions: [restart, status, update, up, down, backup]
+    db:
+      kind: sqlite
+      path: /srv/circleauth/state/save/auth.sqlite3
+    links:
+      - label: Discordで見る（CIRCLEAUTH）
+        url: https://discord.com/users/1556306139849957616
+      - label: 招待URL（サーバーに追加）
+        url: https://discord.com/oauth2/authorize?client_id=1556306139849957616&scope=bot+applications.commands&permissions=268561408
+      - label: GitHub（CIRCLEAUTH・非公開）
+        url: https://github.com/rurutheGeek/CIRCLEAUTH
     help: |
       サークル向けの認証Botです。名簿・認証ログ・通話ログはSQLite
       （/srv/circleauth/state/save/auth.sqlite3）にあります。
@@ -35,25 +62,12 @@ services:
     checks:
       - テストサーバーで新しいアカウントを参加させ、ロール（UNKNOWN_ROLE_ID）が付いて案内メッセージが出るか。
       - 案内の「メンバー認証」ボタン→学籍番号7桁（例 J111111）を送信→「照合に成功しました」と表示され、ロールが外れるか。
-      - ポータルの「名簿」で、該当の学籍番号にユーザーID・ユーザー名・好きなポケモンが入るか。
-      - ポータルの「認証ログ」に1行増えるか。
+      - ポータルのDBタブ（account）で、該当のDiscordユーザーに学籍番号・好きなポケモンが入るか。
+      - ポータルのDBタブ（auth_log）に1行増えるか。
       - "ボイスチャンネルに入って通話通知が出るか。`/calltitle` でタイトル変更、`/invite` で招待DM。"
       - "メンバー管理者がBotへDMで名簿を添付すると、取り込み結果がDMで返るか。"
       - "名簿から外れた人にOBOGロールが付き、在籍に戻ると外れるか（OBOG_ROLE_IDの設定が必要）。"
       - "OBOGに変わった本人へDM通知が届くか（すでにOBOGの人には再送されない）。"
-    files:
-      - label: "名簿（SQLite: member）"
-        path: /srv/circleauth/state/save/auth.sqlite3
-        kind: sqlite
-        query: "select student_id, name, discord_id, username, favorite, active, left_at, updated_at from member order by student_id limit 200"
-      - label: "認証ログ（SQLite: auth_log）"
-        path: /srv/circleauth/state/save/auth.sqlite3
-        kind: sqlite
-        query: "select at, discord_id, username, student_id, favorite from auth_log order by id desc limit 50"
-      - label: "通話ログ（SQLite: call_log）"
-        path: /srv/circleauth/state/save/auth.sqlite3
-        kind: sqlite
-        query: "select started_at, ended_at, duration, title, channel, members from call_log order by id desc limit 20"
 
   - name: ubsleepy-next
     title: UBSLEEPY（テスト・ねてばかりだったBot）
@@ -63,6 +77,19 @@ services:
     source_dir: ''
     actions: [restart, status, up, down]
     debug: true
+    db:
+      kind: postgres
+      container: pkdb-db-1
+      database: ubsleepy_test
+      user: ubsleepy_reader
+      quiz_log: true
+    links:
+      - label: Discordで見る（ねてばかりだったBot）
+        url: https://discord.com/users/1076387439410675773
+      - label: 招待URL（サーバーに追加）
+        url: https://discord.com/oauth2/authorize?client_id=1076387439410675773&scope=bot+applications.commands&permissions=268553280
+      - label: GitHub（UBSLEEPY-next）
+        url: https://github.com/rurutheGeek/UBSLEEPY-next
     help: |
       開発・テスト用です。本番と同じイメージ（固定digest）を、テストトークン・debugモード・
       ubsleepy_test で動かします。ふだんは停止しておき、開発するときだけ「起動」します。

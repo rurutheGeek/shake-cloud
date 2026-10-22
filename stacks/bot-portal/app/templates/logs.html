@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ service.title }} のログ - Botポータル{% endblock %}
+{% block content %}
+<p><a href="/">← サービス一覧</a></p>
+<h1>{{ service.title }} <span class="pill {{ state.Status }}">{{ state.Status }}</span></h1>
+<p class="lead">コンテナ <code>{{ service.container }}</code> のログ（タイムスタンプ付き）です。</p>
+
+<div class="tabs">{% include "_tabs.html" %}</div>
+
+<div class="card">
+  <h2>ログ</h2>
+  <form class="toolbar" method="get" action="/service/{{ service.name }}/logs">
+    <label>表示行数
+      <input type="number" name="tail" value="{{ tail }}" min="10" max="1000" step="10">
+    </label>
+    <button type="submit" class="neutral">再読み込み</button>
+    <a href="/service/{{ service.name }}/logs/download" class="button neutral">ログをダウンロード</a>
+    <span class="meta">タイムスタンプ付き・最新{{ tail }}行</span>
+  </form>
+  <pre>{{ logs }}</pre>
+</div>
+{% endblock %}

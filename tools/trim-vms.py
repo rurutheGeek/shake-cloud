@@ -32,7 +32,6 @@ import subprocess
 VMS = [
     {'name': 'core-01', 'address': '192.168.10.200', 'user_vm': False},
     {'name': 'cloud-01', 'address': '192.168.10.205', 'user_vm': False},
-    {'name': 'monitor-01', 'address': '192.168.10.210', 'user_vm': False},
     {'name': 'dev-01', 'address': '192.168.10.202', 'user_vm': True},
     {'name': 'dev-02', 'address': '192.168.10.203', 'user_vm': True},
 ]

@@ -59,15 +59,18 @@ tags:
 
 ## 4. ネットワーク
 
-**家庭内ルータは自作です。** K11上のOpenWrt VM（`router-01`）がファイアウォール・DHCP・DNSを担います。
+**家庭内ルータは Flint 3（GL-BE9300）です**（2026-10-14 に K11 上の OpenWrt VM `router-01` から切替）。ファイアウォール・DHCP・DNS（AdGuard Home）・Tailscale・区画（VLAN）を担います。
 
 | ページ | 何が分かるか |
 | --- | --- |
-| [router-01（OpenWrt・自作ルータ）](router.md) | 構成・配線・切替・再生成。**まずここ** |
-| [router-01 の設定まとめ](router-config.md) | 素のOpenWrtから何を変えたか |
+| [Flint 3（家庭内ルーター）](flint3.md) | 構成・配線・区画と SSID・設定の入れ方。**まずここ** |
+| [VLAN 分離](vlan.md) | 区画と区画間の通信の方針、DMZ の作り方 |
+| [ネットワーク図](../network-map.md) | 実機の設定から作る区画・VLAN・ファイアウォールの図 |
+| [router-01（OpenWrt・旧ルータ。停止中）](router.md) | 切り戻し用。2026-10-28 以降に削除 |
+| [router-01 の設定まとめ](router-config.md) | 旧ルータ。素のOpenWrtから何を変えたか |
 | [ルータがつながらないときの調べ方](router-troubleshooting.md) | 通信が落ちたときの切り分け |
 | [AdGuard Home](adguard.md) | DNSと広告遮断の運用 |
-| [Tailscale（subnet router）](net.md) | 宅外から管理LANへの復旧経路（ルータ上で動作） |
+| [Tailscale（subnet router）](net.md) | 宅外から家の区画への経路（Flint 3 上で動作）。アクセス制限は `platform/tailscale/` |
 | [VLAN 分離への切替](vlan.md) | 管理面と利用者VMを分ける |
 
 ## 5. ストレージとバックアップ
@@ -84,7 +87,7 @@ tags:
 
 | ページ | 何が分かるか |
 | --- | --- |
-| [監視（monitor-01）](monitoring.md) | **アラートが鳴ったときの見方**と、監視そのものの直し方 |
+| [監視（tarakoserver）](monitoring.md) | **アラートが鳴ったときの見方**と、監視そのものの直し方 |
 | [HTTPSの入口を1台にまとめる](edge.md) | 公開の証明書とCloudflareのトークンを入口1台に集める仕組みと、1台ずつ移す手順 |
 | [電源とUPS](power.md) | 安全な停止順と復電 |
 | [確認と、はまりどころ](verify.md) | 変更後に流す検査と、実際に踏んだ落とし穴 |

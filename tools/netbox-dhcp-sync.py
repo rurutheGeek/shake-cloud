@@ -110,6 +110,24 @@ def in_range(address, section):
     return first <= value <= last
 
 
+def segment_sections(network):
+    """個人端末・ネット専用・DMZ の区画を、機器帯と同じ形（range_start / range_end）にする。
+
+    これらの区画の機器も予約で固定する。server の区画は infrastructure と dhcp が
+    受け持つので含めない。dnsmasq は、要求を受けたインターフェースの区画に合う
+    予約だけを使う。
+    """
+    sections = []
+    for name in ('personal', 'iot', 'dmz'):
+        segment = (network.get('segments') or {}).get(name)
+        if not segment:
+            continue
+        net = ipaddress.ip_network(segment['prefix'])
+        sections.append({'range_start': f'{net[1]}/{net.prefixlen}',
+                         'range_end': f'{net[-2]}/{net.prefixlen}'})
+    return sections
+
+
 def parse_leases(text):
     """dnsmasq のリース行を (mac, ip, hostname) にする。
 
@@ -324,7 +342,7 @@ def endpoint_name(end):
 def device_payload(device, device_types, roles, site, custom_field_names=()):
     """devices.yaml の1件を NetBox の Device へ書ける形にする。
 
-    serial・asset_tag・comments・custom_fields は宣言があるときだけ入れる。
+    serial・asset_tag・comments・custom_fields・tags は宣言があるときだけ入れる。
     書いていない項目を空にして、画面で入れた値を消さないため。
     """
     payload = {
@@ -345,6 +363,9 @@ def device_payload(device, device_types, roles, site, custom_field_names=()):
     custom = custom_field_values(device, custom_field_names)
     if custom:
         payload['custom_fields'] = custom
+    if 'tags' in device:
+        # タグは Ansible のグループになる（inventory.netbox.yml）。正本は tags.yaml。
+        payload['tags'] = [{'slug': slug} for slug in device['tags']]
     return payload
 
 
@@ -368,6 +389,11 @@ def device_updates(existing, desired):
             custom_updates[field] = value
     if custom_updates:
         updates['custom_fields'] = custom_updates
+    if 'tags' in desired:
+        have = sorted(tag.get('slug', '') for tag in existing.get('tags') or [])
+        want = sorted(tag['slug'] for tag in desired['tags'])
+        if have != want:
+            updates['tags'] = desired['tags']
     return updates
 
 
@@ -645,9 +671,11 @@ def ensure_devices(api, spec, dry_run=False):
             if dry_run:
                 actions.append(f"create ip {address} ({device['name']})")
             else:
-                api.post('/ipam/ip-addresses/', payload)
+                created = api.post('/ipam/ip-addresses/', payload)
                 actions.append(f"create ip {address} ({device['name']})")
+                actions.extend(ensure_primary_ip(api, device, found, created, dry_run))
             continue
+        actions.extend(ensure_primary_ip(api, device, found, existing, dry_run))
         updates = {}
         if choice_value(existing.get('status')) != 'reserved':
             updates['status'] = 'reserved'
@@ -674,6 +702,21 @@ def ensure_devices(api, spec, dry_run=False):
     return actions
 
 
+def ensure_primary_ip(api, device, found, address, dry_run):
+    """Ansible で管理する機器（tags を宣言した物）にだけ主のアドレスを付ける。
+
+    inventory.netbox.yml は主のアドレスがある機器だけを読むので、スマホや
+    プリンターは付けないままにして、Ansible の対象に入れない。
+    """
+    if 'tags' not in device or not interface_specs(device) or address.get('dry'):
+        return []
+    if reference_id(found.get('primary_ip4')) == address['id']:
+        return []
+    if not dry_run:
+        api.patch(f"/dcim/devices/{found['id']}/", {'primary_ip4': address['id']})
+    return [f"set primary ip {device['name']} {device['address']}"]
+
+
 def reserved_records(api, sections):
     """NetBox の reserved IP（機器帯と DHCP プール内）を {mac, address, name} にする。
 
@@ -694,7 +737,8 @@ def reserved_records(api, sections):
 
 def pull(api, args):
     network = load_yaml(NETWORK)
-    records = reserved_records(api, [network['infrastructure'], network['dhcp']])
+    records = reserved_records(
+        api, [network['infrastructure'], network['dhcp'], *segment_sections(network)])
     clients = declared_clients(load_yaml(DEVICES))
     desired = render_file(records, clients)
     current, error = ssh_run(args.router, args.key,

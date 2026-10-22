@@ -1,0 +1,36 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（alexa.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# Alexa スキル（pokebs_alexaskill。uid 10001 で動く）。入口の nginx から 127.0.0.1:18010 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alexa
+  labels:
+    app: alexa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alexa
+  template:
+    metadata:
+      labels:
+        app: alexa
+    spec:
+      containers:
+        - name: alexa
+          image: '{{ shake_web_alexa_image }}'
+          ports:
+            - containerPort: 8000
+              hostIP: 127.0.0.1
+              hostPort: 18010
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: logs
+          hostPath:
+            path: '{{ shake_web_storage_root }}/alexa/logs'
+            type: Directory

@@ -5,7 +5,20 @@
 <h1>{{ service.title }} <span class="pill {{ state.Status }}">{{ state.Status }}</span></h1>
 <p class="lead">{{ service.description }}</p>
 
+<div class="tabs">{% include "_tabs.html" %}</div>
+
 {% if service.help %}<div class="card">{{ service.help }}</div>{% endif %}
+
+{% if service.links %}
+<div class="card">
+  <h2>紹介・リンク</h2>
+  <ul class="links">
+    {% for link in service.links %}
+    <li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 
 <div class="card">
   <h2>状態</h2>
@@ -22,7 +35,7 @@
 {% if result %}
 <div class="result {% if result.code != 0 %}fail{% endif %}">
   <strong>{{ result.action }}</strong> を実行しました（exit {{ result.code }}）
-{{ result.output }}
+  {{ result.output }}
 </div>
 {% endif %}
 
@@ -69,37 +82,4 @@
 </div>
 {% endif %}
 
-{% if files %}
-<div class="card">
-  <h2>データ</h2>
-  {% for file in files %}
-    <h3 style="margin-bottom:0.3rem">{{ file.label }} <span class="meta"><code>{{ file.path }}</code></span></h3>
-    {% if file.error %}
-      <p class="meta">{{ file.error }}</p>
-    {% elif file.header %}
-      <p class="meta">全 {{ file.total }} 行のうち末尾 {{ file.rows|length }} 行</p>
-      <table>
-        <thead><tr>{% for column in file.header %}<th>{{ column }}</th>{% endfor %}</tr></thead>
-        <tbody>
-        {% for row in file.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <pre>{{ file.text }}</pre>
-    {% endif %}
-  {% endfor %}
-</div>
-{% endif %}
-
-<div class="card">
-  <h2>ログ</h2>
-  <form class="toolbar" method="get" action="/service/{{ service.name }}">
-    <label>表示行数
-      <input type="number" name="tail" value="{{ tail }}" min="10" max="1000" step="10">
-    </label>
-    <button type="submit" class="neutral">再読み込み</button>
-    <span class="meta">タイムスタンプ付き・最新{{ tail }}行</span>
-  </form>
-  <pre>{{ logs }}</pre>
-</div>
 {% endblock %}

@@ -1,0 +1,10 @@
+---
+# 家の外の入口（negitoroserver、zero2w）の nginx・sslh。
+#   ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_shake .venv/bin/ansible-playbook \
+#     -i platform/ansible/outpost.ini platform/ansible/relay.yml
+# 2026-10-14 に shake-infra から取り込んだ。
+- name: Relay public traffic into the home
+  hosts: relay
+  become: true
+  roles:
+    - relay

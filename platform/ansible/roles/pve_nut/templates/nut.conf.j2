@@ -1,2 +1,7 @@
+{% if pve_nut_server %}
+# netclient: UPS は {{ pve_nut_server }} の upsd。K11 では upsmon だけ動かす。
+MODE=netclient
+{% else %}
 # netserver: upsd がドライバを起動し、LAN へ状態を出す。
 MODE=netserver
+{% endif %}

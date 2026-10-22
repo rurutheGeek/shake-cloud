@@ -181,7 +181,7 @@ class DeviceSpecTests(unittest.TestCase):
         self.assertIn('80:22:a7:8f:27:80', macs('aterm'))
         self.assertEqual(devices['apextox']['address'], '192.168.10.10/24')
         self.assertIn('e4:5f:01:f2:b8:dc', macs('tarakoserver'))
-        self.assertEqual(devices['shakeserver']['address'], '192.168.10.12/24')
+        self.assertEqual(devices['shakeserver']['address'], '192.168.30.12/24')
         # Wi-Fi 接続のプリンタ。MAC が無いと予約（dhcp-host）を生成できない。
         self.assertIn('f8:a2:6d:a5:e9:fb', macs('printer'))
         self.assertEqual(devices['printer']['interface']['type'], 'ieee802.11ac')
@@ -190,9 +190,9 @@ class DeviceSpecTests(unittest.TestCase):
         # 静的 IP の端末は devices に書く（clients は「名前だけ」用で、いまは空）。
         # reserved にすると dnsmasq が同じ IP を他の端末へ配らない。
         devices = {device['name']: device for device in self.spec['devices']}
-        self.assertEqual(devices['eufycam-s4']['address'], '192.168.10.98/24')
-        self.assertEqual(devices['alexa']['address'], '192.168.10.46/24')
-        self.assertEqual(devices['switchbot-hubmini-ca2a09']['address'], '192.168.10.99/24')
+        self.assertEqual(devices['eufycam-s4']['address'], '192.168.50.98/24')
+        self.assertEqual(devices['alexa']['address'], '192.168.50.46/24')
+        self.assertEqual(devices['switchbot-hubmini-ca2a09']['address'], '192.168.50.99/24')
         self.assertEqual(self.spec.get('clients', []), [])
 
     def test_every_declared_address_sits_in_a_managed_band(self):
@@ -203,9 +203,21 @@ class DeviceSpecTests(unittest.TestCase):
             address = device.get('address')
             if not address:
                 continue
+            # ゲートウェイ自身（Flint 3）は帯の外。予約にもしない（dhcp: false）。
+            if address.split('/')[0] == network['segments']['server']['gateway']:
+                self.assertIs(device.get('dhcp'), False, device['name'])
+                continue
+            # 個人端末・ネット専用の区画の機器は、その区画の範囲に居ればよい
+            # （Flint 3 の dnsmasq が受けたインターフェースの区画で予約を配る）。
+            import ipaddress
+            ip = ipaddress.ip_interface(address).ip
+            in_segment = any(
+                ip in ipaddress.ip_network(segment['prefix'])
+                for name, segment in network['segments'].items()
+                if name in ('personal', 'iot', 'dmz'))
             self.assertTrue(
                 sync.in_range(address, network['infrastructure']) or
-                sync.in_range(address, network['dhcp']),
+                sync.in_range(address, network['dhcp']) or in_segment,
                 device['name'])
 
     def test_every_device_references_declared_roles_and_types(self):
@@ -544,5 +556,39 @@ class TimerTests(unittest.TestCase):
         self.assertIn('netbox_dhcp_sync', playbook)
 
 
+class SegmentTests(unittest.TestCase):
+    def test_personal_iot_and_dmz_reservations_are_pulled(self):
+        # A printer on the IoT segment keeps its address only if `pull` writes its
+        # reservation; the server-only filter silently dropped it (2026-10-14).
+        network = sync.load_yaml(sync.NETWORK)
+        sections = sync.segment_sections(network)
+        self.assertTrue(any(sync.in_range('192.168.50.3/24', section) for section in sections))
+        self.assertTrue(any(sync.in_range('192.168.40.97/24', section) for section in sections))
+        self.assertFalse(any(sync.in_range('192.168.10.3/24', section) for section in sections))
+        # DMZ の機器（shakeserver）も予約で固定する。
+        self.assertTrue(any(sync.in_range('192.168.30.12/24', section) for section in sections))
+        self.assertFalse(any(sync.in_range('192.168.20.5/24', section) for section in sections))
+
+
 if __name__ == '__main__':
     unittest.main()
+
+
+class DeviceTagTests(unittest.TestCase):
+    """Tags on a device become Ansible groups (inventory.netbox.yml)."""
+
+    def payload(self, device):
+        return sync.device_payload(device, {'Pi': {'id': 1}}, {'Server': {'id': 2}}, {'id': 3})
+
+    def test_tags_are_sent_only_when_declared(self):
+        base = {'name': 'pi', 'device_type': 'Pi', 'role': 'Server'}
+        self.assertNotIn('tags', self.payload(base))
+        self.assertEqual(self.payload(dict(base, tags=['monitoring']))['tags'], [{'slug': 'monitoring'}])
+
+    def test_a_changed_tag_set_is_patched_and_an_equal_one_is_not(self):
+        desired = self.payload({'name': 'pi', 'device_type': 'Pi', 'role': 'Server', 'tags': ['monitoring']})
+        existing = {'device_type': {'id': 1}, 'role': {'id': 2}, 'site': {'id': 3},
+                    'status': {'value': 'active'}, 'description': '', 'tags': []}
+        self.assertEqual(sync.device_updates(existing, desired)['tags'], [{'slug': 'monitoring'}])
+        existing['tags'] = [{'slug': 'monitoring', 'name': 'monitoring'}]
+        self.assertNotIn('tags', sync.device_updates(existing, desired))

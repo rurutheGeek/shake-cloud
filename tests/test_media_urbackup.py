@@ -107,6 +107,12 @@ class SettingsTests(unittest.TestCase):
     def test_internet_mode_is_off_so_clients_use_the_lan_port(self):
         self.assertIs(SETTINGS['internet_mode_enabled'], False)
 
+    def test_automatic_backups_are_disabled(self):
+        # 負の間隔は UrBackup では「自動なし」。手動の開始ボタンだけで走らせる。
+        for key in ('update_freq_incr', 'update_freq_full',
+                    'update_freq_image_incr', 'update_freq_image_full'):
+            self.assertRegex(SETTINGS[key], r'^-\d+$', key)
+
 
 def load_manage():
     spec = importlib.util.spec_from_file_location('urbackup_manage', UNIT / 'manage.py')
@@ -287,7 +293,7 @@ class PortalTests(unittest.TestCase):
         self.assertNotIn('Pixel', page)
 
     def test_the_status_table_uses_the_urbackup_fields(self):
-        status = {'status': [{'name': 'desktop', 'online': True,
+        status = {'status': [{'id': 3, 'name': 'desktop', 'online': True,
                               'lastbackup': '2026-10-02 03:00',
                               'lastbackup_image': '-'}]}
         table = self.portal.render_status(status)
@@ -295,6 +301,27 @@ class PortalTests(unittest.TestCase):
         self.assertIn('オンライン', table)
         self.assertIn('2026-10-02 03:00', table)
         self.assertIn('未取得', table)
+
+    def test_the_status_table_offers_manual_backup_buttons(self):
+        status = {'status': [{'id': 3, 'name': 'desktop', 'online': True}]}
+        table = self.portal.render_status(status)
+        self.assertIn('data-client="3"', table)
+        self.assertIn('data-kind="incr_file"', table)
+        self.assertIn('data-kind="incr_image"', table)
+        self.assertIn('手動バックアップ（自動はオフ）', table)
+
+    def test_the_manual_backup_action_is_validated(self):
+        self.assertEqual(self.portal.BACKUP_KINDS,
+                         ('incr_file', 'full_file', 'incr_image', 'full_image'))
+        params = self.portal.start_backup_params(3, 'incr_file')
+        self.assertEqual(params, {'start_type': 'incr_file', 'start_client': '3'})
+        with self.assertRaises(ValueError):
+            self.portal.start_backup_params(3, 'wipe')
+
+    def test_the_page_wires_the_manual_backup_buttons(self):
+        page = self.portal.render_page(None)
+        self.assertIn('/api/backup/start', page)
+        self.assertIn('backup-message', page)
 
     def test_an_unreachable_server_is_shown_instead_of_an_error(self):
         self.assertIn('UrBackup に接続できません', self.portal.render_status(None))
@@ -316,6 +343,64 @@ class PortalTests(unittest.TestCase):
         self.assertIn('/static/portal-backup.js', page)
         self.assertIn('USBデバッグ', page)
         self.assertIn('Vivaldi', page)
+
+    def test_the_page_shows_the_running_backups(self):
+        progress = {'progress': [{'name': 'desktop', 'action': 2,
+                                  'done_bytes': 50 * 1024 ** 3,
+                                  'total_bytes': 100 * 1024 ** 3,
+                                  'speed_bpms': 50000, 'eta_ms': 600000}]}
+        rendered = self.portal.render_progress(progress)
+        self.assertIn('desktop', rendered)
+        self.assertIn('ファイル（フル）', rendered)
+        self.assertIn('50.0%', rendered)
+        self.assertIn('bar-fill', rendered)
+        self.assertIn('残り約10分', rendered)
+
+    def test_the_page_says_when_nothing_is_running(self):
+        self.assertIn('走っているバックアップはありません', self.portal.render_progress(None))
+
+    def test_the_progress_shows_the_finalizing_phase(self):
+        progress = {'progress': [{'name': 'su3', 'action': 2, 'done_bytes': 100,
+                                  'total_bytes': 100, 'pcdone': 100, 'queue': 117841}]}
+        rendered = self.portal.render_progress(progress)
+        self.assertIn('転送完了、後処理中', rendered)
+        self.assertIn('117,841件', rendered)
+        self.assertIn('bar-fill processing', rendered)
+
+    def test_the_progress_shows_the_preparing_phase(self):
+        progress = {'progress': [{'name': 'pc', 'action': 2, 'done_bytes': 0,
+                                  'total_bytes': 0, 'pcdone': -1, 'queue': 0}]}
+        rendered = self.portal.render_progress(progress)
+        self.assertIn('準備中（ファイル一覧を作成中）', rendered)
+        self.assertIn('bar-fill processing', rendered)
+
+    def test_the_restore_steps_are_on_the_page(self):
+        page = self.portal.render_page(None)
+        self.assertIn('復元のやり方', page)
+        self.assertIn('感染前の世代', page)
+        self.assertIn('Backups', page)
+        self.assertIn('走っているバックアップ', page)
+
+    def test_the_windows_card_offers_the_client_download(self):
+        page = self.portal.render_page(None)
+        self.assertIn('/download/urbackup-client-windows', page)
+        self.assertIn('Windowsクライアントをダウンロード', page)
+
+    def test_the_client_download_uses_the_urbackup_action(self):
+        params = self.portal.client_download_params('ses123')
+        self.assertEqual(params['a'], 'download_client')
+        self.assertEqual(params['clientid'], '-1')
+        self.assertEqual(params['os'], 'windows')
+        self.assertEqual(params['ses'], 'ses123')
+        text = (UNIT / 'portal.py').read_text(encoding='utf-8')
+        self.assertIn('UrBackupClientSetup.exe', text)
+        self.assertIn('startswith(b\'MZ\')', text)
+
+    def test_the_portal_sets_the_japanese_language_cookie(self):
+        self.assertIn('urbackup_lang=ja', self.portal.LANG_COOKIE)
+        self.assertIn('Domain=apextox.dpdns.org', self.portal.LANG_COOKIE)
+        text = (UNIT / 'portal.py').read_text(encoding='utf-8')
+        self.assertIn("('Set-Cookie', LANG_COOKIE)", text)
 
     def test_the_bundle_is_committed_next_to_the_portal(self):
         bundle = UNIT / 'portal-backup.js'

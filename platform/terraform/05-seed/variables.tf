@@ -43,8 +43,9 @@ variable "cpu_cores" {
 }
 
 variable "memory_mib" {
-  type    = number
-  default = 6144
+  description = "固定割り当て。2026-10-11: 14日間の実使用は最大約3.8GiBなので 6144 → 4608 へ下げた。"
+  type        = number
+  default     = 4608
 }
 
 variable "disk_gib" {

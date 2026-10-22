@@ -14,6 +14,7 @@
 #   ansible-playbook -i <inventory> platform/ansible/media-kavita.yml
 #   ansible-playbook -i <inventory> platform/ansible/media-navidrome.yml
 #   ansible-playbook -i <inventory> platform/ansible/media-freshrss.yml
+#   ansible-playbook -i <inventory> platform/ansible/media-forgejo.yml
 #   ansible-playbook -i <inventory> platform/ansible/music-tools.yml
 #   ansible-playbook -i <inventory> platform/ansible/media-urbackup.yml
 # 確認は media-verify.yml の media_units で対象を絞る。`key=["a"]` 形式は
@@ -38,6 +39,7 @@
 - import_playbook: media-localsend.yml
 - import_playbook: media-navidrome.yml
 - import_playbook: media-freshrss.yml
+- import_playbook: media-forgejo.yml
 - import_playbook: music-tools.yml
 - import_playbook: media-urbackup.yml
 - import_playbook: media-verify.yml

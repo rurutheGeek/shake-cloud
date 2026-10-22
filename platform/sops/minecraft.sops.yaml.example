@@ -1,0 +1,9 @@
+# Minecraft（stacks/minecraft）の秘密値。正本は SOPS（platform/sops/minecraft.sops.yaml）。
+# 2026-10-14 に shakeserver の /opt/minecraft/.env から移した。
+MC_RCON_PASSWORD:
+CF_ACCOUNT_ID:
+# Cloudflare R2 へのワールドの日次バックアップ（mc-backup の rclone）。
+CF_ACCESS_KEY:
+CF_SECRET_KEY:
+# CurseForge の API キー（Pixelmon などの Mod を取りに行く）。
+CF_API_KEY:

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}{{ service.title }} のクイズ分析 - Botポータル{% endblock %}
+{% block content %}
+{% set base = '/service/' ~ service.name ~ '/quiz' %}
+{% set who = ('&account=' ~ view.user) if view.user is not none else '' %}
+{% set params = 'quiz=' ~ (view.quiz | urlencode) ~ '&days=' ~ view.days ~ '&min_answers=' ~ view.min_answers ~ who %}
+{% set who_label = (view.user_name or view.user) if view.user is not none else '' %}
+<p><a href="/service/{{ service.name }}">← {{ service.title }}</a></p>
+<h1>{{ service.title }} のクイズ分析</h1>
+<p class="lead">
+  判定ログ（<code>{{ service.db.database }}</code> の <a href="/service/{{ service.name }}/db/quiz_log"><code>quiz_log</code></a>）を集計して、
+  間違いやすい問題・よくある取り違え・書き間違いの候補・アカウントごとの成績を出します。
+</p>
+
+<div class="tabs">{% include "_tabs.html" %}</div>
+
+{% if view.error %}
+<div class="result fail">{{ view.error }}</div>
+{% endif %}
+
+{% if view.user is not none %}
+<div class="result">
+  <strong>{{ who_label }}</strong> さん（<code>{{ view.user }}</code>）の回答だけで集計しています。
+  <a href="{{ base }}?quiz={{ view.quiz | urlencode }}&days={{ view.days }}&min_answers={{ view.min_answers }}">全員に戻す</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <form class="toolbar" method="get" action="{{ base }}">
+    {% if view.user is not none %}<input type="hidden" name="account" value="{{ view.user }}">{% endif %}
+    <label>クイズ
+      <select name="quiz">
+        {% for row in view.summary %}
+        <option value="{{ row.quiz }}" {% if row.quiz == view.quiz %}selected{% endif %}>{{ row.label }}（{{ row.answers }}）</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>期間
+      <select name="days">
+        {% for days in view.periods %}
+        <option value="{{ days }}" {% if days == view.days %}selected{% endif %}>{% if days %}直近{{ days }}日{% else %}全期間{% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>最小の回答数 <input type="number" name="min_answers" value="{{ view.min_answers }}" min="1" max="1000"></label>
+    <button type="submit" class="neutral">表示</button>
+  </form>
+
+  <h2>クイズごとの件数</h2>
+  {% if view.summary %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>クイズ</th><th class="num">回答数</th><th class="num">正答</th><th class="num">誤答</th>
+        <th class="num">正答率</th><th class="num">認識できず</th><th class="num">ギブアップ</th>
+        <th class="num">ヒント</th><th>記録の期間</th>
+      </tr></thead>
+      <tbody>
+        {% for row in view.summary %}
+        <tr {% if row.quiz == view.quiz %}class="current"{% endif %}>
+          <td><a href="{{ base }}?quiz={{ row.quiz | urlencode }}&days={{ view.days }}&min_answers={{ view.min_answers }}{{ who }}">{{ row.label }}</a> <span class="meta"><code>{{ row.quiz }}</code></span></td>
+          <td class="num">{{ row.answers }}</td>
+          <td class="num">{{ row.correct }}</td>
+          <td class="num">{{ row.wrong }}</td>
+          <td class="num">
+            {% if row.correct_rate is not none %}
+            <div class="rate good"><span>{{ row.correct_rate }}%</span><div class="bar"><span style="width:{{ row.correct_rate }}%"></span></div></div>
+            {% else %}–{% endif %}
+          </td>
+          <td class="num">{{ row.unknown }}</td>
+          <td class="num">{{ row.giveup }}</td>
+          <td class="num">{{ row.hint }}</td>
+          <td class="meta">{{ row.first_day }} 〜 {{ row.last_day }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="meta">回答数は正答＋誤答。「認識できず」は図鑑・曲リストに無かった入力で、正答率には入りません。</p>
+  {% else %}
+  <p class="meta">この期間のログはありません。</p>
+  {% endif %}
+</div>
+
+{% if view.quiz %}
+<div class="card">
+  <div class="card-head">
+    <h2>{% if view.user is not none %}{{ who_label }} さんの苦手{% else %}間違いやすい問題{% endif %} <span class="meta">{{ view.quiz_label }}・{{ view.min_answers }}件以上・誤答とギブアップの割合が高い順</span></h2>
+    <a href="{{ base }}/csv?kind=hard&{{ params }}">CSV</a>
+  </div>
+  {% if view.hard %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>正解</th><th>問題</th><th class="num">回答数</th><th class="num">誤答</th>
+        <th class="num">ギブ</th><th class="num">誤答・ギブ率</th><th>よくある誤答</th>
+      </tr></thead>
+      <tbody>
+        {% for row in view.hard %}
+        <tr>
+          <td>{{ row.answer or '–' }}</td>
+          <td class="meta">{{ row.question }}</td>
+          <td class="num">{{ row.answers }}</td>
+          <td class="num">{{ row.wrong }}</td>
+          <td class="num">{{ row.giveup }}</td>
+          <td class="num"><div class="rate"><span>{{ row.wrong_rate }}%</span><div class="bar"><span style="width:{{ row.wrong_rate }}%"></span></div></div></td>
+          <td>{% for pair in row.wrong_answers %}{{ pair.answer_input }} <span class="meta">×{{ pair.count }}</span>{% if not loop.last %}、{% endif %}{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="meta">該当する問題はありません（最小の回答数を下げると出ることがあります）。</p>
+  {% endif %}
+</div>
+
+{% if view.user is none and view.has_user %}
+<div class="card">
+  <div class="card-head">
+    <h2>アカウントごと <span class="meta">{{ view.quiz_label }}・回答の多い順。名前を押すと、その人の苦手に絞ります</span></h2>
+    <a href="{{ base }}/csv?kind=accounts&{{ params }}">CSV</a>
+  </div>
+  {% if view.accounts %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>アカウント</th><th class="num">回答数</th><th class="num">正答</th><th class="num">誤答</th>
+        <th class="num">正答率</th><th class="num">ギブアップ</th><th class="num">ヒント</th>
+        <th class="num">認識できず</th><th>最後に答えた日</th>
+      </tr></thead>
+      <tbody>
+        {% for row in view.accounts %}
+        <tr>
+          <td><a href="{{ base }}?quiz={{ view.quiz | urlencode }}&days={{ view.days }}&min_answers=1&account={{ row.user_id }}">{{ row.user_name or row.user_id }}</a></td>
+          <td class="num">{{ row.answers }}</td>
+          <td class="num">{{ row.correct }}</td>
+          <td class="num">{{ row.wrong }}</td>
+          <td class="num">
+            {% if row.correct_rate is not none %}
+            <div class="rate good"><span>{{ row.correct_rate }}%</span><div class="bar"><span style="width:{{ row.correct_rate }}%"></span></div></div>
+            {% else %}–{% endif %}
+          </td>
+          <td class="num">{{ row.giveup }}</td>
+          <td class="num">{{ row.hint }}</td>
+          <td class="num">{{ row.unknown }}</td>
+          <td class="meta">{{ row.last_day }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="meta">回答した人が残っているログは、まだありません（Botの更新よりあとの回答から入ります）。</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head">
+    <h2>よくある取り違え <span class="meta">正解に対して多かった誤答</span></h2>
+    <a href="{{ base }}/csv?kind=pairs&{{ params }}">CSV</a>
+  </div>
+  {% if view.pairs %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>正解</th><th>誤答</th><th class="num">回数</th><th>問題</th><th></th></tr></thead>
+      <tbody>
+        {% for row in view.pairs %}
+        <tr>
+          <td>{{ row.answer or '–' }}</td>
+          <td>{{ row.answer_input }}</td>
+          <td class="num">{{ row.count }}</td>
+          <td class="meta">{{ row.question }}</td>
+          <td>{% if row.mutual %}<span class="tag hit" title="逆向きの取り違えもあります">相互</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="meta">誤答のログはありません。</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>書き間違い・別名の候補 <span class="meta">認識できなかった入力</span></h2>
+    <a href="{{ base }}/csv?kind=typos&{{ params }}">CSV</a>
+  </div>
+  {% if view.typos %}
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>入力</th><th class="num">回数</th><th>近い名前</th><th>見立て</th>
+        <th>そのときの正解</th><th>最後に見た日</th>
+      </tr></thead>
+      <tbody>
+        {% for row in view.typos %}
+        <tr>
+          <td>{{ row.answer_input }}</td>
+          <td class="num">{{ row.count }}</td>
+          <td>{% if row.nearest %}{{ row.nearest }} <span class="meta">{{ row.similarity }}%</span>{% else %}–{% endif %}</td>
+          <td><span class="tag {% if row.nearest %}hit{% endif %}">{{ row.guess }}</span></td>
+          <td class="meta">{{ row.answers_text }}</td>
+          <td class="meta">{{ row.last_day }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="meta">
+    「近い名前」は、これまでに認識できた入力と正解の表記のうち、いちばん似ているもの（一致率60%以上）。
+    回数の多いものは、別名（図鑑の別名・イントロクイズの対応リスト）に足す候補です。
+  </p>
+  {% else %}
+  <p class="meta">認識できなかった入力はありません。</p>
+  {% endif %}
+</div>
+{% endif %}
+
+<p class="meta">
+  もとの行をそのまま使いたいときは、<a href="/service/{{ service.name }}/db/quiz_log">DBタブの <code>quiz_log</code></a> からCSVを落とせます。
+  {% if not view.has_answer and not view.error %}
+  このDBの <code>quiz_log</code> にはまだ正解の列（<code>answer</code>）がありません。正解は、正答になった入力から推定しています。
+  {% endif %}
+  {% if not view.has_user and not view.error %}
+  回答した人の列（<code>user_id</code>）もまだ無いので、アカウントごとの集計は出ません。
+  {% endif %}
+</p>
+{% endblock %}

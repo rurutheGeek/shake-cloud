@@ -1,15 +1,22 @@
-# アラート規則。通知は Alertmanager（SMTP）が行う。
+# アラート規則。通知は Alertmanager が Discord へ送る（alertmanager/alertmanager.yml.template）。
+# severity: critical（緊急。4 時間ごとに念押し）・warning（注意。1 日 1 回）・info（送らない。
+# Grafana とタッチパネルだけ）。summary は「何が起きたか」、どこかは host・name・instance から
+# Alertmanager の文が付ける。description は「すること」。
 groups:
   - name: availability
     rules:
       - alert: ServiceProbeFailed
-        expr: probe_success == 0
-        for: 5m
+        # k8s（AWX など）は必要なときだけ動かす。k8s-cp-01（qemu/200）が動いているときだけ見る。
+        expr: >-
+          probe_success{group!="k8s"} == 0
+          or (probe_success{group="k8s"} == 0 and on() max(pve_up{id="qemu/200"}) == 1)
+        for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "{{ $labels.instance }} が応答しない"
-          description: "blackbox probe が5分間失敗しています。"
+          panel: "サービス応答なし"
+          summary: "サービスが応答しない"
+          description: "10 分続けて応答がありません。そのサービスの VM（Grafana の「概要」）と入口の Caddy（core-01）を確認してください。"
 
       - alert: CertificateExpiringSoon
         expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
@@ -17,20 +24,22 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.instance }} の証明書が14日以内に期限切れ"
-          description: "Let's Encrypt の更新経路（Caddy）を確認してください。"
+          panel: "証明書の期限が近い"
+          summary: "HTTPS の証明書が 14 日以内に切れる"
+          description: "入口の Caddy（core-01 の tls-proxy）の更新が失敗しています。docker logs tls-proxy-caddy-1 を確認してください。"
 
   - name: nodes
     rules:
       # VM が落ちたか node_exporter が死ぬと node_* が静かに消える。それを防ぐ。
       - alert: NodeExporterDown
         expr: up{job="node"} == 0
-        for: 5m
+        for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "{{ $labels.instance }} の node_exporter が応答しない"
-          description: "VM の停止か node_exporter の異常です。pve_up と合わせて確認してください。"
+          panel: "ホスト応答なし"
+          summary: "機械が応答しない"
+          description: "10 分続けて応答がありません。電源・ケーブル・VM の停止を確認してください。"
 
       # /srv/bulk（6TB HDD）は下の storage グループで専用に鳴らす。
       - alert: NodeFilesystemAlmostFull
@@ -42,8 +51,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.instance }} の {{ $labels.mountpoint }} の空きが15%未満"
-          description: "イメージ・ログ・世代を確認してください（読み取り専用マウントは除外）。"
+          panel: "ディスク残り少"
+          summary: "ディスクの空きが 15% 未満"
+          description: "古い Docker イメージ・ログ・バックアップの世代を消してください。"
 
       - alert: NodeMemoryLow
         expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.10
@@ -51,16 +61,18 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.instance }} の空きメモリが10%未満"
-          description: "プロセスを絞るか、配分（flavor・memory_mib）を見直してください。"
+          panel: "メモリ不足"
+          summary: "空きメモリが 10% 未満"
+          description: "重いプロセスを止めるか、VM のメモリの配分を見直してください。"
 
       - alert: NodeOOMKill
         expr: increase(node_vmstat_oom_kill[30m]) > 0
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.instance }} でOOM killが発生"
-          description: "30分以内にカーネルがプロセスを強制終了しました。dmesg を確認してください。"
+          panel: "メモリ不足で強制終了"
+          summary: "メモリ不足でプロセスが強制終了された"
+          description: "どのプロセスが落ちたかを journalctl -k | grep -i oom で確認してください。"
 
       - alert: NodeSystemdUnitFailed
         expr: node_systemd_unit_state{state="failed"} == 1
@@ -68,17 +80,19 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.instance }} の {{ $labels.name }} が failed"
-          description: "systemctl status {{ $labels.name }} で原因を確認してください。"
+          panel: "サービスの失敗"
+          summary: "サービスが失敗している"
+          description: "systemctl status で原因を確認してください。"
 
       # 計画外の再起動は uptime の途切れではなく起動時刻の変化で見る。
       - alert: NodeRebooted
         expr: changes(node_boot_time_seconds[1h]) > 0
         labels:
-          severity: warning
+          severity: info
         annotations:
-          summary: "{{ $labels.instance }} が再起動した"
-          description: "1時間以内にカーネルの起動時刻が変わりました。計画外なら原因を確認してください。"
+          panel: "再起動した"
+          summary: "再起動した"
+          description: "計画した再起動でなければ、journalctl -b -1 で直前のログを確認してください。"
 
   - name: backup
     rules:
@@ -87,10 +101,11 @@ groups:
         expr: absent(backup_last_success_timestamp_seconds)
         for: 1h
         labels:
-          severity: warning
+          severity: info
         annotations:
-          summary: "管理DBバックアップのメトリクスが無い"
-          description: "cloud-01 の textfile collector に cloud_backup.prom がありません。"
+          panel: "バックアップ記録なし"
+          summary: "管理 DB のバックアップの記録が届かない"
+          description: "cloud-01 の cloud-backup.timer と node_exporter を確認してください。"
 
       - alert: CloudBackupStale
         expr: time() - backup_last_success_timestamp_seconds > 36 * 3600
@@ -98,8 +113,56 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "管理DBバックアップが36時間以上成功していない"
-          description: "cloud-backup.timer の失敗・停止を確認してください（世代は残っています）。"
+          panel: "バックアップが古い"
+          summary: "管理 DB のバックアップが 36 時間以上成功していない"
+          description: "cloud-01 の cloud-backup.timer の失敗を確認してください（前の世代は残っています）。"
+
+      # K11 の shakecloud-backup-status.timer が、週次の VM・監視の履歴・Flint 3 の設定の
+      # 最後の成功時刻と、許す古さを出す（roles/pve_node_exporter/files/backup-status.py）。
+      - alert: BackupLate
+        expr: >-
+          time() - shakecloud_backup_last_success_timestamp_seconds
+          > on(kind, target) shakecloud_backup_max_age_seconds
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          panel: "バックアップの遅れ"
+          summary: "{{ $labels.target }}（{{ $labels.kind }}）のバックアップが遅れている"
+          description: "K11 の /srv/bulk/backups と、ジョブ・timer の失敗を確認してください。"
+
+      - alert: BackupStatusMissing
+        expr: absent(shakecloud_backup_last_success_timestamp_seconds)
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          panel: "バックアップ状況が読めない"
+          summary: "K11 からバックアップの状況が届かない"
+          description: "K11 の shakecloud-backup-status.timer と node_exporter を確認してください。"
+
+  - name: router
+    rules:
+      # tarakoserver の netmap-router-check.timer が、Flint 3 を apply-segments と見比べる。
+      - alert: RouterConfigDrift
+        expr: shakecloud_router_check == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          panel: "ルータの設定崩れ"
+          summary: "Flint 3 の設定が決めたものと違う"
+          description: "GL.iNet の付属スクリプトかファームウェアの更新が書き換えた可能性があります。Flint 3 で /etc/shakecloud/apply-segments を流し直してください。"
+
+      - alert: RouterCheckStale
+        expr: absent(shakecloud_router_check) or time() - node_textfile_mtime_seconds{file=~".*router-check.prom"} > 1800
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          panel: "ルータの点検停止"
+          summary: "Flint 3 の設定の点検が止まっている"
+          description: "tarakoserver の netmap-router-check.timer と netmap を確認してください。"
 
   - name: storage
     rules:
@@ -109,10 +172,11 @@ groups:
           absent(node_filesystem_avail_bytes{instance="192.168.10.10:9100",mountpoint="/srv/bulk"})
         for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
+          panel: "大容量ディスク外れ"
           summary: "6TB HDD（/srv/bulk）が見えない"
-          description: "USBの切断かマウント失敗です。dmesg・lsblk・findmntを確認し、mount /srv/bulk と exportfs -ra で戻してください（docs/operations/bulk-storage.md）。"
+          description: "USB の抜けかマウントの失敗です。media-01 を止めてから /srv/bulk をマウントし直してください（docs/operations/bulk-storage.md）。"
 
       - alert: BulkDiskAlmostFull
         expr: >-
@@ -123,8 +187,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "6TB HDDの空きが10%未満"
-          description: "vzdumpの世代（keep-last=4）とライブラリの増加を確認してください。"
+          panel: "大容量ディスク残り少"
+          summary: "6TB HDD の空きが 10% 未満"
+          description: "VM のバックアップの世代とライブラリの増え方を確認してください。"
 
       # HDD は「バックアップ」と「クラウド」の2領域に上限を持たせている。上限に
       # 達した領域への書き込みは失敗する（クラウド領域ならVMのディスクが止まる）。
@@ -134,8 +199,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "HDDの{{ $labels.area }}領域が上限の85%を超えた"
-          description: "repquota -P /srv/bulk で確認し、不要なものを消すか、上限（pve_bulk_storage_quotas）を見直してください（docs/operations/bulk-storage.md）。"
+          panel: "利用枠残り少"
+          summary: "HDD の利用枠が上限の 85% を超えた"
+          description: "repquota -P /srv/bulk で確認し、不要なものを消すか上限を見直してください（docs/operations/bulk-storage.md）。"
 
       - alert: SmartDeviceUnhealthy
         expr: smartmon_device_smart_healthy == 0
@@ -143,8 +209,9 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "{{ $labels.disk }} のSMART自己診断がFAILED"
-          description: "ディスク交換を検討してください。先にバックアップの状態を確認してください。"
+          panel: "ディスク故障"
+          summary: "ディスクの自己診断が FAILED"
+          description: "壊れかけです。バックアップが新しいか確かめてから、交換を手配してください。"
 
       # USBの切断・スピンダウン・ブリッジ不調でSMARTが読めなくなる。
       - alert: SmartDeviceInactive
@@ -153,8 +220,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.disk }} のSMARTが読めない"
-          description: "dmesg と smartctl -a -d sat を確認してください。USBの挿し直しで戻ることがあります。"
+          panel: "ディスク停止"
+          summary: "ディスクの健康状態が読めない"
+          description: "USB の挿し直しで戻ることがあります。dmesg と smartctl -a -d sat を確認してください。"
 
       - alert: SmartSectorErrors
         expr: >-
@@ -163,10 +231,11 @@ groups:
           or increase(smartmon_reallocated_sector_ct_raw_value[24h]) > 0
         for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "{{ $labels.disk }} に不良・代替処理待ちセクター"
-          description: "増加が続くなら交換時期です。バックアップを確認してください。"
+          panel: "ディスク不良セクタ"
+          summary: "ディスクに不良セクターがある"
+          description: "増え続けるなら交換時期です。バックアップが新しいか確かめてください。"
 
       # CRCはケーブル・ポート・enclosure側で増える。USBで起きやすい。
       - alert: SmartCableErrors
@@ -175,8 +244,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.disk }} のCRCエラーが増加"
-          description: "USBケーブル・ポート・enclosureを確認してください（UAS無効化の判断材料）。"
+          panel: "ディスク配線エラー"
+          summary: "ディスクの通信エラーが増えた"
+          description: "USB ケーブル・ポート・ケースを確認してください。"
 
       - alert: SmartTemperatureHigh
         expr: smartmon_temperature_celsius_raw_value > 50
@@ -184,17 +254,19 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.disk }} が50℃超"
-          description: "風通しと連続アクセスを確認してください。"
+          panel: "ディスク高温"
+          summary: "ディスクが 50℃を超えた"
+          description: "風通しと、長く続いている読み書きを確認してください。"
 
       # 収集が止まると式が空になるので、欠測そのものを鳴らす。
       - alert: SmartCollectorStale
         expr: absent(smartmon_smartctl_run) or time() - smartmon_smartctl_run > 3600
         for: 15m
         labels:
-          severity: warning
+          severity: info
         annotations:
-          summary: "SMART収集が1時間以上止まっている"
+          panel: "SMART 記録が古い"
+          summary: "ディスクの健康状態の記録が止まっている"
           description: "prometheus-node-exporter-smartmon.timer を確認してください。"
 
       - alert: NvmeWearHigh
@@ -203,8 +275,9 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "NVMeの寿命消費が80%超"
-          description: "書き込みの多い処理とバックアップ世代数を見直してください。"
+          panel: "NVMe 摩耗"
+          summary: "NVMe の寿命の 80% を使った"
+          description: "書き込みの多い処理とバックアップの世代数を見直し、交換を考えてください。"
 
   - name: deadman
     rules:
@@ -215,19 +288,25 @@ groups:
         labels:
           severity: none
         annotations:
+          panel: "監視の生存確認"
           summary: "監視経路は生きている"
           description: "この通知が外部で途切れたら、Prometheus か Alertmanager を疑ってください。"
 
   - name: resources
     rules:
       - alert: ProxmoxGuestDown
-        expr: pve_up == 0
-        for: 5m
+        # わざと止めている VM で鳴らないよう、自動起動（onboot）の VM とノードだけを見る。
+        # 名前（name）は pve_guest_info から付ける。通知に VM の名前を出すため。
+        expr: >-
+          ((pve_up == 0 and on(id) pve_onboot_status == 1) + on(id) group_left(name) (0 * pve_guest_info))
+          or pve_up{id=~"node/.+"} == 0
+        for: 10m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "{{ $labels.id }} が停止または応答なし"
-          description: "Proxmox API から見てゲストが up ではありません。"
+          panel: "VM 停止"
+          summary: "VM が止まっている"
+          description: "自動起動にしてある VM か K11 が 10 分止まっています。Proxmox の画面で状態とタスクのログを確認してください。"
 
       # ホストの空きが乏しくなると、VM の作成・起動が capacity で断られる。
       - alert: ProxmoxNodeMemoryHigh
@@ -240,17 +319,19 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Proxmox ノード {{ $labels.id }} のメモリ使用率が90%超"
-          description: "ゲストの配分か常駐プロセスを見直してください。Grafanaの「Shake Lab VM memory」で内訳を確認できます。"
+          panel: "K11 メモリ逼迫"
+          summary: "K11 のメモリが 90% を超えた"
+          description: "VM のメモリの配分を見直してください。Grafana の「Shake Lab VM memory」で内訳が見られます。"
 
       - alert: UpsOnBattery
-        expr: network_ups_tools_ups_status{value="OB"} == 1
-        for: 1m
+        expr: network_ups_tools_ups_status{flag="OB"} == 1
+        for: 5m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "UPSがバッテリー動作中"
-          description: "停電か入力異常です。残り時間を確認してください。"
+          panel: "停電（電池で稼働）"
+          summary: "停電している（UPS の電池で動いている）"
+          description: "電池の残りが少なくなると、K11 と Pi 4 は自動で止まります。長引くなら、使っていない VM を先に止めてください。"
 
       - alert: ProxmoxNodeDiskAlmostFull
         expr: pve_disk_usage_bytes / pve_disk_size_bytes > 0.85
@@ -258,5 +339,6 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "{{ $labels.id }} のディスク使用率が85%超"
-          description: "不要なイメージ・バックアップ・キャッシュを確認してください。"
+          panel: "K11 ディスク残り少"
+          summary: "K11 のディスクが 85% を超えた"
+          description: "不要なイメージ・バックアップ・キャッシュを消してください。"

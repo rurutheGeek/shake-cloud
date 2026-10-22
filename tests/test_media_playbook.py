@@ -19,13 +19,14 @@ ENTRY = ANSIBLE / 'media.yml'
 VERIFY = ANSIBLE / 'media-verify.yml'
 GROUP_VARS = ANSIBLE / 'group_vars/media.yml'
 UNIT_PLAYBOOKS = ['media-nextcloud.yml', 'media-kavita.yml', 'media-localsend.yml',
-                  'media-navidrome.yml', 'media-freshrss.yml', 'music-tools.yml',
+                  'media-navidrome.yml', 'media-freshrss.yml', 'media-forgejo.yml', 'music-tools.yml',
                   'media-urbackup.yml']
 COMPOSE_FILES = {
     'nextcloud': ROOT / 'stacks/media/nextcloud/compose.yaml',
     'kavita': ROOT / 'stacks/media/kavita/compose.yaml',
     'navidrome': ROOT / 'stacks/media/navidrome/compose.yaml',
     'freshrss': ROOT / 'stacks/media/freshrss/compose.yaml',
+    'forgejo': ROOT / 'stacks/media/forgejo/compose.yaml',
     'music-tools': ROOT / 'stacks/music-tools/compose.yaml',
     'urbackup': ROOT / 'stacks/media/urbackup/compose.yaml',
 }
@@ -146,7 +147,7 @@ class VerifyTests(unittest.TestCase):
 
     def test_the_default_selection_is_all_units(self):
         self.assertEqual(self.vars['media_units'],
-                         ['nextcloud', 'kavita', 'navidrome', 'freshrss',
+                         ['nextcloud', 'kavita', 'navidrome', 'freshrss', 'forgejo',
                           'music-tools', 'urbackup'])
 
     def test_the_unit_directories_are_under_the_project_dir(self):
@@ -208,7 +209,7 @@ class VerifyTests(unittest.TestCase):
         # The runtime check is an equality on the number of running services;
         # here it is enough that the expectations name real services and the
         # health count is the number of healthchecks among them.
-        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss', 'urbackup'):
+        for name in ('nextcloud', 'kavita', 'navidrome', 'freshrss', 'forgejo', 'urbackup'):
             compose = yaml.safe_load(read(COMPOSE_FILES[name]))
             expected = self.vars['media_unit_services'][name]
             self.assertLessEqual(set(expected), set(compose['services']), name)

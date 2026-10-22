@@ -9,7 +9,7 @@ from support import compose_stack_vars
 ROOT = Path(__file__).resolve().parents[1]
 ROLE = ROOT / 'platform/ansible/roles/compose_stack'
 # Plays that have been moved onto the role. The rest still spell the steps out.
-PLAYS = ['media-kavita.yml', 'media-navidrome.yml', 'media-freshrss.yml', 'media-localsend.yml',
+PLAYS = ['media-kavita.yml', 'media-navidrome.yml', 'media-freshrss.yml', 'media-forgejo.yml', 'media-localsend.yml',
          'media-nextcloud.yml', 'music-tools.yml']
 
 

@@ -1,0 +1,67 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（pkhack.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# ポケモンクイズ（pkhack の quiz/。Next.js）。入口の nginx から 127.0.0.1:13001 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pkhack
+  labels:
+    app: pkhack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pkhack
+  template:
+    metadata:
+      labels:
+        app: pkhack
+    spec:
+      containers:
+        - name: pkhack
+          image: '{{ shake_web_pkhack_image }}'
+          ports:
+            - containerPort: 3000
+              hostIP: 127.0.0.1
+              hostPort: 13001
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: DB_HOST
+              value: "{{ shake_web_db_host }}"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "pkdb_reader"
+            - name: DB_NAME
+              value: "sleepy_pkdb"
+            - name: PKHACK_DB_HOST
+              value: "{{ shake_web_db_host }}"
+            - name: PKHACK_DB_PORT
+              value: "5432"
+            - name: PKHACK_DB_NAME
+              value: "pkhack"
+            - name: PKHACK_DB_READER_USER
+              value: "pkhack_reader"
+            - name: PKHACK_DB_EDITOR_USER
+              value: "pkhack_editor"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: DB_PASSWORD
+            - name: QUIZ_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: QUIZ_SECRET
+            - name: PKHACK_DB_READER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: PKHACK_DB_READER_PASSWORD
+            - name: PKHACK_DB_EDITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shake-web-env
+                  key: PKHACK_DB_EDITOR_PASSWORD

@@ -19,6 +19,30 @@ import sys
 import yaml
 
 
+def subnets(network):
+    """network.yaml's segments, in the shape the API reads.
+
+    The server segment is the default subnet: it is where the cloud range of
+    the flat LAN already lives, and its NICs carry whatever tag the cloud VLAN
+    setting says (none while the segment is the bridge's untagged side). Any
+    other segment takes instances only if it declares a `cloud` range.
+    """
+    result = []
+    for name, segment in (network.get('segments') or {}).items():
+        entry = {'name': name, 'prefix': segment['prefix'], 'gateway': segment['gateway'],
+                 'vlan_id': segment['vlan_id'], 'bridge_tag': segment.get('bridge_tag') or 0}
+        if name == 'server':
+            entry['default'] = True
+            entry['bridge_tag'] = network['vlan']['cloud']['vlan_id'] or 0
+            entry['ip_range_start'] = network['cloud']['range_start']
+        elif segment.get('cloud'):
+            entry['ip_range_start'] = segment['cloud']['range_start']
+        if segment.get('reserved'):
+            entry['description'] = 'reserved'
+        result.append(entry)
+    return result
+
+
 def load(directory, name):
     return yaml.safe_load((Path(directory) / name).read_text(encoding='utf-8'))
 
@@ -130,6 +154,9 @@ def render(directory):
             # Whether the bridge passes VLAN tags. The API refuses to start with
             # a cloud VLAN on a bridge that cannot carry it.
             'bridge_vlan_aware': site['network']['bridge_vlan_aware'],
+            # The segments of the home network, as subnets. The API lists them
+            # all and places instances only in those with an ip_range_start.
+            'subnets': subnets(network),
         },
         'images': shared,
         'shared_isos': shared_isos,

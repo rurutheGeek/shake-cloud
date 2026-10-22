@@ -318,6 +318,30 @@
 
   let capacityLoaded = false;
 
+  // 区画（サブネット）。VM を置けるものが2つ以上あるときだけ選択肢を出す。
+  let subnetsById = {};
+  const subnetLabel = (id) => {
+    const subnet = subnetsById[id];
+    return subnet ? `${subnet.name}（${subnet.cidr_block}）` : (id || '');
+  };
+  async function loadSubnets() {
+    try {
+      const { subnets } = await api('GET', '/v1/subnets');
+      subnetsById = Object.fromEntries(subnets.map((subnet) => [subnet.subnet_id, subnet]));
+      const launchable = subnets.filter((subnet) => subnet.launchable);
+      $('subnet-select').replaceChildren(...launchable.map((subnet) => {
+        const option = document.createElement('option');
+        option.value = subnet.default ? '' : subnet.subnet_id;
+        option.textContent = subnetLabel(subnet.subnet_id);
+        option.selected = subnet.default;
+        return option;
+      }));
+      $('subnet-field').hidden = launchable.length < 2;
+    } catch (error) {
+      $('subnet-field').hidden = true;
+    }
+  }
+
   async function loadCapacity() {
     try {
       const capacity = await api('GET', '/v1/capacity');
@@ -1105,6 +1129,7 @@
     detailItem(fields, '構成', config);
 
     detailItem(fields, 'ディスク', `${instance.root_disk_gib} GiB（${tierLabel(instance.disk_tier)}）`);
+    if (instance.subnet_id) detailItem(fields, 'サブネット', subnetLabel(instance.subnet_id));
 
     const groups = instance.security_groups || [];
     const groupWrap = document.createElement('span');
@@ -1448,6 +1473,7 @@
     const rootDiskGib = data.get('root_disk_gib');
     if (rootDiskGib) body.root_disk_gib = Number(rootDiskGib);
     if (!$('disk-tier-field').hidden && data.get('disk_tier')) body.disk_tier = data.get('disk_tier');
+    if (!$('subnet-field').hidden && data.get('subnet_id')) body.subnet_id = data.get('subnet_id');
     const userData = data.get('user_data');
     if (userData) body.user_data = userData;
     // A Windows image and any ISO install are configured at the console, not
@@ -2600,7 +2626,7 @@
   }
 
   const refresh = () => Promise.all([
-    loadKeys(), loadEvents(), loadCapacity(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
+    loadKeys(), loadEvents(), loadCapacity(), loadSubnets(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
     loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(),
   ]);
 

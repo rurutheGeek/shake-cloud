@@ -29,16 +29,55 @@ class MigrationTests(unittest.TestCase):
         self.assertRegex(group['nextcloud_mcp_version'], r'^\d+\.\d+\.\d+$')
         self.assertRegex(group['nextcloud_mcp_sha256'], r'^[0-9a-f]{64}$')
         self.assertEqual(group['nextcloud_mcp_sha256'],
-                         '39d6a1e1358e649e0f41c04ab48f7da935b68ac1410136f0a631e1551bb74be6')
+                         '76612fdd06b1eb5511d4f61bcc18b648a49582b4a40863554ce7495490dd0f20')
+        for key in ('nextcloud_mcp_oauth_sha256', 'nextcloud_mcp_requirements_sha256'):
+            self.assertRegex(group[key], r'^[0-9a-f]{64}$')
+        self.assertIn(group['nextcloud_mcp_auth'], ('basic', 'oauth', 'both'))
 
     def test_the_play_pulls_the_pinned_release_with_a_checksum(self):
         play = yaml.safe_load(read(PLAYBOOK))[0]
         task = role_task(play['tasks'], 'Install the MCP server')
         fetch = task['ansible.builtin.get_url']
-        self.assertIn('github.com/rurutheGeek/nextcloud-mcp/releases/download/', fetch['url'])
-        self.assertIn('nextcloud_mcp_version', fetch['url'])
+        self.assertEqual(fetch['url'], '{{ nextcloud_mcp_release }}/nextcloud_mcp.py')
+        self.assertIn('github.com/rurutheGeek/nextcloud-mcp/releases/download/v{{ nextcloud_mcp_version }}',
+                      play['vars']['nextcloud_mcp_release'])
         self.assertEqual(fetch['checksum'], 'sha256:{{ nextcloud_mcp_sha256 }}')
         self.assertEqual(fetch['mode'], '0755')
+
+
+class OAuthDeploymentTests(unittest.TestCase):
+    def setUp(self):
+        self.play = yaml.safe_load(read(PLAYBOOK))[0]
+        self.tasks = self.play['tasks']
+
+    def test_the_oauth_files_are_pinned_to_the_same_release(self):
+        for name, key in (('Install the MCP OAuth front end', 'nextcloud_mcp_oauth_sha256'),
+                          ('Fetch the MCP OAuth requirements', 'nextcloud_mcp_requirements_sha256')):
+            fetch = role_task(self.tasks, name)['ansible.builtin.get_url']
+            self.assertIn('{{ nextcloud_mcp_release }}/', fetch['url'])
+            self.assertEqual(fetch['checksum'], 'sha256:{{ ' + key + ' }}')
+
+    def test_the_packages_go_into_a_venv_not_the_system_python(self):
+        venv = role_task(self.tasks, 'Create the MCP venv')['ansible.builtin.command']
+        self.assertEqual(venv['argv'][-1], '{{ nextcloud_mcp_venv }}')
+        pip = role_task(self.tasks, 'Install the MCP OAuth packages')['ansible.builtin.command']
+        self.assertEqual(pip['argv'][0], '{{ nextcloud_mcp_venv }}/bin/pip')
+        unit = read(STACK / 'nextcloud-mcp.service.j2')
+        self.assertIn('ExecStart={{ nextcloud_mcp_venv }}/bin/python', unit)
+        self.assertIn('{{ nextcloud_mcp_state }}', unit)
+
+    def test_the_client_secret_stays_on_the_host_and_out_of_logs(self):
+        register = role_task(self.tasks, 'Register the MCP as a Nextcloud OAuth2 client')
+        self.assertIn('/auth/callback', str(register['ansible.builtin.command']['argv']))
+        self.assertTrue(role_task(self.tasks, 'Read the MCP OAuth client')['no_log'])
+        env = role_task(self.tasks, 'Write the MCP environment')['ansible.builtin.copy']['content']
+        for name in ('NEXTCLOUD_MCP_AUTH=', 'NEXTCLOUD_MCP_PUBLIC_URL=', 'NEXTCLOUD_MCP_OAUTH_CLIENT_ID=',
+                     'NEXTCLOUD_MCP_OAUTH_CLIENT_SECRET=', 'NEXTCLOUD_MCP_STATE_DIR='):
+            self.assertIn(name, env)
+
+    def test_the_state_directory_is_private(self):
+        task = role_task(self.tasks, 'Create the MCP OAuth state directory')
+        self.assertEqual(task['ansible.builtin.file']['mode'], '0700')
 
 
 class DeploymentTests(unittest.TestCase):
@@ -93,7 +132,7 @@ class SystemdUnitTests(unittest.TestCase):
         unit = read(STACK / 'nextcloud-mcp.service.j2')
         self.assertIn('ProtectSystem=strict', unit)
         self.assertIn('ReadWritePaths={{ nextcloud_mcp_tmp }}', unit)
-        self.assertIn('ExecStart=/usr/bin/python3 {{ nextcloud_mcp_dir }}/nextcloud_mcp.py', unit)
+        self.assertIn('ExecStart={{ nextcloud_mcp_venv }}/bin/python {{ nextcloud_mcp_dir }}/nextcloud_mcp.py', unit)
         self.assertIn('EnvironmentFile={{ nextcloud_mcp_dir }}/nextcloud-mcp.env', unit)
 
     def test_the_unit_restarts_on_failure(self):

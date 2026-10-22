@@ -33,6 +33,7 @@ tags:
 | [タグ管理（MP3）](tags.md) | タグの直し方と整理 |
 | [Nextcloudファイルエージェント（AI用MCP）](nextcloud-agent.md) | AIエージェントから自分のNextcloudを読み書きする |
 | [共通RSSタイムライン](rss.md) | FreshRSSの購読を全員で共有する |
+| [リポジトリの保管庫](forgejo.md) | 消えそうなリポジトリをForgejoへミラーする |
 
 ## 家電・印刷
 

@@ -1,0 +1,28 @@
+# Ansible（roles/shake_web）が描画して、配備先の Quadlet（ayahuya.kube）が
+# `podman kube play` で動かす。Kubernetes の Deployment としてもそのまま読める。
+# アヤフヤハッカーズ（純静的。root 以外で動く nginx）。入口の nginx から 127.0.0.1:18080 で参照する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ayahuya
+  labels:
+    app: ayahuya
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ayahuya
+  template:
+    metadata:
+      labels:
+        app: ayahuya
+    spec:
+      containers:
+        - name: ayahuya
+          image: '{{ shake_web_ayahuya_image }}'
+          ports:
+            - containerPort: 8080
+              hostIP: 127.0.0.1
+              hostPort: 18080
+          securityContext:
+            allowPrivilegeEscalation: false

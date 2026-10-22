@@ -14,6 +14,13 @@
     "pingUrl": "https://grafana.apextox.dpdns.org/api/health"
   },
   {
+    "name": "監視パネル",
+    "href": "https://panel.apextox.dpdns.org",
+    "description": "監視のタッチパネルをスマホで見る・触る（SSO）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/raspberry-pi.svg",
+    "pingUrl": "https://panel.apextox.dpdns.org/"
+  },
+  {
     "name": "LibreSpeed",
     "href": "https://speed.apextox.dpdns.org",
     "description": "端末 ↔ apps-01 の実効速度（LibreSpeed）",
@@ -50,11 +57,25 @@
     "pingUrl": "https://netbox.apextox.dpdns.org/login/"
   },
   {
+    "name": "ネットワーク図",
+    "href": "https://netmap.apextox.dpdns.org",
+    "description": "区画・VLAN・ファイアウォールを開くたびに実機から描く（SSO・管理者のみ）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/diagrams-net.svg",
+    "pingUrl": "https://netmap.apextox.dpdns.org/"
+  },
+  {
     "name": "Home Assistant",
     "href": "https://ha.apextox.dpdns.org",
     "description": "家電の自動化・状態確認",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/home-assistant.svg",
     "pingUrl": "https://ha.apextox.dpdns.org/manifest.json"
+  },
+  {
+    "name": "CUPS",
+    "href": "https://cups.apextox.dpdns.org",
+    "description": "プリンタの印刷状況（SSO）",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/cups.svg",
+    "pingUrl": "https://cups.apextox.dpdns.org/"
   },
   {
     "name": "Nextcloud",
@@ -89,6 +110,13 @@
     "description": "共通RSSタイムライン（みんなで購読を追加）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/freshrss.svg",
     "pingUrl": "https://freshrss.apextox.dpdns.org/api/"
+  },
+  {
+    "name": "Forgejo",
+    "href": "https://forgejo.apextox.dpdns.org",
+    "description": "消えそうなリポジトリの保管庫",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/forgejo.svg",
+    "pingUrl": "https://forgejo.apextox.dpdns.org/api/healthz"
   },
   {
     "name": "MeTube",
@@ -138,6 +166,21 @@
     "pingUrl": "https://play.apextox.dpdns.org/"
   },
   {
+    "name": "ダウンロード（qBittorrent）",
+    "href": "https://torrent.play.apextox.dpdns.org",
+    "description": "隔離環境のtorrentクライアント（SSO・シード停止）。取得物の検査と保存は「ダウンロード（検疫）」から",
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/qbittorrent.svg",
+    "pingUrl": "https://torrent.play.apextox.dpdns.org/"
+  },
+  {
+    "name": "ダウンロード（検疫）",
+    "href": "https://play.apextox.dpdns.org/download",
+    "description": "取得物をウイルス検査してライブラリ／個人フォルダへ（ポータルとは別アプリ・SSO共用）",
+    "iconText": "DL",
+    "iconColor": "#0ea5e9",
+    "pingUrl": "https://play.apextox.dpdns.org/download/healthz"
+  },
+  {
     "name": "AWX",
     "href": "https://awx.apextox.dpdns.org",
     "description": "Ansibleの実行基盤",
@@ -148,7 +191,7 @@
     "name": "バックアップ",
     "href": "https://backup.apextox.dpdns.org",
     "description": "端末バックアップの入口（UrBackupの状態と手順）",
-    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/urbackup.svg"
+    "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/urbackup.png"
   },
   {
     "name": "Proxmox",
@@ -165,9 +208,9 @@
     "pingUrl": "https://adguard.apextox.dpdns.org/"
   },
   {
-    "name": "LuCI",
+    "name": "Flint 3",
     "href": "https://router.apextox.dpdns.org",
-    "description": "router-01 の管理画面（SSOなし・復旧経路）",
+    "description": "ルータ（GL.iNet）の管理画面（SSOなし・家の中から）",
     "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/openwrt.svg",
     "pingUrl": "https://router.apextox.dpdns.org/"
   },

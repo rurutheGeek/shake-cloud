@@ -1,0 +1,37 @@
+#!/usr/sbin/nft -f
+# Ansible（pi_base）が置く。家の中の区画へは出さない（ルータの DMZ と二重の守り）。
+# 返信（established）と、下の allow に書いた宛先だけ通す。tailnet とインターネットは
+# この ruleset の外なのでそのまま。flush ruleset は使わない（Docker の nft テーブルまで
+# 消えてしまう）。表を作ってから消し、作り直す（何度読み込んでもよい）。
+table inet homeguard {}
+delete table inet homeguard
+table inet homeguard {
+  chain lan {
+{% for rule in pi_base_lan_guard.allow %}
+    # {{ rule.comment }}
+    ip daddr {{ rule.address }} {{ rule.match }} accept
+{% endfor %}
+{% for network in pi_base_lan_guard.block %}
+    ip daddr {{ network }} drop
+{% endfor %}
+    # 近隣探索とルータ要請は IPv6 が動くために要る（リンクローカル宛でも通す）
+    icmpv6 type { nd-neighbor-solicit, nd-neighbor-advert, nd-router-solicit } accept
+    ip6 daddr fe80::/10 drop
+{% for network in pi_base_lan_guard.block6 | default([]) %}
+    ip6 daddr {{ network }} drop
+{% endfor %}
+  }
+
+  chain output {
+    type filter hook output priority 0; policy accept;
+    ct state established,related accept
+    jump lan
+  }
+
+  # コンテナ（Docker）から家の中へ出る通信も同じ規則で落とす
+  chain forward {
+    type filter hook forward priority 0; policy accept;
+    ct state established,related accept
+    jump lan
+  }
+}

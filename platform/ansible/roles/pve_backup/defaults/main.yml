@@ -6,7 +6,6 @@
 # 含むため丸ごとは取らず、セーブを tools/game1-saves-backup.sh で別に取る。
 pve_backup_vmids:
   - 101   # router-01（OpenWrt設定）
-  - 120   # monitor-01（監視履歴）
   - 140   # cloud-01（管理DB・Garage）
   - 150   # core-01（Authentik・NetBox）
   - 401   # dev-02（旧 dev-b。鍵・作業ツリー）

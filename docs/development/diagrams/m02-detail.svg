@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480" role="img" aria-label="ホストの詳細（Grafana から変換）" font-family="IPAexGothic, Noto Sans CJK JP, sans-serif">
+<rect width="800" height="480" fill="#1c1f24"/>
+<rect x="0" y="0" width="800" height="72" rx="0" fill="#2a2e35" />
+<text x="24" y="48" font-size="32" fill="#e6e6e6" text-anchor="start" font-weight="normal">異常なし</text>
+<text x="776" y="48" font-size="32" fill="#e6e6e6" text-anchor="end" font-weight="normal">23:42</text>
+<rect x="8" y="80" width="144" height="64" rx="8" fill="#2a2e35" />
+<text x="80" y="122" font-size="26" fill="#e6e6e6" text-anchor="middle" font-weight="normal">◀ 戻る</text>
+<text x="176" y="122" font-size="30" fill="#e6e6e6" text-anchor="start" font-weight="bold">K11</text>
+<rect x="544" y="80" width="120" height="64" rx="8" fill="#2a2e35" />
+<text x="604" y="122" font-size="30" fill="#e6e6e6" text-anchor="middle" font-weight="normal">◀</text>
+<rect x="672" y="80" width="120" height="64" rx="8" fill="#2a2e35" />
+<text x="732" y="122" font-size="30" fill="#e6e6e6" text-anchor="middle" font-weight="normal">▶</text>
+<text x="536" y="122" font-size="24" fill="#8a9099" text-anchor="end" font-weight="normal">1/3</text>
+<rect x="8" y="152" width="190" height="92" rx="8" fill="#2a2e35" />
+<text x="20" y="180" font-size="20" fill="#8a9099" text-anchor="start" font-weight="normal">CPU</text>
+<text x="20" y="230" font-size="40" fill="#e6e6e6" text-anchor="start" font-weight="bold">12 %</text>
+<rect x="206" y="152" width="190" height="92" rx="8" fill="#2a2e35" />
+<text x="218" y="180" font-size="20" fill="#8a9099" text-anchor="start" font-weight="normal">メモリ</text>
+<text x="218" y="230" font-size="40" fill="#e6e6e6" text-anchor="start" font-weight="bold">61 %</text>
+<rect x="404" y="152" width="190" height="92" rx="8" fill="#2a2e35" />
+<text x="416" y="180" font-size="20" fill="#8a9099" text-anchor="start" font-weight="normal">稼働</text>
+<text x="416" y="230" font-size="40" fill="#e6e6e6" text-anchor="start" font-weight="bold">4日</text>
+<rect x="602" y="152" width="190" height="92" rx="8" fill="#2a2e35" />
+<text x="614" y="180" font-size="20" fill="#8a9099" text-anchor="start" font-weight="normal">systemd</text>
+<text x="614" y="230" font-size="40" fill="#e6e6e6" text-anchor="start" font-weight="bold">0</text>
+<rect x="8" y="252" width="784" height="124" rx="8" fill="#2a2e35" />
+<text x="20" y="276" font-size="20" fill="#8a9099" text-anchor="start" font-weight="normal">CPU 6時間</text>
+<polyline points="20,316 32,348 44,336 56,328 68,356 80,320 92,344 104,340 116,324 128,360 140,324 152,340 164,344 176,320 188,356 200,328 212,336 224,348 236,316 248,352 260,332 272,332 284,352 296,316 308,348 320,336 332,328 344,356 356,320 368,344 380,340 392,304 404,340 416,304 428,320 440,324 452,300 464,336 476,308 488,316 500,348 512,316 524,352 536,332 548,332 560,352 572,316 584,348 596,336 608,328 620,356 632,320 644,344 656,340 668,324 680,360 692,324 704,340 716,344 728,320 740,356 752,328 764,336 776,348" fill="none" stroke="#e6e6e6" stroke-width="3"/>
+<rect x="0" y="384" width="800" height="96" rx="0" fill="#1c1f24" />
+<rect x="4" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="66" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">概要</text>
+<rect x="137" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="199" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">警告</text>
+<rect x="271" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="333" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">死活</text>
+<rect x="404" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="466" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">電源</text>
+<rect x="537" y="388" width="125" height="88" rx="8" fill="#3a404a" />
+<rect x="537" y="388" width="125" height="6" rx="3" fill="#e6e6e6" />
+<text x="599" y="445" font-size="28" fill="#e6e6e6" text-anchor="middle" font-weight="bold">ホスト</text>
+<rect x="671" y="388" width="125" height="88" rx="8" fill="#2a2e35" />
+<text x="733" y="445" font-size="28" fill="#8a9099" text-anchor="middle" font-weight="normal">設定</text>
+</svg>

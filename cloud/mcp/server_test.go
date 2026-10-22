@@ -31,6 +31,8 @@ var readToolNames = map[string]string{
 	"DescribeInstances":      "shakecloud_describe_instances",
 	"DescribeInstance":       "shakecloud_describe_instance",
 	"DescribeInstanceTypes":  "shakecloud_describe_instance_types",
+	"DescribeSubnets":        "shakecloud_describe_subnets",
+	"DescribeSubnet":         "shakecloud_describe_subnet",
 	"DescribeCapacity":       "shakecloud_describe_capacity",
 	"DescribeLimits":         "shakecloud_describe_limits",
 	"DescribeImages":         "shakecloud_describe_images",

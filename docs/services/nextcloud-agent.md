@@ -1,6 +1,6 @@
 ---
 title: Nextcloudファイルエージェント（AI用MCP）
-updated: 2026-09-28
+updated: 2026-10-19
 section: 利用ガイド
 audience: 利用者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Nextcloudファイルエージェント（AI用MCP）
 
-> **更新日** 2026-09-28 ・ **区分** 利用ガイド ・ **読む人** 利用者
+> **更新日** 2026-10-19 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
-状態: **media-01へ配備済み・稼働中（v1.1.0）**（`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200）。アプリパスワード（Basic）でのログインは実機で確認済みです（2026-09-28、カレンダーの一覧・予定追加まで）。うまく使えない場合は下の「困ったとき」を見るか管理者へ連絡してください。
+状態: **media-01へ配備済み・稼働中（v1.2.0）**（`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200）。アプリパスワード（Basic）でのログインは実機で確認済みです（2026-09-28、カレンダーの一覧・予定追加まで）。うまく使えない場合は下の「困ったとき」を見るか管理者へ連絡してください。
 
 opencode等のAIエージェントから、自分のNextcloudの中身を直接読み書きできる
 ようにする機能です。Googleドライブ連携のように、エージェントに「このファイル
@@ -41,22 +41,9 @@ opencode等のAIエージェントから、自分のNextcloudの中身を直接�
   「カレンダー」画面から行ってください。予定の時刻はサーバーのタイムゾーン
   （この環境は日本時間）で扱われます
 
-## 準備（アプリパスワード）
-
-1. Nextcloudにログインし、右上のアイコン → **設定** → **セキュリティ** を開く
-2. 「新しいアプリパスワードを作成」で名前（例: `opencode`）を付けて作成する
-3. 表示されたパスワードを控える（**一度しか表示されません**。ログイン用の
-   パスワードとは別物です）
-
-**この環境は共通ログイン（Authentik）でサインインしているため、アプリ
-パスワードが作れない/使えない場合があります。** その場合は管理者へ連絡して
-ください（[管理者向け手順](../operations/nextcloud-mcp.md)にOIDCトークン方式への
-切替が書かれています）。
-
 ## opencodeへの登録
 
-`opencode.jsonc`にMCPサーバーとして追加します（`user:アプリパスワード`を
-base64にしたものを`Authorization`へ渡します）。
+`opencode.jsonc`に次を足します。パスワードは書きません。
 
 ```jsonc
 {
@@ -64,21 +51,29 @@ base64にしたものを`Authorization`へ渡します）。
     "nextcloud": {
       "type": "remote",
       "url": "https://nextcloud-mcp.apextox.dpdns.org/mcp",
-      "oauth": false,
-      "enabled": true,
-      "headers": { "Authorization": "Basic <base64(user:アプリパスワード)>" }
+      "oauth": {},
+      "enabled": true
     }
   }
 }
 ```
 
 ```bash
-# base64の作り方（アプリパスワードにコロンやスペースが無いことを確認してから）
-printf '%s' 'あなたのユーザー名:アプリパスワード' | base64
+opencode mcp auth nextcloud
 ```
 
-**`opencode.jsonc`に平文の資格情報を書かないでください。** opencodeが対応
-していれば`{env:NEXTCLOUD_MCP_AUTH}`のような環境変数参照を使ってください。
+表示されたURLをブラウザーで開き、「許可」→ Nextcloudのログイン（共通ログイン）→
+「アクセスを許可」の順に進みます。opencodeが「認証済み」になれば完了です。
+ログイン状態はopencodeが保存し、期限が来ると自動で更新します。
+
+opencodeを動かす機械にブラウザーが無い場合（GUIの無いVMなど）は、ログインが
+完了しません。下のアプリパスワードで使ってください。
+
+### アプリパスワードで使う（ブラウザーの無い機械）
+
+OAuthに対応していないクライアントは、Nextcloudの「設定 → セキュリティ」で作った
+アプリパスワードを`Authorization: Basic <base64(ユーザー名:アプリパスワード)>`で
+渡します。
 
 読み取りだけ使いたい場合は、opencode側の`tools`設定で書き込み系ツール
 （`nextcloud_write_*`・`nextcloud_delete_*`・`nextcloud_move_*`・
@@ -105,7 +100,7 @@ printf '%s' 'あなたのユーザー名:アプリパスワード' | base64
 
 ## 困ったとき
 
-- **401エラーが出る**: アプリパスワードが失効・削除されていないか確認してください（設定 → セキュリティ）
+- **401エラー・「needs authentication」が出る**: `opencode mcp auth nextcloud`でログインし直してください（アプリパスワードの場合は、失効・削除されていないかを設定 → セキュリティで確認）
 - **タグ編集が失敗する**: 対象が`music`配下の`.mp3`か、あなたにそのファイルの編集権限があるか確認してください
 - **カレンダーに予定を追加できない**: 読み取り専用で共有されたカレンダーではありませんか。「Calendar app is not available」と返る場合はNextcloudのカレンダーアプリが無効です（管理者へ連絡）
 - 上記で解決しない場合は管理者へ連絡してください（[管理者向け手順](../operations/nextcloud-mcp.md)）

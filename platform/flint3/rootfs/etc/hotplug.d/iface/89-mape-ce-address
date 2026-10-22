@@ -1,0 +1,41 @@
+#!/bin/sh
+# MAP-E の CE アドレスを上流側のデバイスにも付ける。**Flint 3 だけに要る。**
+#
+# 上流のルータは、BR から戻る IPv4-in-IPv6 を届ける前に、CE アドレスへの
+# 近隣要請を上流のセグメントへ出す。Linux は、要請を受けたデバイス自身に
+# 付いているアドレスにしか応えない。
+#
+# OpenWrt 24.10（router-01）の map.sh は CE アドレスを tunlink 側のデバイスへ
+# 付けるので何もしなくてよい。GL.iNet の純正ファーム（QSDK）の map.sh は
+# トンネル（map-wan）にしか付けないため、誰も近隣要請に応えず、**IPv4 が
+# 行きだけ通って戻りが全滅する**（2026-10-13 の切替試験で実測。IPv6 は無傷で、
+# SNAT も 15 ブロックへ分散していた）。
+#
+# 検証:
+#   ip -6 addr show dev "$(ubus call network.interface.wan6 status | jsonfilter -e '@.l3_device')"
+#   ping -4 8.8.8.8
+[ "${ACTION:-}" = "ifup" ] || exit 0
+[ "${INTERFACE:-}" = "wan" ] || exit 0
+
+rules=/tmp/map-wan.rules
+[ -r "$rules" ] || exit 0
+eval "$(grep -E '^RULE_1_IPV6ADDR=' "$rules")"
+[ -n "${RULE_1_IPV6ADDR:-}" ] || exit 0
+
+device=$(ubus call network.interface.wan6 status 2>/dev/null | jsonfilter -e '@.l3_device')
+[ -n "$device" ] || exit 0
+
+ip -6 addr replace "$RULE_1_IPV6ADDR/128" dev "$device" || exit 0
+logger -t mape-ce-address "added $RULE_1_IPV6ADDR to $device"
+
+# 上流のルータは、CE アドレスの持ち主（MAC）を覚えている。ルータを入れ替えた
+# 直後は前の機器の MAC が残り、消えるまで数分 IPv4 の戻りが届かない
+# （2026-10-13 の試験で、切替時も復帰時も実測）。CE アドレスを送信元にして
+# 上流へ近隣要請を出すと、要請に載る自分の MAC で上流の記憶が書き換わる。
+gateway=$(ip -6 route show default dev "$device" | sed -n 's/.* via \([^ ]*\) .*/\1/p' | head -n 1)
+if [ -n "$gateway" ]; then
+	ip -6 neigh del "$gateway" dev "$device" 2>/dev/null
+	ping -6 -c 2 -W 1 -I "$RULE_1_IPV6ADDR" "$gateway%$device" >/dev/null 2>&1
+	logger -t mape-ce-address "announced $RULE_1_IPV6ADDR to $gateway"
+fi
+exit 0

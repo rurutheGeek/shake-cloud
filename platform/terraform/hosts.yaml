@@ -26,7 +26,9 @@ hosts:
     vm_id: 140
     pool: platform
     flavor: small
-    # 常時起動のAPIと管理DB。下限0.5GiBでは足りないので1GiBにする。
+    # 常時起動のAPIと管理DB。2026-10-11: 14日間の実使用は最大約0.67GiBなので
+    # 上限を 2GiB → 1GiB へ下げた。下限と同じ値＝固定割り当て（バルーニング無効）。
+    memory_mib: 1024
     memory_min_mib: 1024
     disk_gib: 40
     # Garage（S3 の実体）もここに置く（2026-10-03。storage-s3 から合流）。
@@ -36,19 +38,6 @@ hosts:
     started: true
     tags: [cloud-control, storage, managed-by-terraform-admin]
     description: 自作クラウドAPIと管理DB。利用者VMを作る側なのでcloudプールには置かない。
-
-  monitor-01:
-    vm_id: 120
-    pool: platform
-    flavor: small
-    # balloon 下限。1GiB まで縮められて Grafana が OOM 死した（2026-10-06）。
-    memory_min_mib: 2048
-    # Prometheus の時系列と Grafana の状態も同じディスクに置く（2026-10-03 時点で約1.3GiB）。
-    disk_gib: 48
-    on_boot: true
-    started: true
-    tags: [monitoring, managed-by-terraform-admin]
-    description: 監視（Prometheus・Alertmanager・Grafana・UPS）。クラウドが壊れても原因を見られるよう基盤側に置く。クラウドVMから移した（2026-10-03。移行中の名前は monitor-02）。
 
   k8s-cp-01:
     vm_id: 200

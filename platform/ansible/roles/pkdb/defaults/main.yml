@@ -14,6 +14,11 @@ pkdb_adminer_url: 'https://adminer.{{ pkdb_dns.zone }}'
 # ポケモンの登録画面。入口は https://pkdb-entry.<ゾーン>（Forward Auth）。
 pkdb_entry_port: 8331
 pkdb_entry_url: 'https://pkdb-entry.{{ pkdb_dns.zone }}'
+# AI 向けの MCP サーバ。入口は https://pkdb-mcp.<ゾーン>/mcp（OAuth。Forward Auth なし）。
+# トークンを出すのは Authentik のアプリケーション pkdb-mcp（identity の configure.py が作る）。
+pkdb_mcp_port: 8332
+pkdb_mcp_url: 'https://pkdb-mcp.{{ pkdb_dns.zone }}'
+pkdb_mcp_issuer: 'https://auth.{{ pkdb_dns.zone }}/application/o/pkdb-mcp/'
 # 配備のたびに流す冪等なSQL。DBがまだ無い（復元前の）ときは何もしない。
 # ubsleepy.sql がDBを作り、次の ubsleepy_tables.sql がそのDBへ流れる。
 pkdb_sql:
@@ -34,6 +39,12 @@ pkdb_sql:
     file: entry_evolution.sql
   - database: sleepy_pkdb
     file: entry_rankings.sql
+  # MCP サーバ（AI）のロール。entry*.sql のあとに流す。
+  - database: sleepy_pkdb
+    file: mcp.sql
+  # アプリ用の表（app_<アプリ名>_）。イントロクイズの対応リスト。
+  - database: sleepy_pkdb
+    file: app_intro.sql
   - database: postgres
     file: ubsleepy.sql
   - database: ubsleepy

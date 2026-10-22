@@ -8,7 +8,7 @@ name: librespeed
 
 services:
   librespeed:
-    image: ${LIBRESPEED_IMAGE:-ghcr.io/librespeed/speedtest}:${LIBRESPEED_TAG:-6.2.0}
+    image: ${LIBRESPEED_IMAGE:-ghcr.io/librespeed/speedtest}:${LIBRESPEED_TAG:-6.3.1}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-Asia/Tokyo}

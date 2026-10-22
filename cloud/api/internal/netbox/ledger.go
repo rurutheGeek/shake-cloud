@@ -163,3 +163,16 @@ func (c *Client) SetPrimaryIP(ctx context.Context, vmID, ipID int) error {
 	body := map[string]any{"primary_ip4": ipID}
 	return c.do(ctx, http.MethodPatch, fmt.Sprintf("/virtualization/virtual-machines/%d/", vmID), body, nil)
 }
+
+// IPAddressesByTag lists every address carrying the tag, in one page.
+func (c *Client) IPAddressesByTag(ctx context.Context, tag string) ([]IPAddress, error) {
+	var addresses page[IPAddress]
+	err := c.do(ctx, http.MethodGet, "/ipam/ip-addresses/?limit=0&tag="+url.QueryEscape(tag), nil, &addresses)
+	return addresses.Results, err
+}
+
+// SetDNSName changes only an address's DNS name.
+func (c *Client) SetDNSName(ctx context.Context, ipID int, name string) error {
+	body := map[string]any{"dns_name": name}
+	return c.do(ctx, http.MethodPatch, fmt.Sprintf("/ipam/ip-addresses/%d/", ipID), body, nil)
+}

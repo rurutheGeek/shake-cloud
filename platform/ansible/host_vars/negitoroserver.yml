@@ -1,0 +1,11 @@
+---
+# zero2w（SD 7.4GB・メモリ 416MB）。ログはメモリだけに置き、SD カードに書かない。
+pi_base_journal_storage: volatile
+# 外から見る監視（public-monitor）。家の外にあるのはこの機だけなので、ここで動かす。
+# 状態ファイルは毎分書くので、SD カードではなくメモリ（/run）に置く。
+public_monitor_state_dir: /run/public-monitor
+public_monitor_check_internal: false
+# 旧配備の残り（Pi 5 への転送。どちらも読み込まれていなかった）。2026-10-16 に片付け。
+pi_base_retired_paths:
+  - /etc/nginx/sites-available/alexa_proxy
+  - /etc/nginx/stream.conf.d/stream_proxy.conf.bak.1780217589

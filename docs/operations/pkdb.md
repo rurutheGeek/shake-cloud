@@ -1,6 +1,6 @@
 ---
 title: ポケモン系のPostgreSQL（pkdb）
-updated: 2026-10-05
+updated: 2026-10-09
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # ポケモン系のPostgreSQL（pkdb）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）はDBを使いません。
 
@@ -55,6 +55,21 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 
 `ubsleepy.sql` は `CREATE DATABASE` を含むため `-- manage.py: no-transaction` を付けています（トランザクション内では実行できない）。
 
+## アプリ用の表（`app_<アプリ名>_`）
+
+図鑑のデータではなく、特定のアプリのために置く表は、名前を `app_<アプリ名>_` で始めます（スキーマは同じ `pokemondb`）。
+
+| 表 | 使うアプリ | 中身 |
+| --- | --- | --- |
+| `app_intro_alias` | UBSLEEPY のイントロクイズ | 曲の別名（1行に1つ）。`in_work` が `work` と違う行は、再録でその作品に流れるときだけの呼び名 |
+| `app_intro_appearance` | 同上 | 曲がほかに流れる作品（再録・流用） |
+| `app_intro_secret` | 同上 | ふだん出題しない音源（未使用曲・古いバージョンなど） |
+
+- 定義は `stacks/pkdb/sql/app_intro.sql`（配備のたびに流れ、冪等）。作品は略称、曲名は文字のまま持ち、**リストを直している間は正規化しません**。
+- Bot は `pkdb_reader` で1分ごとに読み直すので、**直すと配備なしで本番・テストの両方に反映**されます。表が空・DBにつながらないときは、Bot のイメージに入っているCSVを使います。
+- 直すのは UBSLEEPY-next の `python tools/intro_db.py`（apps-01 のコンテナの `psql` を `pkdb_editor` で使う。手順は同リポジトリの `CLAUDE.md`）。`pkdb_editor` はこの3表にだけ直接書けます。
+- このために `pkdb_editor` へスキーマ `pokemondb` の `USAGE` を足しました（表の `SELECT` は元から持っていたが、スキーマに入れず使えていなかった）。
+
 ## ポケモンDBの登録画面
 
 **<https://pkdb-entry.apextox.dpdns.org>**（Homarr の「ポケモン登録」。Authentik の `admins` のみ）。SQL を書かずに、ポケモン・わざ・特性・図鑑情報・覚えわざ・進化・作品・使用率順位を足す・直す画面です。
@@ -78,7 +93,7 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 - 特性・わざ・進化方法は名前で入れる。その作品に無ければ直近の作品から写し、どこにも無ければ新しく足す（IDは自動）。
 - 覚えわざは「複数行を貼り付けて追加」でまとめて入る。消す行は「削除」に印を付けて保存。別の作品からまとめて写すこともできる。
 - 保存のたびに関係するマテリアライズドビューを作り直すので、クイズや検索にすぐ出る（覚えわざ・図鑑情報・順位はビューに影響しない）。
-- 誰が何をしたかは `pokemondb.entry_log` に before/after 付きで残る。画面から消せるのは、わざの行・覚えわざ・進化リンク・（置き換えでの）あだ名だけ。ほかの行や生のSQLは、画面右上の「Adminer」から（同じ SSO で開きます）。
+- 誰が何をしたかは `pokemondb.entry_log` に before/after 付きで残る。接続したロール（`db_role`）と、呼ぶ側が `pkdb.source` に入れた出典（`source`）も残る。画面から消せるのは、わざの行・覚えわざ・進化リンク・（置き換えでの）あだ名だけ。ほかの行や生のSQLは、画面右上の「Adminer」から（同じ SSO で開きます）。
 - **他作品からのコピーは内容を必ず確認する。** スキーマにある「根拠なく過去作のデータを流用しない」原則に従い、コピーは下書きとして使い、作品ごとの正しい値に直す。
 
 仕組み:
@@ -90,6 +105,55 @@ Discord Bot「UBSLEEPY」のセーブデータ（おこづかい・クジびき�
 | DBのロール | `pkdb_entry`。関数の実行と全表の閲覧だけで、表へ直接は書けない。パスワードは apps-01 の `/opt/pkdb/secrets/entry_password` にだけあり、この画面のコンテナだけが使う |
 
 関数は SQL からも呼べます（`pkdb_editor` に実行権限あり）。AIやスクリプトから足すときも、表へ直接 `INSERT` せずこれを使います。
+
+## AI からの登録（MCP サーバ）
+
+**<https://pkdb-mcp.apextox.dpdns.org/mcp>**（Streamable HTTP）。認可は MCP の仕様どおり OAuth 2.1 で、トークンを出すのは Authentik のアプリケーション `pkdb-mcp`（`admins` のみ、PKCE の公開クライアント）。ブラウザの無い機械からは、Authentik のアプリパスワードを Basic で渡せる。入口に Forward Auth は付けない。
+
+### つなぎ方
+
+どちらの方法でも同じトークンの確かめ方になり、`entry_log` の `actor` は `mcp:<Authentikのユーザ名>`。
+
+| 方法 | 使う場面 | クライアントの設定 |
+| --- | --- | --- |
+| OAuth（MCP の仕様のログイン） | クライアントと同じ機械にブラウザがある | URL だけ。初回にブラウザで Authentik のログインが開く |
+| アプリパスワード（`Authorization: Basic`） | ブラウザの無い機械・OAuth を持たないクライアント | ヘッダに `Basic base64(<ユーザ名>:<アプリパスワード>)` |
+
+アプリパスワードは Authentik の利用者の設定（「トークンとアプリパスワード」）で作り、消せば使えなくなる。pkdb-mcp が Authentik のトークン窓口で `client_credentials` に引き換え、期限まで覚えておく。
+
+opencode（ブラウザの無い dev-02、`~/.config/opencode/opencode.jsonc` の `mcp`）:
+
+```jsonc
+"pkdb": {
+  "type": "remote",
+  "url": "https://pkdb-mcp.apextox.dpdns.org/mcp",
+  "enabled": true,
+  "oauth": false,
+  "headers": { "Authorization": "Basic {file:pkdb-mcp.key}" }
+}
+```
+
+`pkdb-mcp.key` は `<ユーザ名>:<アプリパスワード>` を base64 にした1行（`~/.config/opencode/`、0600）。OAuth のクライアントの戻り先は、`stacks/identity/configure.py` の `PKDB_MCP_REDIRECTS` に登録したものだけ（いまは opencode の `http://127.0.0.1:19876/mcp/oauth/callback`）。
+
+### ツール
+
+| 種類 | ツール |
+| --- | --- |
+| 読む | `describe_tables`（表と列の説明）・`query`（読み取り専用の SELECT、10 秒・500 行まで）・`recent_changes`（`entry_log`） |
+| 書く | 登録の関数と同じ名前（`register_pokemon`・`register_move`・`save_learnset`・`import_rankings` など 21 個） |
+| まとめて | `batch`（書くツールを 1 つのトランザクションで。1 件でも失敗すれば全部取り消す） |
+
+### 決まりごと
+
+- 書くツールはどれも `source`（出典）が必須で、`entry_log.source` に残る。`actor` は `mcp:<Authentikのユーザ名>`、`db_role` は `pkdb_mcp`。
+- **名前で指定した特性・わざ・進化方法が、その作品に無ければ error**（`pkdb.strict`）。過去作から写さない。先に `register_ability`・`register_move` で入れる。画面からの登録は今までどおり写す・足す。
+- マテリアライズドビューの作り直しは、ツール 1 回（`batch` なら全体）につき最後に 1 回（`pkdb.defer_refresh`）。作り直しは約 1.5 秒で、その間クイズの読み込みは待たされる。ビューに一意の索引が無いので `CONCURRENTLY` は使えない。
+
+| 部品 | 場所 |
+| --- | --- |
+| サーバ | `stacks/pkdb/mcp/`（Python 3.13 + 公式 SDK `mcp`。apps-01 でイメージを組む。`127.0.0.1:8332`） |
+| DBのロール | `pkdb_mcp`（`sql/mcp.sql`）。`pkdb_entry` の権限を受け継ぐだけで、表へ直接は書けない。パスワードは apps-01 の `/opt/pkdb/secrets/mcp_password` |
+| トークンの確認 | Authentik の JWKS で署名、発行者 `https://auth.apextox.dpdns.org/application/o/pkdb-mcp/`、宛先 `pkdb-mcp`、期限 |
 
 ## データの直し
 

@@ -1,6 +1,6 @@
 ---
-title: Tailscale（router-01 上の subnet router）
-updated: 2026-10-03
+title: Tailscale（Flint 3 上の subnet router）
+updated: 2026-10-14
 section: 運用手順
 audience: 管理者
 tags:
@@ -8,13 +8,24 @@ tags:
   - network
 ---
 
-# Tailscale（router-01 上の subnet router）
+# Tailscale（Flint 3 上の subnet router）
 
-> **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。宅外端末での実機検証が未了。
+**状態**: **2026-10-14 に [Flint 3](flint3.md#tailscale) へ移した（端末情報を引き継ぎ、宅外から入れる範囲に個人端末の区画を追加）。** 以下は router-01 での記録: router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。宅外端末での実機検証が未了。
 
-宅外から管理LAN（`192.168.10.0/24`）へ戻るための Tailscale の subnet router です。[N02](../development/N02-tailscale.md) の復旧経路で、最初は cloud VM `net-01` に置いていましたが、2026-10-03 に **依存の最も少ない router-01（OpenWrt）の上へ移しました**。ルータは Proxmox ホスト（K11）上の VM なので、**K11 そのものが落ちれば使えない**点は変わりません。カバーするのは VM 単位の故障までです。真のアウトオブバンドが必要になったら、専用ルータ機や別ハードを検討します（[VPN比較](../architecture/vpn.md)）。
+宅外から家の区画へ入るための Tailscale の subnet router です。**2026-10-14 から Flint 3（K11 とは別の機械）で動いています。** K11 が落ちても宅外から家へ入れます。
+
+| 項目 | 値 |
+| --- | --- |
+| ホスト | Flint 3（GL-BE9300、`192.168.10.1`、tailnet `100.91.7.69`、`tag:router`） |
+| 流している経路 | `192.168.10.0/24`（サーバー）・`192.168.40.0/24`（個人端末）。`autoApprovers` で自動承認。ネット専用・DMZ は流さない |
+| 経路を保つ仕組み | GL の `gl_tailscale` はインターフェースが変わるたびに `tailscale up --reset` で経路を消すため、`hotplug.d/iface/95-shakecloud-tailscale-routes` が約20秒後に流し直す |
+| アクセス制限 | `platform/tailscale/acl.json`（正本）。自分と家族の端末は全部、タグの付いた機器（relay・web・dmz・monitoring・game・router）は決めた先だけ |
+| tailnet DNS | `192.168.10.1`（AdGuard Home。tailscale ゾーンの 53 を 3053 へ転送） |
+| 家の中での遠回り | 家にある端末が「サブネットを使う」と、家の中の通信も Flint 3 の Tailscale を通る。家から出さない端末はオフにする（[Flint 3](flint3.md#tailscale)） |
+
+以下は router-01 で動かしていた頃の記録です（2026-10-03〜10-14）。
 
 ## 実体
 

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **実機を切り替えた（2026-10-03）。** 入口は core-01、後ろは monitor-01・media-01・apps-01・cloud-01。Authentik は入口と同じホスト（core-01）に居る。
+**状態**: **実機を切り替えた（2026-10-03）。** 入口は core-01、後ろは tarakoserver（監視。2026-10-15 に monitor-01 から交代）・media-01・apps-01・cloud-01。Authentik は入口と同じホスト（core-01）に居る。
 
 公開の証明書（Let's Encrypt）と Cloudflare のDNS編集トークンを持つホストを、**入口の1台（core-01）だけ**にします。これまでは identity・cloud-01・media-01・services-01（現 core-01）・monitor-01 の5台がそれぞれトークンを持ち、1台が侵害されるとゾーン全体のDNSを書き換えられる状態でした。
 
@@ -40,7 +40,7 @@ tags:
 ```yaml
 edge:
   host: core-01
-  backends: [monitor-01, media-01, apps-01, cloud-01]   # 入口の後ろへ移し終えたホスト。1台ずつ足す
+  backends: [tarakoserver, media-01, apps-01, cloud-01]   # 入口の後ろへ移し終えたホスト。1台ずつ足す
 ```
 
 ## トークンが残る場所
@@ -84,7 +84,7 @@ edge:
 
 5. ブラウザーと[監視](monitoring.md)（blackbox）で確かめ、`dns.yaml` と `backend-ca/monitor-01.crt` をコミットする
 
-各ホストの配備に使うPlaybookは、monitor-01 が `monitoring.yml`、media-01 が `media-tls.yml`、cloud-01 が `cloud.yml`、apps-01 は各アプリの Playbook（`homarr.yml`・`vaultwarden.yml` など）です。Authentik（`identity.yml`）は入口と同じ core-01 なので、入口側（`edge.yml`）で受けます。
+各ホストの配備に使うPlaybookは、tarakoserver が `monitoring.yml`・`netmap.yml`、media-01 が `media-tls.yml`、cloud-01 が `cloud.yml`、apps-01 は各アプリの Playbook（`homarr.yml`・`vaultwarden.yml` など）です。Authentik（`identity.yml`）は入口と同じ core-01 なので、入口側（`edge.yml`）で受けます。
 
 ## 戻す
 

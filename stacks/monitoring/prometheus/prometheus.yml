@@ -57,6 +57,36 @@ scrape_configs:
   - job_name: node
     file_sd_configs:
       - files: ['/etc/prometheus/node-targets.yml']
+    # 通知に出す名前（host）。IP アドレスを人に見せない。
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.10:9100'
+        target_label: host
+        replacement: 'K11'
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.200:9100'
+        target_label: host
+        replacement: 'core-01'
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.205:9100'
+        target_label: host
+        replacement: 'cloud-01'
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.11:9100'
+        target_label: host
+        replacement: 'Pi 4（tarakoserver）'
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.105:9100'
+        target_label: host
+        replacement: 'apps-01'
+      - source_labels: [__address__]
+        regex: '192\.168\.30\.12:9100'
+        target_label: host
+        replacement: 'Pi 5（shakeserver）'
+      - source_labels: [__address__]
+        regex: '192\.168\.10\.1:9100'
+        target_label: host
+        replacement: 'Flint 3'
 
   # ゲームVM（game1）の使用量。ポータルがW07 metricsをPrometheus形式で
   # 公開する。トークンは secrets/game_metrics_token（SOPS由来）から読む。

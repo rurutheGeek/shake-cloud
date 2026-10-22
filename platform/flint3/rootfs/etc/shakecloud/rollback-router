@@ -1,0 +1,18 @@
+#!/bin/sh
+# apply-router の前の状態へ戻して再起動する。apply-router のタイマーと
+# platform/flint3/trial.sh が呼ぶ。
+set -u
+
+backup=/root/pre-router
+[ -d "$backup/config" ] || { echo "no backup at $backup"; exit 1; }
+
+logger -t shakecloud "rolling back to the state before apply-router"
+rm -rf /etc/config
+cp -a "$backup/config" /etc/config
+cp -a "$backup/99-disable-ipv6.conf" /etc/sysctl.d/99-disable-ipv6.conf
+cp -a "$backup/ndppd.conf" /etc/ndppd.conf
+/etc/init.d/gl_ipv6 enable
+/etc/init.d/odhcpd disable
+/etc/init.d/ndppd disable
+sync
+reboot

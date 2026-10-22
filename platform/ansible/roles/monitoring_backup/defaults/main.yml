@@ -1,0 +1,10 @@
+---
+# 監視の記録（tarakoserver の /srv/monitoring）を毎日 K11 の 6TB HDD へ写す。
+monitoring_backup_project_dir: /opt/monitoring-stack
+monitoring_backup_local_dir: /srv/backups/monitoring
+# Pi に残す世代（HDD の上）と K11 に残す日数。
+monitoring_backup_local_keep: 2
+monitoring_backup_remote_days: 14
+monitoring_backup_pve_host: 192.168.10.10
+monitoring_backup_pve_dir: /srv/bulk/backups/monitoring
+monitoring_backup_pve_key: ~/.ssh/id_ed25519_pve

@@ -1,0 +1,75 @@
+---
+# UPS を USB で持つホストで NUT を動かす。状態を LAN へ出し（upsd）、低電池では
+# upsmon（primary）が K11（secondary）を先に止めさせてから自分も止まる。
+- name: Install NUT
+  ansible.builtin.apt:
+    name: [nut-server, nut-client]
+    state: present
+    install_recommends: false
+
+- name: Read the NUT passwords
+  ansible.builtin.command:
+    argv: [sops, --decrypt, --output-type, json, '{{ ups_server_sops_file }}']
+  delegate_to: localhost
+  become: false
+  register: ups_server_secrets
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Configure NUT
+  ansible.builtin.template:
+    src: '{{ item.src }}'
+    dest: '/etc/nut/{{ item.dest }}'
+    owner: root
+    group: nut
+    mode: '0640'
+  loop:
+    - {src: ups.conf.j2, dest: ups.conf}
+    - {src: upsd.conf.j2, dest: upsd.conf}
+    - {src: upsd.users.j2, dest: upsd.users}
+    - {src: upsmon.conf.j2, dest: upsmon.conf}
+  loop_control:
+    label: '{{ item.dest }}'
+  no_log: true
+  register: ups_server_conf
+
+- name: Run NUT as a network server
+  ansible.builtin.copy:
+    content: |
+      # Ansible（ups_server）が置く。upsd がドライバを起動し、LAN へ状態を出す。
+      MODE=netserver
+    dest: /etc/nut/nut.conf
+    owner: root
+    group: nut
+    mode: '0640'
+  register: ups_server_mode
+
+# 既に挿さっている USB 機器には udev ルールが後から効かない。
+- name: Let the nut group open the UPS
+  ansible.builtin.command:
+    argv: [udevadm, trigger, --action=add, --subsystem-match=usb]
+  changed_when: false
+
+- name: Restart the UPS driver and upsd
+  ansible.builtin.systemd_service:
+    name: '{{ item }}'
+    enabled: true
+    state: restarted
+  loop: [nut-driver-enumerator.service, nut-server.service]
+  when: ups_server_conf is changed or ups_server_mode is changed
+
+- name: Wait for the UPS to answer
+  ansible.builtin.command:
+    argv: [upsc, '{{ ups_server_ups_name }}@localhost', ups.status]
+  register: ups_server_status
+  changed_when: false
+  retries: 10
+  delay: 3
+  until: ups_server_status.rc == 0
+
+- name: Start upsmon
+  ansible.builtin.systemd_service:
+    name: nut-monitor
+    enabled: true
+    state: "{{ 'restarted' if ups_server_conf is changed or ups_server_mode is changed else 'started' }}"

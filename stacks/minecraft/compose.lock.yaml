@@ -1,0 +1,10 @@
+{
+  "services": {
+    "server": {
+      "image": "itzg/minecraft-server@sha256:2e2252ca93b6a0bd8310007c774ffc97f3c66da7c73b28f5cc85d9e8a278546e"
+    },
+    "backup": {
+      "image": "itzg/mc-backup@sha256:3cd7eb288295eed6ae9ce69d71593d81ca1f9a5f342a6240eb533cf7edba75ab"
+    }
+  }
+}

@@ -8,6 +8,7 @@ theme:
 nav:
   - ホーム: index.md
   - サービス図: service-map.md
+  - ネットワーク図: network-map.md
   - ドキュメント地図: map.md
   - ドキュメントの書き方: contributing-docs.md
   - 利用者向け:
@@ -23,6 +24,7 @@ nav:
       - 音楽・取り込み・タグ: services/music.md
       - タグ管理（MP3）: services/tags.md
       - 共通RSSタイムライン: services/rss.md
+      - リポジトリの保管庫: services/forgejo.md
       - Home Assistantと家電の使い方: services/home-assistant.md
       - Android VMの画面を使う（RDP）: services/android.md
       - プリンター（Canon TS8430）: services/printer.md
@@ -41,6 +43,7 @@ nav:
           - W06 MeTube・音楽変換・タグ編集: development/W06-music-tools.md
           - W07 RomM: development/W07-romm.md
           - W08 クライアント端末のバックアップ: development/W08-client-backup.md
+          - W09 Smart Switchの非公式クライアント（解析）: development/W09-smartswitch-re.md
           - W10 Nextcloudの画像OCR検索: development/W10-ocr-search.md
           - Navidromeの改造案: development/navidrome-ideas.md
       - A：AI:
@@ -78,6 +81,7 @@ nav:
           - I07 クラウドポータルのUI改善: development/I07-portal-ui.md
       - M：監視:
           - M01 監視（Prometheus・Grafana）: development/M01-monitoring.md
+          - M02 監視のタッチパネル: development/M02-touch-panel.md
       - O：復旧・運用:
           - O01 管理DBの外部バックアップ: development/O01-cloud-backup.md
           - O02 CNPGバックアップ: development/O02-cnpg-backup.md
@@ -132,6 +136,7 @@ nav:
           - Garage（S3互換ストレージ）: operations/garage.md
           - ディスク増設: operations/disk.md
           - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
+          - Flint 3（家庭内ルーター）: operations/flint3.md
           - router-01（OpenWrt・自作ルータ）: operations/router.md
           - router-01 の設定まとめ: operations/router-config.md
           - DNS と広告遮断（AdGuard Home）: operations/adguard.md

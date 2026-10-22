@@ -1,0 +1,91 @@
+---
+- name: Install the build tools and the font
+  ansible.builtin.apt:
+    name: '{{ touch_panel_packages }}'
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the build directory
+  ansible.builtin.file:
+    path: '{{ touch_panel_state_dir }}/src/src'
+    state: directory
+    mode: '0755'
+
+- name: Download LVGL
+  ansible.builtin.get_url:
+    url: https://github.com/lvgl/lvgl/archive/refs/tags/v{{ touch_panel_lvgl_version }}.tar.gz
+    dest: '{{ touch_panel_state_dir }}/lvgl-{{ touch_panel_lvgl_version }}.tar.gz'
+    checksum: sha256:{{ touch_panel_lvgl_sha256 }}
+    mode: '0644'
+
+- name: Unpack LVGL
+  ansible.builtin.unarchive:
+    src: '{{ touch_panel_state_dir }}/lvgl-{{ touch_panel_lvgl_version }}.tar.gz'
+    dest: '{{ touch_panel_state_dir }}'
+    remote_src: true
+    creates: '{{ touch_panel_state_dir }}/lvgl-{{ touch_panel_lvgl_version }}/lvgl.h'
+
+- name: Copy the source
+  ansible.builtin.copy:
+    src: '{{ touch_panel_source_dir }}/{{ item }}'
+    dest: '{{ touch_panel_state_dir }}/src/{{ item }}'
+    mode: '0644'
+  loop:
+    - Makefile
+    - lv_conf.h
+    - src/
+
+- name: Build the touch panel
+  ansible.builtin.command:
+    argv:
+      - make
+      - -j4
+      - LVGL_DIR={{ touch_panel_state_dir }}/lvgl-{{ touch_panel_lvgl_version }}
+      - BUILD={{ touch_panel_state_dir }}/build
+    chdir: '{{ touch_panel_state_dir }}/src'
+  register: touch_panel_build
+  changed_when: "'Nothing to be done' not in touch_panel_build.stdout"
+
+- name: Install the touch panel
+  ansible.builtin.copy:
+    src: '{{ touch_panel_state_dir }}/build/touch-panel'
+    dest: /usr/local/bin/touch-panel
+    remote_src: true
+    mode: '0755'
+  notify: Restart the touch panel
+
+- name: Create the configuration directory
+  ansible.builtin.file:
+    path: /etc/touch-panel
+    state: directory
+    mode: '0755'
+
+- name: Install the configuration
+  ansible.builtin.copy:
+    src: '{{ touch_panel_source_dir }}/panel.json'
+    dest: /etc/touch-panel/panel.json
+    mode: '0644'
+  notify: Restart the touch panel
+
+- name: Install the service
+  ansible.builtin.template:
+    src: touch-panel.service.j2
+    dest: /etc/systemd/system/touch-panel.service
+    mode: '0644'
+  notify: Restart the touch panel
+
+# 画面には表示アプリだけを出す。tty1 のログイン画面は出さない。
+- name: Hide the login prompt on the screen
+  ansible.builtin.systemd:
+    name: getty@tty1
+    enabled: false
+    masked: true
+    state: stopped
+
+- name: Start the touch panel
+  ansible.builtin.systemd:
+    name: touch-panel
+    enabled: true
+    state: started
+    daemon_reload: true

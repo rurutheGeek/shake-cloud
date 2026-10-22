@@ -3,13 +3,18 @@
     "tag:relay": [
       "autogroup:admin"
     ],
-    "tag:web": [
+    "tag:router": [
+      "autogroup:admin"
+    ],
+    "tag:monitoring": [
+      "autogroup:admin"
+    ],
+    "tag:game": [
+      "autogroup:admin"
+    ],
+    "tag:dmz": [
       "autogroup:admin"
     ]
-  },
-  "hosts": {
-    "shakeserver": "100.116.167.59",
-    "web01": "100.75.249.112"
   },
   "acls": [
     {
@@ -27,11 +32,100 @@
         "tag:relay"
       ],
       "dst": [
-        "web01:80",
-        "web01:443",
-        "shakeserver:25565"
+        "tag:dmz:80,443"
+      ]
+    },
+    {
+      "action": "accept",
+      "src": [
+        "tag:monitoring"
+      ],
+      "dst": [
+        "tag:relay:80,9100"
       ]
     }
   ],
-  "ssh": []
+  "autoApprovers": {
+    "routes": {
+      "192.168.10.0/24": [
+        "tag:router"
+      ],
+      "192.168.40.0/24": [
+        "tag:router"
+      ]
+    }
+  },
+  "ssh": [],
+  "tests": [
+    {
+      "src": "tag:relay",
+      "accept": [
+        "tag:dmz:443",
+        "tag:dmz:80"
+      ],
+      "deny": [
+        "tag:dmz:22",
+        "tag:dmz:25565",
+        "tag:router:22",
+        "tag:monitoring:22",
+        "192.168.10.1:443",
+        "192.168.10.10:8006",
+        "192.168.10.200:443"
+      ]
+    },
+    {
+      "src": "tag:dmz",
+      "deny": [
+        "tag:relay:22",
+        "tag:monitoring:22"
+      ]
+    },
+    {
+      "src": "tag:monitoring",
+      "accept": [
+        "tag:relay:80"
+      ],
+      "deny": [
+        "tag:relay:22",
+        "tag:dmz:22"
+      ]
+    },
+    {
+      "src": "tag:router",
+      "deny": [
+        "tag:relay:22",
+        "tag:dmz:22"
+      ]
+    },
+    {
+      "src": "rurutheGeek@github",
+      "accept": [
+        "192.168.10.10:8006",
+        "192.168.10.1:443",
+        "192.168.10.200:443",
+        "192.168.40.97:3389",
+        "tag:game:47989",
+        "tag:game:22"
+      ]
+    },
+    {
+      "src": "tag:game",
+      "deny": [
+        "192.168.10.10:8006",
+        "192.168.10.10:22",
+        "192.168.10.1:443",
+        "192.168.10.200:443",
+        "192.168.40.97:3389",
+        "tag:dmz:22",
+        "100.64.122.9:22"
+      ]
+    },
+    {
+      "src": "tag:relay",
+      "deny": [
+        "tag:dmz:25565",
+        "tag:dmz:22"
+      ]
+    }
+  ]
 }

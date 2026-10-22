@@ -1,0 +1,11 @@
+# Ansible（roles/shake_web）が stacks/shake-web/nginx/*.template から作る。
+# 入口の nginx の /etc/nginx/templates に重ねる（起動時に conf.d へ展開される）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shake-web-nginx
+data:
+{% for path in lookup('ansible.builtin.fileglob', shake_web_source_dir + '/nginx/*.template', wantlist=True) | sort %}
+  {{ path | basename }}: |
+{{ lookup('ansible.builtin.file', path) | indent(4, first=true) }}
+{% endfor %}

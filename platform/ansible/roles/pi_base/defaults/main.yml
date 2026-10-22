@@ -1,0 +1,39 @@
+---
+# Raspberry Pi（shakeserver・tarakoserver・negitoroserver）の土台。
+# SD カード・フラッシュへの書き込みを減らし、使っていない画面と古いコンテナを片付ける。
+
+# journald の置き場所。volatile はメモリだけ（SD カードに書かない）。
+pi_base_journal_storage: persistent
+pi_base_journal_max_use: 200M
+pi_base_journal_runtime_max_use: 32M
+# 画面を出さない（graphical.target をやめる）。タッチパネルで表示するホストは false。
+pi_base_headless: true
+# 止めるサービス。VNC は LAN 全体に開いていたので止める。
+pi_base_disabled_services:
+  - vncserver-x11-serviced
+  - cups
+  - cups-browsed
+# 片付ける停止済みのコンテナ（データのボリュームは消さない）。
+pi_base_retired_containers: []
+# 使っていないイメージとビルドキャッシュを消す。
+pi_base_prune_docker: false
+# 書き込みの多いものを置く HDD（ファイルシステムのラベル）と取り付け先。空なら何もしない。
+# nofail なので、HDD が無くても起動は止まらない。
+pi_base_data_label: ''
+pi_base_data_mount: /srv
+# 固まったら自動で再起動する（Raspberry Pi の bcm2835 ウォッチドッグ。上限は 15 秒）。
+# systemd が定期的に叩き、止まると部品の側が再起動をかける。
+pi_base_watchdog_sec: 15s
+pi_base_reboot_watchdog_sec: 2min
+# 引退させたもの。サービスは止めて定義ごと消し、ファイルとディレクトリは消す。
+pi_base_retired_services: []
+pi_base_retired_paths: []
+# 消す cron の行。{user: 誰の crontab, match: 行に含まれる文字列}
+pi_base_retired_cron: []
+# どのコンテナも使っていない Docker のボリュームを消す（データのボリュームが残っていないことを確かめてから）。
+pi_base_prune_volumes: false
+# スワップはメモリの上（zram）だけ。rpi-swap の既定は SD カードの上にファイルも作る。
+pi_base_swap_mechanism: zram
+# smartmontools の表に無い USB ケース。{usb: "0xVID:0xPID", name: 名前, type: sat}
+# 表に無いと smartd・smartmon（node_exporter）が開けず、HDD が無いことにされる。
+pi_base_smart_usb_bridges: []

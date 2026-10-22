@@ -27,8 +27,11 @@ import (
 // matters: VMs outside the pool are invisible and make creation fail, per-VM
 // calls on an unknown VMID answer 403, and work finishes through tasks.
 type fakePVE struct {
-	mu      sync.Mutex
-	vms     map[int]*fakeVM
+	mu  sync.Mutex
+	vms map[int]*fakeVM
+	// listed overrides the status ListVMs reports, as pvestatd's cache does
+	// for a few seconds after a power change.
+	listed  map[int]string
 	outside map[int]bool
 	volumes map[string]bool
 	sizes   map[string]int64
@@ -95,7 +98,11 @@ func (f *fakePVE) ListVMs(ctx context.Context) ([]proxmox.VM, error) {
 	defer f.mu.Unlock()
 	var vms []proxmox.VM
 	for vmid, vm := range f.vms {
-		vms = append(vms, proxmox.VM{VMID: vmid, Status: vm.status, Pool: "cloud", Node: "apextox"})
+		status := vm.status
+		if listed, ok := f.listed[vmid]; ok {
+			status = listed
+		}
+		vms = append(vms, proxmox.VM{VMID: vmid, Status: status, Pool: "cloud", Node: "apextox"})
 	}
 	sort.Slice(vms, func(i, j int) bool { return vms[i].VMID < vms[j].VMID })
 	return vms, nil
@@ -739,6 +746,32 @@ func TestReconcileFollowsOutsideChangesButNeverDeletes(t *testing.T) {
 	}
 	if got := get(t, s, a.ID); got.StateReason == missingReason {
 		t.Fatal("reconcile acted although nothing was visible")
+	}
+}
+
+func TestReconcileIgnoresTheStaleListAfterAStop(t *testing.T) {
+	s, pve, _ := testService(t)
+	alice := newAccount(t, s, "alice")
+	instance := run(t, s, alice, small)
+	work(t, s, 5)
+	if _, err := request(t, s, instance.ID, db.ActionStop, alice); err != nil {
+		t.Fatal(err)
+	}
+	work(t, s, 2)
+	vmid := *get(t, s, instance.ID).VMID
+	pve.listed = map[int]string{vmid: "running"}
+	if err := s.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := get(t, s, instance.ID); got.State != db.StateStopped {
+		t.Fatalf("state = %s, want stopped", got.State)
+	}
+	got, err := request(t, s, instance.ID, db.ActionStart, alice)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.PendingAction != db.ActionStart {
+		t.Fatalf("start was not queued: state=%s pending=%q", got.State, got.PendingAction)
 	}
 }
 

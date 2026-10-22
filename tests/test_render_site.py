@@ -203,5 +203,27 @@ class RenderSiteTests(unittest.TestCase):
                 render_site.render(directory)
 
 
+class SubnetTests(unittest.TestCase):
+    """The API learns the segments of the home network from network.yaml."""
+
+    def setUp(self):
+        import yaml
+        self.network = yaml.safe_load((ROOT / 'platform/terraform/network.yaml').read_text(encoding='utf-8'))
+        self.subnets = {entry['name']: entry for entry in render_site.subnets(self.network)}
+
+    def test_the_server_segment_is_the_default_and_keeps_the_cloud_range(self):
+        defaults = [name for name, entry in self.subnets.items() if entry.get('default')]
+        self.assertEqual(defaults, ['server'])
+        self.assertEqual(self.subnets['server']['ip_range_start'], self.network['cloud']['range_start'])
+        # Untagged on the bridge until the cloud VLAN is set, VLAN number or not.
+        self.assertEqual(self.subnets['server']['bridge_tag'], self.network['vlan']['cloud']['vlan_id'] or 0)
+
+    def test_only_segments_with_a_cloud_range_take_instances(self):
+        for name in ('personal', 'iot', 'management'):
+            self.assertNotIn('ip_range_start', self.subnets[name], name)
+        self.assertEqual(self.subnets['dmz']['bridge_tag'], 30)
+        self.assertTrue(self.subnets['dmz']['ip_range_start'].startswith('192.168.30.'))
+
+
 if __name__ == '__main__':
     unittest.main()

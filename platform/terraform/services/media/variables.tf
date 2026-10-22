@@ -40,14 +40,16 @@ variable "memory_mib" {
 }
 
 variable "memory_min_mib" {
-  description = "バルーニングでホストが回収できる下限。"
+  description = "バルーニングでホストが回収できる下限。ballooning が false のときは 0。"
   type        = number
-  default     = 2048
+  default     = 0
 }
 
+# 2026-10-15 に止めた。ホストの使用率が 80% を超えると 2GiB まで絞られ、
+# 重い処理と重なると OOM になる（2026-10-08）。
 variable "ballooning" {
   type    = bool
-  default = true
+  default = false
 }
 
 variable "root_disk_gib" {
@@ -71,5 +73,5 @@ variable "data_mount_path" {
 variable "bulk_disk_gib" {
   description = "大容量データ用の HDD ボリューム（GiB）。1本の上限は cloud.yaml の volume_size_gib.max。"
   type        = number
-  default     = 500
+  default     = 2048
 }

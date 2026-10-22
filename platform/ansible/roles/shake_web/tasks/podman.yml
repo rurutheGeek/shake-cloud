@@ -1,0 +1,206 @@
+---
+# Podman（root 以外のユーザー shakeweb）で動かす。定義は Kubernetes の YAML
+# （stacks/shake-web/kube/）で、Quadlet の .kube ユニットが `podman kube play` する。
+# 更新は podman auto-update（GHCR の新しいイメージを取って入れ替え、起動に失敗したら戻す）。
+#
+# 入口の nginx（front）だけがホストのネットワークで 80/443 を受け、アプリと静的物へ
+# 127.0.0.1 の固定ポートで転送する。
+
+- name: Install Podman
+  ansible.builtin.apt:
+    name:
+      - podman
+      - passt
+      - aardvark-dns
+      - netavark
+      - uidmap
+      - dbus-user-session
+    state: present
+
+- name: Create the Podman user
+  ansible.builtin.user:
+    name: '{{ shake_web_podman_user }}'
+    system: true
+    home: '{{ shake_web_podman_home }}'
+    create_home: true
+    shell: /usr/sbin/nologin
+  register: shake_web_podman_account
+
+- name: Give the Podman user its subordinate IDs
+  ansible.builtin.lineinfile:
+    path: '/etc/{{ item }}'
+    regexp: '^{{ shake_web_podman_user }}:'
+    line: '{{ shake_web_podman_user }}:{{ shake_web_podman_subid_start }}:65536'
+  loop: [subuid, subgid]
+
+# ログインしていなくても、この利用者の systemd（と Pod）を動かし続ける
+- name: Keep the Podman user's services running without a login
+  ansible.builtin.command:
+    argv: [loginctl, enable-linger, '{{ shake_web_podman_user }}']
+    creates: '/var/lib/systemd/linger/{{ shake_web_podman_user }}'
+
+# root 以外でも入口の nginx が 80/443 を受けられるようにする
+- name: Let unprivileged processes bind ports from 80
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_unprivileged_port_start
+    value: '80'
+    sysctl_file: /etc/sysctl.d/60-shake-web.conf
+    state: present
+
+# shakeweb が読む置き場（/opt/shake-web は root だけが入れる）
+- name: Create the Kubernetes manifest directory
+  ansible.builtin.file:
+    path: '{{ shake_web_podman_kube_dir }}'
+    state: directory
+    owner: root
+    group: '{{ shake_web_podman_user }}'
+    mode: '0750'
+
+- name: Create the Quadlet and registry configuration directories
+  ansible.builtin.file:
+    path: '{{ shake_web_podman_home }}/{{ item }}'
+    state: directory
+    owner: '{{ shake_web_podman_user }}'
+    group: '{{ shake_web_podman_user }}'
+    mode: '0700'
+  loop:
+    - .config
+    - .config/containers
+    - .config/containers/systemd
+    - .config/systemd
+    - .config/systemd/user
+    - .config/systemd/user/podman-auto-update.timer.d
+
+# コンテナの中の uid は、ホストでは shakeweb（0 のとき）か副 ID（1 以上のとき）になる。
+# 入口の nginx のログは 0（= shakeweb）、Alexa のログは 10001 で書く。
+- name: Let the containers write their logs
+  ansible.builtin.file:
+    path: '{{ item.path }}'
+    state: directory
+    owner: '{{ item.owner }}'
+    group: '{{ item.owner }}'
+    recurse: true
+  loop:
+    - {path: '{{ shake_web_storage_root }}/log', owner: '{{ shake_web_podman_account.uid }}'}
+    - {path: '{{ shake_web_storage_root }}/alexa/logs', owner: '{{ shake_web_podman_subid_start + 10000 }}'}
+
+- name: Render the Kubernetes manifests
+  ansible.builtin.template:
+    src: '{{ shake_web_source_dir }}/kube/{{ item }}.yaml.j2'
+    dest: '{{ shake_web_podman_kube_dir }}/{{ item }}.yaml'
+    owner: root
+    group: '{{ shake_web_podman_user }}'
+    mode: '0640'
+  loop: '{{ shake_web_podman_units + ["front"] }}'
+  register: shake_web_manifests
+
+# nginx の設定（nginx/*.template）を ConfigMap にする
+- name: Render the nginx configuration as a ConfigMap
+  ansible.builtin.template:
+    src: front-config.yaml.j2
+    dest: '{{ shake_web_podman_kube_dir }}/front-config.yaml'
+    owner: root
+    group: '{{ shake_web_podman_user }}'
+    mode: '0640'
+  register: shake_web_front_config
+
+# DB のパスワード・セッション鍵・証明書を Kubernetes の Secret にする
+- name: Render the secrets
+  ansible.builtin.template:
+    src: secrets.yaml.j2
+    dest: '{{ shake_web_podman_kube_dir }}/secrets.yaml'
+    owner: root
+    group: '{{ shake_web_podman_user }}'
+    mode: '0640'
+  no_log: true
+  register: shake_web_secrets_manifest
+
+- name: Log in to GHCR as the Podman user
+  ansible.builtin.command:
+    argv:
+      - podman
+      - login
+      - ghcr.io
+      - --authfile
+      - '{{ shake_web_podman_home }}/.config/containers/auth.json'
+      - -u
+      - '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_USER }}'
+      - --password-stdin
+    stdin: '{{ (shake_web_secrets.stdout | from_json).SHAKE_GHCR_READ_TOKEN }}'
+  become: true
+  become_user: '{{ shake_web_podman_user }}'
+  environment: '{{ shake_web_podman_env }}'
+  no_log: true
+  changed_when: false
+
+- name: Load the secrets into Podman
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      podman secret rm shake-web-env shake-web-tls >/dev/null 2>&1 || true
+      podman kube play {{ shake_web_podman_kube_dir }}/secrets.yaml >/dev/null
+    executable: /bin/bash
+  become: true
+  become_user: '{{ shake_web_podman_user }}'
+  environment: '{{ shake_web_podman_env }}'
+  when: shake_web_secrets_manifest is changed
+  no_log: true
+
+- name: Install the Quadlet units
+  ansible.builtin.template:
+    src: quadlet.kube.j2
+    dest: '{{ shake_web_podman_home }}/.config/containers/systemd/{{ item }}.kube'
+    owner: '{{ shake_web_podman_user }}'
+    group: '{{ shake_web_podman_user }}'
+    mode: '0644'
+  loop: '{{ shake_web_podman_units + (["front"] if shake_web_podman_front | bool else []) }}'
+  register: shake_web_quadlets
+
+- name: Remove the front unit when it is turned off
+  ansible.builtin.file:
+    path: '{{ shake_web_podman_home }}/.config/containers/systemd/front.kube'
+    state: absent
+  when: not shake_web_podman_front | bool
+
+# podman auto-update は既定で 1 日 1 回。5 分ごとに GHCR を見る。
+- name: Check for new images every 5 minutes
+  ansible.builtin.copy:
+    dest: '{{ shake_web_podman_home }}/.config/systemd/user/podman-auto-update.timer.d/interval.conf'
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=*:0/5
+      RandomizedDelaySec=30
+    owner: '{{ shake_web_podman_user }}'
+    group: '{{ shake_web_podman_user }}'
+    mode: '0644'
+
+- name: Reload the Podman user's systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+  become: true
+  become_user: '{{ shake_web_podman_user }}'
+  environment: '{{ shake_web_podman_env }}'
+
+- name: Start the pods
+  ansible.builtin.systemd:
+    name: '{{ item.item }}.service'
+    state: "{{ 'restarted' if (item is changed or shake_web_secrets_manifest is changed or shake_web_manifests.results | selectattr('item', 'equalto', item.item) | selectattr('changed') | list | length > 0 or (item.item == 'front' and shake_web_front_config is changed)) else 'started' }}"
+    scope: user
+  become: true
+  become_user: '{{ shake_web_podman_user }}'
+  environment: '{{ shake_web_podman_env }}'
+  loop: '{{ shake_web_quadlets.results }}'
+  loop_control:
+    label: '{{ item.item }}'
+
+- name: Enable the image updates
+  ansible.builtin.systemd:
+    name: podman-auto-update.timer
+    state: started
+    enabled: true
+    scope: user
+  become: true
+  become_user: '{{ shake_web_podman_user }}'
+  environment: '{{ shake_web_podman_env }}'

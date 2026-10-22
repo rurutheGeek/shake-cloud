@@ -6,6 +6,7 @@ FastAPIに依存しないので、テストはここを直接見る。
 """
 import json
 import csv
+import io
 import sqlite3
 import subprocess
 from dataclasses import dataclass
@@ -51,8 +52,9 @@ class Service:
     actions: tuple = ()
     help: str = ''
     checks: tuple = ()
-    files: tuple = ()
     debug: bool = False
+    db: dict = None
+    links: tuple = ()
 
     def allows(self, action: str) -> bool:
         return action in self.actions and action in ALL_ACTIONS
@@ -68,6 +70,37 @@ class Service:
                 'dangerous': action in DANGEROUS_ACTIONS,
             })
         return buttons
+
+
+def load_db(entry: dict) -> dict:
+    """services.yaml の db 指定を検証して返す。無ければ None。"""
+    db = entry.get('db') or None
+    if db is None:
+        return None
+    kind = db.get('kind')
+    if kind not in ('postgres', 'sqlite'):
+        raise ValueError(f"{entry['name']}: unknown db kind: {kind}")
+    required = ('container', 'database', 'user') if kind == 'postgres' else ('path',)
+    missing = [key for key in required if not db.get(key)]
+    if missing:
+        raise ValueError(f"{entry['name']}: db is missing {missing}")
+    if db.get('quiz_log') and kind != 'postgres':
+        raise ValueError(f"{entry['name']}: quiz_log needs a postgres db")
+    return db
+
+
+def load_links(entry: dict) -> tuple:
+    """services.yaml の links（ボットの紹介リンク）を検証して返す。"""
+    links = []
+    for item in entry.get('links', ()) or ():
+        label = item.get('label', '')
+        url = item.get('url', '')
+        if not label or not url:
+            raise ValueError(f"{entry['name']}: link needs label and url")
+        if not url.startswith('https://'):
+            raise ValueError(f"{entry['name']}: link url must be https: {url}")
+        links.append({'label': label, 'url': url})
+    return tuple(links)
 
 
 def load_services(path) -> list[Service]:
@@ -89,45 +122,207 @@ def load_services(path) -> list[Service]:
             actions=actions,
             help=entry.get('help', ''),
             checks=tuple(entry.get('checks', ())),
-            files=tuple(entry.get('files', ())),
             debug=bool(entry.get('debug', False)),
+            db=load_db(entry),
+            links=load_links(entry),
         ))
     return services
 
 
-def read_file_view(spec: dict) -> dict:
-    """services.yaml の files 指定を画面用のデータにする。
+def db_tables(service: Service) -> dict:
+    """DBのテーブル一覧と行数を返す（読み取り専用）。"""
+    if not service.db:
+        return {'error': 'DBが設定されていません', 'tables': []}
+    if service.db['kind'] == 'sqlite':
+        return _sqlite_tables(service.db)
+    return _postgres_tables(service.db)
 
-    kind: csv なら header/rows（末尾 tail 行）、sqlite なら query の結果、
-    それ以外は text。
+
+# 画面の1ページに出す上限と、CSVダウンロードで一度に出す上限。
+PAGE_LIMIT = 200
+EXPORT_LIMIT = 100000
+
+
+def db_rows(service: Service, table: str, offset: int = 0,
+            limit: int = 50, needle: str = '', cap: int = PAGE_LIMIT) -> dict:
+    """1テーブルをページ単位で返す。needle は全列の部分一致。"""
+    if not service.db:
+        raise ValueError('DBが設定されていません')
+    offset = max(0, int(offset))
+    limit = min(max(1, int(limit)), cap)
+    if service.db['kind'] == 'sqlite':
+        return _sqlite_rows(service.db, table, offset, limit, needle)
+    return _postgres_rows(service.db, table, offset, limit, needle)
+
+
+def db_export(service: Service, table: str, needle: str = '') -> dict:
+    """CSVダウンロード用にテーブルの全行（上限 EXPORT_LIMIT）を返す。"""
+    return db_rows(service, table, offset=0, limit=EXPORT_LIMIT,
+                   needle=needle, cap=EXPORT_LIMIT)
+
+
+def _quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _quote_literal(text: str) -> str:
+    return "'" + text.replace("'", "''") + "'"
+
+
+def _csv_rows(output: str) -> tuple:
+    rows = list(csv.reader(io.StringIO(output)))
+    if not rows:
+        return [], []
+    return rows[0], rows[1:]
+
+
+def _psql(spec: dict, sql: str) -> tuple:
+    """pkdbコンテナの中で読み取り専用のpsqlを実行する。"""
+    return run_command([
+        'docker', 'exec',
+        '-e', 'PGOPTIONS=-c default_transaction_read_only=on',
+        spec['container'], 'psql',
+        '-U', spec['user'], '-d', spec['database'],
+        '--csv', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+        '-c', sql,
+    ], timeout=60)
+
+
+def quiz_log_query(service: Service):
+    """クイズ分析用に、読み取り専用でSQLを実行する関数を返す。
+
+    SQLは app/quizlog.py が組み立てたものだけを渡す（画面からの自由入力は渡さない）。
     """
+    if not service.db or not service.db.get('quiz_log'):
+        raise ValueError(f'{service.name}: quiz log not configured')
+    spec = service.db
+
+    def query(sql: str) -> tuple:
+        code, output = _psql(spec, sql)
+        if code != 0:
+            raise RuntimeError(output.strip()[-2000:])
+        return _csv_rows(output)
+
+    return query
+
+
+def _sqlite_table_names(connection) -> list:
+    return [row[0] for row in connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' "
+        "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+
+
+def _sqlite_connect(spec: dict):
     path = Path(spec['path'])
-    view = {'label': spec.get('label', path.name), 'path': str(path)}
     if not path.exists():
-        view['error'] = 'ファイルがありません'
-        return view
-    if spec.get('kind') == 'sqlite':
-        connection = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
-        try:
-            cursor = connection.execute(spec['query'])
-            view['header'] = [column[0] for column in cursor.description]
-            rows = cursor.fetchall()
-            view['rows'] = [list(row) for row in rows]
-            view['total'] = len(view['rows'])
-        finally:
-            connection.close()
-        return view
-    text = path.read_text(encoding='utf-8', errors='replace')
-    if spec.get('kind') == 'csv':
-        rows = list(csv.reader(text.splitlines()))
-        header = rows[0] if rows else []
-        body = rows[1:]
-        total = len(body)
-        tail = int(spec.get('tail', 50))
-        view.update({'header': header, 'rows': body[-tail:], 'total': total})
-    else:
-        view['text'] = text[-20000:]
-    return view
+        raise FileNotFoundError(path)
+    return sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+
+
+def _sqlite_tables(spec: dict) -> dict:
+    try:
+        connection = _sqlite_connect(spec)
+    except FileNotFoundError:
+        return {'error': f"ファイルがありません: {spec['path']}", 'tables': []}
+    try:
+        tables = [{'name': name, 'rows': connection.execute(
+            f'SELECT count(*) FROM {_quote_ident(name)}').fetchone()[0]}
+            for name in _sqlite_table_names(connection)]
+    finally:
+        connection.close()
+    return {'tables': tables}
+
+
+def _sqlite_rows(spec: dict, table: str, offset: int, limit: int, needle: str) -> dict:
+    connection = _sqlite_connect(spec)
+    try:
+        if table not in _sqlite_table_names(connection):
+            raise ValueError(f'unknown table: {table}')
+        columns = [row[1] for row in connection.execute(
+            f'PRAGMA table_info({_quote_ident(table)})')]
+        where, params = '', []
+        if needle:
+            where = ' WHERE ' + ' OR '.join(
+                f'CAST({_quote_ident(column)} AS TEXT) LIKE ?' for column in columns)
+            params = [f'%{needle}%'] * len(columns)
+        total = connection.execute(
+            f'SELECT count(*) FROM {_quote_ident(table)}{where}', params).fetchone()[0]
+        order = ', '.join(_quote_ident(column) for column in columns)
+        rows = connection.execute(
+            f'SELECT * FROM {_quote_ident(table)}{where} ORDER BY {order} LIMIT ? OFFSET ?',
+            [*params, limit, offset]).fetchall()
+    finally:
+        connection.close()
+    return _table_view(table, columns, rows, total, offset, limit, needle)
+
+
+def _postgres_columns(spec: dict, table: str) -> list:
+    code, output = _psql(spec, (
+        'SELECT column_name FROM information_schema.columns '
+        "WHERE table_schema = 'public' "
+        f'AND table_name = {_quote_literal(table)} '
+        'ORDER BY ordinal_position'))
+    if code != 0:
+        raise RuntimeError(output.strip()[-2000:])
+    _, rows = _csv_rows(output)
+    return [row[0] for row in rows]
+
+
+def _postgres_tables(spec: dict) -> dict:
+    code, output = _psql(spec, (
+        'SELECT table_name FROM information_schema.tables '
+        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
+        'ORDER BY table_name'))
+    if code != 0:
+        return {'error': output.strip()[-2000:], 'tables': []}
+    _, rows = _csv_rows(output)
+    names = [row[0] for row in rows]
+    if not names:
+        return {'tables': []}
+    union = ' UNION ALL '.join(
+        f'SELECT {_quote_literal(name)} AS name, count(*) AS rows '
+        f'FROM {_quote_ident(name)}' for name in names)
+    code, output = _psql(spec, union + ' ORDER BY name')
+    if code != 0:
+        return {'error': output.strip()[-2000:], 'tables': []}
+    _, rows = _csv_rows(output)
+    return {'tables': [{'name': row[0], 'rows': int(row[1])} for row in rows]}
+
+
+def _postgres_rows(spec: dict, table: str, offset: int, limit: int, needle: str) -> dict:
+    columns = _postgres_columns(spec, table)
+    if not columns:
+        raise ValueError(f'unknown table: {table}')
+    where = ''
+    if needle:
+        pattern = _quote_literal(f'%{needle}%')
+        where = ' WHERE ' + ' OR '.join(
+            f'{_quote_ident(column)}::text ILIKE {pattern}' for column in columns)
+    quoted = _quote_ident(table)
+    code, output = _psql(spec, f'SELECT count(*) FROM {quoted}{where}')
+    if code != 0:
+        return {'error': output.strip()[-2000:], 'header': [], 'rows': []}
+    _, rows = _csv_rows(output)
+    total = int(rows[0][0]) if rows else 0
+    order = ', '.join(_quote_ident(column) for column in columns)
+    code, output = _psql(spec, (
+        f'SELECT * FROM {quoted}{where} ORDER BY {order} LIMIT {limit} OFFSET {offset}'))
+    if code != 0:
+        return {'error': output.strip()[-2000:], 'header': [], 'rows': []}
+    _, rows = _csv_rows(output)
+    return _table_view(table, columns, rows, total, offset, limit, needle)
+
+
+def _table_view(table, columns, rows, total, offset, limit, needle) -> dict:
+    return {
+        'table': table,
+        'header': columns,
+        'rows': [['' if cell is None else cell for cell in row] for row in rows],
+        'total': total,
+        'offset': offset,
+        'limit': limit,
+        'needle': needle,
+    }
 
 
 def command_for(service: Service, action: str) -> list[str]:

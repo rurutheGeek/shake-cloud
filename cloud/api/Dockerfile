@@ -1,6 +1,6 @@
 # Built on cloud-01 by `manage.py up`. Base images are pinned by digest, like
 # compose.lock.yaml; update them deliberately.
-FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728 AS build
+FROM golang:1.27.3-trixie@sha256:604106102d33b1084e37ca08adf98ac0813624ae8595bd0d7f3965ecebded09c AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

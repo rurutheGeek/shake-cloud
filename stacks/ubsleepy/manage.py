@@ -26,11 +26,16 @@ DB_SECRETS = {
     'PKDB_PASSWORD': 'pkdb_password',
     'UBSLEEPY_DB_PASSWORD': 'ubsleepy_db_password',
 }
-STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry')
+STATE_DIRECTORIES = ('save', 'log', 'resource/image', 'resource/cry', 'resource/intro')
 STATE_FILES = ('config.json', 'resource/pokemon_senryu.csv')
-# バックアップに入れるもの。鳴き声（resource/cry）は再取得できるので含めない。
+# バックアップに入れるもの。鳴き声（resource/cry）は再取得でき、イントロの音源
+# （resource/intro）は UBSLEEPY-next の tools/build_intro_clips.py で作り直せるので含めない。
 BACKUP_DIRECTORIES = ('save', 'log', 'resource/image')
 STAMP = re.compile(r'^\d{8}T\d{6}Z\.tar\.gz$')
+# deploy のあと残す、使っていない古いイメージの数（戻すとき用）。
+# イメージは本番（ubsleepy）とテスト（ubsleepy-next）で同じリポジトリなので、
+# どちらかのコンテナが使っているものは数えずに残す。
+KEEP_IMAGES = 1
 
 
 def run(args, **kwargs):
@@ -141,6 +146,38 @@ def deploy(commit):
     compose('up', '-d', '--remove-orphans')
     print(f'deployed {commit}')
     print(lock)
+    prune(KEEP_IMAGES)
+
+
+def prune(keep):
+    """IMAGE の古いイメージを消す。コンテナが使っているものと、使っていない新しい keep 個は残す。
+
+    deploy のたびに新しいイメージ（1個 2.6GB ほど）を取ってくるので、消さないとたまる。
+    """
+    used = set()
+    containers = run(['docker', 'ps', '-aq'], capture_output=True).stdout.split()
+    if containers:
+        used = set(run(['docker', 'inspect', '--format', '{{.Image}}', *containers],
+                       capture_output=True).stdout.split())
+    listed = run(['docker', 'images', IMAGE, '--no-trunc',
+                  '--format', '{{.ID}}\t{{.CreatedAt}}'], capture_output=True).stdout
+    images = {}
+    for line in listed.splitlines():
+        image_id, _, created = line.partition('\t')
+        images[image_id] = created
+    # CreatedAt は「2026-10-20 11:50:01 +0900 JST」の形で、同じ時間帯なら文字列の順が新しさの順
+    unused = sorted((image_id for image_id in images if image_id not in used),
+                    key=images.get, reverse=True)
+    removed = 0
+    for image_id in unused[keep:]:
+        result = subprocess.run(['docker', 'rmi', '-f', image_id], cwd=ROOT, text=True,
+                                capture_output=True)
+        if result.returncode == 0:
+            removed += 1
+        else:
+            print(f'WARNING: could not remove {image_id}: {result.stderr.strip()}',
+                  file=sys.stderr)
+    print(f'pruned {removed} old images of {IMAGE}')
 
 
 def cries():
@@ -174,11 +211,13 @@ def backup(destination, keep):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'up', 'down', 'status', 'digest',
-                                           'backup', 'deploy', 'cries'])
+                                           'backup', 'deploy', 'cries', 'prune'])
     parser.add_argument('commit', nargs='?', help='deploy するコミットID')
     parser.add_argument('--destination', default=str(storage() / 'backups'),
                         help='backup destination directory')
     parser.add_argument('--keep', type=int, default=14, help='backups to keep')
+    parser.add_argument('--keep-images', type=int, default=KEEP_IMAGES,
+                        help='unused old images to keep (prune)')
     args = parser.parse_args()
     if args.action == 'init':
         init()
@@ -194,6 +233,8 @@ def main():
         deploy(args.commit)
     elif args.action == 'cries':
         cries()
+    elif args.action == 'prune':
+        prune(args.keep_images)
     else:
         digest()
 

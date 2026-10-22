@@ -1,0 +1,55 @@
+# Forgejo（消えそうなリポジトリの保管庫）を media-01 に単独で置く。
+#
+# 認証は identity（Authentik）へのネイティブ OIDC。ミラーは普段は画面から足し、
+# 作り直しても必ず戻すものだけ mirrors.json に書く（manage.py up が足りないものを
+# 作る。一覧から外しても消さない）。
+# 秘密値は .env ではなく secrets/ から manage.py が環境変数で渡す。
+# データ（リポジトリと SQLite）は HDD ボリュームへ bind した STORAGE_ROOT/forgejo。
+# イメージは compose.lock.yaml でダイジェスト固定する。
+name: media-forgejo
+
+services:
+  forgejo:
+    image: ${FORGEJO_IMAGE:-codeberg.org/forgejo/forgejo:15}
+    restart: unless-stopped
+    # 同期が重なってもほかのユニットを巻き込まない。
+    mem_limit: ${FORGEJO_MEMORY_LIMIT:-512m}
+    environment:
+      USER_UID: ${FORGEJO_UID:-1000}
+      USER_GID: ${FORGEJO_GID:-1000}
+      TZ: ${TZ:-Asia/Tokyo}
+      FORGEJO__server__ROOT_URL: ${FORGEJO_ROOT_URL:?run manage.py up}
+      FORGEJO__server__HTTP_PORT: '3000'
+      # git の取得は HTTPS だけ。SSH のポートは開けない。
+      FORGEJO__server__DISABLE_SSH: 'true'
+      FORGEJO__server__LFS_START_SERVER: 'true'
+      FORGEJO__database__DB_TYPE: sqlite3
+      FORGEJO__security__INSTALL_LOCK: 'true'
+      FORGEJO__security__SECRET_KEY: ${FORGEJO_SECRET_KEY:?run manage.py up}
+      FORGEJO__security__INTERNAL_TOKEN: ${FORGEJO_INTERNAL_TOKEN:?run manage.py up}
+      FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES: 127.0.0.0/8,172.16.0.0/12
+      FORGEJO__oauth2__JWT_SECRET: ${FORGEJO_JWT_SECRET:?run manage.py up}
+      # アカウントは Authentik からだけ作る。ログインしないと何も見えない。
+      FORGEJO__service__DISABLE_REGISTRATION: 'false'
+      FORGEJO__service__ALLOW_ONLY_EXTERNAL_REGISTRATION: 'true'
+      FORGEJO__service__SHOW_REGISTRATION_BUTTON: 'false'
+      FORGEJO__service__REQUIRE_SIGNIN_VIEW: 'true'
+      FORGEJO__openid__ENABLE_OPENID_SIGNIN: 'false'
+      FORGEJO__openid__ENABLE_OPENID_SIGNUP: 'false'
+      FORGEJO__oauth2_client__ENABLE_AUTO_REGISTRATION: 'true'
+      FORGEJO__oauth2_client__USERNAME: nickname
+      FORGEJO__oauth2_client__ACCOUNT_LINKING: auto
+      FORGEJO__mirror__DEFAULT_INTERVAL: ${FORGEJO_MIRROR_INTERVAL:-24h}
+      FORGEJO__mirror__MIN_INTERVAL: 1h
+      FORGEJO__log__LEVEL: Warn
+    volumes:
+      - ${STORAGE_ROOT:-/srv/media-stack/storage}/forgejo:/data
+    ports:
+      # サービス自身のポートは 127.0.0.1 のまま。LAN へ出すのは Caddy だけ。
+      - '127.0.0.1:${FORGEJO_PORT:-8083}:3000'
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:3000/api/healthz]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

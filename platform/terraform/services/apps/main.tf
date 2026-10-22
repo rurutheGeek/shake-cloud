@@ -89,16 +89,17 @@ resource "shakecloud_security_group_rule" "print_api" {
   description = "Print API from media-01"
 }
 
-# ポケモン系のPostgreSQL（stacks/pkdb）。旧ホストに残るBotなどが LAN 越しにつなぐ
-# （tailnet からは router-01 のサブネットルート経由で、送信元は LAN のアドレスになる）。
-resource "shakecloud_security_group_rule" "pkdb" {
+# ポケモン系のPostgreSQL（stacks/pkdb）。公開サイト（stacks/shake-web）を置いた DMZ の
+# shakeserver（Pi 5）だけが読む（web-01 は 2026-10-16 に消した）。Flint 3 の
+# DMZ-to-pkdb（platform/flint3/rootfs/etc/shakecloud/dmz-db-clients）と対。
+resource "shakecloud_security_group_rule" "pkdb_dmz" {
   group_id    = shakecloud_security_group.apps.id
   direction   = "ingress"
   protocol    = "tcp"
   from_port   = 5432
   to_port     = 5432
-  cidr        = local.lan_cidr
-  description = "PostgreSQL (pkdb) from the LAN"
+  cidr        = "192.168.30.12/32"
+  description = "PostgreSQL (pkdb) from shakeserver in the DMZ"
 }
 
 # node_exporter。監視（monitor-01）だけに開ける。
@@ -108,8 +109,8 @@ resource "shakecloud_security_group_rule" "node_exporter" {
   protocol    = "tcp"
   from_port   = 9100
   to_port     = 9100
-  cidr        = "192.168.10.210/32"
-  description = "node_exporter from monitor-01"
+  cidr        = "192.168.10.11/32"
+  description = "node_exporter from tarakoserver (monitoring)"
 }
 
 # Eufy のカメラ（eufyCam S4）は P2P で、カメラ側から UDP を送ってくる。

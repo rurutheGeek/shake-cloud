@@ -135,8 +135,13 @@ type Service struct {
 	// ledgerWake asks the ledger sync to run now instead of at its next tick.
 	ledgerWake chan struct{}
 	rangeMu    sync.Mutex
-	rangeID    int
-	now        func() time.Time
+	// rangeIDs caches the NetBox range of each subnet, keyed by its start address.
+	rangeIDs map[string]int
+	now      func() time.Time
+	onbootMu sync.Mutex
+	// onboot remembers the autostart flag last written per instance, so the
+	// reconciler writes it once per process instead of on every tick.
+	onboot map[string]bool
 }
 
 func New(pool *pgxpool.Pool, pve Hypervisor, ipam IPAM, s site.Site, log *slog.Logger, workDir string) *Service {
@@ -169,7 +174,11 @@ type RunRequest struct {
 	RootDiskGiB  int    `json:"root_disk_gib"`
 	// DiskTier is "ssd" or "hdd" and defaults to ssd. Which pool that is is a
 	// deployment fact; the API only accepts the tier names.
-	DiskTier    string `json:"disk_tier"`
+	DiskTier string `json:"disk_tier"`
+	// SubnetID places the instance in one of the deployment's subnets
+	// ("subnet-<name>"). Omitted means the default subnet; omitempty keeps the
+	// request hash of such a launch what it was before subnets existed.
+	SubnetID    string `json:"subnet_id,omitempty"`
 	UserData    string `json:"user_data"`
 	ClientToken string `json:"client_token"`
 	// InstallISOID turns the launch into an installation: instead of copying an
@@ -381,6 +390,9 @@ func (s *Service) validate(ctx context.Context, r *RunRequest, limits site.Limit
 	if _, err := s.diskTierStorage(r.DiskTier); err != nil {
 		return Spec{}, err
 	}
+	if _, err := s.launchSubnet(r.SubnetID); err != nil {
+		return Spec{}, err
+	}
 	if len(r.UserData) > maxUserData {
 		return Spec{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "user_data must be at most %d bytes", maxUserData)
 	}
@@ -512,7 +524,7 @@ func (s *Service) Run(ctx context.Context, accountID string, r RunRequest, audit
 			Name: r.Tags["Name"], ImageID: r.ImageID, GuestOS: r.GuestOS,
 			InstallISOID: r.InstallISOID, DriverISOID: r.DriverISOID, InstanceType: spec.TypeName,
 			CPUCores: spec.CPUCores, MemoryMiB: spec.MemoryMiB, MemoryMinMiB: spec.MemoryMinMiB, Ballooning: spec.Ballooning,
-			RootDiskGiB: r.RootDiskGiB, DiskTier: r.DiskTier, UserData: r.UserData,
+			RootDiskGiB: r.RootDiskGiB, DiskTier: r.DiskTier, Subnet: subnetName(r.SubnetID), UserData: r.UserData,
 			KeyName: r.KeyName, KeyPublicKey: keyPublicKey, Tags: r.Tags,
 			VMID: &vmid, MACAddress: seed.NewMACAddress(),
 		})
@@ -641,6 +653,38 @@ func (s *Service) checkHost(ctx context.Context, spec Spec, memoryNeededMiB int,
 // diskTierStorage resolves a caller's disk tier to the pool that holds it. An
 // empty tier is the default. A tier this deployment does not have is refused
 // here, at admission, rather than discovered when the worker makes the disk.
+// subnetName turns the identifier a caller sends into the stored name. The
+// default subnet is stored as "", so that renaming it in the declaration does
+// not strand the instances already in it.
+func subnetName(id string) string { return strings.TrimPrefix(id, "subnet-") }
+
+// launchSubnet resolves the subnet a launch names and refuses one the API
+// cannot place an instance in.
+func (s *Service) launchSubnet(id string) (site.Subnet, error) {
+	if id != "" && !strings.HasPrefix(id, "subnet-") {
+		return site.Subnet{}, refuse(http.StatusBadRequest, "InvalidParameterValue", "subnet_id must look like subnet-<name>")
+	}
+	subnet, ok := s.Site.Network.Subnet(subnetName(id))
+	if !ok {
+		return site.Subnet{}, refuse(http.StatusBadRequest, "InvalidSubnetID.NotFound", "subnet %s does not exist", id)
+	}
+	if ok, reason := s.Site.Network.Launchable(subnet); !ok {
+		return site.Subnet{}, refuse(http.StatusBadRequest, "InvalidSubnet.NotLaunchable", "subnet %s cannot take instances: %s", site.SubnetID(subnet.Name), reason)
+	}
+	return subnet, nil
+}
+
+// instanceSubnet is the subnet an existing instance is in. A name the
+// declaration no longer has falls back to the default, so an instance never
+// becomes unmanageable because a segment was renamed.
+func (s *Service) instanceSubnet(instance db.Instance) site.Subnet {
+	if subnet, ok := s.Site.Network.Subnet(instance.Subnet); ok {
+		return subnet
+	}
+	subnet, _ := s.Site.Network.Subnet("")
+	return subnet
+}
+
 func (s *Service) diskTierStorage(tier string) (string, error) {
 	storage, ok := s.Site.Storage.DiskTierStorage(tier)
 	if ok {

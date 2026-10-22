@@ -4,9 +4,12 @@
     that: ansible_facts['distribution'] in ['Ubuntu', 'Debian']
     fail_msg: This role targets Debian or Ubuntu guests.
 
+# qemu-guest-agent は VM だけに入れる（Raspberry Pi などの物理機には無用で、起動もできない）。
 - name: Install base packages
   ansible.builtin.apt:
-    name: '{{ common_packages }}'
+    name: >-
+      {{ common_packages if ansible_facts['virtualization_role'] | default('') == 'guest'
+         else common_packages | reject('equalto', 'qemu-guest-agent') | list }}
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -18,9 +21,9 @@
     name: qemu-guest-agent
     enabled: true
     state: started
+  when: ansible_facts['virtualization_role'] | default('') == 'guest'
 
-# community.general を足さずに済ませる。依存は netbox.netbox と awx.awx の
-# 2つに保つ。
+# community.general を足さずに済ませる。依存は requirements.yml の物だけに保つ。
 - name: Read the current timezone
   ansible.builtin.command: timedatectl show --property=Timezone --value
   register: common_current_timezone

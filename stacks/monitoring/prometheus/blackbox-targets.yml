@@ -15,11 +15,14 @@
     - https://mail-view.apextox.dpdns.org/
     - https://adminer.apextox.dpdns.org/
     - https://pkdb-entry.apextox.dpdns.org/
+    - https://pkdb-mcp.apextox.dpdns.org/healthz
     - https://adguard.apextox.dpdns.org/
     - https://router.apextox.dpdns.org/
     - https://grafana.apextox.dpdns.org/api/health
     # PeaNUT は / がログインへ307。https_reachable が到達性だけを見る。
     - https://peanut.apextox.dpdns.org/
+    - https://netmap.apextox.dpdns.org/
+    - https://panel.apextox.dpdns.org/
     - https://pve.apextox.dpdns.org:8006/
   labels:
     group: platform
@@ -28,6 +31,7 @@
     - https://kavita.apextox.dpdns.org/
     - https://navidrome.apextox.dpdns.org/ping
     - https://freshrss.apextox.dpdns.org/api/
+    - https://forgejo.apextox.dpdns.org/api/healthz
     - https://metube.apextox.dpdns.org/
     - https://khinsider.apextox.dpdns.org/
     - https://navidrome-api.apextox.dpdns.org/

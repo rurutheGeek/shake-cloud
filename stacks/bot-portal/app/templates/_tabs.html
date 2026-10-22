@@ -1,0 +1,10 @@
+<div class="tab-bar">
+  <a href="/service/{{ service.name }}" class="tab {% if active_tab == 'overview' %}active{% endif %}">概要</a>
+  <a href="/service/{{ service.name }}/logs" class="tab {% if active_tab == 'logs' %}active{% endif %}">ログ</a>
+  {% if service.db %}
+  <a href="/service/{{ service.name }}/db" class="tab {% if active_tab == 'db' %}active{% endif %}">DB</a>
+  {% endif %}
+  {% if service.db and service.db.quiz_log %}
+  <a href="/service/{{ service.name }}/quiz" class="tab {% if active_tab == 'quiz' %}active{% endif %}">クイズ分析</a>
+  {% endif %}
+</div>

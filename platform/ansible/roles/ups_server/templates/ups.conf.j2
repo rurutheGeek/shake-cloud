@@ -1,0 +1,10 @@
+# Ansible（ups_server）が置く。CyberPower（USB HID）。ドライバは usbhid-ups。
+[{{ ups_server_ups_name }}]
+  driver = usbhid-ups
+  port = auto
+  vendorid = {{ ups_server_vendorid }}
+  productid = {{ ups_server_productid }}
+  desc = "CyberPower UPS"
+  # NUT が返す製造元は "CPS"。監視画面の表示を分かりやすくする。
+  override.ups.mfr = CyberPower
+  override.device.mfr = CyberPower

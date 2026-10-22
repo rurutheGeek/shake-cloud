@@ -1,0 +1,213 @@
+#!/bin/sh
+# Flint 3 を「区画なしのルーター」にする（router-01 からの本切替の第1段階）。
+# GL.iNet の初期設定へ上書きする形で、必要な項目だけを uci で入れる。
+#
+#   /etc/shakecloud/apply-router             # 反映して network 等を再起動する
+#   /etc/shakecloud/apply-router extend 300  # 巻き戻しの期限を今から 300 秒後へ延ばす
+#   /etc/shakecloud/apply-router confirm     # 巻き戻しをやめる（確定）
+#
+# **実行する前に、ONU を Flint 3 の WAN ポートへ、router-01 の LAN 側を
+# リンクダウンにしておく。** 192.168.10.1・DHCP・MAP-E の CE を router-01 と
+# 同時に名乗らせない（docs/operations/router.md の切替と同じ理由）。
+#
+# 期限（既定は反映から 10 分。ROLLBACK_AFTER 秒）までに extend か confirm が
+# 来なければ、実行前の状態へ戻して再起動する（/etc/shakecloud/rollback-router）。
+# 作業する側が止まったら勝手に戻る、という保険。値の根拠は platform/openwrt/rootfs/etc/shakecloud/config/ の
+# コメントと docs/development/N06-router.md。
+set -eu
+
+backup=/root/pre-router
+keep=/tmp/apply-router.keep
+
+# 上流（ONU）がつながるデバイス。本番は WAN ポート（eth0）。
+# 切替試験では、配線を変えずに K11 経由のタグ付き VLAN で ONU を受けるので
+# `WAN_DEVICE=eth0.100` を渡す（platform/flint3/trial.sh）。その場合 eth0 の
+# タグなし側は LAN のまま残す。
+wan_device="${WAN_DEVICE:-eth0}"
+
+deadline=/tmp/apply-router.deadline
+# 時計合わせで時刻が飛んでも狂わないよう、起動からの秒数で数える。
+now() { cut -d. -f1 /proc/uptime; }
+
+case "${1:-}" in
+confirm)
+	touch "$keep"
+	logger -t shakecloud "apply-router confirmed"
+	exit 0
+	;;
+extend)
+	echo $(( $(now) + ${2:-300} )) > "$deadline"
+	exit 0
+	;;
+esac
+
+rm -rf "$backup"
+mkdir -p "$backup"
+cp -a /etc/config "$backup/config"
+cp -a /etc/sysctl.d/99-disable-ipv6.conf "$backup/99-disable-ipv6.conf"
+cp -a /etc/ndppd.conf "$backup/ndppd.conf"
+rm -f "$keep"
+echo $(( $(now) + ${ROLLBACK_AFTER:-600} )) > "$deadline"
+(
+	while sleep 15; do
+		[ -f "$keep" ] && exit 0
+		[ "$(now)" -gt "$(cat "$deadline")" ] || continue
+		logger -t shakecloud "apply-router deadline passed"
+		/etc/shakecloud/rollback-router
+		exit 0
+	done
+) >/dev/null 2>&1 </dev/null &
+
+# --- IPv6 を有効にする -------------------------------------------------------
+# GL.iNet の初期状態は IPv6 を全インターフェースで止めている（sysctl と、
+# ifup のたびに止め直す hotplug）。MAP-E は IPv6 の上で動くので必ず要る。
+# GL の gl_ipv6 サービスは起動のたびに wan6・relay の設定を書き換えるので止め、
+# カーネルの設定はここで直接書く。**ファームウェア更新でサービスが有効へ
+# 戻ることがあるので、更新後はこのスクリプトを流し直す。**
+uci set glipv6.globals.enabled='1'
+uci commit glipv6
+/etc/init.d/gl_ipv6 disable
+cat > /etc/sysctl.d/99-disable-ipv6.conf <<'SYSCTL'
+net.ipv6.conf.all.disable_ipv6=0
+net.ipv6.conf.default.disable_ipv6=0
+net.ipv6.conf.lo.disable_ipv6=0
+net.ipv6.conf.default.forwarding=1
+net.ipv6.conf.all.forwarding=1
+SYSCTL
+sysctl -q -p /etc/sysctl.d/99-disable-ipv6.conf
+for conf in /proc/sys/net/ipv6/conf/*; do
+	echo 0 > "$conf/disable_ipv6"
+done
+/etc/init.d/odhcpd enable
+
+# --- network ---------------------------------------------------------------
+# WAN ポート（eth0）を br-lan から外し、LAN を 192.168.10.1 にする。
+if [ "$wan_device" = eth0 ]; then
+	uci -q del_list network.@device[0].ports='eth0' || true
+fi
+uci set network.lan.ipaddr='192.168.10.1'
+uci set network.lan.netmask='255.255.255.0'
+uci -q delete network.lan.gateway || true
+uci -q delete network.lan.dns || true
+# PD が無いので LAN へは odhcpd の relay で /64 を中継する。
+uci set network.lan.ip6assign='0'
+
+# 上流の IPv6。RA の /64 を extendprefix で ipv6-prefix として見せる
+# （無いと map が NO_MATCHING_PD で止まる）。
+uci set network.wan6=interface
+uci set network.wan6.device="$wan_device"
+uci set network.wan6.proto='dhcpv6'
+uci set network.wan6.reqaddress='try'
+uci set network.wan6.reqprefix='no'
+uci set network.wan6.extendprefix='1'
+uci set network.wan6.disabled='0'
+
+# MAP-E（v6プラス・JPNE）。ISP 共通値。legacymap は JPNE の CE アドレス形式。
+uci -q delete network.wan || true
+uci set network.wan=interface
+uci set network.wan.proto='map'
+uci set network.wan.maptype='map-e'
+uci set network.wan.peeraddr='2404:9200:225:100::64'
+uci set network.wan.ip6prefix='240b:10::'
+uci set network.wan.ip6prefixlen='31'
+uci set network.wan.ipaddr='106.72.0.0'
+uci set network.wan.ip4prefixlen='15'
+uci set network.wan.ealen='25'
+uci set network.wan.psidlen='8'
+uci set network.wan.offset='4'
+uci set network.wan.legacymap='1'
+uci set network.wan.tunlink='wan6'
+uci set network.wan.mtu='1460'
+uci set network.wan.encaplimit='ignore'
+uci commit network
+
+# --- dhcp ------------------------------------------------------------------
+# .20〜.99 を配る（platform/terraform/network.yaml の dhcp と同じ）。
+uci set dhcp.lan.start='20'
+uci set dhcp.lan.limit='80'
+uci set dhcp.lan.leasetime='12h'
+uci set dhcp.lan.dhcpv4='server'
+uci -q delete dhcp.lan.ignore || true
+uci -q delete dhcp.lan.dns || true
+uci add_list dhcp.lan.dns='192.168.10.1'
+uci -q delete dhcp.lan.dhcp_option || true
+uci add_list dhcp.lan.dhcp_option='6,192.168.10.1'
+uci set dhcp.lan.dhcpv6='relay'
+uci set dhcp.lan.ra='relay'
+# 近隣代理は ndppd（/etc/ndppd.conf）に任せる。
+uci set dhcp.lan.ndp='disabled'
+
+uci set dhcp.wan6=dhcp
+uci set dhcp.wan6.interface='wan6'
+uci set dhcp.wan6.ignore='1'
+uci set dhcp.wan6.master='1'
+uci set dhcp.wan6.ra='relay'
+uci set dhcp.wan6.dhcpv6='relay'
+uci set dhcp.wan6.ndp='disabled'
+
+# GL の初期値は AAAA を捨てる（IPv6 無効の前提）。IPv6 を中継するので戻す。
+uci set dhcp.@dnsmasq[0].filter_aaaa='0'
+# NetBox 由来の予約（tools/netbox-dhcp-sync.py が書く）。GL の初期値は
+# /tmp/dnsmasq.d で再起動で消えるため、永続する場所へ向ける。
+mkdir -p /etc/dnsmasq.d
+uci set dhcp.@dnsmasq[0].confdir='/etc/dnsmasq.d'
+uci commit dhcp
+
+# --- firewall --------------------------------------------------------------
+# 切替前の作業用に開けていた、旧LAN（WAN 側）からの SSH を消す。
+for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='tmp-ssh-oldlan'$/\1/p"); do
+	uci delete "firewall.$section"
+done
+
+# AdGuard Home の管理画面（:3000）は core-01（入口の Caddy）だけに開ける。
+# LAN 全体に開けると SSO（Forward Auth）を迂回できる。許可のあとに拒否を置く。
+for name in Allow-AdGuard-UI-from-proxy Deny-AdGuard-UI-others; do
+	for section in $(uci show firewall | sed -n "s/^firewall\.\([^.]*\)\.name='$name'$/\1/p"); do
+		uci delete "firewall.$section"
+	done
+done
+uci add firewall rule >/dev/null
+uci set firewall.@rule[-1].name='Allow-AdGuard-UI-from-proxy'
+uci set firewall.@rule[-1].src='lan'
+uci set firewall.@rule[-1].src_ip='192.168.10.200'
+uci set firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].dest_port='3000'
+uci set firewall.@rule[-1].target='ACCEPT'
+uci add firewall rule >/dev/null
+uci set firewall.@rule[-1].name='Deny-AdGuard-UI-others'
+uci set firewall.@rule[-1].src='lan'
+uci set firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].dest_port='3000'
+uci set firewall.@rule[-1].target='DROP'
+uci commit firewall
+
+# --- AdGuard Home ------------------------------------------------------------
+# GL の組み込み方式（:3053 ＋ :53 からの転送）。設定は /etc/AdGuardHome/config.yaml。
+uci set adguardhome.config.enabled='1'
+uci set adguardhome.config.dns_enabled='1'
+uci commit adguardhome
+
+# --- 更新で消えないようにする ---------------------------------------------
+for path in /etc/shakecloud/ /etc/hotplug.d/iface/89-mape-ce-address \
+	/etc/hotplug.d/iface/90-mape-ports \
+	/etc/hotplug.d/iface/91-lan-prefix-route /etc/ndppd.conf /etc/dnsmasq.d/ \
+	/etc/sysctl.d/99-disable-ipv6.conf \
+	/etc/AdGuardHome/config.yaml; do
+	grep -qxF "$path" /etc/sysupgrade.conf || echo "$path" >> /etc/sysupgrade.conf
+done
+
+# ndppd が代理応答する上流側のデバイスを合わせる。
+sed -i "s/^proxy .* {\$/proxy $wan_device {/" /etc/ndppd.conf
+
+/etc/init.d/ndppd enable
+(
+	sleep 1
+	/etc/init.d/network restart
+	/etc/init.d/dnsmasq restart
+	/etc/init.d/odhcpd restart
+	/etc/init.d/firewall reload
+	/etc/init.d/ndppd restart
+	/etc/init.d/adguardhome restart
+) >/dev/null 2>&1 </dev/null &
+logger -t shakecloud "apply-router applied; extend or confirm before the deadline"
+echo "applied. extend or confirm before the deadline"

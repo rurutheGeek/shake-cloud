@@ -87,6 +87,7 @@ flowchart TB
 | --- | --- | --- |
 | [ドキュメントの書き方](contributing-docs.md) | 2026-10-03 | `hub` `rules` |
 | [Shake Lab Docs](index.md) | 2026-10-04 | `hub` |
+| [ネットワーク図](network-map.md) | 2026-10-14 | `hub` `network` |
 | [開発参加ガイド](onboarding.md) | 2026-09-12 | `hub` `onboarding` |
 | [サービス図](service-map.md) | 2026-10-04 | `hub` |
 
@@ -97,6 +98,7 @@ flowchart TB
 | [Android VMの画面を使う（RDP）](services/android.md) | 2026-10-02 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
+| [リポジトリの保管庫（Forgejo）](services/forgejo.md) | 2026-10-15 | `guide` `git` |
 | [Homarrの使い方](services/homarr.md) | 2026-10-03 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
 | [共通ログインの使い方](services/identity.md) | 2026-09-27 | `guide` `identity` |
@@ -105,7 +107,7 @@ flowchart TB
 | [通信速度テスト（LibreSpeed）](services/librespeed.md) | 2026-10-03 | `guide` `network` |
 | [AIエージェントからクラウドを見る（MCP）](services/mcp.md) | 2026-09-23 | `guide` `cloud` `ai` |
 | [音楽の取り込み・タグ編集・BCSTM](services/music.md) | 2026-09-16 | `guide` `music` |
-| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-09-28 | `guide` `nextcloud` |
+| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-10-19 | `guide` `nextcloud` |
 | [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-10-08 | `guide` `nextcloud` `cloud` |
 | [ポケモン翻訳](services/poke-translate.md) | 2026-09-27 | `guide` |
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
@@ -148,6 +150,7 @@ flowchart TB
 | [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
 | [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-03 | `plan` `cloud` |
 | [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-10-03 | `plan` `monitoring` |
+| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
 | [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
@@ -165,6 +168,7 @@ flowchart TB
 | [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-02 | `plan` `music` |
 | [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
 | [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
+| [W09 Smart Switchの非公式クライアント（解析）](development/W09-smartswitch-re.md) | 2026-10-03 | `plan` `smartswitch` `reverse-engineering` |
 | [W10 Nextcloudの画像OCR検索（ocr_search）](development/W10-ocr-search.md) | 2026-10-11 | `plan` `nextcloud` `ocr` |
 | [機能別VMと並列開発計画](development/index.md) | 2026-10-04 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
@@ -173,40 +177,41 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-03 | `ops` `network` `dns` |
+| [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-14 | `ops` `network` `dns` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
-| [Botポータル](operations/bot-portal.md) | 2026-10-04 | `ops` `discord` |
+| [Botポータル](operations/bot-portal.md) | 2026-10-09 | `ops` `discord` |
 | [共有バルクストレージ（6TB USB HDD）](operations/bulk-storage.md) | 2026-10-03 | `ops` `storage` `nfs` |
 | [サークル認証Bot（CIRCLEAUTH）](operations/circleauth.md) | 2026-10-04 | `ops` `discord` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
-| [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-02 | `ops` `backup` `urbackup` `android` |
+| [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-05 | `ops` `backup` `urbackup` `android` |
 | [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-10-03 | `ops` `cloud` |
 | [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-10-03 | `ops` `cloud` |
 | [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
 | [クラウドAPIの構築](operations/cloud.md) | 2026-10-03 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-10-03 | `ops` `storage` |
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
+| [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-05 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-14 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
 | [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
-| [監視（monitor-01）](operations/monitoring.md) | 2026-10-03 | `ops` `monitoring` |
-| [Tailscale（router-01 上の subnet router）](operations/net.md) | 2026-10-03 | `ops` `network` |
+| [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
+| [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-14 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
-| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-09-28 | `ops` `nextcloud` |
+| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-10-19 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
-| [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-05 | `ops` `database` |
-| [電源と UPS](operations/power.md) | 2026-10-03 | `ops` `power` |
+| [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
+| [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |
 | [router-01 の設定まとめ（素の OpenWrt からの変更）](operations/router-config.md) | 2026-10-03 | `ops` `network` `router` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-09-20 | `ops` `network` `router` |
-| [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-03 | `ops` `network` `router` |
+| [router-01（OpenWrt・自作ルータ）](operations/router.md) | 2026-10-14 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-09-23 | `ops` `secrets` |
 | [サービスの置き場所とクラウドVMでの作り方](operations/services.md) | 2026-10-04 | `ops` `placement` |
 | [SMTPとメール送信](operations/smtp.md) | 2026-10-03 | `ops` `mail` |
@@ -216,8 +221,8 @@ flowchart TB
 | [Discord Bot（UBSLEEPY）](operations/ubsleepy.md) | 2026-10-05 | `ops` `discord` |
 | [Vaultwarden](operations/vaultwarden.md) | 2026-10-03 | `ops` `vaultwarden` |
 | [確認と、はまりどころ](operations/verify.md) | 2026-10-03 | `ops` `verify` |
-| [VLAN 分離への切替](operations/vlan.md) | 2026-10-03 | `ops` `network` |
-| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-05 | `ops` `web` |
+| [VLAN 分離への切替](operations/vlan.md) | 2026-10-14 | `ops` `network` |
+| [公開サイト（Shake-Web / pkhack / Alexa / ayahuya）](operations/web.md) | 2026-10-16 | `ops` `web` |
 | [Windows 11 Pro の VM をポータルから作る](operations/windows.md) | 2026-10-03 | `ops` `vm` |
 
 ### 設計
@@ -255,6 +260,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 139 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 144 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

@@ -53,6 +53,7 @@ apps-01のVM再起動では家電も停止します。宅外からの復旧経�
 | [W06 MeTube・音楽変換・タグ編集](W06-music-tools.md) | 移行・新規 | media-01 | 一部完了（同期切替が残り） |
 | [W07 RomM](W07-romm.md) | 新規 | game1 | 一部完了（実装済み・実機未） |
 | [W08 クライアント端末のバックアップ](W08-client-backup.md) | 新規 | media-01・Windows PC・Android | 配備済み（Windows実端末の初回バックアップ・復元が残る） |
+| [W09 Smart Switchの非公式クライアント（解析）](W09-smartswitch-re.md) | 新規 | media-01・Galaxy | 解析中（プロトコル捕捉・CONN3再現まで） |
 | [W10 Nextcloudの画像OCR検索](W10-ocr-search.md) | 新規 | media-01 | 完了（アプリストアへ1.0.0を公開、media-01へ配備済み） |
 | [A01 ポケモンDB・WebUI・agent](A01-pokemon-ai.md) | 移行・参照元取得待ち | DBは apps-01、他は game1 | 一部完了（DBは移行済み） |
 | [A02 Ollama](A02-ollama.md) | 新規・実機検証 | game1 | 一部完了（実装済み・実機未） |
@@ -83,6 +84,7 @@ apps-01のVM再起動では家電も停止します。宅外からの復旧経�
 | [I06 AWXのジョブ整備](I06-awx.md) | 既存基盤への設定追加 | 既存Kubernetes | 一部完了（ジョブ未適用） |
 | [I07 クラウドポータルのUI改善](I07-portal-ui.md) | 既存機構の改善 | cloud-01 | 一部実装（ファビコン・タグ表示。未配備。作成後のタグ変更は未） |
 | [M01 監視（Prometheus・Grafana）](M01-monitoring.md) | 新規 | monitor-01 | 配備済み（`grafana.apextox.dpdns.org`。node資源・バックアップ・dead man's switch、UPS自動停止、Homarr連携まで完了。ダッシュボード拡充が残り） |
+| [M02 監視のタッチパネル](M02-touch-panel.md) | 新規 | tarakoserver | 試作を配備（2026-10-15。LVGL。概要・警告・死活・電源・ホスト・設定。Grafana からの詳細は未実装） |
 | [O01 管理DBの外部バックアップ](O01-cloud-backup.md) | 既存ローカルバックアップの拡張 | cloud-01・既存外部保存先 | 一部完了（外部保全未） |
 | [O02 CNPGバックアップ](O02-cnpg-backup.md) | 新規 | 既存Kubernetes・Garage・外部保存先 | 一部完了（バックアップ未） |
 | [O03 VM・アプリ状態の復元](O03-restore.md) | 既存手順の拡張・検証 | 対象VM・隔離復元先 | 一部完了（復元合格未） |
