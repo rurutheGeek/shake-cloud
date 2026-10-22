@@ -27,6 +27,8 @@ locals {
 
   flavors = yamldecode(file("${path.module}/../flavors.yaml")).flavors
   hosts   = yamldecode(file("${path.module}/../hosts.yaml")).hosts
+  # 基盤VMの受信の許可。正本は ../firewall.yaml（05-seed も読む）。
+  firewall = yamldecode(file("${path.module}/../firewall.yaml"))
 
   # 範囲の正本は ../pools.yaml。00-bootstrap も同じファイルを読む。
   pool_vmid_ranges = {
@@ -60,6 +62,8 @@ module "host" {
   vm_datastore_id = local.site.storage.vm_disks
   image_file_id   = local.image_file_id
   network_bridge  = local.site.network.bridge
+  # 受信の許可の正本は ../firewall.yaml。ルールは firewall.tf が書く。
+  network_firewall = contains(keys(local.firewall.hosts), each.key)
   # VLAN 切替はこの1か所（network.yaml）で行う。null の間はタグなし。
   network_vlan_id   = local.network.vlan.management.vlan_id
   bridge_vlan_aware = local.site.network.bridge_vlan_aware
