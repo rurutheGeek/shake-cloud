@@ -472,7 +472,7 @@ class SecretTests(unittest.TestCase):
 
     def test_the_readme_links_the_work_item_and_the_source(self):
         readme = (UNIT / 'README.md').read_text(encoding='utf-8')
-        self.assertIn('../../../docs/development/W04-kavita.md', readme)
+        self.assertIn('https://github.com/rurutheGeek/shake-cloud/issues/181', readme)
         self.assertIn('stacks/compose.lock.yaml', readme)
 
     def test_the_readme_documents_the_bootstrap_and_oidc_dependencies(self):

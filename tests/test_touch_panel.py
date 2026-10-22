@@ -1,4 +1,4 @@
-"""Guard the touch panel on tarakoserver (docs/development/M02-touch-panel.md).
+"""Guard the touch panel on tarakoserver (https://github.com/rurutheGeek/shake-cloud/issues/211).
 
 The C source only builds on the Pi, so these tests check what CI can see:
 the configuration names every query the program reads, the program reads

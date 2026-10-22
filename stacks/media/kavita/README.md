@@ -1,12 +1,12 @@
 # Kavita（media-01）
 
-[W04 Kavita](../../../docs/development/W04-kavita.md) の開発・配備ユニットです。media-01 のデータディスク `/srv/media-stack` 上に、独立した Compose プロジェクト `media-kavita` として構築します。データ移行そのものは W04 の手順で行い、このユニットはアプリの再配備を再現するだけです。
+[W04 Kavita](https://github.com/rurutheGeek/shake-cloud/issues/181) の開発・配備ユニットです。media-01 のデータディスク `/srv/media-stack` 上に、独立した Compose プロジェクト `media-kavita` として構築します。データ移行そのものは W04 の手順で行い、このユニットはアプリの再配備を再現するだけです。
 
 ## 保存先と公開範囲
 
 - アプリの設定・DB: `${STORAGE_ROOT:-/srv/media-stack/storage}/kavita` → `/kavita/config`
 - 本の原本: `${LIBRARY_ROOT:-/srv/media-stack/library}/books` → `/books:ro`（**読み取り専用**。原本を複製も変更もしない）
-- 公開: `127.0.0.1:${KAVITA_PORT:-5000}` のみ。LAN へ直接公開せず、HTTPS と SSO は前段の入口（[N05](../../../docs/development/N05-https.md)）で行う
+- 公開: `127.0.0.1:${KAVITA_PORT:-5000}` のみ。LAN へ直接公開せず、HTTPS と SSO は前段の入口（[N05](https://github.com/rurutheGeek/shake-cloud/issues/204)）で行う
 - タイムゾーン: `${TZ:-Asia/Tokyo}`
 
 ## 使い方（media-01）
@@ -58,14 +58,14 @@ sudo python3 manage.py backup --destination /srv/backups/kavita
 
 `backup` は root で実行します（それ以外は `PermissionError`）。稼働中サービスを `docker compose ps --services --status running` で記録し、`stop --timeout 120` で停止してから、状態ディレクトリ `${STORAGE_ROOT}/kavita` を `state.tar`、`compose.yaml`・`compose.lock.yaml`・`.env`・`.env.example`・`manage.py` を `deployment.tar` にまとめ、`manifest.json` を書きます。終了時は元々動いていたサービスだけを再開します。失敗時は `*.incomplete` を残すので、`.incomplete` の無い成功世代だけを使います。
 
-本の原本 `${LIBRARY_ROOT}/books` は**バックアップに含みません**。原本は別途バックアップしてください（[O03](../../../docs/development/O03-restore.md) 等）。
+本の原本 `${LIBRARY_ROOT}/books` は**バックアップに含みません**。原本は別途バックアップしてください（[O03](https://github.com/rurutheGeek/shake-cloud/issues/214) 等）。
 
 復元時は次の点に注意します。
 
 - **同じ CPU アーキテクチャ**へ戻す（`manifest.json` の `architecture` を確認する）。
 - サービスを停止してから展開する。稼働中に DB を差し替えない。
 - 既存の状態ディレクトリへ上書きしない。空のディレクトリへ展開し、`.env` の `STORAGE_ROOT` を合わせてから `manage.py up` で起動する。
-- 原本（books）の復元は [O03](../../../docs/development/O03-restore.md) の手順に従う。
+- 原本（books）の復元は [O03](https://github.com/rurutheGeek/shake-cloud/issues/214) の手順に従う。
 
 ## Ansible で配備
 
@@ -81,4 +81,4 @@ sudo python3 manage.py backup --destination /srv/backups/kavita
 - イメージ固定: `stacks/compose.lock.yaml` の kavita digest
 - 初期化・所有権: `stacks/scripts/stack.py` の `init` 流儀（保存先 33:33、`.env` 0600）
 
-本の原本・ライブラリ ID・読書進捗・ブックマークの実移行と SSO の紐付けは [W04](../../../docs/development/W04-kavita.md) の検証条件に従います。
+本の原本・ライブラリ ID・読書進捗・ブックマークの実移行と SSO の紐付けは [W04](https://github.com/rurutheGeek/shake-cloud/issues/181) の検証条件に従います。

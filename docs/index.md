@@ -31,7 +31,7 @@ Proxmox VE 1台で動かしているホームラボの手順書です。どのVM
 - [開発参加ガイド](onboarding.md)
 - [クラウドの使い方](services/cloud.md)
 - [サービスの置き場所](operations/services.md)
-- [開発計画](development/index.md)
+- [残っている作業（Issues）](https://github.com/rurutheGeek/shake-cloud/issues)
 
 </div>
 <div markdown="1">

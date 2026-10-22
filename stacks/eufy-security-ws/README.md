@@ -33,7 +33,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.105 \
 
 ## HA側
 
-HAのカスタム統合 `eufy_security`（v8.2.4、digest固定）は `home-assistant.yml` が `custom_components/` へ入れる。HAの「設定 → デバイスとサービス → 統合を追加 → Eufy Security」で、ホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識）。人物・動体イベントは確認済み、スナップショットは確認中で、**ライブ映像はS4（T8172）の新WebRTC方式のため現行の公開ソフトでは不可**（[H04](../../docs/development/H04-eufy.md)）。既存のEufyアプリと録画は変更しない。
+HAのカスタム統合 `eufy_security`（v8.2.4、digest固定）は `home-assistant.yml` が `custom_components/` へ入れる。HAの「設定 → デバイスとサービス → 統合を追加 → Eufy Security」で、ホスト `172.31.254.1`・ポート `3000` を指定する（追加済み。S4・SmartTrackを認識）。人物・動体イベントは確認済み、スナップショットは確認中で、**ライブ映像はS4（T8172）の新WebRTC方式のため現行の公開ソフトでは不可**（[H04](https://github.com/rurutheGeek/shake-cloud/issues/198)）。既存のEufyアプリと録画は変更しない。
 
 ## 動体・人物の通知が届かないとき
 

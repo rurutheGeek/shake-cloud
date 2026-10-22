@@ -69,7 +69,7 @@ tags:
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
 | ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、Nextcloudからは編集しない。今回の方針ではservices-01に維持する。家電（H01）は2026-09-12に配備済みで、Authentik SSO・Eufy・SwitchBot Cloud を設定済み。VPNの同居は未配備 |
 | game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
-| 回線とポート | **MAP-E（v6プラス・JPNE）。CGNATではない。** ポート開放は可能だが**割り当てられた240個に限られ、80/443 は使えない**（2026-09-20の実測。[N06](../development/N06-router.md)）。公開Webを `https://名前/` で出す設計は採らない。WireGuard など割当ポートで済むものは公開できる |
+| 回線とポート | **MAP-E（v6プラス・JPNE）。CGNATではない。** ポート開放は可能だが**割り当てられた240個に限られ、80/443 は使えない**（2026-09-20の実測。[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。公開Webを `https://名前/` で出す設計は採らない。WireGuard など割当ポートで済むものは公開できる |
 | 家庭内ルータ | **K11 上の OpenWrt VM `router-01` として自作する。** 市販ルータ（Aterm）はAPモードのWi-Fi専用機へ降格。設定は Git（`platform/openwrt/`）が正本で、実機へ `uci` で入れた変更はイメージに焼くまで再作成で消える。**代償としてK11が落ちると家中のネットが落ちる**（[障害モード](failure-modes.md)） |
 | ルータ管理画面の認証 | **LuCI にはSSOを付けない。** ルータは復旧経路なので、identity が止まっていても開ける必要がある。認証は LuCI 自身の root パスワード。AdGuard の管理画面は復旧に必須でないので Forward Auth を通す |
 | VLAN分離の前提 | **アンマネージドスイッチ（TL-SG605）ではVLANを設定できない。** N03 はマネージドスイッチの調達が前提条件で、機器購入なしには完了できない |

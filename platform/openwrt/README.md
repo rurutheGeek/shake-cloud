@@ -2,7 +2,7 @@
 
 **ルータ VM（`router-01`）の OpenWrt イメージを作る場所です。** 配備の全体像・
 切替手順は [docs/operations/router.md](../../docs/operations/router.md)、開発計画は
-[docs/development/N06-router.md](../../docs/development/N06-router.md) が正本です。
+[https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md) が正本です。
 
 VM の宣言は `platform/terraform/router.yaml`、Terraform は
 `platform/terraform/router/` にあります。ここはイメージ（OS + 設定）だけを
@@ -16,7 +16,7 @@ VM の宣言は `platform/terraform/router.yaml`、Terraform は
 | `build.sh` | 取得 → 検証 → 展開 → 設定を焼いてイメージを作る |
 | `rootfs/` | イメージへ焼くファイル。`/etc/shakecloud/config/` が UCI 設定の正本で、初回起動時に `/etc/config/` へコピーする |
 | `rootfs/etc/hotplug.d/iface/` | UCI で書けない補完。`90-mape-ports`（MAP-E の 240 ポートと icmp の SNAT）、`91-lan-prefix-route`（委譲 /64 を `br-lan` へ）。**どちらも実行ビットが要る** |
-| `rootfs/etc/ndppd.conf` | WAN 側の近隣要請への代理応答。odhcpd の `ndp relay` は使わない（[N06](../../docs/development/N06-router.md)） |
+| `rootfs/etc/ndppd.conf` | WAN 側の近隣要請への代理応答。odhcpd の `ndp relay` は使わない（[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)） |
 | `dist/` | ビルド成果物（Git 管理外）。Terraform の router モジュールが取り込む |
 | `.build/` | Image Builder の展開先（Git 管理外） |
 

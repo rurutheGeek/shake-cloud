@@ -75,11 +75,11 @@ Nextcloudのファイル一覧で対象ファイルの「…」→「印刷」�
 
 ## インク残量・状態
 
-インク残量とプリンター状態はHome AssistantのIPP統合で見られます（[H01](../development/H01-home-assistant.md)）。アイドル中は残量が`unknown`になることがあります。プリンターのWeb UIは現在のアドレス（HAのデバイス画面の「開く」リンク、または `avahi-browse -rt _ipp._tcp` で確認）を開いてください。アドレスが変わったときは、CUPSの再配備と合わせてHAの統合も現在地へ張り替えます。
+インク残量とプリンター状態はHome AssistantのIPP統合で見られます（[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)）。アイドル中は残量が`unknown`になることがあります。プリンターのWeb UIは現在のアドレス（HAのデバイス画面の「開く」リンク、または `avahi-browse -rt _ipp._tcp` で確認）を開いてください。アドレスが変わったときは、CUPSの再配備と合わせてHAの統合も現在地へ張り替えます。
 
 ## スキャン
 
-TS8430からNextcloudへ直接スキャンする機能はありません。Canon PRINTアプリで端末へ取り込み、NextcloudアプリかLocalSendで共有してください（[LocalSend](../development/D06-localsend.md)）。
+TS8430からNextcloudへ直接スキャンする機能はありません。Canon PRINTアプリで端末へ取り込み、NextcloudアプリかLocalSendで共有してください（[LocalSend](https://github.com/rurutheGeek/shake-cloud/issues/216)）。
 
 ## 保守
 

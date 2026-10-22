@@ -1,6 +1,6 @@
 ---
 title: 配備・Git管理・ストレージ・復旧
-updated: 2026-10-04
+updated: 2026-10-22
 section: 設計
 audience: 管理者・開発者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # 配備・Git管理・ストレージ・復旧
 
-> **更新日** 2026-10-04 ・ **区分** 設計 ・ **読む人** 管理者・開発者
+> **更新日** 2026-10-22 ・ **区分** 設計 ・ **読む人** 管理者・開発者
 
 [構成案トップ](index.md)へ戻る。記載する容量は初期設計値で、実測保証値ではありません。
 
@@ -39,7 +39,7 @@ tags:
 | public-edge（必要時に新規cloud VM） | 1 / 1GiB | 16GiB | 外部公開Web。公開条件を確認してから追加 |
 | （net-01は2026-10-03に削除） | — | — | Tailscale subnet router は Flint 3 の上で動く（K11 の停止もカバーする） |
 
-上表は同時稼働を保証する合計ではありません。常用基盤（旧構成のservices-01、identity、cloud-01、storage-s3、cp、worker-01。現在はcore-01・cloud-01に統合）だけでも計画値で22GiBでした。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](../development/I01-resources.md)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
+上表は同時稼働を保証する合計ではありません。常用基盤（旧構成のservices-01、identity、cloud-01、storage-s3、cp、worker-01。現在はcore-01・cloud-01に統合）だけでも計画値で22GiBでした。monitor-01 2GiB・media-01 6GiB・game1 12〜16GiB・開発VM2台12GiBを加えると54〜58GiBとなり、現在の物理RAM（認識59.7GiB）とほぼ同程度です。全員のコード・設定作成を並列に進めつつ、実機の重い処理は[I01 容量測定・軽量化](https://github.com/rurutheGeek/shake-cloud/issues/205)で測った余力と利用状況に合わせます。軽量化・停止を先に全員の着手条件にはしません。
 
 <a id="measured-budget"></a>
 ### 実機の実測
@@ -81,19 +81,19 @@ VM別の割当・状態・実使用（測定時刻。ゲスト値は `free`、PV
 
 停止中VMも含めた全VMの割当合計は60.1GiBで、認識RAMの59.7GiBを超えます。**全台同時起動はできません**（実機の電源状態は[配備台帳](../operations/handover.md)）。
 
-**上の表は2026-09-12時点の名前です（当時のidentity・services-01は現在core-01、storage-s3は削除済み、win11proはwin-01に改名）。この測定の後にmonitor-01（当時はVMID 5002のcloud VM。現在は基盤VM・VMID 120）を作成したため、上の表と合計には含まれません。** 配備の結果は[M01](../development/M01-monitoring.md)、最新の電源・容量は[配備台帳](../operations/handover.md)とポータルの「容量」を正とします。
+**上の表は2026-09-12時点の名前です（当時のidentity・services-01は現在core-01、storage-s3は削除済み、win11proはwin-01に改名）。この測定の後にmonitor-01（当時はVMID 5002のcloud VM。現在は基盤VM・VMID 120）を作成したため、上の表と合計には含まれません。** 配備の結果は[M01](https://github.com/rurutheGeek/shake-cloud/issues/210)、最新の電源・容量は[配備台帳](../operations/handover.md)とポータルの「容量」を正とします。
 
 **軽量化（同日実施）**: ビルドキャッシュの削除と `apt` キャッシュの掃除でthin poolを15.1GiB回収しました。cloud-01 17.0→6.2GiB、services-01 5.7→3.5GiB、identity 6.1→3.8GiB。同じ処理は `tools/trim-vms.py` で再実行できます（既定は確認のみで、`--apply` を付けたときだけ削除。dev VMは `--include-dev` で明示したときだけ対象）。dev-01には未使用イメージ7.98GiBとビルドキャッシュ6.0GiBが残るため、利用者と調整します（2026-09-12時点で未削除）。journalはどのVMも121MiB以下で対象外です。
 
 **作成・増枠の判断（`node_memory_reserve_mib` = 4GiB）**:
 
 - media-01（6GiB）: Kubernetes停止中の空き25.4GiBでは作成できます。Kubernetes稼働時は空きが9.0GiBまで下がった記録（同日09:07）があり、その状態では作成を断られる可能性が高いため、**作成はKubernetes停止中に行います**（2026-09-12に作成済み）。
-- game1の16GiB（+4GiB）: media-01作成後でもKubernetes停止中なら作成できます（空き14.6GiB）。ゲームとAIの同時負荷は[G03](../development/G03-game-ai-resources.md)で測ります。
+- game1の16GiB（+4GiB）: media-01作成後でもKubernetes停止中なら作成できます（空き14.6GiB）。ゲームとAIの同時負荷は[G03](https://github.com/rurutheGeek/shake-cloud/issues/195)で測ります。
 - services-01（現core-01）の8GiB（+4GiB）: ゲストの実使用は1.6GiBで、緊急性はありません。
 - k8s-worker-02: **起動しません**。起動する場合は開発VM・ゲームの停止と引き換えにします。
 - 重い処理を止める順は開発VM → Ollama → バッチ、復帰は逆順です。dev VMsはバルーニングでホストRSSを割当（各6GiB）より小さく抑えています（測定時は2台で約5GiB。作業中のdev-02は増える）。
 
-負荷を掛けた組合せの試験（ゲーム・AI取り込み・AWX同時実行）は未実施で、[G03](../development/G03-game-ai-resources.md)・[A02](../development/A02-ollama.md)・[I06](../development/I06-awx.md)と窓を調整して行います。
+負荷を掛けた組合せの試験（ゲーム・AI取り込み・AWX同時実行）は未実施で、[G03](https://github.com/rurutheGeek/shake-cloud/issues/195)・[A02](https://github.com/rurutheGeek/shake-cloud/issues/188)・[I06](https://github.com/rurutheGeek/shake-cloud/issues/208)と窓を調整して行います。
 
 #### 2026-09-10（過去）
 
@@ -166,10 +166,10 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 | LibreSpeed（速度テスト） | apps-01 | 配備済み（`https://speed.apextox.dpdns.org`）。[LibreSpeed](../services/librespeed.md) |
 | ポケモン翻訳 | apps-01 | 翻訳サイト（`https://poke.apextox.dpdns.org`）と拡張機能。[ポケモン翻訳](../services/poke-translate.md) |
 | 共有バルクストレージ（6TB HDD） | Proxmoxホスト直結、NFSでmedia-01・game1へ | 配備済み（2026-09-22）。週次vzdumpの保存先。[共有バルクストレージ](../operations/bulk-storage.md)・[バックアップ](../operations/backup.md) |
-| 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](../development/D05-picard.md)） |
+| 音楽タグの編集 | media-01 | **Nextcloudの自作アプリ `shake_tags` とタグAPI（`:5810`）へ統合済み（2026-09-13、W06）**。MeTubeの取込とNextcloudのmusic原本をタグ付けし、Navidromeの表示へ反映。専用GUIコンテナは撤去した（[D05](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D05-picard.md)） |
 | LocalSend、Tailcat | 端末アプリ＋media-01の受信機 | 専用VM不要。受信機はmedia-01（D06。実送受信は未確認）。Tailcatは資料のみD07 |
 
-停止・更新単位と依存関係は[開発計画の一覧](../development/index.md)を参照してください。apps-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。
+共有するものの調整は[開発の進め方](../development/index.md)を参照してください。apps-01のアプリ同士は別Composeと保存先を使い、VM再起動時のみ一緒に停止します。
 
 <a id="pokemon-db"></a>
 ### ポケモンRDBの配置と移行単位
@@ -179,12 +179,12 @@ Kubernetesへ残すのはAWX・DB提供・関数提供です。Homarr・Vaultwar
 - 実体は PostgreSQL 15 の `sleepy_pkdb`（スキーマ `pokemondb`）・`shakeweb`・`pkhack` で、計約50MB、拡張は `plpgsql` のみ。以前ここに書いていた `pokemon_rdb`・`openwebui`・pgvector の構成は、実測した旧ホストには無かった。
 - game1 に置かない理由：Botなどが常時つなぐこと、game1 は構成管理の鍵で入れずバックアップがセーブだけであること、`shakeweb`・`pkhack` はポケモンAIの一部ではないこと。
 - CNPG に置かない理由：Kubernetes は必要時のみ稼働（[決定ログ](decisions.md)）。
-- WebUI・agent を移すときは、その状態と鍵・agent設定を移行単位にする。汎用RAGのデータ・文書権限とは分離する（[A01](../development/A01-pokemon-ai.md)）。
+- WebUI・agent を移すときは、その状態と鍵・agent設定を移行単位にする。汎用RAGのデータ・文書権限とは分離する（[A01](https://github.com/rurutheGeek/shake-cloud/issues/187)）。
 
 <a id="home-devices"></a>
 ### Home Assistant・SwitchBot・Eufy（Echoは見送り）
 
-**Home Assistant Containerはapps-01へ配備済みです（2026-09-12にservices-01へ配備、2026-10-03にapps-01へ移設）。** 入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。HAコアはOIDC非対応のため、コミュニティ統合 **hass-oidc-auth v1.2.1**（`custom_components/auth_oidc` へdigest固定で配置）を使います。Authentik側の公開クライアント `home-assistant`（`redirect` `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode user_uuid`、`users`／`admins` にバインド）は `stacks/identity/configure.py` が冪等作成し、HAは `configuration.yaml` の `auth_oidc` 管理ブロックでSSOします。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetesやgame1の再起動から家電を分離しますが、apps-01・K11の再起動時には停止します。HAOSの追加アプリ管理は使わず、必要な周辺ソフトもComposeで管理します。[公式の導入方式](https://www.home-assistant.io/installation/)・[H01](../development/H01-home-assistant.md)
+**Home Assistant Containerはapps-01へ配備済みです（2026-09-12にservices-01へ配備、2026-10-03にapps-01へ移設）。** 入口は `https://ha.apextox.dpdns.org`（Caddy + Let's Encrypt、本体は `127.0.0.1:8123`）。HAコアはOIDC非対応のため、コミュニティ統合 **hass-oidc-auth v1.2.1**（`custom_components/auth_oidc` へdigest固定で配置）を使います。Authentik側の公開クライアント `home-assistant`（`redirect` `https://ha.apextox.dpdns.org/auth/oidc/callback`、`sub_mode user_uuid`、`users`／`admins` にバインド）は `stacks/identity/configure.py` が冪等作成し、HAは `configuration.yaml` の `auth_oidc` 管理ブロックでSSOします。**ローカルのオーナーアカウントは緊急用に残します。** WebSocket・CompanionアプリがあるためCaddyのForward Authは使いません。Kubernetesやgame1の再起動から家電を分離しますが、apps-01・K11の再起動時には停止します。HAOSの追加アプリ管理は使わず、必要な周辺ソフトもComposeで管理します。[公式の導入方式](https://www.home-assistant.io/installation/)・[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)
 
 | 対象 | 接続方針 | 現状 |
 | --- | --- | --- |
@@ -198,7 +198,7 @@ Eufyの録画・映像保存・映像AIは別の容量／CPU設計です。apps-
 
 ### LocalSendとIoTのネットワーク
 
-LocalSendは端末間転送で、専用VMは不要です。**media-01に非公式の常設受信機（`stacks/media/localsend/`）を置き、送信ファイルをNextcloudの `inbox` へ着地させます。** 標準のTCP 53317をLANのSGで許可し、アプリの自動検出は同一LANでのみ確認します（実送受信は未確認、[D06](../development/D06-localsend.md)）。VLANやVPNをまたぐ自動検出は当然には成立しないため、まず同一LANで確認します。[LocalSend公式](https://github.com/localsend/localsend)
+LocalSendは端末間転送で、専用VMは不要です。**media-01に非公式の常設受信機（`stacks/media/localsend/`）を置き、送信ファイルをNextcloudの `inbox` へ着地させます。** 標準のTCP 53317をLANのSGで許可し、アプリの自動検出は同一LANでのみ確認します（実送受信は未確認、[D06](https://github.com/rurutheGeek/shake-cloud/issues/216)）。VLANやVPNをまたぐ自動検出は当然には成立しないため、まず同一LANで確認します。[LocalSend公式](https://github.com/localsend/localsend)
 
 Home Assistantを載せるapps-01は、対象IoT機器へ到達できるLANのbridgeへ接続し、固定IP（`192.168.10.105`）で運用します。IoTをVLAN分離する場合は必要な通信とmDNS等の検出経路を設計してから移します。IoT機器からProxmox管理・DBへのアクセスは許可しません。HAの操作は家庭内LANとHA自身の認証（Authentik OIDCまたは緊急用ローカル）から行い、8123はルータへ公開しません。
 
@@ -258,7 +258,7 @@ IP、ドメイン、ストレージ名、PCIアドレスを環境設定へ分離
 
 ## 並列開発と切替の依存
 
-[開発計画](../development/index.md)のW/A/G/H/N/I/O/Dは作業の分類で、番号は実施順ではありません。コード・設定・模擬応答による検証は各担当が並列に進め、実機配備に必要なVM・容量・認証・バックアップだけを個別の切替条件にします。
+Issue のラベル W/A/G/H/N/I/M/O/D は作業の分類です（[開発の進め方](../development/index.md)）。コード・設定・模擬応答による検証は各担当が並列に進め、実機配備に必要なVM・容量・認証・バックアップだけを個別の切替条件にします。
 
 同じstateの適用、共通DNS/TLS設定、VM再起動、GPU負荷試験は担当間で調整します。DBや原本の移行は整合バックアップと隔離復元に合格してから切り替えます。初回構築の経緯は[Proxmox導入後の記録](../operations/bring-up.md)に残しますが、その章番号を今後の全体工程として使いません。
 

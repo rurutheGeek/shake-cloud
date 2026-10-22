@@ -4,9 +4,9 @@
 
 ## 配備先・担当
 
-配備先: **apps-01**。プロジェクトは `/opt/home-assistant`、状態は `/srv/home-assistant`（`config/`）で、Composeプロジェクト名は `services-home-assistant`。127.0.0.1:8123に閉じ、入口は既存Caddyの <https://ha.apextox.dpdns.org>（[H01](../../docs/development/H01-home-assistant.md)）。
+配備先: **apps-01**。プロジェクトは `/opt/home-assistant`、状態は `/srv/home-assistant`（`config/`）で、Composeプロジェクト名は `services-home-assistant`。127.0.0.1:8123に閉じ、入口は既存Caddyの <https://ha.apextox.dpdns.org>（[H01](https://github.com/rurutheGeek/shake-cloud/issues/196)）。
 
-担当計画: [H01 Home Assistant](../../docs/development/H01-home-assistant.md)、[H02 SwitchBot](../../docs/development/H02-switchbot.md)、[H03 Echo](../../docs/development/H03-echo.md)、[H04 Eufy](../../docs/development/H04-eufy.md)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
+担当計画: [H01 Home Assistant](https://github.com/rurutheGeek/shake-cloud/issues/196)、[H02 SwitchBot](https://github.com/rurutheGeek/shake-cloud/issues/197)、[H03 Echo](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/H03-echo.md)、[H04 Eufy](https://github.com/rurutheGeek/shake-cloud/issues/198)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
 
 ## 配備と管理
 
@@ -34,4 +34,4 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbo
 
 同居サービスのCompose名・ポート・永続保存先を衝突させない。共有DNS／TLS・同一state適用・VM再起動だけを調整し、コードと資料の作業は並列に進める。サービスの起動確認・認証・再配備・停止再開・データ復元は各担当計画の完了条件を使う。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。apps-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D03-service-boundaries.md)を参照する。apps-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

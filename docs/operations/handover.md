@@ -17,8 +17,7 @@ tags:
 | 書きたいもの | 書く場所 |
 | --- | --- |
 | 経緯（いつ・何をしたか） | コミットメッセージ。`git log -p -- <ファイル>` で追える |
-| 残っている作業・進捗 | [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) |
-| 作業ごとの仕様 | [開発計画](../development/index.md)の各計画書 |
+| 残っている作業・仕様・進捗 | [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) |
 | 決めたこと | [決定ログ](../architecture/decisions.md) |
 | はまったこと | [確認と、はまりどころ](verify.md) |
 | 手順・設定値 | そのサービスの運用ページ |
@@ -70,7 +69,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | 端末台帳 | NetBox に Pixel 8a が残り、家族の Galaxy が未登録 | 機種名を確かめて `platform/netbox/devices.yaml` を直す |
 | サービスの state 用キー | `services.sops.yaml` は作成済みだが、キーの有効性・権限は未確認 | `tools/tf services/<name> plan` が通るか |
 | ボリュームの種類（SSD⇔HDD） | 変える API が無い。win-01 のデータは手で HDD へ移し、管理DBを合わせた | 要るなら API に足す |
-| Nextcloud MCP の実データ確認 | 人のアカウントでのタグ編集〜Navidrome 反映などが未確認 | 確認までは動作確認済みと書かない（[A06](../development/A06-nextcloud-mcp.md)） |
+| Nextcloud MCP の実データ確認 | 人のアカウントでのタグ編集〜Navidrome 反映などが未確認 | 確認までは動作確認済みと書かない（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)） |
 
 ## 5. 引き継ぐ人のアクセス
 

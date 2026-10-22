@@ -1,6 +1,6 @@
 # LocalSend受信機（media-01）
 
-状態: **2026-09-12にmedia-01へ配備済み（healthy、`/api/localsend/v2/info` が `media-01` を返す）。端末アプリからの実送受信とNextcloud `inbox` への着地は未確認**（[D06](../../../docs/development/D06-localsend.md)）。
+状態: **2026-09-12にmedia-01へ配備済み（healthy、`/api/localsend/v2/info` が `media-01` を返す）。端末アプリからの実送受信とNextcloud `inbox` への着地は未確認**（[D06](https://github.com/rurutheGeek/shake-cloud/issues/216)）。
 
 スマホ・PCの公式LocalSendアプリから、media-01へファイルを送るための常設の受信機です。送られたファイルは共有ライブラリの `inbox`（Nextcloudの「inbox」）に着地し、そこからmusic/books/docsへ移動できます。LocalSendは本来サーバーを持たないP2Pなので、これは**非公式のヘッドレス受信機**です。
 

@@ -6,7 +6,7 @@
 
 配備先: **game1**。
 
-担当計画: [A01 ポケモンAI](../../docs/development/A01-pokemon-ai.md)、推論先は[A02 Ollama](../../docs/development/A02-ollama.md)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
+担当計画: [A01 ポケモンAI](https://github.com/rurutheGeek/shake-cloud/issues/187)、推論先は[A02 Ollama](https://github.com/rurutheGeek/shake-cloud/issues/188)。仕様・進捗の正本は個別計画書とし、[全体一覧](../../docs/development/index.md)から依存関係を確認する。
 
 ## 再利用するもの
 
@@ -26,4 +26,4 @@ Ollama を一つだけ起動する。ホスト側は loopback のみ、モデル
 `manage.py pull <model>` を明示しない限りモデルを取得しない。GPUイメージと
 Vulkan設定は game1 のドライバ確認後に環境変数で切り替える。
 
-VMの所有者は[サービス配置とIaC](../../docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。
+VMの所有者は[サービス配置とIaC](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/D03-service-boundaries.md)を参照する。core-01は `05-seed`、game1は既存クラウド管理のまま、新規media-01だけを[I02の宣言先](../../platform/terraform/services/media/README.md)で管理する。

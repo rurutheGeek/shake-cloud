@@ -177,7 +177,7 @@ Nextcloudは単体で使えますが、同じ保存領域・同じアカウン�
 | [Kavita](https://kavita.apextox.dpdns.org) | `books`フォルダーを読む | 本・PDF・電子書籍 |
 | [Navidrome](https://navidrome.apextox.dpdns.org) | `music`フォルダーを再生（ブラウザーは共通ログインで自動ログイン） | 音楽 |
 | [MeTube](https://metube.apextox.dpdns.org) | 取り込んだ音声が`music/YouTube`へ入る | URLから音声を取り込む |
-| [LocalSend](../development/D06-localsend.md) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
+| [LocalSend](https://github.com/rurutheGeek/shake-cloud/issues/216) | 端末から`inbox`へ受信／Nextcloudの「…」→「LocalSendで送る」で端末へ送信 | 端末とNextcloudの受け渡し（`localsend.apextox.dpdns.org:53317`） |
 | [プリンター](printer.md)（CUPS） | ファイルの「…」→「印刷」 | Nextcloudのファイルを印刷 |
 | [Vaultwarden](../operations/vaultwarden.md) | 同じ共通ログインで使うパスワード管理 | Nextcloudのログイン情報も保管 |
 | [Shake Lab Docs](https://docs.apextox.dpdns.org) | Gitの`docs/`をサイトとして公開 | 手順書の閲覧 |

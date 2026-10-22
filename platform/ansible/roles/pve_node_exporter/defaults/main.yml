@@ -2,7 +2,7 @@
 # Proxmoxホストの資源・SMARTをPrometheusへ出す。Debianの
 # prometheus-node-exporter を入れ、SMARTとNVMeは同梱のtextfile collector
 # （smartmon.sh・nvme-cli）をtimerで回す。設計は
-# docs/development/M01-monitoring.md。
+# https://github.com/rurutheGeek/shake-cloud/issues/210。
 pve_node_exporter_packages:
   - prometheus-node-exporter
   - smartmontools

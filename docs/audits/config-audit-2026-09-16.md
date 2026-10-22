@@ -36,7 +36,7 @@ tags:
 
 ### 1.3 バックアップの残り
 
-週次vzdumpは入った。残っているのは次の2点で、前者は[O01](../development/O01-cloud-backup.md)が追う。
+週次vzdumpは入った。残っているのは次の2点で、前者は[O01](https://github.com/rurutheGeek/shake-cloud/issues/212)が追う。
 
 - 別機器・別場所へのコピー（提案: restic＋R2。stateとは別prefix・別トークン）。
 - 復元の成否の記録。`tools/pve-restore-drill.sh`を月1回流し、**最終復元成功日**を配備台帳へ1行で持つ。バックアップの成否より、復元の成否を記録する。

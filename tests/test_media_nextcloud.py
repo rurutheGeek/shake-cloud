@@ -732,7 +732,7 @@ class SecretTests(unittest.TestCase):
 
     def test_the_readme_links_the_work_item_and_the_source(self):
         readme = (UNIT / 'README.md').read_text(encoding='utf-8')
-        self.assertIn('../../../docs/development/W03-nextcloud.md', readme)
+        self.assertIn('https://github.com/rurutheGeek/shake-cloud/issues/180', readme)
         self.assertIn('stacks/compose.lock.yaml', readme)
 
 
