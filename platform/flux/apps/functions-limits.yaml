@@ -1,0 +1,28 @@
+# function（Knative）に渡すメモリの上限。database と合わせて 1GiB
+# （databases/limits.yaml）。クラウドAPI はイメージしか指定しないので、
+# 関数のコンテナと Knative の queue-proxy にはここの既定が付く。
+# 呼ばれていない関数は 0 台まで縮むので、合計は同時に動いている分だけ数える。
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: memory
+  namespace: functions
+spec:
+  limits:
+    - type: Container
+      default:
+        memory: 128Mi
+      defaultRequest:
+        memory: 64Mi
+      max:
+        memory: 256Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: memory
+  namespace: functions
+spec:
+  hard:
+    limits.memory: 384Mi
+    requests.memory: 384Mi

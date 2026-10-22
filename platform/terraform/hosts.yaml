@@ -42,19 +42,23 @@ hosts:
   k8s-cp-01:
     vm_id: 200
     pool: platform
-    # 常時起動の control plane。実行時は etcd と API が載る。
-    flavor: small
+    # 1台構成（2026-10-22）。control plane・etcd に加え、AWX・database・function も
+    # ここに載せる（taint を外す。k8s_control_plane の k8s_schedule_on_control_plane）。
+    # 内訳の目安: k8s と Cilium 等 約1.5GiB、AWX 約2.5GiB、database・function の上限 1GiB。
+    flavor: large
     # k8s ノードはバルーニングしない（kubelet が上限を能力としてスケジューラへ
     # 広告するので、後からホストが回収すると Pod が追い出される）。
-    memory_mib: 3072
-    memory_min_mib: 3072
+    memory_mib: 6144
+    memory_min_mib: 6144
     disk_gib: 32
-    # 使わないときは tools/k8s で止める。電源断のあとは「切れる前に動いていた
-    # 組」を戻す shakecloud-guests が起動するので、onboot では起こさない。
+    # local-path（AWX の DB・database の PVC）の置き場。
+    data_disk_gib: 64
+    # 電源断のあとは「切れる前に動いていた組」を戻す shakecloud-guests が起動する
+    # ので、onboot では起こさない。
     on_boot: false
     started: true
     tags: [k8s-cp, managed-by-terraform-admin]
-    description: Kubernetes control plane と etcd。使うときだけ起動。
+    description: Kubernetes の1台構成（control plane・etcd・AWX・database・function）。
 
   k8s-worker-01:
     vm_id: 210
@@ -68,9 +72,10 @@ hosts:
     data_disk_gib: 64
     # control plane と同じ理由で onboot は付けない（shakecloud-guests が戻す）。
     on_boot: false
-    started: true
+    # 1台構成にしたので止めておく予備（2026-10-22）。tools/k8s up --all で起動して join。
+    started: false
     tags: [k8s-worker, managed-by-terraform-admin]
-    description: Kubernetes worker。OS32+データ64。使うときだけ起動。
+    description: Kubernetes worker（予備）。OS32+データ64。1台構成のため停止。
 
   k8s-worker-02:
     vm_id: 211

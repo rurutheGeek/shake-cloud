@@ -38,6 +38,17 @@
     group: '{{ ansible_user }}'
     mode: '0600'
 
+- name: Allow workloads on the control plane
+  ansible.builtin.command:
+    argv: [kubectl, taint, nodes, --all, node-role.kubernetes.io/control-plane:NoSchedule-]
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: k8s_untaint
+  # 外す taint が無いときは "not found" で失敗する。それは外し済み。
+  changed_when: "'untainted' in k8s_untaint.stdout"
+  failed_when: k8s_untaint.rc != 0 and 'not found' not in k8s_untaint.stderr
+  when: k8s_schedule_on_control_plane | bool
+
 # 新しいトークンを毎回作る。join 側は未参加のときだけ使うので、
 # 何度流しても古いトークンが残って問題になることはない。
 - name: Create a bootstrap token and print the join command
