@@ -130,6 +130,15 @@ class DocsStructureTests(unittest.TestCase):
             with self.subTest(section=section):
                 self.assertEqual(sorted(members - reached), [])
 
+    def test_the_handover_stays_short(self):
+        # The ledger is rewritten after almost every change on real hosts. Once
+        # history piles up in it, nobody reads it and every edit conflicts.
+        # History belongs in commit messages, details in each service's page.
+        text = (DOCS / 'operations/handover.md').read_text(encoding='utf-8')
+        self.assertLessEqual(len(text), 16000, 'move details to the service pages')
+        long_lines = [n for n, line in enumerate(text.splitlines(), 1) if len(line) > 400]
+        self.assertEqual(long_lines, [], 'keep each row to one or two sentences')
+
     def test_the_generated_map_is_up_to_date(self):
         result = subprocess.run(
             ['python3', str(ROOT / 'tools/docs-map.py'), '--check'],
