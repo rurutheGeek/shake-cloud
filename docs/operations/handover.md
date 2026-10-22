@@ -72,6 +72,8 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 
 2026-09-22に、Proxmoxホスト直結の6TB USB HDD（`/srv/bulk`、ext4、ラベル `bulk6tb`）を、media-01（`/srv/media-stack/library`）とgame1（ROM原本・セーブ）へNFS共有しました。Tier1 VMの週次vzdumpは毎週日曜06:00・snapshot・zstd・keep-last=4で `/srv/bulk/backups` へ取り、game1のセーブは `tools/game1-saves-backup.sh` で別途取ります。対象VMIDは 2026-09-22 時点では 101・110・130・140・150・401・5001・5002 で、**2026-10-03 に 101・120・140・150・401・5001・5005 へ更新しました**。手順と限界は[共有バルクストレージ](bulk-storage.md)・[バックアップ](backup.md)が正本です。
 
+2026-10-22に、PHPの遠隔コード実行の脆弱性 php2shell（CVE-2026-109618／109619）への対応として、PHPで動く4つのイメージを修正版のPHPを含むものへ上げました。Nextcloud 33.0.8→33.0.10（PHP 8.4.25→8.4.27）、FreshRSS 1.30.4（8.4.24→8.4.27）、Adminer 6.1.1→6.1.2（8.4.26→8.4.27）、LibreSpeed 6.2.0→6.3.1（8.5.8→8.5.12）です。media-01 の Nextcloud は未マージの `feat/nextcloud-ocr-search` から配備されているため、playbook は流さず、`compose.lock.yaml` だけを差し替えて `manage.py up`・`upgrade` を実行しました。このブランチをマージするときは、main の lock を取り込んでください。
+
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。現在の基盤VM（core-01・cloud-01・monitor-01）と dev-a・media-01・apps-01 は JST です（当時の記録の services-01・identity・storage-s3 は再編で core-01 への統合・削除）。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。

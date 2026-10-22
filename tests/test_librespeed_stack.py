@@ -82,7 +82,7 @@ class StackTests(unittest.TestCase):
         image = self.service()['image']
         self.assertEqual(
             image,
-            '${LIBRESPEED_IMAGE:-ghcr.io/librespeed/speedtest}:${LIBRESPEED_TAG:-6.2.0}')
+            '${LIBRESPEED_IMAGE:-ghcr.io/librespeed/speedtest}:${LIBRESPEED_TAG:-6.3.1}')
         self.assertNotIn('latest', image)
 
     def test_the_lock_pins_the_same_repository_as_compose(self):
