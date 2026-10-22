@@ -1,6 +1,6 @@
 ---
 title: H04 EufyCam連携の検証
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # H04 EufyCam連携の検証
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: 人物・動体イベントは稼働、ライブ映像は不可。`eufy-security-ws` 3.1.0（独立Compose、hostネットワークで `172.31.254.1:3000` のみbind・LAN非公開）＋HA統合 `eufy_security` v8.2.4（host `172.31.254.1:3000`）を配備済み（資格情報は `platform/sops/eufy-security.sops.yaml`）。eufyCam S4（T8172）とSmartTrack（T87B0）でログイン・デバイス一覧・Pushまで動作。ライブ映像はS4の新WebRTC（leo_rtc）方式のため現行の公開ソフトでは不可で、後継 `mega-yfue/eufy-sdk` でのRTSPブリッジを検討中。人物・動体イベントは2026-09-23にHAまで届くことを実機で確認（イベント画像は確認中）
+**進捗**: [Issue #198](https://github.com/rurutheGeek/shake-cloud/issues/198)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 [家電の構成案](../architecture/operations.md#home-devices)ではAnker EufyCam S4と記載される。実機は **eufyCam S4（T8172、fw 1.1.1.2、HomeBaseなしの単体、IP 192.168.10.4）** と **SmartTrack（T87B0）** の2台で確認した。RTSP/NASは使えない前提とし、一般的なEufyのNAS対応をS4の保証にしない。
 

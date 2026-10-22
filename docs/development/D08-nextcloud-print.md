@@ -1,6 +1,6 @@
 ---
 title: D08 Nextcloudからの印刷（cups_print）
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -11,7 +11,9 @@ tags:
 
 # D08 Nextcloudからの印刷（cups_print）
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**進捗**: [Issue #218](https://github.com/rurutheGeek/shake-cloud/issues/218)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 種別: **実装＋資料**。状態: **印刷アプリを公開リポジトリ `rurutheGeek/nextcloud-cups-print`（`cups_print`）へ切り出し、media-01はGitHub Releaseから導入。実印刷・ダイアログ（部数/カラー/ページ範囲）・Markdown印刷を実測済み（2026-09-26）**。
 

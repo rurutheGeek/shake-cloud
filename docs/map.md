@@ -62,7 +62,8 @@ flowchart TB
 | 実機のVM・電源・配備の状態 | [配備台帳](operations/handover.md) |
 | すでに決まっていること | [決定ログ](architecture/decisions.md) |
 | ドキュメント自体の書き方 | [ドキュメントの書き方](contributing-docs.md) |
-| 作業ごとの仕様・進捗・完了条件 | [各作業IDの計画書](development/index.md) |
+| 残っている作業・進捗 | [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)（写しは Forgejo の `archive/shake-cloud-issues`） |
+| 作業ごとの仕様・完了条件 | [各作業IDの計画書](development/index.md) |
 | クラウドAPIのエンドポイントとフィールド | `cloud/openapi/shakecloud.yaml` |
 | ホスト固有の値（ノード名・ストレージ名） | `platform/terraform/site.yaml`（`tools/site-yaml.py` が生成） |
 | 設計をなぜそう決めたか | [設計の入口](architecture/index.md)と[決定ログ](architecture/decisions.md) |
@@ -99,7 +100,7 @@ flowchart TB
 | [Android VMの画面を使う（RDP）](services/android.md) | 2026-10-02 | `guide` `vm` `rdp` |
 | [クラウドの使い方（ポータル・CLI・Terraform）](services/cloud.md) | 2026-09-23 | `guide` `cloud` |
 | [開発VMの使い方](services/devvm.md) | 2026-09-13 | `guide` `vm` |
-| [リポジトリの保管庫（Forgejo）](services/forgejo.md) | 2026-10-15 | `guide` `git` |
+| [リポジトリの保管庫（Forgejo）](services/forgejo.md) | 2026-10-22 | `guide` `git` |
 | [Homarrの使い方](services/homarr.md) | 2026-10-03 | `guide` `homarr` |
 | [Home Assistantと家電の使い方（利用者向け）](services/home-assistant.md) | 2026-09-13 | `guide` `home-assistant` |
 | [共通ログインの使い方](services/identity.md) | 2026-09-27 | `guide` `identity` |
@@ -120,56 +121,56 @@ flowchart TB
 
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
-| [A01 ポケモンDB・WebUI・agentのgame1移行](development/A01-pokemon-ai.md) | 2026-10-04 | `plan` `ai` |
-| [A02 Ollamaのgame1導入](development/A02-ollama.md) | 2026-09-13 | `plan` `ai` |
-| [A03 汎用RAGの構築](development/A03-rag.md) | 2026-09-12 | `plan` `ai` |
-| [A04 Discord Botの構築](development/A04-discord-bot.md) | 2026-09-12 | `plan` `ai` |
-| [A05 OpenHomeの製品・要件調査](development/A05-openhome.md) | 2026-09-12 | `plan` `ai` |
-| [A06 NextcloudファイルAIエージェント（nextcloud-mcp）](development/A06-nextcloud-mcp.md) | 2026-10-02 | `plan` `nextcloud` |
+| [A01 ポケモンDB・WebUI・agentのgame1移行](development/A01-pokemon-ai.md) | 2026-10-22 | `plan` `ai` |
+| [A02 Ollamaのgame1導入](development/A02-ollama.md) | 2026-10-22 | `plan` `ai` |
+| [A03 汎用RAGの構築](development/A03-rag.md) | 2026-10-22 | `plan` `ai` |
+| [A04 Discord Botの構築](development/A04-discord-bot.md) | 2026-10-22 | `plan` `ai` |
+| [A05 OpenHomeの製品・要件調査](development/A05-openhome.md) | 2026-10-22 | `plan` `ai` |
+| [A06 NextcloudファイルAIエージェント（nextcloud-mcp）](development/A06-nextcloud-mcp.md) | 2026-10-22 | `plan` `nextcloud` |
 | [D01 開発参加ガイドの更新](development/D01-onboarding.md) | 2026-09-12 | `plan` `onboarding` |
-| [D02 配置・配分表・構成図の更新](development/D02-placement.md) | 2026-09-12 | `plan` `placement` |
+| [D02 配置・配分表・構成図の更新](development/D02-placement.md) | 2026-10-22 | `plan` `placement` |
 | [D03 サービス配置とIaC所有境界の更新](development/D03-service-boundaries.md) | 2026-09-12 | `plan` `placement` |
 | [D04 実装状況の訂正と未完了一覧の整備](development/D04-status.md) | 2026-09-13 | `plan` `handover` |
 | [D05 Picardのメディア統合](development/D05-picard.md) | 2026-09-13 | `plan` `music` |
-| [D06 LocalSendの受信機と端末間転送資料](development/D06-localsend.md) | 2026-09-13 | `plan` `transfer` |
-| [D07 Tailcatの一時接続資料](development/D07-tailcat.md) | 2026-09-12 | `plan` `network` |
-| [D08 Nextcloudからの印刷（cups_print）](development/D08-nextcloud-print.md) | 2026-10-03 | `plan` `nextcloud` `print` |
-| [G01 Wolfの構成管理と実機確認](development/G01-wolf.md) | 2026-09-12 | `plan` `game` |
-| [G02 Azahar二人利用・非公開ルーム](development/G02-azahar.md) | 2026-09-12 | `plan` `game` |
-| [G03 ゲームとAIの負荷調整](development/G03-game-ai-resources.md) | 2026-09-12 | `plan` `game` `placement` |
-| [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-10-03 | `plan` `home-assistant` |
-| [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-10-03 | `plan` `home-assistant` |
+| [D06 LocalSendの受信機と端末間転送資料](development/D06-localsend.md) | 2026-10-22 | `plan` `transfer` |
+| [D07 Tailcatの一時接続資料](development/D07-tailcat.md) | 2026-10-22 | `plan` `network` |
+| [D08 Nextcloudからの印刷（cups_print）](development/D08-nextcloud-print.md) | 2026-10-22 | `plan` `nextcloud` `print` |
+| [G01 Wolfの構成管理と実機確認](development/G01-wolf.md) | 2026-10-22 | `plan` `game` |
+| [G02 Azahar二人利用・非公開ルーム](development/G02-azahar.md) | 2026-10-22 | `plan` `game` |
+| [G03 ゲームとAIの負荷調整](development/G03-game-ai-resources.md) | 2026-10-22 | `plan` `game` `placement` |
+| [H01 Home Assistant Containerの導入](development/H01-home-assistant.md) | 2026-10-22 | `plan` `home-assistant` |
+| [H02 SwitchBot連携](development/H02-switchbot.md) | 2026-10-22 | `plan` `home-assistant` |
 | [H03 Echo・Alexa連携](development/H03-echo.md) | 2026-10-03 | `plan` `home-assistant` |
-| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-10-03 | `plan` `home-assistant` |
-| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-10-03 | `plan` `home-assistant` `reverse-engineering` |
-| [H05 HAライブ反映の依頼書](development/H05-ha-live-request.md) | 2026-10-03 | `plan` `home-assistant` `reverse-engineering` |
-| [I01 容量測定・軽量化](development/I01-resources.md) | 2026-09-13 | `plan` `placement` |
+| [H04 EufyCam連携の検証](development/H04-eufy.md) | 2026-10-22 | `plan` `home-assistant` |
+| [H05 Eufy leo_rtc ネイティブクライアント](development/H05-eufy-leo-rtc.md) | 2026-10-22 | `plan` `home-assistant` `reverse-engineering` |
+| [H05 HAライブ反映の依頼書](development/H05-ha-live-request.md) | 2026-10-22 | `plan` `home-assistant` `reverse-engineering` |
+| [I01 容量測定・軽量化](development/I01-resources.md) | 2026-10-22 | `plan` `placement` |
 | [I02 media-01のVM宣言](development/I02-media-vm.md) | 2026-10-02 | `plan` `media` |
 | [I03 クラウドVMのAnsible連携](development/I03-cloud-inventory.md) | 2026-10-03 | `plan` `cloud` `ansible` |
-| [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-09-12 | `plan` `cloud` `network` |
-| [I05 サービス用state管理](development/I05-service-state.md) | 2026-09-23 | `plan` `terraform` |
-| [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-09-12 | `plan` `awx` |
-| [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-03 | `plan` `cloud` |
-| [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-10-03 | `plan` `monitoring` |
-| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
-| [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
-| [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
+| [I04 クラウドVMのDNS登録](development/I04-cloud-dns.md) | 2026-10-22 | `plan` `cloud` `network` |
+| [I05 サービス用state管理](development/I05-service-state.md) | 2026-10-22 | `plan` `terraform` |
+| [I06 AWXのジョブ整備](development/I06-awx.md) | 2026-10-22 | `plan` `awx` |
+| [I07 クラウドポータルのUI改善](development/I07-portal-ui.md) | 2026-10-22 | `plan` `cloud` |
+| [M01 監視（Prometheus・Grafana）](development/M01-monitoring.md) | 2026-10-22 | `plan` `monitoring` |
+| [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-22 | `plan` `monitoring` |
+| [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-22 | `plan` `network` |
+| [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-22 | `plan` `network` |
 | [N03 VLAN切替](development/N03-vlan.md) | 2026-10-22 | `plan` `network` |
-| [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
-| [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-10-03 | `plan` `network` |
+| [N04 公開Web入口](development/N04-public-edge.md) | 2026-10-22 | `plan` |
+| [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-10-22 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
-| [O01 管理DBの外部バックアップ](development/O01-cloud-backup.md) | 2026-09-16 | `plan` `cloud` `backup` |
-| [O02 CNPGバックアップ](development/O02-cnpg-backup.md) | 2026-09-12 | `plan` `backup` |
-| [O03 VM・アプリ状態の復元](development/O03-restore.md) | 2026-09-12 | `plan` `backup` |
-| [W01 Homarrのapps-01移行（旧services-01）](development/W01-homarr.md) | 2026-10-03 | `plan` `homarr` |
-| [W02 Vaultwardenのapps-01移行（旧services-01）](development/W02-vaultwarden.md) | 2026-10-03 | `plan` `vaultwarden` |
-| [W03 Nextcloud・Calendar・Tasksのmedia-01移行](development/W03-nextcloud.md) | 2026-10-02 | `plan` `nextcloud` `cloud` |
-| [W04 Kavitaのmedia-01移行](development/W04-kavita.md) | 2026-09-13 | `plan` `kavita` |
-| [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-09-13 | `plan` `navidrome` |
-| [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-02 | `plan` `music` |
-| [W07 RomMの新規導入](development/W07-romm.md) | 2026-09-13 | `plan` `game` |
-| [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
-| [W09 Smart Switchの非公式クライアント（解析）](development/W09-smartswitch-re.md) | 2026-10-03 | `plan` `smartswitch` `reverse-engineering` |
+| [O01 管理DBの外部バックアップ](development/O01-cloud-backup.md) | 2026-10-22 | `plan` `cloud` `backup` |
+| [O02 CNPGバックアップ](development/O02-cnpg-backup.md) | 2026-10-22 | `plan` `backup` |
+| [O03 VM・アプリ状態の復元](development/O03-restore.md) | 2026-10-22 | `plan` `backup` |
+| [W01 Homarrのapps-01移行（旧services-01）](development/W01-homarr.md) | 2026-10-22 | `plan` `homarr` |
+| [W02 Vaultwardenのapps-01移行（旧services-01）](development/W02-vaultwarden.md) | 2026-10-22 | `plan` `vaultwarden` |
+| [W03 Nextcloud・Calendar・Tasksのmedia-01移行](development/W03-nextcloud.md) | 2026-10-22 | `plan` `nextcloud` `cloud` |
+| [W04 Kavitaのmedia-01移行](development/W04-kavita.md) | 2026-10-22 | `plan` `kavita` |
+| [W05 Navidromeのmedia-01移行](development/W05-navidrome.md) | 2026-10-22 | `plan` `navidrome` |
+| [W06 MeTube・音楽変換・タグ編集のmedia-01移行](development/W06-music-tools.md) | 2026-10-22 | `plan` `music` |
+| [W07 RomMの新規導入](development/W07-romm.md) | 2026-10-22 | `plan` `game` |
+| [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-22 | `plan` `backup` `urbackup` |
+| [W09 Smart Switchの非公式クライアント（解析）](development/W09-smartswitch-re.md) | 2026-10-22 | `plan` `smartswitch` `reverse-engineering` |
 | [W10 Nextcloudの画像OCR検索（ocr_search）](development/W10-ocr-search.md) | 2026-10-11 | `plan` `nextcloud` `ocr` |
 | [機能別VMと並列開発計画](development/index.md) | 2026-10-22 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |

@@ -1,6 +1,6 @@
 ---
 title: リポジトリの保管庫（Forgejo）
-updated: 2026-10-15
+updated: 2026-10-22
 section: 利用ガイド
 audience: 利用者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # リポジトリの保管庫（Forgejo）
 
-> **更新日** 2026-10-15 ・ **区分** 利用ガイド ・ **読む人** 利用者
+> **更新日** 2026-10-22 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
 入口は <https://forgejo.apextox.dpdns.org>（家庭内LAN専用）。
 
@@ -20,7 +20,7 @@ tags:
 - **ログインしないと何も見えない。** 外へは出していない。
 - **ミラー**: 元のリポジトリを 24 時間ごとに取り込む（`git` の履歴とWiki）。元が消えても手元の写しは残る。
 - **force-push には弱い。** 元で履歴が書き換えられると、次の同期で写しも書き換わる。残したい時点があるなら、その時点でバックアップを取る（[運用](#運用)）。
-- Issue・Pull Request・Release はミラーされない。
+- Issue・Pull Request・Release はミラーされない。ただし `mirrors.json` で `"issues": true` にした GitHub のリポジトリ（shake-cloud）は、Issues とコメントを毎日 `archive/<名前>-issues` へ Markdown と JSON で写す。元で消えた Issue も写しからは消さない。
 
 ## ミラーを足す
 

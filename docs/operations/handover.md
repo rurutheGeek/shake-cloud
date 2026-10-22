@@ -17,7 +17,8 @@ tags:
 | 書きたいもの | 書く場所 |
 | --- | --- |
 | 経緯（いつ・何をしたか） | コミットメッセージ。`git log -p -- <ファイル>` で追える |
-| 作業ごとの仕様・進捗 | [開発計画](../development/index.md)の各計画書 |
+| 残っている作業・進捗 | [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) |
+| 作業ごとの仕様 | [開発計画](../development/index.md)の各計画書 |
 | 決めたこと | [決定ログ](../architecture/decisions.md) |
 | はまったこと | [確認と、はまりどころ](verify.md) |
 | 手順・設定値 | そのサービスの運用ページ |
@@ -56,29 +57,10 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 
 ## 3. 残っている作業
 
-👤 は家での物理作業か、人の判断が要るもの。
+**[GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues) が正本です。** 写しは毎日 Forgejo の `archive/shake-cloud-issues` へ取ります。
 
-| 作業 | いま | 詳細 |
-| --- | --- | --- |
-| K11 の `vmbr0` を VLAN 対応に 👤 | DMZ にクラウドVMを置くときだけ要る。いまは困っていない | [区画](vlan.md#dmz-の作り方)・[N03](../development/N03-vlan.md) |
-| DMZ からの侵入の検査・外からのポートスキャン | 未実施 | [セキュリティ §5](../architecture/security.md#5-残っている穴) |
-| Proxmox の管理画面・SSH を送信元で絞る | 未実施。個人端末のどれからでも届く | [セキュリティ §5](../architecture/security.md#5-残っている穴) |
-| NetBox の接続先を HTTPS にして `:8000` を閉じる | 未着手。`netbox.sops.yaml`・`netbox-inventory.sops.yaml`・`cloudapi.sops.yaml` の URL を変える | [NetBox](netbox.md) |
-| Flint 3 の残り 👤 | TL-SG605 の先の割当、UPS の配線（Flint 3・tarakoserver を電池側へ）、SwitchBot ハブを jumpluff へ、非常口の WireGuard、K11 の `/root/tether-*.sh` の削除 | [Flint 3](flint3.md) |
-| 既存環境からのメディア移行 | Nextcloud・Kavita・Navidrome は配備済みでデータ移行が未了 | [W03〜W06](../development/index.md) |
-| 外部バックアップ | 管理DB・CNPG・端末バックアップの別機器へのコピーと、復元の合格が未了。Garage は単一ノードなので唯一の控えにしない | [O01〜O03](../development/index.md)・[バックアップ](backup.md) |
-| 端末バックアップの実測 | Windows の初回バックアップと復元、Galaxy の WebUSB バックアップの完走が未確認 | [W08](../development/W08-client-backup.md) |
-| Eufy S4 のライブ映像 | 20 秒ほどで切れる。連続性が未解決 | [H05](../development/H05-eufy-leo-rtc.md) |
-| Home Assistant のバックアップと復元試験 | 未了 | [H01](../development/H01-home-assistant.md) |
-| Forgejo | ブラウザーでのログイン確認、外形監視と Homarr のタイルの配備、別機器へのバックアップ | [Forgejo](../services/forgejo.md) |
-| ポケモンDBの MCP | `admins` 以外のアプリパスワードが拒まれることの確認。OAuth で使う別クライアントの戻り先の追加 | [pkdb](pkdb.md) |
-| 読み取り専用のアクセスキー | ReadOnly キーで書き込みが拒まれることの実機確認（API・MCP） | [クラウドAPI本体](cloud-api.md)・[MCP](mcp.md) |
-| Nextcloud の自作アプリ | 証明書は発行済み。App Store への登録が未確認 | [Nextcloud](nextcloud.md) |
-| 出たままの警告 | apps-01 の `eufy-camera-watch`（HTTP 404 で一時停止中）、tarakoserver の `smartmontools`（USB の HDD が見えない） | [M02](../development/M02-touch-panel.md) |
-| `10-platform` の未適用差分 | 使用中のVMの `initialization`、`access.yaml` の SSH 鍵、説明文。使用中のVMに触れるので全体 apply はしていない | [Terraform](terraform.md) |
-| android-01 の環境スクリプト | VM 上にしか無く、作り直すと失われる。Ansible 化が未了 | [android-01](android-01.md) |
-| Renovate 👤 | GitHub App を入れるまで PR は作られない。`compose.lock.yaml` の digest は対象外 | `renovate.json` |
-| AWX のジョブ | ジョブテンプレート・プロジェクトの整備が未着手 | [I06](../development/I06-awx.md) |
+- 家での物理作業か人の判断が要るもの: [ラベル `人の手`](https://github.com/rurutheGeek/shake-cloud/issues?q=is%3Aopen+label%3A%E4%BA%BA%E3%81%AE%E6%89%8B)
+- 守りの穴: [ラベル `セキュリティ`](https://github.com/rurutheGeek/shake-cloud/issues?q=is%3Aopen+label%3A%E3%82%BB%E3%82%AD%E3%83%A5%E3%83%AA%E3%83%86%E3%82%A3)
 
 ## 4. 未決事項
 

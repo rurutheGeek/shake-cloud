@@ -1,6 +1,6 @@
 ---
 title: N02 Tailscaleの復旧経路・DNS
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,9 +10,11 @@ tags:
 
 # N02 Tailscaleの復旧経路・DNS
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**区分**: 運用改善・実機確認 ・ **状態**: ルータ（router-01、OpenWrt）上で稼働（2026-10-03に net-01 から移設、net-01 は削除）。経緯: VM版の復旧経路 `net-01` を作成し、Tailscaleへ参加済み（`100.91.7.69`）。ルート承認と tailnet DNS（AdGuard Home）を適用済み（2026-10-01）。宅外端末での実機検証が未了。
+**区分**: 運用改善・実機確認
+
+**進捗**: [Issue #201](https://github.com/rurutheGeek/shake-cloud/issues/201)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 ## 目的・現状・配備先
 

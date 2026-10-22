@@ -1,6 +1,6 @@
 ---
 title: W05 Navidromeのmedia-01移行
-updated: 2026-09-13
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # W05 Navidromeのmedia-01移行
 
-> **更新日** 2026-09-13 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: 既存コードの移行・認証統合・実機確認。media-01へNavidromeを独立Composeとして2026-09-12に配備済み（`/ping` 200・healthy、musicは読み取り専用）。HTTPS入口（`https://navidrome.apextox.dpdns.org`）とAuthentik Forward Auth（`Remote-User`）を設定済み。既存利用者・プレイリスト・DBの移行は未了
+**進捗**: [Issue #182](https://github.com/rurutheGeek/shake-cloud/issues/182)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 `stacks/compose.yaml` に `/data` と読み取り専用musicがあり、`stacks/scripts/sync-music.py` が更新走査と連携する。[音楽手順](../services/music.md)に既存運用がある。
 

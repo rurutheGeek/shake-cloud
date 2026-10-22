@@ -1,6 +1,6 @@
 ---
 title: A04 Discord Botの構築
-updated: 2026-09-12
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # A04 Discord Botの構築
 
-> **更新日** 2026-09-12 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: 新規実装・実接続は外部条件待ち
+**進捗**: [Issue #190](https://github.com/rurutheGeek/shake-cloud/issues/190)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 [配置案](../architecture/operations.md)に汎用RAGとの接続、Bot Secret・対象チャンネル管理の希望がある。本リポジトリにBot実装はない。
 

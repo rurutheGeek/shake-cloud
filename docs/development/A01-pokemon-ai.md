@@ -1,6 +1,6 @@
 ---
 title: A01 ポケモンDB・WebUI・agentのgame1移行
-updated: 2026-10-04
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # A01 ポケモンDB・WebUI・agentのgame1移行
 
-> **更新日** 2026-10-04 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: **DBは apps-01 へ移行済み（2026-10-04、[pkdb](../operations/pkdb.md)）。** WebUI・agentは外部コード待ち。Discord Bot（UBSLEEPY）は別物で、[apps-01 へ移行済み](../operations/ubsleepy.md)
+**進捗**: [Issue #187](https://github.com/rurutheGeek/shake-cloud/issues/187)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 [既存構成の記録](../architecture/operations.md#pokemon-db)に外部 `pokemon-ai-lab/compose.yaml` の内容があるが、本リポジトリにコードやダンプはない。DB名・読み取りロール等は資料の記録であり、取得した実体と照合するまで検証済みとしない。
 

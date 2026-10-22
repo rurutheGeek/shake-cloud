@@ -1,6 +1,6 @@
 ---
 title: H05 Eufy leo_rtc ネイティブクライアント
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -11,7 +11,9 @@ tags:
 
 # H05 Eufy leo_rtc ネイティブクライアント
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
+
+**進捗**: [Issue #199](https://github.com/rurutheGeek/shake-cloud/issues/199)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 > **2026-10-03の注記**: 解析作業は中断中。関連スタック（eufy-security-ws・eufy-leo-rtc・Home Assistant）はapps-01で稼働する。以下の「services-01」は当時の配備先（2026-10-03にapps-01へ移設）。
 

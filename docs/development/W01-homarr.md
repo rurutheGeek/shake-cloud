@@ -1,6 +1,6 @@
 ---
 title: W01 Homarrのapps-01移行（旧services-01）
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # W01 Homarrのapps-01移行（旧services-01）
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり、配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: apps-01で稼働（2026-10-03にservices-01から移設。`https://homarr.apextox.dpdns.org`、identityのOIDC、ボード反映済み）。残りはブラウザでのSSOログイン・権限・再起動後の保持確認
+**進捗**: [Issue #178](https://github.com/rurutheGeek/shake-cloud/issues/178)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 `stacks/homarr/compose.yaml` にHomarr、永続 `/appdata`、暗号鍵、OIDCの定義がある。`stacks/homarr/configure.py` と `apps.json` がリンクの管理元である。[利用手順](../services/homarr.md)のボード・管理者権限を維持する。
 

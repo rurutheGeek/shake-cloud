@@ -1,6 +1,6 @@
 ---
 title: M01 監視（Prometheus・Grafana）
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,9 +10,11 @@ tags:
 
 # M01 監視（Prometheus・Grafana）
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
-**区分**: 新規実装 ・ **状態**: **配備済み（monitor-01 `192.168.10.210`。2026-10-03にクラウドVMから基盤VM［VMID 120］へ移行。`https://grafana.apextox.dpdns.org`）。全ターゲットup、UPS取得、メール通知を実機確認。HomarrのProxmox連携＋System Health／UPS（PeaNUT）ウィジェットとボード整列まで完了。node_exporterの資源アラート、dead man's switch（healthchecks.ioで有効）、管理DBバックアップの最終成功メトリクス、低電池シャットダウン（upsmon）を追加済み。VMごとの実使用メモリを見るダッシュボード（Shake Lab VM memory）と、ホストのメモリ逼迫アラートを追加済み。game1のホスト・セッション使用量をGrafanaで見るゲームサーバー使用量ダッシュボードを追加済み。**Proxmoxホストへnode_exporterとSMART/NVMeのtextfile collectorを導入し、ホスト詳細（Shake Lab host）・ストレージ詳細（Shake Lab storage）の2ダッシュボードと、6TB HDDの容量・SMART・マウント消失アラートを追加済み。**
+**区分**: 新規実装
+
+**進捗**: [Issue #210](https://github.com/rurutheGeek/shake-cloud/issues/210)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 ## 目的・現状・配備先
 

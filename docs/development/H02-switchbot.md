@@ -1,6 +1,6 @@
 ---
 title: H02 SwitchBot連携
-updated: 2026-10-03
+updated: 2026-10-22
 section: 開発計画
 audience: 開発者
 tags:
@@ -10,13 +10,13 @@ tags:
 
 # H02 SwitchBot連携
 
-> **更新日** 2026-10-03 ・ **区分** 開発計画 ・ **読む人** 開発者
+> **更新日** 2026-10-22 ・ **区分** 開発計画 ・ **読む人** 開発者
 
 これは開発計画であり配備完了の記録ではありません。[配置・所有境界・並列作業の共通ルール](index.md)を参照してください。番号は実施順を表しません。
 
 ## 目的・現状
 
-**状態**: SwitchBot Cloud統合を追加済み（Hub Mini経由）。鍵・ドアセンサー・赤外線家電（エアコン/テレビ/照明等）のエンティティを確認。実機の操作・状態更新の確認待ち
+**進捗**: [Issue #197](https://github.com/rurutheGeek/shake-cloud/issues/197)（残りの作業と状態は Issue が正本。この文書は仕様と作業記録）
 
 [家電の構成案](../architecture/operations.md#home-devices)はBluetoothローカルとCloudの違い、機種/Hub確認を要求している。利用者の機器は **Hub Miniがある** ことを2026-09-12に確認した。services-01のHA ContainerにはBluetoothが無く、USB Bluetoothドングルのパススルーも未実施のため、**SwitchBot Cloud統合**（Hub MiniがBLE機器を中継）を採用し、HAへ統合を追加した。鍵・ドアセンサー・赤外線家電（エアコン/テレビ/照明等）のエンティティは確認済み。機器本体の型番・ファームの把握と、実機の操作・状態更新は未確認。
 
