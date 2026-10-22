@@ -59,15 +59,13 @@ tags:
 
 ## 4. ネットワーク
 
-**家庭内ルータは Flint 3（GL-BE9300）です**（2026-10-14 に K11 上の OpenWrt VM `router-01` から切替）。ファイアウォール・DHCP・DNS（AdGuard Home）・Tailscale・区画（VLAN）を担います。
+**家庭内ルータは Flint 3（GL-BE9300）です**。ファイアウォール・DHCP・DNS（AdGuard Home）・Tailscale・区画（VLAN）を担います。
 
 | ページ | 何が分かるか |
 | --- | --- |
 | [Flint 3（家庭内ルーター）](flint3.md) | 構成・配線・区画と SSID・設定の入れ方。**まずここ** |
 | [区画と区画間の通信（VLAN）](vlan.md) | 区画の一覧、区画間で通すもの、DMZ の作り方 |
 | [ネットワーク図](../network-map.md) | 実機の設定から作る区画・VLAN・ファイアウォールの図 |
-| [router-01（OpenWrt・旧ルータ。停止中）](router.md) | 切り戻し用。2026-10-28 以降に削除 |
-| [router-01 の設定まとめ](router-config.md) | 旧ルータ。素のOpenWrtから何を変えたか |
 | [ルータがつながらないときの調べ方](router-troubleshooting.md) | 通信が落ちたときの切り分け |
 | [AdGuard Home](adguard.md) | DNSと広告遮断の運用 |
 | [Tailscale（subnet router）](net.md) | 宅外から家の区画への経路（Flint 3 上で動作）。アクセス制限は `platform/tailscale/` |

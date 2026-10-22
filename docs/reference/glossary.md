@@ -19,7 +19,6 @@ tags:
 | 名前 | 何か |
 | --- | --- |
 | `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる。管理は `192.168.10.10` |
-| `router-01` | **旧家庭内ルータ（OpenWrt）。** K11上のVM。2026-10-14 に Flint 3 へ切り替えて停止中（切り戻し用。2026-10-28 以降に削除）（[router-01](../operations/router.md)） |
 | Flint 3 | **家庭内ルータ**（GL.iNet GL-BE9300、`192.168.10.1`）。ファイアウォール・DHCP・DNS（AdGuard Home）・区画（VLAN）・Wi-Fi・Tailscale を担う（[Flint 3](../operations/flint3.md)） |
 | `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの構築](../operations/cloud.md)・[Garage](../operations/garage.md)） |
 | `core-01` | 共通ログイン（Authentik・[認証基盤](../operations/identity.md)）・台帳（NetBox）・HTTPSの入口（Caddy）。旧 `services-01` |
@@ -63,7 +62,7 @@ tags:
 | **CloudNativePG** | Kubernetes上のPostgreSQL。クラウドの「database」機能の実体 |
 | **Knative** | Kubernetes上のHTTP実行。クラウドの「function」機能の実体 |
 | **SOPS / age** | 秘密値を暗号化したままGitに置くための道具（[秘密値の管理](../operations/secrets.md)） |
-| **OpenWrt** | ルータ用のLinux。旧ルータ `router-01` の中身（設定の正本は `platform/openwrt/`）。Flint 3 の純正ファームも OpenWrt が土台 |
+| **OpenWrt** | ルータ用のLinux。Flint 3 の純正ファームの土台 |
 | **AdGuard Home** | DNSサーバー兼広告・トラッカー遮断。Flint 3 上で家中の名前解決を担う（[AdGuard Home](../operations/adguard.md)） |
 | **LuCI** | OpenWrt の管理画面。**SSOを付けていない**（復旧経路のため） |
 | **LibreSpeed** | 自前の回線速度テスト。apps-01（[LibreSpeed](../services/librespeed.md)） |

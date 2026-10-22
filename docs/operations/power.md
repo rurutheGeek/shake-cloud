@@ -66,8 +66,7 @@ game1 を停止/起動するときは、この自動復旧が働く前提で行�
 VM 停止時に GPU を戻そうとしてバスリセットが走ると、この一族が道連れになり、
 ホストがログを 1 行も残さず即死します。
 
-**まずやること**: `qm stop` をやめ、**`qm shutdown 100 --timeout 120`** を使う
-（[router.md](router.md) の K11 メンテナンス節）。ゲストの systemd が amdgpu を
+**まずやること**: `qm stop` をやめ、**`qm shutdown 100 --timeout 120`** を使う。ゲストの systemd が amdgpu を
 正規手順で手放してから QEMU が終わるので、危険なリセットに入りにくくなります。
 それでも落ちる場合の候補は、カーネルパラメータ `initcall_blacklist=sysfb_init`
 （ホストが iGPU を使わないようにする）、`hostpci0` への `disable_vga=1`、

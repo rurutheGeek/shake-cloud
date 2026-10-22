@@ -1,6 +1,6 @@
 ---
 title: DNS と広告遮断（AdGuard Home）
-updated: 2026-10-14
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,13 +11,9 @@ tags:
 
 # DNS と広告遮断（AdGuard Home）
 
-> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **2026-10-14 から [Flint 3](flint3.md) で稼働。** フィルタと除外ルールは同じ。待ち受けは `:3053`（LAN の `:53` を転送）、設定は `platform/flint3/rootfs/etc/AdGuardHome/config.yaml`。管理画面は SSO 経由では開けない。以下は router-01 での記録。
-
-対象読者: 家のネットワークを運用する人。設定の一覧は
-[router-01 の設定まとめ](router-config.md)、ルータ本体は
-[router-01（OpenWrt・自作ルータ）](router.md) が正本です。
+**状態**: [Flint 3](flint3.md) で稼働（2026-10-14〜）。設定の正本は `platform/flint3/rootfs/etc/AdGuardHome/config.yaml`。
 
 ## ひとことで
 
@@ -26,10 +22,12 @@ tags:
 dnsmasq が担当し、AdGuard はそこへ転送します。
 
 ```
-端末 ──DNS──▶ AdGuard Home（192.168.10.1:53）──DoH──▶ Cloudflare / Google
-                   │  *.lan だけ
+端末 ──DNS（192.168.10.1:53）──▶ GL のファイアウォールが転送
                    ▼
-             dnsmasq（127.0.0.1:5353）＝ DHCP とローカル名
+             AdGuard Home（:3053）──DoH──▶ Cloudflare / Google
+                   │  *.lan と逆引きだけ
+                   ▼
+             dnsmasq（127.0.0.1:53）＝ DHCP とローカル名
 ```
 
 ## なぜ入れているか
@@ -39,54 +37,31 @@ dnsmasq が担当し、AdGuard はそこへ転送します。
 - **DNS の暗号化（DoH）**: 回線事業者に問い合わせ内容を平文で見せない
 - **ISP の DNS 不調から独立**: 切替前、ISP の DNS が `refused` を返して
   名前が引けないことがあった
-- **LAN 内の名前は今までどおり**: `aterm.lan` などのローカル名は dnsmasq が
+- **LAN 内の名前は今までどおり**: `*.lan` のローカル名は dnsmasq が
   答える（AdGuard は `*.lan` を dnsmasq へ転送）
 
 ## いまの設定
 
 | 項目 | 値 | 理由 |
 | --- | --- | --- |
-| バージョン | 0.107.57（OpenWrt 24.10 のフィード） | イメージに固定（`openwrt.yaml`） |
-| 待ち受け | `192.168.10.1:53`（TCP/UDP・v4/v6） | LAN の窓口 |
-| 上流 | `[/lan/]127.0.0.1:5353` → DoH（Cloudflare / Google） | ローカル名は dnsmasq、外部は暗号化 |
+| 待ち受け | `:3053`。LAN・Tailscale からの `:53` を GL のファイアウォールが転送 | GL.iNet の組み込み方式。dnsmasq は `:53` のまま |
+| 上流 | `[/lan/]127.0.0.1:53` → DoH（Cloudflare / Google） | ローカル名は dnsmasq、外部は暗号化 |
 | ブートストラップ | 1.1.1.1 / 9.9.9.10 | DoH サーバー名の解決用 |
-| 逆引き（PTR） | `127.0.0.1:5353` | LAN の名前は dnsmasq |
-| フィルタ | AdGuard DNS filter（約18万件）＋ HaGeZi's Pro Blocklist | 広告・トラッカー。1本では網羅できないため補完 |
+| 逆引き（PTR） | `127.0.0.1:53` | LAN の名前は dnsmasq |
+| フィルタ | AdGuard DNS filter ＋ HaGeZi's Pro Blocklist | 広告・トラッカー。1本では網羅できないため補完 |
 | 除外（`user_rules`） | Xbox 実績用の Microsoft ドメイン（`v10/v20.events.data.microsoft.com` の地域版・`v10c`・`vortex(-win)`・`pipe.aria`・`watson` と CNAME 先） | HaGeZi's Pro が実績トラッキングを遮断するため（2026-10-02） |
-| クエリログ・統計 | 90日 | ルータ内のディスクに保存 |
-| 管理画面 | `https://adguard.apextox.dpdns.org`（SSO） | Forward Auth の下に置く。ルータの `:3000` は core-01 だけに許可 |
-| 作業ディレクトリ | `/etc/adguardhome/data`（UCI `workdir`） | 既定の `/var/lib` は tmpfs。再起動でフィルタが消えるのを防ぐ |
-| DHCP の DNS 配布 | `192.168.10.1`（dnsmasq の option 6） | 端末は DHCP で AdGuard を知る |
+| クエリログ | メモリのみ（ファイルに書かない） | eMMC を減らさない |
+| 統計 | 90日 | |
+| 管理画面 | `192.168.10.1:3000`。GL.iNet の管理画面のログインが要る | SSO（`adguard.apextox.dpdns.org`）からは入れない |
 
 ## 正本と反映
 
 | 対象 | 正本 | 反映 |
 | --- | --- | --- |
-| 本体の設定 | `platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml` | scp 後に `/etc/init.d/adguardhome restart`、またはイメージ再ビルド |
-| パッケージ・UCI | `openwrt.yaml`・`rootfs/etc/uci-defaults/97-shakecloud-adguard` | イメージ再ビルド |
-| dnsmasq 側（DHCP・option 6・`:5353`） | `rootfs/etc/shakecloud/config/dhcp` | scp 後に `/etc/shakecloud/apply`（または reboot） |
+| 本体の設定 | `platform/flint3/rootfs/etc/AdGuardHome/config.yaml` | `platform/flint3/deploy.sh 192.168.10.1` → `/etc/init.d/adguardhome restart` |
 | 予約・名前 | NetBox（`platform/netbox/devices.yaml`） | `tools/netbox-dhcp-sync.py pull`（timer が自動実行） |
 
-**ルータ上で UCI や YAML を直接編集しない。** 正本は Git です。
-
-## 管理画面の開き方
-
-**通常は <https://adguard.apextox.dpdns.org>** を開きます（共通ログイン＝SSO）。
-しくみは、ルータの `192.168.10.1:3000` を core-01 の Caddy が中継し、
-Forward Auth（Authentik）で認証する形です。**ルータのファイアウォールは
-`:3000` を core-01 だけに開けている**ので、LAN の端末から
-`http://192.168.10.1:3000` を直接開くことはできません（SSO の迂回防止）。
-
-SSO が使えないときは SSH トンネルで開きます。
-
-```bash
-ssh -L 3000:192.168.10.1:3000 root@192.168.10.1
-# ブラウザで http://localhost:3000/
-```
-
-AdGuard 自身にはパスワードを設定していません（`users: []`）。初回に UI で
-管理者を作ると設定ファイルが書き換わり、Git の正本と差分が出ます。
-**作らないでください**（必要になったら正本へ反映してコミットします）。
+**ルータ上で YAML を直接編集しない。** 正本は Git です。
 
 ## よくある操作
 
@@ -97,12 +72,12 @@ AdGuard 自身にはパスワードを設定していません（`users: []`）�
 ```bash
 ssh root@192.168.10.1 \
   'curl -s -X POST -H "Content-Type: application/json" -d "{}" \
-     http://192.168.10.1:3000/control/filtering/refresh'
+     http://127.0.0.1:3000/control/filtering/refresh'
 ```
 
 ### 特定の名前を遮断したい・通したい
 
-正本の `adguardhome.yaml` の `user_rules` に書いてコミットします。
+正本の `config.yaml` の `user_rules` に書いてコミットします。
 
 ```yaml
 user_rules:
@@ -110,11 +85,11 @@ user_rules:
   - '@@||good.example.com^'   # 除外（遮断しない）
 ```
 
-反映は scp → `/etc/init.d/adguardhome restart`。
+反映は `deploy.sh` → `/etc/init.d/adguardhome restart`。
 
 ### フィルタ（ブロックリスト）を足す
 
-正本の `adguardhome.yaml` の `filters` に足してコミットします。URL は
+正本の `config.yaml` の `filters` に足してコミットします。URL は
 [HostlistsRegistry](https://adguardteam.github.io/HostlistsRegistry/) の
 `filter_N.txt` を使い、`id` も登録所の番号に合わせます。
 
@@ -126,20 +101,18 @@ filters:
     id: 48
 ```
 
-**id は一意**にします（重複すると片方が読まれません）。反映は scp →
+**id は一意**にします（重複すると片方が読まれません）。反映は `deploy.sh` →
 `/etc/init.d/adguardhome restart` → フィルタ更新（上記）。追加直後は
 `/control/filtering/status` の `rules_count` が増えていることを確認します。
 リストを増やすほど誤ブロックも増えるので、**1本ずつ足して数日見る**のが安全です。
 
 ### 遮断の様子を見る
 
-管理画面の「クエリログ」。ファイルは
-`/etc/adguardhome/data/data/querylog.json`（90日）。**家の外には出ません。**
+管理画面の「クエリログ」。メモリにだけ持つので、再起動で消えます。**家の外には出ません。**
 
 ### 誤ブロックを見つけたら（止めてはいけない物の確認）
 
-1. クエリログを「遮断」で絞って、ドメインと回数を見る（管理画面、または
-   ログファイルを `grep`）。
+1. クエリログを「遮断」で絞って、ドメインと回数を見る（管理画面）。
 2. そのドメインが**機能に必要**なら、正本の `user_rules` に除外を足す。
 
 ```yaml
@@ -147,7 +120,7 @@ user_rules:
   - '@@||example.com^'   # 遮断しない（サブドメインも含む）
 ```
 
-3. scp → `/etc/init.d/adguardhome restart` で反映し、コミットする。
+3. `deploy.sh` → `/etc/init.d/adguardhome restart` で反映し、コミットする。
 
 **2026-09-20 の調査（18時間・遮断1,303件/94ドメイン）**では、広告SDK・
 計測（Firebase/Google Analytics など）・Amazon デバイスのテレメトリ
@@ -190,51 +163,28 @@ AdGuard 自体を止めると `:53` が空になり DNS が止まります。止
 
 ## しくみ（知っておくと困らないこと）
 
-- **起動**: `interface.*.up` の5秒後に起動（WAN が上がってから）。再起動では
-  `workdir` のフィルタキャッシュを読むため、すぐ遮断が効く
-- **フィルタ取得に失敗しても止まらない**: 起動直後は WAN が未確立のことが
-  あり、その場合はキャッシュを使う。キャッシュが無い初回だけは次回更新まで
-  遮断が空になるので、上の refresh を手で叩く
-- **dnsmasq は DHCP とローカル名だけ**: DNS は `:5353`。`*.lan` は AdGuard から
-  ここへ転送される。**1語の名前（`aterm`）は通らない**。`aterm.lan` と引く
+- **フィルタ取得に失敗しても止まらない**: 回線が無い状態で起動すると
+  フィルタが空のままになる。上の refresh を叩くか `/etc/init.d/adguardhome restart`
+- **dnsmasq は DHCP とローカル名だけ**: `*.lan` は AdGuard からここへ転送される。
+  **1語の名前は通らない**。`<名前>.lan` と引く
 - **IPv6 端末の DNS は DHCPv4 で配る**: JPNE の上流 RA に RDNSS が無いため、
-  IPv6 の DNS（RDNSS）は配れない（odhcpd の relay は上流 RA の RDNSS を
-  書き換える方式で、元が無い）。端末は DHCPv4 の `192.168.10.1` を使う
-- **24.10 のパッケージは設定パスが違う**: 既定は `/etc/adguardhome.yaml`。
-  UCI `adguardhome.config.config` で `/etc/adguardhome/adguardhome.yaml` に
-  合わせている（`uci-defaults/97`）
-- **作業ディレクトリは永続領域**: 既定の `/var/lib/adguardhome` は tmpfs。
-  再起動でフィルタと統計が消える（2026-09-20 に実際に踏んだ）
-
-## つまずきやすい点
-
-| 症状 | 原因 | 直し方 |
-| --- | --- | --- |
-| スマホに「インターネットなし」 | DHCP が DNS（option 6）を配っていない | `dhcp.lan` に `list dhcp_option '6,192.168.10.1'`（設定済み）。端末は Wi-Fi 再接続で新しいリースを取る |
-| 広告が消えない | フィルタが空（起動時に取得失敗） | refresh API を叩き、`rules_count` を確認 |
-| `aterm` が引けない | 1語の名前は転送されない | `aterm.lan` と引く |
-| 管理画面が開けない | SSO か Caddy の入口の問題 | `https://adguard.apextox.dpdns.org` を開く。だめなら SSH トンネル（上記） |
-| 名前が全体的に引けない | AdGuard か dnsmasq が落ちている | 下の確認コマンド |
+  IPv6 の DNS（RDNSS）は配れない。端末は DHCPv4 の `192.168.10.1` を使う
+- **稼働中の AdGuard Home は設定ファイルを自分の形式へ書き換える**: `deploy.sh`
+  で置いたら必ず再起動する
 
 ## 確認コマンド
 
 ```bash
-# 窓口（:53 = AdGuard、:5353 = dnsmasq）
-ssh root@192.168.10.1 'netstat -lntup | grep -E ":(53|5353) "'
-# 遮断とローカル名
-ssh root@192.168.10.1 'nslookup doubleclick.net 192.168.10.1'   # 0.0.0.0
-ssh root@192.168.10.1 'nslookup aterm.lan 192.168.10.1'         # 192.168.10.2
+# 遮断
+nslookup doubleclick.net 192.168.10.1   # 0.0.0.0
 # フィルタの件数と更新時刻
-ssh root@192.168.10.1 'curl -s http://192.168.10.1:3000/control/filtering/status | head -c 300'
-# HTTPS 入口（SSO のログインへ 302 すれば正常）
-curl -sI https://adguard.apextox.dpdns.org/ | head -3
+ssh root@192.168.10.1 'curl -s http://127.0.0.1:3000/control/filtering/status | head -c 300'
 # ログ
 ssh root@192.168.10.1 'logread | grep -i adguard | tail -5'
 ```
 
 ## 関連
 
-- [router-01 の設定まとめ](router-config.md)
-- [router-01（OpenWrt・自作ルータ）](router.md)
+- [Flint 3（家庭内ルーター）](flint3.md)
 - [ルータがつながらないときの調べ方](router-troubleshooting.md)
 - [NetBox の使い方](netbox.md)

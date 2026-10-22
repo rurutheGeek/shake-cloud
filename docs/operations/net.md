@@ -1,6 +1,6 @@
 ---
 title: Tailscale（Flint 3 上の subnet router）
-updated: 2026-10-14
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Tailscale（Flint 3 上の subnet router）
 
-> **更新日** 2026-10-14 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **2026-10-14 に [Flint 3](flint3.md#tailscale) へ移した（端末情報を引き継ぎ、宅外から入れる範囲に個人端末の区画を追加）。** 以下は router-01 での記録: router-01（OpenWrt）で稼働中（2026-10-03 にクラウドVM `net-01` から移設し、net-01 は削除）。** ルート承認と tailnet DNS（AdGuard Home）は 2026-10-01 に適用済み。宅外端末での実機検証が未了。
+**状態**: [Flint 3](flint3.md#tailscale) で稼働（2026-10-14〜）。宅外端末での実機検証が未了。
 
 宅外から家の区画へ入るための Tailscale の subnet router です。**2026-10-14 から Flint 3（K11 とは別の機械）で動いています。** K11 が落ちても宅外から家へ入れます。
 
@@ -25,29 +25,7 @@ tags:
 | tailnet DNS | `192.168.10.1`（AdGuard Home。tailscale ゾーンの 53 を 3053 へ転送） |
 | 家の中での遠回り | 家にある端末が「サブネットを使う」と、家の中の通信も Flint 3 の Tailscale を通る。家から出さない端末はオフにする（[Flint 3](flint3.md#tailscale)） |
 
-以下は router-01 で動かしていた頃の記録です（2026-10-03〜10-14）。
-
-## 実体
-
-| 項目 | 値 |
-| --- | --- |
-| ホスト | `router-01`（OpenWrt、VMID 101、`192.168.10.1`） |
-| tailnet アドレス | `100.91.7.69`（net-01 の端末の身元を引き継いだ。管理画面での再承認は不要だった） |
-| 宣言（リポジトリ） | `platform/openwrt/openwrt.yaml` の `packages` に `tailscale`、`platform/openwrt/rootfs/etc/shakecloud/config/tailscale` |
-| tailscaled の設定 | `/etc/config/tailscale`: `state_file /etc/tailscale/tailscaled.state`、`fw_mode nftables` |
-| 状態ファイル | `/etc/tailscale/tailscaled.state`（**秘密値。イメージには含めない**） |
-| ファイアウォール | `config/tailscale` の `tailscale` ゾーン（`device tailscale0`、forward REJECT）と、`tailscale` → `lan` の `forwarding`（`config/firewall`） |
-| 広告ルート | `192.168.10.0/24`（`site.yaml` の `network.prefix` から取得）。承認済み（2026-10-01） |
-| tailnet DNS | `192.168.10.1`（AdGuard Home）を唯一の global nameserver にし、`overrideLocalDNS` を有効化（MagicDNS は維持） |
-
-tailnet からの着信は `tailscale0` に入り、`tailscale` ゾーンから `lan` へ転送されます。**送信元の書き換え（SNAT）は tailscaled 自身が nftables で行う**ため、ファイアウォール側で `masq` はしません。Tailscale の通信は端末側からの発信と中継で成立するので、WAN 側のポート開放も不要です。
-
-## 設定と配備
-
-OpenWrt の設定はリポジトリの `platform/openwrt/rootfs/` が正本で、[router-01](router.md) の手順でイメージに焼き込みます。**tailscaled の状態ファイル（端末の秘密鍵を含む）だけはリポジトリにもイメージにも入れません。** そのため、**ルータのイメージを作り直すと tailnet からは別端末になります**。次のどちらかで戻します。
-
-1. **端末の身元を引き継ぐ（推奨）**: 作り直す前に `ssh root@192.168.10.1 'cat /etc/tailscale/tailscaled.state'` で状態ファイルを安全な場所へ退避し、新しいイメージで同じパスへ戻して `tailscale up` する。管理画面での再承認は不要。
-2. **認証キーで参加し直す**: 管理画面で認証キーを発行し（Pre-approved: on、Tags: `tag:vpn` を推奨）、ルータで `tailscale up --advertise-routes=192.168.10.0/24 --auth-key=<キー>` を実行する。**ルートの再承認**が必要で、管理画面に古い端末が残っていれば Remove します。認証キーの値は `platform/sops/tailscale.sops.yaml`（`.example` 参照）にあり、シェル履歴へ残さない渡し方をします。
+## 管理画面側の設定
 
 管理画面側の設定（ルート承認・tailnet DNS）は `tools/tailscale-net.py` で宣言どおりに揃えます。**管理画面の端末名は net-01 から移した時点のものを引き継いでいます。** 名前を変えた場合は、ツール冒頭の `HOSTNAME` も合わせてください。
 
@@ -69,8 +47,8 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 - 2026-10-01 より前は global nameserver が未設定のまま MagicDNS だけが有効で、
   `100.100.100.100` が全名前に SERVFAIL を返していた。スマホで Tailscale を
   繋ぐと「インターネットが繋がらない」ように見えた原因はこれ。
-- **AdGuard（router-01）が停止すると、Tailscale 接続中の端末は名前解決できなくなる。**
-  subnet router も同じ router-01 なので、ルータが落ちれば経路もDNSも同時に失う。
+- **AdGuard（Flint 3）が停止すると、Tailscale 接続中の端末は名前解決できなくなる。**
+  subnet router も同じ Flint 3 なので、ルータが落ちれば経路もDNSも同時に失う。
   予備 resolver を併記すると広告ブロックが漏れるため、あえて1つにしている。
   復旧時は IP 直打ちや `/etc/hosts` を使う。
 
@@ -104,7 +82,6 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 ssh root@192.168.10.1 'tailscale status'
 ssh root@192.168.10.1 'tailscale ip -4'
 ssh root@192.168.10.1 'tailscale debug prefs'
-ssh root@192.168.10.1 'uci show tailscale'
 TAILSCALE_API_TOKEN=$(sops --decrypt --extract '["TAILSCALE_API_TOKEN"]' platform/sops/tailscale.sops.yaml) \
   .venv/bin/python tools/tailscale-net.py status
 host example.com 100.100.100.100

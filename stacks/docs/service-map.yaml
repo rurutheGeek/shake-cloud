@@ -6,13 +6,13 @@
 #   kind : base（Terraform が作る基盤VM）/ cloud（自作クラウドAPIが作るVM）/ host
 #   docs : docs/ からの相対パス。tests/test_service_map.py が存在を確かめる
 vms:
-  - name: router-01
-    kind: base
+  - name: Flint 3
+    kind: host
     role: ルーター・DNS・VPN
     address: 192.168.10.1
-    docs: [operations/router.md]
+    docs: [operations/flint3.md]
     services:
-      - {name: OpenWrt, description: 家庭内ルーター（WAN・LAN・DHCP）, docs: [operations/router.md, operations/router-config.md]}
+      - {name: GL.iNet, description: 家庭内ルーター（WAN・LAN・DHCP）, docs: [operations/flint3.md]}
       - {name: Tailscale, description: 宅外から管理LANへ入る復旧経路, docs: [operations/net.md]}
   - name: core-01
     kind: base
@@ -111,7 +111,7 @@ record_docs:
   netbox: [operations/netbox.md]
   homarr: [services/homarr.md]
   adguard: [operations/adguard.md]
-  router: [operations/router.md]
+  router: [operations/flint3.md]
   grafana: [operations/monitoring.md]
   peanut: [operations/power.md]
   netmap: [network-map.md]
@@ -139,5 +139,5 @@ record_vms:
   "*.functions.k8s": k8s（必要なときだけ起動）
 # 入口の Caddy が別の機器へ中継している名前は、中継先のVMに載せる。
 record_vm_overrides:
-  adguard: router-01
-  router: router-01
+  adguard: Flint 3
+  router: Flint 3

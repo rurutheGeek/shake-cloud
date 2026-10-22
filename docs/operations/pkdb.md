@@ -19,7 +19,7 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | 配備先 | apps-01（`192.168.10.105`）。`/opt/pkdb`（Compose・`manage.py`・`secrets/`）、`/srv/pkdb/data`（データ）、`/srv/pkdb/backups`（日次ダンプ） |
-| 接続先 | `pkdb.apextox.dpdns.org:5432`（LAN のみ。tailnet からは router-01 のサブネットルート経由） |
+| 接続先 | `pkdb.apextox.dpdns.org:5432`（LAN のみ。tailnet からは Flint 3 のサブネットルート経由） |
 | 版 | PostgreSQL 15.15（`postgres:15.15-alpine`、digest固定）。旧ホストと同じ版・同じ musl |
 | DB | `sleepy_pkdb`（スキーマ `pokemondb`）、`shakeweb`、`pkhack` |
 | ロール | `pkdb_reader`・`pkdb_editor`・`shakeweb_reader`・`shakeweb_editor`・`pkhack_reader`・`pkhack_editor`。**パスワードは旧ホストと同じ**（ハッシュごと移した） |

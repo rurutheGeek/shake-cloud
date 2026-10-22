@@ -24,7 +24,7 @@ tags:
 | --- | --- | --- |
 | **物理ホスト `apextox`** | VM・クラウド・認証（Authentik）・家電（Home Assistant） | 受け入れている。ハングに備えてハードウェアwatchdog（SP5100 TCO）を有効にしてある（[電源とUPS](../operations/power.md)）。**2026-10-14 からルータ（Flint 3）と監視（tarakoserver）は K11 の外**なので、K11 が落ちても家のインターネット・DNS・Tailscale と監視は残る |
 | **SSD 1台** | 全VMの本体 | 2026-09-22 から Tier1 VM の週次vzdumpを6TB USB HDD（`/srv/bulk/backups`）へ取っている（[バックアップ](../operations/backup.md)）。**ただし同じ筐体に直結**なので、火災・盗難・筐体ごとの故障はカバーしない。**別機器・別場所へのコピーは未着手**（[O01](https://github.com/rurutheGeek/shake-cloud/issues/212)） |
-| **Flint 3（家庭内ルータ）** | **家中のインターネット・DNS・DHCP・Wi-Fi・Tailscale。** 全端末 | 物理機1台。UPS の電池側にはつないでいない（停電で止まる）。切り戻しとして停止中の router-01（K11 上、2026-10-28 以降に削除）。設定は毎日 K11 へ取る（[Flint 3](../operations/flint3.md)） |
+| **Flint 3（家庭内ルータ）** | **家中のインターネット・DNS・DHCP・Wi-Fi・Tailscale。** 全端末 | 物理機1台。UPS の電池側にはつないでいない（停電で止まる）。設定は毎日 K11 へ取る（[Flint 3](../operations/flint3.md)） |
 | **AdGuard Home（DNS）** | 名前解決。`*.apextox.dpdns.org` も外部の名前も引けなくなる | Flint 3 上。DNSが死ぬとIP直打ち以外の手段が無くなる（[AdGuard Home](../operations/adguard.md)） |
 | **Garage（cloud-01、単一ノード）** | S3バケットとオブジェクト | **stateとバックアップの唯一の保管先にしない。** Terraform state は外部のS3互換に置く |
 | **Cloudflare（DNS）** | 名前解決と、証明書のDNS-01更新 | 外部依存。既存証明書は期限まで有効なので即死はしない |

@@ -46,7 +46,7 @@ class ServiceMapTests(unittest.TestCase):
         services = {service['name']: service for vm in data['vms'] for service in vm['services']}
         self.assertEqual(services['Kavita']['route'], [data['edge'], 'media-01'])
         self.assertEqual(services['Authentik']['route'], [data['edge']])
-        self.assertEqual(services['AdGuard Home']['route'], [data['edge'], 'router-01'])
+        self.assertEqual(services['AdGuard Home']['route'], [data['edge'], 'Flint 3'])
 
     def test_the_page_is_in_the_navigation_and_loads_its_scripts(self):
         mkdocs = (ROOT / 'mkdocs.yml').read_text(encoding='utf-8')
