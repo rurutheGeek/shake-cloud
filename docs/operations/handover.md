@@ -74,6 +74,8 @@ I01（2026-09-12）の実測・軽量化の結果は[配分と運用設計](../a
 
 2026-10-22に、PHPの遠隔コード実行の脆弱性 php2shell（CVE-2026-109618／109619）への対応として、PHPで動く4つのイメージを修正版のPHPを含むものへ上げました。Nextcloud 33.0.8→33.0.10（PHP 8.4.25→8.4.27）、FreshRSS 1.30.4（8.4.24→8.4.27）、Adminer 6.1.1→6.1.2（8.4.26→8.4.27）、LibreSpeed 6.2.0→6.3.1（8.5.8→8.5.12）です。Nextcloud の更新前に、DBの控えを media-01 の `/var/backups/nextcloud/` に取りました。
 
+同じ日に、固定したイメージの脆弱性の毎日の点検を tarakoserver に入れました（`platform/ansible/image-scan.yml`、[監視](monitoring.md#image-scan)）。Trivy（OSパッケージ・ライブラリ）と、ソースから入った PHP・Node.js・Python の版の比較で、結果は Grafana の「Shake Lab イメージの脆弱性」とアラートで見ます。
+
 ゲストのタイムゾーンは**`Asia/Tokyo` に統一します**。`platform/ansible/roles/common/defaults/main.yml` の `common_timezone` を `Asia/Tokyo` へ修正しました（2026-09-17）。現在の基盤VM（core-01・cloud-01・monitor-01）と dev-a・media-01・apps-01 は JST です（当時の記録の services-01・identity・storage-s3 は再編で core-01 への統合・削除）。dev-b は次回の配備、停止中の k8s ノード・probe-01 は次回起動時の配備で揃います。**`eufy-security-ws` のアプリログ行だけは UTC 表示です**（アプリ実装のため。コンテナの `TZ` は `Asia/Tokyo`）。
 
 `cloud` プールにあるのは、ボリュームのホルダー（5997）と、引き取った game1（VMID 100。プール所属はVMIDの範囲に依らない）です。利用者VMを新規作成すると 5000–5999 から採番し、game1 の 100 は使いません。IP の帯は `platform/terraform/network.yaml` が正本で、機器帯 `.2`–`.19`（ルータ・AP・プリンタ・Proxmoxホスト）、DHCP `.20`–`.99`（router-01 の dnsmasq が配る）、クラウド用 `.100`–`.180`、管理用 `.201`–`.239`、MetalLB `.240`–`.249` に分けています。game1 の `.127` は NetBox に予約登録してあり、新規VMには払い出されません。
