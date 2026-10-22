@@ -10,10 +10,13 @@ metadata:
 spec:
   limits:
     - type: Container
+      # 1つの Pod は関数と queue-proxy の2コンテナなので、この倍を使う。
+      # 128Mi では Pod が 256Mi になり、0台からの起動が止まりかけの Pod と
+      # 重なると枠を超えて作れなかった（2026-10-22）。
       default:
-        memory: 128Mi
+        memory: 96Mi
       defaultRequest:
-        memory: 64Mi
+        memory: 32Mi
       max:
         memory: 256Mi
 ---
