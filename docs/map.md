@@ -154,7 +154,7 @@ flowchart TB
 | [M02 監視のタッチパネル](development/M02-touch-panel.md) | 2026-10-15 | `plan` `monitoring` |
 | [N01 セルフホストVPN](development/N01-vpn.md) | 2026-10-03 | `plan` `network` |
 | [N02 Tailscaleの復旧経路・DNS](development/N02-tailscale.md) | 2026-10-03 | `plan` `network` |
-| [N03 VLAN切替](development/N03-vlan.md) | 2026-09-23 | `plan` `network` |
+| [N03 VLAN切替](development/N03-vlan.md) | 2026-10-22 | `plan` `network` |
 | [N04 公開Web入口](development/N04-public-edge.md) | 2026-09-23 | `plan` |
 | [N05 既存サービスのHTTPS移行完了](development/N05-https.md) | 2026-10-03 | `plan` `network` |
 | [N06 ルータ自作（OpenWrt）](development/N06-router.md) | 2026-09-20 | `plan` `network` `router` |
@@ -171,7 +171,7 @@ flowchart TB
 | [W08 クライアント端末のバックアップ](development/W08-client-backup.md) | 2026-10-02 | `plan` `backup` `urbackup` |
 | [W09 Smart Switchの非公式クライアント（解析）](development/W09-smartswitch-re.md) | 2026-10-03 | `plan` `smartswitch` `reverse-engineering` |
 | [W10 Nextcloudの画像OCR検索（ocr_search）](development/W10-ocr-search.md) | 2026-10-11 | `plan` `nextcloud` `ocr` |
-| [機能別VMと並列開発計画](development/index.md) | 2026-10-04 | `plan` |
+| [機能別VMと並列開発計画](development/index.md) | 2026-10-22 | `plan` |
 | [Navidrome改造予定](development/navidrome-ideas.md) | 2026-09-18 | `plan` `navidrome` |
 
 ### 運用手順
@@ -197,9 +197,10 @@ flowchart TB
 | [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-14 | `ops` `network` |
 | [Flux にアプリを足す手順](operations/flux-apps.md) | 2026-09-13 | `ops` `kubernetes` |
 | [Garage（S3互換オブジェクトストア）](operations/garage.md) | 2026-10-03 | `ops` `storage` `ai` |
-| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-14 | `ops` `handover` |
+| [配備の記録](operations/handover-log.md) | 2026-10-22 | `ops` `handover` |
+| [クラウド開発の引き継ぎとTODO](operations/handover.md) | 2026-10-22 | `ops` `handover` |
 | [認証基盤（identity サービス・Authentik）](operations/identity.md) | 2026-10-03 | `ops` `identity` |
-| [運用手順の入口](operations/index.md) | 2026-10-04 | `ops` |
+| [運用手順の入口](operations/index.md) | 2026-10-22 | `ops` |
 | [Kubernetes クラスタ](operations/kubernetes.md) | 2026-10-03 | `ops` `kubernetes` `network` |
 | [shakecloud MCPサーバ（読み取り専用）](operations/mcp.md) | 2026-09-23 | `ops` `cloud` |
 | [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
@@ -261,6 +262,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 144 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 145 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

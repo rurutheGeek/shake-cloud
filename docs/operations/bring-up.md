@@ -137,7 +137,7 @@ cp・worker-01は構築済み（identity VM は 2026-10-03 に廃止し、Authen
 
 ## 7. 自動起動と日常運用を仕上げる
 
-Proxmoxの自動起動順は、core-01（Authentik・NetBox・入口のCaddy） → cloud-01（API・Garage）／control plane → workers → monitor-01／apps-01・media-01 を初期案とする（初期案の identity／storage／services-01 は 2026-10-03 の再編で core-01・cloud-01 へ統合）。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
+Proxmoxの自動起動順は、core-01（Authentik・NetBox・入口のCaddy） → cloud-01（API・Garage）／control plane → workers → apps-01・media-01 を初期案とする（初期案の identity／storage／services-01 は 2026-10-03 の再編で core-01・cloud-01 へ統合。monitor-01 は 2026-10-14 に廃止し、監視は K11 の外の tarakoserver）。game・devは利用時起動。順番と待ち時間だけではアプリのreadinessを保証しないので、依存先へのリトライとヘルスチェックも確認する。
 
 初期バックアップ方針は重要DB・HA設定・セーブを日次、VMを週次＋大きな変更前とし、データ変更頻度・容量に応じて見直す。これは日次なら最大約1日分を失い得る目安であり、実際の取得成功を監視する。ゲームの利用時間とバックアップ／大量走査をずらす。復元所要時間を測り、必要な復旧時間に収まるか確認する。
 
