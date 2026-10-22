@@ -170,6 +170,9 @@ def render(directory):
             'volume_size_gib': cloud['volume_size_gib'],
             'capacity': cloud['capacity'],
         },
+        # Networks behind one instance (network.yaml's routed), by instance ID.
+        'routed_prefixes': {entry['instance']: entry['prefix']
+                            for entry in (network.get('routed') or {}).values()},
         'ledger': {
             'cluster': ledger.get('cluster', ''),
             'group_accounts': ledger.get('group_accounts') or [],

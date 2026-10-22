@@ -19,7 +19,7 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | ホスト | Flint 3（GL-BE9300、`192.168.10.1`、tailnet `100.91.7.69`、`tag:router`） |
-| 流している経路 | `192.168.10.0/24`（サーバー）・`192.168.40.0/24`（個人端末）。`autoApprovers` で自動承認。ネット専用・DMZ は流さない |
+| 流している経路 | `192.168.10.0/24`（サーバー）だけ。個人端末の区画（`192.168.40.0/24`）は 2026-10-17 から流さない（家の中の通信が遠回りしたため）。`autoApprovers` で自動承認。ネット専用・DMZ は流さない |
 | 経路を保つ仕組み | GL の `gl_tailscale` はインターフェースが変わるたびに `tailscale up --reset` で経路を消すため、`hotplug.d/iface/95-shakecloud-tailscale-routes` が約20秒後に流し直す |
 | アクセス制限 | `platform/tailscale/acl.json`（正本）。自分と家族の端末は全部、タグの付いた機器（relay・web・dmz・monitoring・game・router）は決めた先だけ |
 | tailnet DNS | `192.168.10.1`（AdGuard Home。tailscale ゾーンの 53 を 3053 へ転送） |

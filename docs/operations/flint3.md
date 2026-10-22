@@ -44,9 +44,10 @@ K11 の WAN（`nic0`）は空き。内蔵スイッチの番号は LAN1=7、LAN2=
 | --- | --- | --- | --- |
 | `ditto-2hc355ek` | 個人端末（`192.168.40.0/24`） | 2.4／5／6GHz と MLO | 通常の電波は 2.4／5GHz が WPA2/WPA3、6GHz は WPA3。MLO の電波は WPA3 |
 | `jumpluff-p7y45x7r` | ネット専用（`192.168.50.0/24`） | 2.4GHz | WPA2、端末間は分離 |
+| `ソーナノWiFi` | AdGuard なし（`192.168.51.0/24`）。DNS は 1.1.1.1 へ直接、サーバーへは届かない | 5GHz | WPA2/WPA3 混在、端末間は分離 |
 | `porygon-…` | サーバー（`192.168.10.0/24`） | 5GHz | WPA2/WPA3 |
 
-- `ditto` と `jumpluff` のパスワードは Git に無い。`ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto`（または `jumpluff`）で入れる。
+- `ditto`・`jumpluff`・`ソーナノWiFi` のパスワードは Git に無い。`ssh -t root@192.168.10.1 /etc/shakecloud/set-wifi-key ditto`（または `jumpluff`・`wynaut`）で入れる。要らなくなったら止めてよい。
 - `porygon` のパスワードは Flint 3 が生成した。`ssh root@192.168.10.1 cat /etc/shakecloud/porygon.key`。
 - 管理用の VLAN は作っていない。`porygon` はサーバーの区画へつながり、Proxmox の画面（`https://192.168.10.10:8006`）へも入れる。
 - MLO は GL.iNet の MLO 用の電波（`wlanmld2g`／`5g`／`6g`）を `ditto` と同じ名前で出している。MLO の親デバイス `mld0` は `hotplug.d/net/90-mld-personal` が個人端末のブリッジへ入れる。
@@ -103,7 +104,7 @@ ssh root@192.168.10.1 /etc/shakecloud/apply-segments        # 区画・SSID・�
 | 項目 | 値 |
 | --- | --- |
 | 端末 | `gl-be9300`（`100.91.7.69`）。router-01 の端末情報を引き継いだ |
-| 宅外から入れる範囲 | `192.168.10.0/24`、`192.168.40.0/24`。ネット専用は入れない |
+| 宅外から入れる範囲 | `192.168.10.0/24`。個人端末の区画は流さない（2026-10-17。家の中の通信が Flint 3 の Tailscale を回って遅くなったため）。デスクトップ・ノート PC へは tailnet の名前で直接。ネット専用は入れない |
 | 範囲を変える | `tailscale set --advertise-routes=…` と、管理画面（API）での経路の承認 |
 | 宅外端末の DNS | AdGuard Home（`192.168.10.1`）。`tailscale0` からの `:53` を `:3053` へ転送 |
 | 端末情報 | `/etc/tailscale/tailscaled.state`（秘密値。Git に置かない） |
