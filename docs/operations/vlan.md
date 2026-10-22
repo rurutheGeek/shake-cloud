@@ -1,5 +1,5 @@
 ---
-title: VLAN 分離への切替
+title: 区画と区画間の通信（VLAN）
 updated: 2026-10-22
 section: 運用手順
 audience: 管理者
@@ -8,11 +8,11 @@ tags:
   - network
 ---
 
-# VLAN 分離への切替
+# 区画と区画間の通信（VLAN）
 
 > **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 個人端末（Wi-Fi `ditto` と Flint 3 の LAN3）とネット専用（Wi-Fi `jumpluff`）を実機で分離済み（2026-10-14）。DMZ は Flint 3 側を作成済み（2026-10-15、LAN4 は DMZ 専用）。shakeserver の LAN4 へのつなぎ替えと、K11 の VLAN 対応（DMZ の VM 用）は未。管理は予約のみ。実機の設定は [Flint 3](flint3.md)。
+**状態**: 個人端末（Wi-Fi `ditto` と Flint 3 の LAN3）とネット専用（Wi-Fi `jumpluff`）を実機で分離済み（2026-10-14）。DMZ は Flint 3 側を作成済み（2026-10-15、LAN4 は DMZ 専用）で、shakeserver は DMZ（`192.168.30.12`）で公開サイトを動かしている（2026-10-16〜）。AdGuard なし（2026-10-17）とゲームの区画（2026-10-17）も実機に入れた。K11 の VLAN 対応（DMZ の VM 用）は未。管理は予約のみ。実機の設定は [Flint 3](flint3.md)。
 
 ## 区画
 
@@ -25,6 +25,8 @@ tags:
 | 30 | DMZ | `192.168.30.0/24` | shakeserver（Raspberry Pi 5、LAN4。Minecraft など）、DMZ の VM（K11 の VLAN 対応のあと） | タグ付き |
 | 40 | 個人端末 | `192.168.40.0/24` | デスクトップ（Flint 3 の LAN3）、ノートPC、スマホ（SSID `ditto-…`） | 通さない |
 | 50 | ネット専用 | `192.168.50.0/24` | 家電、プリンター（SSID `jumpluff-…`）。TL-SG605 の先はまだサーバーの区画 | 通さない |
+| 51 | AdGuard なし | `192.168.51.0/24` | AdGuard Home を通したくないとき（SSID `ソーナノWiFi`）。DNS は 1.1.1.1 へ直接 | 通さない |
+| —（経路） | ゲーム | `192.168.60.0/24` | game-01 のランチャーのコンテナ（セッションごとに 1 つ、NAT しない）。Flint 3 が game-01（`192.168.10.127`）へ送る。正本は `network.yaml` の `routed.game`。クラウド API が game-01 の ipfilter にこの区画を入れる | 通さない（game-01 の中） |
 
 ## 区画間の通信
 
@@ -33,15 +35,17 @@ tags:
 | 送信元 → 宛先 | 方針 |
 | --- | --- |
 | 全区画 → インターネット | 許可 |
-| 全区画 → Flint 3 | DHCP・DNS のみ。管理画面と SSH はデスクトップ・dev-02・Tailscale のみ |
-| 個人端末 → サーバー | 許可。apextox の `:8006`・SSH はデスクトップのみ（Proxmox のファイアウォールで送信元を絞る） |
+| 全区画 → Flint 3 | DHCP・DNS のみ。個人端末の区画から管理画面・SSH・AdGuard の画面へはデスクトップ（有線の MAC）だけ。サーバーの区画と Tailscale からは届く |
+| 個人端末 → サーバー | 許可。apextox の `:8006`・SSH を送信元で絞るのは未実施（[セキュリティ §5](../architecture/security.md#5-残っている穴)） |
 | 個人端末 → ネット専用 | 印刷と家電のローカル制御に要るポートのみ |
-| サーバー → ネット専用 | apps-01 からプリンター・Eufy・SwitchBot、monitor-01 からの監視のみ |
+| サーバー → ネット専用 | apps-01 からプリンター・Eufy・SwitchBot、tarakoserver からの監視のみ |
 | サーバー → 個人端末 | 拒否 |
 | DMZ → サーバー | pkdb（apps-01:5432）のみ。送信元は `dmz-db-clients` に書いた VM だけ |
+| 個人端末 → ゲーム | 許可（サーバーへの許可と同じ。LAN プレイ） |
+| ゲーム → 個人端末 | UDP のみ（`Game-to-Personal`。プレイヤーどうしが直接話す。ポートは実測で絞る） |
 | 開発用の VM（dev-01・dev-02）→ 個人端末 | 許可（実機のスマホへの adb・Flutter の実機実行） |
 | ネット専用 → 他区画 | 拒否 |
-| Tailscale → サーバー・個人端末 | 許可。ネット専用へは入れない |
+| Tailscale → サーバー | 許可。個人端末の区画は 2026-10-17 から経路を流さない。ネット専用・DMZ へは入れない |
 
 IPv6 は `/64` が1つしか来ないため、サーバー区画だけへ中継する。
 
@@ -93,4 +97,4 @@ Flint 3 は区画の間しか絞れないので、同じサーバー区画の中
 
 - 内部サービス（S3・DB・ゲーム）と公開入口は、まだ管理VLAN・管理LAN上です。4区分に分けるのは後段。
 - 同一VLAN内はルータを通らないため、Proxmox の VM ファイアウォール（セキュリティグループ）と、将来の Cilium NetworkPolicy を併用します（[ネットワーク・SSO](../architecture/network-auth.md)）。
-- Garage の管理API（`:3903`）は、VLAN 切替後も**利用者VLANから届きうる**ので、到達先をクラウドAPIだけに絞るのは別途 VM ファイアウォールで行います。
+- Garage の管理API（`:3903`）は cloud-01 の VM ファイアウォールで落としている（上の「同じ区画の中」）。

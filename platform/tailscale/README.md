@@ -9,7 +9,7 @@
 | negitoroserver | `tag:relay` | shakeserver（`tag:dmz`）の 80/443 |
 | tarakoserver | `tag:monitoring` | negitoroserver の 80・9100（監視） |
 | shakeserver | `tag:dmz` | なし（受けるだけ）。入口から DMZ へは、公開するポートだけを足す（今は無し） |
-| Flint 3 | `tag:router` | なし。`192.168.10.0/24`・`192.168.40.0/24` の経路は自動承認 |
+| Flint 3 | `tag:router` | なし。`192.168.10.0/24` の経路は自動承認（個人端末の区画は流さない） |
 
 - `tests` が通らないポリシーは Tailscale が受け付けない。入れる前に `.../acl/validate` へ送って確かめる。
 - Tailscale の制限は tailnet を通る通信だけに効く。game-01 はサーバーの区画にいるので、LAN を直接通れば Proxmox へ届く。

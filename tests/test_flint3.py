@@ -65,6 +65,7 @@ class AddressPlanTests(unittest.TestCase):
     def test_segments_do_not_overlap(self):
         import ipaddress
         nets = [ipaddress.ip_network(s['prefix']) for s in self.network['segments'].values()]
+        nets += [ipaddress.ip_network(r['prefix']) for r in (self.network.get('routed') or {}).values()]
         for i, a in enumerate(nets):
             for b in nets[i + 1:]:
                 self.assertFalse(a.overlaps(b), f'{a} overlaps {b}')

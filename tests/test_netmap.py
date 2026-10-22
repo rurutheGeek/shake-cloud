@@ -142,7 +142,7 @@ firewall.tailscale_personal.dest='personal'
 tailscale.settings=settings
 tailscale.settings.lan_enabled='1'
 ### tailscale-routes
-[ "192.168.10.0\\/24", "192.168.40.0\\/24" ]
+[ "192.168.10.0\\/24" ]
 """
 
 
@@ -152,11 +152,15 @@ class RouterCheckTests(unittest.TestCase):
         self.assertTrue(all(results.values()), results)
 
     def test_what_gl_inet_removes_is_reported(self):
-        dump = CHECKED.replace('192.168.40.0\\/24', '').replace("dest='lan'", "dest='wan'")
+        dump = CHECKED.replace('192.168.10.0\\/24', '').replace("dest='lan'", "dest='wan'")
         results = checks.run(dump)
         self.assertFalse(results['tailscale_to_lan'])
-        self.assertFalse(results['advertise_192.168.40.0/24'])
+        self.assertFalse(results['advertise_192.168.10.0/24'])
         self.assertIn('shakecloud_router_check{check="tailscale_to_lan"} 0', checks.metrics(results))
+
+    def test_advertising_the_personal_segment_is_reported(self):
+        dump = CHECKED.replace('[ "192.168.10.0\\/24" ]', '[ "192.168.10.0\\/24", "192.168.40.0\\/24" ]')
+        self.assertFalse(checks.run(dump)['not_advertise_192.168.40.0/24'])
 
     def test_the_forwarding_does_not_use_the_name_gl_inet_deletes(self):
         script = (ROOT / 'platform/flint3/rootfs/etc/shakecloud/apply-segments').read_text()
