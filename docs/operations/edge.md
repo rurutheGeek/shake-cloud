@@ -57,12 +57,12 @@ edge:
 
 **前提**: インベントリが NetBox へ統一済みであること（[Ansibleのインベントリ](services.md#inventory)）。入口は中継先のアドレスを、中継先は入口のアドレスを、インベントリから引きます。
 
-移した順は **monitor-01 → media-01 → apps-01 → cloud-01** です（2026-10-03）。Authentik は入口と同じ core-01 に居るので、移す対象にはなりません。新しいホストを足すときも、SSOに関わるものは最後にします。
+Authentik は入口と同じ core-01 に居るので、移す対象にはなりません。新しいホストを足すときは、SSO に関わるものを最後にします。
 
-1台（例: `monitor-01`）につき次の順です。**手順2から4のあいだ、そのホストの名前は数分つながりません。**
+1台（例: `media-01`）につき次の順です。**手順2から4のあいだ、そのホストの名前は数分つながりません。**
 
-1. `dns.yaml` の `edge.backends` に `monitor-01` を足す
-2. そのホストを配備する（内部CAの証明書に切り替わり、CAの証明書が `platform/ansible/files/backend-ca/monitor-01.crt` へ書かれる。Cloudflare のトークンはホストから消える）
+1. `dns.yaml` の `edge.backends` に `media-01` を足す
+2. そのホストを配備する（内部CAの証明書に切り替わり、CAの証明書が `platform/ansible/files/backend-ca/media-01.crt` へ書かれる。Cloudflare のトークンはホストから消える）
 
     ```bash
     sops exec-env platform/sops/netbox-inventory.sops.yaml \
@@ -82,7 +82,7 @@ edge:
     tools/tf 20-dns apply
     ```
 
-5. ブラウザーと[監視](monitoring.md)（blackbox）で確かめ、`dns.yaml` と `backend-ca/monitor-01.crt` をコミットする
+5. ブラウザーと[監視](monitoring.md)（blackbox）で確かめ、`dns.yaml` と `backend-ca/media-01.crt` をコミットする
 
 各ホストの配備に使うPlaybookは、tarakoserver が `monitoring.yml`・`netmap.yml`、media-01 が `media-tls.yml`、cloud-01 が `cloud.yml`、apps-01 は各アプリの Playbook（`homarr.yml`・`vaultwarden.yml` など）です。Authentik（`identity.yml`）は入口と同じ core-01 なので、入口側（`edge.yml`）で受けます。
 

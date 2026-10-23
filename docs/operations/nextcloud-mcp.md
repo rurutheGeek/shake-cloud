@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-19 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。monitor-01のPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)が正本）。
+状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。tarakoserverのPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)が正本）。
 
 AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍・
 カレンダー予定の一覧/追加を渡すMCPサーバーです。media-01に常設し、専用ユーザーや

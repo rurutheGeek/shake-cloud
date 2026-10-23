@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: 方針と手順。apps-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳）、media-01 のメディア系、monitor-01 の監視系（M01）は配備済み（apps-01 へは 2026-10-03 に移設）。
+**状態**: 方針と手順。apps-01 の常用サービス（Home Assistant・eufy-security-ws・Homarr・Vaultwarden・CUPS・LibreSpeed・ドキュメント・mail-view・ポケモン翻訳）、media-01 のメディア系、tarakoserver の監視系（M01）は配備済み（apps-01 へは 2026-10-03 に移設）。
 
 ## 方針
 
