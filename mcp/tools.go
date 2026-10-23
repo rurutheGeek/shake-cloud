@@ -52,6 +52,10 @@ type (
 	functionArgs struct {
 		FunctionID string `json:"function_id" jsonschema:"the function id, e.g. fn-0123456789abcdef0"`
 	}
+
+	serviceArgs struct {
+		ServiceID string `json:"service_id" jsonschema:"the service id, e.g. svc-0123456789abcdef0"`
+	}
 )
 
 // addTools registers every read-only operation the API documents. The one
@@ -226,5 +230,19 @@ func addTools(s *mcp.Server, c *client.Client) {
 		func(ctx context.Context, _ *mcp.CallToolRequest, args functionArgs) (*mcp.CallToolResult, client.Function, error) {
 			function, err := c.DescribeFunction(ctx, args.FunctionID)
 			return nil, function, err
+		})
+
+	readTool(s, "shakecloud_describe_services",
+		"Always-on container services: name, state, memory, URL and the names (never values) of their secrets.",
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ noArgs) (*mcp.CallToolResult, []client.Service, error) {
+			services, err := c.DescribeServices(ctx)
+			return nil, services, err
+		})
+
+	readTool(s, "shakecloud_describe_service",
+		"One container service by id.",
+		func(ctx context.Context, _ *mcp.CallToolRequest, args serviceArgs) (*mcp.CallToolResult, client.Service, error) {
+			service, err := c.DescribeService(ctx, args.ServiceID)
+			return nil, service, err
 		})
 }

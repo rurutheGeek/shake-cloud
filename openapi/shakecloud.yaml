@@ -1788,6 +1788,112 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
         '503': {$ref: '#/components/responses/Error'}
 
+  /v1/services:
+    get:
+      operationId: DescribeServices
+      x-shakecloud-scope: read
+      tags: [service]
+      summary: List container services. Users see their own; admins see every account's.
+      responses:
+        '200':
+          description: Services.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [services]
+                properties:
+                  services:
+                    type: array
+                    items: {$ref: '#/components/schemas/Service'}
+        '401': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: CreateService
+      x-shakecloud-scope: write
+      tags: [service]
+      summary: Create an always-on container service.
+      description: |
+        One Kubernetes Deployment with a single replica is created; it never
+        scales to zero. With `port` a LoadBalancer Service gives it a LAN
+        address (`url`). With `disk` a PersistentVolumeClaim is mounted at
+        `disk.mount_path` and the Deployment is recreated rather than rolled.
+        `secrets` go to a Kubernetes Secret and are never returned; the
+        response lists only their names.
+        The call returns immediately; `status` moves to Running as the pod
+        comes up. Repeating with a name the account already has returns the
+        existing one unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateServiceRequest'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ServiceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/services/{service_id}:
+    get:
+      operationId: DescribeService
+      x-shakecloud-scope: read
+      tags: [service]
+      summary: Describe one container service.
+      parameters:
+        - $ref: '#/components/parameters/ServiceID'
+      responses:
+        '200':
+          description: The service.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ServiceEnvelope'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: ModifyService
+      x-shakecloud-scope: write
+      tags: [service]
+      summary: Change a service's image, environment, secrets or memory.
+      description: |
+        Only the fields given change. `env` and `secrets` replace the whole
+        map. The pod is replaced to pick up the change. `port` and `disk`
+        cannot change; delete and create the service again.
+      parameters:
+        - $ref: '#/components/parameters/ServiceID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ModifyServiceRequest'}
+      responses:
+        '200':
+          description: The service.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ServiceEnvelope'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: DeleteService
+      x-shakecloud-scope: write
+      tags: [service]
+      summary: Delete a container service and its disk.
+      parameters:
+        - $ref: '#/components/parameters/ServiceID'
+      responses:
+        '204': {description: Deleted.}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+
 components:
   parameters:
     InstanceID:
@@ -1840,6 +1946,11 @@ components:
       in: path
       required: true
       schema: {type: string, pattern: '^fn-[0-9a-f]{17}$'}
+    ServiceID:
+      name: service_id
+      in: path
+      required: true
+      schema: {type: string, pattern: '^svc-[0-9a-f]{17}$'}
   securitySchemes:
     accessKey:
       type: http
@@ -2624,3 +2735,69 @@ components:
       properties:
         name: {type: string, pattern: '^[a-z][a-z0-9-]{1,29}$'}
         image: {type: string, minLength: 1, maxLength: 512}
+    Service:
+      type: object
+      required: [service_id, name, account_id, image, memory_mib, env, secret_names, status, created_at]
+      properties:
+        service_id: {type: string, pattern: '^svc-[0-9a-f]{17}$'}
+        name: {type: string}
+        account_id: {type: string}
+        owner_username: {type: string}
+        image: {type: string}
+        port: {type: integer}
+        memory_mib: {type: integer}
+        env:
+          type: object
+          additionalProperties: {type: string}
+        secret_names:
+          type: array
+          items: {type: string}
+        disk: {$ref: '#/components/schemas/ServiceDisk'}
+        status: {type: string, description: 'Provisioning until the pod is ready, then Running.'}
+        url: {type: string, description: 'http://<LAN address>:<port> once the LoadBalancer has one.'}
+        created_at: {type: string, format: date-time}
+    ServiceEnvelope:
+      type: object
+      required: [service]
+      properties:
+        service: {$ref: '#/components/schemas/Service'}
+    ServiceDisk:
+      type: object
+      additionalProperties: false
+      required: [size_gib, mount_path]
+      properties:
+        size_gib: {type: integer, minimum: 1, maximum: 32}
+        mount_path: {type: string, pattern: '^/[A-Za-z0-9._/-]*$'}
+    CreateServiceRequest:
+      type: object
+      additionalProperties: false
+      required: [name, image]
+      properties:
+        name: {type: string, pattern: '^[a-z][a-z0-9-]{1,29}$'}
+        image: {type: string, minLength: 1, maxLength: 512}
+        port: {type: integer, minimum: 1, maximum: 65535}
+        memory_mib: {type: integer, minimum: 32, maximum: 512, default: 128}
+        env:
+          type: object
+          maxProperties: 50
+          additionalProperties: {type: string}
+        secrets:
+          type: object
+          maxProperties: 20
+          additionalProperties: {type: string}
+        disk: {$ref: '#/components/schemas/ServiceDisk'}
+    ModifyServiceRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        image: {type: string, minLength: 1, maxLength: 512}
+        memory_mib: {type: integer, minimum: 32, maximum: 512}
+        env:
+          type: object
+          maxProperties: 50
+          additionalProperties: {type: string}
+        secrets:
+          type: object
+          maxProperties: 20
+          additionalProperties: {type: string}

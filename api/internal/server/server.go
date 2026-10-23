@@ -147,6 +147,11 @@ func routes() []route {
 		{"POST", "/v1/functions", "CreateFunction", anyCredential, writeOp, (*Server).createFunction},
 		{"GET", "/v1/functions/{function_id}", "DescribeFunction", anyCredential, readOp, (*Server).describeFunction},
 		{"DELETE", "/v1/functions/{function_id}", "DeleteFunction", anyCredential, writeOp, (*Server).deleteFunction},
+		{"GET", "/v1/services", "DescribeServices", anyCredential, readOp, (*Server).describeServices},
+		{"POST", "/v1/services", "CreateService", anyCredential, writeOp, (*Server).createService},
+		{"GET", "/v1/services/{service_id}", "DescribeService", anyCredential, readOp, (*Server).describeService},
+		{"PATCH", "/v1/services/{service_id}", "ModifyService", anyCredential, writeOp, (*Server).modifyService},
+		{"DELETE", "/v1/services/{service_id}", "DeleteService", anyCredential, writeOp, (*Server).deleteService},
 	}
 }
 
