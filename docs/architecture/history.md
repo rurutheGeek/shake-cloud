@@ -14,13 +14,14 @@ tags:
 
 **大きな改修と構成変更だけを1行ずつ並べます。** 細かい経緯はコミットメッセージ（`git log`）、決めた理由は[決定ログ](decisions.md)、いまの姿は[全体像](overview.md)にあります。足すのは「構成図が変わるほどの変更」だけです。
 
-## 2023-08〜2026-04 Discord Bot と Raspberry Pi
+## 2022-03〜2026-04 Discord Bot と Raspberry Pi
 
-始まりは Discord Bot の [UBSLEEPY](https://github.com/rurutheGeek/UBSLEEPY) です。インフラ用のリポジトリはまだ無く、Bot のリポジトリの GitHub Actions が Raspberry Pi へ配っていました。
+始まりは Discord Bot の [UBSLEEPY](https://github.com/rurutheGeek/UBSLEEPY) です。Replit で作り始め、GitHub へ移してからは Bot のリポジトリの GitHub Actions が Raspberry Pi へ配っていました。インフラ用のリポジトリはまだありません。
 
 | 日付 | できごと |
 | --- | --- |
-| 2023-08-15 | UBSLEEPY を作り始める |
+| 2022-03 ごろ | Replit で UBSLEEPY を作り始める（Git に記録が無く、作った本人の記憶による） |
+| 2023-08-15 | UBSLEEPY を GitHub へ移す |
 | 2023-08-16 | Raspberry Pi に GitHub Actions のセルフホストランナー（ARM64）を置き、`main` への push で Bot を入れ替える |
 | 2024-04 | Bot にメンバー認証を足す。Pi 上の Bot を止める workflow を足す |
 | 2025-04 | Pi の起動時に Bot を立ち上げる workflow に作り直す |
