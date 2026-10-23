@@ -111,7 +111,7 @@ Ollama公式のROCm対応一覧だけでは8945HS／780Mの動作を保証でき
 | ProxmoxへのVM作成・移行 | `10-platform` として実装済み |
 | クラウドAPIの権限とIP採番の枠 | `00-bootstrap` と `10-platform` に実装済み。**実機へ適用済み**（`cloudapi@pve` 作成、ロール割り当て、実機プローブ PASS） |
 | 常用Kubernetes・Knative・Garage・CloudNativePG | **構築済み（2026-09-12）**: kubeadm + Cilium、Flux/SOPS、local-path、MetalLB、cert-manager、AWX、CloudNativePG、Knative。2026-09-12時点でcp・worker-01・worker-02は停止中（起動は[配備台帳](../operations/handover.md)）。手順は[Kubernetes クラスタ](../operations/kubernetes.md)、[Garage](../operations/garage.md) |
-| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは Authentik（core-01）で実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの構築](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
+| 自作クラウドAPI・Terraform Provider・ポータル・CLI | **4機能（VM・S3・database・function）を API・Provider・CLI・ポータルまで実装し、実機確認済み。** VLAN分離は切替の宣言・手順を用意済み（実機切替は物理作業待ち）。利用者の招待・メール復旧・パスキーは Authentik（core-01）で実装済み（[認証基盤](../operations/identity.md)）。手順は[クラウドAPIの運用](../operations/cloud.md)・[接続先一覧](../reference/urls.md) |
 | Home Assistantと家電連携 | **配備済み（2026-09-12）**: apps-01（当時はservices-01）のContainerを `https://ha.apextox.dpdns.org` でHTTPS化（LAN内。本体は `127.0.0.1:8123`）。Authentik OIDCと緊急用ローカルオーナー。SwitchBot Cloud（Hub Mini）とEufy中継を連携。Eufyのライブ映像は不可、Alexa連携は見送り。手順は[利用者向けHA](../services/home-assistant.md)・[H01](https://github.com/rurutheGeek/shake-cloud/issues/196) |
 | 監視・印刷・転送 | **監視は tarakoserver（Raspberry Pi 4）で稼働（2026-09-13 に monitor-01 へ配備、2026-10-15 に移設。M01）**: Prometheus・Alertmanager・Grafana・exporter。**印刷**はCUPS（apps-01）とNextcloud印刷アプリ（media-01）を配備（D08。ブラウザー操作は未確認）。**LocalSend受信機**はmedia-01（D06。実送受信は未確認） |
 | Wolf・Azahar×2・780Mパススルー | 未検証 |

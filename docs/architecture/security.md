@@ -119,10 +119,10 @@ flowchart TB
 | 宅外 | tailnet のタグごとに届く先を決め、ポリシーに `tests` を書いて誤りを弾く | `platform/tailscale/acl.json` | [Tailscale](../operations/net.md)・`platform/tailscale/README.md` |
 | HTTPS | 証明書と DNS 編集トークンは入口の1台だけ。後ろへは内部CAの HTTPS で中継 | `platform/ansible/roles/tls_proxy/`・`platform/terraform/dns.yaml` | [HTTPSの入口](../operations/edge.md) |
 | 認証 | Authentik の OIDC・Forward Auth・パスキー・メールの確認コード・招待制 | `stacks/identity/configure.py`・`invitations.py` | [認証基盤](../operations/identity.md) |
-| クラウドAPI | CSRF（`http.CrossOriginProtection`）、WebSocket の Origin 検査、コンソールURLは5分・アカウントに結び付け・ログに出さない、`Cache-Control: no-store`、noVNC 同梱で CSP `script-src 'self'` | `cloud/api/internal/server/` | [クラウドAPI本体](../operations/cloud-api.md) |
+| クラウドAPI | CSRF（`http.CrossOriginProtection`）、WebSocket の Origin 検査、コンソールURLは5分・アカウントに結び付け・ログに出さない、`Cache-Control: no-store`、noVNC 同梱で CSP `script-src 'self'` | `cloud/api/internal/server/` | [クラウドAPI本体](../operations/cloud.md) |
 | クラウドAPI | 監査ログは追記専用（トリガーで UPDATE・DELETE・TRUNCATE を拒否） | `cloud/api/internal/db/` | [クラウドの使い方](../services/cloud.md) |
 | 基盤VM | core-01・cloud-01 の受信は書いた口だけ（受信の既定は拒否、送信は許可） | `platform/terraform/firewall.yaml`・`modules/vm-firewall/` | [区画](../operations/vlan.md#同じ区画の中基盤vmの受信) |
-| 利用者VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [ボリューム・S3・DB・関数](../operations/cloud-resources.md) |
+| 利用者VM | セキュリティグループ（VM 単位のFW）。データセンターFWは有効、ホストFWは無効、MAC 偽装は `ebtables` で止める。API の起動のたびにグループを持つ VM のFWを書き直す | `platform/terraform/00-bootstrap/firewall.tf`・`cloud/api/internal/compute/firewall.go` | [クラウドAPIの運用](../operations/cloud.md) |
 | 利用者VM | SSH 鍵は公開鍵だけを保存し、NoCloud の `meta-data` で渡す。`user-data` は seed ISO に平文で入るので秘密の置き場として案内しない | `cloud/api/internal/` | [クラウドの使い方](../services/cloud.md) |
 | 秘密値 | SOPS + age（受信者2本）。配備時に VM 上で生成する値は Git に入れない。公開前に `tools/check-publication.py` | `.sops.yaml`・`platform/sops/` | [秘密値の管理](../operations/secrets.md) |
 | 検知 | おとり（`192.168.10.250`、21・22・23・80・445・3306・3389・5900・8080）。触られたら Discord へ緊急で通知（`CanaryTouched`） | `stacks/monitoring/canary/`・`stacks/monitoring/loki/rules/` | [監視](../operations/monitoring.md) |

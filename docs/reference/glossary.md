@@ -20,7 +20,7 @@ tags:
 | --- | --- |
 | `apextox` | 物理ホスト1台。Proxmox VE が動き、すべてのVMを載せる。管理は `192.168.10.10` |
 | Flint 3 | **家庭内ルータ**（GL.iNet GL-BE9300、`192.168.10.1`）。ファイアウォール・DHCP・DNS（AdGuard Home）・区画（VLAN）・Wi-Fi・Tailscale を担う（[Flint 3](../operations/flint3.md)） |
-| `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの構築](../operations/cloud.md)・[Garage](../operations/garage.md)） |
+| `cloud-01` | 自作クラウド shakecloud のAPI・ポータル・管理DB、S3互換オブジェクトストア Garage（[クラウドAPIの運用](../operations/cloud.md)・[Garage](../operations/garage.md)） |
 | `core-01` | 共通ログイン（Authentik・[認証基盤](../operations/identity.md)）・台帳（NetBox）・HTTPSの入口（Caddy）。旧 `services-01` |
 | `apps-01` | アプリ置き場（クラウドVM）。Homarr・パスワード・家電・印刷・速度テスト・手順書サイトなど |
 | `media-01` | Nextcloud・Kavita・Navidrome・FreshRSS・LocalSend受信機 |

@@ -139,7 +139,7 @@ ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.200 sudo cat /opt/identity-stack/
 ssh -i ~/.ssh/id_ed25519_pve debian@192.168.10.205 sudo cat /opt/cloud-stack/secrets/bootstrap_admin_key
 ```
 
-**cloud-01 の `bootstrap_admin_key` は 2026-09-11 に無効化済みで、通常は空です**（緊急時は `manage.py rotate-bootstrap-key`。[決定ログ](../architecture/decisions.md)・[cloud-api.md 3-8](cloud-api.md)）。
+**cloud-01 の `bootstrap_admin_key` は 2026-09-11 に無効化済みで、通常は空です**（緊急時は `manage.py rotate-bootstrap-key`。[決定ログ](../architecture/decisions.md)・[cloud.md 3-8](cloud.md)）。
 
 SOPS の値の取り出し方:
 
