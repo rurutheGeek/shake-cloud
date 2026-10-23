@@ -46,6 +46,7 @@ go test ./internal/server -run TestName          # cloud/api 内で単一テス�
 - 実機の状態の正本は `docs/operations/handover.md`、残っている作業・進捗の正本は GitHub Issues（`gh issue`。ラベルは作業IDの記号 W/A/G/H/N/I/M/O/D と `セキュリティ`・`人の手`）。実機に関わる変更後は台帳を直し、関係する Issue にコメントするか閉じる（コミットや PR に `Closes #N`）。既存ホストで初期化・イメージ更新を無条件に実行しない。
 - 作業中に見つけた古い・良くない作りは、黙って回避せず、理由・利点・手間・代わりの案を添えて提案する。依存の追加や構成の変更は了承を得てから行う（README「改善の提案」）。
 - GitHubへのpushとサーバー配備は別操作。
+- **Playbook は必ず AWX を通して流す。** `tools/awx-run <playbook>.yml [--check|--run] [--limit <群>]` を使い、`ansible-playbook` を直接実機へ流さない（実行の履歴を AWX に残すため。起動者は `ai-agent`）。AWX は GitHub の `main` を取るので、マージ前の変更は試せない。マージ前の確認だけは `ansible-playbook --check --diff` を直接流してよく、本番の配備はマージしてから `tools/awx-run` で行う。例外は `tools/awx-run` が終了コード 2 を返したとき（AWX に届かない・手元専用の Playbook）だけで、そのときは直接流し、そうしたことを報告に書く。`platform/awx/configure.yml`（AWX 自身の登録）は AWX の外から流す。
 
 ## ドキュメントを直すとき
 

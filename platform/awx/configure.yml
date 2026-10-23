@@ -189,6 +189,70 @@
         zone: "{{ (lookup('ansible.builtin.file', repo ~ '/platform/terraform/dns.yaml') | from_yaml).zone }}"
       no_log: true
 
+    # --- AI のエージェント ------------------------------------------------
+    # AI は tools/awx-run でジョブを起動する（AGENTS.md）。実行だけを許し、テンプレートや
+    # 資格情報は変えられない。パスワードでは入らない（トークンだけ）。
+    - name: Create the AI agent user
+      awx.awx.user:
+        username: ai-agent
+        first_name: AI
+        last_name: エージェント
+        password: "{{ lookup('ansible.builtin.password', '/dev/null', length=40) }}"
+        # 作ったあとはパスワードを変えない（使わない）。トークンの発行のときだけ下で変える。
+        update_secrets: false
+
+    - name: Let the AI agent run the job templates
+      awx.awx.role:
+        user: ai-agent
+        role: execute
+        organization: '{{ awx_organization }}'
+
+    - name: Look for the AI agent token
+      ansible.builtin.stat:
+        path: '{{ repo }}/platform/sops/awx-agent.sops.yaml'
+      register: awx_agent_token_file
+
+    # トークンは ai-agent 自身として発行する（管理者が発行すると管理者のトークンになる）。
+    # 一度だけ発行して sops に置く。作り直すときはファイルを消して流す。
+    - name: Pick a one-time password for the AI agent
+      ansible.builtin.set_fact:
+        awx_agent_password: "{{ lookup('ansible.builtin.password', '/dev/null', length=40) }}"
+      when: not awx_agent_token_file.stat.exists
+      no_log: true
+
+    - name: Give the AI agent the one-time password to issue its token
+      awx.awx.user:
+        username: ai-agent
+        password: '{{ awx_agent_password }}'
+        update_secrets: true
+      when: not awx_agent_token_file.stat.exists
+      no_log: true
+
+    - name: Issue the AI agent token
+      ansible.builtin.uri:
+        url: https://awx.apextox.dpdns.org/api/v2/tokens/
+        method: POST
+        user: ai-agent
+        password: '{{ awx_agent_password }}'
+        force_basic_auth: true
+        body_format: json
+        body: {description: tools/awx-run, scope: write}
+        status_code: 201
+      register: awx_agent_token
+      when: not awx_agent_token_file.stat.exists
+      no_log: true
+
+    - name: Store the AI agent token
+      ansible.builtin.shell:
+        cmd: >-
+          umask 077 && printf 'AWX_AGENT_TOKEN: %s\n' "$TOKEN" > platform/sops/awx-agent.sops.yaml
+          && sops --encrypt --in-place platform/sops/awx-agent.sops.yaml
+        chdir: '{{ repo }}'
+      environment:
+        TOKEN: '{{ awx_agent_token.json.token }}'
+      when: not awx_agent_token_file.stat.exists
+      no_log: true
+
     # --- インベントリ -------------------------------------------------------
     - name: Create the inventories
       awx.awx.inventory:
