@@ -43,7 +43,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 使うときだけ起動 |
 | 5000 | win-01 | 192.168.10.100 | Windows 11（クラウドVM） | 停止 |
 | — | android-01 | 192.168.10.104 | Waydroid（Eufy の解析用、クラウドVM） | 停止。解析のときだけ起動（[android-01](android-01.md)） |
-| 5001 | media-01 | 192.168.10.101 | Nextcloud・Kavita・Navidrome・FreshRSS・MeTube・LocalSend・UrBackup・Forgejo・aihist（v0.33.0） | 稼働 |
+| 5001 | media-01 | 192.168.10.101 | Nextcloud・Kavita・Navidrome・FreshRSS・MeTube・LocalSend・UrBackup・Forgejo・aihist（v0.34.0） | 稼働 |
 | 5005 | apps-01 | 192.168.10.105 | Homarr・Vaultwarden・LibreSpeed・mail-view・CUPS・ポケモン翻訳・pkdb・UBSLEEPY・Home Assistant・eufy | 稼働 |
 | 5997 | shakecloud-volumes | — | デタッチしたボリュームの置き場。起動しない | 停止 |
 
