@@ -22,8 +22,9 @@ tags:
 | --- | --- |
 | 2022-03 ごろ | Replit で UBSLEEPY を作り始める（Git に記録が無く、作った本人の記憶による） |
 | 2023-08-15 | UBSLEEPY を GitHub へ移す |
-| 2023-08-16 | Raspberry Pi に GitHub Actions のセルフホストランナー（ARM64）を置き、`main` への push で Bot を入れ替える |
+| 2023-08-16 | Raspberry Pi 4 に GitHub Actions のセルフホストランナー（ARM64）を置き、`main` への push で Bot を入れ替える（Pi 4 の購入時期は不明。最初はこれで動かしていた） |
 | 2024-04 | Bot にメンバー認証を足す。Pi 上の Bot を止める workflow を足す |
+| 2024-05 | Raspberry Pi 5 を買う（のちの shakeserver） |
 | 2025-04 | Pi の起動時に Bot を立ち上げる workflow に作り直す |
 
 ## 2026-05〜10 shake-infra（Raspberry Pi を IaC で管理）
