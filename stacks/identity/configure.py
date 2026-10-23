@@ -73,6 +73,10 @@ BOT_PORTAL = 'portal'
 # The network map runs on monitor-01. It shows the router's and the hypervisor's
 # firewall in full, so only admins may open it.
 NETMAP = 'netmap'
+# AWX runs on Kubernetes. It runs the playbooks with every host key and secret,
+# so only admins may sign in. AWX's own OIDC backend uses this callback.
+AWX = 'awx'
+AWX_REDIRECT_PATH = '/sso/complete/oidc/'
 TOUCH_PANEL = 'panel'
 # aihist runs on media-01. The AI conversation history holds commands, file
 # contents and sometimes secrets, so only admins may open it. Its /api path is
@@ -309,6 +313,18 @@ def grafana_credential():
     if path.exists():
         return json.loads(path.read_text())
     credential = {'client_id': GRAFANA, 'client_secret': secrets.token_urlsafe(48)}
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.write_text(json.dumps(credential))
+    path.chmod(0o600)
+    return credential
+
+
+def awx_credential():
+    """Load or create the AWX OIDC client, keeping the stored secret."""
+    path = ROOT / 'secrets' / 'oidc-awx.json'
+    if path.exists():
+        return json.loads(path.read_text())
+    credential = {'client_id': AWX, 'client_secret': secrets.token_urlsafe(48)}
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     path.write_text(json.dumps(credential))
     path.chmod(0o600)
@@ -701,6 +717,21 @@ def configure_grafana(api, groups, flows, mappings, signing_key, portal_url):
             print(f'OK: {name} may use {GRAFANA}')
 
 
+def configure_awx(api, groups, flows, mappings, signing_key, portal_url):
+    """Reconcile AWX's OIDC client: provider, application, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_oauth2_provider(api, AWX, oidc_provider_body(
+        AWX, f'https://{AWX}.{zone}{AWX_REDIRECT_PATH}', flows, mappings, signing_key, awx_credential()))
+    application = ensure_application(api, AWX, {
+        'name': 'AWX', 'slug': AWX, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{AWX}.{zone}',
+    })
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {AWX}')
+    else:
+        print(f'OK: admins may use {AWX}')
+
+
 def configure_vaultwarden(api, groups, flows, mappings, signing_key, portal_url):
     """Reconcile Vaultwarden's native OIDC client: provider, application, access."""
     zone = media_zone(portal_url)
@@ -1026,6 +1057,7 @@ def main():
     configure_media(api, groups, flows, mappings, keys[0], portal_url)
     configure_homarr(api, groups, flows, mappings, keys[0], portal_url)
     configure_grafana(api, groups, flows, mappings, keys[0], portal_url)
+    configure_awx(api, groups, flows, mappings, keys[0], portal_url)
     configure_vaultwarden(api, groups, flows, mappings, keys[0], portal_url)
     configure_home_assistant(api, groups, flows, mappings, keys[0], portal_url)
     configure_cups(api, groups, flows, portal_url)

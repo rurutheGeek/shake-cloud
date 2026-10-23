@@ -10,7 +10,10 @@
 
 ```bash
 sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  '.venv/bin/ansible-playbook -i localhost, platform/awx/configure.yml -e @platform/awx/controller.yml'
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+     -i platform/ansible/inventory.netbox.yml platform/awx/configure.yml -e @platform/awx/controller.yml'
 ```
+
+Authentik でのログインは、先に `identity.yml` で AWX 用のクライアントを作っておく（core-01 の `secrets/oidc-awx.json` を読む）。
 
 ジョブテンプレートの名前・説明・種類は `tools/awx-catalog.py` が各 Playbook の先頭コメントから作る。Playbook を足したり説明を直したりしたら、`python3 tools/awx-catalog.py`（docs/operations/playbooks.md の再生成）と上の登録を流す。使い方は [docs/operations/awx.md](../../docs/operations/awx.md)。

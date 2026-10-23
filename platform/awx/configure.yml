@@ -3,12 +3,25 @@
 # 何度流しても同じ状態になる（名前で照合する）。ジョブは起動しない。
 #
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
-#     '.venv/bin/ansible-playbook -i localhost, platform/awx/configure.yml -e @platform/awx/controller.yml'
+#     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+#        -i platform/ansible/inventory.netbox.yml platform/awx/configure.yml -e @platform/awx/controller.yml'
 #
 # AWX の管理者パスワードは platform/flux/apps/awx-instance/admin-password.sops.yaml、
 # ジョブ用の秘密値の鍵は platform/sops/awx.sops.yaml から読む。
 # 一覧（名前・説明・種類・既定の実行方法）は tools/awx-catalog.py が Playbook の
 # 先頭コメントから作る。docs/operations/playbooks.md と同じもの。
+# Authentik の AWX 用クライアント（identity の configure.py が作る）。
+- name: Read the AWX sign-in client from Authentik
+  hosts: identity_provider
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the OIDC client of AWX
+      ansible.builtin.slurp:
+        src: /opt/identity-stack/secrets/oidc-awx.json
+      register: awx_oidc
+      no_log: true
+
 # module_defaults は play の全タスクで先に展開されるので、秘密値は別の play で読む。
 - name: Read the secrets for the registration
   hosts: localhost
@@ -158,6 +171,23 @@
           type: Machine
           inputs:
             ssh_key_data: "{{ lookup('ansible.builtin.file', awx_ssh_private_key_file | expanduser) }}"
+
+    # --- ログイン（Authentik） ---------------------------------------------
+    # Authentik 側は admins だけが AWX を使える。入った人は Default 組織の管理者
+    # （ジョブテンプレートの実行・編集、履歴の閲覧ができる）。
+    - name: Sign in with Authentik
+      awx.awx.settings:
+        settings:
+          SOCIAL_AUTH_OIDC_KEY: '{{ oidc.client_id }}'
+          SOCIAL_AUTH_OIDC_SECRET: '{{ oidc.client_secret }}'
+          SOCIAL_AUTH_OIDC_OIDC_ENDPOINT: https://auth.{{ zone }}/application/o/awx
+          SOCIAL_AUTH_OIDC_VERIFY_SSL: true
+          SOCIAL_AUTH_ORGANIZATION_MAP:
+            '{{ awx_organization }}': {admins: true, users: true, remove_admins: false}
+      vars:
+        oidc: "{{ hostvars[groups['identity_provider'][0]].awx_oidc.content | b64decode | from_json }}"
+        zone: "{{ (lookup('ansible.builtin.file', repo ~ '/platform/terraform/dns.yaml') | from_yaml).zone }}"
+      no_log: true
 
     # --- インベントリ -------------------------------------------------------
     - name: Create the inventories
