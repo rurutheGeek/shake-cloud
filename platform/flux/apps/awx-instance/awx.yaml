@@ -34,12 +34,14 @@ spec:
       memory: 512Mi
     limits:
       memory: 1536Mi
+  # ジョブの実行中は task も増える。1Gi ではジョブ中に OOMKilled になり、
+  # 実行中のジョブが失敗扱いになった（2026-10-23）。
   task_resource_requirements:
     requests:
       cpu: 100m
       memory: 512Mi
     limits:
-      memory: 1Gi
+      memory: 1536Mi
   ee_resource_requirements:
     requests:
       cpu: 50m
