@@ -1,5 +1,5 @@
 ---
-# Authentik を identity VM へ新規構築する。
+# Authentik を core-01 へ配備する。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
 - name: Deploy the shared identity provider

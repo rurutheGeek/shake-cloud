@@ -1,5 +1,5 @@
 ---
-# ネットワーク図（stacks/netmap）を monitor-01 へ配備する。
+# ネットワーク図（stacks/netmap）を tarakoserver へ配備する。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/netmap.yml'
 # 入口は tls-proxy の Caddy（dns.yaml の netmap レコード + Authentik forward auth）。
