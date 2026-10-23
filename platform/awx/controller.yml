@@ -1,0 +1,16 @@
+---
+# AWX へ登録する値（秘密値は含まない）。configure.yml が読む。
+awx_organization: Default
+awx_project_name: shake-cloud
+awx_scm_url: https://github.com/rurutheGeek/shake-cloud.git
+awx_scm_branch: main
+# .github/workflows/awx-ee.yml が作るイメージ。更新したらダイジェストを差し替える。
+awx_ee_name: shakecloud-ee
+awx_ee_image: ghcr.io/ruruthegeek/shakecloud-ee:965c221e8de3@sha256:2fdef963fc001851a0ca1aa880eea596ede01cbeee898f8b7285930fa909fd96
+# 各ホストへ入る鍵（管理PCの ~/.ssh/id_ed25519_pve と同じ）。
+awx_ssh_private_key_file: ~/.ssh/id_ed25519_pve
+# 既知ホストは管理PCの known_hosts から、インベントリのアドレスの分だけ写す。
+awx_known_hosts_file: ~/.ssh/known_hosts
+# Proxmox 本体（NetBox の台帳に居ない）。アドレスの正本は dns.yaml の pve。
+awx_pve_host: apextox
+awx_pve_address: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../terraform/dns.yaml') | from_yaml).records.pve.address }}"
