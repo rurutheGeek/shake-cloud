@@ -89,7 +89,6 @@ nav:
       - Bot:
           - Botポータル: operations/bot-portal.md
           - Discord Bot（UBSLEEPY）: operations/ubsleepy.md
-          - UBSLEEPY 本番切替の手順: operations/ubsleepy-next-switch.md
           - サークル認証Bot（CIRCLEAUTH）: operations/circleauth.md
   - 設計:
       - ホームラボの全体像: architecture/overview.md

@@ -1,6 +1,6 @@
 ---
 title: Discord Bot（UBSLEEPY）
-updated: 2026-10-05
+updated: 2026-10-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Discord Bot（UBSLEEPY）
 
-> **更新日** 2026-10-05 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: apps-01 で稼働中。2026-10-05 に UBSLEEPY-next（イメージ固定・セーブDB）へ切替済み。旧ホスト shakeserver の `/opt/ubsleepy` は停止したまま残っています。
+**状態**: apps-01 で稼働中（UBSLEEPY-next のイメージを digest で固定）。
 
 ## 構成（本番とテスト）
 
@@ -100,9 +100,3 @@ sudo docker inspect --format='{{index .RepoDigests 0}}' \
 - セーブデータ（おこづかい・クジびきけん・クイズ戦績）は `ubsleepy` DB。**全サーバー共通**（どのサーバーで使っても同じ残高・戦績）
 - 図鑑データは pkdb（PostgreSQL）。設定が無ければCSVへフォールバック
 - 設定（チャンネル・ロール）は `guild_setting` テーブル（ギルドごと）
-
-## これまでの経緯
-
-- 2026-10-04: 旧ホスト shakeserver から apps-01 へ移行（CSVのまま・自動更新あり）
-- 2026-10-05: UBSLEEPY-next（イメージ固定・セーブDB・多サーバー対応）へ切替。手順と戻し方は[本番切替の手順](ubsleepy-next-switch.md)
-- 2026-10-08: イントロクイズを配備（本番・テスト。イメージは `1931501`）。音源313曲を `state/resource/intro/` に置き、compose にマウントを追加。切替前のファイルは `/opt/ubsleepy(-next)/*.bak-intro`

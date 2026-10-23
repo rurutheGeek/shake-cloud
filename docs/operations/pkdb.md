@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-09 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-**状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）はDBを使いません。
+**状態**: **apps-01 へ配備し、旧ホストから移行済み（2026-10-04）。** 旧ホスト（shakeserver、tailnet `100.116.167.59`、aarch64）のDBは止めずに残してあり、**利用者はまだ旧ホストのDBを見ています**。利用者は `bsquiz`（クイズのWeb、`pkdb_reader`）と `pkhack_app`（`pkhack_reader`）、shakeweb で、どれも shakeserver 上のコンテナです。Discord Bot（[UBSLEEPY](ubsleepy.md)）は apps-01 の新しいDBを読みます。
 
 ## 構成
 
