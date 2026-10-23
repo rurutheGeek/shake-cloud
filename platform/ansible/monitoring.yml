@@ -1,5 +1,5 @@
 ---
-# 監視スタック（Prometheus・Grafana・exporter）を monitor-01（基盤VM）へ配備する。
+# 監視スタック（Prometheus・Grafana・exporter）を tarakoserver へ配備する。
 #   sops exec-env platform/sops/netbox-inventory.sops.yaml \
 #     'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
 # OIDC クライアントの秘密値を core-01（Authentik）から読むので、identity.yml の後に流す。
