@@ -129,7 +129,7 @@ flowchart TB
 | [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-22 | `ops` `network` `dns` |
 | [AIの会話履歴（aihist）](operations/aihist.md) | 2026-10-16 | `ops` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
-| [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
+| [AWX の使い方](operations/awx.md) | 2026-10-23 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
 | [初回セットアップの順番](operations/bootstrap.md) | 2026-10-03 | `ops` `bootstrap` |
 | [Botポータル](operations/bot-portal.md) | 2026-10-09 | `ops` `discord` |
@@ -158,6 +158,7 @@ flowchart TB
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
+| [Playbook の一覧](operations/playbooks.md) | 2026-10-23 | `ops` `awx` |
 | [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-10-22 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-10-22 | `ops` `secrets` |
@@ -209,6 +210,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 92 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 93 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->
