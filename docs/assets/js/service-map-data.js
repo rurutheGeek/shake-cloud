@@ -156,7 +156,7 @@ window.SERVICE_MAP = {
    "docs": [
     {
      "path": "operations/cloud/",
-     "title": "クラウドAPIの構築"
+     "title": "クラウドAPIの運用"
     }
    ],
    "kind": "base",
@@ -181,8 +181,8 @@ window.SERVICE_MAP = {
        "title": "クラウドの使い方（ポータル・CLI・Terraform）"
       },
       {
-       "path": "operations/cloud-api/",
-       "title": "クラウドAPI本体とインスタンス"
+       "path": "operations/cloud/",
+       "title": "クラウドAPIの運用"
       }
      ],
      "name": "クラウドのポータルとAPI",
@@ -889,8 +889,8 @@ window.SERVICE_MAP = {
      "description": "クラウドのデータベース",
      "docs": [
       {
-       "path": "operations/cloud-resources/",
-       "title": "ボリューム・S3・DB・関数"
+       "path": "operations/cloud/",
+       "title": "クラウドAPIの運用"
       }
      ],
      "name": "CloudNativePG"
@@ -899,8 +899,8 @@ window.SERVICE_MAP = {
      "description": "クラウドの関数",
      "docs": [
       {
-       "path": "operations/cloud-resources/",
-       "title": "ボリューム・S3・DB・関数"
+       "path": "operations/cloud/",
+       "title": "クラウドAPIの運用"
       }
      ],
      "name": "Knative"

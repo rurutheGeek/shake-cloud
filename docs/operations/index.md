@@ -23,10 +23,7 @@ tags:
 | 3 | [Terraformの実行](terraform.md) | プール・ロール・基盤VMを作る |
 | 4 | [NetBoxの使い方](netbox.md) | 配備先の台帳。IPの採番元 |
 | 5 | [認証基盤（Authentik）](identity.md) | 共通ログイン。他の全サービスが繋がる先 |
-| 6 | [クラウドAPIの構築](cloud.md) | 土台（実機の読み取り・Terraform・SOPS・FW・NetBox・共通ログイン） |
-| 6a | [クラウドAPI本体とインスタンス](cloud-api.md) | API・HTTPS・インスタンス・容量と上限・イメージ・コンソール |
-| 6b | [ボリューム・S3・DB・関数](cloud-resources.md) | 追加ディスク・バケット・database・function |
-| 6c | [実機プローブと切り戻し](cloud-verify.md) | 実機での検査、元に戻す方法 |
+| 6 | [クラウドAPIの運用](cloud.md) | 置き場所・配備・作り直し・管理者の操作・バックアップ・実機プローブ |
 | 7 | [Kubernetes クラスタ](kubernetes.md) | AWX・DB提供・関数提供の土台 |
 | 8 | [サービスの置き場所とクラウドVMでの作り方](services.md) | サービスVMを作って中身を配る |
 

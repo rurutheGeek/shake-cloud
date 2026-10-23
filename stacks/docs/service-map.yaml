@@ -84,8 +84,8 @@ vms:
     address: 192.168.10.220-
     docs: [operations/kubernetes.md]
     services:
-      - {name: CloudNativePG, description: クラウドのデータベース, docs: [operations/cloud-resources.md]}
-      - {name: Knative, description: クラウドの関数, docs: [operations/cloud-resources.md]}
+      - {name: CloudNativePG, description: クラウドのデータベース, docs: [operations/cloud.md]}
+      - {name: Knative, description: クラウドの関数, docs: [operations/cloud.md]}
   - name: apextox
     kind: host
     role: Proxmox VE のホスト
@@ -96,7 +96,7 @@ vms:
 # dns.yaml の名前 → 手順書。書いていない名前はリンクなしで載る。
 record_docs:
   auth: [services/identity.md, operations/identity.md]
-  cloud: [services/cloud.md, operations/cloud-api.md]
+  cloud: [services/cloud.md, operations/cloud.md]
   nextcloud: [services/nextcloud-guide.md, operations/nextcloud.md]
   kavita: [services/usage.md]
   navidrome: [services/music.md]

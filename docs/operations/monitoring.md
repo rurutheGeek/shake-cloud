@@ -97,7 +97,7 @@ ssh -i ~/.ssh/id_ed25519_shake ansible_admin@192.168.10.11 'sudo cat /opt/monito
 | `CloudBackupStale` | 管理DBのバックアップが36時間以上成功していない |
 | `CloudBackupMetricMissing` | **メトリクスそのものが無い。** 「取っているつもり」を検出するための規則 |
 
-どちらも cloud-01 の `cloud-backup.timer` を見ます（[クラウドAPIの構築](cloud-resources.md#3-18)）。
+どちらも cloud-01 の `cloud-backup.timer` を見ます（[クラウドAPIの運用](cloud.md)）。
 
 ### ストレージ（storage）
 

@@ -12,7 +12,7 @@ tags:
 
 > **更新日** 2026-10-03 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-core-01 の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの構築](cloud-resources.md#3-17)を参照してください。
+core-01 の Authentik は、**利用者の共通アカウント（誰であるかの確認）** を担います。クラウドポータル・Terraform・CLI はこの Authentik を OIDC の本人確認先にし、利用者を作りません。設計の背景は[ネットワーク・公開範囲・SSO](../architecture/network-auth.md)、クラウド側の境界は[クラウドAPIの運用](cloud.md)を参照してください。
 
 - **入口:** `https://auth.apextox.dpdns.org`（`:9000` と `:9443` は 127.0.0.1 に閉じています）
 - **VM:** core-01（VMID 150、192.168.10.200）。NetBox・入口の Caddy と同居します。Kubernetes の外に置き、クラスタ更新中でもログインできます。専用の identity VM（VMID 110、192.168.10.204）は 2026-10-03 に廃止しました。配備先のグループは Ansible の `identity_provider`（＝core-01）です。

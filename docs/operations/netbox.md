@@ -340,5 +340,5 @@ cables:
 
 - [IaCの所有境界](../architecture/iac.md)（誰が台帳を書くか）
 - [Terraformの実行](terraform.md)
-- [クラウドAPIの構築](cloud.md)
+- [クラウドAPIの運用](cloud.md)
 - [接続先一覧](../reference/urls.md)

@@ -14,7 +14,7 @@ tags:
 
 [構成案トップ](index.md)へ戻る。更新日: 2026-09-13。状態: **Proxmox・NetBox側の土台、API の Phase 1（ログイン・アクセスキー・監査ログ）、Phase 2（VM の作成・電源操作・削除）、Phase 3（イメージ・アップロード・SSH鍵・Webコンソール）、Phase 4（ボリューム・セキュリティグループ）、Phase 5 のセルフサービス（既存VMの引き取り、ポータルの仕上げ、ブートストラップ管理キーの無効化）、Phase 6（CLI・Terraform Provider）、Phase 7（Garage と バケット・S3キー API）まで実装済み・実機検証済み。VLAN 分離は切替の宣言・安全装置・手順書を用意済み（実機切替は物理作業待ち）。利用者の招待は Authentik（core-01）の `stacks/identity/invitations.py` で実装済み。Windows 11 Pro ゲスト（`os: windows` のイメージで UEFI・TPM 2.0・q35）の API・ポータル対応も追加し、Proxmox 側のハードウェア作成を実機プローブ `windows_devices` で確認済み（イメージ作成は[windows.md](../operations/windows.md)）。media-01・apps-01などサービスVMもこのAPIで作成済み**。
 
-実際に手を動かす順番と、コードにできない作業は[クラウドAPIの構築](../operations/cloud.md)にあります。
+実際に手を動かす順番と、コードにできない作業は[クラウドAPIの運用](../operations/cloud.md)にあります。
 
 ## クラウドの提供機能
 
@@ -239,7 +239,7 @@ APIキーの利用量課金は不要ですが、ホストの空きRAM、ディ�
 
 ## 土台の実装状況
 
-API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と function（Knative）まで実装済み・実機確認済みです（Phase 1〜4 は 2026-09-10〜11、Phase 5〜7 と database/function は 2026-09-11〜12）。手順は[クラウドAPIの構築](../operations/cloud.md)を参照してください。
+API は Phase 1 から Phase 7 まで、および database（CloudNativePG）と function（Knative）まで実装済み・実機確認済みです（Phase 1〜4 は 2026-09-10〜11、Phase 5〜7 と database/function は 2026-09-11〜12）。手順は[クラウドAPIの運用](../operations/cloud.md)を参照してください。
 
 | もの | 値 | 状態 |
 | --- | --- | --- |

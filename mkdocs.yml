@@ -55,10 +55,7 @@ nav:
           - サービスの置き場所とクラウドVM: operations/services.md
           - Kubernetes クラスタ: operations/kubernetes.md
       - クラウドAPI:
-          - クラウドAPIの構築（土台）: operations/cloud.md
-          - クラウドAPI本体とインスタンス: operations/cloud-api.md
-          - ボリューム・S3・DB・関数: operations/cloud-resources.md
-          - 実機プローブと切り戻し: operations/cloud-verify.md
+          - クラウドAPIの運用: operations/cloud.md
           - shakecloud CLI: operations/cli.md
           - shakecloud MCPサーバ（読み取り専用）: operations/mcp.md
           - shakecloud Terraform Provider: operations/terraform-provider.md

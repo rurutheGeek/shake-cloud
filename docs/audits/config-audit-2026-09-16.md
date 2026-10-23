@@ -24,7 +24,7 @@ tags:
 - `.sops.yaml`のコメントは「少なくとも利用者2人ぶんと自動実行用を並べる」と指示しているのに、従っていない。
 - この1鍵を失うと、Proxmox・Cloudflare・NetBox・k8s ServiceAccount・SMTP・S3・monitoringのトークンが一括で復号できなくなり、バックアップから戻しても復号できない。[秘密値の管理](../operations/secrets.md)の「管理PCと外部コピー」は同じ鍵の2コピーで、冗長化ではない。
 - 提案: オフライン保管用と自動実行用（AWX/CI）の鍵を作り、受信者を3本にして`sops updatekeys`で再暗号化する。`tests/test_sops_config.py`が更新漏れを検出する。見積は30分で、失うものの大きさに対して最も安い。
-- 詳しい手順は[クラウド構築の検証](../operations/cloud-verify.md)の受信者の節にある。
+- 詳しい手順は[クラウドAPIの運用](../operations/cloud.md)の受信者の節にある。
 
 ### 1.2 既定セキュリティグループが全許可で、管理面と同一L2
 

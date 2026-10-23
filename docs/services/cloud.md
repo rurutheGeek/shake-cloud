@@ -100,12 +100,12 @@ resource "shakecloud_instance" "dev" {
 
 - **ポータルが 502/503:** クラウドAPI か管理DB が落ちている、または機能が未設定（例: Garage や Kubernetes の URL が空ならバケット/DB/関数の画面が 503）。`/healthz` を確認します。
 - **VM の状態が進まない:** 履歴に理由が出ます。容量不足・Proxmox のエラーなど。管理者は cloud-01 の API ログを見ます。
-- **操作の記録:** ポータルの履歴、または `GET /v1/audit-events`（[クラウドAPIの構築](../operations/cloud.md)）。
+- **操作の記録:** ポータルの履歴、または `GET /v1/audit-events`（[クラウドAPIの運用](../operations/cloud.md)）。
 
 ## 関連
 
 - [サービスの置き場所とクラウドVMでの作り方](../operations/services.md)
-- [クラウドAPIの構築](../operations/cloud.md)（管理者向け）
+- [クラウドAPIの運用](../operations/cloud.md)（管理者向け）
 - [shakecloud CLI](../operations/cli.md)
 - [shakecloud Terraform Provider](../operations/terraform-provider.md)
 - [接続先一覧](../reference/urls.md)

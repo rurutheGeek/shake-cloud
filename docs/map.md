@@ -137,10 +137,7 @@ flowchart TB
 | [サークル認証Bot（CIRCLEAUTH）](operations/circleauth.md) | 2026-10-04 | `ops` `discord` |
 | [shakecloud CLI](operations/cli.md) | 2026-09-23 | `ops` `cloud` |
 | [クライアント端末のバックアップ（Windows・Android）](operations/client-backup.md) | 2026-10-05 | `ops` `backup` `urbackup` `android` |
-| [クラウドAPI本体とインスタンス](operations/cloud-api.md) | 2026-10-03 | `ops` `cloud` |
-| [ボリューム・S3・DB・関数](operations/cloud-resources.md) | 2026-10-03 | `ops` `cloud` |
-| [クラウドの実機プローブと切り戻し](operations/cloud-verify.md) | 2026-09-23 | `ops` `cloud` `verify` |
-| [クラウドAPIの構築](operations/cloud.md) | 2026-10-03 | `ops` `cloud` |
+| [クラウドAPIの運用](operations/cloud.md) | 2026-10-23 | `ops` `cloud` |
 | [ディスク増設](operations/disk.md) | 2026-10-03 | `ops` `storage` |
 | [HTTPSの入口を1台にまとめる](operations/edge.md) | 2026-10-03 | `ops` `network` |
 | [Flint 3（家庭内ルーター）](operations/flint3.md) | 2026-10-22 | `ops` `network` |
@@ -182,7 +179,7 @@ flowchart TB
 | [決定ログ](architecture/decisions.md) | 2026-10-22 | `design` `decisions` |
 | [障害モードと単一障害点](architecture/failure-modes.md) | 2026-10-03 | `design` `failure` |
 | [ゲームと開発環境](architecture/gaming.md) | 2026-10-03 | `design` `game` |
-| [構成の移り変わり](architecture/history.md) | 2026-10-22 | `design` `history` |
+| [構成の移り変わり](architecture/history.md) | 2026-10-23 | `design` `history` |
 | [IaCの所有境界](architecture/iac.md) | 2026-10-22 | `design` `iac` |
 | [設計と決定の入口](architecture/index.md) | 2026-10-03 | `design` |
 | [ネットワーク・公開範囲・SSO](architecture/network-auth.md) | 2026-10-03 | `design` `network` |
@@ -210,6 +207,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 93 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 90 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

@@ -41,7 +41,7 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 
 `pve_bulk_storage_initialize=true` は**ファイルシステムが無いときだけ**初期化します。既存のext4には触れません。指定せずに実行した場合、ファイルシステムが無ければ安全のため「無い」で止まります。再実行は `changed=0` です。
 
-このロールはマウント後、クラウドAPIのHDDティア用に `/srv/bulk/disks` を作り、Proxmoxの dir ストレージ `bulk-disks`（`content=images`）として登録します（未登録のときだけ）。**マウント前に登録するとVMディスクがrootに載る**ため、ロールは `mountpoint` を確認してから登録します。`bulk-backup`（vzdump）とはディレクトリもストレージも分けています。ストレージのACLは `platform/terraform/00-bootstrap`（`/storage/bulk-disks`、`CloudApiStorage` ロール）が付与します。利用者から見た使い方は[クラウドAPIとインスタンス](cloud-api.md)の `disk_tier` です。
+このロールはマウント後、クラウドAPIのHDDティア用に `/srv/bulk/disks` を作り、Proxmoxの dir ストレージ `bulk-disks`（`content=images`）として登録します（未登録のときだけ）。**マウント前に登録するとVMディスクがrootに載る**ため、ロールは `mountpoint` を確認してから登録します。`bulk-backup`（vzdump）とはディレクトリもストレージも分けています。ストレージのACLは `platform/terraform/00-bootstrap`（`/storage/bulk-disks`、`CloudApiStorage` ロール）が付与します。利用者から見た使い方は[クラウドAPIとインスタンス](cloud.md)の `disk_tier` です。
 
 media-01（共有ライブラリのマウント。`media.yml` が最初に通す `media-base.yml` に含まれる）:
 
