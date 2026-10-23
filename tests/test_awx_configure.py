@@ -25,8 +25,12 @@ class AwxConfigureTests(unittest.TestCase):
     def test_secrets_are_read_before_the_play_that_uses_them(self):
         # module_defaults are templated for every task of their play, so the
         # password must come from an earlier play.
-        self.assertNotIn('module_defaults', self.plays[0])
-        self.assertIn('module_defaults', self.plays[1])
+        with_defaults = [n for n, play in enumerate(self.plays) if 'module_defaults' in play]
+        reading = next(n for n, play in enumerate(self.plays)
+                       if any(task.get('name') == 'Read the AWX admin password and the job key'
+                              for task in play['tasks']))
+        self.assertEqual(len(with_defaults), 1)
+        self.assertLess(reading, with_defaults[0])
         self.assertTrue(self.task('Read the AWX admin password and the job key')['no_log'])
         self.assertTrue(self.task('Store the credentials')['no_log'])
 

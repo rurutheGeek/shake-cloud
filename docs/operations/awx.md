@@ -17,8 +17,8 @@ tags:
 | 項目 | 値 |
 | --- | --- |
 | URL | <https://awx.apextox.dpdns.org/> |
-| ユーザー | `admin` |
-| パスワード | `sops -d --extract '["stringData"]["password"]' platform/flux/apps/awx-instance/admin-password.sops.yaml` |
+| ログイン | ログイン画面の下の **Sign in with OIDC**（Authentik）。`admins` グループだけが入れ、入ると Default 組織の管理者になる |
+| 予備のログイン | `admin`。パスワードは `sops -d --extract '["stringData"]["password"]' platform/flux/apps/awx-instance/admin-password.sops.yaml`（Authentik が止まっているとき） |
 | 稼働場所 | k8s-cp-01（namespace `awx`、[Kubernetes](kubernetes.md#アプリ-awx)） |
 
 ## Playbook を流す
