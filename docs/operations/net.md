@@ -72,10 +72,6 @@ API トークンは管理画面 → Settings → Keys → API access tokens で�
 
 **未了:** ルータへ移したあとの宅外（モバイル回線）のスマホ実機で、通常・core-01 停止・K11 停止の各条件を確認する。許可外利用者が管理レンジへ到達できないこと（ACL）は、ポリシーに制限を入れるときに確認する。
 
-## 経緯（net-01）
-
-2026-09-14 に cloud VM `net-01`（`i-88933be43f442c6f4`、`192.168.10.103`）を作り、`platform/ansible/net.yml` と `roles/tailscale` で配備しました。2026-10-01 にルート承認と tailnet DNS を適用。2026-10-03 に端末の身元ごとルータへ移して net-01 は削除し、リポジトリからも `platform/terraform/services/net`・`net.yml`・`roles/tailscale` を削除しました。
-
 ## 確認コマンド
 
 ```bash

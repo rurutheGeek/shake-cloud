@@ -98,7 +98,7 @@ nav:
       - 構成の移り変わり: architecture/history.md
       - 障害モードと単一障害点: architecture/failure-modes.md
       - IaCの所有境界: architecture/iac.md
-      - 配置と命名の再編: architecture/placement-naming.md
+      - 置き場所と名前の決まり: architecture/placement-naming.md
       - 最小クラウドとProvider: architecture/cloud.md
       - ネットワーク・SSO: architecture/network-auth.md
       - VPNの比較と併用: architecture/vpn.md

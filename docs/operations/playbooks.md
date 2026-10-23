@@ -80,8 +80,8 @@ tags:
 | Playbook | 何をするか | 対象 | AWX |
 | --- | --- | --- | --- |
 | `image-scan.yml` | 固定したイメージの脆弱性（Trivy）とランタイムの版（PHP など）を、監視のホストで毎日調べる | `monitoring` | 実行 |
-| `monitoring.yml` | 監視スタック（Prometheus・Grafana・exporter）を monitor-01（基盤VM）へ配備する | `monitoring` | 実行 |
-| `netmap.yml` | ネットワーク図（stacks/netmap）を monitor-01 へ配備する | `monitoring` | 実行 |
+| `monitoring.yml` | 監視スタック（Prometheus・Grafana・exporter）を tarakoserver へ配備する | `monitoring` | 実行 |
+| `netmap.yml` | ネットワーク図（stacks/netmap）を tarakoserver へ配備する | `monitoring` | 実行 |
 | `node-exporter.yml` | 各VMへ node_exporter を入れる | — | 実行 |
 | `storage-health.yml` | ストレージの寿命対策（journald上限・/のnoatime・Dockerログ上限）をホストとゲストへまとめて当てる | `cloud_control`・`identity_provider`・`media`・`monitoring`・`pve`・`storage` | 既定は確認だけ |
 | `touch-panel.yml` | 監視のタッチパネル（stacks/touch-panel）を tarakoserver の画面へ配備する | `monitoring` | 実行 |
@@ -91,7 +91,7 @@ tags:
 | Playbook | 何をするか | 対象 | AWX |
 | --- | --- | --- | --- |
 | `edge.yml` | HTTPS の入口（dns.yaml の edge.host）の Caddy を配備する | `core` | 既定は確認だけ |
-| `identity.yml` | Authentik を identity VM へ新規構築する | `identity_provider` | 既定は確認だけ |
+| `identity.yml` | Authentik を core-01 へ配備する | `identity_provider` | 既定は確認だけ |
 
 ## クラウド
 

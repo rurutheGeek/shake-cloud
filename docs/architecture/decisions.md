@@ -47,13 +47,13 @@ tags:
 | API の実装 | Go の標準 `net/http`（CSRF 対策は `http.CrossOriginProtection`）、`pgx`、`go-oidc`。**OpenAPI からのコード生成はしない。** エンドポイントが少ないうちは生成物の保守の方が重いので、Go のルート表と OpenAPI の一致をテスト（`routes_test.go`）で保証する |
 | Terraform Provider 名 | `shakecloud_*` |
 | 管理面の分離 | VLAN で分ける。**まず管理はタグなし（ネイティブVLAN）のまま、利用者VM（cloud）だけをタグ付きVLANに載せる。**切り替えは `network.yaml` の `vlan.cloud.vlan_id`（＋ `cloud.prefix`／range）を埋めるだけで行う。宣言と手順は [VLAN 分離への切替](../operations/vlan.md) |
-| Authentik | identity VM（110）に構築した |
+| Authentik | core-01 に置く（2026-10-03 に identity VM から統合） |
 | Authentik の `sub` | `user_uuid`。プロバイダを作り直しても変わらないため |
 | 知らない `sub` と既知のメール | ログインを拒否する（`AccountConflict`）。別アカウントを黙って作ると、その人のリソースが2つに分かれるため |
 | ポータルの入口 | `https://cloud.apextox.dpdns.org`（OIDC の戻り先は `/auth/callback`） |
 | HTTPS の入口 | 各ホストの Caddy（`stacks/tls-proxy/`）が Let's Encrypt の証明書を DNS-01 で取り、同じホストの 127.0.0.1 のサービスへ中継する。1台に集めず各ホストに置くのは、認証基盤（identity）を他のホストの障害に巻き込まないため。代わりに Cloudflare の DNS トークンが各ホストに載る |
 | ドメイン | **`apextox.dpdns.org`**（DigitalPlat の無料ドメイン。DNS は Cloudflare に委任）。**インターネットには公開しない。** グローバルIPも使わず、HTTPS の証明書を DNS-01 で取るためにだけ使う。`home.arpa` と自前CAにしなかったのは、全端末へ CA を登録する手間と、スマホアプリが自前CAを信用しない問題を避けるため |
-| OIDC クライアントの秘密値 | **SOPS へ複製しない。** 正本は identity VM の `oidc-cloud.json` で、`cloud.yml` が配備のたびに直接写す。2か所に持つと、作り直したときに食い違うため |
+| OIDC クライアントの秘密値 | **SOPS へ複製しない。** 正本は core-01 の `oidc-cloud.json` で、`cloud.yml` が配備のたびに直接写す。2か所に持つと、作り直したときに食い違うため |
 | ブートストラップ管理キー | cloud-01 のファイルが正本。起動時に DB をファイルへ合わせる。API から削除したキーは再起動しても復活しない。**2026-09-11 に無効化した**（以後はポータルでログインして発行するアクセスキーを使う。緊急時は `rotate-bootstrap-key` で作り直す） |
 | インスタンスの上限 | **既定値は `platform/terraform/cloud.yaml`、変更は `admins` が実行中に行う**（`PUT /v1/limits` かポータルの「上限」）。管理DBには管理者が変えた項目だけを入れ、読むたびに既定値と重ねる（同じ事実を2か所に持たない）。既定は1アカウント 8台・32vCPU・32GiB・ディスク計 1000GiB、クラウド全体のメモリ枠 32GiB、ノードに 4GiB 残す、ディスク実使用率 85%。**0 は無制限。**停止中も数える |
 | 上限とホストの保護の関係 | **上限の合計が物理メモリを超えることを許す**（バルーニング前提）。物理を見ているのは「ノードの `available` が指定量残るか」と「ディスクの実使用率」の2つだけで、これは上限を無制限にしても残る。この2つを 0 にすると基盤VMごと倒せる。[配分と実測](operations.md#measured-budget) |
@@ -67,7 +67,7 @@ tags:
 | メモリとディスク | メモリはバルーニング、ディスクはシンプロビジョニングが既定。どちらも空き容量には数えない |
 | 秘密値 | すべて自動生成する。人に鍵を作らせたり、変えさせたりしない |
 | NetBox | LAN に公開。`https://netbox.apextox.dpdns.org`。Terraform・Ansible・クラウドAPI が使う `http://192.168.10.200:8000` はまだ開けている |
-| ドキュメントサイト | services-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、Nextcloudからは編集しない。今回の方針ではservices-01に維持する。家電（H01）は2026-09-12に配備済みで、Authentik SSO・Eufy・SwitchBot Cloud を設定済み。VPNの同居は未配備 |
+| ドキュメントサイト | apps-01 に置いて LAN に公開（`https://docs.apextox.dpdns.org`）。Git の `docs/` が正本で、Nextcloudからは編集しない |
 | game1（VMID 100） | 2026-09-11 に `cloud` プールへ移し、クラウドAPIが `shunyazhiyuan97`（ゲームサーバ開発者）のインスタンスとして引き取った。VMID 100 は `pools.yaml` の `reserved_vmids` で引き続き確保（public-edge には使わない） |
 | 回線とポート | **MAP-E（v6プラス・JPNE）。CGNATではない。** ポート開放は可能だが**割り当てられた240個に限られ、80/443 は使えない**（2026-09-20の実測。[N06](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md)）。公開Webを `https://名前/` で出す設計は採らない。WireGuard など割当ポートで済むものは公開できる |
 | 家庭内ルータ | **Flint 3（GL-BE9300）。K11 とは別の機械にする**（2026-10-14。2026-09-20〜10-14 は K11 上の OpenWrt VM `router-01` で、K11 が落ちると家中のネットが落ちた）。純正ファームの初期設定に必要な項目だけを `uci` で上書きし、その正本は Git（`platform/flint3/`）（[Flint 3](../operations/flint3.md)・[障害モード](failure-modes.md)） |
@@ -77,5 +77,5 @@ tags:
 | Kubernetesの稼働 | **1台構成で常時動かす（2026-10-22）。** 以前（2026-10-02）は cp と worker-01 で11GiBを固定で使うため使うときだけ起動していた。AWX を常時使うため、control plane に AWX・database（CNPG）・function（Knative）を載せて k8s-cp-01（2026-10-23 から7GiB）の1台にまとめ、worker は止めた予備にした。database・function に渡すメモリは合計 1GiB（LimitRange・ResourceQuota）（[Kubernetes](../operations/kubernetes.md#メモリの上限)） |
 | ポケモン系のPostgreSQLの置き場所 | **apps-01 に独立Composeで置く（2026-10-04）。** 以前は game1 に同居と決めていたが、常時つなぐBotがあり、game1 は構成管理・バックアップの外にある。約50MBのDBに専用VMは割かず、常時稼働でないCNPGにも載せない（[pkdb](../operations/pkdb.md)） |
 | 生存確認の持ち方 | **dead man's switch は監視ノード（当時は monitor-01、2026-10-15 から tarakoserver）にだけ置く。それ以外のサービスの生死は監視（Prometheus・blackbox）で見る（2026-10-02）。** 各コンテナに `healthcheck` を揃えることは目標にしない。新しいサービスを足すときは、コンテナの `healthcheck` ではなく `stacks/monitoring/prometheus/blackbox-targets.yml` へ probe を足す（`tests/test_monitoring_stack.py` が `dns.yaml` との一致を検査する）。起動順の待ち合わせに要る `healthcheck`（DB→アプリ）は残してよい（[監視](../operations/monitoring.md)） |
-| HTTPSの入口 | **公開の証明書と Cloudflare のDNS編集トークンは、入口の1台（services-01）だけが持つ（2026-10-02。実機への切替は1台ずつ）。** 各ホストの Caddy は残し、入口との間は各ホストの内部CAの証明書で暗号化する。入口から各アプリへ平文で直接つなぐ形にしなかったのは、利用者VMと同じL2にSSOの通信を平文で流すことになり、`Remote-User` を信じるアプリの認証が各VMのファイアウォール設定だけに依存するため。入口が止まると全サービスに入れなくなるが、物理ホストが1台なので可用性は変わらない（[HTTPSの入口を1台にまとめる](../operations/edge.md)） |
-| 配置と命名 | **基盤（Terraformで直接作る）は core-01（Authentik・NetBox・入口）・cloud-01（クラウドAPI・Garage）・monitor-01・k8s。それ以外のアプリはクラウドVM（media-01・apps-01・game-01 と開発VM）に置く（2026-10-03。移行は未着手）。** 基準は「クラウドAPIが動くため、または壊れたときに直すために要るか」。Tailscale はルータ（Flint 3）に置く。ホスト名は `<役割>-<2桁>`、Compose名・配備先・スタックはアプリ名で統一する。開発VM（dev-01・dev-02・android-01・win-01）もクラウドVMにし、用途「開発」としてまとめる。クラウドVMの所有者は game-01 と dev-01 が `shunyazhiyuan97`、ほかは `rurutheGeek`（[配置と命名の再編](placement-naming.md)） |
+| HTTPSの入口 | **公開の証明書と Cloudflare のDNS編集トークンは、入口の1台（core-01）だけが持つ（2026-10-02 に決め、10-03 に切替済み）。** 各ホストの Caddy は残し、入口との間は各ホストの内部CAの証明書で暗号化する。入口から各アプリへ平文で直接つなぐ形にしなかったのは、利用者VMと同じL2にSSOの通信を平文で流すことになり、`Remote-User` を信じるアプリの認証が各VMのファイアウォール設定だけに依存するため。入口が止まると全サービスに入れなくなるが、物理ホストが1台なので可用性は変わらない（[HTTPSの入口を1台にまとめる](../operations/edge.md)） |
+| 配置と命名 | **基盤（Terraformで直接作る）は core-01（Authentik・NetBox・入口）・cloud-01（クラウドAPI・Garage）・k8s、監視は K11 の外の tarakoserver。それ以外のアプリはクラウドVM（media-01・apps-01・game-01 と開発VM）に置く（2026-10-03）。** 基準は「クラウドAPIが動くため、または壊れたときに直すために要るか」。Tailscale はルータ（Flint 3）に置く。ホスト名は `<役割>-<2桁>`、Compose名・配備先・スタックはアプリ名で統一する。開発VM（dev-01・dev-02・android-01・win-01）もクラウドVMにし、用途「開発」としてまとめる。クラウドVMの所有者は game-01 と dev-01 が `shunyazhiyuan97`、ほかは `rurutheGeek`（[置き場所と名前の決まり](placement-naming.md)） |

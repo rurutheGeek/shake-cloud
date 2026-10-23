@@ -26,7 +26,7 @@ tags:
 | [構成の移り変わり](history.md) | 大きな改修と構成変更の年表 |
 | [セキュリティ（信頼境界と対策）](security.md) | 外から届く経路、信頼境界、対策の一覧、残っている穴、守らないと決めたこと |
 | [障害モードと単一障害点](failure-modes.md) | 何が止まると何が使えなくなるか。復旧の順番 |
-| [配置と命名の再編](placement-naming.md) | どのVMをクラウドAPIで作るかの基準と命名規則。方針は合意済み、移行は未着手 |
+| [置き場所と名前の決まり](placement-naming.md) | どこに何を置くかの判断と、名前の付け方 |
 | [IaCの所有境界](iac.md) | Terraform・NetBox・Ansible・FluxとクラウドAPIの担当範囲、VMIDとプール、ロールとACL |
 | [最小クラウドとProvider](cloud.md) | 4機能、SSOとアクセスキー、Proxmox側の制約、実装境界 |
 | [ネットワーク・公開範囲・SSO](network-auth.md) | 既存機器、VPN、公開Web、スマートフォン、認証の使い分け |
@@ -41,7 +41,7 @@ tags:
 - 現有のK11（Ryzen 9 8945HS、8コア16スレッド、Radeon 780M、公称RAM 64GB、SSD 1TB）へ機能別VMを追加する。増設はVMの追加を指し、ハードウェアの増設提案は含めない。
 - ルータは **Flint 3（GL-BE9300）**。区画（VLAN）は Flint 3 の内蔵スイッチと Wi-Fi で分ける。（[Flint 3](../operations/flint3.md)）。スイッチは既存の TL-SG605 をそのまま使う。宅外の復旧経路は Flint 3 上の Tailscale subnet router に置く。
 - サービスは原則VPNからアクセスする。既存の公開Webと、セルフホストVPNの制御・認証に必要な入口は、対象を明示して公開を設計する。
-- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantなどのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はmonitor-01、ゲーム・AI一式はgame1へ配置する。
+- 常用KubernetesのAWX・CloudNativePGによるDB提供・Knativeによる関数提供を維持する。Homarr・Vaultwarden・Home Assistantなどのアプリはapps-01、認証・台帳・HTTPSの入口はcore-01、メディアはmedia-01、監視はtarakoserver、ゲーム・AI一式はgame1へ配置する。
 - ゲームは1つのVMへ2人が接続し、Wolfで画面と入力を分ける。3DSのポケモンを各自のAzaharで遊び、対応作品で交換・対戦を行う。画質よりカクつきの少なさを優先する。
 - 自分ともう一人に、軽量なインフラ開発用VMを1台ずつ用意する。
 - 自作Terraform Providerが扱うクラウド機能は、**VM、サーバレス実行、S3互換オブジェクトストレージ、DBアプライアンス**の4つを最小範囲とする。**4機能とも実装済み・実機確認済み**（後者2つは Kubernetes 構築後に追加した）。
