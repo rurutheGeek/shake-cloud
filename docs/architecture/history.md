@@ -27,6 +27,7 @@ tags:
 | 2024-04 | Bot にメンバー認証を足す。Pi 上の Bot を止める workflow を足す |
 | 2024-05 | Raspberry Pi 5 を買う（のちの shakeserver） |
 | 2025-04 | Pi の起動時に Bot を立ち上げる workflow に作り直す |
+| 2026-03-11 | UPS を買う |
 | 2026-03-24 | Raspberry Pi Zero 2 W を買う（のちの negitoroserver） |
 
 ## 2026-05〜10 shake-infra（Raspberry Pi を IaC で管理）
@@ -46,12 +47,13 @@ tags:
 
 | 日付 | できごと |
 | --- | --- |
-| 09-08 | shake-cloud を始める。ミニPC K11 に Proxmox VE。秘密値は SOPS + age、CI で yamllint |
+| 09-07 | ミニPC K11 を買う |
+| 09-08 | shake-cloud を始める。K11 に Proxmox VE。秘密値は SOPS + age、CI で yamllint |
 | 09-09 | Terraform で Proxmox の権限境界（00-bootstrap）と基盤VMを作る。最初の1台 services-01 に NetBox |
 | 09-10〜11 | 自作クラウド shakecloud（VM・ボリューム・セキュリティグループ・コンソール）、CLI、Terraform Provider、Garage（S3） |
 | 09-12 | Kubernetes（kubeadm・Cilium・Flux）と AWX。クラウドに database（CloudNativePG）と function（Knative）が加わり4機能が揃う。Authentik に招待・パスキー・メール復旧 |
 | 09-13 | 監視（Prometheus・Grafana）を始める |
-| 09-20 | 市販ルータから K11 上の OpenWrt VM（router-01）へ切り替える。DNS は AdGuard Home |
+| 09-20 | ルータを中古の NEC Aterm WG1200HP4 から K11 上の OpenWrt VM（router-01）へ切り替える。DNS は AdGuard Home |
 | 09-23 | 6TB HDD を共有し、重要VMの週次バックアップを始める |
 
 ## 2026-10 再編と区画
@@ -62,7 +64,8 @@ tags:
 | 10-03 | 配置の再編。Authentik・NetBox・HTTPS の入口を core-01 へ、Garage を cloud-01 へ、アプリを apps-01 へ集め、identity・storage-s3 などを廃止。証明書と DNS トークンを入口1台に |
 | 10-04 | 開発VMをクラウドVMとして引き取る（dev-01・dev-02）。HDD をバックアップ領域とクラウド領域に分ける |
 | 10-05 | 旧ホストからポケモン系 DB と Discord Bot を apps-01 へ。公開サイトを web-01 へ移す |
-| 10-14 | ルータを物理機 Flint 3 へ。区画（サーバー・個人端末・ネット専用・DMZ）を実機で分ける。監視を K11 の外の tarakoserver（Pi 4）へ移し monitor-01 を廃止。Raspberry Pi を Ansible で管理する |
+| 10-12 | Flint 3（GL-BE9300）を買う |
+| 10-14 | ルータを物理機 Flint 3 へ（Aterm は撤去）。区画（サーバー・個人端末・ネット専用・DMZ）を実機で分ける。監視を K11 の外の tarakoserver（Pi 4）へ移し monitor-01 を廃止。Raspberry Pi を Ansible で管理する |
 | 10-15 | 通知を Discord に一本化。UPS を tarakoserver につなぎ替え。Forgejo（リポジトリの保管庫） |
 | 10-16 | 公開サイトを DMZ の shakeserver（Pi 5）へ移し、web-01 を廃止 |
 | 10-17 | ゲームの区画と AdGuard を通さない無線を足す。公開サイトを CI のイメージ・Podman で動かす |
