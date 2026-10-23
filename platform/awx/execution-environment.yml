@@ -1,4 +1,10 @@
 ---
+# AWX がジョブを動かすコンテナ（実行環境、EE）。管理PCで ansible-playbook を
+# 流すときと同じ道具を入れる。秘密値は入れない（復号の鍵は AWX の資格情報から
+# 環境変数 SOPS_AGE_KEY で渡す）。
+#
+# .github/workflows/awx-ee.yml がビルドして ghcr.io/ruruthegeek/shakecloud-ee へ置く。
+# 手元で作るとき: cd platform/awx && ansible-builder build -f execution-environment.yml
 version: 3
 images:
   base_image:
@@ -12,10 +18,29 @@ dependencies:
     package_system: python3.11
     python_path: /usr/bin/python3.11
   galaxy: ../ansible/requirements.yml
+  # 版の正本は platform/ansible/requirements.txt と tools/requirements.txt。
+  # 手元（localhost）で動く部分が使う: pynetbox（インベントリ）、PyYAML（cloud/render_site.py）、
+  # mkdocs（docs_site のビルド）。
   python:
     - pynetbox==7.5.0
     - requests==2.32.4
     - pytz==2026.3.post1
+    - PyYAML==6.0.3
+    - mkdocs==1.6.1
   system:
     - openssh-clients
     - git-core
+    - tar
+    - curl-minimal
+additional_build_steps:
+  append_final:
+    # 秘密値の復号（Playbook が手元で sops --decrypt を呼ぶ）。版は管理PCと揃える。
+    - ARG SOPS_VERSION=3.13.3
+    - ARG SOPS_SHA256=e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b
+    - >-
+      RUN curl -fsSL -o /usr/local/bin/sops
+      https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64
+      && echo "${SOPS_SHA256}  /usr/local/bin/sops" | sha256sum --check
+      && chmod 0755 /usr/local/bin/sops
+    # ロールが python3 を呼ぶので、Ansible と同じ版を指させる。
+    - RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1

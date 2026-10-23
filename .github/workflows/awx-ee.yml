@@ -1,0 +1,36 @@
+# AWX の実行環境（platform/awx/execution-environment.yml）をビルドし、
+# ghcr.io/ruruthegeek/shakecloud-ee へ置く。タグはコミットの短いハッシュ。
+# AWX にはダイジェストで登録する（platform/awx/controller.yml）。
+name: AWX execution environment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - platform/awx/execution-environment.yml
+      - platform/ansible/requirements.yml
+      - .github/workflows/awx-ee.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: Install ansible-builder
+        run: python3 -m pip install ansible-builder==3.1.0
+      - name: Build
+        working-directory: platform/awx
+        run: ansible-builder build -f execution-environment.yml --container-runtime docker -t shakecloud-ee
+      - name: Push
+        run: |
+          image=ghcr.io/ruruthegeek/shakecloud-ee
+          tag=$(git rev-parse --short=12 HEAD)
+          echo "${{ github.token }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag shakecloud-ee "$image:$tag"
+          docker push "$image:$tag"
+          docker inspect --format '{{index .RepoDigests 0}}' "$image:$tag" >> "$GITHUB_STEP_SUMMARY"
