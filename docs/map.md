@@ -127,6 +127,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-22 | `ops` `network` `dns` |
+| [AIの会話履歴（aihist）](operations/aihist.md) | 2026-10-16 | `ops` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-09-12 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
@@ -208,6 +209,6 @@ flowchart TB
 | [記録の入口](audits/index.md) | 2026-10-02 | `record` |
 | [Shakecloud Web GUI監査・改善案](audits/webgui-2026-09-12.md) | 2026-09-12 | `record` `cloud` |
 
-全 91 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
+全 92 ページ。この表は `tools/docs-map.py` が各ページの front matter から生成します。
 
 <!-- pages:end -->

@@ -74,6 +74,10 @@ BOT_PORTAL = 'portal'
 # firewall in full, so only admins may open it.
 NETMAP = 'netmap'
 TOUCH_PANEL = 'panel'
+# aihist runs on media-01. The AI conversation history holds commands, file
+# contents and sometimes secrets, so only admins may open it. Its /api path is
+# outside SSO and checks aihist's own token.
+AIHIST = 'aihist'
 # Authentik's managed email scope mapping always reports email_verified=False.
 # Vaultwarden and Kavita reject an unverified email, so the providers use our
 # own mapping for the email scope: invitations already verify the address.
@@ -845,6 +849,27 @@ def configure_netmap(api, groups, flows, portal_url):
     ensure_outpost(api, [provider['pk']], zone, 'network map forward-auth provider')
 
 
+def configure_aihist(api, groups, flows, portal_url):
+    """Reconcile the AI conversation history: Forward Auth provider, admins only."""
+    zone = media_zone(portal_url)
+    provider = ensure_proxy_provider(api, AIHIST, {
+        'authorization_flow': flows[AUTHORIZATION_FLOW],
+        'invalidation_flow': flows[INVALIDATION_FLOW],
+        'mode': 'forward_single',
+        'external_host': f'https://{AIHIST}.{zone}',
+    })
+    application = ensure_application(api, AIHIST, {
+        'name': 'AIの会話履歴', 'slug': AIHIST, 'provider': provider['pk'],
+        'meta_launch_url': f'https://{AIHIST}.{zone}',
+        'policy_engine_mode': 'any',
+    })
+    if bind_group(api, application['pk'], groups['admins']['pk']):
+        print(f'CHANGED: admins may use {AIHIST}')
+    else:
+        print(f'OK: admins may use {AIHIST}')
+    ensure_outpost(api, [provider['pk']], zone, 'aihist forward-auth provider')
+
+
 def configure_touch_panel(api, groups, flows, portal_url):
     """Reconcile the touch panel seen from a phone: Forward Auth provider, admins only."""
     zone = media_zone(portal_url)
@@ -1012,6 +1037,7 @@ def main():
     configure_bot_portal(api, groups, flows, portal_url)
     configure_netmap(api, groups, flows, portal_url)
     configure_touch_panel(api, groups, flows, portal_url)
+    configure_aihist(api, groups, flows, portal_url)
 
 
 if __name__ == '__main__':

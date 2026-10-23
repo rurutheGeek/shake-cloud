@@ -1,0 +1,4 @@
+# aihist の /api（各マシンの push）が使うトークン。正本は SOPS（aihist.sops.yaml）。
+#
+# 生成: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+AIHIST_TOKEN: REPLACE_WITH_A_RANDOM_TOKEN

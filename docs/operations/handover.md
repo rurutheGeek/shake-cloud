@@ -43,7 +43,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 使うときだけ起動 |
 | 5000 | win-01 | 192.168.10.100 | Windows 11（クラウドVM） | 停止 |
 | — | android-01 | 192.168.10.104 | Waydroid（Eufy の解析用、クラウドVM） | 停止。解析のときだけ起動（[android-01](android-01.md)） |
-| 5001 | media-01 | 192.168.10.101 | Nextcloud・Kavita・Navidrome・FreshRSS・MeTube・LocalSend・UrBackup・Forgejo | 稼働 |
+| 5001 | media-01 | 192.168.10.101 | Nextcloud・Kavita・Navidrome・FreshRSS・MeTube・LocalSend・UrBackup・Forgejo・aihist（v0.33.0） | 稼働 |
 | 5005 | apps-01 | 192.168.10.105 | Homarr・Vaultwarden・LibreSpeed・mail-view・CUPS・ポケモン翻訳・pkdb・UBSLEEPY・Home Assistant・eufy | 稼働 |
 | 5997 | shakecloud-volumes | — | デタッチしたボリュームの置き場。起動しない | 停止 |
 
@@ -69,6 +69,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | 端末台帳 | NetBox に Pixel 8a が残り、家族の Galaxy が未登録 | 機種名を確かめて `platform/netbox/devices.yaml` を直す |
 | サービスの state 用キー | `services.sops.yaml` は作成済みだが、キーの有効性・権限は未確認 | `tools/tf services/<name> plan` が通るか |
 | ボリュームの種類（SSD⇔HDD） | 変える API が無い。win-01 のデータは手で HDD へ移し、管理DBを合わせた | 要るなら API に足す |
+| aihist の Antigravity 復元 | 消した会話を戻して続けられるかが未確認（Windows の PC が要る） | [aihist](aihist.md) の手順で1件戻して開く |
 | Nextcloud MCP の実データ確認 | 人のアカウントでのタグ編集〜Navidrome 反映などが未確認 | 確認までは動作確認済みと書かない（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)） |
 
 ## 5. 引き継ぐ人のアクセス

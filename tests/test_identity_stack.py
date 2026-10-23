@@ -210,6 +210,18 @@ class MailViewEntryTests(unittest.TestCase):
                        if method == 'PATCH' and path.startswith('outposts/instances/'))
         self.assertEqual(outpost['providers'], ['proxy1'])
 
+    def test_aihist_is_a_forward_auth_application_for_admins_only(self):
+        api = self.RecordingAPI()
+        configure.configure_aihist(api, {'admins': {'pk': 'group-admins'}},
+                                   FLOWS, 'https://cloud.example.org')
+        provider = next(body for method, path, body in api.calls
+                        if method == 'POST' and path == 'providers/proxy/')
+        self.assertEqual(provider['mode'], 'forward_single')
+        self.assertEqual(provider['external_host'], 'https://aihist.example.org')
+        binding = next(body for method, path, body in api.calls
+                       if method == 'POST' and path == 'policies/bindings/')
+        self.assertEqual(binding['group'], 'group-admins')
+
 
 class InvitationTests(unittest.TestCase):
     def setUp(self):

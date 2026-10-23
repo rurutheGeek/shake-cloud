@@ -1,0 +1,134 @@
+---
+# aihist（AI の会話履歴）を media-01 へ配備する。受ける名前と TLS は dns.yaml /
+# tls_proxy ロール、画面の SSO は identity の configure.py が担当する。
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-aihist.yml'
+- name: Deploy aihist
+  hosts: media
+  become: true
+  vars:
+    source_dir: '{{ playbook_dir }}/../../stacks'
+    aihist_dir: /opt/aihist
+    aihist_port: 5840
+    # 会話の原本は増え続けるので HDD に置く。
+    aihist_data_dir: '{{ media_bulk_mount }}/aihist'
+    aihist_data_mount_unit: "{{ media_bulk_mount[1:] | replace('/', '-') }}.mount"
+    aihist_cache: '{{ lookup("env", "HOME") }}/.cache/shakecloud/aihist/{{ aihist_version }}'
+  tasks:
+    - name: Create the aihist system user
+      ansible.builtin.user:
+        name: aihist
+        system: true
+        shell: /usr/sbin/nologin
+        create_home: false
+    - name: Create the aihist directories
+      ansible.builtin.file:
+        path: '{{ item.path }}'
+        state: directory
+        owner: '{{ item.owner }}'
+        group: '{{ item.group }}'
+        mode: '0750'
+      loop:
+        - {path: '{{ aihist_dir }}', owner: root, group: aihist}
+        - {path: '{{ aihist_data_dir }}', owner: aihist, group: aihist}
+    # 本体は非公開リポジトリのリリース。media-01 は GitHub の資格情報を持たないので、
+    # 作業機の gh で落としてから確かめて送る。SHA256SUMS は group_vars の
+    # aihist_sha256s（ファイルごとの sha256）と照らし、各ファイルを SHA256SUMS と照らす。
+    - name: Download the aihist release on the controller
+      delegate_to: localhost
+      become: false
+      run_once: true
+      ansible.builtin.command:
+        argv: [gh, release, download, 'v{{ aihist_version }}', -R, rurutheGeek/aihist,
+               -p, 'aihist-*', -p, SHA256SUMS, -D, '{{ aihist_cache }}', --skip-existing]
+      changed_when: false
+      check_mode: false
+    - name: Check the downloaded aihist
+      delegate_to: localhost
+      become: false
+      run_once: true
+      ansible.builtin.stat:
+        path: '{{ aihist_cache }}/{{ item.key }}'
+        checksum_algorithm: sha256
+      loop: '{{ aihist_sha256s | dict2items }}'
+      register: aihist_download
+    - name: Refuse an aihist binary that does not match the pin
+      ansible.builtin.assert:
+        that: item.stat.checksum | default('') == item.item.value
+        fail_msg: '{{ item.item.key }} の sha256 が group_vars/media.yml の aihist_sha256s と違う'
+        quiet: true
+      loop: '{{ aihist_download.results }}'
+      loop_control:
+        label: '{{ item.item.key }}'
+    - name: Create the directory of binaries handed to other machines
+      ansible.builtin.file:
+        path: '{{ aihist_dir }}/bin'
+        state: directory
+        owner: root
+        group: aihist
+        mode: '0750'
+    # aihist-linux-amd64 はこのホストで動かす本体。ほかは /api/install.sh などで各マシンへ配る。
+    - name: Install aihist
+      ansible.builtin.copy:
+        src: '{{ aihist_cache }}/aihist-linux-amd64'
+        dest: '{{ aihist_dir }}/aihist'
+        mode: '0755'
+      notify: Restart aihist
+    - name: Install the binaries handed to other machines
+      ansible.builtin.copy:
+        src: '{{ aihist_cache }}/{{ item.key }}'
+        dest: '{{ aihist_dir }}/bin/{{ item.key }}'
+        owner: root
+        group: aihist
+        mode: '0644'
+      loop: '{{ aihist_sha256s | dict2items }}'
+      loop_control:
+        label: '{{ item.key }}'
+    - name: Read the aihist token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --output-type, json, '{{ playbook_dir }}/../sops/aihist.sops.yaml']
+      register: aihist_secrets
+      changed_when: false
+      # 秘密値を読むだけ。--check でも後続のタスクが値を使えるよう実行する。
+      check_mode: false
+      no_log: true
+    - name: Write the aihist environment
+      ansible.builtin.copy:
+        content: |
+          AIHIST_TOKEN={{ (aihist_secrets.stdout | from_json).AIHIST_TOKEN }}
+        dest: '{{ aihist_dir }}/aihist.env'
+        owner: root
+        group: aihist
+        mode: '0440'
+      no_log: true
+      notify: Restart aihist
+    - name: Install the aihist unit
+      ansible.builtin.template:
+        src: '{{ source_dir }}/aihist/aihist.service.j2'
+        dest: /etc/systemd/system/aihist.service
+        mode: '0644'
+      notify: Restart aihist
+    - name: Enable and start aihist
+      ansible.builtin.systemd:
+        name: aihist
+        enabled: true
+        state: started
+        daemon_reload: true
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+    - name: Wait for aihist
+      ansible.builtin.uri:
+        url: 'http://127.0.0.1:{{ aihist_port }}/healthz'
+        status_code: [200]
+      register: aihist_health
+      retries: 10
+      delay: 2
+      until: aihist_health is succeeded
+  handlers:
+    - name: Restart aihist
+      ansible.builtin.systemd:
+        name: aihist
+        state: restarted
+        daemon_reload: true

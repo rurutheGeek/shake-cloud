@@ -83,6 +83,7 @@ nav:
       - サービス:
           - Nextcloudと追加アプリ: operations/nextcloud.md
           - Nextcloud MCPサーバ: operations/nextcloud-mcp.md
+          - AIの会話履歴（aihist）: operations/aihist.md
           - ポケモン系のPostgreSQL（pkdb）: operations/pkdb.md
           - 公開サイト（Shake-Web / pkhack / Alexa / ayahuya）: operations/web.md
           - メール設定: operations/smtp.md

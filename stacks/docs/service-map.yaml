@@ -115,6 +115,7 @@ record_docs:
   grafana: [operations/monitoring.md]
   peanut: [operations/power.md]
   netmap: [network-map.md]
+  aihist: [operations/aihist.md]
   panel: [operations/monitoring.md]
   vault: [operations/vaultwarden.md]
   speed: [services/librespeed.md]
