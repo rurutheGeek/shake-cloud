@@ -48,8 +48,10 @@ hosts:
     flavor: large
     # k8s ノードはバルーニングしない（kubelet が上限を能力としてスケジューラへ
     # 広告するので、後からホストが回収すると Pod が追い出される）。
-    memory_mib: 6144
-    memory_min_mib: 6144
+    # 6GiB では AWX が起動した時点で空き約0.9GiB しかなく、ジョブの実行用コンテナ
+    # （約0.5GiB）が苦しかったので 7GiB にした（2026-10-23）。
+    memory_mib: 7168
+    memory_min_mib: 7168
     disk_gib: 32
     # local-path（AWX の DB・database の PVC）の置き場。
     data_disk_gib: 64
