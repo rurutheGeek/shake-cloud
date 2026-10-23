@@ -31,6 +31,18 @@ tags:
 
 一覧と各 Playbook の説明は [Playbook の一覧](playbooks.md) にもある（AWX が止まっていても読める）。
 
+## AI が流すとき
+
+AI（Claude などのエージェント）は `tools/awx-run` で AWX にジョブを起動させる（`AGENTS.md` の決まり）。**Jobs** の起動者が `ai-agent` になっているのが AI の実行。
+
+```bash
+tools/awx-run --list                          # AWX に載っている Playbook
+tools/awx-run media-kavita.yml --check        # 何が変わるかだけ
+tools/awx-run media-kavita.yml --run          # 本番
+```
+
+`ai-agent` はジョブテンプレートの実行しかできない（テンプレート・資格情報の変更や閲覧はできない）。トークンは `platform/sops/awx-agent.sops.yaml` で、`configure.yml` がファイルの無いときだけ発行する。作り直すときはファイルを消して `configure.yml` を流す。
+
 ## 仕組み
 
 | もの | 中身 |

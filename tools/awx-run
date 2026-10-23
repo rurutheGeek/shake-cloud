@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Run a playbook through AWX, so every run is recorded there.
+
+AWX checks out main from GitHub, so this runs what is merged, not the local
+working tree. The token (platform/sops/awx-agent.sops.yaml) may only launch job
+templates; platform/awx/configure.yml creates it.
+
+  tools/awx-run media-kavita.yml              # the template's default (check or run)
+  tools/awx-run media-kavita.yml --check      # show what would change
+  tools/awx-run media-kavita.yml --run        # apply
+  tools/awx-run monitoring.yml --run --limit monitoring
+  tools/awx-run --list                        # the playbooks AWX knows
+
+Exits 0 when the job succeeded, 1 when it failed, 2 when AWX cannot be reached
+or the playbook has no template (then run ansible-playbook directly and say so).
+"""
+import argparse
+import json
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+TOKEN_FILE = ROOT / 'platform' / 'sops' / 'awx-agent.sops.yaml'
+BASE = 'https://awx.apextox.dpdns.org/api/v2'
+DONE = ('successful', 'failed', 'error', 'canceled')
+
+
+def token():
+    return subprocess.run(['sops', '--decrypt', '--extract', '["AWX_AGENT_TOKEN"]', str(TOKEN_FILE)],
+                          check=True, capture_output=True, text=True).stdout.strip()
+
+
+def call(auth, path, body=None, raw=False):
+    request = urllib.request.Request(
+        path if path.startswith('http') else BASE + path,
+        method='POST' if body is not None else 'GET',
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={'Authorization': 'Bearer ' + auth, 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        data = response.read()
+    if raw:
+        return data.decode('utf-8', 'replace')
+    return json.loads(data) if data else {}
+
+
+def templates(auth):
+    found, url = [], '/job_templates/?page_size=200'
+    while url:
+        page = call(auth, url)
+        found += page['results']
+        url = page['next']
+    return found
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Run a playbook through AWX.')
+    parser.add_argument('playbook', nargs='?', help='file name under platform/ansible, e.g. media-kavita.yml')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--check', action='store_true', help='show what would change (job type check)')
+    mode.add_argument('--run', action='store_true', help='apply (job type run)')
+    parser.add_argument('--limit', help='hosts or groups, as ansible-playbook --limit')
+    parser.add_argument('--list', action='store_true', help='list the playbooks AWX knows')
+    args = parser.parse_args()
+
+    try:
+        auth = token()
+        known = templates(auth)
+    except (subprocess.CalledProcessError, urllib.error.URLError, OSError) as error:
+        print(f'awx-run: AWX に届かない（{error}）。ansible-playbook で直接流し、そう伝える。', file=sys.stderr)
+        return 2
+
+    if args.list or not args.playbook:
+        for template in sorted(known, key=lambda t: t['playbook']):
+            print(f"{Path(template['playbook']).name:28} {template['job_type']:5}  {template['name']}")
+        return 0
+
+    name = Path(args.playbook).name
+    template = next((t for t in known if Path(t['playbook']).name == name), None)
+    if template is None:
+        print(f'awx-run: {name} は AWX に無い（手元専用。docs/operations/playbooks.md）。'
+              'ansible-playbook で直接流す。', file=sys.stderr)
+        return 2
+
+    body = {}
+    if args.check or args.run:
+        body['job_type'] = 'check' if args.check else 'run'
+    if args.limit:
+        body['limit'] = args.limit
+    try:
+        job = call(auth, f"/job_templates/{template['id']}/launch/", body)
+    except urllib.error.HTTPError as error:
+        print(f'awx-run: 起動できない（HTTP {error.code}: {error.read()[:300]!r}）', file=sys.stderr)
+        return 2
+    url = f"https://awx.apextox.dpdns.org/#/jobs/playbook/{job['id']}/output"
+    print(f"awx-run: {template['name']} を {body.get('job_type', template['job_type'])} で起動（{url}）",
+          file=sys.stderr)
+
+    # 出力は届いた分から流す（counter で続きを取る）。
+    shown = 0
+    while True:
+        status = call(auth, f"/jobs/{job['id']}/")['status']
+        events = call(auth, f"/jobs/{job['id']}/job_events/?order_by=counter&counter__gt={shown}&page_size=200")
+        for event in events['results']:
+            if event['stdout']:
+                print(event['stdout'])
+            shown = max(shown, event['counter'])
+        if status in DONE and not events['next']:
+            break
+        time.sleep(2)
+    print(flush=True)
+    print(f'awx-run: {status}（{url}）', file=sys.stderr)
+    return 0 if status == 'successful' else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
