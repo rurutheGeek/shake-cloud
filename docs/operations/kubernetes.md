@@ -40,7 +40,7 @@ tags:
 
 | VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 | k8s-cp-01 | .207 | control plane・etcd・AWX・database・function | 4 | 6GiB | OS32+データ64 | **稼働（2026-10-22 から常時）**。control-plane の taint は外してある |
+| 200 | k8s-cp-01 | .207 | control plane・etcd・AWX・database・function | 4 | 7GiB | OS32+データ64 | **稼働（2026-10-22 から常時）**。control-plane の taint は外してある |
 | 210 | k8s-worker-01 | .209 | 予備の worker | 4 | 8GiB | OS32+データ64 | **停止（予備）**。2026-10-22 にクラスタから外した。使うときは起動して join |
 | 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
 

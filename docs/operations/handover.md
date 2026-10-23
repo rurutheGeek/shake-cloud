@@ -38,7 +38,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | 100 | game-01 | 192.168.10.127 | ゲーム（Bazzite、GPU パススルー）。クラウドVMとして引き取り済み | 稼働 |
 | 140 | cloud-01 | 192.168.10.205 | クラウドAPI・管理DB・Garage | 稼働 |
 | 150 | core-01 | 192.168.10.200 | Authentik・NetBox・入口の Caddy・ドキュメント | 稼働 |
-| 200 / 210 / 211 | k8s-cp-01 / k8s-worker-01 / k8s-worker-02 | .207 / .209 / .208 | Kubernetes（AWX・CNPG・Knative・poke-translate の function） | k8s-cp-01 の1台で常時稼働（6GiB）。worker-01・02 は停止した予備（[Kubernetes](kubernetes.md)） |
+| 200 / 210 / 211 | k8s-cp-01 / k8s-worker-01 / k8s-worker-02 | .207 / .209 / .208 | Kubernetes（AWX・CNPG・Knative・poke-translate の function） | k8s-cp-01 の1台で常時稼働（7GiB）。worker-01・02 は停止した予備（[Kubernetes](kubernetes.md)） |
 | 400 / 401 | dev-01 / dev-02 | .202 / .203 | 開発VM（クラウドVM）。dev-02 が自動化の実行ホスト | 稼働 |
 | 900 | probe-01 | 192.168.10.201 | 検証用 | 使うときだけ起動 |
 | 5000 | win-01 | 192.168.10.100 | Windows 11（クラウドVM） | 停止 |
