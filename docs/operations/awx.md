@@ -1,6 +1,6 @@
 ---
 title: AWX の使い方
-updated: 2026-09-12
+updated: 2026-10-23
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,11 +10,7 @@ tags:
 
 # AWX の使い方
 
-> **更新日** 2026-09-12 ・ **区分** 運用手順 ・ **読む人** 管理者
-
-**状態**: 配備済み（AWX 24.6.1 / Operator 2.19.1）。ジョブテンプレートの整備はこれから。
-
-AWX は Ansible Playbook をブラウザと API から実行し、実行履歴・権限・スケジュールを管理する基盤です。NetBox をインベントリ源にして、`platform/ansible/` の Playbook を回す用途を想定しています。
+> **更新日** 2026-10-23 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 ## 入口とログイン
 
@@ -22,45 +18,45 @@ AWX は Ansible Playbook をブラウザと API から実行し、実行履歴�
 | --- | --- |
 | URL | <https://awx.apextox.dpdns.org/> |
 | ユーザー | `admin` |
-| パスワード | `platform/flux/apps/awx-instance/admin-password.sops.yaml`（管理者のSOPS鍵で復号） |
-| 稼働場所 | Kubernetes の `k8s-worker-01`（namespace `awx`） |
-| 配備 | `platform/flux/apps/awx-operator.yaml` → `awx-instance/`（Flux が Git から適用） |
+| パスワード | `sops -d --extract '["stringData"]["password"]' platform/flux/apps/awx-instance/admin-password.sops.yaml` |
+| 稼働場所 | k8s-cp-01（namespace `awx`、[Kubernetes](kubernetes.md#アプリ-awx)） |
 
-パスワードを見る:
+## Playbook を流す
 
-```bash
-sops -d platform/flux/apps/awx-instance/admin-password.sops.yaml | grep -i password
-```
+1. 左の **Templates** を開く。Playbook 1本が1行で、名前は Playbook の先頭コメントの1文目、括弧の中がファイル名。上の **Label** で種類（メディア・アプリ・監視・Proxmox など）に絞れる。
+2. 行の右のロケット（Launch）を押す。
+3. **Job type** を選ぶ。`Check` は何が変わるかを表示するだけで、実機は変えない。`Run` が本番。基盤を変えるもの（Proxmox・Kubernetes・認証・入口・クラウド・`guests`・`site`）は既定が `Check`。
+4. **Limit** は空のままでよい。1台だけにしたいときはグループ名（`media`・`apps` など）を入れる。クラウドVMのホスト名はインスタンスID（`i-…`）。
+5. 出力がその場で流れる。終わったら **Jobs** に、いつ・誰が・何を流して成功したかが残る。
 
-ログイン後は右上のユーザーメニューから **Access → Users** で追加アカウントを作れます。SSO（Authentik）はまだ繋いでいません。
+一覧と各 Playbook の説明は [Playbook の一覧](playbooks.md) にもある（AWX が止まっていても読める）。
 
-## 今できること
+## 仕組み
 
-- **Web UI**: インベントリ・プロジェクト・テンプレート・ジョブ履歴を管理。
-- **REST API**: `https://awx.apextox.dpdns.org/api/v2/`（要トークン）。疎通確認は `/api/v2/ping/`。
-- **CLI**: `pip install awxkit` で `awx` コマンド。`awx login -f https://awx.apextox.dpdns.org` のように使います。
-- **Playbook の実行**: プロジェクト（Git）とジョブテンプレートを登録すれば、このリポジトリの Playbook を実行できます。
+| もの | 中身 |
+| --- | --- |
+| プロジェクト `shake-cloud` | GitHub の `main`。ジョブのたびに最新を取る |
+| インベントリ `全ホスト` | `NetBox`（`platform/ansible/inventory.netbox.yml`）と `Proxmox 本体`（`dns.yaml` の `pve`）を合わせたもの |
+| 実行環境 `shakecloud-ee` | `platform/awx/execution-environment.yml`。sops・pynetbox・mkdocs などを入れたイメージ |
+| 資格情報 `ホストへの SSH` | 管理PCの `~/.ssh/id_ed25519_pve` と同じ鍵 |
+| 資格情報 `既知ホスト` | 管理PCの `known_hosts` から、インベントリのアドレスの分だけ写したもの。ホスト鍵は確かめる |
+| 資格情報 `秘密値の復号（sops）` | AWX 専用の age 鍵（`platform/sops/awx.sops.yaml`）。`platform/sops/*.sops.yaml` の受信者に入っている。Flux の秘密値は読めない |
+| 資格情報 `NetBox（読み取り）` | `platform/sops/netbox-inventory.sops.yaml` |
 
-```bash
-# 疎通確認（未認証でも応答する ping）
-curl -sk https://awx.apextox.dpdns.org/api/v2/ping/
-```
+登録は `platform/awx/configure.yml` が行う（[platform/awx/README.md](https://github.com/rurutheGeek/shake-cloud/blob/main/platform/awx/README.md)）。AWX の画面でテンプレートや資格情報を直接直さない。Playbook を足したら `python3 tools/awx-catalog.py` と `configure.yml` を流す。
 
-## これから（移行）
+**AWX に載らない Playbook**（NetBox の台帳に無いホスト向け）は [Playbook の一覧](playbooks.md) で「手元専用」になっている。管理PCから従来どおり流す。
 
-`platform/awx/` に EE（Execution Environment）と登録 Playbook の例があります。AWX へ **NetBox インベントリ・クレデンシャル・プロジェクト・ジョブテンプレート**を登録する手順は同ディレクトリの `README.md` にあります。
-
-**この登録はまだ実 API へ適用していません。** 適用するときは、`platform/awx/configure.yml` を実行し、`Deploy portable services` が動くことを確認してください。
+**一度も入ったことのないホスト**（止めてある予備の k8s-worker-02 など）は既知ホストに載らず、ジョブがホスト鍵の確認で止まる。管理PCから一度 SSH で入り、`configure.yml` を流し直す。
 
 ## 運用
 
-- **アップグレード**は `platform/flux/apps/awx-instance/awx.yaml` の版を変えて `main` へ push（Flux が反映）。
-- **停止・起動**は Kubernetes 側です。`tools/k8s down` / `up` でノードごと落とせます（[Kubernetes クラスタ](kubernetes.md#起動と停止)）。
-- **バックアップ**は別途必要です。AWX の DB・Secret・PVC は `platform/awx/README.md` の注意どおり、管理DBのバックアップとは別に設計します。
+- **アップグレード**は `platform/flux/apps/awx-instance/awx.yaml` の版を変えて `main` へ（Flux が反映）。
+- **バックアップ**は未設定。DB を失っても `configure.yml` で登録は戻るが、ジョブの履歴は消える。
+- 2026-10-22 の1台構成への移行で DB を作り直した。Operator が古い移行ジョブ（`awx-migration-<版>`）を見て移行済みと思い込むので、DB を作り直したらそのジョブを消す（[Kubernetes](kubernetes.md#アプリ-awx)）。
 
 ## 関連
 
-- [Kubernetes クラスタ](kubernetes.md#アプリ-awx)（配備の中身・HTTPS・トラブルシュート）
-- [Flux にアプリを足す](flux-apps.md)
+- [Playbook の一覧](playbooks.md)
+- [Kubernetes クラスタ](kubernetes.md#アプリ-awx)
 - [接続先一覧](../reference/urls.md)
-- `platform/awx/README.md`（EE と登録 Playbook の例）

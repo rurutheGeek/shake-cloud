@@ -139,6 +139,12 @@ class DocsStructureTests(unittest.TestCase):
         long_lines = [n for n, line in enumerate(text.splitlines(), 1) if len(line) > 400]
         self.assertEqual(long_lines, [], 'keep each row to one or two sentences')
 
+    def test_the_playbook_list_is_up_to_date(self):
+        result = subprocess.run(
+            ['python3', str(ROOT / 'tools/awx-catalog.py'), '--check'],
+            cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_the_generated_map_is_up_to_date(self):
         result = subprocess.run(
             ['python3', str(ROOT / 'tools/docs-map.py'), '--check'],

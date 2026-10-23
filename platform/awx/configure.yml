@@ -1,86 +1,229 @@
 ---
-- name: Configure new AWX controller
+# AWX へ、このリポジトリの Playbook をジョブテンプレートとして登録する。
+# 何度流しても同じ状態になる（名前で照合する）。ジョブは起動しない。
+#
+#   sops exec-env platform/sops/netbox-inventory.sops.yaml \
+#     '.venv/bin/ansible-playbook -i localhost, platform/awx/configure.yml -e @platform/awx/controller.yml'
+#
+# AWX の管理者パスワードは platform/flux/apps/awx-instance/admin-password.sops.yaml、
+# ジョブ用の秘密値の鍵は platform/sops/awx.sops.yaml から読む。
+# 一覧（名前・説明・種類・既定の実行方法）は tools/awx-catalog.py が Playbook の
+# 先頭コメントから作る。docs/operations/playbooks.md と同じもの。
+# module_defaults は play の全タスクで先に展開されるので、秘密値は別の play で読む。
+- name: Read the secrets for the registration
   hosts: localhost
   connection: local
   gather_facts: false
-  # Connection: CONTROLLER_HOST, CONTROLLER_OAUTH_TOKEN, CONTROLLER_VERIFY_SSL.
+  vars:
+    repo: '{{ playbook_dir }}/../..'
   tasks:
-    - name: Require caller-provided NetBox connection
+    - name: Require the NetBox connection
       ansible.builtin.assert:
         that:
           - lookup('env', 'NETBOX_API') | length > 0
           - lookup('env', 'NETBOX_TOKEN') | length > 0
+        fail_msg: run through sops exec-env platform/sops/netbox-inventory.sops.yaml
       no_log: true
-    - name: Register execution environment
+
+    - name: Read the AWX admin password and the job key
+      ansible.builtin.command:
+        argv: [sops, --decrypt, --extract, '{{ item.key }}', '{{ repo }}/{{ item.file }}']
+      loop:
+        - {key: '["stringData"]["password"]', file: platform/flux/apps/awx-instance/admin-password.sops.yaml}
+        - {key: '["AWX_SOPS_AGE_KEY"]', file: platform/sops/awx.sops.yaml}
+      register: awx_secrets
+      changed_when: false
+      no_log: true
+
+- name: Register the playbooks in AWX
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    repo: '{{ playbook_dir }}/../..'
+    controller: &controller
+      controller_host: https://awx.apextox.dpdns.org
+      controller_username: admin
+      controller_password: "{{ hostvars.localhost.awx_secrets.results[0].stdout }}"
+    catalog: "{{ lookup('ansible.builtin.pipe', 'python3 ' ~ repo ~ '/tools/awx-catalog.py --json') | from_json }}"
+    credentials: [ホストへの SSH, 秘密値の復号（sops）, 既知ホスト]
+  module_defaults:
+    group/awx.awx.controller: *controller
+  tasks:
+    - name: Register the execution environment
       awx.awx.execution_environment:
-        name: Media stack EE
+        name: '{{ awx_ee_name }}'
         image: '{{ awx_ee_image }}'
+        organization: '{{ awx_organization }}'
         pull: missing
-    - name: Register Git project
+
+    - name: Register the Git project
       awx.awx.project:
         name: '{{ awx_project_name }}'
         organization: '{{ awx_organization }}'
         scm_type: git
         scm_url: '{{ awx_scm_url }}'
         scm_branch: '{{ awx_scm_branch }}'
-        credential: '{{ awx_scm_credential | default(omit, true) }}'
+        # ジョブのたびに main の最新を取る。
         scm_update_on_launch: true
-        default_environment: Media stack EE
+        scm_update_cache_timeout: 60
+        default_environment: '{{ awx_ee_name }}'
         wait: true
-    - name: Create NetBox credential type
+
+    # --- 資格情報 -----------------------------------------------------------
+    # 注入の書式（{{ api }} など）は AWX が展開する。Ansible に展開させないよう raw で囲む。
+    - name: Define the NetBox credential type
       awx.awx.credential_type:
-        name: NetBox inventory API
+        name: NetBox
         kind: cloud
         inputs:
           fields:
-            - {id: netbox_api, type: string, label: NetBox URL}
-            - {id: netbox_token, type: string, label: API token, secret: true}
-          required: [netbox_api, netbox_token]
+            - {id: api, type: string, label: URL}
+            - {id: token, type: string, label: トークン, secret: true}
+          required: [api, token]
         injectors:
           env:
-            NETBOX_API: "{{ '{{ netbox_api }}' }}"
-            NETBOX_TOKEN: "{{ '{{ netbox_token }}' }}"
-    - name: Store NetBox read credential
-      awx.awx.credential:
-        name: NetBox read only
-        organization: '{{ awx_organization }}'
-        credential_type: NetBox inventory API
+            NETBOX_API: '{% raw %}{{ api }}{% endraw %}'
+            NETBOX_TOKEN: '{% raw %}{{ token }}{% endraw %}'
+
+    - name: Define the sops credential type
+      awx.awx.credential_type:
+        name: sops の age 鍵
+        kind: cloud
         inputs:
-          netbox_api: "{{ lookup('env', 'NETBOX_API') }}"
-          netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
-      no_log: true
-    - name: Create inventory
-      awx.awx.inventory:
-        name: Media hosts from NetBox
+          fields:
+            - {id: key, type: string, label: 秘密鍵, secret: true, multiline: true}
+          required: [key]
+        injectors:
+          env:
+            SOPS_AGE_KEY: '{% raw %}{{ key }}{% endraw %}'
+
+    - name: Define the known hosts credential type
+      awx.awx.credential_type:
+        name: SSH の既知ホスト
+        kind: cloud
+        inputs:
+          fields:
+            - {id: known_hosts, type: string, label: known_hosts, multiline: true}
+          required: [known_hosts]
+        injectors:
+          file:
+            template.known_hosts: '{% raw %}{{ known_hosts }}{% endraw %}'
+          # ansible.cfg の host_key_checking = True のまま、この一覧で確かめる。
+          # ANSIBLE_* の環境変数は AWX が資格情報から渡させないので、接続変数で渡す。
+          extra_vars:
+            ansible_ssh_common_args: '{% raw %}-o UserKnownHostsFile={{ tower.filename.known_hosts }}{% endraw %}'
+
+    - name: List the inventory addresses
+      ansible.builtin.command:
+        argv: ['{{ ansible_playbook_python | dirname }}/ansible-inventory', -i, '{{ repo }}/platform/ansible/inventory.netbox.yml', --list]
+      register: awx_inventory
+      changed_when: false
+
+    - name: Copy the known host keys of those addresses
+      ansible.builtin.command:
+        argv: [ssh-keygen, -F, '{{ item }}', -f, '{{ awx_known_hosts_file | expanduser }}']
+      loop: >-
+        {{ ((awx_inventory.stdout | from_json)._meta.hostvars | dict2items
+            | map(attribute='value.ansible_host') | select | list) + [awx_pve_address] }}
+      register: awx_known
+      changed_when: false
+      # 一度も入ったことのないホスト（止めてある予備など）は載らない。そのホストへの
+      # ジョブはホスト鍵の確認で止まるので、管理PCから一度入ってから流し直す。
+      failed_when: awx_known.rc > 1
+
+    - name: Store the credentials
+      awx.awx.credential:
+        name: '{{ item.name }}'
         organization: '{{ awx_organization }}'
-    - name: Add SCM inventory source
+        credential_type: '{{ item.type }}'
+        inputs: '{{ item.inputs }}'
+        update_secrets: true
+      no_log: true
+      loop:
+        - name: NetBox（読み取り）
+          type: NetBox
+          inputs: {api: "{{ lookup('env', 'NETBOX_API') }}", token: "{{ lookup('env', 'NETBOX_TOKEN') }}"}
+        - name: 秘密値の復号（sops）
+          type: sops の age 鍵
+          inputs:
+            key: '{{ hostvars.localhost.awx_secrets.results[1].stdout }}'
+        - name: 既知ホスト
+          type: SSH の既知ホスト
+          inputs:
+            known_hosts: >-
+              {{ awx_known.results | map(attribute='stdout_lines') | flatten
+                 | reject('match', '^#') | unique | join('\n') }}
+        - name: ホストへの SSH
+          type: Machine
+          inputs:
+            ssh_key_data: "{{ lookup('ansible.builtin.file', awx_ssh_private_key_file | expanduser) }}"
+
+    # --- インベントリ -------------------------------------------------------
+    - name: Create the inventories
+      awx.awx.inventory:
+        name: '{{ item }}'
+        organization: '{{ awx_organization }}'
+      loop: [NetBox, Proxmox 本体]
+
+    - name: Read the hosts from NetBox
       awx.awx.inventory_source:
-        name: NetBox media-stack
-        inventory: Media hosts from NetBox
+        name: NetBox の台帳
+        inventory: NetBox
         source: scm
         source_project: '{{ awx_project_name }}'
-        source_path: ansible/inventory.netbox.yml
-        credential: NetBox read only
-        execution_environment: Media stack EE
-        overwrite: true
-        overwrite_vars: true
+        source_path: platform/ansible/inventory.netbox.yml
+        credential: NetBox（読み取り）
+        execution_environment: '{{ awx_ee_name }}'
         update_on_launch: true
-        update_cache_timeout: 0
-    - name: Synchronize NetBox inventory
-      awx.awx.inventory_source_update:
-        name: NetBox media-stack
-        inventory: Media hosts from NetBox
-        wait: true
-    - name: Register deployment job
-      awx.awx.job_template:
-        name: Deploy portable services
+        overwrite: true
+
+    - name: Add the Proxmox host
+      awx.awx.host:
+        name: '{{ awx_pve_host }}'
+        inventory: Proxmox 本体
+        variables:
+          ansible_host: '{{ awx_pve_address }}'
+          ansible_user: root
+          ansible_python_interpreter: /usr/bin/python3
+
+    - name: Put the Proxmox host in the pve group
+      awx.awx.group:
+        name: pve
+        inventory: Proxmox 本体
+        hosts: ['{{ awx_pve_host }}']
+
+    - name: Combine both into one inventory
+      awx.awx.inventory:
+        name: 全ホスト
         organization: '{{ awx_organization }}'
-        inventory: Media hosts from NetBox
+        kind: constructed
+        input_inventories: [NetBox, Proxmox 本体]
+
+    # --- ジョブテンプレート --------------------------------------------------
+    - name: Create the labels (one per kind of playbook)
+      awx.awx.label:
+        name: '{{ item }}'
+        organization: '{{ awx_organization }}'
+      loop: "{{ catalog | map(attribute='category') | unique | list }}"
+
+    - name: Register a job template per playbook
+      awx.awx.job_template:
+        name: '{{ item.title[:400] }}（{{ item.file }}）'
+        description: '{{ item.description[:1000] }}'
+        organization: '{{ awx_organization }}'
         project: '{{ awx_project_name }}'
-        playbook: ansible/deploy.yml
-        execution_environment: Media stack EE
-        credentials: ['{{ awx_machine_credential }}']
-        become_enabled: true
+        playbook: platform/ansible/{{ item.file }}
+        inventory: 全ホスト
+        execution_environment: '{{ awx_ee_name }}'
+        credentials: '{{ credentials }}'
+        labels: ['{{ item.category }}']
+        job_type: '{{ item.job_type }}'
+        ask_job_type_on_launch: true
         ask_limit_on_launch: true
-        ask_variables_on_launch: true
+        diff_mode: true
+        ask_diff_mode_on_launch: true
         allow_simultaneous: false
+      loop: "{{ catalog | rejectattr('local_only') | list }}"
+      loop_control:
+        label: '{{ item.file }}'

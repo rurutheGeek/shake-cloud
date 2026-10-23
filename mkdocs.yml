@@ -65,6 +65,7 @@ nav:
           - Windows 11 ProのVMを作る: operations/windows.md
       - 自動化:
           - AWXの使い方: operations/awx.md
+          - Playbook の一覧: operations/playbooks.md
           - Flux にアプリを足す: operations/flux-apps.md
       - ネットワーク:
           - Flint 3（家庭内ルーター）: operations/flint3.md
