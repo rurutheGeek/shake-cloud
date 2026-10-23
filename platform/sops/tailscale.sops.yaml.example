@@ -1,7 +1,7 @@
 # Tailscale の秘密値。正本は SOPS（platform/sops/tailscale.sops.yaml）。
 # Git へ平文を入れない。
 #
-# TAILSCALE_AUTH_KEY: router-01（OpenWrt 上の subnet router）を tailnet へ
+# TAILSCALE_AUTH_KEY: ルータ（Flint 3 上の subnet router）を tailnet へ
 #   登録し直すときの認証キー。通常は端末の状態ファイル
 #   （/etc/tailscale/tailscaled.state）を引き継ぐので使わない。ルータを
 #   作り直して身元を引き継がない場合だけ、ルータ上で

@@ -1,19 +1,18 @@
 #!/bin/sh
-# Flint 3 を「区画なしのルーター」にする（router-01 からの本切替の第1段階）。
+# Flint 3 を「区画なしのルーター」にする。
 # GL.iNet の初期設定へ上書きする形で、必要な項目だけを uci で入れる。
 #
 #   /etc/shakecloud/apply-router             # 反映して network 等を再起動する
 #   /etc/shakecloud/apply-router extend 300  # 巻き戻しの期限を今から 300 秒後へ延ばす
 #   /etc/shakecloud/apply-router confirm     # 巻き戻しをやめる（確定）
 #
-# **実行する前に、ONU を Flint 3 の WAN ポートへ、router-01 の LAN 側を
-# リンクダウンにしておく。** 192.168.10.1・DHCP・MAP-E の CE を router-01 と
-# 同時に名乗らせない（docs/operations/router.md の切替と同じ理由）。
+# **実行する前に、ONU を Flint 3 の WAN ポートへつなぎ、ほかのルータを LAN から
+# 外しておく。** 192.168.10.1・DHCP・MAP-E の CE を2台に同時に名乗らせない。
 #
 # 期限（既定は反映から 10 分。ROLLBACK_AFTER 秒）までに extend か confirm が
 # 来なければ、実行前の状態へ戻して再起動する（/etc/shakecloud/rollback-router）。
-# 作業する側が止まったら勝手に戻る、という保険。値の根拠は platform/openwrt/rootfs/etc/shakecloud/config/ の
-# コメントと docs/development/N06-router.md。
+# 作業する側が止まったら勝手に戻る、という保険。値の根拠は
+# https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md。
 set -eu
 
 backup=/root/pre-router

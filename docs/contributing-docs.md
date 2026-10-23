@@ -37,7 +37,7 @@ python3 -m unittest tests.test_docs_structure
 - **手順か設計か** — 「実行する」なら運用手順、「なぜその形か」なら設計。`operations/bring-up.md` は初回構築の手順なので運用手順側にあります。
 - **設計か決定ログか** — 検討の経緯と比較は設計の各ページ、**結論だけ**は[決定ログ](architecture/decisions.md)。決定ログは「理由なく蒸し返さない」ための場所です。
 - **Issue か台帳か** — これからやること・仕様・進捗は [GitHub Issues](https://github.com/rurutheGeek/shake-cloud/issues)、実機でこうなったは[配備台帳](operations/handover.md)。**Issue を書いたことを配備済みと扱いません。**
-- **経緯はどこにも書き足さない** — 「いつ・何をしたか」はコミットメッセージに書き、文書は**いまの状態**だけにします（状態が変わったら上書きし、済んだ行は消す）。追いたいときは `git log -p -- <ファイル>`。よく書き換える文書（とくに配備台帳）ほど短く保ちます（台帳の長さは `tests/test_docs_structure.py` が検査します）。残す価値のある「はまったこと」は[確認と、はまりどころ](operations/verify.md)、「決めたこと」は[決定ログ](architecture/decisions.md)へ。
+- **経緯はどこにも書き足さない** — 「いつ・何をしたか」はコミットメッセージに書き、文書は**いまの状態**だけにします（状態が変わったら上書きし、済んだ行は消す）。追いたいときは `git log -p -- <ファイル>`。例外は[構成の移り変わり](architecture/history.md)で、構成図が変わるほどの変更だけを1行で足します。よく書き換える文書（とくに配備台帳）ほど短く保ちます（台帳の長さは `tests/test_docs_structure.py` が検査します）。残す価値のある「はまったこと」は[確認と、はまりどころ](operations/verify.md)、「決めたこと」は[決定ログ](architecture/decisions.md)へ。
 
 ## 2. 正本をひとつにする
 

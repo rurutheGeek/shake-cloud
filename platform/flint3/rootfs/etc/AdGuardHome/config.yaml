@@ -4,9 +4,8 @@
 # dnsmasq は :53 のまま DHCP とローカル名（*.lan）を担当する。
 #
 # 土台は純正ファーム 4.10.1 の初期設定（schema 14。起動時に AdGuard が新しい
-# 形式へ移行する）。そこへ router-01 と同じ方針を載せてある:
+# 形式へ移行する）。そこへ次の方針を載せてある:
 #   上流は DoH（ISP の DNS は使わない）、*.lan と逆引きは dnsmasq、
-#   フィルタと除外ルールは platform/openwrt/rootfs/etc/adguardhome/adguardhome.yaml と同じ。
 # クエリログはメモリのみ（eMMC へ書かない）。統計は 90 日。
 # 管理画面（:3000）は認証なし。ファイアウォールで core-01 だけに開ける。
 bind_host: 0.0.0.0

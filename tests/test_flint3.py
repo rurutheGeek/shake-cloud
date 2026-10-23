@@ -1,8 +1,8 @@
-"""Flint 3 (GL-BE9300) takes over from router-01.
+"""Flint 3 (GL-BE9300), the home router.
 
 The Flint 3 keeps GL.iNet's stock config and only overrides what it must, so
 there is no full UCI file to parse. These tests pin the parts that have to
-stay in step with router-01 and with the address plan.
+stay in step with the address plan.
 """
 import re
 import unittest
@@ -12,7 +12,6 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 FLINT = ROOT / 'platform/flint3/rootfs/etc'
-OPENWRT = ROOT / 'platform/openwrt/rootfs/etc'
 APPLY = (FLINT / 'shakecloud/apply-router').read_text(encoding='utf-8')
 
 
@@ -21,26 +20,9 @@ def uci(key):
     return match.group(1) if match else None
 
 
-class SharedWithRouterTests(unittest.TestCase):
-    def test_the_helpers_are_the_ones_proven_on_router_01(self):
-        # The MAP-E port spreading and the NDP proxy were debugged on router-01.
-        # A copy that drifts would bring the port exhaustion back.
-        for name in ('hotplug.d/iface/90-mape-ports', 'hotplug.d/iface/91-lan-prefix-route', 'ndppd.conf'):
-            self.assertEqual((FLINT / name).read_bytes(), (OPENWRT / name).read_bytes(), name)
-
-    def test_the_map_e_parameters_match_router_01(self):
-        network = (OPENWRT / 'shakecloud/config/network').read_text(encoding='utf-8')
-        for option in ('peeraddr', 'ip6prefix', 'ip6prefixlen', 'ipaddr', 'ip4prefixlen',
-                       'ealen', 'psidlen', 'offset', 'legacymap', 'mtu', 'tunlink'):
-            block = network[network.index("config interface 'wan'"):network.index("config interface 'wan6'")]
-            expected = re.search(rf"option {option} '([^']*)'", block).group(1)
-            self.assertEqual(uci(f'network.wan.{option}'), expected, option)
-
-    def test_adguard_blocks_the_same_things(self):
+class AdGuardTests(unittest.TestCase):
+    def test_adguard_listens_behind_gl_dnsmasq(self):
         ours = yaml.safe_load((FLINT / 'AdGuardHome/config.yaml').read_text(encoding='utf-8'))
-        theirs = yaml.safe_load((OPENWRT / 'adguardhome/adguardhome.yaml').read_text(encoding='utf-8'))
-        self.assertEqual(ours['filters'], theirs['filters'])
-        self.assertEqual(ours['user_rules'], theirs['user_rules'])
         # GL's integration forwards :53 to this port; AdGuard must not take :53 itself.
         self.assertEqual(ours['dns']['port'], 3053)
         self.assertFalse(ours['dns']['querylog_file_enabled'], 'クエリログを eMMC へ書かない')

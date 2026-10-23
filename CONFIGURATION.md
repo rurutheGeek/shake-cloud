@@ -16,7 +16,6 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | k8s-cp-01 / k8s-worker-* | Kubernetes（AWX・CloudNativePG・Knative） |
 | dev-01 / dev-02 | 開発VM（クラウド管理下） |
 | game-01 | ゲームサーバ（クラウド管理下） |
-| router-01 | OpenWrt（家庭内ルータ。WAN=ONU、LAN=既存LAN）、AdGuard Home、Tailscale |
 
 ## 設定する場所
 
@@ -32,7 +31,7 @@ Proxmox VE（`apextox`）の上に用途別のVMを置いています。各VMは
 | Gmailビューア | 通知メールの表示件数・キャッシュ・IMAP接続 | `stacks/mail-view/compose.yaml`・`app.py`・`.env.example`。資格情報は `platform/sops/mail-view.sops.yaml`（無ければ `smtp.sops.yaml`）。配備は `platform/ansible/mail-view.yml` |
 | Home Assistant | 家電連携、HTTP逆プロキシ、自動化 | HAのconfig（`/srv/services/home-assistant/config`）。配備は `platform/ansible/home-assistant.yml` |
 | 配備先ホスト | 保存先、ポート、イメージ、HTTPS | `platform/terraform/dns.yaml`、`platform/ansible/group_vars/media.yml`、各ユニットの `.env.example`・`compose.yaml` |
-| ルータ（router-01） | LAN・DHCP・DNS・MAP-E・ファイアウォール | `platform/openwrt/rootfs/etc/shakecloud/config/`（UCI の正本）。イメージは `platform/openwrt/openwrt.yaml`、VM は `platform/terraform/router.yaml`、手順は [router-01](docs/operations/router.md) |
+| ルータ（Flint 3） | LAN・DHCP・DNS・MAP-E・ファイアウォール・区画 | `platform/flint3/`（`uci` で上書きする項目の正本）。手順は [Flint 3](docs/operations/flint3.md) |
 | NetBox | 配備対象・IP・タグ | NetBox管理画面。`platform/terraform/tags.yaml` と `platform/ansible/inventory.netbox.yml` が対応の正本 |
 
 秘密値は.gitignore対象ファイルやSOPS（`platform/sops/`）で管理し、Gitには登録しません。Ansibleはコンテナ・保存領域・初期設定を管理しますが、各アプリの管理画面設定すべてを再現する構成にはなっていません。

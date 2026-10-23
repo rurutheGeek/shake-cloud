@@ -23,7 +23,6 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 
 | VM | 役割 |
 | --- | --- |
-| router-01 | 家庭内ルータ（OpenWrt）。WAN/LAN・DHCP・AdGuard Home（DNS・広告遮断） |
 | core-01 | Authentik（共通ログイン。招待・復旧・パスキー）、NetBox（台帳）、HTTPSの入口のCaddy（AdGuard Homeとルータの管理画面の中継も） |
 | cloud-01 | クラウドAPI・ポータル・管理DB（PostgreSQL）、Garage（S3互換オブジェクトストア） |
 | apps-01 | ドキュメントサイト、Homarr、Vaultwarden、LibreSpeed、Gmailビューア、CUPS・print-api、ポケモン翻訳、Home Assistant、eufy-security-ws、eufy-leo-rtc（クラウド管理下） |
@@ -34,7 +33,7 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 | probe-01 | 疎通確認用の基盤VM |
 | game1・win-01・android-01 | ゲームサーバ・Windows・Android（クラウド管理下） |
 
-**家庭内ルータも自作です。** 2026-09-20 に市販ルータから `router-01`（K11上のOpenWrt VM）へ切り替え、DHCPとDNS（AdGuard Home）もそこへ移しました。設定の正本は `platform/openwrt/` です。**K11が落ちると家中のネットも落ちる**構成なので、影響範囲は[障害モード](docs/architecture/failure-modes.md)にまとめています。ホスト直結の6TB HDD（`/srv/bulk`）にメディア原本とTier1 VMの週次バックアップを置いています。
+**家庭内ルータは Flint 3（GL-BE9300）です。** K11 とは別の機械で、MAP-E・DHCP・DNS（AdGuard Home）・Tailscale・区画を担います。設定の正本は `platform/flint3/` です。影響範囲は[障害モード](docs/architecture/failure-modes.md)にまとめています。ホスト直結の6TB HDD（`/srv/bulk`）にメディア原本とTier1 VMの週次バックアップを置いています。
 
 サービスは `*.apextox.dpdns.org`（家庭内LAN専用。Let's Encrypt証明書をDNS-01で取得）で開きます。**インターネットには公開していません。** URLとアドレスの正本は `platform/terraform/dns.yaml` と[接続先一覧](docs/reference/urls.md)、停止・再開を含む実機の状態は[配備台帳](docs/operations/handover.md)です。
 
@@ -61,8 +60,8 @@ Proxmox VE ホスト `apextox` 上のVMに役割を分けています。各VMは
 
 | 場所 | 変更する内容 |
 | --- | --- |
-| `platform/terraform/` | Proxmoxのプール・ロール・基盤VMとNetBox台帳（`10-platform`・`05-seed`）、サービスVMの宣言（`services/<name>/`）、ルータVMの宣言（`router/`） |
-| `platform/openwrt/` | 家庭内ルータ `router-01` のUCI設定・AdGuard Home設定とイメージのビルド（`build.sh`） |
+| `platform/terraform/` | Proxmoxのプール・ロール・基盤VMとNetBox台帳（`10-platform`・`05-seed`）、サービスVMの宣言（`services/<name>/`） |
+| `platform/flint3/` | 家庭内ルータ Flint 3 の設定（`uci` で上書きする項目・AdGuard Home） |
 | `platform/ansible/`、`ansible.cfg` | Docker導入、NetBoxの動的インベントリ、配備順序・ホスト変数、ゲストOSのロール |
 | `platform/flux/` | Fluxが反映するクラスタ構成（`main` を監視）。AWX・CNPG・Knative などを配る |
 | `platform/awx/` | AWX移行用のEE・Playbook例（AWX本体は `platform/flux/apps/` で配備済み） |
@@ -152,7 +151,7 @@ Nextcloudの権限はKavita・Navidromeへ継承されません。原本ライ�
 
 ## VMと配備
 
-基盤VM（router-01・core-01・cloud-01・monitor-01・Kubernetesノード・開発VM・probe-01）は `10-platform` と `05-seed` が作ります。中身の配備は、どのVMもNetBoxを動的インベントリにしてAnsibleで行います。`seed.ini` はNetBoxを最初に作るとき（`netbox.yml`）だけ、`pve.ini` はProxmoxホスト用に残ります。
+基盤VM（core-01・cloud-01・monitor-01・Kubernetesノード・開発VM・probe-01）は `10-platform` と `05-seed` が作ります。中身の配備は、どのVMもNetBoxを動的インベントリにしてAnsibleで行います。`seed.ini` はNetBoxを最初に作るとき（`netbox.yml`）だけ、`pve.ini` はProxmoxホスト用に残ります。
 
 サービスVMはクラウドAPIのTerraform Providerで作ります（`platform/terraform/services/<name>/`、サービスごとに1 state）。
 

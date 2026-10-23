@@ -7,27 +7,23 @@ window.SERVICE_MAP = {
    "address": "192.168.10.1",
    "docs": [
     {
-     "path": "operations/router/",
-     "title": "router-01（OpenWrt・自作ルータ）"
+     "path": "operations/flint3/",
+     "title": "Flint 3（家庭内ルーター）"
     }
    ],
-   "kind": "base",
-   "name": "router-01",
+   "kind": "host",
+   "name": "Flint 3",
    "role": "ルーター・DNS・VPN",
    "services": [
     {
      "description": "家庭内ルーター（WAN・LAN・DHCP）",
      "docs": [
       {
-       "path": "operations/router/",
-       "title": "router-01（OpenWrt・自作ルータ）"
-      },
-      {
-       "path": "operations/router-config/",
-       "title": "router-01 の設定まとめ（素の OpenWrt からの変更）"
+       "path": "operations/flint3/",
+       "title": "Flint 3（家庭内ルーター）"
       }
      ],
-     "name": "OpenWrt"
+     "name": "GL.iNet"
     },
     {
      "description": "宅外から管理LANへ入る復旧経路",
@@ -50,7 +46,7 @@ window.SERVICE_MAP = {
      "name": "AdGuard Home",
      "route": [
       "core-01",
-      "router-01"
+      "Flint 3"
      ],
      "sso": true,
      "upstream": "192.168.10.1:3000",
@@ -60,14 +56,14 @@ window.SERVICE_MAP = {
      "description": "GL.iNet。SSOなし・復旧経路",
      "docs": [
       {
-       "path": "operations/router/",
-       "title": "router-01（OpenWrt・自作ルータ）"
+       "path": "operations/flint3/",
+       "title": "Flint 3（家庭内ルーター）"
       }
      ],
      "name": "Flint 3 の管理画面",
      "route": [
       "core-01",
-      "router-01"
+      "Flint 3"
      ],
      "sso": false,
      "upstream": "192.168.10.1:80",
@@ -136,6 +132,22 @@ window.SERVICE_MAP = {
      "sso": false,
      "upstream": "127.0.0.1:8000",
      "url": "https://netbox.apextox.dpdns.org/"
+    },
+    {
+     "description": "翻訳サイトと拡張機能の配布。クラウドの function",
+     "docs": [
+      {
+       "path": "services/poke-translate/",
+       "title": "ポケモン翻訳"
+      }
+     ],
+     "name": "ポケモン用語対応翻訳",
+     "route": [
+      "core-01"
+     ],
+     "sso": false,
+     "upstream": "https://fn-f3d2a715882161487.functions.k8s.apextox.dpdns.org",
+     "url": "https://poke.apextox.dpdns.org/"
     }
    ]
   },
@@ -402,23 +414,6 @@ window.SERVICE_MAP = {
      "sso": false,
      "upstream": "127.0.0.1:8300",
      "url": "https://speed.apextox.dpdns.org/"
-    },
-    {
-     "description": "翻訳サイトと拡張機能の配布",
-     "docs": [
-      {
-       "path": "services/poke-translate/",
-       "title": "ポケモン翻訳"
-      }
-     ],
-     "name": "ポケモン用語対応翻訳",
-     "route": [
-      "core-01",
-      "apps-01"
-     ],
-     "sso": false,
-     "upstream": "127.0.0.1:8320",
-     "url": "https://poke.apextox.dpdns.org/"
     },
     {
      "description": "家電・自動化",

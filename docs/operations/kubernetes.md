@@ -40,7 +40,7 @@ tags:
 
 | VMID | 名前 | IP | 役割 | vCPU | RAM | ディスク | 状態 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 200 | k8s-cp-01 | .207 | control plane・etcd・AWX・database・function | 4 | 6GiB | OS32+データ64 | **稼働（2026-10-22 から常時）**。control-plane の taint は外してある |
+| 200 | k8s-cp-01 | .207 | control plane・etcd・AWX・database・function | 4 | 7GiB | OS32+データ64 | **稼働（2026-10-22 から常時）**。control-plane の taint は外してある |
 | 210 | k8s-worker-01 | .209 | 予備の worker | 4 | 8GiB | OS32+データ64 | **停止（予備）**。2026-10-22 にクラスタから外した。使うときは起動して join |
 | 211 | k8s-worker-02 | .208 | 予備の worker | 4 | 8GiB | OS32+データ48 | **停止のまま**。RAM が要るときに起動して join |
 
@@ -146,7 +146,7 @@ AWX（Ansible の実行基盤）を **k8s-cp-01** に Flux で配備していま
 | namespace | 既定（request / limit） | 1つの上限 | 合計 |
 | --- | --- | --- | --- |
 | `databases` | 256Mi / 320Mi | 640Mi | 640Mi（既定の大きさで2つ） |
-| `functions` | 64Mi / 128Mi | 256Mi | 384Mi（同時に動いている分だけ数える） |
+| `functions` | 32Mi / 96Mi（Pod は queue-proxy と合わせて2コンテナ） | 256Mi | 384Mi（同時に動いている分だけ数える。既定の Pod で2つ） |
 
 置き場は `platform/flux/apps/databases/limits.yaml` と `platform/flux/apps/functions-limits.yaml`（LimitRange と ResourceQuota）。クラウドAPI は limits を付けないので、ここの既定が付きます。合計を超える作成は Kubernetes が断り、database は Ready になりません。
 

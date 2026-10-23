@@ -71,8 +71,6 @@ nav:
           - DNS と広告遮断（AdGuard Home）: operations/adguard.md
           - HTTPSの入口を1台にまとめる: operations/edge.md
           - ルータがつながらないときの調べ方: operations/router-troubleshooting.md
-          - router-01（旧ルータ・停止中）: operations/router.md
-          - router-01 の設定まとめ（旧ルータ）: operations/router-config.md
       - ストレージとバックアップ:
           - Garage（S3互換ストレージ）: operations/garage.md
           - 共有バルクストレージ（6TB HDD）: operations/bulk-storage.md
@@ -99,6 +97,7 @@ nav:
       - ホームラボの全体像: architecture/overview.md
       - 設計と決定の入口: architecture/index.md
       - 決定ログ: architecture/decisions.md
+      - 構成の移り変わり: architecture/history.md
       - 障害モードと単一障害点: architecture/failure-modes.md
       - IaCの所有境界: architecture/iac.md
       - 配置と命名の再編: architecture/placement-naming.md

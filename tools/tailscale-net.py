@@ -2,8 +2,8 @@
 """Declare the subnet router's control-plane state in the Tailscale console.
 
 The router's own configuration -- the auth key, the advertised route, IP
-forwarding -- is the OpenWrt image's job (platform/openwrt/rootfs/; the
-subnet router runs on router-01 since 2026-10-03). Two settings that make the
+forwarding -- is the router's job (the Flint 3 since 2026-10-14;
+docs/operations/flint3.md). Two settings that make the
 subnet router useful live only in the Tailscale admin console, where a click
 leaves no review and no history:
 
@@ -48,7 +48,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / 'platform/terraform/site.yaml'
 API = 'https://api.tailscale.com/api/v2'
 TAILNET = '-'  # the tailnet that owns the API token
-# 端末の名前。router-01 へ移すときに管理画面の名前を変えた場合はここを直す
+# 端末の名前。管理画面の名前を変えた場合はここを直す
 HOSTNAME = os.environ.get('TAILSCALE_DEVICE', 'net-01')
 
 

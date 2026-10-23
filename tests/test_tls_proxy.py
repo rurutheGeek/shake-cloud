@@ -72,7 +72,7 @@ class DnsDeclarationTests(unittest.TestCase):
         # core-01（Caddy のホスト）だけに開けている。router（LuCI）も同じく
         # ルータ上で、80 はルータ自身の管理画面。
         for name, record in DNS['records'].items():
-            if 'upstream' in record and name not in ('cups', 'adguard', 'router'):
+            if 'upstream' in record and name not in ('cups', 'adguard', 'router', 'poke'):
                 self.assertRegex(record['upstream'], r'^127\.0\.0\.1:\d+$', name)
             for route in record.get('path_routes', []):
                 self.assertRegex(route['upstream'], r'^127\.0\.0\.1:\d+$',
@@ -80,6 +80,9 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(DNS['records']['cups']['upstream'], '192.168.10.105:631')
         self.assertEqual(DNS['records']['adguard']['upstream'], '192.168.10.1:3000')
         self.assertEqual(DNS['records']['router']['upstream'], '192.168.10.1:80')
+        # クラウドの function は Knative の入口（HTTPS）にしか居ない。
+        self.assertRegex(DNS['records']['poke']['upstream'],
+                         r'^https://fn-[0-9a-f]+\.functions\.k8s\.apextox\.dpdns\.org$')
 
     def test_upstream_ports_match_the_services(self):
         records = DNS['records']
@@ -92,7 +95,6 @@ class DnsDeclarationTests(unittest.TestCase):
         self.assertEqual(records['vault']['upstream'], f"127.0.0.1:{defaults('vaultwarden')['vaultwarden_port']}")
         self.assertEqual(records['speed']['upstream'], f"127.0.0.1:{defaults('librespeed')['librespeed_port']}")
         self.assertEqual(records['mail-view']['upstream'], f"127.0.0.1:{defaults('mail_view')['mail_view_port']}")
-        self.assertEqual(records['poke']['upstream'], f"127.0.0.1:{defaults('poke_translate')['poke_translate_port']}")
         self.assertEqual(records['adminer']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_adminer_port']}")
         self.assertEqual(records['pkdb-entry']['upstream'], f"127.0.0.1:{defaults('pkdb')['pkdb_entry_port']}")
         self.assertEqual(records['netmap']['upstream'], f"127.0.0.1:{defaults('netmap')['netmap_port']}")

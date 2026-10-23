@@ -1,6 +1,6 @@
 ---
 title: ルータがつながらないときの調べ方（備忘録）
-updated: 2026-09-20
+updated: 2026-10-22
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,16 +11,15 @@ tags:
 
 # ルータがつながらないときの調べ方（備忘録）
 
-> **更新日** 2026-09-20 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-22 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-2026-09-20 の切替で実際に起きた 2 つの障害と、その切り分けを
-そのまま残したものです。ルータ本体の手順は
-[router-01（OpenWrt・自作ルータ）](router.md)、設計は
-[N06 ルータ自作（OpenWrt）](https://github.com/rurutheGeek/shake-cloud/blob/e539f10d5dee4f74ed5f37f607437001d628fc47/docs/development/N06-router.md) が正本です。
+2026-09-20 に旧ルータ（OpenWrt）へ切り替えたときに実際に起きた障害と、その切り分けです。
+Flint 3 も同じ MAP-E・odhcpd・ndppd・dnsmasq を使うので、そのまま通用します。
+ルータ本体は [Flint 3](flint3.md) が正本です。
 
 ## 今回起きたこと（要約）
 
-Aterm から router-01 へ切り替えた直後、**IPv4 が一切通らず、IPv6 だけが動いて
+Aterm から旧ルータへ切り替えた直後、**IPv4 が一切通らず、IPv6 だけが動いて
 いるように見えた**。原因は 2 つあり、どちらも「設定が 1 箇所足りない」だけでした。
 
 | # | 症状 | 原因 | 直し方 |
@@ -34,32 +33,11 @@ Aterm から router-01 へ切り替えた直後、**IPv4 が一切通らず、IP
 いずれも**ルータ自身は正常に見える**のが厄介な点です。インターフェースは UP、
 アドレスも付き、ログにもエラーが出ません。
 
-## 入り口：どこから入るか
-
-切替後は LAN 端末から SSH で入れます。イメージに焼いてある管理者鍵は `root` 用です。
-
-```bash
-ssh root@192.168.10.1
-```
-
-LAN が落ちていて入れないときは、Proxmox のシリアルコンソールが唯一の入口です
-（抜けるのは Ctrl-O）。
-
-```bash
-ssh root@192.168.10.10 'qm terminal 101'
-```
-
 ## 手順：上から順に見る
 
-### 1. まずスクリプトを回す
+LAN 端末から `ssh root@192.168.10.1` で入ります。
 
-LAN 端末（dev-02 など）から。個別に見る前に、これで当たりが付きます。
-
-```bash
-python3 tools/verify-router.py
-```
-
-### 2. 「出ているか」と「返ってきているか」を分ける
+### 1. 「出ているか」と「返ってきているか」を分ける
 
 **MAP-E の障害はここでほぼ決まります。**
 
@@ -67,7 +45,7 @@ python3 tools/verify-router.py
 ssh root@192.168.10.1 'ip -s link show map-wan'
 ```
 
-- **TX が増えて RX が 0** → こちらの送信は成立し、**返りが来ていない**。→ 3 へ
+- **TX が増えて RX が 0** → こちらの送信は成立し、**返りが来ていない**。→ 2 へ
 - TX も 0 → そもそも送れていない。トンネル自体（`ifstatus wan`）を見る
 
 補強として、NAT の状態も見ます。全部 `[UNREPLIED]` なら同じ結論です。
@@ -76,7 +54,7 @@ ssh root@192.168.10.1 'ip -s link show map-wan'
 ssh root@192.168.10.1 'grep -c UNREPLIED /proc/net/nf_conntrack; grep UNREPLIED /proc/net/nf_conntrack | head -3'
 ```
 
-### 3. 「返りの宛先」を上流に聞く
+### 2. 「返りの宛先」を上流に聞く
 
 返りが来ないとき、**上流が誰を探しているか**を見ると答えが出ます。上流は戻り
 パケットを届ける前に、その宛先を Neighbor Solicitation で呼びます。
@@ -100,10 +78,10 @@ ssh root@192.168.10.1 'ip -6 addr show dev eth0'
 それが上流側で捨てられます。こちらからの送信は成立するので、ルータ側のログ・
 カウンタには何の異常も出ません。
 
-### 4. 形式の違いを確かめる
+### 3. 形式の違いを確かめる
 
 今回は 1 バイトずれていました。OpenWrt の既定は RFC 7597、JPNE が使うのは
-draft-03 系です。`map.sh` は `LEGACY` を `mapcalc` に渡すだけなので、実機で
+draft-03 系です。Flint 3 では `apply-router` の `legacymap='1'` がこれに当たります。GL.iNet の純正ファームは、これとは別に CE アドレスを上流側のデバイスへ付けないので、`89-mape-ce-address` が補っています（症状は手順 2 と同じ）。`map.sh` は `LEGACY` を `mapcalc` に渡すだけなので、実機で
 両方の計算を出して比べられます。
 
 ```bash
@@ -122,11 +100,10 @@ OpenWrt 既定（RFC 7597）: 00 00 <IPv4 4byte> <PSID>
 ```
 
 **グローバル IPv4・PSID・ポートセットはどちらの形式でも同じ値になります。**
-そのため `/tmp/map-wan.rules` を読んでも、`verify-router.py` のポート検査
-（`map_ports`）が PASS でも、この違いには気づけません。**アドレスそのものを
+そのため `/tmp/map-wan.rules` を読んでも、この違いには気づけません。**アドレスそのものを
 比べるまで分かりません。**
 
-### 5. IPv6 が LAN へ来ていないとき
+### 4. IPv6 が LAN へ来ていないとき
 
 **症状で分岐します。**
 
@@ -148,7 +125,7 @@ ssh root@192.168.10.1 'uci show dhcp.wan6'
 `disabled` が正しい。下記）。
 
 **(b) アドレスと既定ルートはあるのに外へ出られない** → 戻りが LAN へ
-転送されていません。手順 2・3 と同じ「出ているが返らない」の形です。
+転送されていません。手順 1・2 と同じ「出ているが返らない」の形です。
 
 ```bash
 ssh root@192.168.10.1 'ip -6 route | grep br-lan'
@@ -171,7 +148,7 @@ ssh root@192.168.10.1 'ps w | grep [n]dppd; cat /etc/ndppd.conf | grep -A2 rule'
 作る瞬間しか学習できず、**ルータを再起動すると固定アドレスの端末（サーバ類）が
 IPv6 を失います**。2026-09-20 に実機で踏んでいます（N06）。
 
-### 6. インターネットは通るのに、家のサービスが名前で開けないとき
+### 5. インターネットは通るのに、家のサービスが名前で開けないとき
 
 `https://nextcloud.apextox.dpdns.org` のような**家のサービス名だけ**が開けず、
 外のサイトは普通に見える場合です。**切替直後にこれを踏んでいます。**
@@ -207,7 +184,6 @@ ssh root@192.168.10.1 'uci show dhcp.@dnsmasq[0] | grep rebind'
 ssh root@192.168.10.1   'uci add_list dhcp.@dnsmasq[0].rebind_domain=apextox.dpdns.org;    uci commit dhcp; /etc/init.d/dnsmasq restart'
 ```
 
-正本は `rootfs/etc/shakecloud/config/dhcp` です。
 
 ## 紛らわしいので先に知っておくこと
 
@@ -218,8 +194,7 @@ ssh root@192.168.10.1   'uci add_list dhcp.@dnsmasq[0].rebind_domain=apextox.dpd
 - **インターネットへの `ping` が通らないときは、まず `90-mape-ports` を疑う。**
   ICMP が MAP-E の割当ポートへ SNAT されるのは、fw4 ではなく
   `/etc/hotplug.d/iface/90-mape-ports` の働きです（fw4 は icmp の SNAT を
-  落とす）。これが動いていないと**回線は正常なのに ping だけ通らず**、
-  `verify-router.py` の `pmtu` も FAIL します。
+  落とす）。これが動いていないと**回線は正常なのに ping だけ通りません**。
 
   ```bash
   ssh root@192.168.10.1 'nft list table ip mape_nat | head'
@@ -232,24 +207,6 @@ ssh root@192.168.10.1   'uci add_list dhcp.@dnsmasq[0].rebind_domain=apextox.dpd
   ssh root@192.168.10.1 'ACTION=ifup INTERFACE=wan /etc/hotplug.d/iface/90-mape-ports'
   ```
 
-## 最後の手段：Aterm に戻す
-
-原因が分からず家のネットを早く戻したいときは、配線を戻すのが確実です。手順は
-[router.md のロールバック](router.md)。要点だけ:
-
-1. ONU のケーブルを Aterm の WAN ポートへ戻す
-2. `ssh root@192.168.10.10 'qm stop 101'`（`192.168.10.1` の競合を避ける）
-3. Aterm の RT/BR/CNV スイッチを RT へ戻し、保存した `.bin` を復元する
-
 ## 実機に直接入れた設定について
 
-調査中に `uci set` で実機へ入れた値は、**再起動では消えませんが、VM を作り直すと
-イメージの内容に戻ります。** 直した内容は必ず
-`platform/openwrt/rootfs/etc/shakecloud/config/` の正本へ反映し、
-`tests/test_router.py` に検証を足してください（今回の 2 件は反映済み）。
-
-```bash
-# 正本を稼働中のルータへ配る（ルータ上では手編集しない）
-scp -r platform/openwrt/rootfs/etc/shakecloud/. root@192.168.10.1:/etc/shakecloud/
-ssh root@192.168.10.1 '/etc/shakecloud/apply && reboot'
-```
+調査中に実機へ入れた値は、必ず `platform/flint3/` の正本へ反映してください。
