@@ -87,6 +87,8 @@ func run(args []string) error {
 		return g.databases(rest[1:])
 	case "function", "functions":
 		return g.functions(rest[1:])
+	case "service", "services":
+		return g.services(rest[1:])
 	default:
 		return fmt.Errorf("unknown command %q; run shakecloud help", rest[0])
 	}
@@ -149,6 +151,8 @@ Commands:
   database show ID | database rm ID | database credentials ID
   function ls | function create --image IMAGE NAME
   function show ID | function rm ID
+  service ls | service create --image IMAGE [--port N] [--memory MIB] [--disk GIB:PATH] [--env K=V] [--secret K] NAME
+  service show ID | service update [--image IMAGE] [--memory MIB] [--env K=V] [--secret K] ID | service rm ID
 
 Set SHAKECLOUD_ACCESS_KEY to the key issued by the portal. The endpoint defaults
 to %s.

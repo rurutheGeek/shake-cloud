@@ -49,6 +49,8 @@ var readToolNames = map[string]string{
 	"DescribeDatabase":       "shakecloud_describe_database",
 	"DescribeFunctions":      "shakecloud_describe_functions",
 	"DescribeFunction":       "shakecloud_describe_function",
+	"DescribeServices":       "shakecloud_describe_services",
+	"DescribeService":        "shakecloud_describe_service",
 }
 
 // GetDatabaseCredentials is read-only but returns a password, so it stays out

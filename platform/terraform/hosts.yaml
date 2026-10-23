@@ -44,14 +44,16 @@ hosts:
     pool: platform
     # 1台構成（2026-10-22）。control plane・etcd に加え、AWX・database・function も
     # ここに載せる（taint を外す。k8s_control_plane の k8s_schedule_on_control_plane）。
-    # 内訳の目安: k8s と Cilium 等 約1.5GiB、AWX 約2.5GiB、database・function の上限 1GiB。
+    # 内訳の目安: k8s と Cilium 等 約1.5GiB、AWX 約2.5GiB、database・function の上限 1GiB、
+    # service の上限 768Mi。
     flavor: large
     # k8s ノードはバルーニングしない（kubelet が上限を能力としてスケジューラへ
     # 広告するので、後からホストが回収すると Pod が追い出される）。
     # 6GiB では AWX が起動した時点で空き約0.9GiB しかなく、ジョブの実行用コンテナ
-    # （約0.5GiB）が苦しかったので 7GiB にした（2026-10-23）。
-    memory_mib: 7168
-    memory_min_mib: 7168
+    # （約0.5GiB）が苦しかったので 7GiB にした（2026-10-23）。常時動くコンテナ
+    # （services namespace の上限 768Mi）を載せるため、さらに 8GiB にする。
+    memory_mib: 8192
+    memory_min_mib: 8192
     disk_gib: 32
     # local-path（AWX の DB・database の PVC）の置き場。
     data_disk_gib: 64
@@ -60,7 +62,7 @@ hosts:
     on_boot: false
     started: true
     tags: [k8s-cp, managed-by-terraform-admin]
-    description: Kubernetes の1台構成（control plane・etcd・AWX・database・function）。
+    description: Kubernetes の1台構成（control plane・etcd・AWX・database・function・service）。
 
   k8s-worker-01:
     vm_id: 210

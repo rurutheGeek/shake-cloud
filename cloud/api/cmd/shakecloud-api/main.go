@@ -27,6 +27,7 @@ import (
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/server"
 	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/workload"
 )
 
 func main() {
@@ -101,10 +102,17 @@ func run(log *slog.Logger) error {
 			}
 			service.Functions = functions
 			service.FunctionNamespace = "functions"
+			workloads, err := workload.New(cfg.K8sURL, cfg.K8sCA, cfg.K8sToken)
+			if err != nil {
+				return err
+			}
+			service.Workloads = workloads
+			service.ServiceNamespace = "services"
 			log.Info("kubernetes enabled", "api_url", cfg.K8sURL,
-				"databases", service.DatabaseNamespace, "functions", service.FunctionNamespace)
+				"databases", service.DatabaseNamespace, "functions", service.FunctionNamespace,
+				"services", service.ServiceNamespace)
 		} else {
-			log.Warn("databases and functions disabled: no Kubernetes settings")
+			log.Warn("databases, functions and services disabled: no Kubernetes settings")
 		}
 		srv.Compute = service
 		// The site file may have changed with this deployment (routed prefixes):

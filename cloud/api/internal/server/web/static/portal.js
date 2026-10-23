@@ -2625,9 +2625,100 @@
     });
   }
 
+  function serviceCard(svc, viewerAccountId, isAdmin) {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    const title = document.createElement('strong');
+    title.textContent = svc.name;
+    head.append(title);
+    const owner = document.createElement('span');
+    owner.className = 'muted';
+    owner.textContent = svc.owner_username || svc.account_id;
+    head.append(owner);
+    const status = document.createElement('span');
+    status.className = 'muted';
+    status.textContent = svc.status === 'Running' ? '稼働中' : '準備中';
+    head.append(status);
+    card.append(head);
+
+    const lines = [`image ${svc.image}`, `メモリ ${svc.memory_mib}MiB`];
+    if (svc.url) lines.push(`URL ${svc.url}`);
+    if (svc.disk) lines.push(`ディスク ${svc.disk.size_gib}GiB ${svc.disk.mount_path}`);
+    if (svc.secret_names && svc.secret_names.length) lines.push(`秘密値 ${svc.secret_names.join(', ')}`);
+    for (const line of lines) {
+      const detail = document.createElement('p');
+      detail.className = 'muted small';
+      detail.textContent = line;
+      card.append(detail);
+    }
+
+    const canManage = svc.account_id === viewerAccountId || isAdmin;
+    if (canManage) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = 'サービスを削除';
+      del.className = 'danger';
+      onAction(del, 'click', async (event, scope) => {
+        if (!await confirmAction({ title: 'サービスを削除',
+          message: svc.disk
+            ? `サービス「${svc.name}」をディスクの中身ごと削除します。取り消せません。`
+            : `サービス「${svc.name}」を削除します。取り消せません。`,
+          confirmLabel: 'このサービスを削除', danger: true })) return;
+        try {
+          $('error').hidden = true;
+          await api('DELETE', `/v1/services/${encodeURIComponent(svc.service_id)}`);
+          await loadServices();
+        } catch (error) {
+          showError(error, scope);
+        }
+      });
+      card.append(del);
+    }
+    return card;
+  }
+
+  async function loadServices() {
+    const wrap = $('services-wrap');
+    if (!wrap) return;
+    const viewerAccountId = wrap.dataset.accountId;
+    const isAdmin = wrap.dataset.isAdmin === 'true';
+    try {
+      const { services } = await api('GET', '/v1/services');
+      $('services').replaceChildren(...services.map((svc) => serviceCard(svc, viewerAccountId, isAdmin)));
+    } catch (error) {
+      $('services').replaceChildren(note(error.message));
+    }
+  }
+
+  const createServiceForm = $('create-service');
+  if (createServiceForm) {
+    onAction(createServiceForm, 'submit', async (submit, scope) => {
+      submit.preventDefault();
+      const data = new FormData(createServiceForm);
+      const body = {
+        name: data.get('name'), image: data.get('image'),
+        memory_mib: Number(data.get('memory_mib')),
+      };
+      if (data.get('port')) body.port = Number(data.get('port'));
+      if (data.get('disk_gib')) {
+        body.disk = { size_gib: Number(data.get('disk_gib')), mount_path: data.get('mount_path') || '/data' };
+      }
+      try {
+        $('error').hidden = true;
+        await api('POST', '/v1/services', body);
+        createServiceForm.reset();
+        await loadServices();
+      } catch (error) {
+        showError(error, scope);
+      }
+    });
+  }
+
   const refresh = () => Promise.all([
     loadKeys(), loadEvents(), loadCapacity(), loadSubnets(), loadLimits(), loadInstances(), loadImages(), loadISOs(), loadKeyPairs(),
-    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(),
+    loadVolumes(), loadSecurityGroups(), loadBuckets(), loadS3Keys(), loadDatabases(), loadFunctions(), loadServices(),
   ]);
 
   onAction($('refresh-all'), 'click', async () => {

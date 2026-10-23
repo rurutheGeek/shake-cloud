@@ -124,6 +124,11 @@ type Service struct {
 	Functions FunctionStore
 	// FunctionNamespace is where a new Knative Service goes.
 	FunctionNamespace string
+	// Workloads is the Kubernetes API for container services. Nil when this
+	// deployment has no Kubernetes connection, and the service endpoints 503.
+	Workloads WorkloadStore
+	// ServiceNamespace is where a new service's objects go.
+	ServiceNamespace string
 	// MaxAttempts is how often a launch or power action is tried before it is
 	// abandoned. Terminates are retried until they succeed: giving up would
 	// leak a VM, an address or an ISO.

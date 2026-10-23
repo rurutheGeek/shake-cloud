@@ -1,0 +1,30 @@
+# service（常時動くコンテナ）に渡すメモリの上限。database 640Mi・function 384Mi
+# と合わせて約1.8GiB（1台構成の k8s-cp-01、platform/terraform/hosts.yaml）。
+# クラウドAPI は requests と limits を同じ値で付ける（0台に縮まないので、
+# 合計がそのまま常に使う量になる。1台構成で Evict を起こさない）。
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: memory
+  namespace: services
+spec:
+  limits:
+    - type: Container
+      default:
+        memory: 128Mi
+      defaultRequest:
+        memory: 128Mi
+      max:
+        memory: 512Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: memory
+  namespace: services
+spec:
+  hard:
+    limits.memory: 768Mi
+    requests.memory: 768Mi
+    # ディスクは local-path（k8s-cp-01 のデータ 64GiB）を database・AWX と分け合う。
+    requests.storage: 32Gi

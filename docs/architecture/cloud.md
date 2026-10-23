@@ -181,8 +181,9 @@ Providerの名前は `shakecloud` です。**設計案の `homelab_*` から変�
 | `shakecloud_bucket` | バケット | Garage bucket | name → bucket名、S3 endpoint |
 | `shakecloud_function` | サーバレス関数 | Knative Service | image digest、env、limits、scale → URL、revision |
 | `shakecloud_database` | マネージドDB | CloudNativePG Cluster | version、size、storage → endpoint、資格情報参照 |
+| `shakecloud_service` | 常時動くコンテナ | Deployment・Secret・PVC・LoadBalancer | image、port、memory、env、secrets、disk → URL |
 
-**いま実装済みなのは `instance`・`volume`・`volume_attachment`・`security_group`・`security_group_rule`・`key_pair`・`bucket`・`image`・`database`・`function` と、データソース `shakecloud_caller_identity` です。**`image` はローカルファイルを送る形で、アップロード済みのイメージだけを扱います。`database` の資格情報は Kubernetes の Secret にあり、状態には残しません。S3キーは秘密値が state に残るため Provider では作らず、ポータルか CLI で発行します。使い方は[shakecloud Terraform Provider](../operations/terraform-provider.md)にあります。
+**いま実装済みなのは `instance`・`volume`・`volume_attachment`・`security_group`・`security_group_rule`・`key_pair`・`bucket`・`image`・`database`・`function`・`service` と、データソース `shakecloud_caller_identity` です。**`image` はローカルファイルを送る形で、アップロード済みのイメージだけを扱います。`database` の資格情報は Kubernetes の Secret にあり、状態には残しません。S3キーは秘密値が state に残るため Provider では作らず、ポータルか CLI で発行します。使い方は[shakecloud Terraform Provider](../operations/terraform-provider.md)にあります。
 
 S3キーやDB資格情報の作成は関連APIとして扱います。Terraformへ秘密値を返す場合はstateに保存され得ます。`sensitive` 指定は暗号化ではありません。可能ならSecret参照を返し、秘密値を取得する経路を分離します。
 

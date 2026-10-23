@@ -174,6 +174,16 @@ AWX（Ansible の実行基盤）を **k8s-cp-01** に Flux で配備していま
 
 実機確認（2026-09-12）: hello-world の Knative Service が **Ready** になり、Kourier の LB IP に Host ヘッダで投げると `Hello shake-cloud!` が返り、Pod が 0→1 にスケールすることを確認しました。`POST /v1/functions` でも同じ流れ（Provisioning → Ready、URL 発行、削除で Service ごと消える）を確認しました。
 
+## アプリ: 常時動くコンテナ（service）
+
+クラウドの **`shakecloud_service`** の実体です。`POST /v1/services` が `services` namespace に、service ID の名前で Deployment（1台、0台に縮まない）・Secret・PVC（`disk` のとき、local-path）・LoadBalancer の Service（`port` のとき、MetalLB が LAN の IP を配る）を作ります。
+
+- 権限は database・function と同じ ServiceAccount（`databases/cloud-api`）。`platform/flux/apps/services-rbac.yaml` が `services` namespace の Deployment・Service・PVC・Secret だけを許します。namespace は Pod Security の `restricted` で、API が作る Pod は非root・読み取り専用のルート・権限なしです。書けるのは `/tmp`（64Mi）とディスクだけです。
+- メモリは `platform/flux/apps/services-limits.yaml` の合計 768Mi。requests と limits を同じ値で付けるので、合計は常に使う量です。
+- 秘密値の値は管理DBに置かず、Secret だけに置きます。Pod の注釈に値のハッシュを入れるので、秘密値だけを変えても Pod が入れ替わります。
+- ディスク付きは `Recreate`（古い Pod を止めてから新しい Pod を作る）なので、更新のあいだ数秒止まります。削除するとディスクも消えます。
+- URL は `http://<LB の IP>:<port>`。HTTPS と SSO は入口の Caddy（`dns.yaml` の `upstream`）で付けます。
+
 <a id="起動と停止"></a>
 ## 起動と停止
 

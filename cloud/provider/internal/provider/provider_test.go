@@ -42,7 +42,7 @@ func TestEveryResourceAndDataSourceHasItsOwnTypeName(t *testing.T) {
 	want := []string{
 		"shakecloud_bucket", "shakecloud_database", "shakecloud_function", "shakecloud_image",
 		"shakecloud_instance", "shakecloud_key_pair", "shakecloud_security_group",
-		"shakecloud_security_group_rule", "shakecloud_volume", "shakecloud_volume_attachment",
+		"shakecloud_security_group_rule", "shakecloud_service", "shakecloud_volume", "shakecloud_volume_attachment",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("resources = %v, want %v", got, want)
