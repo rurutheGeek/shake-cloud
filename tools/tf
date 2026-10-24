@@ -21,7 +21,8 @@
 #   20-dns       … state置き場 ＋ Cloudflare の DNS 編集トークン（Proxmox は触らない）
 #   25-edge      … state置き場 ＋ 公開サイトのゾーンの守り（設定・WAF・ボット）のトークン
 #   services/*   … state置き場（s3.sops.yaml）＋ services.sops.yaml の shakecloud
-#                  アクセスキー（無ければ呼び出し元の環境変数）。DNS Provider を
+#                  アクセスキー（無ければ呼び出し元の環境変数）＋ <name>.sops.yaml が
+#                  あればその値を TF_VAR_<小文字のキー> で。DNS Provider を
 #                  宣言したモジュールだけ cloudflare-dns も足す。基盤の資格情報は
 #                  呼び出し元の環境に残っていても渡さない（I05）。
 set -euo pipefail
@@ -106,6 +107,20 @@ elif [[ "$module" == services/* ]]; then
       *)
         printf 'tf: SHAKECLOUD_ACCESS_KEY が無い。init・fmt・validate は続行できる\n' >&2 ;;
     esac
+  fi
+  # サービス自身の秘密値（platform/sops/<name>.sops.yaml）は、キーを小文字にした
+  # TF_VAR_<キー> で渡す（AIHIST_TOKEN → var.aihist_token）。宣言していない
+  # 変数は Terraform が無視するので、モジュールが使うものだけが効く。
+  service_sops="platform/sops/${module#services/}.sops.yaml"
+  if [ -f "$service_sops" ]; then
+    while IFS= read -r -d '' pair; do
+      export "TF_VAR_${pair%%=*}=${pair#*=}"
+    done < <("$SOPS" --decrypt --output-type json "$service_sops" | python3 -c '
+import json, re, sys
+for key, value in json.load(sys.stdin).items():
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) and isinstance(value, str):
+        sys.stdout.write(key.lower() + "=" + value + "\0")
+')
   fi
   # Cloudflare Provider を宣言したサービスだけ、zone 限定の DNS 資格情報を足す。
   if grep -ql cloudflare platform/terraform/"$module"/*.tf 2>/dev/null; then
