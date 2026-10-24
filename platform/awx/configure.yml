@@ -182,8 +182,8 @@
           SOCIAL_AUTH_OIDC_SECRET: '{{ oidc.client_secret }}'
           SOCIAL_AUTH_OIDC_OIDC_ENDPOINT: https://auth.{{ zone }}/application/o/awx
           SOCIAL_AUTH_OIDC_VERIFY_SSL: true
-          SOCIAL_AUTH_ORGANIZATION_MAP:
-            '{{ awx_organization }}': {admins: true, users: true, remove_admins: false}
+          # 組織名を鍵にするので、辞書ごと式で作る（YAML の鍵は展開されない）。
+          SOCIAL_AUTH_ORGANIZATION_MAP: "{{ {awx_organization: {'admins': true, 'users': true, 'remove_admins': false}} }}"
       vars:
         oidc: "{{ hostvars[groups['identity_provider'][0]].awx_oidc.content | b64decode | from_json }}"
         zone: "{{ (lookup('ansible.builtin.file', repo ~ '/platform/terraform/dns.yaml') | from_yaml).zone }}"
