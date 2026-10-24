@@ -1,4 +1,10 @@
 ---
+# AWX の資格情報の鍵で入れるようにする（ほかのホストと同じ鍵）。
+- name: Authorize the automation key
+  ansible.posix.authorized_key:
+    user: '{{ ansible_user }}'
+    key: '{{ pi_base_automation_key }}'
+
 - name: Create the systemd drop-in directory
   ansible.builtin.file:
     path: /etc/systemd/system.conf.d

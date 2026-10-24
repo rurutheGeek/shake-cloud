@@ -37,3 +37,7 @@ pi_base_swap_mechanism: zram
 # smartmontools の表に無い USB ケース。{usb: "0xVID:0xPID", name: 名前, type: sat}
 # 表に無いと smartd・smartmon（node_exporter）が開けず、HDD が無いことにされる。
 pi_base_smart_usb_bridges: []
+# AWX が入るための自動化の鍵（~/.ssh/id_ed25519_pve の公開鍵。正本は access.yaml）。
+pi_base_automation_key: >-
+  {{ (lookup('ansible.builtin.file', role_path ~ '/../../../terraform/access.yaml') | from_yaml).admin_ssh_public_keys
+     | select('search', 'shake-cloud automation') | first }}
