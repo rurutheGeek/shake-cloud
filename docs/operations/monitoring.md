@@ -188,8 +188,7 @@ tarakoserver の `/opt/monitoring-stack` で `manage.py` を使います（`sudo
 アラート規則やスクレイプ先を変えたときは、Gitを直してから Ansible で配り直します。
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
+tools/awx-run monitoring.yml --run
 ```
 
 **Discord の webhook・`WATCHDOG_PING_URL` を変えたときも Alertmanager を再読込します**（2026-09-16に修正。忘れると古い設定のまま動き続けます）。
@@ -197,8 +196,8 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 Proxmox ホスト側の exporter は別Playbookです。
 
 ```bash
-.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-node-exporter.yml
-.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-nut.yml
+tools/awx-run pve-node-exporter.yml --run
+tools/awx-run pve-nut.yml --run
 ```
 
 ## 6. 限界

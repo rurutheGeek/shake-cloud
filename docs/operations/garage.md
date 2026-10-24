@@ -36,9 +36,7 @@ S3を自作クラウドの一部にするための土台です。Garageを **clo
 - 中身は Ansible ロール `platform/ansible/roles/garage` と `platform/ansible/garage.yml`（対象は Ansible の `storage` グループ＝cloud-01）。
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-     -i platform/ansible/inventory.netbox.yml platform/ansible/garage.yml'
+tools/awx-run garage.yml --run
 ```
 
 ロールが行うこと:

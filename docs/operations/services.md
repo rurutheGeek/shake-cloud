@@ -282,8 +282,7 @@ sops exec-env platform/sops/netbox-inventory.sops.yaml \
 **OIDCは別Playbookです。** Kavita・FreshRSS・Nextcloud は本体のPlaybookだけでは**認証が無効のまま起動します**。Authentik（core-01）が作ったクライアント秘密値を配るのが `media-kavita-sso.yml`・`media-freshrss-sso.yml`・`media-sso.yml`（Nextcloud）で、本体を配り直したら**対応するSSO側も流し直してください**。忘れると「ログイン画面が出ないまま中身が見える」状態になります。
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-navidrome.yml'
+tools/awx-run media-navidrome.yml --run
 ```
 
 `media-sso.yml` は core-01（Authentik）から秘密値を slurp するため、**core-01 も同じインベントリに居る必要があります**。NetBox のインベントリなら `media` と `identity_provider` の両方が居ます。ホスト名はインスタンスID（`i-...`）なので、対象は `--limit media` のようにグループ名で絞ります。

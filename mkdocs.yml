@@ -61,6 +61,7 @@ nav:
           - shakecloud Terraform Provider: operations/terraform-provider.md
           - Windows 11 ProのVMを作る: operations/windows.md
       - 自動化:
+          - 自動化の一覧: operations/automation.md
           - AWXの使い方: operations/awx.md
           - Playbook の一覧: operations/playbooks.md
           - Flux にアプリを足す: operations/flux-apps.md

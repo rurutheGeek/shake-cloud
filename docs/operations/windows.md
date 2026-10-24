@@ -165,8 +165,7 @@ chmod 0644 /srv/cloud-images/import/win11pro.qcow2
 `provided: true` は「URL が無いので 00-bootstrap は取得しない。管理者が置いたものを使う」という意味です。編集したら配備します。
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/cloud.yml'
+tools/awx-run cloud.yml --run
 ```
 
 ## 利用者の作業（ポータル）

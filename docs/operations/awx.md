@@ -43,6 +43,16 @@ tools/awx-run media-kavita.yml --run          # 本番
 
 `ai-agent` はジョブテンプレートの実行しかできない（テンプレート・資格情報の変更や閲覧はできない）。トークンは `platform/sops/awx-agent.sops.yaml` で、`configure.yml` がファイルの無いときだけ発行する。作り直すときはファイルを消して `configure.yml` を流す。
 
+## AWX が止まっているとき
+
+各手順書の `tools/awx-run <playbook>` は、次の直接実行に読み替える（Proxmox 本体向けの `pve-*.yml` は `-i platform/ansible/pve.ini`）。
+
+```bash
+sops exec-env platform/sops/netbox-inventory.sops.yaml \
+  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
+     -i platform/ansible/inventory.netbox.yml platform/ansible/<playbook>'
+```
+
 ## 仕組み
 
 | もの | 中身 |

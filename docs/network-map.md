@@ -30,8 +30,7 @@ tags:
 | Tailscale | `platform/sops/tailscale.sops.yaml` の API トークン（90 日で切れる） |
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/netmap.yml'
+tools/awx-run netmap.yml --run
 ```
 
 コードは `stacks/netmap/`、配備は `platform/ansible/roles/netmap/`。

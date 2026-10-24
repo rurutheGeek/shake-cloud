@@ -29,8 +29,7 @@ tags:
 ## 2. 配備・更新
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/cloud.yml'
+tools/awx-run cloud.yml --run
 ```
 
 - API のイメージは cloud-01 でビルドする。DB のマイグレーションは起動時に自動で流れる。

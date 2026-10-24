@@ -177,8 +177,7 @@ pokemondb の誤りや抜けは、手で直さず `stacks/pkdb/sql/data_fixes.sq
 ## 配備
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/pkdb.yml'
+tools/awx-run pkdb.yml --run
 ```
 
 再実行しても、管理者パスワード・データ・イメージのdigestは変わりません。登録画面（entry）はこのリポジトリのソースから組むため、ダイジェスト固定の対象外で、配備のたびに `up --build` で作り直します。
