@@ -7,6 +7,7 @@
 pve_backup_vmids:
   - 140   # cloud-01（管理DB・Garage）
   - 150   # core-01（Authentik・NetBox）
+  - 200   # k8s-cp-01（データディスクの PVC: AWX の DB・database・service。aihist の原本）
   - 401   # dev-02（旧 dev-b。鍵・作業ツリー）
   - 5001  # media-01（Nextcloud DB・設定。ライブラリ原本はHDD側）
   - 5005  # apps-01（Vaultwarden・Home Assistant・Homarr）

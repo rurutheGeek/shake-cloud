@@ -68,4 +68,6 @@ aihist restore <会話IDの先頭>
 トークンは `sops -d --extract '["AIHIST_TOKEN"]' platform/sops/aihist.sops.yaml` で読む。
 ## バックアップ
 
-`raw/` が原本で、`aihist.db` は原本から作り直せる。service のディスクのバックアップはまだ無い（[#250](https://github.com/rurutheGeek/shake-cloud/issues/250)）。消えたときは各マシンから `push` し直せば戻る（各マシンに記録が残っている間だけ）。
+`raw/` が原本で、`aihist.db` は原本から作り直せる。service のディスクは k8s-cp-01 のデータディスクにあり、[週次の vzdump](backup.md) が HDD へ取る。各マシンは7日より古い会話を手元から消すので、それより新しい会話は各マシンから `push` し直せば戻る。
+
+aihist だけを戻すときは、k8s-cp-01 のバックアップを別の VMID へ復元し、`/srv/k8s/local-path/` の下の `_services_<service ID>` のディレクトリを写す。k8s-cp-01 ごと戻すと AWX・database も巻き戻る。
