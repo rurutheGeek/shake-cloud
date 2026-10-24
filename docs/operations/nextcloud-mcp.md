@@ -109,7 +109,7 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
 
 ## Deck
 
-- 1.3.0で追加したツールは `nextcloud_deck_boards`・`nextcloud_deck_cards`・
+- Deckのツールは `nextcloud_deck_boards`・`nextcloud_deck_cards`・
   `nextcloud_deck_create_card`・`nextcloud_deck_update_card`・
   `nextcloud_deck_move_card`・`nextcloud_deck_comments`・
   `nextcloud_deck_add_comment` の7つ。ボードと列（スタック）はIDのほか名前でも
