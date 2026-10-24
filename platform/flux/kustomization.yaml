@@ -16,3 +16,5 @@ resources:
   - apps/knative-serving.yaml
   - apps/functions-rbac.yaml
   - apps/functions-limits.yaml
+  - apps/services-rbac.yaml
+  - apps/services-limits.yaml

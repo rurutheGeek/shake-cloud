@@ -75,6 +75,7 @@ provider "shakecloud" {
 | `shakecloud_image` | マシンイメージ | ローカルのディスクイメージをアップロード。`.qcow2`/`.raw`/`.img`/`.vmdk`、既定12GiBまで |
 | `shakecloud_database` | マネージドDB | PostgreSQL（CloudNativePG）。`name`・`storage_gib` で作る。資格情報は state に置かない |
 | `shakecloud_function` | サーバレス関数 | Knative。`name`・`image` で作る |
+| `shakecloud_service` | 常時動くコンテナ | Deployment 1台（0台に縮まない）。`port` で LAN のアドレス、`disk_size_gib`・`disk_mount_path` で永続ディスク、`secrets` で秘密値。`image`・`memory_mib`・`env`・`secrets` の変更は Pod の入れ替えで済み、ほかは作り直し |
 | `shakecloud_bucket` | オブジェクトストレージのバケット | Garage。オブジェクト本体はAPIを通らない |
 
 データソース:
@@ -143,6 +144,18 @@ resource "shakecloud_database" "shop" {
 resource "shakecloud_function" "greeter" {
   name  = "greeter"
   image = "gcr.io/knative-samples/helloworld-go"
+}
+
+# 常時動くコンテナ。秘密値は Kubernetes の Secret に置かれ、API は値を返さない。
+resource "shakecloud_service" "notes" {
+  name            = "notes"
+  image           = "ghcr.io/example/notes@sha256:..."
+  port            = 8080
+  memory_mib      = 128
+  disk_size_gib   = 4
+  disk_mount_path = "/data"
+  env             = { TZ = "Asia/Tokyo" }
+  secrets         = { NOTES_TOKEN = var.notes_token }
 }
 
 # 自分のディスクイメージを上げて、そこから起動する。

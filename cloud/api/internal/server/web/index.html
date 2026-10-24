@@ -41,6 +41,7 @@
       <a href="#s3-view">S3バケット</a>
       <a href="#databases-view">データベース</a>
       <a href="#functions-view">関数</a>
+      <a href="#services-view">サービス</a>
     </div>
     <div class="nav-group" role="group" aria-labelledby="nav-account">
       <p id="nav-account" class="nav-heading">アカウント</p>
@@ -312,6 +313,21 @@
     </form>
     <div id="functions-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
       <div id="functions"></div>
+    </div>
+  </section>
+  <section id="services-view" data-view>
+    <h2 tabindex="-1">サービス</h2>
+    <form id="create-service">
+      <label>名前 <input name="name" required pattern="[a-z][a-z0-9-]{1,29}" placeholder="例: notes"></label>
+      <label>イメージ <input name="image" required maxlength="512"></label>
+      <label>ポート <input name="port" type="number" min="1" max="65535"></label>
+      <label>メモリ(MiB) <input name="memory_mib" type="number" min="32" max="512" value="128" required></label>
+      <label>ディスク(GiB) <input name="disk_gib" type="number" min="1" max="32"></label>
+      <label>マウント先 <input name="mount_path" pattern="/[A-Za-z0-9._/\-]*" placeholder="/data"></label>
+      <button type="submit">作成</button>
+    </form>
+    <div id="services-wrap" data-account-id="{{.Account.ID}}" data-is-admin="{{.Account.IsAdmin}}">
+      <div id="services"></div>
     </div>
   </section>
   <section id="images-view" data-view>

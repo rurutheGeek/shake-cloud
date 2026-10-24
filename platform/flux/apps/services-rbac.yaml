@@ -1,0 +1,37 @@
+# クラウドAPI（cloud-01 の Compose）が常時動くコンテナ（service）を作るための最小権限。
+# 同じ ServiceAccount（databases/cloud-api）を使い回し、services namespace の
+# Deployment・Service・PVC・Secret だけ触れる。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: services
+  labels:
+    # 利用者のコンテナに root・ホストの資源を使わせない。
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cloud-api
+  namespace: services
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "persistentvolumeclaims", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cloud-api
+  namespace: services
+subjects:
+  - kind: ServiceAccount
+    name: cloud-api
+    namespace: databases
+roleRef:
+  kind: Role
+  name: cloud-api
+  apiGroup: rbac.authorization.k8s.io
