@@ -85,10 +85,11 @@ records:
     description: NextcloudのAIエージェント用MCP（読み書き・タグ・圧縮解凍。SSOなし・自前認証）
   # AI の会話履歴。画面は管理者だけ（Forward Auth）。各マシンの push が使う
   # /api はブラウザを持たないので SSO の外に出し、aihist 自身のトークンで守る。
+  # 本体はクラウドの service（platform/terraform/services/aihist）。作り直したら
+  # 中継先を `tools/tf services/aihist output url` に合わせる。
   aihist:
-    host: media-01
-    address: 192.168.10.101
-    upstream: 127.0.0.1:5840
+    host: core-01
+    upstream: 192.168.10.242:8080
     description: aihist（AIの会話履歴の検索・閲覧。Forward Auth、/api はトークン）
     auth: true
     auth_except: ['/api/*']

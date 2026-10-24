@@ -70,9 +70,10 @@ class DnsDeclarationTests(unittest.TestCase):
         # loopback connections, so Caddy dials the LAN address and keeps Host.
         # AdGuard の UI はルータ上にあり、ルータのファイアウォールが :3000 を
         # core-01（Caddy のホスト）だけに開けている。router（LuCI）も同じく
-        # ルータ上で、80 はルータ自身の管理画面。
+        # ルータ上で、80 はルータ自身の管理画面。aihist はクラウドの service で、
+        # 中継先は k8s の LoadBalancer（MetalLB が LAN のアドレスを配る）。
         for name, record in DNS['records'].items():
-            if 'upstream' in record and name not in ('cups', 'adguard', 'router', 'poke'):
+            if 'upstream' in record and name not in ('cups', 'adguard', 'router', 'poke', 'aihist'):
                 self.assertRegex(record['upstream'], r'^127\.0\.0\.1:\d+$', name)
             for route in record.get('path_routes', []):
                 self.assertRegex(route['upstream'], r'^127\.0\.0\.1:\d+$',
@@ -207,10 +208,10 @@ class TlsProxyTests(unittest.TestCase):
                  if record.get('host') in names and 'upstream' in record]
         rendered = caddyfile(sites)
 
-        self.assertEqual(len(sites), 12)
+        self.assertEqual(len(sites), 11)
         # navidrome は通常の認証に加え、/review/ の全曲レビューと
         # /review-static/ の生成HTMLにも forward_auth を付ける。
-        self.assertEqual(rendered.count('forward_auth https://'), 8)
+        self.assertEqual(rendered.count('forward_auth https://'), 7)
         for name in ('navidrome', 'metube', 'khinsider', 'backup', 'urbackup'):
             block = site_block(rendered, name)
             self.assertIn('forward_auth', block, name)
@@ -230,10 +231,6 @@ class TlsProxyTests(unittest.TestCase):
         self.assertIn('uri strip_prefix /review-static', navidrome)
         self.assertIn('root * /data/review', navidrome)
         self.assertIn('file_server', navidrome)
-        # aihist の /api は各マシンの push が使う。SSO の外で aihist 自身のトークンが守る。
-        aihist = site_block(rendered, 'aihist')
-        self.assertIn('handle /api/* {', aihist)
-        self.assertLess(aihist.index('handle /api/*'), aihist.index('forward_auth https://'))
         for name in ('nextcloud', 'kavita', 'freshrss', 'forgejo', 'nextcloud-mcp'):
             self.assertNotIn('forward_auth', site_block(rendered, name), name)
             self.assertNotIn('request_header', site_block(rendered, name), name)

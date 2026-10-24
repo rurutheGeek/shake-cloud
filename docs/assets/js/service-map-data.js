@@ -118,6 +118,22 @@ window.SERVICE_MAP = {
      "url": "https://auth.apextox.dpdns.org/"
     },
     {
+     "description": "AIの会話履歴の検索・閲覧。Forward Auth、/api はトークン",
+     "docs": [
+      {
+       "path": "operations/aihist/",
+       "title": "AIの会話履歴（aihist）"
+      }
+     ],
+     "name": "aihist",
+     "route": [
+      "core-01"
+     ],
+     "sso": true,
+     "upstream": "192.168.10.242:8080",
+     "url": "https://aihist.apextox.dpdns.org/"
+    },
+    {
      "description": "",
      "docs": [
       {
@@ -672,23 +688,6 @@ window.SERVICE_MAP = {
      "sso": false,
      "upstream": "127.0.0.1:5811",
      "url": "https://nextcloud-mcp.apextox.dpdns.org/"
-    },
-    {
-     "description": "AIの会話履歴の検索・閲覧。Forward Auth、/api はトークン",
-     "docs": [
-      {
-       "path": "operations/aihist/",
-       "title": "AIの会話履歴（aihist）"
-      }
-     ],
-     "name": "aihist",
-     "route": [
-      "core-01",
-      "media-01"
-     ],
-     "sso": true,
-     "upstream": "127.0.0.1:5840",
-     "url": "https://aihist.apextox.dpdns.org/"
     },
     {
      "description": "UrBackupの状態と端末手順。Forward Auth",
