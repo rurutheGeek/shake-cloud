@@ -46,10 +46,7 @@ ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
 media-01（共有ライブラリのマウント。`media.yml` が最初に通す `media-base.yml` に含まれる）:
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-   .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
-     platform/ansible/media-base.yml'
+tools/awx-run media-base.yml --run
 ```
 
 ## 3. media-01 のマウント

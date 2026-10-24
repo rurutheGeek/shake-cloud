@@ -146,8 +146,7 @@ python3 tools/check-publication.py
 サイトへの配備は別操作です。GitHubへの push はサイトを更新しません。
 
 ```bash
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/docs-site.yml'
+tools/awx-run docs-site.yml --run
 ```
 
 `docs-site.yml` は NetBox のインベントリで流し、配備先は apps-01 です。

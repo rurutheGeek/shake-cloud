@@ -76,7 +76,7 @@ forgejo-put list
 一覧から外しても写しは消えない。
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-forgejo.yml'
+tools/awx-run media-forgejo.yml --run
 ```
 
 ## 運用

@@ -20,8 +20,7 @@ core-01 の Authentik は、**利用者の共通アカウント（誰である�
 ## 配備
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
+tools/awx-run identity.yml --run
 ```
 
 - 秘密値（DB パスワード、secret key、`akadmin` の初期パスワード、ブートストラップトークン、OIDC クライアント `cloud` の秘密）は**すべて VM 上で自動生成**され、`/opt/identity-stack/secrets/` に置かれます。再実行しても作り直しません。

@@ -38,8 +38,7 @@ tags:
 ## 配備
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/bot-portal.yml'
+tools/awx-run bot-portal.yml --run
 ```
 
 入口の追加は、`dns.yaml` の `portal` を tls-proxy へ反映し、`stacks/identity` の `configure.py` を実行して Authentik のアプリを作る。

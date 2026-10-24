@@ -35,6 +35,7 @@ tags:
 | [shakecloud MCPサーバ（読み取り専用）](mcp.md) | AIエージェントからの参照（読み取り専用ツール） |
 | [shakecloud Terraform Provider](terraform-provider.md) | Terraformからの操作 |
 | [AWXの使い方](awx.md) | Playbookをブラウザ・APIから実行する |
+| [自動化の一覧](automation.md) | 定期処理・CI・Flux など、自動で動いているもの |
 | [Flux にアプリを足す](flux-apps.md) | クラスタ側の配備 |
 
 ## 3. サービスごとの管理

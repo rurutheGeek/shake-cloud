@@ -65,15 +65,13 @@ Authentik は入口と同じ core-01 に居るので、移す対象にはなり�
 2. そのホストを配備する（内部CAの証明書に切り替わり、CAの証明書が `platform/ansible/files/backend-ca/media-01.crt` へ書かれる。Cloudflare のトークンはホストから消える）
 
     ```bash
-    sops exec-env platform/sops/netbox-inventory.sops.yaml \
-      '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/monitoring.yml'
+    tools/awx-run monitoring.yml --run
     ```
 
 3. 入口を配備する（入口がその名前の証明書を取り、中継を始める。名前が入口を指す前でも、入口のアドレスへ直接聞いて中継を確かめる）
 
     ```bash
-    sops exec-env platform/sops/netbox-inventory.sops.yaml \
-      '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/edge.yml'
+    tools/awx-run edge.yml --run
     ```
 
 4. 名前を入口へ向ける

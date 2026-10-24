@@ -69,8 +69,7 @@ sudo journalctl -u circleauth-update.service -n 20
 ## 配備と操作
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/circleauth.yml'
+tools/awx-run circleauth.yml --run
 ```
 
 ```bash

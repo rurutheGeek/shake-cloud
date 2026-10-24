@@ -139,6 +139,26 @@ class DocsStructureTests(unittest.TestCase):
         long_lines = [n for n, line in enumerate(text.splitlines(), 1) if len(line) > 400]
         self.assertEqual(long_lines, [], 'keep each row to one or two sentences')
 
+    def test_every_timer_is_in_the_automation_list(self):
+        # A timer nobody can find is a job nobody watches. Every tracked file
+        # that defines a systemd timer must be cited in docs/operations/automation.md.
+        listed = (DOCS / 'operations/automation.md').read_text(encoding='utf-8')
+        tracked = subprocess.run(['git', 'ls-files', '-z'], cwd=ROOT, capture_output=True,
+                                 text=True, check=True).stdout.split('\0')
+        pattern = re.compile(r'^\s*(OnCalendar|OnUnitActiveSec|OnUnitInactiveSec)=', re.M)
+        for name in tracked:
+            if not name or name.startswith(('docs/', 'stacks/docs/site/')):
+                continue
+            path = ROOT / name
+            if not path.is_file() or path.suffix in ('.png', '.jpg', '.svg', '.js', '.pcap'):
+                continue
+            try:
+                text = path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                continue
+            if pattern.search(text):
+                self.assertIn(f'`{name}`', listed, name)
+
     def test_the_playbook_list_is_up_to_date(self):
         result = subprocess.run(
             ['python3', str(ROOT / 'tools/awx-catalog.py'), '--check'],

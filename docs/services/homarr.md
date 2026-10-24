@@ -52,8 +52,7 @@ SSOで入った人が管理グループに入るには、Homarr側でそのア�
 
 ```bash
 # 管理PCから（推奨。リポジトリのルートで）
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  sops exec-env platform/sops/netbox-inventory.sops.yaml '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/homarr.yml'
+tools/awx-run homarr.yml --run
 
 # apps-01へ入って直接
 ssh debian@192.168.10.105

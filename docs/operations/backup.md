@@ -48,12 +48,10 @@ tags:
 
 ```bash
 # 1) ディスク・共有（初回のみ -e pve_bulk_storage_initialize=true）
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-bulk-storage.yml
+tools/awx-run pve-bulk-storage.yml --run
 
 # 2) バックアップジョブ
-ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-  .venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-backup.yml
+tools/awx-run pve-backup.yml --run
 ```
 
 対象VMを変えるときは `platform/ansible/roles/pve_backup/defaults/main.yml` の `pve_backup_vmids` を直して再実行します。

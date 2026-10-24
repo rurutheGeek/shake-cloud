@@ -80,18 +80,17 @@ sops exec-env platform/sops/cloudapi.sops.yaml 'python3 tools/verify-volumes.py'
 ```
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml 'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/identity.yml'
+tools/awx-run identity.yml --run
 ```
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml 'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/cloud.yml'
+tools/awx-run cloud.yml --run
 ```
 
 ドキュメントサイトの更新:
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/docs-site.yml'
+tools/awx-run docs-site.yml --run
 ```
 
 ```bash

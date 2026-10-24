@@ -176,10 +176,7 @@ dev-02 の systemd timer が **15分ごとに `ensure → pull → push`** を�
 
 ```bash
 # 配備・更新
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve \
-     .venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml \
-       platform/ansible/netbox-dhcp-sync.yml'
+tools/awx-run netbox-dhcp-sync.yml --run
 # 状態とログ
 ssh debian@192.168.10.203 \
   'sudo systemctl list-timers netbox-dhcp-sync.timer; sudo journalctl -u netbox-dhcp-sync -n 20'

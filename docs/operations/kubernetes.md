@@ -53,10 +53,7 @@ tags:
 tools/tf 10-platform apply
 
 # ノード準備 → cp で init+Cilium → worker join
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  'ANSIBLE_PRIVATE_KEY_FILE=~/.ssh/id_ed25519_pve .venv/bin/ansible-playbook \
-     -i platform/ansible/inventory.netbox.yml platform/ansible/kubernetes.yml \
-     --limit k8s-cp-01,k8s-worker-01'
+tools/awx-run kubernetes.yml --run --limit k8s-cp-01,k8s-worker-01
 ```
 
 playbook は3段です。どれも再実行できます。

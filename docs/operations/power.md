@@ -187,7 +187,7 @@ game1 や利用者VMは**ポータル／CLI で所有者が停止**します（�
 
 ```bash
 cp platform/ansible/pve.ini.example platform/ansible/pve.ini   # 初回のみ。実値を入れる
-.venv/bin/ansible-playbook -i platform/ansible/pve.ini platform/ansible/pve-guests.yml
+tools/awx-run pve-guests.yml --run
 ```
 
 - 確認: `cat /var/lib/shakecloud/guests-running` と `systemctl status shakecloud-guests`。
