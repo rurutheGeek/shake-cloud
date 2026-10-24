@@ -1,6 +1,6 @@
 ---
 title: Playbook の一覧
-updated: 2026-10-23
+updated: 2026-10-24
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,7 +10,7 @@ tags:
 
 # Playbook の一覧
 
-> **更新日** 2026-10-23 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-24 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 <!-- python3 tools/awx-catalog.py が platform/ansible/*.yml の先頭コメントから生成する。直接編集しない。 -->
 
@@ -37,7 +37,7 @@ tags:
 | Playbook | 何をするか | 対象 | AWX |
 | --- | --- | --- | --- |
 | `deploy.yml` | deploy | `media` | 手元専用（旧来の一括配備（stacks/compose.yaml）。いまは media-*.yml を個別に流す） |
-| `media-aihist.yml` | aihist（AI の会話履歴）を media-01 へ配備する | `media` | 実行 |
+| `media-aihist.yml` | media-01 の aihist（systemd）を片付ける | `media` | 実行 |
 | `media-base.yml` | media-01（クラウドVM）の土台 | `media` | 実行 |
 | `media-forgejo-sso.yml` | Forgejo のネイティブ OIDC を core-01（Authentik）に接続する | `media` | 実行 |
 | `media-forgejo.yml` | Forgejo（リポジトリの保管庫）を media-01 の独立 Compose プロジェクトとして配備する | `media` | 実行 |

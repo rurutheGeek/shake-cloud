@@ -127,7 +127,7 @@ flowchart TB
 | ページ | 更新日 | タグ |
 | --- | --- | --- |
 | [DNS と広告遮断（AdGuard Home）](operations/adguard.md) | 2026-10-22 | `ops` `network` `dns` |
-| [AIの会話履歴（aihist）](operations/aihist.md) | 2026-10-16 | `ops` |
+| [AIの会話履歴（aihist）](operations/aihist.md) | 2026-10-24 | `ops` |
 | [android-01（Waydroid）の環境](operations/android-01.md) | 2026-10-02 | `ops` `vm` `android` |
 | [AWX の使い方](operations/awx.md) | 2026-10-23 | `ops` `awx` |
 | [バックアップ（重要VM・game1セーブ）](operations/backup.md) | 2026-10-04 | `ops` `backup` `storage` |
@@ -155,7 +155,7 @@ flowchart TB
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
 | [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
-| [Playbook の一覧](operations/playbooks.md) | 2026-10-23 | `ops` `awx` |
+| [Playbook の一覧](operations/playbooks.md) | 2026-10-24 | `ops` `awx` |
 | [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |
 | [ルータがつながらないときの調べ方（備忘録）](operations/router-troubleshooting.md) | 2026-10-22 | `ops` `network` `router` |
 | [秘密値の管理（SOPS + age）](operations/secrets.md) | 2026-10-22 | `ops` `secrets` |

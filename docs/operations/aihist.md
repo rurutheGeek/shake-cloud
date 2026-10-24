@@ -1,6 +1,6 @@
 ---
 title: AIの会話履歴（aihist）
-updated: 2026-10-16
+updated: 2026-10-24
 section: 運用手順
 audience: 管理者
 tags:
@@ -9,34 +9,33 @@ tags:
 
 # AIの会話履歴（aihist）
 
-> **更新日** 2026-10-16 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-24 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 ## 正本
 
 | 対象 | 場所 |
 | --- | --- |
-| 本体 | 非公開リポジトリ [`rurutheGeek/aihist`](https://github.com/rurutheGeek/aihist)。`group_vars/media.yml` の `aihist_version`／`aihist_sha256` で固定し、作業機の `gh` が GitHub Release から落として送る |
-| systemd ユニット | `stacks/aihist/aihist.service.j2`（`aihist` ユーザー、`127.0.0.1:5840`） |
-| データ | media-01 の `/srv/media-bulk/aihist`（HDD）。`aihist.db` と、送られた原本 `raw/<ホスト>/<ツール>/` |
-| 配備 | `platform/ansible/media-aihist.yml` |
-| DNS/Caddy | `platform/terraform/dns.yaml` の `aihist`（画面は Forward Auth、`/api/*` は SSO の外） |
+| 本体 | 非公開リポジトリ [`rurutheGeek/aihist`](https://github.com/rurutheGeek/aihist)。リリースのたびに CI が `ghcr.io/ruruthegeek/aihist` のイメージを作る |
+| 実体 | クラウドの service（`platform/terraform/services/aihist`）。k8s-cp-01 の `services` namespace で1台、メモリ 256MiB |
+| データ | service のディスク（32GiB、`/data`）。`aihist.db` と、送られた原本 `raw/<ホスト>/<ツール>/` |
+| DNS/Caddy | `platform/terraform/dns.yaml` の `aihist`。core-01 の Caddy が service の LAN アドレスへ中継する（画面は Forward Auth、`/api/*` は SSO の外） |
 | SSO | `stacks/identity/configure.py` の `configure_aihist`（`admins` だけ） |
-| トークン | `platform/sops/aihist.sops.yaml` の `AIHIST_TOKEN`（`/api` だけに要る） |
+| トークン | `platform/sops/aihist.sops.yaml` の `AIHIST_TOKEN`（`/api` だけに要る）。`tools/tf` が service の秘密値として渡す |
+| 移す前の写し | media-01 の `/srv/media-bulk/aihist`（2026-10-24 に移した時点のまま。更新されない） |
 
 ## 配備
 
 ```bash
-sops exec-env platform/sops/netbox-inventory.sops.yaml \
-  '.venv/bin/ansible-playbook -i platform/ansible/inventory.netbox.yml platform/ansible/media-aihist.yml'
+tools/tf services/aihist apply
 ```
 
-名前を足したときは、`tools/tf 20-dns apply`、`identity.yml`（Authentik のアプリ）、`media-tls.yml`（media-01 の Caddy）、`edge.yml`（入口の Caddy）を流す。
-
-版を上げるときは、aihist でタグ `v*` を push してリリースを作り、そのリリースの `SHA256SUMS` を `aihist_sha256s` に写してから配備する。
+版を上げるときは、aihist でタグ `v*` を push してリリースを作り、`main.tf` のタグとダイジェストを両方変えて適用する。ダイジェストは次で読む。
 
 ```bash
-gh release download v<版> -R rurutheGeek/aihist -p SHA256SUMS -O -
+docker buildx imagetools inspect ghcr.io/ruruthegeek/aihist:<版> --format '{{json .Manifest.Digest}}'
 ```
+
+service を作り直すと LAN アドレスが変わることがある。そのときは `dns.yaml` の `upstream` を `tools/tf services/aihist output url` に合わせ、`edge.yml` を流す。作り直すとディスクも消えるので、先に中身を写す。
 
 ## 会話の入れ方
 
@@ -69,4 +68,4 @@ aihist restore <会話IDの先頭>
 トークンは `sops -d --extract '["AIHIST_TOKEN"]' platform/sops/aihist.sops.yaml` で読む。
 ## バックアップ
 
-`raw/` が原本で、`aihist.db` は原本から作り直せる。消えたときは各マシンから `push` し直せば戻る（各マシンに記録が残っている間だけ）。
+`raw/` が原本で、`aihist.db` は原本から作り直せる。service のディスクのバックアップはまだ無い（[#250](https://github.com/rurutheGeek/shake-cloud/issues/250)）。消えたときは各マシンから `push` し直せば戻る（各マシンに記録が残っている間だけ）。
