@@ -60,3 +60,16 @@ go test ./internal/server -run TestName          # cloud/api 内で単一テス�
 - 見出しの直後や表の前に、見出しの言い換えになる前置きを書かない。
 - 実機と食い違う記述を見つけたら、コードと実機を確かめて直す。推測で書かない。
 - ページを足したら `mkdocs.yml` の nav と節の `index.md` に載せ、`python3 tools/docs-map.py` を流す。
+
+## Deck と GitHub issues
+
+- 人の作業の入口は Nextcloud Deck の「ホームラボ」ボード
+  （<https://nextcloud.apextox.dpdns.org/apps/deck/#/board/2>）。AI は
+  `nextcloud_deck_cards` で「依頼」列を読み、GitHub issue を作る。
+- カードには `nextcloud_deck_add_comment` で issue の URL を残す。AI が
+  着手したら `nextcloud_deck_move_card` で「着手中」へ、issue を閉じたら
+  「完了」へ動かす。
+- 既存 issue とタイトル・本文で照合し、同じ依頼を二重に issue にしない。
+- 家の機器・DB の中身など GitHub に載せたくない内容は Deck にだけ書く。
+  詳しくは [docs/operations/nextcloud.md](docs/operations/nextcloud.md) の
+  「作業待ちのボード（Deck）」を見る。
