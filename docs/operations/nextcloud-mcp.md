@@ -1,6 +1,6 @@
 ---
 title: Nextcloud MCPサーバ（管理者向け）
-updated: 2026-10-19
+updated: 2026-10-24
 section: 運用手順
 audience: 管理者
 tags:
@@ -10,12 +10,12 @@ tags:
 
 # Nextcloud MCPサーバ（管理者向け）
 
-> **更新日** 2026-10-19 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-24 ・ **区分** 運用手順 ・ **読む人** 管理者
 
-状態: **media-01へ配備済み・稼働中（v1.2.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。tarakoserverのPrometheusで`probe_success==1`も確認済み。人間のNextcloudアカウントでの実データ確認だけ未実施（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)が正本）。
+状態: **media-01へ配備済み・稼働中（v1.3.0、OAuthとBasicの両方を受ける`both`）**。`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200、Let's Encrypt証明書取得済み。tarakoserverのPrometheusで`probe_success==1`も確認済み。Deckの読み取り・カード作成・コメント・移動は実データ（ホームラボ）で確認済み。タグ編集〜Navidrome反映は未確認（[#192](https://github.com/rurutheGeek/shake-cloud/issues/192)が正本）。
 
 AIエージェント（opencode等）にNextcloudのファイル操作・MP3タグ編集・圧縮/解凍・
-カレンダー予定の一覧/追加を渡すMCPサーバーです。media-01に常設し、専用ユーザーや
+カレンダー予定の一覧/追加・Deckのボード/カード/コメントの読み書きを渡すMCPサーバーです。media-01に常設し、専用ユーザーや
 サービスアカウントは作りません。詳細は[stacks/nextcloud-mcp/README.md](https://github.com/rurutheGeek/shake-cloud/blob/main/stacks/nextcloud-mcp/README.md)、
 利用者向けは[Nextcloudファイルエージェントの使い方](../services/nextcloud-agent.md)。
 
@@ -106,6 +106,21 @@ blackboxが`https://nextcloud-mcp.apextox.dpdns.org/healthz`をprobeします。
   `NEXTCLOUD_MCP_TIMEZONE`（既定はホストのローカル＝media-01のタイムゾーン）へ
   変換する。オフセット無しの入力と終日予定も同じ既定を使う。
 - 予定の変更・削除ツールはまだ無い。必要ならNextcloudのカレンダー画面で行う。
+
+## Deck
+
+- 1.3.0で追加したツールは `nextcloud_deck_boards`・`nextcloud_deck_cards`・
+  `nextcloud_deck_create_card`・`nextcloud_deck_update_card`・
+  `nextcloud_deck_move_card`・`nextcloud_deck_comments`・
+  `nextcloud_deck_add_comment` の7つ。ボードと列（スタック）はIDのほか名前でも
+  指定でき、カードの説明は16 KiBまで返す（超えた分は `description_truncated`）。
+- 呼び出し元のNextcloud権限で動く。読み取り専用の共有ボードでは書き込み系が
+  Nextcloud側で403になる。コメント追加は説明文を書き換えないので、人が書いた
+  本文を壊さずにissueのURLを残せる。
+- Deckアプリが有効でない場合（capabilitiesに`deck`が無い場合）は、7ツールは
+  「Deckアプリが有効ではない」と明示エラーを返す（`group_vars/media.yml`の
+  `nextcloud_apps`に`deck`を入れて配備する。現在はmedia-01で有効）。
+- ボード「ホームラボ」の共有はグループ`homelab`で行う（[Nextcloud](nextcloud.md)）。
 
 ## トラブルシュート
 

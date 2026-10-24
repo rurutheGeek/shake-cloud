@@ -1,6 +1,6 @@
 {
   "group": "homelab",
-  "members": ["ルルザギーク"],
+  "members": ["ルルザギーク", "すすす"],
   "board": {"title": "ホームラボ", "color": "0082c9"},
   "stacks": ["依頼", "着手中", "確認待ち", "完了"],
   "labels": [

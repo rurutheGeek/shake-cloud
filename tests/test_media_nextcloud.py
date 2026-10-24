@@ -569,7 +569,7 @@ class DeckBoardTests(unittest.TestCase):
             if args[0] == 'group:list':
                 output = manage.json.dumps(groups)
             elif args[0] == 'user:list':
-                output = manage.json.dumps(users or {'hash1': 'ルルザギーク', 'admin': 'admin'})
+                output = manage.json.dumps(users or {'hash1': 'ルルザギーク', 'hash2': 'すすす', 'admin': 'admin'})
             return type('Done', (), {'stdout': output})()
         with patch.object(manage, 'settings', return_value={}), \
              patch.object(manage, 'create_app_password', return_value=('token', '7')), \
@@ -591,6 +591,7 @@ class DeckBoardTests(unittest.TestCase):
         self.assertEqual(board['acl'], [{'type': 1, 'participant': {'uid': 'homelab'}}])
         self.assertIn(('group:add', 'homelab'), occ_calls)
         self.assertIn(('group:adduser', 'homelab', 'hash1'), occ_calls)
+        self.assertIn(('group:adduser', 'homelab', 'hash2'), occ_calls)
         self.assertEqual(occ_calls[-1], ('user:auth-tokens:delete', 'admin', '7'))
         self.assertTrue(any(line.startswith('CHANGED: board created') for line in printed))
 
@@ -602,7 +603,7 @@ class DeckBoardTests(unittest.TestCase):
                     'labels': [{'id': n, 'title': title} for n, title in enumerate(
                         ['pkdb', 'bot', 'ネットワーク', 'メディア', '基盤', '急ぎ', '自分で足した'])]}
         deck = self.Deck([existing])
-        occ_calls, printed = self.run_config(deck, {'admin': ['admin'], 'homelab': ['hash1']})
+        occ_calls, printed = self.run_config(deck, {'admin': ['admin'], 'homelab': ['hash1', 'hash2']})
         self.assertEqual({method for method, _, _ in deck.calls}, {'GET'})
         self.assertNotIn(('group:add', 'homelab'), occ_calls)
         self.assertFalse(any(line.startswith('CHANGED') for line in printed), printed)

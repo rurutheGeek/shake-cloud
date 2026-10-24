@@ -1,6 +1,6 @@
 ---
 title: Nextcloudと追加アプリ
-updated: 2026-10-04
+updated: 2026-10-24
 section: 運用手順
 audience: 管理者
 tags:
@@ -11,7 +11,7 @@ tags:
 
 # Nextcloudと追加アプリ
 
-> **更新日** 2026-10-04 ・ **区分** 運用手順 ・ **読む人** 管理者
+> **更新日** 2026-10-24 ・ **区分** 運用手順 ・ **読む人** 管理者
 
 **利用者向けの操作は[Nextcloudの使い方（利用者向け）](../services/nextcloud-guide.md)にまとめています。** このページは管理者向け（アプリの追加・配備）です。
 
@@ -109,7 +109,7 @@ Calendarアプリの「インポート」はブラウザー上のファイルを
 | --- | --- |
 | 列 | 依頼 → 着手中 → 確認待ち → 完了 |
 | ラベル | `pkdb`・`bot`・`ネットワーク`・`メディア`・`基盤`・`急ぎ` |
-| 見える人 | Nextcloud のグループ `homelab`（いまは ルルザギーク） |
+| 見える人 | Nextcloud のグループ `homelab`（いまは ルルザギーク・すすす） |
 | 持ち主 | Nextcloud の `admin` |
 | 定義 | `stacks/media/nextcloud/deck.json`。`manage.py config-deck` が配備のたびに揃える |
 
@@ -117,6 +117,27 @@ Calendarアプリの「インポート」はブラウザー上のファイルを
 - **これからやることは Deck、やった結果と実機の状態は[台帳](handover.md)**に書く。
 - 見える人を足すときは `deck.json` の `members` に Nextcloud の表示名を足して配備する（利用者IDは Authentik 由来のハッシュなので、表示名で指定する）。
 - 配備は足りないものを足すだけ。カードと、画面から足した列・ラベルは変えない。
+
+### 画面から共有できない理由
+
+ボードのグループACLは `permissionShare: false` で作っています。そのため
+ルルザギークの画面には「共有」操作が出ず、APIでも `403 Permission denied`
+になります。これは故障ではなく、`deck.json` を正本にするための設定です。
+人を足すときは上のように `members` を変えて配備してください。
+
+### AI との連携
+
+**Deck の「依頼」列が、AI に渡す人の作業の入口です。** AI は
+[nextcloud-mcp](nextcloud-mcp.md) の `nextcloud_deck_cards` でボードを読み、
+GitHub issue を作ります。カードには `nextcloud_deck_add_comment` で issue の
+URL を残します。AI が着手したら `nextcloud_deck_move_card` で「着手中」へ、
+issue を閉じたら「完了」へ動かします。issue の本文には Deck カードの URL を
+書いて相互に辿れるようにします。
+
+- GitHub に載せたくない依頼（DBの中身、家の機器の話）は Deck にだけ書く。
+- AI が読むので、カードには「何を」「なぜ」「終わりの条件」を書く。
+- Deck の読み書きは呼び出し元の Nextcloud 権限で動く。`homelab` の人は
+  ボードを編集できるが、`permissionShare` は無い。
 
 ## 重要な境界
 

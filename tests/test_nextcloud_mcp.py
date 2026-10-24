@@ -29,7 +29,7 @@ class MigrationTests(unittest.TestCase):
         self.assertRegex(group['nextcloud_mcp_version'], r'^\d+\.\d+\.\d+$')
         self.assertRegex(group['nextcloud_mcp_sha256'], r'^[0-9a-f]{64}$')
         self.assertEqual(group['nextcloud_mcp_sha256'],
-                         '76612fdd06b1eb5511d4f61bcc18b648a49582b4a40863554ce7495490dd0f20')
+                         'd57f3f1d4e77451eca9c398447b9b1aba249d68506951e6070cf9d0fcb14c6b5')
         for key in ('nextcloud_mcp_oauth_sha256', 'nextcloud_mcp_requirements_sha256'):
             self.assertRegex(group[key], r'^[0-9a-f]{64}$')
         self.assertIn(group['nextcloud_mcp_auth'], ('basic', 'oauth', 'both'))

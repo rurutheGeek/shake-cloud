@@ -70,7 +70,7 @@ Proxmox ホストは `apextox`（`https://192.168.10.10:8006`、PVE 9.2.2）。I
 | サービスの state 用キー | `services.sops.yaml` は作成済みだが、キーの有効性・権限は未確認 | `tools/tf services/<name> plan` が通るか |
 | ボリュームの種類（SSD⇔HDD） | 変える API が無い。win-01 のデータは手で HDD へ移し、管理DBを合わせた | 要るなら API に足す |
 | aihist の Antigravity 復元 | 消した会話を戻して続けられるかが未確認（Windows の PC が要る） | [aihist](aihist.md) の手順で1件戻して開く |
-| Nextcloud MCP の実データ確認 | 人のアカウントでのタグ編集〜Navidrome 反映などが未確認 | 確認までは動作確認済みと書かない（[A06](https://github.com/rurutheGeek/shake-cloud/issues/192)） |
+| Nextcloud MCP の実データ確認 | Deck の読み取り・カード作成・コメント・移動は確認済み。タグ編集〜Navidrome 反映などが未確認 | 確認までは動作確認済みと書かない（[#192](https://github.com/rurutheGeek/shake-cloud/issues/192)） |
 
 ## 5. 引き継ぐ人のアクセス
 

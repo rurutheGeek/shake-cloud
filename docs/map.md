@@ -108,7 +108,7 @@ flowchart TB
 | [通信速度テスト（LibreSpeed）](services/librespeed.md) | 2026-10-03 | `guide` `network` |
 | [AIエージェントからクラウドを見る（MCP）](services/mcp.md) | 2026-09-23 | `guide` `cloud` `ai` |
 | [音楽の取り込み・タグ編集・BCSTM](services/music.md) | 2026-09-16 | `guide` `music` |
-| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-10-19 | `guide` `nextcloud` |
+| [Nextcloudファイルエージェント（AI用MCP）](services/nextcloud-agent.md) | 2026-10-24 | `guide` `nextcloud` |
 | [Nextcloudの使い方（利用者向け）](services/nextcloud-guide.md) | 2026-10-08 | `guide` `nextcloud` `cloud` |
 | [ポケモン翻訳](services/poke-translate.md) | 2026-09-27 | `guide` |
 | [プリンター（Canon TS8430シリーズ）](services/printer.md) | 2026-09-13 | `guide` `print` |
@@ -152,9 +152,9 @@ flowchart TB
 | [監視（tarakoserver）](operations/monitoring.md) | 2026-10-16 | `ops` `monitoring` |
 | [Tailscale（Flint 3 上の subnet router）](operations/net.md) | 2026-10-22 | `ops` `network` |
 | [NetBox の使い方（台帳）](operations/netbox.md) | 2026-10-03 | `ops` `netbox` `network` |
-| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-10-19 | `ops` `nextcloud` |
+| [Nextcloud MCPサーバ（管理者向け）](operations/nextcloud-mcp.md) | 2026-10-24 | `ops` `nextcloud` |
 | [Nextcloudの共有ライブラリのアクセス権限](operations/nextcloud-permissions.md) | 2026-09-13 | `ops` `nextcloud` `cloud` |
-| [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-04 | `ops` `nextcloud` `cloud` |
+| [Nextcloudと追加アプリ](operations/nextcloud.md) | 2026-10-24 | `ops` `nextcloud` `cloud` |
 | [ポケモン系のPostgreSQL（pkdb）](operations/pkdb.md) | 2026-10-09 | `ops` `database` |
 | [Playbook の一覧](operations/playbooks.md) | 2026-10-24 | `ops` `awx` |
 | [電源と UPS](operations/power.md) | 2026-10-15 | `ops` `power` |

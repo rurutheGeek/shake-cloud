@@ -1,6 +1,6 @@
 ---
 title: Nextcloudファイルエージェント（AI用MCP）
-updated: 2026-10-19
+updated: 2026-10-24
 section: 利用ガイド
 audience: 利用者
 tags:
@@ -10,9 +10,9 @@ tags:
 
 # Nextcloudファイルエージェント（AI用MCP）
 
-> **更新日** 2026-10-19 ・ **区分** 利用ガイド ・ **読む人** 利用者
+> **更新日** 2026-10-24 ・ **区分** 利用ガイド ・ **読む人** 利用者
 
-状態: **media-01へ配備済み・稼働中（v1.2.0）**（`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200）。アプリパスワード（Basic）でのログインは実機で確認済みです（2026-09-28、カレンダーの一覧・予定追加まで）。うまく使えない場合は下の「困ったとき」を見るか管理者へ連絡してください。
+状態: **media-01へ配備済み・稼働中（v1.3.0）**（`https://nextcloud-mcp.apextox.dpdns.org/healthz`が200）。アプリパスワード（Basic）でのログインは実機で確認済みです（2026-09-28、カレンダーの一覧・予定追加まで）。うまく使えない場合は下の「困ったとき」を見るか管理者へ連絡してください。
 
 opencode等のAIエージェントから、自分のNextcloudの中身を直接読み書きできる
 ようにする機能です。Googleドライブ連携のように、エージェントに「このファイル
@@ -26,6 +26,8 @@ opencode等のAIエージェントから、自分のNextcloudの中身を直接�
 - zip/tarの作成と展開
 - カレンダーの一覧と予定の追加（繰り返し予定も展開して表示。既存の予定と
   かぶる時間は追加を拒否し、かぶっている予定を教えてくれます）
+- Deckのボード・列・カードの読み書きとコメント（「ホームラボ」ボードの依頼を
+  AIが読んで、GitHub issueにしたり、issueのURLをカードに残したりできます）
 
 すべての操作は**あなた自身のNextcloud権限**で行われます。共有されていない
 フォルダには触れませんし、削除してもゴミ箱に入ります（Nextcloud標準の
@@ -77,7 +79,9 @@ OAuthに対応していないクライアントは、Nextcloudの「設定 → �
 
 読み取りだけ使いたい場合は、opencode側の`tools`設定で書き込み系ツール
 （`nextcloud_write_*`・`nextcloud_delete_*`・`nextcloud_move_*`・
-`nextcloud_create_*`・`nextcloud_extract_*`）を個別に無効化できます。
+`nextcloud_create_*`・`nextcloud_extract_*`・`nextcloud_deck_create_*`・
+`nextcloud_deck_update_*`・`nextcloud_deck_move_*`・`nextcloud_deck_add_comment`）
+を個別に無効化できます。
 
 ## 使ってみる
 
