@@ -71,6 +71,7 @@ func TestApplyCreatesMissingObjects(t *testing.T) {
 	want := []string{
 		"PUT /api/v1/namespaces/services/secrets/svc-1",
 		"POST /api/v1/namespaces/services/secrets",
+		"GET /api/v1/namespaces/services/persistentvolumeclaims/svc-1",
 		"POST /api/v1/namespaces/services/persistentvolumeclaims",
 		"GET /api/v1/namespaces/services/services/svc-1",
 		"POST /api/v1/namespaces/services/services",
@@ -79,5 +80,26 @@ func TestApplyCreatesMissingObjects(t *testing.T) {
 	}
 	if strings.Join(calls, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("calls:\n%s", strings.Join(calls, "\n"))
+	}
+}
+
+// 容量の上限があると、すでにある claim を作り直そうとしただけで 403 になる。
+func TestApplyKeepsExistingClaim(t *testing.T) {
+	var posted bool
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/persistentvolumeclaims") {
+			posted = true
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"message":"exceeded quota"}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer server.Close()
+	c := &Client{baseURL: server.URL, token: "t", http: server.Client(), StorageClass: "local-path"}
+	err := c.Apply(context.Background(), Spec{Name: "svc-1", Namespace: "services", Image: "i", Port: 80, MemoryMiB: 64, DiskGiB: 32, MountPath: "/data"})
+	if err != nil || posted {
+		t.Fatalf("err=%v posted=%v", err, posted)
 	}
 }

@@ -97,8 +97,12 @@ func (c *Client) Apply(ctx context.Context, spec Spec) error {
 	}
 	if spec.DiskGiB > 0 {
 		// A claim's size cannot shrink and its class never changes, so it is
-		// only created, never replaced.
-		err := c.do(ctx, http.MethodPost, c.path("api/v1", spec.Namespace, "persistentvolumeclaims", ""), claimObject(spec, c.StorageClass), nil)
+		// only created, never replaced. It is read first: a storage quota
+		// rejects the create of an existing claim with 403 before the 409.
+		err := c.do(ctx, http.MethodGet, c.path("api/v1", spec.Namespace, "persistentvolumeclaims", spec.Name), nil, nil)
+		if notFound(err) {
+			err = c.do(ctx, http.MethodPost, c.path("api/v1", spec.Namespace, "persistentvolumeclaims", ""), claimObject(spec, c.StorageClass), nil)
+		}
 		if err != nil && !conflict(err) {
 			return err
 		}
