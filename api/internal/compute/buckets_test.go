@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/garage"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/garage"
 )
 
 // fakeGarage is Garage's admin API in memory, enough for the bucket tests.

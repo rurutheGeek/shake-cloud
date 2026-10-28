@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
 )
 
 type Config struct {

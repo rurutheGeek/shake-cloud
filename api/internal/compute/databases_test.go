@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/cnpg"
+	"github.com/rurutheGeek/shake-cloud/api/internal/cnpg"
 )
 
 // fakeCNPG is the CloudNativePG API in memory, enough for the database tests.

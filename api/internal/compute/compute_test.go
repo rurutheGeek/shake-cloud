@@ -16,11 +16,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/dbtest"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/dbtest"
+	"github.com/rurutheGeek/shake-cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // fakePVE is an in-memory Proxmox node that behaves like the real one where it

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 var big = RunRequest{ImageID: "img-debian13", InstanceType: "2xlarge", Tags: map[string]string{"Name": "game"}}

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 const missingReason = "Server.VMMissing: the VM is not in the cloud pool"

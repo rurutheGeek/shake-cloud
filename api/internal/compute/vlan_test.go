@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 func TestInstancesAreTaggedWithTheCloudVLANOnlyWhenOneIsSet(t *testing.T) {

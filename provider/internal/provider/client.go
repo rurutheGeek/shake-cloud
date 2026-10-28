@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 // waitVolumeState polls a volume until it reaches one of the states, or the

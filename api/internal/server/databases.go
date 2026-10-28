@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/compute"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Databases are PostgreSQL appliances backed by CloudNativePG, private to the

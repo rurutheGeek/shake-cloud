@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
 )
 
 // Key statuses. Active and Inactive are IAM's words; IAM keys never expire,

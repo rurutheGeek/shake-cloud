@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 type authFailure struct {

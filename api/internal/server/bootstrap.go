@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // ReconcileBootstrapKey makes the database agree with the bootstrap key file.

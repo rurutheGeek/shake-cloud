@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
 )
 
 // ISO is installation media. Unlike an Image it is never copied to the root

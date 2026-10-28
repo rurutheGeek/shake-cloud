@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 type subnetBody struct {

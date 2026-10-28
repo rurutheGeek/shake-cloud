@@ -7,8 +7,8 @@ import (
 	"net/url"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
 )
 
 // SetInstanceTags replaces the tags of an instance.

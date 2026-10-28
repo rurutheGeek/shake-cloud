@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 // pairs collects repeated NAME=VALUE flags.

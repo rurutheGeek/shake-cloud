@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/knative"
+	"github.com/rurutheGeek/shake-cloud/api/internal/knative"
 )
 
 // fakeKnative is the Knative API in memory, enough for the function tests.

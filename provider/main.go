@@ -9,7 +9,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/rurutheGeek/shake-cloud/cloud/provider/internal/provider"
+	"github.com/rurutheGeek/shake-cloud/provider/internal/provider"
 )
 
 func main() {

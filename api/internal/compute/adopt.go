@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Adoption registers a VM that already exists, after an administrator has moved

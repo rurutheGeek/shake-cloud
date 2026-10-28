@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Image is something an instance can be launched from: either one of the

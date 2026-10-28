@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // RunWorker carries out pending actions until ctx ends.

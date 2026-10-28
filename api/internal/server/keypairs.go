@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/sshkey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/sshkey"
 )
 
 // SSH public keys. Only the public half is ever stored, and it is copied into

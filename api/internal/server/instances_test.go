@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/compute"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // withInstances gives the server a compute service with no hypervisor behind

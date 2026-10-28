@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // The volume worker moves disks between VMs. Proxmox keeps every disk under

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 func (g globals) volumes(args []string) error {

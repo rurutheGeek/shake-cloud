@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
 )
 
 func TestWindowsGetsUEFITPMAndTheWindowsOSType(t *testing.T) {

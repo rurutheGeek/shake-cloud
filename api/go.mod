@@ -1,4 +1,4 @@
-module github.com/rurutheGeek/shake-cloud/cloud/api
+module github.com/rurutheGeek/shake-cloud/api
 
 go 1.27.3
 

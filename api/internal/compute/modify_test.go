@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 func ptr[T any](value T) *T { return &value }

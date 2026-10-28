@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
 )
 
 // The fake node's disks, firewalls and IP sets. They follow what was measured

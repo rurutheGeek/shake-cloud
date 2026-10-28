@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Proxmox starts onboot VMs after the host reboots, and monitoring alerts on

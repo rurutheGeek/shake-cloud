@@ -26,9 +26,9 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/config"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 func testServer(t *testing.T, adjust func(*config.Config)) *Server {

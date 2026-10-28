@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // addFakeVM puts a VM on the fake node the way an administrator's adopted VM

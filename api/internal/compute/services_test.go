@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/workload"
+	"github.com/rurutheGeek/shake-cloud/api/internal/workload"
 )
 
 // fakeWorkloads is the Kubernetes API in memory, enough for the service tests.

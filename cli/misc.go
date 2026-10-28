@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 func (g globals) identity(args []string) error {

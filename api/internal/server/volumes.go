@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/compute"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Volumes, the EBS counterpart. Like instances, every volume is visible to

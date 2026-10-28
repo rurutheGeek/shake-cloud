@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/garage"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/garage"
 )
 
 // Buckets and S3 access keys. Garage is the object store; the cloud API keeps

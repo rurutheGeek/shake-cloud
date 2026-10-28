@@ -1,10 +1,10 @@
-module github.com/rurutheGeek/shake-cloud/cloud/mcp
+module github.com/rurutheGeek/shake-cloud/mcp
 
 go 1.27.3
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/rurutheGeek/shake-cloud/cloud/client v0.0.0
+	github.com/rurutheGeek/shake-cloud/client v0.0.0
 	go.yaml.in/yaml/v3 v3.0.5
 )
 
@@ -19,4 +19,4 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 )
 
-replace github.com/rurutheGeek/shake-cloud/cloud/client => ../client
+replace github.com/rurutheGeek/shake-cloud/client => ../client

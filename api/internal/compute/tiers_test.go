@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // tierService needs no database: these tests are about the mapping from a

@@ -6,8 +6,8 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
 )
 
 // ConsoleTicket is one VNC connection's worth of access to an instance's VM.

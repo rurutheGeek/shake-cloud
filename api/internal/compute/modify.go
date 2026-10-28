@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // ModifyRequest is the body of ModifyInstance. Every field is optional and the

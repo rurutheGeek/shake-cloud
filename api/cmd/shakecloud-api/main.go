@@ -17,17 +17,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/cnpg"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/garage"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/knative"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/server"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/workload"
+	"github.com/rurutheGeek/shake-cloud/api/internal/cnpg"
+	"github.com/rurutheGeek/shake-cloud/api/internal/compute"
+	"github.com/rurutheGeek/shake-cloud/api/internal/config"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/garage"
+	"github.com/rurutheGeek/shake-cloud/api/internal/knative"
+	"github.com/rurutheGeek/shake-cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/server"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/workload"
 )
 
 func main() {

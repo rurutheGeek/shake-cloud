@@ -7,7 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // The Phase 1 page: log in, manage access keys, read the audit log. It calls

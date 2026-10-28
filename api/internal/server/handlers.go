@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 func (s *Server) getHealth(w http.ResponseWriter, r *http.Request, c *call) {

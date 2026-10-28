@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/wsrelay"
+	"github.com/rurutheGeek/shake-cloud/api/internal/wsrelay"
 )
 
 type Client struct {

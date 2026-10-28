@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 	"go.yaml.in/yaml/v3"
 )
 

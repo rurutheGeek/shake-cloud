@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 func (g globals) functions(args []string) error {

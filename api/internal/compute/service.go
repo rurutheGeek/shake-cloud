@@ -25,11 +25,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 // Hypervisor is the part of *proxmox.Client the service uses.

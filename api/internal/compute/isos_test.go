@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/seed"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/seed"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 func uploadISO(t *testing.T, s *Service, accountID, name, guestOS, fileName, content string) db.ISO {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/compute"
+	"github.com/rurutheGeek/shake-cloud/api/internal/compute"
 )
 
 func TestConsoleStoreBindsURLsToAnAccountAndSpendsEachTicketOnce(t *testing.T) {

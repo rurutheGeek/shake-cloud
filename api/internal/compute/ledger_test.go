@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/netbox"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/site"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/netbox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/site"
 )
 
 const trustedAccount = "934162309796"

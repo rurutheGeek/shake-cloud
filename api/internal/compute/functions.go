@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/knative"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/knative"
 )
 
 // Functions are serverless HTTP services backed by Knative. The cloud API keeps

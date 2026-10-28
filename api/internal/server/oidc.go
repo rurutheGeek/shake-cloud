@@ -12,8 +12,8 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/config"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/config"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 	"golang.org/x/oauth2"
 )
 

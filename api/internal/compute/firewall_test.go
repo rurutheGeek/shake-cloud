@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
 )
 
 func allowAll(db.SecurityGroup) bool { return true }

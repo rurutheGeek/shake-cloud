@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/rurutheGeek/shake-cloud/cloud/client"
+	"github.com/rurutheGeek/shake-cloud/client"
 )
 
 // version is reported to the client and used in the User-Agent, so the audit

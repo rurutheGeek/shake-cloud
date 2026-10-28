@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/cnpg"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/cnpg"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
 )
 
 // Databases are PostgreSQL appliances backed by CloudNativePG. The cloud API

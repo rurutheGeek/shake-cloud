@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/accesskey"
+	"github.com/rurutheGeek/shake-cloud/api/internal/accesskey"
 )
 
 func write(t *testing.T, name, content string) string {

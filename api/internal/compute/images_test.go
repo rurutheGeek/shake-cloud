@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/db"
-	"github.com/rurutheGeek/shake-cloud/cloud/api/internal/proxmox"
+	"github.com/rurutheGeek/shake-cloud/api/internal/db"
+	"github.com/rurutheGeek/shake-cloud/api/internal/proxmox"
 )
 
 func upload(t *testing.T, s *Service, accountID, name, fileName, content string) db.Image {
