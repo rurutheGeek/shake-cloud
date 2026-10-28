@@ -296,6 +296,8 @@ func TestReadOnlyKeysCannotWrite(t *testing.T) {
 		t.Fatalf("code %q", code)
 	}
 	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/access-keys/" + key.AccessKey.AccessKeyID, bearer: key.Secret}), http.StatusForbidden)
+	// A database password grants writes, so the key cannot read it either.
+	expectStatus(t, do(t, s, req{method: "GET", path: "/v1/databases/db-0123456789abcdef/credentials", bearer: key.Secret}), http.StatusForbidden)
 
 	// A portal session is not restricted, so the key can still be cleaned up.
 	expectStatus(t, do(t, s, req{method: "DELETE", path: "/v1/access-keys/" + key.AccessKey.AccessKeyID, cookies: []*http.Cookie{cookie}}), http.StatusNoContent)

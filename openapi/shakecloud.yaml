@@ -1698,7 +1698,7 @@ paths:
   /v1/databases/{database_id}/credentials:
     get:
       operationId: GetDatabaseCredentials
-      x-shakecloud-scope: read
+      x-shakecloud-scope: write
       tags: [database]
       summary: Read the database's connection credentials.
       parameters:
