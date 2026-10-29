@@ -1,0 +1,84 @@
+name: CI
+on:
+  # PRでは pull_request だけで走らせ、push との二重実行を避ける。
+  push:
+    branches: [main]
+  pull_request:
+# 同じrefの古い実行は新しい実行で置き換える。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    # The API's integration tests create and drop one database per test.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: '3.13'
+      # テストは compose.yaml を PyYAML で読む。
+      - name: Install dependencies
+        run: |
+          python3 -m pip install ruff==0.16.10
+          python3 -m pip install pyyaml==6.0.3
+      # 整形ではなく壊れたコード・明確なバグだけを見る。
+      - name: Lint Python
+        run: python3 -m ruff check --select E9,F .
+      - name: Compile Python
+        run: python3 -m compileall -q .
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
+        with:
+          go-version-file: api/go.mod
+          cache-dependency-path: |
+            api/go.sum
+            provider/go.sum
+            mcp/go.sum
+      - name: Check Go formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+      - name: Vet and test the API
+        working-directory: api
+        env:
+          SHAKECLOUD_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        run: |
+          go vet ./...
+          go test ./...
+      - name: Vet and test the client, CLI and MCP server
+        run: |
+          for dir in client cli mcp; do
+            echo "== $dir"
+            (cd "$dir" && go vet ./... && go test ./...)
+          done
+      - name: Vet and test the Terraform provider
+        working-directory: provider
+        run: |
+          go vet ./...
+          go test ./...
+      # 脆弱性のある依存・標準ライブラリを実際に呼んでいる場合だけ失敗する。
+      - name: Scan Go modules for vulnerabilities
+        run: |
+          for dir in api client cli mcp provider; do
+            echo "== $dir"
+            (cd "$dir" && go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...)
+          done
+      - name: Build the API image
+        run: docker build -t shakecloud-api:ci ./api

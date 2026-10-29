@@ -1,0 +1,13 @@
+# 配備先で生成する実値。`.env.example` だけを追跡する。
+.env
+site.json
+
+# manage.py init が作る実行時データと秘密値。
+storage/
+secrets/
+backups/
+library/
+runtime/
+
+__pycache__/
+*.pyc
