@@ -73,7 +73,7 @@ services:
     # 読み取り専用のルートなので、seed ISO を組み立てる場所を別に与える。
     tmpfs: [/tmp]
     ports:
-      - '${BIND_ADDRESS:-0.0.0.0}:${API_PORT:-8080}:8080'
+      - '${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8080}:8080'
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:
