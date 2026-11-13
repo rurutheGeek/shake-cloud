@@ -1,6 +1,6 @@
 module github.com/rurutheGeek/shake-cloud/cli
 
-go 1.27.3
+go 1.27.4
 
 require github.com/rurutheGeek/shake-cloud/client v0.0.0
 
